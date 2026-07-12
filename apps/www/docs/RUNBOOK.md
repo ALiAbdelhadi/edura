@@ -750,27 +750,24 @@ curl -s -b cookies.txt http://localhost:3002/api/v1/roster/students | jq .
 curl -s -b cookies.txt "http://localhost:3002/api/v1/reports/net-profit" | jq .
 ```
 
-### E2E tests (Newman/Postman)
+### E2E & integration tests
 
 ```bash
-# Full suite (builds prod first)
-pnpm test:e2e
+# Playwright UI/e2e suite (tests/playwright/*.spec.ts)
+pnpm test:pw
+pnpm test:pw:headed          # watch it drive a browser
+pnpm test:pw:ui              # Playwright UI mode
 
-# Dev mode (faster, uses next dev)
-pnpm test:e2e:dev
+# Live-DB integration suites (money distribution, refund, offline-sync,
+# RBAC/RLS isolation) — needs DATABASE_URL + ADMIN_URL/DIRECT_URL
+pnpm test:db:all
 
-# Run single folder
-NEWMAN_FOLDER="Auth" pnpm test:e2e:dev
+# Money-math unit tests (vitest)
+pnpm test:unit
 
-# Bail on first failure
-pnpm test:e2e:bail
-
-# Against already-running server
-NEWMAN_SKIP_SERVER=1 pnpm test:e2e:skip-server
+# Role-based API smoke test (bash + curl)
+pnpm smoke:api
 ```
-
-Collection file: `EduPlatform_Postman_Collection.json`
-Environment file: `edura-postman-environment.json`
 
 ### Portal smoke checklist
 

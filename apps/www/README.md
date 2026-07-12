@@ -206,7 +206,7 @@ edura/
 │   └── api-smoke.sh      # Role-based API smoke test (pnpm smoke:api)
 ├── tests/                # Test files
 ├── types/                # TypeScript type definitions
-├── docs/                 # Product spec, backend plan, epic prompts
+├── docs/                 # Operational docs: DEPLOYMENT, RUNBOOK, fee-points-engine, test-credentials
 └── public/               # Static assets
 ```
 

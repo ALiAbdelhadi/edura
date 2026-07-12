@@ -37,6 +37,3 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# Local env files (non-dot variants)
-env.local
-env.*.local
