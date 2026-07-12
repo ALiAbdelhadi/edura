@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Space } from "antd";
-import { AttendanceScreen } from "@/components/screens/AttendanceScreen";
+import { AttendanceScreen } from "@/components/screens/shared/AttendanceScreen";
 import { useChildSelector, ChildSelectorBar } from "@/components/shared/ChildSelector";
 
 export default function Page() {

@@ -1,4 +1,4 @@
-import { MessagesScreen } from "@/components/screens/MessagesScreen";
+import { MessagesScreen } from "@/components/screens/shared/MessagesScreen";
 
 export const metadata = { title: "Messages | Edura" };
 
