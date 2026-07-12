@@ -44,6 +44,20 @@ export async function withParentFallback(studentId: string): Promise<string[]> {
   return resolvedParentOrStudent(studentId);
 }
 
+/**
+ * The student PLUS any approved linked parents (PRD §6 rows that go to
+ * "Student + Parent": new payment, new grade). Deduped.
+ */
+export async function studentAndParents(studentId: string): Promise<string[]> {
+  const link = await platformDb((tx) =>
+    tx.parentStudentLink.findMany({
+      where: { studentId, status: "approved" },
+      select: { parentId: true },
+    }),
+  );
+  return [...new Set([studentId, ...link.map((l) => l.parentId)])];
+}
+
 async function resolvedParentOrStudent(studentId: string): Promise<string[]> {
   const link = await platformDb((tx) =>
     tx.parentStudentLink.findFirst({

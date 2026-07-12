@@ -1,5 +1,6 @@
 import { scopedDb } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
+import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
@@ -77,12 +78,13 @@ export async function recordPayment(
     return { payment, receiptNumber };
   });
 
+  // PRD §6: new payment notifies Student + Parent.
   await notify({
-    recipients: [data.studentId],
+    recipients: await studentAndParents(data.studentId),
     type: "payment_recorded",
     title: data.amount > 0 ? "Payment recorded" : "Refund recorded",
     body: `Receipt ${receiptNumber} has been issued.`,
-    data: { paymentId: payment.id, receiptNumber, amount: data.amount },
+    data: { paymentId: payment.id, receiptNumber, amount: data.amount, studentId: data.studentId },
   });
 
   return payment;

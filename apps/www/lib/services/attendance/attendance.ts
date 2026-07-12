@@ -2,6 +2,7 @@ import { scopedDb } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import type { TenantTx } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
+import { withParentFallback } from "@/lib/services/notifications/fanout";
 import { ForbiddenError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 
 const EDIT_WINDOW_DAYS = 7;
@@ -116,14 +117,15 @@ export async function bulkMarkAttendance(
     return { absentEntries: entries.filter((e) => e.status === "absent") };
   });
 
-  // Emit absence notifications (side effects AFTER the tx closes)
+  // Emit absence notifications (side effects AFTER the tx closes). PRD §6:
+  // student absence goes to the Parent (falling back to the student).
   for (const entry of absentEntries) {
     await notify({
-      recipients: [entry.studentId],
+      recipients: await withParentFallback(entry.studentId),
       type: "absence_marked",
       title: "Absence recorded",
-      body: "You were marked absent for a session.",
-      data: { sessionId },
+      body: "Your child was marked absent for a session.",
+      data: { sessionId, studentId: entry.studentId },
     });
   }
 
@@ -168,19 +170,19 @@ export async function editAttendance(
 
   if (prevStatus === "absent" && newStatus === "present") {
     await notify({
-      recipients: [record.studentId],
+      recipients: await withParentFallback(record.studentId),
       type: "attendance_corrected",
       title: "Attendance corrected",
-      body: "Your attendance was updated from absent to present.",
-      data: { sessionId: record.sessionId, attendanceId },
+      body: "Attendance was updated from absent to present.",
+      data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
     });
   } else if (newStatus === "absent" && prevStatus !== "absent") {
     await notify({
-      recipients: [record.studentId],
+      recipients: await withParentFallback(record.studentId),
       type: "absence_marked",
       title: "Absence recorded",
-      body: "You were marked absent for a session.",
-      data: { sessionId: record.sessionId, attendanceId },
+      body: "Your child was marked absent for a session.",
+      data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
     });
   }
 

@@ -1,4 +1,5 @@
 import { scopedDb } from "@/lib/db/scope";
+import { notify } from "@/lib/services/notifications/notify";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -81,7 +82,7 @@ export async function sendMessage(
   data: { threadId?: string; recipientId?: string; body: string },
   user: SessionUser,
 ) {
-  return scopedDb(user, async (tx) => {
+  const { result, recipientId } = await scopedDb(user, async (tx) => {
     let thread;
 
     if (data.threadId) {
@@ -156,6 +157,19 @@ export async function sendMessage(
       },
     });
 
-    return { ...message, mine: true };
+    return { result: { ...message, mine: true }, recipientId: otherParticipantId };
   });
+
+  // PRD §6: new chat message notifies the recipient (FCM). Side effect after tx.
+  if (recipientId) {
+    await notify({
+      recipients: [recipientId],
+      type: "new_chat_message",
+      title: user.name ? `New message from ${user.name}` : "New message",
+      body: data.body.length > 120 ? data.body.slice(0, 117) + "…" : data.body,
+      data: { threadId: result.threadId, messageId: result.id, senderId: user.id },
+    });
+  }
+
+  return result;
 }

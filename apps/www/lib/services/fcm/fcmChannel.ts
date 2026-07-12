@@ -107,17 +107,27 @@ export async function pushToUser(
   userId: string,
   message: FcmMessage,
 ): Promise<void> {
-  const user = await platformDb((tx) =>
-    tx.user.findUnique({ where: { id: userId }, select: { fcmToken: true } }),
+  // Read from the device-token registry (user_device_tokens), which is where
+  // POST /me/device-tokens actually stores tokens. (The legacy scalar
+  // User.fcmToken was never written, so pushes silently no-op'd; a token there
+  // is still honored as a fallback for older clients.)
+  const [devices, user] = await platformDb((tx) =>
+    Promise.all([
+      tx.userDeviceToken.findMany({ where: { userId }, select: { token: true } }),
+      tx.user.findUnique({ where: { id: userId }, select: { fcmToken: true } }),
+    ]),
   );
-  const token = user?.fcmToken;
-  if (!token) return;
+  const tokens = [...new Set([...devices.map((d) => d.token), ...(user?.fcmToken ? [user.fcmToken] : [])])];
+  if (tokens.length === 0) return;
 
-  const invalid = await sendFcmBatch([token], message);
+  const invalid = await sendFcmBatch(tokens, message);
 
   if (invalid.length > 0) {
     await platformDb((tx) =>
-      tx.user.updateMany({ where: { fcmToken: { in: invalid } }, data: { fcmToken: null } }),
+      Promise.all([
+        tx.userDeviceToken.deleteMany({ where: { token: { in: invalid } } }),
+        tx.user.updateMany({ where: { fcmToken: { in: invalid } }, data: { fcmToken: null } }),
+      ]),
     );
   }
 }

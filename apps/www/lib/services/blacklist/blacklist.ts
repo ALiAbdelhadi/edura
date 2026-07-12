@@ -86,7 +86,7 @@ export async function platformBlacklistUser(targetId: string, reason: string, ad
 export async function centerBlacklistStudent(studentId: string, reason: string, admin: SessionUser) {
   if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
   const centerId = admin.centerId as string;
-  return platformDb(async (tx) => {
+  const entry = await platformDb(async (tx) => {
     const roster = await tx.centerStudentRoster.findFirst({
       where: { centerId, studentId, leftAt: null },
     });
@@ -105,6 +105,15 @@ export async function centerBlacklistStudent(studentId: string, reason: string, 
       data: { targetId: studentId, level: "center", centerId, imposedById: admin.id, reason },
     });
   }, { actorId: admin.id });
+
+  await notify({
+    recipients: [studentId],
+    type: "blacklist_action",
+    title: "Blocked from a center",
+    body: `You have been blocked from booking at a center. Reason: ${reason}`,
+    data: { level: "center", centerId, reason },
+  });
+  return entry;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +121,7 @@ export async function centerBlacklistStudent(studentId: string, reason: string, 
 // ---------------------------------------------------------------------------
 export async function teacherBlacklistStudent(studentId: string, reason: string, teacher: SessionUser) {
   if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
-  return platformDb(async (tx) => {
+  const entry = await platformDb(async (tx) => {
     const existing = await tx.blacklistEntry.findFirst({
       where: { targetId: studentId, level: "teacher", imposedById: teacher.id, isActive: true },
     });
@@ -121,6 +130,15 @@ export async function teacherBlacklistStudent(studentId: string, reason: string,
       data: { targetId: studentId, level: "teacher", imposedById: teacher.id, reason },
     });
   }, { actorId: teacher.id });
+
+  await notify({
+    recipients: [studentId],
+    type: "blacklist_action",
+    title: "Blocked by a teacher",
+    body: `You have been blocked from booking a teacher's lessons. Reason: ${reason}`,
+    data: { level: "teacher", teacherId: teacher.id, reason },
+  });
+  return entry;
 }
 
 // ---------------------------------------------------------------------------

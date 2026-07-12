@@ -2,6 +2,7 @@ import { scopedDb } from "@/lib/db/scope";
 import type { SessionUser as AuthUser } from "@/lib/auth/session";
 import type { TenantTx } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
+import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { ForbiddenError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 
 type GradeType = "numeric" | "letter";
@@ -259,14 +260,14 @@ export async function bulkUpsertScores(
     return tx.grade.findUnique({ where: { id: gradeId }, include: { scores: true } });
   });
 
-  // Notify students (side effects AFTER the tx closes)
+  // Notify Student + Parent (PRD §6). Side effects AFTER the tx closes.
   for (const entry of scores) {
     await notify({
-      recipients: [entry.studentId],
+      recipients: await studentAndParents(entry.studentId),
       type: "grade_entered",
       title: "Grade entered",
-      body: `Your score for "${grade!.name}" has been recorded.`,
-      data: { gradeId, score: entry.score, maxScore: grade!.maxScore },
+      body: `A score for "${grade!.name}" has been recorded.`,
+      data: { gradeId, score: entry.score, maxScore: grade!.maxScore, studentId: entry.studentId },
     });
   }
 
