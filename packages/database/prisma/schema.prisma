@@ -325,6 +325,7 @@ enum NotificationType {
   grade_entered
   material_uploaded
   payment_recorded
+  payment_refunded
   enrollment_request_submitted
   enrollment_request_approved
   enrollment_request_declined

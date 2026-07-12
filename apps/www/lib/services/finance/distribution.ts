@@ -1,7 +1,7 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { ForbiddenError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { awardPoints } from "@/lib/services/points/points";
-import { nextTxnRef } from "@/lib/services/finance/refNumbers";
+import { nextTxnRefs } from "@/lib/services/finance/refNumbers";
 import type { SessionUser } from "@/lib/auth/session";
 
 /**
@@ -96,18 +96,16 @@ export async function distributeSessionRevenue(
   });
   const centerShare = affiliation?.centerShare ?? 0;
 
-  // Race-free ledger reference numbers (Postgres sequence, not count()).
-  const mkRef = () => nextTxnRef(tx);
-
   const { teacherNet, centerNet } = computeLessonSplit(perSessionPrice, centerShare);
 
+  // Race-free ledger reference numbers (Postgres sequence, not count()). All
+  // refs for this distribution in ONE round-trip: 3 per present student.
+  const refs = await nextTxnRefs(tx, present.length * 3);
+
   const rows: Parameters<TenantTx["transaction"]["createMany"]>[0]["data"] = [];
-  for (const { studentId } of present) {
-    const [paymentRef, teacherFeeRef, centerFeeRef] = [
-      await mkRef(),
-      await mkRef(),
-      await mkRef(),
-    ];
+  for (let i = 0; i < present.length; i++) {
+    const { studentId } = present[i];
+    const [paymentRef, teacherFeeRef, centerFeeRef] = refs.slice(i * 3, i * 3 + 3);
     rows.push(
       {
         refNumber: paymentRef,

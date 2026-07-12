@@ -42,6 +42,7 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   grade_entered:                  C(true,  true,  false, false), // New grade -> Student+Parent (FCM)
   material_uploaded:              C(true,  true,  false, false),
   payment_recorded:               C(true,  true,  false, false), // New payment -> Student+Parent (FCM)
+  payment_refunded:               C(true,  true,  false, false), // Refund issued -> Student+Parent (FCM)
   enrollment_request_submitted:   C(true,  false, false, false),
   enrollment_request_approved:    C(true,  true,  false, false),
   enrollment_request_declined:    C(true,  true,  false, false),

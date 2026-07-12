@@ -13,7 +13,7 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:db": "tsx --env-file=.env.local tests/db/run-db-tests.ts",
-    "test:db:all": "tsx --env-file=.env.local tests/db/offline-sync.test.ts && tsx --env-file=.env.local tests/db/rbac-isolation.test.ts && tsx --env-file=.env.local tests/db/run-db-tests.ts",
+    "test:db:all": "tsx --env-file=.env.local tests/db/offline-sync.test.ts && tsx --env-file=.env.local tests/db/rbac-isolation.test.ts && tsx --env-file=.env.local tests/db/refund.test.ts && tsx --env-file=.env.local tests/db/run-db-tests.ts",
     "test:pw": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test",
     "test:pw:headed": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --headed",
     "test:pw:ui": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --ui",
