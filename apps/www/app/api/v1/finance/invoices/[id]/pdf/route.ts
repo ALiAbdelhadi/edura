@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/requireRole";
-import { renderInvoiceHtml } from "@/lib/services/finance/invoices";
+import { getInvoice } from "@/lib/services/finance/invoices";
+import { renderInvoicePdf } from "@/lib/services/finance/invoicePdf";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
-
-// PRD §5.5 wants a Puppeteer-generated PDF (deferred — needs a PDF lib).
-// For now we return a print-ready HTML document.
+// PRD §5.5 — genuine server-generated PDF (pdf-lib, no headless browser).
 export const GET = withErrors(async (_req, ctx) => {
   await requireRole("accountant", "super_admin");
   const { id } = await ctx.params;
-  const html = await renderInvoiceHtml(id);
-  return new NextResponse(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+  const invoice = await getInvoice(id);
+  const pdf = await renderInvoicePdf(invoice);
+  return new NextResponse(Buffer.from(pdf), {
+    headers: {
+      "content-type": "application/pdf",
+      "content-disposition": `inline; filename="${invoice.invoiceNumber}.pdf"`,
+    },
+  });
 });

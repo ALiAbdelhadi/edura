@@ -87,7 +87,7 @@ export function generateInvoice(input: {
     }
 
     const invoiceNumber = await nextInvoiceRef(tx);
-    return tx.invoice.create({
+    const created = await tx.invoice.create({
       data: {
         invoiceNumber,
         type: input.type,
@@ -102,7 +102,25 @@ export function generateInvoice(input: {
         qrCode: `${APP_BASE_URL}/invoices/verify/${invoiceNumber}`,
       },
     });
+    // Self-hosted PDF endpoint (S3 upload is an env-gated future — the URL points
+    // at the generator route so it always resolves).
+    return tx.invoice.update({
+      where: { id: created.id },
+      data: { pdfUrl: `${APP_BASE_URL}/api/v1/finance/invoices/${created.id}/pdf` },
+    });
   });
+}
+
+/**
+ * Generate an invoice AND auto-email the recipient on issuance (PRD §5.5).
+ * Email failures are swallowed so issuance never fails on a mail hiccup.
+ */
+export async function generateAndEmailInvoice(input: Parameters<typeof generateInvoice>[0]) {
+  const invoice = await generateInvoice(input);
+  if (invoice.issuedToId) {
+    await sendInvoiceEmail(invoice.id).catch(() => {});
+  }
+  return invoice;
 }
 
 const egp = (piasters: number | null | undefined) =>
