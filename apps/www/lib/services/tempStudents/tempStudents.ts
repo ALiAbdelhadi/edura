@@ -138,11 +138,31 @@ export async function claimTempStudent(inviteCode: string, user: SessionUser) {
 
       // Re-point operational records (all keyed by users.id). points_ledger is
       // append-only and temp students have none, so it is intentionally skipped.
-      await tx.attendanceRecord.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
-      await tx.gradeScore.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
+      // Tables with a per-student unique constraint are re-pointed PER ROW with a
+      // clash check — a blind updateMany would hit P2002 (and abort the whole
+      // merge) whenever the caller already has a row for the same key.
+
+      // attendance_records: unique (session_id, student_id)
+      for (const rec of await tx.attendanceRecord.findMany({ where: { studentId: shellId }, select: { id: true, sessionId: true } })) {
+        const clash = await tx.attendanceRecord.findFirst({ where: { sessionId: rec.sessionId, studentId: user.id }, select: { id: true } });
+        if (clash) await tx.attendanceRecord.delete({ where: { id: rec.id } });
+        else await tx.attendanceRecord.update({ where: { id: rec.id }, data: { studentId: user.id } });
+      }
+      // grade_scores: unique (grade_id, student_id)
+      for (const gs of await tx.gradeScore.findMany({ where: { studentId: shellId }, select: { id: true, gradeId: true } })) {
+        const clash = await tx.gradeScore.findFirst({ where: { gradeId: gs.gradeId, studentId: user.id }, select: { id: true } });
+        if (clash) await tx.gradeScore.delete({ where: { id: gs.id } });
+        else await tx.gradeScore.update({ where: { id: gs.id }, data: { studentId: user.id } });
+      }
+      // reviews: unique (student_id, teacher_id)
+      for (const rv of await tx.review.findMany({ where: { studentId: shellId }, select: { id: true, teacherId: true } })) {
+        const clash = await tx.review.findFirst({ where: { studentId: user.id, teacherId: rv.teacherId }, select: { id: true } });
+        if (clash) await tx.review.delete({ where: { id: rv.id } });
+        else await tx.review.update({ where: { id: rv.id }, data: { studentId: user.id } });
+      }
+      // No per-student unique — safe to bulk re-point.
       await tx.enrollmentRequest.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
       await tx.payment.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
-      await tx.review.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
 
       // Enrollments: avoid violating the unique (studentId, courseId) active index.
       const shellEnrollments = await tx.enrollment.findMany({ where: { studentId: shellId } });

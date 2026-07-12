@@ -1,11 +1,18 @@
 import { config } from "dotenv";
 config();
 
+import { neonConfig, Pool } from "@neondatabase/serverless";
+import ws from "ws";
 import {
   prisma,
   withTenant,
   withPlatformContext,
 } from "../src/index.js";
+
+// Ledger rows (transactions) can't be deleted by the runtime role edura_app —
+// it's REVOKEd (append-only hardening). Tear those down as the owner role.
+neonConfig.webSocketConstructor = ws as never;
+const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error("ASSERT FAILED: " + msg);
@@ -112,12 +119,14 @@ async function main() {
   assert(raw[0]?.deleted_at != null, "row still exists with deleted_at set (not hard-deleted)");
 
   // --- cleanup ---
+  // Ledger delete first, via the owner role (edura_app is REVOKEd from it).
+  await adminPool.query(`DELETE FROM transactions WHERE ref_number = $1`, ["TXN-" + tag]);
   await withPlatformContext(async (tx) => {
     await tx.course.deleteMany({ where: { title: { startsWith: tag } } });
     await tx.center.deleteMany({ where: { name: { startsWith: tag } } });
     await tx.$executeRaw`DELETE FROM users WHERE name LIKE ${tag + "%"}`;
-    await tx.$executeRaw`DELETE FROM transactions WHERE ref_number = ${"TXN-" + tag}`;
   });
+  await adminPool.end();
 
   console.log("\nALL SMOKE TESTS PASSED ✅");
   await prisma.$disconnect();
