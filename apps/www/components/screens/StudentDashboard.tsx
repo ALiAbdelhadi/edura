@@ -7,6 +7,7 @@ import { CheckCircleOutlined, FileTextOutlined, TrophyOutlined, MessageOutlined,
 import { BarChart, LineChart } from "@/components/charts";
 import { assignmentsTrendBarData, studentGradeTrendLineSeries } from "@/lib/analytics/transforms";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { PageSkeleton } from "@/components/shared/Skeletons";
 
 
 export function StudentDashboard() {
@@ -15,7 +16,7 @@ export function StudentDashboard() {
   const data = (result?.data as any) ?? {};
 
   if (query.isLoading && !result?.data) {
-    return <div style={{ textAlign: "center", padding: 40, color: "#888" }}>{t("studentDashboard.loading")}</div>;
+    return <PageSkeleton />;
   }
 
   const scheduleColumns = [

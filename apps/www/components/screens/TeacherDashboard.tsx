@@ -7,6 +7,7 @@ import { CalendarOutlined, FileTextOutlined, TeamOutlined, CheckCircleOutlined }
 import { BarChart, LineChart } from "@/components/charts";
 import { scoreDistributionBarData, teacherAttendanceLineSeries, teacherGradeLoadBarData } from "@/lib/analytics/transforms";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { PageSkeleton } from "@/components/shared/Skeletons";
 
 
 export function TeacherDashboard() {
@@ -15,7 +16,7 @@ export function TeacherDashboard() {
   const data = (result?.data as any) ?? {};
 
   if (query.isLoading && !result?.data) {
-    return <div style={{ textAlign: "center", padding: 40, color: "#888" }}>{t("teacher.loadingDashboard")}</div>;
+    return <PageSkeleton />;
   }
 
   const scheduleColumns = [

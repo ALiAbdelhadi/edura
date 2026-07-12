@@ -7,6 +7,7 @@ import { StarOutlined, TrophyOutlined, CheckCircleOutlined, BarChartOutlined } f
 import { useChildSelector, ChildSelectorBar } from "@/components/shared/ChildSelector";
 import { BarChart } from "@/components/charts";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { PageSkeleton } from "@/components/shared/Skeletons";
 const CHART_COLORS = ["#0fa5e9", "#8b5cf6", "#177674", "#f97315", "#22c55f", "#ed4899", "#600000"];
 
 function percentageToGrade(pct: number): string {
@@ -71,7 +72,7 @@ export function ParentProgressScreen() {
   const attendanceRate = childAttendance?.rate ?? 0;
 
   if (isLoading && childGrades.length === 0) {
-    return <div style={{ textAlign: "center", padding: 40, color: "#888" }}>{t("common.loading")}</div>;
+    return <PageSkeleton />;
   }
 
   if (!childId) {

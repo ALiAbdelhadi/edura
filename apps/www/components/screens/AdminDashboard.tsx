@@ -12,6 +12,7 @@ import {
 import { BarChart, DonutChart, LineChart } from "@/components/charts";
 import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { PageSkeleton } from "@/components/shared/Skeletons";
 
 interface DashboardData {
   totals: {
@@ -41,11 +42,7 @@ export function AdminDashboard() {
   const d = result?.data as DashboardData | undefined;
 
   if (query.isLoading) {
-    return (
-      <div style={{ textAlign: "center", padding: 40, color: "#888" }}>
-        {t("common.loading")}
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const totals = d?.totals ?? { students: 0, teachers: 0, activeCourses: 0, revenue: 0 };
