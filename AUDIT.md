@@ -33,6 +33,10 @@ At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fix
 ### What this audit fixed (commits on `main`)
 - **`c598a4b` — money-safety & DB integrity (10 bugs, zero-tolerance):** race-free `TXN-/INV-` numbering via Postgres sequences (was `count()+1` → collisions); idempotent distribution via a `distributed_at` row-lock claim; payout double-pay TOCTOU closed with a guarded `updateMany`; `rejectPayout` now persists the reason; points lost-update fixed with atomic increment; `cancelSession` refuses completed/distributed sessions; room DELETE is now a soft delete; migration 003 adds sequences, partial unique indexes (active enrollment, live booking), composite/sort indexes for the §4 hot paths, and REVOKEs UPDATE/DELETE on the ledger tables. **Proof:** 6 unit tests on PRD example numbers + 11 live-DB concurrency assertions, all green.
 - **`f22e40f` — notification matrix & FCM delivery (§6):** `notify()` is now matrix-driven across in-app/FCM/email/SMS; the **FCM delivery bug** (pushed to the never-written `User.fcmToken` while tokens live in `user_device_tokens`) is fixed; SMS channel stub added; parent-recipient gaps fixed (absence→parent, payment/grade→student+parent); chat-message and center/teacher-blacklist notifications wired.
+- **`1c0a941` — super_admin platform surface (§4.2) + registration approval (§5.2):** center registration now creates `pending`, gated behind a super_admin approve/reject flow (FCM+Email + explicit audit). 22 new `/admin/**` endpoints: centers/teachers/students list+manage, permissions, notifications history, platform dashboard KPIs + revenue/user-growth charts (SQL aggregation, keyset pagination). **Proof:** 10-assertion live-DB flow test.
+- **`9dae837` — classroom booking flow (§4.4/§4.5) + accountant reports (§4.3):** wires the unused `classroom_bookings` table (teacher requests → center approves with `center_share` → feeds the money engine; notifies both sides). Accountant reports: revenue (date_trunc), teacher/center statements, refunds, trial-balance, alerts, transaction detail.
+- **`434f0ab` — 2026 UI foundation (Phase 3):** dark/light/system theme (antd darkAlgorithm + `ThemeModeProvider`, device pref + persisted override + anti-FOUC), IBM Plex Sans Arabic font stack, shared Skeleton + EmptyState components, and the two previously-missing role portals (super_admin: KPI dashboard + registration-approval queue; accountant: finance dashboard). ARIA labels on icon controls. **Verified in-browser:** dark/light/RTL render, skeletons + empty states live, KPIs bound to real data.
+- **`ffb8a50` — teacher wallet (§4.5) + temp-student claim fix:** GET wallet / wallet transactions / POST payout-request; the last open buggy item (temp-student merge P2002 on per-student uniques) fixed with per-row clash-dedup.
 
 ### The biggest remaining gaps (drive Phase 2 continuation)
 1. **Super-admin platform surface (§4.2) + registration approval (§5.2)** — ~23 endpoints. The per-center Edura app never had a platform-level super_admin who lists/approves/rejects/manages centers, teachers, and students. *In progress.*
@@ -547,7 +551,12 @@ Grouped by dimension; most critical first. Evidence is truncated to fit — full
 
 ## 5. Verification status
 
-- ✅ `typecheck` clean · ✅ `build` clean · ✅ 6 money-math unit tests · ✅ 11 live-DB concurrency assertions (`pnpm test:db`).
-- ⬜ Large-scale seed + EXPLAIN ANALYZE · ⬜ RBAC negative-case tests · ⬜ offline-sync conflict test · ⬜ axe/contrast a11y pass (no super_admin/accountant UI yet).
+- ✅ `typecheck` clean · ✅ `build` clean (Turbopack).
+- ✅ 6 money-math unit tests on PRD example numbers (`pnpm test:unit`).
+- ✅ 11 live-DB concurrency assertions — single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE (`pnpm test:db`).
+- ✅ 10 live-DB registration-approval assertions — pending→queue→approve→active→double-approve-rejected→toggle.
+- ✅ RLS tenant-isolation + append-only immutability + soft-delete smoke test (`packages/database` smoke-test).
+- ✅ In-browser: super_admin portal renders in dark + light + Arabic RTL; skeleton loaders and empty states live; KPIs bound to real API data; theme toggle + collapse + notifications carry ARIA labels.
+- ⬜ **Remaining (needs credentials / more time):** large-scale synthetic seed + `EXPLAIN ANALYZE` at 1M rows; automated RBAC-negative + offline-sync-conflict test suites; full axe/contrast sweep across every screen; per-screen skeleton/empty-state retrofit on the 4 original portals; OTP + payment-gateway (blocked on §11).
 
 *This file is updated as fixes land; status flips to ✅ **fixed** with the commit that resolved each item.*
