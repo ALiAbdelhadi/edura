@@ -553,10 +553,13 @@ Grouped by dimension; most critical first. Evidence is truncated to fit — full
 
 - ✅ `typecheck` clean · ✅ `build` clean (Turbopack).
 - ✅ 6 money-math unit tests on PRD example numbers (`pnpm test:unit`).
-- ✅ 11 live-DB concurrency assertions — single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE (`pnpm test:db`).
-- ✅ 10 live-DB registration-approval assertions — pending→queue→approve→active→double-approve-rejected→toggle.
+- ✅ **38 live-DB assertions** across three suites (`pnpm test:db:all`): money distribution (single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE); **offline-sync conflict** (§5.3 server-wins, enrollment/teacher-ownership guards, localTimestamp preserved — 16); **RBAC-negative + data-isolation** (wrong-actor `completeSession`/`approveBooking`/`cancelSession` → ForbiddenError; RLS blocks cross-tenant read + WITH CHECK insert — 11).
+- ✅ 10 live-DB registration-approval assertions (pending→queue→approve→active→double-approve-rejected→toggle).
 - ✅ RLS tenant-isolation + append-only immutability + soft-delete smoke test (`packages/database` smoke-test).
-- ✅ In-browser: super_admin portal renders in dark + light + Arabic RTL; skeleton loaders and empty states live; KPIs bound to real API data; theme toggle + collapse + notifications carry ARIA labels.
-- ⬜ **Remaining (needs credentials / more time):** large-scale synthetic seed + `EXPLAIN ANALYZE` at 1M rows; automated RBAC-negative + offline-sync-conflict test suites; full axe/contrast sweep across every screen; per-screen skeleton/empty-state retrofit on the 4 original portals; OTP + payment-gateway (blocked on §11).
+- ✅ **Scale proof** ([SCALE.md](SCALE.md)): 400k-transaction ledger, accountant list query **0.3 ms** on the composite index, all keyset/list queries sub-ms (~1000× under the 500 ms p95 target); the `SUM … GROUP BY type` dashboard aggregate (54 ms) is the flagged pre-aggregation candidate. Run capped at 400k by Neon's free-tier 512 MB disk (1M seeded in 26 s first).
+- ✅ **Accessibility (WCAG 2.2 AA):** axe-core 4.10 sweep of the super_admin portal in light + dark + Arabic-RTL → **0 violations, 30 checks pass** (fixed tertiary-text contrast, selected-menu contrast, avatar contrast, and keyboard access to the scrollable region).
+- ✅ **Invoice PDF** (pdf-lib, real `%PDF`) + auto-email + **month-end/lesson-reminder scheduler** (secured `/api/v1/cron/[job]`).
+- ✅ Skeleton loaders on the 4 role dashboards; empty states with CTA on new list surfaces.
+- ⬜ **Remaining / by design:** OTP (§4.1) and payment gateway (§4.6) — **owner is handling payments; both are §11 Open Decisions** (SMS provider / Paymob-Fawry keys). S3 upload for invoice PDFs is env-gated (URL currently points at the self-hosted generator). Per-screen skeleton retrofit on the ~30 non-dashboard list screens still uses antd table-loading + empty-text (acceptable); full 1M-row EXPLAIN needs a paid Neon branch.
 
 *This file is updated as fixes land; status flips to ✅ **fixed** with the commit that resolved each item.*
