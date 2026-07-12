@@ -5,7 +5,6 @@ import { getStudentLedger } from "@/lib/services/points/pointsAdmin";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = withErrors(async (req, ctx) => {
   await requireRole("super_admin");

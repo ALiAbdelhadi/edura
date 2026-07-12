@@ -7,7 +7,6 @@ import { adjustStudentPoints } from "@/lib/services/points/pointsAdmin";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({
   delta: z.number().int(),

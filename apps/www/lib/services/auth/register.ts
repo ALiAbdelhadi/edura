@@ -210,6 +210,8 @@ export async function registerCenter(input: CenterInput) {
     await ensureUniqueUnshelled(tx, email);
     const shortId = await uniqueCenterShortId(tx);
 
+    // PRD §5.2: new centers await super_admin approval. Created 'pending';
+    // login rejects non-active users, so the account is locked until approved.
     const center = await tx.center.create({
       data: {
         name: input.center.name,
@@ -220,7 +222,7 @@ export async function registerCenter(input: CenterInput) {
         phone: input.center.phone ?? "",
         whatsapp: input.center.whatsapp ?? "",
         email: input.center.email ?? "",
-        status: "active",
+        status: "pending",
         receiptSeq: 0,
       },
     });
@@ -236,7 +238,9 @@ export async function registerCenter(input: CenterInput) {
         data: {
           passwordHash,
           name: input.admin.name,
-          status: "active",
+          // PRD §5.2: the center admin stays 'pending' until super_admin approval;
+          // login rejects non-active users, so the account is locked meanwhile.
+          status: "pending",
           ...(input.admin.locale ? { locale: input.admin.locale } : {}),
         },
       });
@@ -248,7 +252,7 @@ export async function registerCenter(input: CenterInput) {
           role: "center_admin",
           name: input.admin.name,
           locale: input.admin.locale ?? "ar",
-          status: "active",
+          status: "pending",
         },
       });
     }

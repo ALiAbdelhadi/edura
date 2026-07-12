@@ -7,7 +7,6 @@ import { platformBlacklistUser } from "@/lib/services/blacklist/blacklist";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({ reason: z.string().trim().min(1).max(500) });
 

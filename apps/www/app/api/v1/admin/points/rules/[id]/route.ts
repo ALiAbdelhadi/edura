@@ -7,7 +7,6 @@ import { updatePointsRule, deletePointsRule } from "@/lib/services/points/points
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
 
 const patchSchema = z.object({
   pointsValue: z.number().int().min(-100000).max(100000).optional(),
