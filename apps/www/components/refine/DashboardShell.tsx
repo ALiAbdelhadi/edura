@@ -107,12 +107,14 @@ type NavItem = {
   label: string;
 };
 
+// Avatar colors double as solid backgrounds with WHITE initials, so each must
+// clear WCAG AA (≥4.5:1) against white. The borderline hues were darkened.
 const roleLabels: Record<string, { name: string; color: string }> = {
-  student: { name: "Student", color: "#5b76fe" },
-  teacher: { name: "Teacher", color: "#187574" },
+  student: { name: "Student", color: "#4f46e5" }, // indigo-600  (was #5b76fe, 4.3:1)
+  teacher: { name: "Teacher", color: "#0f766e" }, // teal-700    (was #187574, 4.4:1)
   parent: { name: "Parent", color: "#6b0050" },
   admin: { name: "Admin", color: "#7a3b00" },
-  superadmin: { name: "Super Admin", color: "#0284c7" },
+  superadmin: { name: "Super Admin", color: "#0369a1" }, // sky-700 (was #0284c7, 3.5:1)
   finance: { name: "Accountant", color: "#047857" },
 };
 
@@ -213,11 +215,7 @@ export default function DashboardShell({
           }}
         >
           <Avatar
-            style={{
-              backgroundColor: roleInfo.color + "20",
-              color: roleInfo.color,
-              fontWeight: 700,
-            }}
+            style={{ backgroundColor: roleInfo.color, color: "#ffffff", fontWeight: 700 }}
             size="default"
           >
             {getInitials(displayName)}
@@ -302,19 +300,17 @@ export default function DashboardShell({
                 <Button type="text" aria-label="Notifications" icon={<BellOutlined />} />
               </Link>
             </Badge>
-            <Avatar
-              style={{
-                backgroundColor: roleInfo.color + "20",
-                color: roleInfo.color,
-                fontWeight: 700,
-              }}
-            >
+            <Avatar style={{ backgroundColor: roleInfo.color, color: "#ffffff", fontWeight: 700 }}>
               {getInitials(displayName)}
             </Avatar>
           </Space>
         </Header>
 
         <Content
+          // Scrollable region needs keyboard access (WCAG 2.1.1 / 2.4.11).
+          tabIndex={0}
+          role="region"
+          aria-label={tNav(screenLabel)}
           style={{
             margin: 24,
             padding: 24,

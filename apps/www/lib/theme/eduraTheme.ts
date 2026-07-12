@@ -41,8 +41,11 @@ const semantic = {
 const neutral = {
   text: "#1c1c1e",
   textSecondary: "#555a6a",
-  textTertiary: "#8b8f9c", // darkened from the legacy #a5a8b5 to clear WCAG AA on white
-  textQuaternary: "#b7bac4",
+  // 4.83:1 on white — clears WCAG AA (4.5:1) for normal text. antd maps Statistic
+  // titles + descriptions to this token, so KPI labels stay legible. (Was #8b8f9c
+  // = 3.22:1, which only passed the 3:1 large-text bar.)
+  textTertiary: "#6b7280",
+  textQuaternary: "#9aa0ad",
   border: "#e4e6ec",
   borderSecondary: "#eef0f3",
   bgLayout: "#f4f5f7", // app canvas
@@ -166,7 +169,9 @@ export const eduraTheme: ThemeConfig = {
       subMenuItemBg: "transparent",
       itemBorderRadius: 10,
       itemSelectedBg: brand.primaryBg,
-      itemSelectedColor: brand.primaryActive,
+      // sky-800 on the light-sky selected bg → 6.0:1 (WCAG AA). primaryActive
+      // (#0284c7) was only 3.56:1 on this background.
+      itemSelectedColor: "#075985",
       itemActiveBg: neutral.fill,
       itemHoverBg: neutral.fill,
       itemHeight: 42,
