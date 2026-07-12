@@ -1,0 +1,1147 @@
+// =============================================================================
+// Edura / EduConnect — Prisma schema (Neon Postgres, serverless)
+// -----------------------------------------------------------------------------
+// Reconciliation model: every existing Edura Mongoose model is preserved here
+// (so live MongoDB data ports 1:1 and the current 97 API routes keep working),
+// and the PRD's EduConnect layer (super_admin/accountant roles, platform-fee
+// ledger, points, payouts/invoices, blacklist, audit_logs, chatbot) is added
+// on top. AI/chatbot tables are MODELED ONLY — no AI logic wired (per scope).
+//
+// Conventions:
+//   - PKs: Postgres-generated UUID via gen_random_uuid() (pgcrypto).
+//   - Money: Int, minor units (piasters). Never Float/Decimal.
+//   - Columns: snake_case via @map; tables: snake_case plural via @@map.
+//   - Enums: native Postgres enums (DEVIATION from PRD raw-SQL VARCHAR — chosen
+//     for compile-time safety; flagged in the delivery summary).
+//   - Tenant scope: center_id + @@index on every center-scoped table; RLS
+//     policies + the remaining FK constraints live in a raw-SQL migration.
+// =============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Role {
+  super_admin
+  accountant
+  center_admin // PRD "center"
+  teacher
+  parent
+  student
+
+  @@map("role")
+}
+
+enum UserStatus {
+  active
+  shell
+  pending
+  suspended
+  blacklisted
+  deleted
+
+  @@map("user_status")
+}
+
+enum Locale {
+  ar
+  en
+
+  @@map("locale")
+}
+
+enum Theme {
+  light
+  dark
+  system
+
+  @@map("theme")
+}
+
+enum EntityType {
+  registered
+  invited
+  external
+  shadow
+
+  @@map("entity_type")
+}
+
+enum CenterStatus {
+  pending
+  active
+  suspended
+  rejected
+  blacklisted
+
+  @@map("center_status")
+}
+
+enum AffiliationStatus {
+  pending
+  active
+  declined
+  expired
+  removed
+
+  @@map("affiliation_status")
+}
+
+enum CourseStatus {
+  active
+  ended
+  cancelled
+
+  @@map("course_status")
+}
+
+enum SessionStatus {
+  scheduled
+  ongoing
+  cancelled
+  postponed
+  completed
+
+  @@map("session_status")
+}
+
+enum EnrollmentStatus {
+  active
+  unenrolled
+
+  @@map("enrollment_status")
+}
+
+enum EnrollmentRequestStatus {
+  pending
+  approved
+  declined
+  cancelled
+  expired
+
+  @@map("enrollment_request_status")
+}
+
+enum ParentLinkStatus {
+  pending
+  approved
+  rejected
+  revoked
+
+  @@map("parent_link_status")
+}
+
+enum LinkActor {
+  parent
+  student
+
+  @@map("link_actor")
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  excused
+  removed
+
+  @@map("attendance_status")
+}
+
+enum GradeType {
+  numeric
+  letter
+
+  @@map("grade_type")
+}
+
+enum MaterialType {
+  lecture
+  homework
+  exam
+  other
+
+  @@map("material_type")
+}
+
+enum MaterialStorage {
+  cloudinary
+  external
+
+  @@map("material_storage")
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+
+  @@map("payment_status")
+}
+
+enum ExpenseCategory {
+  rent
+  utilities
+  salaries
+  supplies
+  marketing
+  maintenance
+  other
+
+  @@map("expense_category")
+}
+
+enum DeletionStatus {
+  pending
+  approved
+  rejected
+
+  @@map("deletion_status")
+}
+
+enum InvitePurpose {
+  student_activation
+  teacher_activation
+  admin_invite
+
+  @@map("invite_purpose")
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+
+  @@map("device_platform")
+}
+
+enum BookingStatus {
+  pending
+  approved
+  rejected
+
+  @@map("booking_status")
+}
+
+// ---- Finance (PRD §3.3) ----
+
+enum TransactionType {
+  payment
+  commission
+  payout
+  refund
+  adjustment
+
+  @@map("transaction_type")
+}
+
+enum TransactionStatus {
+  pending
+  completed
+  failed
+  reversed
+
+  @@map("transaction_status")
+}
+
+enum PaymentMethod {
+  cash
+  online_paymob
+  online_fawry
+
+  @@map("payment_method")
+}
+
+enum InvoiceType {
+  payment_receipt
+  student_invoice
+  teacher_statement
+  center_statement
+
+  @@map("invoice_type")
+}
+
+enum InvoiceStatus {
+  issued
+  paid
+  void
+
+  @@map("invoice_status")
+}
+
+enum PayoutStatus {
+  pending
+  approved
+  paid
+  rejected
+
+  @@map("payout_status")
+}
+
+enum BeneficiaryType {
+  teacher
+  center
+
+  @@map("beneficiary_type")
+}
+
+// ---- Blacklist / notifications ----
+
+enum BlacklistLevel {
+  platform
+  center
+  teacher
+
+  @@map("blacklist_level")
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+
+  @@map("notification_status")
+}
+
+enum NotificationType {
+  absence_marked
+  attendance_corrected
+  session_cancelled
+  session_postponed
+  course_cancelled
+  grade_entered
+  material_uploaded
+  payment_recorded
+  enrollment_request_submitted
+  enrollment_request_approved
+  enrollment_request_declined
+  student_added_to_roster
+  teacher_invited
+  parent_link_requested
+  admin_broadcast
+  password_reset_requested
+  shell_activation_invite
+  registration_approved
+  registration_rejected
+  blacklist_action
+  payout_approved
+  classroom_request
+  classroom_request_decided
+  lesson_reminder
+  homework_deadline
+  invite_code_sent
+  new_chat_message
+
+  @@map("notification_type")
+}
+
+enum BotType {
+  support
+  academic
+
+  @@map("bot_type")
+}
+
+// =============================================================================
+// CORE IDENTITY
+// =============================================================================
+
+model User {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String?    @unique
+  phone         String?    @unique
+  passwordHash  String?    @map("password_hash")
+  role          Role
+  name          String
+  locale        Locale     @default(ar)
+  theme         Theme      @default(system)
+  status        UserStatus @default(active)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  fcmToken      String?    @map("fcm_token")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  studentProfile     StudentProfile?
+  parentProfile      ParentProfile?
+  teacherProfile     TeacherProfile?
+  centerAdminProfile CenterAdminProfile?
+  prefs              UserPrefs?
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model StudentProfile {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String?    @unique @map("user_id") @db.Uuid // NULL for temporary/invited students (PRD)
+  fullName           String     @map("full_name")
+  phone              String?
+  grade              String?
+  familyLinkCode     String     @unique @map("family_link_code")
+  entityType         EntityType @default(registered) @map("entity_type")
+  inviteCode         String?    @unique @map("invite_code")
+  pointsBalance      Int        @default(0) @map("points_balance")
+  savedAreaCity      String?    @map("saved_area_city")
+  savedAreaLat       Float?     @map("saved_area_lat")
+  savedAreaLng       Float?     @map("saved_area_lng")
+  invitationSentAt   DateTime?  @map("invitation_sent_at") @db.Timestamptz(6)
+  claimedAt          DateTime?  @map("claimed_at") @db.Timestamptz(6)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("student_profiles")
+}
+
+model ParentProfile {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("parent_profiles")
+}
+
+model TeacherProfile {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  bio             String?
+  subjects        String[]
+  qualifications  String?
+  experienceYears Int      @default(0) @map("experience_years")
+  photoUrl        String?  @map("photo_url")
+  lessonPrice     Int?     @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
+  ratingAvg       Float    @default(0) @map("rating_avg")
+  ratingCount     Int      @default(0) @map("rating_count")
+  walletBalance   Int      @default(0) @map("wallet_balance") // piasters
+  certificates    Json?    // [{name, file_url, issued_by}]
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([subjects])
+  @@map("teacher_profiles")
+}
+
+model CenterAdminProfile {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  centerId  String   @map("center_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user   User   @relation(fields: [userId], references: [id])
+  center Center @relation(fields: [centerId], references: [id])
+
+  @@index([centerId])
+  @@map("center_admin_profiles")
+}
+
+model Center {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId     String?      @map("owner_user_id") @db.Uuid // NULL for shadow centers
+  name            String
+  shortId         String       @unique @map("short_id")
+  description     String?
+  address         String?
+  area            String?
+  subjects        String[]
+  lat             Float?
+  lng             Float?
+  phone           String?
+  whatsapp        String?
+  email           String?
+  logoUrl         String?      @map("logo_url")
+  classroomCount  Int          @default(0) @map("classroom_count")
+  entityType      EntityType   @default(registered) @map("entity_type")
+  status          CenterStatus @default(pending)
+  walletBalance   Int          @default(0) @map("wallet_balance") // piasters
+  receiptSeq      Int          @default(0) @map("receipt_seq")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  admins   CenterAdminProfile[]
+  rooms    Room[]
+  courses  Course[]
+
+  @@index([status])
+  @@index([area])
+  @@map("centers")
+}
+
+// =============================================================================
+// TOKENS / AUTH
+// =============================================================================
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model InviteToken {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  tokenHash String        @unique @map("token_hash")
+  purpose   InvitePurpose
+  centerId  String?       @map("center_id") @db.Uuid
+  expiresAt DateTime      @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?     @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([centerId])
+  @@map("invite_tokens")
+}
+
+model UserDeviceToken {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  token      String         @unique
+  platform   DevicePlatform
+  lastSeenAt DateTime?      @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("user_device_tokens")
+}
+
+model UserPrefs {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  tourCompleted Boolean  @default(false) @map("tour_completed")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_prefs")
+}
+
+// =============================================================================
+// TENANT ROSTER & AFFILIATION
+// =============================================================================
+
+model CenterStudentRoster {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId               String    @map("center_id") @db.Uuid
+  studentId              String    @map("student_id") @db.Uuid
+  operationalParentName  String?   @map("operational_parent_name")
+  operationalParentPhone String?   @map("operational_parent_phone")
+  addedAt                DateTime  @default(now()) @map("added_at") @db.Timestamptz(6)
+  leftAt                 DateTime? @map("left_at") @db.Timestamptz(6)
+  blacklisted            Boolean   @default(false)
+  blacklistReason        String?   @map("blacklist_reason")
+  blacklistedAt          DateTime? @map("blacklisted_at") @db.Timestamptz(6)
+  blacklistedBy          String?   @map("blacklisted_by") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([centerId, studentId])
+  @@index([studentId])
+  @@map("center_student_rosters")
+}
+
+model CenterTeacherAffiliation {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId    String            @map("center_id") @db.Uuid
+  teacherId   String            @map("teacher_id") @db.Uuid
+  status      AffiliationStatus @default(pending)
+  centerShare Int?              @map("center_share") // piasters — agreed teacher/center split
+  invitedAt   DateTime          @default(now()) @map("invited_at") @db.Timestamptz(6)
+  respondedAt DateTime?         @map("responded_at") @db.Timestamptz(6)
+  removedAt   DateTime?         @map("removed_at") @db.Timestamptz(6)
+  expiresAt   DateTime          @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId])
+  @@index([teacherId])
+  @@index([centerId, teacherId])
+  @@map("center_teacher_affiliations")
+}
+
+model ParentStudentLink {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId    String           @map("parent_id") @db.Uuid
+  studentId   String           @map("student_id") @db.Uuid
+  status      ParentLinkStatus @default(pending)
+  initiatedBy LinkActor        @map("initiated_by")
+  revokedBy   LinkActor?       @map("revoked_by")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([parentId])
+  @@index([studentId])
+  @@map("parent_student_links")
+}
+
+// =============================================================================
+// ACADEMIC CORE  (Course → Session ≈ PRD "lesson"; Enrollment; Room = classroom)
+// =============================================================================
+
+model Room {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId  String   @map("center_id") @db.Uuid
+  name      String
+  capacity  Int?
+  facilities String[]
+  photos    String[]
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  center   Center    @relation(fields: [centerId], references: [id])
+  courses  Course[]
+  sessions Session[]
+
+  @@index([centerId])
+  @@map("rooms")
+}
+
+model Course {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId       String       @map("center_id") @db.Uuid
+  teacherId      String       @map("teacher_id") @db.Uuid
+  defaultRoomId  String?      @map("default_room_id") @db.Uuid
+  title          String
+  subject        String
+  description    String?
+  gradeTag       String?      @map("grade_tag")
+  daysOfWeek     Int[]        @map("days_of_week")
+  startTime      String       @map("start_time")
+  endTime        String       @map("end_time")
+  startDate      DateTime     @map("start_date") @db.Timestamptz(6)
+  endDate        DateTime?    @map("end_date") @db.Timestamptz(6)
+  price          Int          // piasters
+  maxStudents    Int          @map("max_students")
+  status         CourseStatus @default(active)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  center      Center       @relation(fields: [centerId], references: [id])
+  room        Room?        @relation(fields: [defaultRoomId], references: [id])
+  sessions    Session[]
+  enrollments Enrollment[]
+
+  @@index([centerId])
+  @@index([teacherId])
+  @@index([subject])
+  @@index([status])
+  @@map("courses")
+}
+
+model Session {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId          String        @map("course_id") @db.Uuid
+  teacherId         String        @map("teacher_id") @db.Uuid
+  roomId            String?       @map("room_id") @db.Uuid
+  originalDate      DateTime      @map("original_date") @db.Timestamptz(6)
+  date              DateTime      @db.Timestamptz(6)
+  startTime         String        @map("start_time")
+  endTime           String        @map("end_time")
+  status            SessionStatus @default(scheduled)
+  cancellationReason String?      @map("cancellation_reason")
+  postponedFromDate DateTime?     @map("postponed_from_date") @db.Timestamptz(6)
+  editedAt          DateTime?     @map("edited_at") @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  course     Course             @relation(fields: [courseId], references: [id])
+  room       Room?              @relation(fields: [roomId], references: [id])
+  attendance AttendanceRecord[]
+
+  @@index([courseId, date])
+  @@index([teacherId, date])
+  @@index([roomId, date])
+  @@map("sessions")
+}
+
+model Enrollment {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId   String           @map("student_id") @db.Uuid
+  courseId    String           @map("course_id") @db.Uuid
+  centerId    String           @map("center_id") @db.Uuid
+  status      EnrollmentStatus @default(active)
+  enrolledAt  DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz(6)
+  unenrolledAt DateTime?       @map("unenrolled_at") @db.Timestamptz(6)
+  enrolledBy  String           @map("enrolled_by") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@index([studentId])
+  @@index([courseId])
+  @@index([centerId])
+  @@map("enrollments")
+}
+
+model EnrollmentRequest {
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId    String                  @map("student_id") @db.Uuid
+  courseId     String                  @map("course_id") @db.Uuid
+  centerId     String                  @map("center_id") @db.Uuid
+  status       EnrollmentRequestStatus @default(pending)
+  submittedAt  DateTime                @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  respondedAt  DateTime?               @map("responded_at") @db.Timestamptz(6)
+  respondedBy  String?                 @map("responded_by") @db.Uuid
+  declineReason String?                @map("decline_reason")
+  expiresAt    DateTime                @map("expires_at") @db.Timestamptz(6)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([studentId])
+  @@index([courseId])
+  @@index([centerId])
+  @@map("enrollment_requests")
+}
+
+model AttendanceRecord {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId     String           @map("session_id") @db.Uuid
+  studentId     String           @map("student_id") @db.Uuid
+  courseId      String           @map("course_id") @db.Uuid
+  centerId      String           @map("center_id") @db.Uuid
+  status        AttendanceStatus
+  markedBy      String           @map("marked_by") @db.Uuid
+  editedAt      DateTime?        @map("edited_at") @db.Timestamptz(6)
+  synced        Boolean          @default(true) // false = captured offline, not yet synced (PRD)
+  localTimestamp DateTime?       @map("local_timestamp") @db.Timestamptz(6) // device time when marked offline
+  notes         String?
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+  @@index([courseId])
+  @@index([centerId])
+  @@map("attendance_records")
+}
+
+model Grade {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId  String       @map("course_id") @db.Uuid
+  centerId  String       @map("center_id") @db.Uuid
+  teacherId String       @map("teacher_id") @db.Uuid
+  name      String
+  gradeType GradeType    @default(numeric) @map("grade_type")
+  maxScore  Int          @map("max_score")
+  date      DateTime     @db.Timestamptz(6)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  scores GradeScore[]
+
+  @@index([courseId])
+  @@index([centerId])
+  @@map("grades")
+}
+
+// Was an embedded array on Grade in Mongo; normalized to its own table.
+model GradeScore {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gradeId   String @map("grade_id") @db.Uuid
+  studentId String @map("student_id") @db.Uuid
+  score     Float
+
+  grade Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  @@unique([gradeId, studentId])
+  @@index([studentId])
+  @@map("grade_scores")
+}
+
+model Material {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId           String          @map("course_id") @db.Uuid
+  centerId           String          @map("center_id") @db.Uuid
+  teacherId          String          @map("teacher_id") @db.Uuid
+  title              String
+  type               MaterialType
+  storageProvider    MaterialStorage @default(cloudinary) @map("storage_provider")
+  cloudinaryPublicId String?         @map("cloudinary_public_id")
+  cloudinaryUrl      String?         @map("cloudinary_url")
+  externalUrl        String?         @map("external_url")
+  fileSizeBytes      Int?            @map("file_size_bytes")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([courseId])
+  @@index([centerId])
+  @@map("materials")
+}
+
+// PRD classroom_bookings: teacher requests a Room for a Session; center approves
+// with an agreed center_share. This is the hook the fee/distribution engine reads.
+model ClassroomBooking {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId    String        @map("center_id") @db.Uuid
+  roomId      String        @map("room_id") @db.Uuid
+  sessionId   String?       @map("session_id") @db.Uuid
+  courseId    String?       @map("course_id") @db.Uuid
+  teacherId   String        @map("teacher_id") @db.Uuid
+  status      BookingStatus @default(pending)
+  centerShare Int?          @map("center_share") // piasters
+  requestedAt DateTime      @default(now()) @map("requested_at") @db.Timestamptz(6)
+  decidedAt   DateTime?     @map("decided_at") @db.Timestamptz(6)
+  decidedBy   String?       @map("decided_by") @db.Uuid
+  rejectReason String?      @map("reject_reason")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId])
+  @@index([roomId])
+  @@index([teacherId])
+  @@map("classroom_bookings")
+}
+
+// =============================================================================
+// MONEY  (existing Payment/Expense preserved; PRD ledger added below)
+// =============================================================================
+
+model Payment {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String        @map("center_id") @db.Uuid
+  studentId     String        @map("student_id") @db.Uuid
+  courseId      String?       @map("course_id") @db.Uuid
+  status        PaymentStatus @default(paid)
+  amount        Int           // piasters, SIGNED (positive=payment, negative=refund)
+  currency      String        @default("EGP")
+  note          String?
+  receiptNumber String        @unique @map("receipt_number")
+  recordedBy    String        @map("recorded_by") @db.Uuid
+  paidAt        DateTime      @default(now()) @map("paid_at") @db.Timestamptz(6)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId, paidAt(sort: Desc)])
+  @@index([studentId, paidAt(sort: Desc)])
+  @@map("payments")
+}
+
+model Expense {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId    String          @map("center_id") @db.Uuid
+  amount      Int             // piasters (positive)
+  currency    String          @default("EGP")
+  category    ExpenseCategory
+  description String?
+  recordedBy  String          @map("recorded_by") @db.Uuid
+  expenseDate DateTime        @map("expense_date") @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId, expenseDate(sort: Desc)])
+  @@map("expenses")
+}
+
+// PRD §3.3 immutable ledger — append-only, corrections via reversal entries.
+model Transaction {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refNumber     String            @unique @map("ref_number") // TXN-2026-XXXXX
+  type          TransactionType
+  amount        Int               // piasters
+  fromEntityId  String?           @map("from_entity_id") @db.Uuid
+  toEntityId    String?           @map("to_entity_id") @db.Uuid
+  centerId      String?           @map("center_id") @db.Uuid
+  lessonId      String?           @map("lesson_id") @db.Uuid // -> sessions.id
+  status        TransactionStatus @default(pending)
+  paymentMethod PaymentMethod?    @map("payment_method")
+  gatewayRef    String?           @map("gateway_ref")
+  reversalOfId  String?           @map("reversal_of_id") @db.Uuid // correction linkage
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([centerId])
+  @@index([type])
+  @@index([status])
+  @@index([lessonId])
+  @@map("transactions")
+}
+
+model Invoice {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceNumber String        @unique @map("invoice_number") // INV-2026-XXXXX
+  type          InvoiceType
+  centerId      String?       @map("center_id") @db.Uuid
+  issuedToId    String?       @map("issued_to_id") @db.Uuid
+  periodStart   DateTime?     @map("period_start") @db.Date
+  periodEnd     DateTime?     @map("period_end") @db.Date
+  subtotal      Int?          // piasters
+  commission    Int?          // piasters
+  netAmount     Int?          @map("net_amount") // piasters
+  status        InvoiceStatus @default(issued)
+  pdfUrl        String?       @map("pdf_url")
+  qrCode        String?       @map("qr_code")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([centerId])
+  @@index([type])
+  @@index([issuedToId])
+  @@map("invoices")
+}
+
+model Payout {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String?         @map("center_id") @db.Uuid
+  beneficiaryId String          @map("beneficiary_id") @db.Uuid
+  beneficiaryType BeneficiaryType @map("beneficiary_type")
+  periodStart   DateTime?       @map("period_start") @db.Date
+  periodEnd     DateTime?       @map("period_end") @db.Date
+  lessonCount   Int?            @map("lesson_count")
+  grossAmount   Int?            @map("gross_amount") // piasters
+  commission    Int?            // piasters
+  netPayable    Int?            @map("net_payable") // piasters
+  status        PayoutStatus    @default(pending)
+  approvedBy    String?         @map("approved_by") @db.Uuid
+  paidAt        DateTime?       @map("paid_at") @db.Timestamptz(6)
+  receiptUrl    String?         @map("receipt_url")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([centerId])
+  @@index([beneficiaryId])
+  @@index([status])
+  @@map("payouts")
+}
+
+// =============================================================================
+// POINTS (PRD §3.4)  — super_admin controlled
+// =============================================================================
+
+model PointsRule {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName  String   @map("event_name") // attendance|online_payment|first_booking|...
+  pointsValue Int     @map("points_value")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdBy  String?  @map("created_by") @db.Uuid // must be super_admin
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ledger PointsLedger[]
+
+  @@index([eventName])
+  @@map("points_rules")
+}
+
+// Append-only, no updates.
+model PointsLedger {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  delta        Int      // positive = earned, negative = deducted
+  balanceAfter Int      @map("balance_after")
+  eventName    String?  @map("event_name")
+  ruleId       String?  @map("rule_id") @db.Uuid
+  adjustedBy   String?  @map("adjusted_by") @db.Uuid // NULL if automatic, super_admin if manual
+  reason       String?
+  internalNote String?  @map("internal_note") // hidden from student
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rule PointsRule? @relation(fields: [ruleId], references: [id])
+
+  @@index([studentId])
+  @@map("points_ledger")
+}
+
+// =============================================================================
+// NOTIFICATIONS / BLACKLIST / AUDIT
+// =============================================================================
+
+model Notification {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  type          NotificationType
+  title         String
+  body          String
+  data          Json               @default("{}")
+  channels      String[]           @default([]) // ['fcm','email','sms']
+  status        NotificationStatus @default(pending)
+  fcmMessageId  String?            @map("fcm_message_id")
+  read          Boolean            @default(false)
+  readAt        DateTime?          @map("read_at") @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([read])
+  @@map("notifications")
+}
+
+model BlacklistEntry {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  targetId   String         @map("target_id") @db.Uuid
+  level      BlacklistLevel
+  centerId   String?        @map("center_id") @db.Uuid // scope for center/teacher levels
+  imposedById String        @map("imposed_by_id") @db.Uuid
+  reason     String
+  isActive   Boolean        @default(true) @map("is_active")
+  removedAt  DateTime?      @map("removed_at") @db.Timestamptz(6)
+  removedBy  String?        @map("removed_by") @db.Uuid
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([targetId])
+  @@index([centerId])
+  @@index([level])
+  @@map("blacklist_entries")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  action      String   // e.g. 'center.approved', 'blacklist.added'
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id") @db.Uuid
+  centerId    String?  @map("center_id") @db.Uuid
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  ipAddress   String?  @map("ip_address") @db.Inet
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([centerId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// DELETION REQUESTS (existing)
+// =============================================================================
+
+model DeletionRequest {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  centerId    String?        @map("center_id") @db.Uuid
+  reason      String
+  status      DeletionStatus @default(pending)
+  requestedAt DateTime       @default(now()) @map("requested_at") @db.Timestamptz(6)
+  reviewedBy  String?        @map("reviewed_by") @db.Uuid
+  reviewedAt  DateTime?      @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote  String?        @map("review_note")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([centerId, status])
+  @@map("deletion_requests")
+}
+
+// =============================================================================
+// MESSAGING / REVIEWS
+// =============================================================================
+
+model Review {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId String   @map("student_id") @db.Uuid
+  teacherId String   @map("teacher_id") @db.Uuid
+  centerId  String?  @map("center_id") @db.Uuid
+  lessonId  String?  @map("lesson_id") @db.Uuid // -> sessions.id, for per-lesson ratings (PRD)
+  rating    Int      // 1..5 (enforced at API layer + CHECK constraint in migration)
+  text      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([studentId, teacherId])
+  @@index([teacherId])
+  @@index([centerId])
+  @@map("reviews")
+}
+
+model MessageThread {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  participantIds  String[]  @map("participant_ids") @db.Uuid
+  centerId        String?   @map("center_id") @db.Uuid
+  lastMessageAt   DateTime  @default(now()) @map("last_message_at") @db.Timestamptz(6)
+  lastMessageBody String?   @map("last_message_body")
+  unreadCounts    Json      @default("{}") @map("unread_counts")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  messages Message[]
+
+  @@index([participantIds])
+  @@index([centerId, lastMessageAt(sort: Desc)])
+  @@map("message_threads")
+}
+
+model Message {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId  String   @map("thread_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+// =============================================================================
+// CHATBOT & AI  (SCHEMA ONLY — no AI logic wired, per scope §1)
+// =============================================================================
+
+model ChatbotConfig {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supportBotEnabled    Boolean   @default(true) @map("support_bot_enabled")
+  academicBotEnabled   Boolean   @default(true) @map("academic_bot_enabled")
+  monthlyTokenLimit    Int       @default(1000000) @map("monthly_token_limit")
+  tokensUsedThisMonth  Int       @default(0) @map("tokens_used_this_month")
+  lastResetAt          DateTime? @map("last_reset_at") @db.Date
+  updatedBy            String?   @map("updated_by") @db.Uuid
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("chatbot_config")
+}
+
+model ChatbotFaq {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  question  String
+  answer    String
+  category  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("chatbot_faq")
+}
+
+model ChatbotConversation {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  sessionId    String?  @map("session_id") @db.Uuid
+  messages     Json?    // [{role, content, timestamp}]
+  botType      BotType? @map("bot_type")
+  handedOff    Boolean  @default(false) @map("handed_off") // feeds human support queue
+  handoffTo    String?  @map("handoff_to")
+  satisfaction Int?     // 1..5
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([handedOff])
+  @@map("chatbot_conversations")
+}

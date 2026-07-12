@@ -1,0 +1,350 @@
+{
+  "id": "edura-dev",
+  "name": "Edura — Dev",
+  "values": [
+    {
+      "key": "BASE_URL",
+      "value": "https://warm-cassata-066af9.netlify.app/api/v1",
+      "type": "default",
+      "enabled": true
+    },
+
+    {
+      "key": "SEED_PASSWORD",
+      "value": "Passw0rd!",
+      "type": "default",
+      "enabled": true,
+      "description": "Default password for all seeded users"
+    },
+
+    {
+      "key": "CENTER_SHORT_ID",
+      "value": "NILE01",
+      "type": "default",
+      "enabled": true
+    },
+
+    {
+      "key": "CENTER_ADMIN_EMAIL",
+      "value": "admin@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+
+    {
+      "key": "CENTER_ADMIN_TOKEN",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as center admin"
+    },
+
+    {
+      "key": "CENTER_ADMIN_ID",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as center admin"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_1",
+      "value": "hossam.aziz@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_1",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Hossam (Math)"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_2",
+      "value": "hana.rashidi@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_2",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Hana (Physics/Chemistry)"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_3",
+      "value": "nourhan.mostafa@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_3",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Nourhan (Arabic)"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_4",
+      "value": "kareem.salah@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_4",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Kareem (Computer Science)"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_5",
+      "value": "rasha.ibrahim@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_5",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Rasha (English)"
+    },
+
+    {
+      "key": "TEACHER_EMAIL_6",
+      "value": "ahmed.ibrahim@nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN_6",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Ahmed (Biology)"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_1",
+      "value": "lina.hassan@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_1",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Lina"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_2",
+      "value": "ahmed.mostafa@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_2",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Ahmed Mostafa"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_3",
+      "value": "sara.elsayed@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_3",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Sara"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_4",
+      "value": "omar.khaled@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_4",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Omar"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_5",
+      "value": "yousef.tarek@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_5",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Yousef"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_6",
+      "value": "fatima.zahraa@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_6",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Fatima"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_7",
+      "value": "mariam.adel@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_7",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Mariam"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_8",
+      "value": "youssef.magdy@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_8",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Youssef Magdy"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_9",
+      "value": "habiba.sherif@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_9",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Habiba"
+    },
+
+    {
+      "key": "STUDENT_EMAIL_10",
+      "value": "karim.wael@student.nile-academy.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN_10",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Karim"
+    },
+
+    {
+      "key": "PARENT_EMAIL_1",
+      "value": "mona.hassan@email.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "PARENT_TOKEN_1",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Mona (parent of Lina)"
+    },
+
+    {
+      "key": "PARENT_EMAIL_2",
+      "value": "tarek.mostafa@email.eg",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "PARENT_TOKEN_2",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Set after logging in as Tarek (parent of Ahmed Mostafa)"
+    },
+
+    {
+      "key": "COURSE_KEY_1",
+      "value": "math-12",
+      "type": "default",
+      "enabled": true,
+      "description": "Math — Grade 12 (Hossam)"
+    },
+    {
+      "key": "COURSE_KEY_2",
+      "value": "physics-12",
+      "type": "default",
+      "enabled": true,
+      "description": "Physics — Grade 12 (Hana)"
+    },
+    {
+      "key": "COURSE_KEY_3",
+      "value": "arabic-secondary",
+      "type": "default",
+      "enabled": true,
+      "description": "Arabic Literature — Secondary (Nourhan)"
+    },
+    {
+      "key": "COURSE_KEY_4",
+      "value": "cs-11",
+      "type": "default",
+      "enabled": true,
+      "description": "Computer Science — Grade 11 (Kareem)"
+    },
+    {
+      "key": "COURSE_KEY_5",
+      "value": "english-12",
+      "type": "default",
+      "enabled": true,
+      "description": "English Literature — Grade 12 (Rasha)"
+    },
+    {
+      "key": "COURSE_KEY_6",
+      "value": "biology-11",
+      "type": "default",
+      "enabled": true,
+      "description": "Biology — Grade 11 (Ahmed)"
+    }
+  ],
+
+  "timestamp": 1745600000000,
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-04-25T00:00:00.000Z",
+  "_postman_exported_using": "Crush"
+}

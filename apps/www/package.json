@@ -1,0 +1,58 @@
+{
+  "name": "edura",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3003",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "test:pw": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test",
+    "test:pw:headed": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --headed",
+    "test:pw:ui": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --ui",
+    "smoke:api": "bash scripts/api-smoke.sh",
+    "db:seed": "pnpm --filter @repo/database seed"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.1.1",
+    "@refinedev/antd": "^6.0.3",
+    "@refinedev/core": "^5.0.12",
+    "@refinedev/react-hook-form": "^5.0.4",
+    "@refinedev/react-table": "^6.0.1",
+    "@tanstack/react-table": "^8.21.3",
+    "antd": "^5.29.3",
+    "bcryptjs": "3.0.3",
+    "d3": "^7.9.0",
+    "dayjs": "^1.11.20",
+    "ky": "^2.0.2",
+    "lucide-react": "^1.8.0",
+    "next": "16.2.10",
+    "next-auth": "4.24.14",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-joyride": "^3.1.0",
+    "zod": "4.4.3",
+    "@repo/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/d3": "^7.4.3",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "autoprefixer": "^10.5.0",
+    "dotenv": "17.4.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.10",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.4",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

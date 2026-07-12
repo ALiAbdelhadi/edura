@@ -1,0 +1,1095 @@
+{
+  "base": "http://localhost:3002",
+  "startedAt": "2026-05-12T20:21:07.103Z",
+  "results": [
+    {
+      "role": "admin",
+      "email": "admin@nile-academy.eg",
+      "login": {
+        "ok": false,
+        "error": "Error: page.goto: Navigation to \"http://localhost:3002/dashboard\" is interrupted by another navigation to \"http://localhost:3002/login\"\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3002/dashboard\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "url": "http://localhost:3002/login"
+      },
+      "pages": [],
+      "uiSubmitWorks": false
+    },
+    {
+      "role": "teacher",
+      "email": "hossam.aziz@nile-academy.eg",
+      "login": {
+        "ok": true,
+        "url": "http://localhost:3002/dashboard/teacher",
+        "uiSubmitWorks": false
+      },
+      "pages": [
+        {
+          "route": "/dashboard/teacher",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 397,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher",
+              "url": "http://localhost:3002/dashboard/teacher/assignments?_rsc=1a4zw",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher",
+              "url": "http://localhost:3002/dashboard/teacher/materials?_rsc=1a4zw",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher",
+              "url": "http://localhost:3002/dashboard/teacher/notifications?_rsc=1a4zw",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/classes",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 671,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=1xjx5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=1xjx5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "http://localhost:3002/dashboard/teacher/attendance?_rsc=1xjx5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "http://localhost:3002/dashboard/teacher/materials?_rsc=1xjx5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/classes",
+              "url": "http://localhost:3002/dashboard/teacher/assignments?_rsc=1xjx5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/attendance",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 215,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher/grades?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher/materials?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/attendance",
+              "url": "http://localhost:3002/dashboard/teacher/notifications?_rsc=1ygvv",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/assignments",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 873,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "url": "http://localhost:3002/api/v1/roster/students",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"Role 'teacher' is not allowed (need one of: center_admin)\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=vqsao",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=vqsao",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/assignments",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=vqsao",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/grades",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 871,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "url": "http://localhost:3002/api/v1/roster/students",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"Role 'teacher' is not allowed (need one of: center_admin)\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=ib0dm",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=ib0dm",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/grades",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=ib0dm",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/materials",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 260,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/materials",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/materials",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/materials",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=16lpz",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/materials",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=16lpz",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/materials",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=16lpz",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/centers",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 264,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher/attendance?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher/assignments?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher/notifications?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/centers",
+              "url": "http://localhost:3002/dashboard/teacher/materials?_rsc=xvyo2",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/reviews",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 443,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/reviews",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/reviews",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/reviews",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=mjtci",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/reviews",
+              "url": "http://localhost:3002/dashboard/teacher/centers?_rsc=mjtci",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/reviews",
+              "url": "http://localhost:3002/dashboard/teacher/classes?_rsc=mjtci",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/teacher/notifications",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 424,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/notifications",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/teacher/notifications",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/notifications",
+              "url": "http://localhost:3002/dashboard/teacher?_rsc=7bj9m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/teacher/notifications",
+              "url": "http://localhost:3002/dashboard/teacher/assignments?_rsc=7bj9m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        }
+      ],
+      "uiSubmitWorks": false
+    },
+    {
+      "role": "student",
+      "email": "lina.hassan@student.nile-academy.eg",
+      "login": {
+        "ok": true,
+        "url": "http://localhost:3002/dashboard/student",
+        "uiSubmitWorks": false
+      },
+      "pages": [
+        {
+          "route": "/dashboard/student",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 558,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "url": "http://localhost:3002/dashboard/student/schedule?_rsc=14pg8",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "url": "http://localhost:3002/dashboard/student/assignments?_rsc=14pg8",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "url": "http://localhost:3002/dashboard/student/grades?_rsc=14pg8",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student",
+              "url": "http://localhost:3002/dashboard/student/reviews?_rsc=14pg8",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/schedule",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 1005,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/schedule",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/schedule",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/schedule",
+              "url": "http://localhost:3002/dashboard/student?_rsc=1sthy",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/attendance",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 304,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/attendance",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/attendance",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/assignments",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 825,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/assignments",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/assignments",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/assignments",
+              "url": "http://localhost:3002/dashboard/student?_rsc=btlav",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/grades",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 361,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/grades",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/grades",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/grades",
+              "url": "http://localhost:3002/dashboard/student?_rsc=1dofh",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/grades",
+              "url": "http://localhost:3002/dashboard/student/schedule?_rsc=1dofh",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/grades",
+              "url": "http://localhost:3002/dashboard/student/assignments?_rsc=1dofh",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/materials",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 240,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/materials",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/materials",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/materials",
+              "url": "http://localhost:3002/dashboard/student?_rsc=1ncdx",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/materials",
+              "url": "http://localhost:3002/dashboard/student/schedule?_rsc=1ncdx",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/family",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 378,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/family",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/family",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/family",
+              "url": "http://localhost:3002/dashboard/student?_rsc=o96n7",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/family",
+              "url": "http://localhost:3002/dashboard/student/grades?_rsc=o96n7",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/reviews",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 596,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student/schedule?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student/assignments?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student/grades?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student/attendance?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/reviews",
+              "url": "http://localhost:3002/dashboard/student/materials?_rsc=nop7m",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/student/notifications",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 385,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/student/notifications",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/student/notifications",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/notifications",
+              "url": "http://localhost:3002/dashboard/student?_rsc=1jfc3",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/notifications",
+              "url": "http://localhost:3002/dashboard/student/materials?_rsc=1jfc3",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/student/notifications",
+              "url": "http://localhost:3002/dashboard/student/family?_rsc=1jfc3",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        }
+      ],
+      "uiSubmitWorks": false
+    },
+    {
+      "role": "parent",
+      "email": "mona.hassan@email.eg",
+      "login": {
+        "ok": true,
+        "url": "http://localhost:3002/dashboard/parent",
+        "uiSubmitWorks": false
+      },
+      "pages": [
+        {
+          "route": "/dashboard/parent",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 461,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "url": "http://localhost:3002/api/v1/grades?page=1&pageSize=10",
+              "status": 422,
+              "body": "{\"error\":{\"code\":\"business_rule\",\"message\":\"studentId is required\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent",
+              "url": "http://localhost:3002/api/v1/me/attendance",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"studentId required for parent\"}}"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/children",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 319,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/children",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/children",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/attendance",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 161,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "http://localhost:3002/api/v1/me/attendance",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"studentId required for parent\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "http://localhost:3002/dashboard/parent?_rsc=ujd0l",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "http://localhost:3002/dashboard/parent/progress?_rsc=ujd0l",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "http://localhost:3002/dashboard/parent/fees?_rsc=ujd0l",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/attendance",
+              "url": "http://localhost:3002/dashboard/parent/meetings?_rsc=ujd0l",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/progress",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 379,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "http://localhost:3002/api/v1/grades?page=1&pageSize=10",
+              "status": 422,
+              "body": "{\"error\":{\"code\":\"business_rule\",\"message\":\"studentId is required\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "http://localhost:3002/api/v1/me/attendance",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"studentId required for parent\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "http://localhost:3002/dashboard/parent?_rsc=ofwm5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "http://localhost:3002/dashboard/parent/attendance?_rsc=ofwm5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/progress",
+              "url": "http://localhost:3002/dashboard/parent/children?_rsc=ofwm5",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/fees",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 985,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "http://localhost:3002/dashboard/parent?_rsc=i76di",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "http://localhost:3002/dashboard/parent/progress?_rsc=i76di",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "http://localhost:3002/dashboard/parent/notifications?_rsc=i76di",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "http://localhost:3002/dashboard/parent/meetings?_rsc=i76di",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/fees",
+              "url": "http://localhost:3002/dashboard/parent/children?_rsc=i76di",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/meetings",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 373,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "url": "http://localhost:3002/dashboard/parent?_rsc=1lhni",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "url": "http://localhost:3002/dashboard/parent/progress?_rsc=1lhni",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "url": "http://localhost:3002/api/v1/grades?page=1&pageSize=10",
+              "status": 422,
+              "body": "{\"error\":{\"code\":\"business_rule\",\"message\":\"studentId is required\"}}"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/meetings",
+              "url": "http://localhost:3002/api/v1/me/attendance",
+              "status": 403,
+              "body": "{\"error\":{\"code\":\"forbidden\",\"message\":\"studentId required for parent\"}}"
+            }
+          ]
+        },
+        {
+          "route": "/dashboard/parent/notifications",
+          "status": "ok",
+          "httpStatus": 200,
+          "bodyChars": 371,
+          "newConsole": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/notifications",
+              "text": "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+            }
+          ],
+          "newPageErrors": [],
+          "newNetworkFailures": [
+            {
+              "at": "http://localhost:3002/dashboard/parent/notifications",
+              "url": "https://telemetry.refine.dev/telemetry?payload=eyJwcm92aWRlcnMiOnsiYXV0aCI6dHJ1ZSwiYXVkaXRMb2ciOmZhbHNlLCJsaXZlIjpmYWxzZSwicm91dGVyIjp0cnVlLCJkYXRhIjp0cnVlLCJpMThuIjpmYWxzZSwibm90aWZpY2F0aW9uIjpmYWxzZSwiYWNjZXNzQ29udHJvbCI6ZmFsc2V9LCJ2ZXJzaW9uIjoiNS4wLjEyIiwicmVzb3VyY2VDb3VudCI6MTUsInByb2plY3RJZCI6ImVkdXJhIn0=",
+              "method": "GET",
+              "failure": "net::ERR_CERT_AUTHORITY_INVALID"
+            },
+            {
+              "at": "http://localhost:3002/dashboard/parent/notifications",
+              "url": "http://localhost:3002/dashboard/parent/progress?_rsc=8kz4v",
+              "method": "GET",
+              "failure": "net::ERR_ABORTED"
+            }
+          ]
+        }
+      ],
+      "uiSubmitWorks": false
+    }
+  ],
+  "finishedAt": "2026-05-12T20:22:03.297Z"
+}

@@ -1,0 +1,28 @@
+import { z } from "zod";
+import { withErrors } from "@/lib/errors/http";
+import { requireRole } from "@/lib/authz/requireRole";
+import { ok } from "@/lib/http/envelope";
+import { parseJson } from "@/lib/validation/zod";
+import { updatePointsRule, deletePointsRule } from "@/lib/services/points/pointsAdmin";
+
+export const dynamic = "force-dynamic";
+
+type Ctx = { params: Promise<{ id: string }> };
+
+const patchSchema = z.object({
+  pointsValue: z.number().int().min(-100000).max(100000).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const PATCH = withErrors(async (req, ctx) => {
+  await requireRole("super_admin");
+  const { id } = await ctx.params;
+  const body = await parseJson(req, patchSchema);
+  return ok(await updatePointsRule(id, body));
+});
+
+export const DELETE = withErrors(async (_req, ctx) => {
+  await requireRole("super_admin");
+  const { id } = await ctx.params;
+  return ok(await deletePointsRule(id));
+});

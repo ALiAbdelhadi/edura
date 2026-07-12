@@ -1,0 +1,8 @@
+# Local env with real Neon credentials — never commit
+.env
+.env.local
+
+# Prisma generated client
+src/generated/
+node_modules/
+dist/

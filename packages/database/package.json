@@ -1,0 +1,51 @@
+{
+  "name": "@repo/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura data layer — Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "studio": "prisma studio",
+    "validate": "prisma validate",
+    "format": "prisma format",
+    "seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "@prisma/adapter-neon": "^6.3.1",
+    "@prisma/client": "^6.3.1",
+    "ws": "^8.18.0",
+    "bcryptjs": "3.0.3"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.1.1",
+    "@types/ws": "^8.5.13",
+    "dotenv": "17.4.2",
+    "prisma": "^6.3.1",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  }
+}

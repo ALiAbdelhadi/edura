@@ -1,0 +1,22 @@
+node_modules
+.next
+out
+dist
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+.pnpm-store
+coverage
+.tsbuildinfo
+next-env.d.ts.bak
+*.tsbuildinfo
+tests/e2e/reports/
+tests/ui-probe/*.png
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+# Local Netlify folder
+.netlify
