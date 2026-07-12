@@ -52,7 +52,10 @@ export const DELETE = withErrors(async (_req, ctx) => {
       throw new BusinessRuleError("Cannot delete room referenced by future sessions");
     }
 
-    await tx.room.delete({ where: { id } });
+    // Soft delete: deactivate rather than hard-delete. A hard delete would SET
+    // NULL room_id on every historical session (destroying usage history) and on
+    // courses.default_room_id. Reads filter on isActive.
+    await tx.room.update({ where: { id }, data: { isActive: false } });
     return { deleted: true };
   });
   return ok(result);

@@ -78,17 +78,21 @@ export function adjustStudentPoints(
     }
     const profile = await tx.studentProfile.findUnique({
       where: { userId: studentUserId },
-      select: { pointsBalance: true },
+      select: { id: true },
     });
     if (!profile) throw new NotFoundError("Student not found");
 
-    const balanceAfter = profile.pointsBalance + input.delta;
+    // Atomic increment (no lost update); the row lock serializes concurrent
+    // adjustments. Read the post-increment balance back; if it went negative,
+    // throw to roll the whole transaction back (undoing the increment).
+    const updated = await tx.studentProfile.update({
+      where: { userId: studentUserId },
+      data: { pointsBalance: { increment: input.delta } },
+      select: { pointsBalance: true },
+    });
+    const balanceAfter = updated.pointsBalance;
     if (balanceAfter < 0) throw new BusinessRuleError("Adjustment would make the balance negative");
 
-    await tx.studentProfile.update({
-      where: { userId: studentUserId },
-      data: { pointsBalance: balanceAfter },
-    });
     const entry = await tx.pointsLedger.create({
       data: {
         studentId: studentUserId,

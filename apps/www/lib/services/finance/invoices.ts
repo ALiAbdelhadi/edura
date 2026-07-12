@@ -1,6 +1,7 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { sendMail } from "@/lib/mail/send";
+import { nextInvoiceRef } from "@/lib/services/finance/refNumbers";
 
 /**
  * Invoices / statements (PRD §4.3, §5.5). Amounts are derived from the
@@ -11,12 +12,6 @@ import { sendMail } from "@/lib/mail/send";
 const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3002";
 
 type InvoiceType = "payment_receipt" | "student_invoice" | "teacher_statement" | "center_statement";
-
-async function nextInvoiceNumber(tx: TenantTx): Promise<string> {
-  const year = new Date().getFullYear();
-  const seq = (await tx.invoice.count()) + 1;
-  return `INV-${year}-${String(seq).padStart(5, "0")}`;
-}
 
 async function teacherStatementAmounts(tx: TenantTx, teacherUserId: string) {
   const sessions = await tx.session.findMany({ where: { teacherId: teacherUserId }, select: { id: true } });
@@ -91,7 +86,7 @@ export function generateInvoice(input: {
       throw new BusinessRuleError(`Unsupported invoice type: ${input.type}`);
     }
 
-    const invoiceNumber = await nextInvoiceNumber(tx);
+    const invoiceNumber = await nextInvoiceRef(tx);
     return tx.invoice.create({
       data: {
         invoiceNumber,

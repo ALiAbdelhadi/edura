@@ -9,6 +9,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:db": "tsx --env-file=.env.local tests/db/run-db-tests.ts",
     "test:pw": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test",
     "test:pw:headed": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --headed",
     "test:pw:ui": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --ui",
@@ -21,6 +25,7 @@
     "@refinedev/core": "^5.0.12",
     "@refinedev/react-hook-form": "^5.0.4",
     "@refinedev/react-table": "^6.0.1",
+    "@repo/database": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
     "antd": "^5.29.3",
     "bcryptjs": "3.0.3",
@@ -33,16 +38,17 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-joyride": "^3.1.0",
-    "zod": "4.4.3",
-    "@repo/database": "workspace:*"
+    "zod": "4.4.3"
   },
   "devDependencies": {
+    "@neondatabase/serverless": "^0.10.4",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/d3": "^7.4.3",
     "@types/node": "26.1.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@types/ws": "^8.5.13",
     "autoprefixer": "^10.5.0",
     "dotenv": "17.4.2",
     "eslint": "9.39.5",
@@ -50,7 +56,9 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.4",
     "tsx": "4.23.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^2.1.9",
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=20.0.0"

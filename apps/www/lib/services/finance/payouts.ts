@@ -1,6 +1,7 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
+import { nextTxnRef } from "@/lib/services/finance/refNumbers";
 import type { SessionUser } from "@/lib/auth/session";
 
 /**
@@ -104,11 +105,23 @@ export function listPayouts(filters: { status?: string; beneficiaryType?: string
 
 /** Approve a payout: settle it (status paid, wallet debited, ledger entry). */
 async function settlePayout(tx: TenantTx, payoutId: string, approverId: string) {
+  // Atomically CLAIM the payout before touching any money. The guarded
+  // updateMany locks the row; a concurrent approve blocks, then sees the row is
+  // no longer 'pending' and claims 0 rows — so a payout is debited exactly once.
+  // (Replaces the read-then-check-then-update, which two callers could both pass,
+  // double-debiting the wallet.)
+  const claimed = await tx.payout.updateMany({
+    where: { id: payoutId, status: "pending" },
+    data: { status: "approved" },
+  });
+  if (claimed.count === 0) {
+    const exists = await tx.payout.findUnique({ where: { id: payoutId }, select: { status: true } });
+    if (!exists) throw new NotFoundError("Payout not found");
+    throw new BusinessRuleError(`Payout is already ${exists.status}`);
+  }
+
   const payout = await tx.payout.findUnique({ where: { id: payoutId } });
   if (!payout) throw new NotFoundError("Payout not found");
-  if (payout.status !== "pending") {
-    throw new BusinessRuleError(`Payout is already ${payout.status}`);
-  }
   const net = payout.netPayable ?? 0;
 
   // Debit the beneficiary wallet.
@@ -124,12 +137,10 @@ async function settlePayout(tx: TenantTx, payoutId: string, approverId: string) 
     });
   }
 
-  // Record the settlement in the append-only ledger.
-  const year = new Date().getFullYear();
-  const seq = (await tx.transaction.count()) + 1;
+  // Record the settlement in the append-only ledger (race-free ref number).
   await tx.transaction.create({
     data: {
-      refNumber: `TXN-${year}-${String(seq).padStart(5, "0")}`,
+      refNumber: await nextTxnRef(tx),
       type: "payout",
       amount: net,
       toEntityId: payout.beneficiaryId,
@@ -183,14 +194,21 @@ export async function bulkApprovePayouts(ids: string[], user: SessionUser) {
 export function rejectPayout(payoutId: string, reason: string, user: SessionUser) {
   return platformDb(
     async (tx) => {
-      const payout = await tx.payout.findUnique({ where: { id: payoutId } });
-      if (!payout) throw new NotFoundError("Payout not found");
-      if (payout.status !== "pending") {
-        throw new BusinessRuleError(`Payout is already ${payout.status}`);
+      // Atomically claim pending->rejected so a reject can never race and
+      // clobber a concurrent approve (which would flip a paid payout to rejected).
+      const claimed = await tx.payout.updateMany({
+        where: { id: payoutId, status: "pending" },
+        data: { status: "rejected" },
+      });
+      if (claimed.count === 0) {
+        const exists = await tx.payout.findUnique({ where: { id: payoutId }, select: { status: true } });
+        if (!exists) throw new NotFoundError("Payout not found");
+        throw new BusinessRuleError(`Payout is already ${exists.status}`);
       }
+      // Audited finalize — records the (validated) reason that used to be dropped.
       return tx.payout.update({
         where: { id: payoutId },
-        data: { status: "rejected", receiptUrl: null, approvedBy: user.id },
+        data: { rejectionReason: reason, receiptUrl: null, approvedBy: user.id },
       });
     },
     { actorId: user.id },

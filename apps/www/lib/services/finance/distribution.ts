@@ -1,6 +1,7 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { ForbiddenError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { awardPoints } from "@/lib/services/points/points";
+import { nextTxnRef } from "@/lib/services/finance/refNumbers";
 import type { SessionUser } from "@/lib/auth/session";
 
 /**
@@ -21,6 +22,22 @@ import type { SessionUser } from "@/lib/auth/session";
  */
 export const PLATFORM_TEACHER_FEE = 200; // 2 EGP
 export const PLATFORM_CENTER_FEE = 200; // 2 EGP
+
+/**
+ * Pure fee split for ONE booked lesson (PRD §5.1, §0 monetization). All values
+ * integer piasters. Extracted for unit testing on real example numbers.
+ *
+ *   teacher_net  = lesson_price − 2 EGP (platform) − center_share
+ *   center_net   = center_share − 2 EGP (platform)
+ *   platform_net = 2 EGP + 2 EGP = 4 EGP
+ */
+export function computeLessonSplit(lessonPrice: number, centerShare: number) {
+  return {
+    teacherNet: lessonPrice - PLATFORM_TEACHER_FEE - centerShare,
+    centerNet: centerShare - PLATFORM_CENTER_FEE,
+    platformNet: PLATFORM_TEACHER_FEE + PLATFORM_CENTER_FEE,
+  };
+}
 
 type Distribution = {
   distributed: boolean;
@@ -50,12 +67,24 @@ export async function distributeSessionRevenue(
   const centerId = course.centerId;
   const teacherId = course.teacherId;
 
-  // Idempotency guard — never distribute the same session twice.
-  const already = await tx.transaction.findFirst({
-    where: { lessonId: sessionId, type: "commission" },
-    select: { id: true },
+  const present = await tx.attendanceRecord.findMany({
+    where: { sessionId, status: "present" },
+    select: { studentId: true },
   });
-  if (already) return { distributed: false, reason: "already_distributed" };
+  // No revenue without attendance — return WITHOUT claiming, so a retry after
+  // attendance is marked can still distribute.
+  if (present.length === 0) return { distributed: false, reason: "no_present_students" };
+
+  // Idempotency guard — atomically CLAIM the session for distribution. The
+  // guarded updateMany takes a row lock; a concurrent completeSession blocks
+  // here, then sees distributed_at already set and matches 0 rows. Exactly one
+  // caller ever distributes a given session. (Replaces the previous app-layer
+  // findFirst check, which two concurrent transactions could both pass.)
+  const claim = await tx.session.updateMany({
+    where: { id: sessionId, distributedAt: null },
+    data: { distributedAt: new Date() },
+  });
+  if (claim.count === 0) return { distributed: false, reason: "already_distributed" };
 
   const plannedSessions = await tx.session.count({ where: { courseId: course.id } });
   const perSessionPrice =
@@ -67,26 +96,21 @@ export async function distributeSessionRevenue(
   });
   const centerShare = affiliation?.centerShare ?? 0;
 
-  const present = await tx.attendanceRecord.findMany({
-    where: { sessionId, status: "present" },
-    select: { studentId: true },
-  });
-  if (present.length === 0) return { distributed: false, reason: "no_present_students" };
+  // Race-free ledger reference numbers (Postgres sequence, not count()).
+  const mkRef = () => nextTxnRef(tx);
 
-  // Ref-number sequence (TXN-YYYY-NNNNN). Counted once, incremented locally —
-  // safe because this whole function runs in a single transaction.
-  const year = new Date().getFullYear();
-  let seq = await tx.transaction.count();
-  const mkRef = () => `TXN-${year}-${String(++seq).padStart(5, "0")}`;
-
-  const teacherNet = perSessionPrice - PLATFORM_TEACHER_FEE - centerShare;
-  const centerNet = centerShare - PLATFORM_CENTER_FEE;
+  const { teacherNet, centerNet } = computeLessonSplit(perSessionPrice, centerShare);
 
   const rows: Parameters<TenantTx["transaction"]["createMany"]>[0]["data"] = [];
   for (const { studentId } of present) {
+    const [paymentRef, teacherFeeRef, centerFeeRef] = [
+      await mkRef(),
+      await mkRef(),
+      await mkRef(),
+    ];
     rows.push(
       {
-        refNumber: mkRef(),
+        refNumber: paymentRef,
         type: "payment",
         amount: perSessionPrice,
         fromEntityId: studentId,
@@ -97,7 +121,7 @@ export async function distributeSessionRevenue(
         notes: "Lesson revenue",
       },
       {
-        refNumber: mkRef(),
+        refNumber: teacherFeeRef,
         type: "commission",
         amount: PLATFORM_TEACHER_FEE,
         fromEntityId: teacherId,
@@ -108,7 +132,7 @@ export async function distributeSessionRevenue(
         notes: "Platform fee (teacher side)",
       },
       {
-        refNumber: mkRef(),
+        refNumber: centerFeeRef,
         type: "commission",
         amount: PLATFORM_CENTER_FEE,
         fromEntityId: centerId,

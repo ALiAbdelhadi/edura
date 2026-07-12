@@ -12,7 +12,7 @@ export const GET = withErrors(async () => {
   // RLS scopes to the caller's center; the explicit centerId filter is kept as
   // app-layer defense-in-depth.
   const rooms = await scopedDb(user, (tx) =>
-    tx.room.findMany({ where: { centerId: user.centerId } }),
+    tx.room.findMany({ where: { centerId: user.centerId, isActive: true } }),
   );
   return ok(rooms);
 });

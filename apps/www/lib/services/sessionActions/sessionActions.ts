@@ -37,6 +37,13 @@ export async function cancelSession(sessionId: string, teacherId: string, reason
         throw new ForbiddenError("Only the assigned teacher can cancel this session");
       }
       if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
+      // A completed session has already distributed revenue (wallets credited,
+      // immutable ledger written). Cancelling it would strand that money and
+      // reference a "cancelled" lesson from committed transactions. Block it —
+      // symmetric with completeSession refusing to complete a cancelled session.
+      if (existing.status === "completed" || existing.distributedAt) {
+        throw new BusinessRuleError("A completed session cannot be cancelled; its revenue is already distributed");
+      }
 
       const session = await tx.session.update({
         where: { id: sessionId },

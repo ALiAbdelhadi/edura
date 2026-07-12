@@ -33,17 +33,22 @@ export async function awardPoints(
 
   const profile = await tx.studentProfile.findUnique({
     where: { userId: studentUserId },
-    select: { id: true, pointsBalance: true },
+    select: { id: true },
   });
   if (!profile) return null;
 
   const delta = opts?.ruleOverride ?? rule.pointsValue;
-  const balanceAfter = profile.pointsBalance + delta;
 
-  await tx.studentProfile.update({
+  // Atomic increment (SET x = x + delta) — no lost updates under concurrency.
+  // The UPDATE locks the row, so concurrent awards serialize and each ledger
+  // row's balance_after reflects the true post-increment balance.
+  const updated = await tx.studentProfile.update({
     where: { userId: studentUserId },
-    data: { pointsBalance: balanceAfter },
+    data: { pointsBalance: { increment: delta } },
+    select: { pointsBalance: true },
   });
+  const balanceAfter = updated.pointsBalance;
+
   await tx.pointsLedger.create({
     data: {
       studentId: studentUserId,
