@@ -1,0 +1,13 @@
+meta {
+  name: DELETE :teacherId
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/roster/teachers/:teacherId
+  auth: none
+}
+
+headers {
+}

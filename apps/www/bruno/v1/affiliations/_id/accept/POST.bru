@@ -1,0 +1,19 @@
+meta {
+  name: POST accept
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/affiliations/:id/accept
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}

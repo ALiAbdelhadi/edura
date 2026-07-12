@@ -1,0 +1,21 @@
+meta {
+  name: POST decline
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/enrollment-requests/:id/decline
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": ""
+  }
+}

@@ -1,0 +1,23 @@
+meta {
+  name: POST invite
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/roster/teachers/invite
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "",
+    "name": "",
+    "createShell": ""
+  }
+}

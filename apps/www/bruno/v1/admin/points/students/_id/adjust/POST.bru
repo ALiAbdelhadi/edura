@@ -1,0 +1,23 @@
+meta {
+  name: POST adjust
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/points/students/:id/adjust
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "delta": 0,
+    "reason": "",
+    "internalNote": ""
+  }
+}

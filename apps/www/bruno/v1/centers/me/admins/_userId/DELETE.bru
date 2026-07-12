@@ -1,0 +1,13 @@
+meta {
+  name: DELETE :userId
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/centers/me/admins/:userId
+  auth: none
+}
+
+headers {
+}

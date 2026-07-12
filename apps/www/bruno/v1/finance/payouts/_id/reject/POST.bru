@@ -1,0 +1,21 @@
+meta {
+  name: POST reject
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/payouts/:id/reject
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": ""
+  }
+}

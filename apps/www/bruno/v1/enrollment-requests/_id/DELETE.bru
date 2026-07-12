@@ -1,0 +1,13 @@
+meta {
+  name: DELETE :id
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/enrollment-requests/:id
+  auth: none
+}
+
+headers {
+}

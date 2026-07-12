@@ -1,0 +1,13 @@
+meta {
+  name: GET pdf
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/finance/invoices/:id/pdf
+  auth: none
+}
+
+headers {
+}

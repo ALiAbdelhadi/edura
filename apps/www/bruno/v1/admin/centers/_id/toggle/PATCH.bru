@@ -1,0 +1,19 @@
+meta {
+  name: PATCH toggle
+  type: http
+  seq: 1
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/admin/centers/:id/toggle
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}

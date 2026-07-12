@@ -1,0 +1,21 @@
+meta {
+  name: POST reassign-teacher
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/courses/:id/reassign-teacher
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "teacherId": "{{teacherId}}"
+  }
+}

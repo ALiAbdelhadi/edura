@@ -1,0 +1,26 @@
+meta {
+  name: POST student
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register/student
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "",
+    "password": "",
+    "name": "",
+    "phone": "",
+    "locale": "",
+    "inviteCode": ""
+  }
+}

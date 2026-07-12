@@ -18,6 +18,7 @@
     "test:pw:headed": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --headed",
     "test:pw:ui": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test --ui",
     "smoke:api": "bash scripts/api-smoke.sh",
+    "gen:bruno": "node scripts/gen-bruno.mjs",
     "db:seed": "pnpm --filter @repo/database seed"
   },
   "dependencies": {

@@ -1,0 +1,21 @@
+meta {
+  name: POST classroom-requests
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/teacher/classroom-requests
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "classroom_id": "{{classroom_id}}"
+  }
+}

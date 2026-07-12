@@ -1,0 +1,24 @@
+meta {
+  name: POST broadcast
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/notifications/broadcast
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "scope": "",
+    "courseId": "{{courseId}}",
+    "title": "",
+    "body": ""
+  }
+}

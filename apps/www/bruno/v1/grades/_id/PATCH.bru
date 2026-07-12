@@ -1,0 +1,23 @@
+meta {
+  name: PATCH :id
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/grades/:id
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "",
+    "maxScore": 0,
+    "date": ""
+  }
+}

@@ -20,3 +20,6 @@ tests/ui-probe/*.png
 /blob-report/
 # Local Netlify folder
 .netlify
+
+# Bruno local env (may hold a captured session token; regenerate with pnpm gen:bruno)
+bruno/environments/Local.bru

@@ -1,0 +1,21 @@
+meta {
+  name: POST cancel
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sessions/:id/cancel
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": ""
+  }
+}

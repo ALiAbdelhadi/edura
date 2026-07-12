@@ -1,0 +1,13 @@
+meta {
+  name: DELETE :token
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/me/device-tokens/:token
+  auth: none
+}
+
+headers {
+}

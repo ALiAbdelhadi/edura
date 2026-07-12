@@ -1,0 +1,23 @@
+meta {
+  name: PATCH me
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/me
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "",
+    "phone": "",
+    "locale": ""
+  }
+}

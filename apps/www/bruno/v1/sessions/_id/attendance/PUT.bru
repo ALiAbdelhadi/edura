@@ -1,0 +1,22 @@
+meta {
+  name: PUT attendance
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/v1/sessions/:id/attendance
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "studentId": "{{studentId}}",
+    "status": ""
+  }
+}

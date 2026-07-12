@@ -1,0 +1,23 @@
+meta {
+  name: POST messages
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/messages
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "threadId": "{{threadId}}",
+    "recipientId": "{{recipientId}}",
+    "body": ""
+  }
+}

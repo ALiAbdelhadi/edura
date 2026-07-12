@@ -1,0 +1,31 @@
+meta {
+  name: PATCH me
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/centers/me
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "",
+    "description": "",
+    "subjects": "",
+    "address": "",
+    "phone": "",
+    "whatsapp": "",
+    "email": "",
+    "logoUrl": "",
+    "location": "",
+    "type": "",
+    "coordinates": ""
+  }
+}

@@ -1,0 +1,13 @@
+meta {
+  name: DELETE :studentId
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/roster/students/:studentId
+  auth: none
+}
+
+headers {
+}
