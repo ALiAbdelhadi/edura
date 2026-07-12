@@ -27,7 +27,17 @@
     "progress": "Progress",
     "affiliations": "Affiliations",
     "centers": "Centers",
-    "browse": "Browse"
+    "browse": "Browse",
+    "registrations": "Registrations",
+    "transactions": "Transactions",
+    "payouts": "Payouts",
+    "invoices": "Invoices",
+    "statements": "Statements",
+    "alerts": "Alerts",
+    "points": "Points",
+    "blacklist": "Blacklist",
+    "accountants": "Accountants",
+    "overview": "Overview"
   },
   "roles": {
     "student": "Student",
@@ -37,7 +47,9 @@
     "center_admin": "Admin",
     "accountant": "Accountant",
     "super_admin": "Super Admin",
-    "user": "User"
+    "user": "User",
+    "superadmin": "Super Admin",
+    "finance": "Accountant"
   },
   "status": {
     "active": "Active",
@@ -91,5 +103,11 @@
     "revenue": "Revenue",
     "expenses": "Expenses",
     "welcome": "Welcome"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Auto"
   }
 }

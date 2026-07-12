@@ -33,12 +33,21 @@ import {
   FileSearchOutlined,
   StarOutlined,
   SearchOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import type { MeResponse } from "@/lib/refine";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 // Maps the English nav/screen label a layout passes in → an i18n key.
 const NAV_KEY: Record<string, string> = {
+  Overview: "nav.overview",
+  Registrations: "nav.registrations",
+  Transactions: "nav.transactions",
+  Payouts: "nav.payouts",
+  Statements: "nav.statements",
+  Alerts: "nav.alerts",
   Dashboard: "nav.dashboard",
   Students: "nav.students",
   Teachers: "nav.teachers",
@@ -103,6 +112,8 @@ const roleLabels: Record<string, { name: string; color: string }> = {
   teacher: { name: "Teacher", color: "#187574" },
   parent: { name: "Parent", color: "#6b0050" },
   admin: { name: "Admin", color: "#7a3b00" },
+  superadmin: { name: "Super Admin", color: "#0284c7" },
+  finance: { name: "Accountant", color: "#047857" },
 };
 
 function getInitials(name: string) {
@@ -141,9 +152,14 @@ export default function DashboardShell({
   const roleInfo = roleLabels[role] || { name: "User", color: "#0fa5e9" };
   const displayName = identity?.name || roleInfo.name;
 
+  // Strip the /<locale> prefix so nav hrefs (which omit it) match the pathname.
+  const path = (pathname ?? "").replace(/^\/(ar|en)(?=\/|$)/, "") || "/";
   const selectedKey =
-    navItems.find((item) => pathname === item.href)?.href ||
-    navItems.find((item) => pathname?.startsWith(item.href + "/"))?.href ||
+    navItems.find((item) => path === item.href)?.href ||
+    // Longest matching prefix wins so deep routes select the right parent.
+    [...navItems]
+      .filter((item) => path === item.href || path.startsWith(item.href + "/"))
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href ||
     navItems[0]?.href;
 
   const screenLabel =
@@ -264,13 +280,26 @@ export default function DashboardShell({
             justifyContent: "space-between",
           }}
         >
-          <Text strong style={{ fontSize: 18 }}>
-            {tNav(screenLabel)}
-          </Text>
-          <Space>
+          <Space align="center">
+            <Button
+              type="text"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!collapsed}
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed((c) => !c)}
+            />
+            <Text strong style={{ fontSize: 18 }}>
+              {tNav(screenLabel)}
+            </Text>
+          </Space>
+          <Space align="center" size="middle">
+            <ThemeToggle />
             <Badge count={unreadCount} size="small">
-              <Link href={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}>
-                <Button type="text" icon={<BellOutlined />} />
+              <Link
+                href={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}
+                aria-label={`${t("nav.notifications") === "nav.notifications" ? "Notifications" : t("nav.notifications")}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
+              >
+                <Button type="text" aria-label="Notifications" icon={<BellOutlined />} />
               </Link>
             </Badge>
             <Avatar

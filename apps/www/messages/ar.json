@@ -27,7 +27,17 @@
     "progress": "التقدم",
     "affiliations": "الانتسابات",
     "centers": "المراكز",
-    "browse": "استعراض"
+    "browse": "استعراض",
+    "registrations": "التسجيلات",
+    "transactions": "المعاملات",
+    "payouts": "المدفوعات",
+    "invoices": "الفواتير",
+    "statements": "الكشوف",
+    "alerts": "التنبيهات",
+    "points": "النقاط",
+    "blacklist": "القائمة السوداء",
+    "accountants": "المحاسبون",
+    "overview": "نظرة عامة"
   },
   "roles": {
     "student": "طالب",
@@ -37,7 +47,9 @@
     "center_admin": "مسؤول",
     "accountant": "محاسب",
     "super_admin": "المسؤول العام",
-    "user": "مستخدم"
+    "user": "مستخدم",
+    "superadmin": "المسؤول العام",
+    "finance": "محاسب"
   },
   "status": {
     "active": "نشط",
@@ -91,5 +103,11 @@
     "revenue": "الإيرادات",
     "expenses": "المصروفات",
     "welcome": "مرحبًا"
+  },
+  "theme": {
+    "label": "السمة",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "تلقائي"
   }
 }

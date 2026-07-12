@@ -6,6 +6,7 @@ import { Refine } from "@refinedev/core";
 import { dataProvider, authProvider } from "@/lib/refine";
 import { useAppRouterProvider } from "@/lib/refine/routerProvider";
 import { I18nProvider } from "@/components/providers/I18nProvider";
+import { ThemeModeProvider } from "@/components/providers/ThemeModeProvider";
 import "@refinedev/antd/dist/reset.css";
 
 const resources = [
@@ -50,11 +51,13 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={false}>
-      <I18nProvider>
-        <Suspense fallback={null}>
-          <RefineProvider>{children}</RefineProvider>
-        </Suspense>
-      </I18nProvider>
+      <ThemeModeProvider>
+        <I18nProvider>
+          <Suspense fallback={null}>
+            <RefineProvider>{children}</RefineProvider>
+          </Suspense>
+        </I18nProvider>
+      </ThemeModeProvider>
     </SessionProvider>
   );
 }

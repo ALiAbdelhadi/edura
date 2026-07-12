@@ -1,4 +1,5 @@
 import type { ThemeConfig } from "antd";
+import { theme as antdTheme } from "antd";
 
 /**
  * Edura design tokens — the single source of truth for the product's look.
@@ -62,8 +63,32 @@ const shadow = {
     "0 8px 8px -4px rgba(16,24,40,0.03), 0 20px 24px -4px rgba(16,24,40,0.10)",
 } as const;
 
+// Arabic-first stack (PRD: Arabic RTL primary). IBM Plex Sans Arabic leads —
+// a neutral, high-legibility grotesque that harmonizes with the Latin display
+// face; Noto Sans Arabic is the wide-coverage fallback. Loaded in the layout.
 const fontStack =
-  "var(--font-noto-sans), 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
+  "var(--font-plex-arabic), var(--font-noto-sans), 'Noto Sans Arabic', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
+
+// ── Dark-mode neutrals (Geist-style: near-black canvas, hairline borders) ─────
+const darkNeutral = {
+  text: "#f4f4f5",
+  textSecondary: "#a1a1aa",
+  textTertiary: "#7c7c86",
+  textQuaternary: "#52525b",
+  border: "#2a2a31",
+  borderSecondary: "#232329",
+  bgLayout: "#0b0b0d", // app canvas
+  bgContainer: "#151518", // cards / surfaces
+  bgElevated: "#1c1c21", // popovers / modals
+  fill: "#212127",
+  fillSecondary: "#1a1a1f",
+} as const;
+
+const darkShadow = {
+  card: "0 1px 2px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.40)",
+  raised: "0 4px 6px -2px rgba(0,0,0,0.35), 0 12px 16px -4px rgba(0,0,0,0.50)",
+  overlay: "0 8px 8px -4px rgba(0,0,0,0.35), 0 20px 24px -4px rgba(0,0,0,0.55)",
+} as const;
 
 export const eduraTheme: ThemeConfig = {
   token: {
@@ -234,6 +259,82 @@ export const eduraTheme: ThemeConfig = {
       borderRadiusLG: 12,
       contentBg: neutral.bgElevated,
     },
+  },
+};
+
+/**
+ * Dark variant (PRD §0 non-negotiable #5). Built from the light theme: same
+ * brand accent, radii, motion, and component structure, but with dark neutrals
+ * and Ant Design's darkAlgorithm. Selected by ThemeModeProvider from the user's
+ * preference / device `prefers-color-scheme`.
+ */
+export const eduraDarkTheme: ThemeConfig = {
+  ...eduraTheme,
+  algorithm: antdTheme.darkAlgorithm,
+  token: {
+    ...eduraTheme.token,
+    colorPrimaryBg: "#0c2733",
+    colorPrimaryBgHover: "#123644",
+    colorText: darkNeutral.text,
+    colorTextSecondary: darkNeutral.textSecondary,
+    colorTextTertiary: darkNeutral.textTertiary,
+    colorTextQuaternary: darkNeutral.textQuaternary,
+    colorBgLayout: darkNeutral.bgLayout,
+    colorBgContainer: darkNeutral.bgContainer,
+    colorBgElevated: darkNeutral.bgElevated,
+    colorBorder: darkNeutral.border,
+    colorBorderSecondary: darkNeutral.borderSecondary,
+    colorFillSecondary: darkNeutral.fill,
+    colorFillTertiary: darkNeutral.fillSecondary,
+    boxShadow: darkShadow.card,
+    boxShadowSecondary: darkShadow.raised,
+    boxShadowTertiary: darkShadow.card,
+  },
+  components: {
+    ...eduraTheme.components,
+    Layout: {
+      headerBg: darkNeutral.bgContainer,
+      headerHeight: 64,
+      headerPadding: "0 24px",
+      siderBg: darkNeutral.bgContainer,
+      bodyBg: darkNeutral.bgLayout,
+      footerBg: darkNeutral.bgLayout,
+    },
+    Menu: {
+      ...eduraTheme.components?.Menu,
+      itemBg: "transparent",
+      subMenuItemBg: "transparent",
+      itemSelectedBg: "#0c2733",
+      itemSelectedColor: brand.primaryHover,
+      itemActiveBg: darkNeutral.fill,
+      itemHoverBg: darkNeutral.fill,
+    },
+    Card: {
+      ...eduraTheme.components?.Card,
+      colorBorderSecondary: darkNeutral.border,
+      boxShadowTertiary: darkShadow.card,
+    },
+    Table: {
+      ...eduraTheme.components?.Table,
+      headerBg: darkNeutral.fillSecondary,
+      headerColor: darkNeutral.textSecondary,
+      borderColor: darkNeutral.borderSecondary,
+      rowHoverBg: darkNeutral.fill,
+    },
+    Tag: {
+      ...eduraTheme.components?.Tag,
+      defaultBg: darkNeutral.fill,
+      defaultColor: darkNeutral.textSecondary,
+    },
+    Segmented: {
+      ...eduraTheme.components?.Segmented,
+      itemSelectedBg: darkNeutral.bgElevated,
+      trackBg: darkNeutral.fill,
+    },
+    Modal: { ...eduraTheme.components?.Modal, boxShadow: darkShadow.overlay },
+    Drawer: { boxShadow: darkShadow.overlay },
+    Notification: { ...eduraTheme.components?.Notification, boxShadow: darkShadow.overlay },
+    Message: { ...eduraTheme.components?.Message, contentBg: darkNeutral.bgElevated },
   },
 };
 

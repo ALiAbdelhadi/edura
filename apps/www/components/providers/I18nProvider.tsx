@@ -2,10 +2,11 @@
 
 import React, { createContext, useContext, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { ConfigProvider } from "antd";
+import { ConfigProvider, App as AntApp } from "antd";
 import arEG from "antd/locale/ar_EG";
 import enUS from "antd/locale/en_US";
-import { eduraTheme } from "@/lib/theme/eduraTheme";
+import { eduraTheme, eduraDarkTheme } from "@/lib/theme/eduraTheme";
+import { useThemeMode } from "@/components/providers/ThemeModeProvider";
 import {
   DEFAULT_LOCALE,
   getMessages,
@@ -40,6 +41,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const raw = Array.isArray(params?.locale) ? params.locale[0] : params?.locale;
   const locale: Locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   const dir = locale === "ar" ? "rtl" : "ltr";
+  const { resolved } = useThemeMode();
 
   const value = useMemo<I18nContextValue>(() => {
     const messages = getMessages(locale);
@@ -57,8 +59,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <I18nContext.Provider value={value}>
-      <ConfigProvider theme={eduraTheme} direction={dir} locale={locale === "ar" ? arEG : enUS}>
-        {children}
+      <ConfigProvider
+        theme={resolved === "dark" ? eduraDarkTheme : eduraTheme}
+        direction={dir}
+        locale={locale === "ar" ? arEG : enUS}
+      >
+        <AntApp>{children}</AntApp>
       </ConfigProvider>
     </I18nContext.Provider>
   );
