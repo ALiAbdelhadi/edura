@@ -65,7 +65,28 @@ At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fix
 
 ## 2. Compliance matrix
 
-Grouped by dimension; most critical first. Evidence is truncated to fit — full detail is in the audit run.
+> **⚠️ This matrix is the Phase 1 *discovery snapshot* — the state of the code BEFORE the fixes landed.** Many rows still marked ❌ missing / ⚠️ partial were built afterward; the row text was not re-flipped. For current truth, read **§5 Verification status** and the **"Fixed since the snapshot"** table just below. When a row conflicts with §5 or the git log, §5 wins.
+
+### Fixed since the Phase 1 snapshot (verified in code)
+
+| Cluster | PRD | Snapshot → now | Evidence / commit |
+|---|---|---|---|
+| Money-safety concurrency (ref-number sequences, idempotent distribution, points lost-update, payout TOCTOU, room soft-delete) | §5.1/§3.3 | 🐛/⚠️ → ✅ | migration `00000000000003`, `c598a4b`; 11 DB assertions green |
+| **Refund / reversal flow** | §3.3/§4.3 | ❌ → ✅ | `lib/services/finance/refunds.ts`, `POST /finance/refunds`, `a56147d`; 11 DB assertions (wallets unwind to 0, ledger nets to zero, idempotent) |
+| Super-admin platform surface: centers/teachers/students list+detail, approve/reject/blacklist/toggle, link/unlink-parent, link/unlink-center, users/permissions, notifications/history, dashboard kpis/revenue-chart/user-growth | §4.2 | ❌ (most) → ✅ | `app/api/v1/admin/**` (31 routes exist), `1c0a941` |
+| Registration approval flow: pending status → `GET /admin/registrations` queue → approve/reject + notify + audit | §5.2 | ❌ → ✅ | `app/api/v1/admin/registrations/**`, `1c0a941` |
+| Accountant finance reports: revenue, teacher-statement, center-statement, refunds, trial-balance, alerts, transaction detail, dashboard revenue-chart | §4.3 | ❌ (most) → ✅ | `app/api/v1/finance/reports/**` + `finance/alerts` + `finance/transactions/[id]`, `9dae837` |
+| Classroom booking flow (teacher request → center approve/reject with center_share) | §4.4/§4.5 | ⚠️ → ✅ | `lib/services/bookings/**`, `app/api/v1/.../classroom-requests`, `9dae837` |
+| Invoice PDF (real `%PDF`) + auto-email + month-end/reminder scheduler | §5.5/§6 | ❌ → ✅ | `lib/services/finance/invoicePdf.ts`, `cron/[job]`, `7c21a52` |
+| Notification matrix wiring + FCM delivery | §6 | ⚠️ → ✅ | `f22e40f` |
+| Design system: dark mode, Arabic font, skeletons, super_admin + accountant portals; WCAG 2.2 AA (0 axe violations) | §0/§9.2 | ⚠️ → ✅ | `434f0ab`, `210248a`, `46e8b2e` |
+| Scale: composite indexes + keyset pagination; 400k-row EXPLAIN ANALYZE proof | §9.1 | ⚠️ → ✅ | migration 003, `a55c720`, [SCALE.md](SCALE.md) |
+
+**Genuinely still open** (per §5): OTP (§4.1) + payment gateway (§4.6) — both §11 Open Decisions, owner-handled; transactions CSV/Excel export, invoice `/verify` public page + QR image, teacher shadow-centers (§4.8) — non-blocking fast-follows; auth refresh-token rotation and S3 upload — documented deviations.
+
+---
+
+Grouped by dimension; most critical first. Evidence is truncated to fit — full detail is in the audit run. **Rows below reflect the pre-fix snapshot (see banner above).**
 
 ### Money Distribution Engine (§5.1, §1, §3.3)
 
@@ -553,13 +574,14 @@ Grouped by dimension; most critical first. Evidence is truncated to fit — full
 
 - ✅ `typecheck` clean · ✅ `build` clean (Turbopack).
 - ✅ 6 money-math unit tests on PRD example numbers (`pnpm test:unit`).
-- ✅ **38 live-DB assertions** across three suites (`pnpm test:db:all`): money distribution (single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE); **offline-sync conflict** (§5.3 server-wins, enrollment/teacher-ownership guards, localTimestamp preserved — 16); **RBAC-negative + data-isolation** (wrong-actor `completeSession`/`approveBooking`/`cancelSession` → ForbiddenError; RLS blocks cross-tenant read + WITH CHECK insert — 11).
+- ✅ **49 live-DB assertions** across four suites (`pnpm test:db:all`): money distribution (single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE — 11); **offline-sync conflict** (§5.3 server-wins, enrollment/teacher-ownership guards, localTimestamp preserved — 16); **RBAC-negative + data-isolation** (wrong-actor `completeSession`/`approveBooking`/`cancelSession` → ForbiddenError; RLS blocks cross-tenant read + WITH CHECK insert — 11); **refund/reversal** (wallets unwind to 0, refund links original payment, platform fee returned, appears in refunds report, idempotent — 11).
 - ✅ 10 live-DB registration-approval assertions (pending→queue→approve→active→double-approve-rejected→toggle).
 - ✅ RLS tenant-isolation + append-only immutability + soft-delete smoke test (`packages/database` smoke-test).
 - ✅ **Scale proof** ([SCALE.md](SCALE.md)): 400k-transaction ledger, accountant list query **0.3 ms** on the composite index, all keyset/list queries sub-ms (~1000× under the 500 ms p95 target); the `SUM … GROUP BY type` dashboard aggregate (54 ms) is the flagged pre-aggregation candidate. Run capped at 400k by Neon's free-tier 512 MB disk (1M seeded in 26 s first).
 - ✅ **Accessibility (WCAG 2.2 AA):** axe-core 4.10 sweep of the super_admin portal in light + dark + Arabic-RTL → **0 violations, 30 checks pass** (fixed tertiary-text contrast, selected-menu contrast, avatar contrast, and keyboard access to the scrollable region).
 - ✅ **Invoice PDF** (pdf-lib, real `%PDF`) + auto-email + **month-end/lesson-reminder scheduler** (secured `/api/v1/cron/[job]`).
 - ✅ Skeleton loaders on the 4 role dashboards; empty states with CTA on new list surfaces.
-- ⬜ **Remaining / by design:** OTP (§4.1) and payment gateway (§4.6) — **owner is handling payments; both are §11 Open Decisions** (SMS provider / Paymob-Fawry keys). S3 upload for invoice PDFs is env-gated (URL currently points at the self-hosted generator). Per-screen skeleton retrofit on the ~30 non-dashboard list screens still uses antd table-loading + empty-text (acceptable); full 1M-row EXPLAIN needs a paid Neon branch.
+- ✅ **Refund / reversal path** (§3.3/§4.3): `POST /finance/refunds` — append-only compensating entries, wallets unwound, ledger nets to zero, idempotent (see the 11-assertion suite above). Money side has no sharp edge for MVP launch.
+- ⬜ **Remaining / by design:** OTP (§4.1) and payment gateway (§4.6) — **owner is handling payments; both are §11 Open Decisions** (SMS provider / Paymob-Fawry keys). Transactions CSV/Excel export, invoice `/verify` public page + QR image, teacher shadow-centers (§4.8) — non-blocking fast-follows. S3 upload for invoice PDFs is env-gated (URL points at the self-hosted generator). Per-screen skeleton retrofit on the ~30 non-dashboard list screens still uses antd table-loading + empty-text (acceptable); full 1M-row EXPLAIN needs a paid Neon branch.
 
 *This file is updated as fixes land; status flips to ✅ **fixed** with the commit that resolved each item.*
