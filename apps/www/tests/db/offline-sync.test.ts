@@ -1,19 +1,9 @@
-/**
- * Live-DB integration checks for offline attendance sync (PRD §5.3).
- * Opt-in (`tsx --env-file=.env.local tests/db/offline-sync.test.ts`) — needs a
- * DATABASE_URL. Creates an isolated tagged center/teacher(s)/course/students/
- * sessions, exercises the real `syncOfflineAttendance` service against the DB,
- * asserts the §5.3 conflict/ownership/enrollment rules, then cleans up its own
- * rows via the owner-role admin pool. No test framework — plain asserts under tsx.
- */
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { withPlatformContext, prisma } from "@repo/database";
 import { syncOfflineAttendance, type OfflineRecord } from "@/lib/services/attendance/sync";
 import { randomUUID } from "node:crypto";
 
-// Cleanup deletes attendance/audit rows the runtime role (edura_app) is REVOKEd
-// from — so tear down as the owner role over a direct admin pool.
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -35,8 +25,6 @@ async function main() {
 
   const LOCAL_TS = new Date("2026-06-01T08:30:00.000Z");
 
-  // ---- setup: center, teacherA (+affiliation), teacherB, course, 2 students,
-  //             3 sessions (fresh / conflict / other-teacher) ----
   const fx = await withPlatformContext(async (tx) => {
     const teacherA = await tx.user.create({
       data: { name: tag + "-teacherA", role: "teacher", email: tag + "-ta@x.io", status: "active" },
@@ -67,7 +55,6 @@ async function main() {
       },
     });
 
-    // Enrolled student.
     const enrolledUser = await tx.user.create({
       data: { name: tag + "-enrolled", role: "student", email: tag + "-se@x.io", status: "active" },
     });
@@ -78,7 +65,6 @@ async function main() {
       data: { studentId: enrolledUser.id, courseId: course.id, centerId: center.id, status: "active", enrolledBy: teacherA.id },
     });
 
-    // Student who exists but is NOT enrolled in the course.
     const unenrolledUser = await tx.user.create({
       data: { name: tag + "-unenrolled", role: "student", email: tag + "-su@x.io", status: "active" },
     });
@@ -96,8 +82,6 @@ async function main() {
     const sessionConflict = await mkSession("2026-02-09T10:00:00Z", teacherA.id);
     const sessionOtherTeacher = await mkSession("2026-02-16T10:00:00Z", teacherB.id);
 
-    // Pre-existing SERVER attendance for the conflict case: enrolled student
-    // already marked "present" on sessionConflict by teacherA.
     await tx.attendanceRecord.create({
       data: {
         sessionId: sessionConflict.id, studentId: enrolledUser.id, courseId: course.id,
@@ -117,24 +101,17 @@ async function main() {
   try {
     const teacher = { id: fx.teacherA, role: "teacher" } as never;
 
-    // One batch covering all five §5.3 outcomes + the return-shape counts.
     const records: OfflineRecord[] = [
-      // 1) fresh record, enrolled student, no server row -> synced
       { sessionId: fx.sessionFresh, studentId: fx.enrolled, status: "present", localTimestamp: LOCAL_TS },
-      // 2) server record already exists with a DIFFERENT status -> conflict (server wins)
       { sessionId: fx.sessionConflict, studentId: fx.enrolled, status: "absent" },
-      // 3) session belongs to teacherB -> error not_your_session
       { sessionId: fx.sessionOtherTeacher, studentId: fx.enrolled, status: "present" },
-      // 4) student not enrolled in the course -> error student_not_enrolled
       { sessionId: fx.sessionFresh, studentId: fx.unenrolled, status: "present" },
-      // 5) non-existent session -> error session_not_found
       { sessionId: fakeSessionId, studentId: fx.enrolled, status: "present" },
     ];
 
     const res = await syncOfflineAttendance(records, teacher);
     const find = (sid: string, stid: string) => res.results.find((r) => r.sessionId === sid && r.studentId === stid);
 
-    // ---- TEST 1: fresh record synced + row created + synced flag + localTimestamp preserved ----
     const r1 = find(fx.sessionFresh, fx.enrolled);
     assert(r1?.result === "synced", `fresh enrolled record -> synced (got ${r1?.result})`);
     const created = await withPlatformContext((tx) =>
@@ -151,7 +128,6 @@ async function main() {
       `localTimestamp preserved (${created?.localTimestamp?.toISOString()} == ${LOCAL_TS.toISOString()})`,
     );
 
-    // ---- TEST 2: conflict — server wins, offline discarded, server status UNCHANGED ----
     const r2 = find(fx.sessionConflict, fx.enrolled);
     assert(r2?.result === "conflict", `pre-existing server row -> conflict (got ${r2?.result})`);
     assert(r2?.reason === "server_record_kept", `conflict reason = server_record_kept (got ${r2?.reason})`);
@@ -163,26 +139,21 @@ async function main() {
     );
     assert(serverRow?.status === "present", `server record status UNCHANGED = present, offline 'absent' discarded (got ${serverRow?.status})`);
 
-    // ---- TEST 3: session owned by a different teacher -> error not_your_session ----
     const r3 = find(fx.sessionOtherTeacher, fx.enrolled);
     assert(r3?.result === "error" && r3?.reason === "not_your_session", `different-teacher session -> error/not_your_session (got ${r3?.result}/${r3?.reason})`);
 
-    // ---- TEST 4: student not enrolled -> error student_not_enrolled ----
     const r4 = find(fx.sessionFresh, fx.unenrolled);
     assert(r4?.result === "error" && r4?.reason === "student_not_enrolled", `unenrolled student -> error/student_not_enrolled (got ${r4?.result}/${r4?.reason})`);
 
-    // ---- TEST 5: non-existent session -> error session_not_found ----
     const r5 = find(fakeSessionId, fx.enrolled);
     assert(r5?.result === "error" && r5?.reason === "session_not_found", `missing session -> error/session_not_found (got ${r5?.result}/${r5?.reason})`);
 
-    // ---- TEST 6: return-shape counts correct ----
     assert(res.total === 5, `total = 5 (got ${res.total})`);
     assert(res.synced === 1, `synced count = 1 (got ${res.synced})`);
     assert(res.conflicts === 1, `conflicts count = 1 (got ${res.conflicts})`);
     assert(res.errors === 3, `errors count = 3 (got ${res.errors})`);
     assert(res.results.length === 5, `results length = 5 (got ${res.results.length})`);
   } finally {
-    // ---- cleanup (owner role; edura_app is REVOKEd from attendance/audit deletes) ----
     const allSessions = [fx.sessionFresh, fx.sessionConflict, fx.sessionOtherTeacher];
     const allStudents = [fx.enrolled, fx.unenrolled];
     const allTeachers = [fx.teacherA, fx.teacherB];

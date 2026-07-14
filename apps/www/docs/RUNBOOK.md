@@ -524,29 +524,29 @@ app/
   api/                    — All Next.js Route Handlers
   layout.tsx              — Root HTML layout (fonts, metadata)
 
-components/screens/
+src/features/  (role/domain feature modules)
   ui.tsx                  — Shared primitives: Icon, Avatar, Badge, StatCard,
                             ProgressBar, ErrorState, SectionHeader
-  AdminDashboard.tsx
-  AdminStudentsScreen.tsx
-  AdminTeachersScreen.tsx
-  AdminClassesScreen.tsx
-  AdminFeesScreen.tsx
-  AdminReportsScreen.tsx
-  AdminEnrollmentRequestsScreen.tsx   ← new
-  TeacherDashboard.tsx
-  TeacherClassesScreen.tsx
-  TeacherGradebookScreen.tsx
-  StudentDashboard.tsx
-  ScheduleScreen.tsx
-  AssignmentsScreen.tsx
-  GradesScreen.tsx
-  AttendanceScreen.tsx
-  MessagesScreen.tsx                  ← mock data only
-  ParentDashboard.tsx
-  ParentProgressScreen.tsx
-  ParentFeesScreen.tsx
-  NotificationsScreen.tsx             ← new
+  admin-dashboard.tsx
+  admin-students-screen.tsx
+  admin-teachers-screen.tsx
+  admin-classes-screen.tsx
+  admin-fees-screen.tsx
+  admin-reports-screen.tsx
+  admin-enrollment-requests-screen.tsx   ← new
+  teacher-dashboard.tsx
+  teacher-classes-screen.tsx
+  teacher-gradebook-screen.tsx
+  student-dashboard.tsx
+  schedule-screen.tsx
+  assignments-screen.tsx
+  grades-screen.tsx
+  attendance-screen.tsx
+  messages-screen.tsx                  ← mock data only
+  parent-dashboard.tsx
+  parent-progress-screen.tsx
+  parent-fees-screen.tsx
+  notifications-screen.tsx             ← new
 
 lib/
   api/client.ts           — Ky HTTP client (prefix /api/v1, 401→/login hook)
@@ -554,8 +554,8 @@ lib/
     options.ts            — NextAuth CredentialsProvider config (JWT, 30-day)
     session.ts            — getSessionUser() / requireSession()
   authz/
-    requireRole.ts        — Role guard (throws 403 if wrong role)
-    requireCenterScope.ts — Center tenancy guard
+    require-role.ts        — Role guard (throws 403 if wrong role)
+    require-center-scope.ts — Center tenancy guard
   db/
     connect.ts            — Mongoose singleton connection
     models/               — 23 Mongoose models (see §11)
@@ -565,7 +565,7 @@ lib/
   http/envelope.ts        — ok() / fail() response helpers
   store/                  — 16 Zustand stores (one per screen/domain)
   services/               — Business logic layer
-  mockData.ts             — Nav config, role colors, mock fallback data
+  mock-data.ts             — Nav config, role colors, mock fallback data
   constants/subjects.ts   — Subject list
 ```
 
@@ -599,7 +599,7 @@ useEffect(() => { fetchStudents(); }, [fetchStudents]);
 ### Role → UI mapping
 
 ```typescript
-// lib/mockData.ts
+// lib/mock-data.ts
 ROLES = {
   student:  { nav: [dashboard, schedule, assignments, grades, attendance, messages, notifications] }
   teacher:  { nav: [dashboard, classes, attendance, grades, assignments, messages, notifications] }
@@ -675,7 +675,7 @@ Session times stored as `"HH:mm"` strings (e.g. `"08:30"`). Lexicographically so
 ## 12. Known Gaps & Deferred Work
 
 ### No backend (mock-only screens)
-- **Messages** — all 4 roles have a Messages nav item backed by `lib/mockData.ts`. No messages API exists. Keep for visual demo; hide or build post-demo.
+- **Messages** — all 4 roles have a Messages nav item backed by `lib/mock-data.ts`. No messages API exists. Keep for visual demo; hide or build post-demo.
 
 ### API-only (no frontend screen)
 These endpoints exist and work but have no UI:

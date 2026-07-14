@@ -13,7 +13,6 @@ test.describe("Parent Progress", () => {
     await expect(page.getByText("Attendance Rate")).toBeVisible();
     await expect(page.getByText("Subject Breakdown")).toBeVisible();
 
-    // GPA value should be present
     const gpaValue = page.locator(".ant-statistic-content-value").first();
     await expect(gpaValue).not.toBeEmpty();
   });

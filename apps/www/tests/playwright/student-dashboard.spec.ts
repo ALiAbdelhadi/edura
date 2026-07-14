@@ -28,7 +28,6 @@ test.describe("Student Dashboard & Grades", () => {
     await expect(page.getByText("Overall GPA")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Subject Grades")).toBeVisible();
 
-    // Table should have column headers
     await expect(page.getByRole("columnheader", { name: "Subject" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Grade" })).toBeVisible();
   });
@@ -53,7 +52,6 @@ test.describe("Student Dashboard & Grades", () => {
     await navigateTo(page, "/dashboard/student/attendance");
     await page.waitForLoadState("networkidle");
 
-    // Should not be stuck on loading
     await expect(page.getByText("Loading").first()).not.toBeVisible({
       timeout: 10_000,
     });

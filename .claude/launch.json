@@ -6,6 +6,18 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "edura", "dev"],
       "port": 3002
+    },
+    {
+      "name": "edura-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "edura", "exec", "next", "dev", "-p", "3021"],
+      "port": 3021
+    },
+    {
+      "name": "edura-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "edura", "start"],
+      "port": 3003
     }
   ]
 }

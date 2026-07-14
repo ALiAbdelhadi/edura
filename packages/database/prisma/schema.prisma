@@ -24,9 +24,10 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  // Connection URLs moved to prisma.config.ts (Prisma 7 requirement). The
+  // runtime client injects a Neon driver adapter (see src/client.ts); the CLI
+  // (migrate/db push/studio) reads the DIRECT_URL datasource from prisma.config.ts.
 }
 
 // =============================================================================
@@ -530,6 +531,23 @@ model UserDeviceToken {
 
   @@index([userId])
   @@map("user_device_tokens")
+}
+
+// Native Web Push (VAPID) subscriptions for the PWA — distinct from
+// UserDeviceToken because a PushSubscription is a 3-part {endpoint, p256dh,
+// auth} object, not a single opaque token like an FCM registration id.
+model WebPushSubscription {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("web_push_subscriptions")
 }
 
 model UserPrefs {

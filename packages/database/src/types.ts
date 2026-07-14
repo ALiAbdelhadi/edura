@@ -1,5 +1,3 @@
-// Re-exported / derived domain types for consumers. Import model & enum types
-// from here (or the package root) — never from the generated client directly.
 export type {
   User,
   StudentProfile,

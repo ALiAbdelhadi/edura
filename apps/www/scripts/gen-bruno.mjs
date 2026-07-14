@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-/**
- * Generate a fresh Bruno API collection from the actual Next.js route handlers.
- *
- * Introspects app/api/**\/route.ts: which HTTP methods each file exports, the URL
- * (dynamic [seg] -> :seg), and a best-effort JSON body stub from an inline
- * `z.object({...})`. Emits git-friendly plain-text .bru files mirroring the API
- * tree, plus a Local environment and a Login request that seeds the session
- * cookie. Re-run any time the routes change: `pnpm gen:bruno`.
- *
- * Deliberately derived from code, not hand-maintained — so it can't rot the way
- * the old Postman collection did.
- */
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +8,6 @@ const API_DIR = join(ROOT, "app", "api");
 const OUT = join(ROOT, "bruno");
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
-// ---- walk route files -------------------------------------------------------
 function walk(dir) {
   const out = [];
   for (const e of readdirSync(dir)) {
@@ -31,7 +18,6 @@ function walk(dir) {
   return out;
 }
 
-// app/api/v1/finance/invoices/[id]/pdf/route.ts -> /api/v1/finance/invoices/:id/pdf
 function toUrlPath(file) {
   const rel = file.slice(ROOT.length).replace(/\/route\.ts$/, "").replace(/^\/app\//, "");
   return (
@@ -47,12 +33,10 @@ function toUrlPath(file) {
 function exportedMethods(src) {
   return METHODS.filter((m) =>
     new RegExp(`export\\s+(?:const|async\\s+function)\\s+${m}\\b`).test(src) ||
-    // `export const GET = POST` alias form (e.g. cron)
     new RegExp(`export\\s+const\\s+${m}\\s*=\\s*(?:GET|POST|PUT|PATCH|DELETE)\\b`).test(src),
   );
 }
 
-// Best-effort: pull top-level keys from the first inline z.object({...}) to stub a body.
 function bodyStub(src) {
   const m = src.match(/z\.object\(\{([\s\S]*?)\}\)/);
   if (!m) return null;
@@ -66,9 +50,6 @@ function bodyStub(src) {
 const bru = (s) => s.replace(/\{/g, "{").trimStart();
 const indent = (obj) => JSON.stringify(obj, null, 2).split("\n").map((l) => "  " + l).join("\n");
 
-// ---- generate ---------------------------------------------------------------
-// Wipe only the AUTO-GENERATED request tree; preserve README + a user's
-// (possibly token-populated) environment so regeneration is non-destructive.
 const PRESERVE = new Set(["README.md", "environments", "bruno.json"]);
 if (existsSync(OUT)) {
   for (const e of readdirSync(OUT)) {
@@ -81,7 +62,6 @@ writeFileSync(
   join(OUT, "bruno.json"),
   JSON.stringify({ version: "1", name: "Edura API", type: "collection", ignore: ["node_modules", ".git"] }, null, 2) + "\n",
 );
-// Only seed the env on first generation — don't clobber a captured token.
 const localEnv = join(OUT, "environments", "Local.bru");
 if (!existsSync(localEnv)) {
   writeFileSync(
@@ -90,7 +70,6 @@ if (!existsSync(localEnv)) {
   );
 }
 
-// Auth folder + Login request (seeds the session cookie via Bruno's cookie jar)
 mkdirSync(join(OUT, "_auth"), { recursive: true });
 writeFileSync(
   join(OUT, "_auth", "Login.bru"),
@@ -138,7 +117,6 @@ for (const file of files) {
   const methods = exportedMethods(src);
   if (!methods.length) { skipped.push(url + " (no exported HTTP method)"); continue; }
 
-  // folder = bruno/<segments-of-path-after /api/>
   const segs = url.replace(/^\/api\//, "").split("/");
   const folder = join(OUT, ...segs.map((s) => s.replace(/^:/, "_")));
   mkdirSync(folder, { recursive: true });

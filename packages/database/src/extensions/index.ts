@@ -1,25 +1,13 @@
 import { getRequestContext } from "../context";
 import { Prisma } from "../generated/client/index";
 
-// ---------------------------------------------------------------------------
-// Model policy sets
-// ---------------------------------------------------------------------------
 
-/** Models carrying a `deletedAt` column — delete() becomes a soft delete and
- *  reads auto-filter out soft-deleted rows. */
 const SOFT_DELETE_MODELS = new Set<string>(["User"]);
 
-/** Strict append-only ledgers: NO update/delete/upsert — corrections happen via
- *  reversal-entry inserts only (PRD Database Conventions). */
 const IMMUTABLE_MODELS = new Set<string>(["Transaction", "PointsLedger"]);
 
-/** Financial workflow records: status legitimately transitions (invoice
- *  issued→paid→void; payout pending→approved→paid), but they must NEVER be
- *  hard-deleted (void/reject instead). Updates allowed, deletes blocked. */
 const NO_HARD_DELETE_MODELS = new Set<string>(["Invoice", "Payout"]);
 
-/** Sensitive mutations that must always be audited, keyed by `Model.action`.
- *  Maps to the audit_logs.action string. */
 const AUDITED: Record<string, string> = {
   "Center.update": "center.updated",
   "TeacherProfile.update": "teacher.updated",
@@ -34,15 +22,8 @@ const AUDITED: Record<string, string> = {
   "CenterAdminProfile.delete": "permission.revoked",
 };
 
-// Note: SOFT_DELETE_MODELS documents intent; the query overrides below are
-// declared per-model (Prisma requires concrete model keys to re-dispatch a
-// delete as an update). Currently only `user` carries deletedAt.
 void SOFT_DELETE_MODELS;
 
-// ---------------------------------------------------------------------------
-// Soft-delete extension: converts delete → update(deletedAt), filters reads.
-// Uses the client-factory form so it can re-dispatch delete → update.
-// ---------------------------------------------------------------------------
 export const softDeleteExtension = Prisma.defineExtension((client) => {
   const c = client as unknown as {
     user: {
@@ -85,9 +66,6 @@ export const softDeleteExtension = Prisma.defineExtension((client) => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Immutability guard: block mutations on append-only ledgers.
-// ---------------------------------------------------------------------------
 export const immutableExtension = Prisma.defineExtension({
   name: "edura-immutable-ledgers",
   query: {
@@ -121,10 +99,6 @@ export const immutableExtension = Prisma.defineExtension({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Audit-log extension: auto-write audit_logs on sensitive mutations, attributing
-// the actor from the ambient request context. Runs AFTER the mutation succeeds.
-// ---------------------------------------------------------------------------
 export const auditLogExtension = Prisma.defineExtension((client) =>
   client.$extends({
     name: "edura-audit-log",
@@ -138,9 +112,6 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
             const ctx = getRequestContext();
             const rec = result as { id?: string } | null;
             try {
-              // Audit writes happen outside the request's tenant transaction, so
-              // set the RLS bypass flag for this insert (audit_logs is RLS-read-
-              // scoped per tenant but must always be writable).
               const c = client as {
                 $transaction: (fn: (tx: {
                   $executeRaw: (q: TemplateStringsArray, ...v: unknown[]) => Promise<unknown>;

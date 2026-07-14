@@ -1,31 +1,11 @@
-/**
- * Live-DB integration checks for authorization boundaries.
- * Opt-in (`tsx --env-file=.env.local tests/db/rbac-isolation.test.ts`) — needs a
- * DATABASE_URL.
- *
- * Two layers:
- *  (a) SERVICE-LAYER ownership/isolation guards — call finance/booking/session
- *      services with a WRONG-actor SessionUser and assert they throw
- *      ForbiddenError (we can't fake a real requireSession() in a DB script, so we
- *      drive the services directly).
- *  (b) RLS TENANT ISOLATION at the DB layer — mirror packages/database smoke-test:
- *      tenant B cannot READ a center-A row, and a WITH CHECK insert scoped to
- *      center A from tenant B is rejected.
- *
- * Creates isolated tagged fixtures and cleans them up via the owner-role admin
- * pool. No test framework — plain asserts under tsx.
- */
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { withTenant, withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { completeSession } from "@/lib/services/finance/distribution";
-import { approveBooking, rejectBooking } from "@/lib/services/bookings/classroomBookings";
-import { cancelSession } from "@/lib/services/sessionActions/sessionActions";
+import { approveBooking, rejectBooking } from "@/lib/services/bookings/classroom-bookings";
+import { cancelSession } from "@/lib/services/session-actions/session-actions";
 
-// Cleanup deletes audit rows the runtime role (edura_app) is REVOKEd from — so
-// tear down as the owner role over a direct admin pool. Owner role also bypasses
-// RLS, so it can remove rows across both tenants.
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -41,7 +21,6 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-// Assert that `fn` rejects with an instance of `ErrClass`.
 async function expectThrows(fn: () => Promise<unknown>, ErrClass: new (...a: never[]) => Error, label: string) {
   try {
     await fn();
@@ -58,8 +37,6 @@ async function main() {
   const tag = "rbac-" + Math.floor(Math.random() * 1e9).toString(36);
   console.log("RBAC + data-isolation DB tests —", tag);
 
-  // ---- setup: two centers, session's own teacher A, a wrong teacher B, a
-  //             wrong-center admin (center B), a course/session/room/booking in A.
   const fx = await withPlatformContext(async (tx) => {
     const teacherA = await tx.user.create({
       data: { name: tag + "-teacherA", role: "teacher", email: tag + "-ta@x.io", status: "active" },
@@ -78,7 +55,6 @@ async function main() {
       data: { name: tag + "-B", shortId: (tag + "B").slice(0, 12).toUpperCase(), status: "active", walletBalance: 0 },
     });
 
-    // Admin of center B (the wrong-center actor for center-A resources).
     const adminB = await tx.user.create({
       data: { name: tag + "-adminB", role: "center_admin", email: tag + "-ab@x.io", status: "active" },
     });
@@ -117,48 +93,39 @@ async function main() {
   });
 
   try {
-    // ============================================================
-    // (a) SERVICE-LAYER OWNERSHIP / ISOLATION GUARDS
-    // ============================================================
     const wrongTeacher = { id: fx.teacherB, role: "teacher" } as never;
     const wrongCenterAdmin = { id: fx.adminB, role: "center_admin", centerId: fx.centerB } as never;
 
-    // completeSession — teacher who is NOT the session's teacher.
     await expectThrows(
       () => completeSession(fx.session, wrongTeacher),
       ForbiddenError,
       "completeSession by non-owner teacher",
     );
 
-    // completeSession — center_admin whose center != the session's center.
     await expectThrows(
       () => completeSession(fx.session, wrongCenterAdmin),
       ForbiddenError,
       "completeSession by wrong-center admin",
     );
 
-    // approveBooking — center_admin whose center != the booking's center.
     await expectThrows(
       () => approveBooking(fx.booking, 5000, wrongCenterAdmin),
       ForbiddenError,
       "approveBooking by wrong-center admin",
     );
 
-    // rejectBooking — center_admin whose center != the booking's center.
     await expectThrows(
       () => rejectBooking(fx.booking, "no rooms available", wrongCenterAdmin),
       ForbiddenError,
       "rejectBooking by wrong-center admin",
     );
 
-    // cancelSession — teacherId is not the session's assigned teacher.
     await expectThrows(
       () => cancelSession(fx.session, fx.teacherB, "cannot make it"),
       ForbiddenError,
       "cancelSession by non-owner teacher",
     );
 
-    // Sanity: the guarded resources were NOT mutated by the rejected calls.
     const untouched = await withPlatformContext(async (tx) => {
       const s = await tx.session.findUnique({ where: { id: fx.session }, select: { status: true, distributedAt: true } });
       const b = await tx.classroomBooking.findUnique({ where: { id: fx.booking }, select: { status: true } });
@@ -167,18 +134,12 @@ async function main() {
     assert(untouched.s?.status === "scheduled" && untouched.s?.distributedAt == null, "session left un-completed / un-distributed after rejected guards");
     assert(untouched.b?.status === "pending", "booking left pending after rejected guards");
 
-    // ============================================================
-    // (b) RLS TENANT ISOLATION (DB layer)
-    // ============================================================
-    // Tenant A can read its own course.
     const seenByA = await withTenant(fx.centerA, (tx) => tx.course.findMany({ where: { id: fx.course } }));
     assert(seenByA.length === 1, "tenant A can read its own course");
 
-    // Tenant B CANNOT read center A's course.
     const seenByB = await withTenant(fx.centerB, (tx) => tx.course.findMany({ where: { id: fx.course } }));
     assert(seenByB.length === 0, "tenant B is blocked from center A's course (RLS SELECT)");
 
-    // Tenant B CANNOT insert a course row scoped to center A (WITH CHECK).
     await expectThrows(
       () =>
         withTenant(fx.centerB, (tx) =>
@@ -194,11 +155,9 @@ async function main() {
       "tenant B insert scoped to center A (RLS WITH CHECK)",
     );
 
-    // Confirm no stray 'evil' course leaked in under platform bypass.
     const evilCount = await withPlatformContext((tx) => tx.course.count({ where: { title: tag + "-evil" } }));
     assert(evilCount === 0, "rejected cross-tenant insert created no row");
   } finally {
-    // ---- cleanup (owner role; bypasses RLS + can delete audit rows) ----
     const allUsers = [fx.teacherA, fx.teacherB, fx.adminB];
     const allCenters = [fx.centerA, fx.centerB];
     const c = await adminPool.connect();

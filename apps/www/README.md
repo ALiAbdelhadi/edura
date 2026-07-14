@@ -29,7 +29,7 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | **pnpm**            | ≥ 9      | `pnpm -v`                  |
 | **Git**             | any      | `git --version`            |
 
-> The database is a hosted **Neon Postgres** instance — nothing to install locally. Migrations/RLS live in `packages/database`; see `docs/DEPLOYMENT.md`.
+> The database is a hosted **Neon Postgres** instance — nothing to install locally. Migrations/RLS live in `packages/database`; see `docs/deployment.md`.
 
 ---
 
@@ -58,7 +58,7 @@ Open `.env.local` and fill in:
 
 | Variable           | Required | Description                                                     |
 |--------------------|----------|-----------------------------------------------------------------|
-| `DATABASE_URL`     | ✅       | Neon Postgres pooled URL — **NOBYPASSRLS role** (see `docs/DEPLOYMENT.md`) |
+| `DATABASE_URL`     | ✅       | Neon Postgres pooled URL — **NOBYPASSRLS role** (see `docs/deployment.md`) |
 | `NEXTAUTH_SECRET`  | ✅       | Random secret — generate with `openssl rand -base64 32`         |
 | `NEXTAUTH_URL`     | ✅       | App URL (default: `http://localhost:3002`)                       |
 | `MAIL_PROVIDER`    | —        | `console` (default, logs to stdout) · `mailgun` · `sendgrid`   |
@@ -182,32 +182,40 @@ npm install -g pnpm@9
 
 ```
 edura/
-├── app/
-│   ├── api/v1/          # REST API route handlers
-│   ├── layout.tsx        # Root layout
-│   ├── page.tsx          # Frontend entry
-│   └── globals.css       # Design tokens (Tailwind v4)
-├── components/
-│   ├── screens/          # Role-specific screen components
-│   └── ui/               # Reusable UI primitives
-├── lib/
-│   ├── auth/             # next-auth config & session helpers
-│   ├── authz/            # Role & center scope guards
-│   ├── db/
-│   │   └── scope.ts      # scopedDb/platformDb — RLS-aware data access (@repo/database)
-│   ├── errors/           # Typed error classes + HTTP mapper
-│   ├── http/             # Response envelope helpers
-│   ├── services/         # Business logic layer
-│   ├── validation/       # Zod schemas & parse helpers
-│   ├── constants/        # Subject list, seed data
-│   ├── utils/            # Random generators, helpers
-│   └── mail/             # Email sender (console/mailgun/sendgrid)
+├── src/
+│   ├── app/
+│   │   ├── api/v1/          # REST API route handlers
+│   │   ├── layout.tsx       # Root layout
+│   │   ├── page.tsx         # Frontend entry
+│   │   └── globals.css      # Design tokens (Tailwind v4)
+│   ├── proxy.ts             # Locale-prefix proxy (Next.js proxy convention)
+│   ├── features/            # Feature modules (role/domain screens)
+│   │   ├── admin/  finance/  teacher/  student/  parent/
+│   │   └── attendance/  messaging/  notifications/  settings/
+│   ├── components/          # Shared component library
+│   │   ├── charts/          # D3 chart components (+ barrel)
+│   │   ├── ui/              # Reusable UI primitives
+│   │   ├── providers/       # App/i18n/theme providers
+│   │   └── refine/          # Refine framework adapters
+│   ├── lib/
+│   │   ├── auth/            # next-auth config & session helpers
+│   │   ├── authz/           # Role & center scope guards
+│   │   ├── db/
+│   │   │   └── scope.ts     # scopedDb/platformDb — RLS-aware data access (@repo/database)
+│   │   ├── errors/          # Typed error classes + HTTP mapper
+│   │   ├── http/            # Response envelope helpers
+│   │   ├── services/        # Business logic layer (by domain)
+│   │   ├── validation/      # Zod schemas & parse helpers
+│   │   ├── constants/       # Subject list, seed data
+│   │   ├── utils/           # Random generators, helpers
+│   │   └── mail/            # Email sender (console/mailgun/sendgrid)
+│   ├── messages/            # i18n dictionaries (ar/en)
+│   └── types/               # TypeScript type definitions
 ├── scripts/
-│   └── api-smoke.sh      # Role-based API smoke test (pnpm smoke:api)
-├── tests/                # Test files
-├── types/                # TypeScript type definitions
-├── docs/                 # Operational docs: DEPLOYMENT, RUNBOOK, fee-points-engine, test-credentials
-└── public/               # Static assets
+│   └── api-smoke.sh         # Role-based API smoke test (pnpm smoke:api)
+├── tests/                   # Test files
+├── docs/                    # Operational docs: deployment, runbook, fee-points-engine, test-credentials
+└── public/                  # Static assets
 ```
 
 ---

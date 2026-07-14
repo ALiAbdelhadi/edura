@@ -1,16 +1,9 @@
-/**
- * Live-DB checks for the refund / reversal path (PRD §3.3, §4.3). Distributes a
- * real session, refunds one student, and asserts the money unwinds exactly:
- * wallets return to their pre-distribution values, a compensating `refund` row
- * references the original payment, and a second refund is rejected (idempotent).
- * Opt-in (tsx + .env.local). Cleans up its own rows via the owner pool.
- */
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { withPlatformContext, prisma } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
-import { refundsReport } from "@/lib/services/finance/financeReports";
+import { refundsReport } from "@/lib/services/finance/finance-reports";
 
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
@@ -45,7 +38,6 @@ async function main() {
   });
 
   try {
-    // distribute: price 20000, share 5000 → teacherNet 14800, centerNet 4800
     await completeSession(fx.s1, { id: fx.teacher, role: "teacher" } as never);
     const afterDist = await withPlatformContext(async (tx) => ({
       teacher: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))?.walletBalance,
@@ -54,7 +46,6 @@ async function main() {
     assert(afterDist.teacher === 14800, `teacher wallet after distribution = 14800 (got ${afterDist.teacher})`);
     assert(afterDist.center === 4800, `center wallet after distribution = 4800 (got ${afterDist.center})`);
 
-    // ---- refund the student's lesson ----
     const res = await refundLessonForStudent(fx.s1, fx.student, "duplicate charge", { id: fx.teacher, role: "accountant" } as never);
     assert(res.refunded === 20000, `refund amount = full price 20000 (got ${res.refunded})`);
 
@@ -67,21 +58,16 @@ async function main() {
       return { teacher, center, payment, refund, adjustments };
     });
 
-    // The core invariant: wallets fully unwound.
     assert(afterRefund.teacher === 0, `teacher wallet back to 0 after refund (got ${afterRefund.teacher})`);
     assert(afterRefund.center === 0, `center wallet back to 0 after refund (got ${afterRefund.center})`);
-    // Compensating rows: refund references the original payment, student is payee.
     assert(afterRefund.refund?.amount === 20000, `refund row = full price (got ${afterRefund.refund?.amount})`);
     assert(afterRefund.refund?.reversalOfId === afterRefund.payment?.id, "refund row reversal_of_id links the original payment");
     assert(afterRefund.refund?.toEntityId === fx.student, "refund is paid to the student");
-    // Platform 2+2 returned so the ledger nets to zero.
     assert(afterRefund.adjustments._count._all === 2 && afterRefund.adjustments._sum.amount === 400, `platform fee (400) returned via 2 adjustments (got ${afterRefund.adjustments._count._all} rows / ${afterRefund.adjustments._sum.amount})`);
 
-    // Shows up in the refunds report.
     const report = await refundsReport();
     assert(report.refunds.some((r: { lessonId: string | null }) => r.lessonId === fx.s1), "refund appears in the refunds report");
 
-    // ---- idempotent: second refund is rejected ----
     await expectThrows(
       () => refundLessonForStudent(fx.s1, fx.student, "again", { id: fx.teacher, role: "accountant" } as never),
       "already been refunded",

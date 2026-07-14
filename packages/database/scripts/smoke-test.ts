@@ -9,8 +9,6 @@ import {
   withPlatformContext,
 } from "../src/index.js";
 
-// Ledger rows (transactions) can't be deleted by the runtime role edura_app —
-// it's REVOKEd (append-only hardening). Tear those down as the owner role.
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -22,7 +20,6 @@ function assert(cond: boolean, msg: string) {
 async function main() {
   const tag = "smoke-" + Math.floor(Math.random() * 1e9);
 
-  // --- setup: two centers + a course in center A, via platform bypass ---
   const { centerA, centerB, courseId, teacherId } = await withPlatformContext(
     async (tx) => {
       const teacher = await tx.user.create({
@@ -53,19 +50,16 @@ async function main() {
   );
   console.log("setup done", { centerA, centerB });
 
-  // --- RLS: tenant A sees its course ---
   const seenByA = await withTenant(centerA, (tx) =>
     tx.course.findMany({ where: { id: courseId } }),
   );
   assert(seenByA.length === 1, "tenant A can read its own course");
 
-  // --- RLS: tenant B cannot see center A's course ---
   const seenByB = await withTenant(centerB, (tx) =>
     tx.course.findMany({ where: { id: courseId } }),
   );
   assert(seenByB.length === 0, "tenant B is blocked from center A's course (RLS)");
 
-  // --- RLS: tenant B cannot write into center A ---
   let writeBlocked = false;
   try {
     await withTenant(centerB, (tx) =>
@@ -89,7 +83,6 @@ async function main() {
   }
   assert(writeBlocked, "tenant B cannot insert a row scoped to center A (RLS WITH CHECK)");
 
-  // --- Immutability: transactions are append-only ---
   const txnId = await withPlatformContext(async (tx) => {
     const t = await tx.transaction.create({
       data: { refNumber: "TXN-" + tag, type: "payment", amount: 20000, centerId: centerA },
@@ -106,7 +99,6 @@ async function main() {
   }
   assert(updateBlocked, "transaction.update is blocked (append-only ledger)");
 
-  // --- Soft delete: user.delete sets deletedAt and reads filter it out ---
   const u = await withPlatformContext((tx) =>
     tx.user.create({ data: { name: tag + "-victim", role: "student", email: tag + "-v@x.io" } }),
   );
@@ -118,8 +110,6 @@ async function main() {
   );
   assert(raw[0]?.deleted_at != null, "row still exists with deleted_at set (not hard-deleted)");
 
-  // --- cleanup ---
-  // Ledger delete first, via the owner role (edura_app is REVOKEd from it).
   await adminPool.query(`DELETE FROM transactions WHERE ref_number = $1`, ["TXN-" + tag]);
   await withPlatformContext(async (tx) => {
     await tx.course.deleteMany({ where: { title: { startsWith: tag } } });

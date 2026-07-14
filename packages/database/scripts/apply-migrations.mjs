@@ -1,8 +1,3 @@
-// Applies prisma/migrations/**/migration.sql through the Neon serverless driver
-// (WebSocket/443), because this environment cannot reach Neon over raw TCP:5432
-// that `prisma migrate` requires. Records each in _prisma_migrations with the
-// Prisma-compatible sha256 checksum so `prisma migrate status/deploy` stays in
-// sync going forward.
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { config } from "dotenv";
@@ -21,7 +16,6 @@ const migrationsDir = join(
   "migrations",
 );
 
-// DDL must run as the admin/owner role, not the restricted runtime role.
 const pool = new Pool({
   connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL,
 });

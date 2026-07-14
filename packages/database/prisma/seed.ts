@@ -1,14 +1,4 @@
 /* eslint-disable no-console */
-/**
- * Idempotent baseline seed for FRESH environments (local dev, preview DBs).
- * Creates the demo center + one account per role, matching
- * apps/www/docs/test-credentials.md. Safe to run repeatedly (upserts only).
- *
- * Production data was ported from MongoDB via ETL — this seed intentionally
- * skips anything that already exists.
- *
- * Run: pnpm --filter @repo/database seed   (SEED_PASSWORD defaults Passw0rd!)
- */
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "../src/index";
@@ -42,8 +32,6 @@ async function main() {
         create: { email, name, role, status: "active", passwordHash },
       });
 
-    // Platform-level roles (no center). super_admin has all permissions;
-    // accountant is finance-only.
     await mkUser("superadmin@edura.eg", "Platform Super Admin", "super_admin");
     await mkUser("accountant@edura.eg", "Platform Accountant", "accountant");
 
@@ -92,7 +80,6 @@ async function main() {
       });
     }
 
-    // Default points rules (PRD §5.7) — the points engine is inert without them.
     const POINTS_RULES: { eventName: string; pointsValue: number }[] = [
       { eventName: "attendance", pointsValue: 10 },
       { eventName: "online_payment", pointsValue: 20 },

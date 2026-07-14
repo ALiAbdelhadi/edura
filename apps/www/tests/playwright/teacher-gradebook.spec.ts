@@ -10,7 +10,6 @@ test.describe("Teacher Gradebook", () => {
   test("loads with course selector and auto-selects first course", async ({ page }) => {
     await expect(page.getByText("Course:")).toBeVisible({ timeout: 15_000 });
 
-    // A course should be auto-selected
     const selector = page.locator(".ant-select-selection-item");
     await expect(selector.first()).toBeVisible({ timeout: 10_000 });
 
@@ -50,7 +49,6 @@ test.describe("Teacher Gradebook", () => {
       const discardBtn = page.getByRole("button", { name: /discard/i });
       await expect(discardBtn).toBeVisible();
 
-      // Clicking discard reverts
       await discardBtn.click();
       await expect(saveBtn).toBeDisabled({ timeout: 5_000 });
     }
@@ -63,7 +61,6 @@ test.describe("Teacher Gradebook", () => {
     if (await gradeInput.isVisible().catch(() => false)) {
       await gradeInput.fill("99");
 
-      // Switch course
       const courseSelect = page.locator(".ant-select").first();
       await courseSelect.click();
 
@@ -71,7 +68,6 @@ test.describe("Teacher Gradebook", () => {
       if ((await options.count()) > 1) {
         await options.nth(1).click();
 
-        // Discard should vanish (edits cleared)
         await expect(
           page.getByRole("button", { name: /discard/i }),
         ).not.toBeVisible({ timeout: 5_000 });

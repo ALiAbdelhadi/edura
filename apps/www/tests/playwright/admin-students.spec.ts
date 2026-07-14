@@ -34,16 +34,13 @@ test.describe("Admin Student Management", () => {
     await expect(page.getByText("Invite student")).toBeVisible();
     await expect(page.getByPlaceholder("student@example.com")).toBeVisible();
 
-    // Submit without email — validation error
     await page.getByRole("button", { name: /Send invite/i }).click();
     await expect(page.getByText("Email required")).toBeVisible();
 
-    // Fill invalid email
     await page.getByPlaceholder("student@example.com").fill("notanemail");
     await page.getByRole("button", { name: /Send invite/i }).click();
     await expect(page.getByText("Invalid email")).toBeVisible();
 
-    // Cancel closes modal
     await page.getByRole("button", { name: /Cancel/i }).click();
     await expect(page.getByText("Invite student")).not.toBeVisible();
   });
