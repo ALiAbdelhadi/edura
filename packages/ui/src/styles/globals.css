@@ -1,0 +1,227 @@
+/* Shared EduConnect "Deep Trust" TOKEN layer — single source of truth.
+   `@import "tailwindcss"` and `@import "tw-animate-css"` live in the CONSUMING app's
+   globals.css: bare npm specifiers resolve from the app's node_modules, and Turbopack
+   resolves nested @imports file-relative — so they can't live here. This file is
+   imported AFTER those two. */
+
+/* Scan this package's own components for Tailwind classes (v4 needs an explicit
+   @source for workspace packages; the app auto-detects its own src). */
+@source "../**/*.{ts,tsx}";
+
+/* Bridge shadcn's `dark:` variant to the app's EXISTING dark hook: ThemeModeProvider
+   + the no-flash <script> stamp data-theme="dark" on <html> — no `.dark`, no
+   next-themes. The attribute is the single source of truth. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --radius: 0.875rem;
+
+  /* Slightly cooler, less-saturated canvas than pure white so cards (pure white)
+     pop off the page instead of blending into it — the "elevated surface" feel. */
+  --background: #f6f7fb;
+  --foreground: #0c1524;
+  --card: #ffffff;
+  --card-foreground: #0c1524;
+  --popover: #ffffff;
+  --popover-foreground: #0c1524;
+
+  /* Deeper, richer indigo (was flat navy #1e3a8a) — more premium/SaaS, still
+     "Deep Trust". Paired with --primary-glow for icon chips / accent washes. */
+  --primary: #1a2f73;
+  --primary-glow: #3856e0;
+  --primary-foreground: #ffffff;
+  --secondary: #edf1ff;
+  --secondary-foreground: #1a2f73;
+  --muted: #f1f3f9;
+  --muted-foreground: #5c6272;
+  --accent: #e3e9ff;
+  --accent-foreground: #1a2f73;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+
+  --border: #e5e8f0;
+  --input: #cbd0dd;
+  --ring: #3856e0;
+
+  /* Semantic + brand extensions (DESIGN.md: teal CTA, status chips, trends).
+     shadcn has no native secondary-brand/success/warning/info slots. */
+  --brand-teal: #0d9488;
+  --brand-teal-foreground: #ffffff;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+
+  --chart-1: #3856e0;
+  --chart-2: #0d9488;
+  --chart-3: #0ea5e9;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+
+  --sidebar: #0c1524;
+  --sidebar-foreground: #eef1fb;
+  --sidebar-primary: #6d84ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #172037;
+  --sidebar-accent-foreground: #eef1fb;
+  --sidebar-border: #1b2438;
+  --sidebar-ring: #6d84ff;
+
+  /* Layered elevation scale — soft ambient + tight contact shadow per level,
+     replaces flat shadow-sm everywhere so cards read as physically raised. */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 12px 24px -6px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.06);
+  --shadow-glow: 0 0 0 1px rgb(56 86 224 / 0.08), 0 8px 24px -8px rgb(56 86 224 / 0.25);
+}
+
+[data-theme="dark"] {
+  --background: #0a0f1c;
+  --foreground: #eaf0ff;
+  --card: #121a2c;
+  --card-foreground: #eaf0ff;
+  --popover: #121a2c;
+  --popover-foreground: #eaf0ff;
+
+  --primary: #8ba0ff;
+  --primary-glow: #6d84ff;
+  --primary-foreground: #071033;
+  --secondary: #182238;
+  --secondary-foreground: #eaf0ff;
+  --muted: #182238;
+  --muted-foreground: #97a1b8;
+  --accent: #212d49;
+  --accent-foreground: #eaf0ff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #212c45;
+  --input: #2c3a58;
+  --ring: #8ba0ff;
+
+  --brand-teal: #2dd4bf;
+  --brand-teal-foreground: #003733;
+  --success: #34d377;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #3a2408;
+  --info: #38bdf8;
+  --info-foreground: #08283a;
+
+  --chart-1: #8ba0ff;
+  --chart-2: #2dd4bf;
+  --chart-3: #38bdf8;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+
+  --sidebar: #070b15;
+  --sidebar-foreground: #eaf0ff;
+  --sidebar-primary: #8ba0ff;
+  --sidebar-primary-foreground: #071033;
+  --sidebar-accent: #141d33;
+  --sidebar-accent-foreground: #eaf0ff;
+  --sidebar-border: #182238;
+  --sidebar-ring: #8ba0ff;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.20);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.28), 0 1px 2px -1px rgb(0 0 0 / 0.24);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.36), 0 2px 4px -2px rgb(0 0 0 / 0.24);
+  --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.44), 0 4px 8px -4px rgb(0 0 0 / 0.28);
+  --shadow-glow: 0 0 0 1px rgb(139 160 255 / 0.14), 0 8px 24px -8px rgb(139 160 255 / 0.30);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-glow: var(--primary-glow);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-foreground: var(--brand-teal-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* IBM Plex Sans Arabic is the single system face (Arabic + Latin), already wired
+     in the app layout as --font-plex-arabic. */
+  --font-sans: var(--font-plex-arabic), var(--font-noto-sans), ui-sans-serif,
+    system-ui, sans-serif;
+}
+
+@layer base {
+  /* Default border + focus-ring color for shadcn primitives. We deliberately do NOT
+     set `body { bg-background }` here: Ant Design screens still own <body> during the
+     migration, and the app's own body rule stays authoritative. */
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
+@utility gradient-primary {
+  background-image: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+}
+
+@utility gradient-primary-wash {
+  background-image: linear-gradient(180deg, color-mix(in oklch, var(--primary) 6%, transparent) 0%, transparent 60%);
+}
+
+/* Interactive card lift: opt-in via `card-interactive` on Card, used for clickable
+   rows/tiles (nav cards, list items) — not applied globally, plain data cards stay
+   static so the UI doesn't feel like everything is a button. */
+@utility card-interactive {
+  transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
+  &:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+    transform: translateY(-1px);
+  }
+}
+
+/* One focal accent per screen (KPI hero, upsell/CTA panel) — a ring + soft primary
+   bloom instead of a generic drop shadow. Deliberately not applied to ordinary
+   cards; overuse would flatten the hierarchy it's meant to create. */
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}

@@ -1,0 +1,14 @@
+import { withErrors } from "@/lib/errors/http";
+import { requireRole } from "@/lib/authz/require-role";
+import { ok } from "@/lib/http/envelope";
+import { sendInvoiceEmail } from "@/lib/services/finance/invoices";
+
+export const dynamic = "force-dynamic";
+
+type Ctx = { params: Promise<{ id: string }> };
+
+export const POST = withErrors(async (_req, ctx) => {
+  await requireRole("accountant", "super_admin");
+  const { id } = await ctx.params;
+  return ok(await sendInvoiceEmail(id));
+});
