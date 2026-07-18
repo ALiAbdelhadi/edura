@@ -347,6 +347,8 @@ Depends on Step 6 only socially; technically independent, needs a provider decis
 
 Backfill catalog FKs then drop DEPRECATED fields (`StudentProfile.grade`, `TeacherProfile.subjects[]`, `Course.subject/gradeTag`) — the only destructive migration, done after all readers are migrated. Extend soft-delete to materials/expenses/grades. Blanket-audit all remaining admin mutations. Revisit the known RLS gaps (`sessions`, `grade_scores` center_id columns) if Step 4 chose the policy-arm route anyway.
 
+**Pre-launch data wipe (decided 2026-07-18, during Step 1):** the live DB holds legacy data from past live-DB test runs that predates the `is_demo` flag and has no stable identifiers (~144 users, 21 centers, 19 courses as of 2026-07-18, plus their child rows). Decision: leave it untouched during development — do NOT flag it by heuristic. Before launch, wipe ALL non-seed data: purge `is_demo = true` roots (and children by ancestry) via the flag, and remove everything else that isn't the education catalog (permanent reference data) or real production accounts. Re-verify catalog integrity and sequences after the wipe.
+
 ---
 
 ## 6. Known debt worth tracking alongside the roadmap

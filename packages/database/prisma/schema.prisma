@@ -387,6 +387,9 @@ model User {
   status        UserStatus @default(active)
   emailVerified Boolean    @default(false) @map("email_verified")
   fcmToken      String?    @map("fcm_token")
+  // Demo/seed data marker so it can be purged before launch. Flagged on root
+  // entities only (users, centers, courses); child rows inherit by ancestry.
+  isDemo        Boolean    @default(false) @map("is_demo")
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz(6)
@@ -516,6 +519,8 @@ model Center {
   governorate         String? // المحافظة (onboarding §6; `area` stays المنطقة)
   onboardingCompleted Boolean      @default(false) @map("onboarding_completed")
   onboardingDraft     Json?        @map("onboarding_draft") // wizard auto-save (§9)
+  // Demo/seed data marker — see User.isDemo.
+  isDemo              Boolean      @default(false) @map("is_demo")
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -721,6 +726,8 @@ model Course {
   price         Int // piasters
   maxStudents   Int          @map("max_students")
   status        CourseStatus @default(active)
+  // Demo/seed data marker — see User.isDemo.
+  isDemo        Boolean      @default(false) @map("is_demo")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 

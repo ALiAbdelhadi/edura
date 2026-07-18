@@ -85,6 +85,11 @@ Work stops after each step for review before the next begins.
    inherit by ancestry. The Egyptian education catalog is permanent reference
    data — do NOT flag it. Hardcoded quick-login buttons gated behind
    `NODE_ENV !== "production"`.
+   **Leftover legacy data (decided 2026-07-18):** the ~144 unflagged users /
+   21 centers / 19 courses created by past live-DB test runs (not by the seed,
+   no stable identifiers) stay untouched for now. Before launch, ALL non-seed
+   data gets wiped — this is on the Step 9 (deprecation & hardening) checklist
+   in docs/architecture-review.md; do not attempt to flag it by heuristic.
 7. **Paymob**: card iframe + mobile wallets only; kiosk/Aman and Fawry out of
    scope this phase. Mock-first with the paymob driver ready; `PAYMOB_*` env
    keys arrive when the account is created.

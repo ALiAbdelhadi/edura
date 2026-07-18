@@ -11,15 +11,20 @@ async function main() {
 
   await withPlatformContext(
     async (tx) => {
+      // Everything this seed creates is demo data — flagged is_demo on the
+      // ROOT entities (center/users/course) so it can be purged before launch;
+      // child rows inherit demo-ness by ancestry. The education catalog
+      // (seedCatalog below) is permanent reference data and is NOT flagged.
       const center = await tx.center.upsert({
         where: { shortId: "NILE" },
-        update: {},
+        update: { isDemo: true },
         create: {
           name: "Nile Educational Academy",
           shortId: "NILE",
           status: "active",
           subjects: ["Math", "Physics", "Arabic"],
           address: "Cairo, Egypt",
+          isDemo: true,
         },
       });
 
@@ -37,8 +42,15 @@ async function main() {
       ) =>
         tx.user.upsert({
           where: { email },
-          update: {},
-          create: { email, name, role, status: "active", passwordHash },
+          update: { isDemo: true },
+          create: {
+            email,
+            name,
+            role,
+            status: "active",
+            passwordHash,
+            isDemo: true,
+          },
         });
 
       await mkUser(
@@ -165,7 +177,11 @@ async function main() {
       }
 
       let course = await tx.course.findFirst({
-        where: { centerId: center.id, teacherId: teacher.id, title: "Math — Grade 12" },
+        where: {
+          centerId: center.id,
+          teacherId: teacher.id,
+          title: "Math — Grade 12",
+        },
       });
       if (!course) {
         course = await tx.course.create({
@@ -180,6 +196,7 @@ async function main() {
             startDate: new Date(),
             price: 30000, // piasters
             maxStudents: 30,
+            isDemo: true,
           },
         });
       }

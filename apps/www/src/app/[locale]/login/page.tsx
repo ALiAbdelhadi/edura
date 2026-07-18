@@ -18,6 +18,12 @@ function isSafeNext(value: string | null): value is string {
   return !!value && value.startsWith("/") && !value.startsWith("//");
 }
 
+// Demo quick-logins are a dev/staging convenience only — the accounts are
+// seeded is_demo data with a known password, so never expose them in prod.
+// NODE_ENV is statically inlined at build time, so the whole card is
+// dead-code-eliminated from production bundles.
+const SHOW_QUICK_LOGINS = process.env.NODE_ENV !== "production";
+
 const QUICK_LOGINS = [
   {
     roleKey: "roles.admin",
@@ -188,41 +194,43 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("auth.quickDemoLogin")}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {QUICK_LOGINS.map(({ roleKey, email: qEmail, tone }) => {
-                const label = t(roleKey);
-                return (
-                  <button
-                    key={roleKey}
-                    type="button"
-                    onClick={() => handleQuickLogin(qEmail)}
-                    disabled={loading}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span
-                      className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tone}`}
+        {SHOW_QUICK_LOGINS && (
+          <Card>
+            <CardContent>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("auth.quickDemoLogin")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {QUICK_LOGINS.map(({ roleKey, email: qEmail, tone }) => {
+                  const label = t(roleKey);
+                  return (
+                    <button
+                      key={roleKey}
+                      type="button"
+                      onClick={() => handleQuickLogin(qEmail)}
+                      disabled={loading}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {label[0]}
-                    </span>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              {t.rich("auth.demoPasswordHint", {
-                code: (chunks) => (
-                  <code className="font-mono text-foreground">{chunks}</code>
-                ),
-              })}
-            </p>
-          </CardContent>
-        </Card>
+                      <span
+                        className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tone}`}
+                      >
+                        {label[0]}
+                      </span>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                {t.rich("auth.demoPasswordHint", {
+                  code: (chunks) => (
+                    <code className="font-mono text-foreground">{chunks}</code>
+                  ),
+                })}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           {t("auth.noAccountPrompt")}{" "}
