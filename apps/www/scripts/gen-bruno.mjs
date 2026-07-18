@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const API_DIR = join(ROOT, "app", "api");
+const API_DIR = join(ROOT, "src", "app", "api");
 const OUT = join(ROOT, "bruno");
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -19,7 +19,7 @@ function walk(dir) {
 }
 
 function toUrlPath(file) {
-  const rel = file.slice(ROOT.length).replace(/\/route\.ts$/, "").replace(/^\/app\//, "");
+  const rel = file.slice(ROOT.length).replace(/\/route\.ts$/, "").replace(/^\/(src\/)?app\//, "");
   return (
     "/" +
     rel

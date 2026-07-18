@@ -1,0 +1,24 @@
+meta {
+  name: POST push-subscription
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/push-subscription
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "endpoint": "",
+    "keys": "",
+    "p256dh": "",
+    "auth": ""
+  }
+}
