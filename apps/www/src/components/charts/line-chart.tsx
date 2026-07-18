@@ -1,7 +1,17 @@
 "use client";
 
 import React from "react";
-import * as d3 from "d3";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ChartTooltip } from "./chart-tooltip";
+import { ChartLegend } from "./chart-legend";
 
 export type LineSeriesPoint = {
   x: string;
@@ -24,6 +34,22 @@ type LineChartProps = {
   emptyText?: string;
 };
 
+const tickStyle = { fontSize: 12, fill: "var(--muted-foreground)" };
+
+function mergeSeries(series: LineSeries[]) {
+  const xValues = Array.from(
+    new Set(series.flatMap((line) => line.points.map((point) => point.x))),
+  );
+  return xValues.map((x) => {
+    const row: Record<string, string | number> = { x };
+    for (const line of series) {
+      const point = line.points.find((entry) => entry.x === x);
+      if (point) row[line.id] = point.value;
+    }
+    return row;
+  });
+}
+
 export function LineChart({
   series,
   height = 260,
@@ -32,147 +58,71 @@ export function LineChart({
   yValueFormatter,
   emptyText = "No chart data available.",
 }: LineChartProps) {
-  const svgRef = React.useRef<SVGSVGElement | null>(null);
   const hasData = series.some((line) => line.points.length > 0);
-
-  React.useEffect(() => {
-    if (!svgRef.current || !hasData) return;
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
-
-    const width = 800;
-    const margin = { top: 20, right: 24, bottom: 48, left: 56 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    const xLabels = Array.from(
-      new Set(series.flatMap((line) => line.points.map((point) => point.x))),
-    );
-    const yMax =
-      d3.max(series, (line: LineSeries) => d3.max(line.points, (point: LineSeriesPoint) => point.value) ?? 0) ??
-      0;
-    const yCeil = Math.max(yMax, 1);
-
-    const xScale = d3
-      .scalePoint<string>()
-      .domain(xLabels)
-      .range([margin.left, margin.left + innerWidth])
-      .padding(0.5);
-    const yScale = d3
-      .scaleLinear()
-      .domain([0, yCeil])
-      .nice()
-      .range([margin.top + innerHeight, margin.top]);
-
-    const axisColor = "var(--muted-foreground)";
-    const gridColor = "var(--border)";
-
-    svg
-      .append("g")
-      .attr("transform", `translate(0, ${margin.top + innerHeight})`)
-      .call(d3.axisBottom(xScale).tickSizeOuter(0))
-      .call((g: any) =>
-        g.selectAll("text").attr("font-size", "11px").attr("fill", axisColor),
-      )
-      .call((g: any) => g.selectAll("line,path").attr("stroke", gridColor));
-
-    svg
-      .append("g")
-      .attr("transform", `translate(${margin.left}, 0)`)
-      .call(
-        d3
-          .axisLeft(yScale)
-          .ticks(yTickCount)
-          .tickFormat((v: d3.NumberValue) => (yValueFormatter ? yValueFormatter(Number(v)) : String(v))),
-      )
-      .call((g: any) =>
-        g.selectAll("text").attr("font-size", "11px").attr("fill", axisColor),
-      )
-      .call((g: any) => g.selectAll("line,path").attr("stroke", gridColor))
-      .call((g: any) =>
-        g
-          .selectAll(".tick line")
-          .clone()
-          .attr("x2", innerWidth)
-          .attr("stroke-opacity", 0.5),
-      );
-
-    const lineBuilder = d3
-      .line<LineSeriesPoint>()
-      .x((point) => xScale(point.x) ?? 0)
-      .y((point) => yScale(point.value))
-      .curve(d3.curveMonotoneX);
-
-    const areaBuilder = d3
-      .area<LineSeriesPoint>()
-      .x((point) => xScale(point.x) ?? 0)
-      .y0(yScale(0))
-      .y1((point) => yScale(point.value))
-      .curve(d3.curveMonotoneX);
-
-    for (const line of series) {
-      if (showArea) {
-        svg
-          .append("path")
-          .datum(line.points)
-          .attr("fill", line.color)
-          .attr("fill-opacity", 0.12)
-          .attr("d", areaBuilder);
-      }
-
-      svg
-        .append("path")
-        .datum(line.points)
-        .attr("fill", "none")
-        .attr("stroke", line.color)
-        .attr("stroke-width", 2.5)
-        .attr("stroke-linecap", "round")
-        .attr("stroke-linejoin", "round")
-        .attr("d", lineBuilder);
-
-      svg
-        .append("g")
-        .selectAll("circle")
-        .data(line.points)
-        .join("circle")
-        .attr("cx", (point: LineSeriesPoint) => xScale(point.x) ?? 0)
-        .attr("cy", (point: LineSeriesPoint) => yScale(point.value))
-        .attr("r", 3)
-        .attr("fill", "var(--card)")
-        .attr("stroke", line.color)
-        .attr("stroke-width", 2);
-    }
-  }, [series, height, yTickCount, showArea, hasData, yValueFormatter]);
+  const data = React.useMemo(() => mergeSeries(series), [series]);
 
   if (!hasData) {
     return (
-      <div style={{ textAlign: "center", color: "var(--muted-foreground)", padding: 24 }}>
+      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
         {emptyText}
       </div>
     );
   }
 
+  const valueFormatter = (value: number) =>
+    yValueFormatter ? yValueFormatter(value) : String(value);
+
   return (
     <div>
-      <svg
-        ref={svgRef}
-        width="100%"
-        height={height}
-        viewBox={`0 0 800 ${height}`}
-        role="img"
-        aria-label="line chart"
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <defs>
+            {series.map((line) => (
+              <linearGradient
+                key={line.id}
+                id={`line-gradient-${line.id}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={line.color} stopOpacity={0.28} />
+                <stop offset="100%" stopColor={line.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+          <XAxis dataKey="x" tick={tickStyle} tickLine={false} axisLine={false} />
+          <YAxis
+            tick={tickStyle}
+            tickLine={false}
+            axisLine={false}
+            tickCount={yTickCount}
+            tickFormatter={valueFormatter}
+          />
+          <Tooltip
+            cursor={{ stroke: "var(--border)" }}
+            content={<ChartTooltip valueFormatter={valueFormatter} />}
+          />
+          {series.map((line) => (
+            <Area
+              key={line.id}
+              type="monotone"
+              dataKey={line.id}
+              name={line.label}
+              stroke={line.color}
+              strokeWidth={2.5}
+              fill={showArea ? `url(#line-gradient-${line.id})` : "transparent"}
+              dot={{ r: 3, fill: "var(--card)", stroke: line.color, strokeWidth: 2 }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+      <ChartLegend
+        items={series.map((line) => ({ key: line.id, label: line.label, color: line.color }))}
       />
-      <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-        {series.map((line) => (
-          <div
-            key={line.id}
-            style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--muted-foreground)" }}
-          >
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: line.color }} />
-            <span>{line.label}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

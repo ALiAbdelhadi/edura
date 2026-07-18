@@ -170,6 +170,7 @@
   },
   "reports": {
     "dateRange": "Date range:",
+    "pickDateRange": "Pick a date range",
     "granularity": "Granularity:",
     "monthly": "Monthly",
     "weekly": "Weekly",

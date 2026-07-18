@@ -13,7 +13,12 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -70,17 +75,30 @@ export function TeacherMaterialsScreen() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<"upload" | "link">("upload");
 
-  const { query: coursesQuery, result: coursesResult } = useList({ resource: "courses" });
+  const { query: coursesQuery, result: coursesResult } = useList({
+    resource: "courses",
+  });
   const { query: materialsQuery, result: materialsResult } = useList({
     resource: "materials",
-    filters: selectedCourseId ? [{ field: "courseId", operator: "eq" as const, value: selectedCourseId }] : [],
+    filters: selectedCourseId
+      ? [
+          {
+            field: "courseId",
+            operator: "eq" as const,
+            value: selectedCourseId,
+          },
+        ]
+      : [],
   });
   const { mutate: deleteMaterial } = useDelete();
 
   const courses = (coursesResult?.data ?? []) as any[];
   const materials = (materialsResult?.data ?? []) as any[];
 
-  const materialTypeOptions = MATERIAL_TYPE_VALUES.map((v) => ({ value: v, label: t(`teacher.type_${v}`) }));
+  const materialTypeOptions = MATERIAL_TYPE_VALUES.map((v) => ({
+    value: v,
+    label: t(`teacher.type_${v}`),
+  }));
 
   const courseMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -90,12 +108,9 @@ export function TeacherMaterialsScreen() {
 
   const courseOptions = useMemo(
     () => courses.map((c) => ({ value: c.id || c._id, label: c.title })),
-    [courses]
+    [courses],
   );
 
-  // Zod schema built inside the component so t() localises validation messages.
-  // sourceMode-dependent rules run in superRefine; the resolver re-reads the
-  // freshly-built schema on every render.
   const uploadSchema = z
     .object({
       courseId: z.string().min(1, t("teacher.selectCourseRequired")),
@@ -107,19 +122,37 @@ export function TeacherMaterialsScreen() {
     .superRefine((val, ctx) => {
       if (sourceMode === "upload") {
         if (!val.file) {
-          ctx.addIssue({ code: "custom", path: ["file"], message: t("teacher.fileRequired") });
+          ctx.addIssue({
+            code: "custom",
+            path: ["file"],
+            message: t("teacher.fileRequired"),
+          });
         }
       } else if (!val.fileUrl || !val.fileUrl.trim()) {
-        ctx.addIssue({ code: "custom", path: ["fileUrl"], message: t("teacher.pdfLinkRequired") });
+        ctx.addIssue({
+          code: "custom",
+          path: ["fileUrl"],
+          message: t("teacher.pdfLinkRequired"),
+        });
       } else if (!z.string().url().safeParse(val.fileUrl).success) {
-        ctx.addIssue({ code: "custom", path: ["fileUrl"], message: t("teacher.validUrl") });
+        ctx.addIssue({
+          code: "custom",
+          path: ["fileUrl"],
+          message: t("teacher.validUrl"),
+        });
       }
     });
   type UploadValues = z.infer<typeof uploadSchema>;
 
   const form = useForm<UploadValues>({
     resolver: zodResolver(uploadSchema),
-    defaultValues: { courseId: "", title: "", type: "", file: undefined, fileUrl: "" },
+    defaultValues: {
+      courseId: "",
+      title: "",
+      type: "",
+      file: undefined,
+      fileUrl: "",
+    },
   });
 
   const closeModal = () => {
@@ -175,8 +208,9 @@ export function TeacherMaterialsScreen() {
       { resource: "materials", id },
       {
         onSuccess: () => toast.success(t("teacher.deleteSuccess")),
-        onError: (err: any) => toast.error(err?.message || t("teacher.deleteFailed")),
-      }
+        onError: (err: any) =>
+          toast.error(err?.message || t("teacher.deleteFailed")),
+      },
     );
   };
 
@@ -185,7 +219,9 @@ export function TeacherMaterialsScreen() {
   const handleDownload = async (id: string) => {
     setDownloadingId(id);
     try {
-      const response = await api.get(`materials/${id}/download`).json<{ data: { url: string } }>();
+      const response = await api
+        .get(`materials/${id}/download`)
+        .json<{ data: { url: string } }>();
       window.open(response.data.url, "_blank");
     } catch (err: any) {
       toast.error(err?.message || t("teacher.downloadFailed"));
@@ -208,7 +244,8 @@ export function TeacherMaterialsScreen() {
     {
       id: "course",
       header: t("nav.courses"),
-      cell: ({ row }) => courseMap.get(row.original.courseId?.toString?.()) || "—",
+      cell: ({ row }) =>
+        courseMap.get(row.original.courseId?.toString?.()) || "—",
     },
     {
       id: "type",
@@ -216,7 +253,9 @@ export function TeacherMaterialsScreen() {
       cell: ({ row }) => {
         const v = row.original.type as string;
         return v ? (
-          <StatusBadge tone={TYPE_TONES[v] ?? "neutral"}>{t(asKey(`teacher.type_${v}`))}</StatusBadge>
+          <StatusBadge tone={TYPE_TONES[v] ?? "neutral"}>
+            {t(asKey(`teacher.type_${v}`))}
+          </StatusBadge>
         ) : null;
       },
     },
@@ -228,7 +267,8 @@ export function TeacherMaterialsScreen() {
     {
       id: "createdAt",
       header: t("teacher.uploaded"),
-      cell: ({ row }) => (row.original.createdAt ? formatDate(row.original.createdAt) : "—"),
+      cell: ({ row }) =>
+        row.original.createdAt ? formatDate(row.original.createdAt) : "—",
     },
     {
       id: "actions",
@@ -244,7 +284,11 @@ export function TeacherMaterialsScreen() {
               onClick={() => handleDownload(id)}
               disabled={downloadingId === id}
             >
-              {downloadingId === id ? <Spinner /> : <Download className="size-4" />}
+              {downloadingId === id ? (
+                <Spinner />
+              ) : (
+                <Download className="size-4" />
+              )}
               {t("teacher.download")}
             </Button>
             <ConfirmDialog
@@ -279,13 +323,17 @@ export function TeacherMaterialsScreen() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Select
                 value={selectedCourseId ?? "all"}
-                onValueChange={(v) => setSelectedCourseId(v === "all" ? null : v)}
+                onValueChange={(v) =>
+                  setSelectedCourseId(v === "all" ? null : v)
+                }
               >
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder={t("teacher.filterByCourse")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t("teacher.filterByCourse")}</SelectItem>
+                  <SelectItem value="all">
+                    {t("teacher.filterByCourse")}
+                  </SelectItem>
                   {courseOptions.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       {c.label}
@@ -308,7 +356,9 @@ export function TeacherMaterialsScreen() {
               columns={columns}
               data={materials}
               pageSize={10}
-              emptyState={<EmptyState icon={FileText} title={t("teacher.noMaterials")} />}
+              emptyState={
+                <EmptyState icon={FileText} title={t("teacher.noMaterials")} />
+              }
             />
           )}
         </CardContent>
@@ -329,21 +379,32 @@ export function TeacherMaterialsScreen() {
           <Alert className="border-info/30 bg-info/10 text-info">
             <Info className="size-4" />
             <AlertTitle>{t("teacher.pdfStorage")}</AlertTitle>
-            <AlertDescription className="text-info/80">{t("teacher.pdfStorageDesc")}</AlertDescription>
+            <AlertDescription className="text-info/80">
+              {t("teacher.pdfStorageDesc")}
+            </AlertDescription>
           </Alert>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleUpload)} autoComplete="off" className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(handleUpload)}
+              autoComplete="off"
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="courseId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t("teacher.course")}</FormLabel>
-                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value || undefined}
+                      onValueChange={field.onChange}
+                    >
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t("teacher.selectCoursePlaceholder")} />
+                          <SelectValue
+                            placeholder={t("teacher.selectCoursePlaceholder")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -366,7 +427,10 @@ export function TeacherMaterialsScreen() {
                   <FormItem>
                     <FormLabel>{t("teacher.title")}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t("teacher.titlePlaceholder")} {...field} />
+                      <Input
+                        placeholder={t("teacher.titlePlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -379,10 +443,15 @@ export function TeacherMaterialsScreen() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t("teacher.type")}</FormLabel>
-                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value || undefined}
+                      onValueChange={field.onChange}
+                    >
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t("teacher.selectTypePlaceholder")} />
+                          <SelectValue
+                            placeholder={t("teacher.selectTypePlaceholder")}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -451,17 +520,29 @@ export function TeacherMaterialsScreen() {
                             name={field.name}
                             ref={field.ref}
                             onBlur={field.onBlur}
-                            onChange={(e) => field.onChange(e.target.files?.[0])}
+                            onChange={(e) =>
+                              field.onChange(e.target.files?.[0])
+                            }
                           />
                           <Button asChild variant="outline" type="button">
-                            <label htmlFor="material-file" className="cursor-pointer">
+                            <label
+                              htmlFor="material-file"
+                              className="cursor-pointer"
+                            >
                               <Upload className="size-4" />
                               {t("teacher.selectPdf")}
                             </label>
                           </Button>
                         </div>
                         {f ? (
-                          <p className={cn("text-xs", tooLarge ? "text-destructive" : "text-muted-foreground")}>
+                          <p
+                            className={cn(
+                              "text-xs",
+                              tooLarge
+                                ? "text-destructive"
+                                : "text-muted-foreground",
+                            )}
+                          >
                             {f.name} — <span dir="ltr">{size}</span>
                             {tooLarge ? ` ${t("teacher.tooLarge")}` : ""}
                           </p>
@@ -479,7 +560,10 @@ export function TeacherMaterialsScreen() {
                     <FormItem>
                       <FormLabel>{t("teacher.pdfLinkLabel")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="https://example.com/material.pdf" {...field} />
+                        <Input
+                          placeholder="https://example.com/material.pdf"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -170,6 +170,7 @@
   },
   "reports": {
     "dateRange": "النطاق الزمني:",
+    "pickDateRange": "اختر نطاقًا زمنيًا",
     "granularity": "التقسيم الزمني:",
     "monthly": "شهري",
     "weekly": "أسبوعي",

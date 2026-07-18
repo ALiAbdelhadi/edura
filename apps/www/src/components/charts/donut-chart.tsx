@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import * as d3 from "d3";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { ChartTooltip } from "./chart-tooltip";
 
 export type DonutSlice = {
   id: string;
@@ -16,7 +17,6 @@ type DonutChartProps = {
   innerRadiusRatio?: number;
   centerLabel?: string;
   emptyText?: string;
-  /** Formats the center total and legend values. Defaults to a plain grouped number — pass a currency formatter when `value` is money. */
   formatValue?: (value: number) => string;
 };
 
@@ -28,90 +28,61 @@ export function DonutChart({
   emptyText = "No chart data available.",
   formatValue = (value: number) => value.toLocaleString(),
 }: DonutChartProps) {
-  const svgRef = React.useRef<SVGSVGElement | null>(null);
   const total = data.reduce((sum, slice) => sum + slice.value, 0);
 
-  React.useEffect(() => {
-    if (!svgRef.current || total <= 0) return;
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
-
-    const width = 800;
-    const radius = Math.min(width, height) * 0.32;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const innerRadius = radius * innerRadiusRatio;
-
-    const pie = d3
-      .pie<DonutSlice>()
-      .value((slice: DonutSlice) => slice.value)
-      .sort(null)(data);
-    const arc = d3.arc<d3.PieArcDatum<DonutSlice>>().innerRadius(innerRadius).outerRadius(radius);
-
-    const group = svg
-      .append("g")
-      .attr("transform", `translate(${centerX},${centerY})`);
-
-    group
-      .selectAll("path")
-      .data(pie)
-      .join("path")
-      .attr("d", arc)
-      .attr("fill", (slice: d3.PieArcDatum<DonutSlice>) => slice.data.color)
-      .attr("stroke", "var(--card)")
-      .attr("stroke-width", 2);
-
-    group
-      .append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", "-0.2em")
-      .attr("font-size", "30px")
-      .attr("font-weight", 700)
-      .attr("fill", "var(--foreground)")
-      .text(formatValue(total));
-
-    if (centerLabel) {
-      group
-        .append("text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "1.4em")
-        .attr("font-size", "12px")
-        .attr("fill", "var(--muted-foreground)")
-        .text(centerLabel);
-    }
-  }, [data, total, height, innerRadiusRatio, centerLabel, formatValue]);
-
   if (total <= 0) {
-    return <div style={{ textAlign: "center", color: "var(--muted-foreground)", padding: 24 }}>{emptyText}</div>;
+    return (
+      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+        {emptyText}
+      </div>
+    );
   }
+
+  const innerRadius = `${Math.round(76 * innerRadiusRatio)}%`;
 
   return (
     <div>
-      <svg
-        ref={svgRef}
-        width="100%"
-        height={height}
-        viewBox={`0 0 800 ${height}`}
-        role="img"
-        aria-label="donut chart"
-      />
-      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+      <div className="relative" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip content={<ChartTooltip valueFormatter={formatValue} />} />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="label"
+              innerRadius={innerRadius}
+              outerRadius="76%"
+              paddingAngle={data.length > 1 ? 2 : 0}
+              cornerRadius={4}
+              stroke="var(--card)"
+              strokeWidth={2}
+            >
+              {data.map((slice) => (
+                <Cell key={slice.id} fill={slice.color} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-foreground">{formatValue(total)}</span>
+          {centerLabel ? (
+            <span className="text-xs text-muted-foreground">{centerLabel}</span>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
         {data.map((slice) => (
-          <div
-            key={slice.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              fontSize: 12,
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted-foreground)" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: slice.color }} />
-              {slice.label}
+          <div key={slice.id} className="flex items-center justify-between gap-2 text-xs">
+            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ background: slice.color }}
+              />
+              <span className="truncate">{slice.label}</span>
             </span>
-            <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{formatValue(slice.value)}</span>
+            <span className="shrink-0 font-medium tabular-nums text-foreground">
+              {formatValue(slice.value)}
+            </span>
           </div>
         ))}
       </div>
