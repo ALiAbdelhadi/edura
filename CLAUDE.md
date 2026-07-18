@@ -31,6 +31,9 @@ Education platform for the Egyptian market (K-12 private lessons / teaching cent
 - Secrets only via env vars (e.g. PAYMOB_*, WHATSAPP_*). Never hardcode.
 - Destructive operations use soft-delete; all superadmin writes go to an audit log.
 - Prefer incremental, migration-safe schema changes.
+- Git: Claude never runs git add/commit/push and never adds a Co-Authored-By or
+  any other trailer to commit messages. Claude only provides the commit message
+  text; I run all git commands myself.
 
 ## Approved decisions (2026-07-18)
 
@@ -109,3 +112,17 @@ Work stops after each step for review before the next begins.
     active subscriptions / total revenue). Every list view gets search,
     filters, and pagination; destructive actions use soft-delete. This was
     deliberately deferred out of Step 2, which was extraction only.
+11. **Step 3 done — Paymob foundation (2026-07-19).** Gateway abstraction +
+    working mock driver (default, `PAYMENTS_MODE=mock`), EMPTY paymob driver
+    stub (TODOs mark where auth token → order → payment key → iframe/redirect
+    and HMAC verification go — real API deliberately not integrated),
+    `payment_intents` table, initiate + HMAC-verified idempotent webhook,
+    amount always from the server-side intent. Successful online settlement
+    writes Payment + **Transaction** + points + notification.
+
+    > **⚠️ STEP 4 MUST-DO — LEDGER RECONCILIATION (do not forget):**
+    > Reconcile CASH payments into the Transaction ledger so online and cash
+    > are consistent — until this is done, the accountant ledger is
+    > **INCOMPLETE (online-only)**. The finance overview and the back-office
+    > Payments screens carry a visible "online payments only" note that must
+    > be REMOVED in the same change that lands the reconciliation.

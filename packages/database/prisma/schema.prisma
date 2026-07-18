@@ -1519,3 +1519,61 @@ model SubjectRequest {
   @@index([requestedById])
   @@map("subject_requests")
 }
+
+// ---------------------------------------------------------------------------
+// Online payments — Step 3 (Paymob foundation). Money-table style: plain UUID
+// columns, no relations (cf. Payment/Transaction). State machine is one-way
+// (pending -> paid | failed | expired), enforced by claim-style conditional
+// updates in code. App-layer scoped — NOT in the tenant_isolation RLS set.
+// ---------------------------------------------------------------------------
+
+enum PaymentGateway {
+  mock
+  paymob
+
+  @@map("payment_gateway")
+}
+
+enum PaymentIntentMethod {
+  card // Paymob card iframe
+  wallet // Paymob mobile wallets
+
+  @@map("payment_intent_method")
+}
+
+enum PaymentIntentStatus {
+  pending
+  paid
+  failed
+  expired
+
+  @@map("payment_intent_status")
+}
+
+model PaymentIntent {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String              @map("student_id") @db.Uuid
+  courseId       String?             @map("course_id") @db.Uuid // nullable for Step 4 (subscriptions); the initiate API requires it today
+  centerId       String?             @map("center_id") @db.Uuid // snapshot from the course at initiate time (nullable for future teacher-direct)
+  amount         Int // piasters — ALWAYS server-set from the course, never from the client
+  currency       String              @default("EGP")
+  method         PaymentIntentMethod
+  gateway        PaymentGateway
+  status         PaymentIntentStatus @default(pending)
+  idempotencyKey String              @unique @map("idempotency_key") // dedupes initiate retries
+  gatewayOrderId String?             @unique @map("gateway_order_id") // webhook idempotency anchor
+  gatewayRef     String?             @map("gateway_ref")
+  failureReason  String?             @map("failure_reason")
+  webhookPayload Json?               @map("webhook_payload") // raw last webhook body, stored verbatim
+  paymentId      String?             @map("payment_id") @db.Uuid // settlement linkage -> payments.id
+  transactionId  String?             @map("transaction_id") @db.Uuid // settlement linkage -> transactions.id
+  expiresAt      DateTime            @map("expires_at") @db.Timestamptz(6)
+  paidAt         DateTime?           @map("paid_at") @db.Timestamptz(6)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([studentId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([centerId, createdAt(sort: Desc)])
+  @@map("payment_intents")
+}
