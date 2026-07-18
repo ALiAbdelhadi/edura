@@ -2,6 +2,7 @@
 
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
+import { OnboardingGate } from "@/features/onboarding/onboarding-gate";
 
 const navItems = [
   { href: "/dashboard/teacher", icon: "home", label: "Dashboard" },
@@ -10,10 +11,19 @@ const navItems = [
   { href: "/dashboard/teacher/attendance", icon: "check", label: "Attendance" },
   { href: "/dashboard/teacher/grades", icon: "chart", label: "Gradebook" },
   { href: "/dashboard/teacher/reviews", icon: "star", label: "Reviews" },
-  { href: "/dashboard/teacher/assignments", icon: "clipboard", label: "Assignments" },
+  {
+    href: "/dashboard/teacher/assignments",
+    icon: "clipboard",
+    label: "Assignments",
+  },
   { href: "/dashboard/teacher/materials", icon: "book", label: "Materials" },
+  { href: "/dashboard/teacher/team", icon: "users", label: "Team" },
   { href: "/dashboard/teacher/messages", icon: "message", label: "Messages" },
-  { href: "/dashboard/teacher/notifications", icon: "bell", label: "Notifications" },
+  {
+    href: "/dashboard/teacher/notifications",
+    icon: "bell",
+    label: "Notifications",
+  },
   { href: "/dashboard/teacher/settings", icon: "settings", label: "Settings" },
 ];
 
@@ -24,9 +34,11 @@ export default function TeacherLayout({
 }) {
   return (
     <RoleGuard allowedRole="teacher">
-      <DashboardShell role="teacher" navItems={navItems}>
-        {children}
-      </DashboardShell>
+      <OnboardingGate>
+        <DashboardShell role="teacher" navItems={navItems}>
+          {children}
+        </DashboardShell>
+      </OnboardingGate>
     </RoleGuard>
   );
 }

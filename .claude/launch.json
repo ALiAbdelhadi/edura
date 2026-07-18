@@ -18,6 +18,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "edura", "start"],
       "port": 3003
+    },
+    {
+      "name": "edura-realtime",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "realtime", "dev"],
+      "port": 3005
     }
   ]
 }

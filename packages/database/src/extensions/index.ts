@@ -1,7 +1,6 @@
 import { getRequestContext } from "../context";
 import { Prisma } from "../generated/client/index";
 
-
 const SOFT_DELETE_MODELS = new Set<string>(["User"]);
 
 const IMMUTABLE_MODELS = new Set<string>(["Transaction", "PointsLedger"]);
@@ -31,7 +30,9 @@ export const softDeleteExtension = Prisma.defineExtension((client) => {
       updateMany: (a: unknown) => Promise<unknown>;
     };
   };
-  const withNotDeleted = (args: { where?: Record<string, unknown> } | undefined) => {
+  const withNotDeleted = (
+    args: { where?: Record<string, unknown> } | undefined,
+  ) => {
     const a = (args ?? {}) as { where?: Record<string, unknown> };
     a.where = { deletedAt: null, ...(a.where ?? {}) };
     return a;
@@ -113,10 +114,15 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
             const rec = result as { id?: string } | null;
             try {
               const c = client as {
-                $transaction: (fn: (tx: {
-                  $executeRaw: (q: TemplateStringsArray, ...v: unknown[]) => Promise<unknown>;
-                  auditLog: { create: (a: unknown) => Promise<unknown> };
-                }) => Promise<unknown>) => Promise<unknown>;
+                $transaction: (
+                  fn: (tx: {
+                    $executeRaw: (
+                      q: TemplateStringsArray,
+                      ...v: unknown[]
+                    ) => Promise<unknown>;
+                    auditLog: { create: (a: unknown) => Promise<unknown> };
+                  }) => Promise<unknown>,
+                ) => Promise<unknown>;
               };
               await c.$transaction(async (tx) => {
                 await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
@@ -132,9 +138,7 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
                   },
                 });
               });
-            } catch {
-              // Audit must never break the primary mutation; swallow + log upstream.
-            }
+            } catch {}
           }
           return result;
         },

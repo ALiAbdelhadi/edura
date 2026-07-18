@@ -72,6 +72,7 @@ const NAV_KEY: Record<string, string> = {
   Reports: "nav.reports",
   Children: "nav.children",
   Attendance: "nav.attendance",
+  Team: "nav.team",
   Messages: "nav.messages",
   Notifications: "nav.notifications",
   Settings: "nav.settings",
@@ -83,6 +84,7 @@ const NAV_KEY: Record<string, string> = {
   Affiliations: "nav.affiliations",
   Centers: "nav.centers",
   Browse: "nav.browse",
+  Catalog: "nav.catalog",
 };
 
 const iconMap: Record<string, LucideIcon> = {
@@ -114,6 +116,7 @@ type NavItem = {
 const roleLabels: Record<string, string> = {
   student: "Student",
   teacher: "Teacher",
+  assistant: "Assistant",
   parent: "Parent",
   admin: "Admin",
   superadmin: "Super Admin",
@@ -129,11 +132,6 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-/**
- * Header toggle for the sidebar. Custom (rather than <SidebarTrigger/>) so it
- * keeps the original dynamic aria-label / aria-expanded wiring and mirrors on
- * mobile (Sheet) vs. desktop (icon-collapse).
- */
 function HeaderSidebarToggle() {
   const t = useTranslations();
   const { toggleSidebar, isMobile, openMobile, state } = useSidebar();
@@ -144,7 +142,9 @@ function HeaderSidebarToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleSidebar}
-      aria-label={expanded ? t("shared.collapseSidebar") : t("shared.expandSidebar")}
+      aria-label={
+        expanded ? t("shared.collapseSidebar") : t("shared.expandSidebar")
+      }
       aria-expanded={expanded}
     >
       <PanelLeft className="size-4 rtl:-scale-x-100" />
@@ -191,11 +191,15 @@ export default function DashboardShell({
     navItems.find((item) => item.href === selectedKey)?.label || "Dashboard";
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       <Sidebar side={dir === "rtl" ? "right" : "left"} collapsible="icon">
         <SidebarHeader className="gap-0 border-b border-sidebar-border">
           <div className="flex h-12 items-center gap-2 px-1">
-            <img src="/edura-mark.svg" alt="Edura" className="size-9 shrink-0" />
+            <img
+              src="/edura-mark.svg"
+              alt="Edura"
+              className="size-9 shrink-0"
+            />
             <span className="text-base font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
               Edura
             </span>
@@ -262,7 +266,7 @@ export default function DashboardShell({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="min-h-0">
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-sm supports-backdrop-filter:bg-background/70 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <HeaderSidebarToggle />

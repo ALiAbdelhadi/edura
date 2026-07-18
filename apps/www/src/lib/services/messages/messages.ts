@@ -1,161 +1,159 @@
-import { scopedDb } from "@/lib/db/scope";
+// REST-side chat service. All authorization + persistence rules live in the
+// shared domain layer (@repo/database/chat — matrix + relationship gates),
+// which the standalone realtime server uses too. This module adapts it to
+// HTTP: session actors, AppError mapping, and the realtime/notify bridges.
+import * as chat from "@repo/database/chat";
+import { scopedDb, type TenantTx } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
-import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
+import {
+  AppError,
+  BusinessRuleError,
+  ForbiddenError,
+  NotFoundError,
+} from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
+import { bridgeMessage, bridgeRead } from "./realtime-bridge";
 
-export async function listThreads(user: SessionUser) {
-  const centerFilter = user.centerId ? { centerId: user.centerId } : {};
+function toAppError(err: unknown): unknown {
+  if (!(err instanceof chat.ChatError)) return err;
+  switch (err.code) {
+    case "recipient_not_found":
+    case "conversation_not_found":
+      return new NotFoundError(err.message);
+    case "policy_denied":
+    case "no_relationship":
+    case "not_participant":
+      return new ForbiddenError(err.message);
+    case "invalid_body":
+      return new BusinessRuleError(err.message);
+    default:
+      return new AppError(500, "internal", err.message);
+  }
+}
 
-  return scopedDb(user, async (tx) => {
-    const threads = await tx.messageThread.findMany({
-      where: { participantIds: { has: user.id }, ...centerFilter },
-      orderBy: { lastMessageAt: "desc" },
-    });
+async function run<T>(
+  user: SessionUser,
+  fn: (tx: TenantTx) => Promise<T>,
+): Promise<T> {
+  try {
+    return await scopedDb(user, fn);
+  } catch (err) {
+    throw toAppError(err);
+  }
+}
 
-    const participantIds = [...new Set(threads.flatMap((t) => t.participantIds))];
-    const users = participantIds.length
-      ? await tx.user.findMany({
-          where: { id: { in: participantIds } },
-          select: { id: true, name: true, role: true, email: true },
-        })
-      : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
+function actor(user: SessionUser): chat.ChatActor {
+  return { id: user.id, role: user.role, centerId: user.centerId ?? null };
+}
 
-    return threads.map((thread) => {
-      const otherId =
-        thread.participantIds.find((id) => id !== user.id) ?? thread.participantIds[0];
-      const otherParticipant = otherId ? userMap.get(otherId) ?? otherId : undefined;
+// ---------------------------------------------------------------------------
 
-      const unreadCounts = (thread.unreadCounts as Record<string, number>) ?? {};
-      const unreadCount = unreadCounts[user.id] || 0;
+export function listConversations(
+  user: SessionUser,
+  opts: { before?: Date; limit?: number },
+) {
+  return run(user, (tx) => chat.listConversations(tx, user.id, opts));
+}
 
-      return {
-        id: thread.id,
-        centerId: thread.centerId,
-        lastMessageAt: thread.lastMessageAt,
-        lastMessageBody: thread.lastMessageBody,
-        unreadCount,
-        otherParticipant,
-      };
-    });
+export function createConversation(user: SessionUser, recipientId: string) {
+  return run(user, async (tx) => {
+    const { conversation } = await chat.getOrCreateConversation(
+      tx,
+      actor(user),
+      recipientId,
+    );
+    // Return the list-shaped view so the client can insert it directly.
+    return chat.getConversationView(tx, user.id, conversation.id);
   });
 }
 
-export async function getThreadMessages(threadId: string, user: SessionUser) {
-  return scopedDb(user, async (tx) => {
-    const thread = await tx.messageThread.findUnique({ where: { id: threadId } });
-    if (!thread) throw new NotFoundError("Thread not found");
-
-    if (!thread.participantIds.includes(user.id)) {
-      throw new ForbiddenError("Not a participant in this thread");
-    }
-
-    const unreadCounts = (thread.unreadCounts as Record<string, number>) ?? {};
-    if ((unreadCounts[user.id] ?? 0) > 0) {
-      unreadCounts[user.id] = 0;
-      await tx.messageThread.update({
-        where: { id: thread.id },
-        data: { unreadCounts },
-      });
-    }
-
-    const messages = await tx.message.findMany({
-      where: { threadId },
-      orderBy: { createdAt: "asc" },
-    });
-
-    return messages.map((msg) => ({
-      ...msg,
-      mine: msg.senderId === user.id,
-    }));
+export function getConversationThread(
+  user: SessionUser,
+  conversationId: string,
+  opts: { beforeSeq?: number; limit?: number },
+) {
+  return run(user, async (tx) => {
+    const conversation = await chat.getConversationView(tx, user.id, conversationId);
+    const { messages, hasMore } = await chat.listMessages(
+      tx,
+      user.id,
+      conversationId,
+      opts,
+    );
+    return { conversation, messages, hasMore };
   });
 }
+
+export function listContacts(
+  user: SessionUser,
+  opts: { search?: string; limit?: number },
+) {
+  return run(user, (tx) => chat.listContacts(tx, actor(user), opts));
+}
+
+export function getUnreadTotal(user: SessionUser) {
+  return run(user, (tx) => chat.getTotalUnread(tx, user.id));
+}
+
+// ---------------------------------------------------------------------------
 
 export async function sendMessage(
-  data: { threadId?: string; recipientId?: string; body: string },
   user: SessionUser,
+  input: {
+    conversationId?: string;
+    recipientId?: string;
+    body: string;
+    clientId?: string;
+  },
 ) {
-  const { result, recipientId } = await scopedDb(user, async (tx) => {
-    let thread;
+  const result = await run(user, (tx) => chat.appendMessage(tx, actor(user), input));
 
-    if (data.threadId) {
-      thread = await tx.messageThread.findUnique({ where: { id: data.threadId } });
-      if (!thread) throw new NotFoundError("Thread not found");
-      if (!thread.participantIds.includes(user.id)) {
-        throw new ForbiddenError("Not a participant in this thread");
-      }
-    } else if (data.recipientId) {
-      const recipient = await tx.user.findUnique({
-        where: { id: data.recipientId },
-        select: { id: true, role: true },
-      });
-      if (!recipient) throw new NotFoundError("Recipient not found");
-
-      if (user.role === "student" && recipient.role === "center_admin") {
-        throw new ForbiddenError("Students must contact teachers, not admins directly");
-      }
-
-      const threadCenterId = user.centerId;
-
-      const candidates = await tx.messageThread.findMany({
-        where: {
-          participantIds: { hasEvery: [user.id, data.recipientId] },
-          ...(threadCenterId ? { centerId: threadCenterId } : {}),
+  if (!result.duplicate) {
+    // Live fanout via the realtime server; if the recipient has no live
+    // socket (or the bridge is down), fall back to a push notification.
+    const bridged = await bridgeMessage({
+      message: result.message,
+      recipientId: result.recipientId,
+      sender: { id: user.id, name: user.name ?? "", role: user.role },
+    });
+    const recipientOnline = bridged?.recipientOnline ?? false;
+    if (!recipientOnline) {
+      await notify({
+        recipients: [result.recipientId],
+        type: "new_chat_message",
+        title: user.name ? `New message from ${user.name}` : "New message",
+        body:
+          result.message.body.length > 120
+            ? result.message.body.slice(0, 117) + "…"
+            : result.message.body,
+        data: {
+          conversationId: result.message.conversationId,
+          messageId: result.message.id,
+          senderId: user.id,
         },
       });
-      thread = candidates.find((t) => t.participantIds.length === 2) ?? null;
-
-      if (!thread) {
-        thread = await tx.messageThread.create({
-          data: {
-            participantIds: [user.id, data.recipientId],
-            centerId: threadCenterId ?? null,
-            unreadCounts: {
-              [data.recipientId]: 0,
-              [user.id]: 0,
-            },
-          },
-        });
-      }
-    } else {
-      throw new BusinessRuleError("Must provide threadId or recipientId");
     }
-
-    const message = await tx.message.create({
-      data: {
-        threadId: thread.id,
-        senderId: user.id,
-        body: data.body,
-      },
-    });
-
-    const otherParticipantId = thread.participantIds.find((id) => id !== user.id);
-    const unreadCounts = (thread.unreadCounts as Record<string, number>) ?? {};
-    if (otherParticipantId) {
-      unreadCounts[otherParticipantId] = (unreadCounts[otherParticipantId] ?? 0) + 1;
-    }
-
-    await tx.messageThread.update({
-      where: { id: thread.id },
-      data: {
-        lastMessageBody: data.body,
-        lastMessageAt: message.createdAt,
-        unreadCounts,
-      },
-    });
-
-    return { result: { ...message, mine: true }, recipientId: otherParticipantId };
-  });
-
-  if (recipientId) {
-    await notify({
-      recipients: [recipientId],
-      type: "new_chat_message",
-      title: user.name ? `New message from ${user.name}` : "New message",
-      body: data.body.length > 120 ? data.body.slice(0, 117) + "…" : data.body,
-      data: { threadId: result.threadId, messageId: result.id, senderId: user.id },
-    });
   }
 
-  return result;
+  return { ...result.message, duplicate: result.duplicate };
+}
+
+export async function markConversationRead(
+  user: SessionUser,
+  conversationId: string,
+) {
+  const receipt = await run(user, (tx) =>
+    chat.markConversationRead(tx, user.id, conversationId),
+  );
+  await bridgeRead({
+    conversationId: receipt.conversationId,
+    readerId: receipt.readerId,
+    otherUserId: receipt.otherUserId,
+    readAt: receipt.readAt.toISOString(),
+  });
+  return {
+    conversationId: receipt.conversationId,
+    readAt: receipt.readAt,
+    updatedCount: receipt.updatedCount,
+  };
 }

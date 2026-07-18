@@ -1,5 +1,6 @@
 import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import ws from "ws";
 import { PrismaClient, Prisma } from "./generated/client/index";
 import {
@@ -19,14 +20,25 @@ if (!connectionString) {
   );
 }
 
+// Driver selection: short-lived serverless functions (Next.js) use the Neon
+// serverless driver (default). Long-running processes (the realtime WebSocket
+// server) set DATABASE_DRIVER=pg to get a regular node-postgres connection
+// pool — persistent TCP connections instead of per-call WebSocket dials.
+function createAdapter() {
+  if (process.env.DATABASE_DRIVER === "pg") {
+    return new PrismaPg({
+      connectionString,
+      max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+      idleTimeoutMillis: 30_000,
+    });
+  }
+  return new PrismaNeon({ connectionString });
+}
+
 function createPrisma() {
-  const adapter = new PrismaNeon({ connectionString });
   const base = new PrismaClient({
-    adapter,
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["warn", "error"]
-        : ["error"],
+    adapter: createAdapter(),
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
   return base
     .$extends(softDeleteExtension)
@@ -54,19 +66,11 @@ if (process.env.NODE_ENV !== "production") {
 
 export type TxOptions = { maxWait?: number; timeout?: number };
 
-const DEFAULT_TX_OPTIONS: Required<TxOptions> = { maxWait: 10_000, timeout: 20_000 };
+const DEFAULT_TX_OPTIONS: Required<TxOptions> = {
+  maxWait: 10_000,
+  timeout: 20_000,
+};
 
-// Neon's serverless pool can occasionally fail to hand out a connection in time
-// under concurrent load, which Prisma surfaces as P2028 "Unable to start a
-// transaction in the given time." That specific failure happens before the
-// transaction body ever runs, so retrying the whole thing is safe — nothing
-// has been written yet.
-//
-// P2028 is also used for other transaction-manager errors (e.g. a transaction
-// that expired mid-flight after actually starting) that must NOT be blindly
-// retried here — the transaction body already ran partway, and re-running it
-// under the same contention would add load rather than relieve it. Match on
-// the specific message rather than the code alone.
 const TRANSACTION_START_RETRIES = 2;
 const TRANSACTION_RETRY_DELAY_MS = 300;
 
@@ -88,9 +92,15 @@ async function transactionWithRetry<T>(
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await prisma.$transaction(fn, { ...DEFAULT_TX_OPTIONS, ...options });
+      return await prisma.$transaction(fn, {
+        ...DEFAULT_TX_OPTIONS,
+        ...options,
+      });
     } catch (err) {
-      if (attempt >= TRANSACTION_START_RETRIES || !isTransactionStartTimeout(err)) {
+      if (
+        attempt >= TRANSACTION_START_RETRIES ||
+        !isTransactionStartTimeout(err)
+      ) {
         throw err;
       }
       await delay(TRANSACTION_RETRY_DELAY_MS * (attempt + 1));

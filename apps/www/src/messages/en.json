@@ -38,7 +38,9 @@
     "points": "Points",
     "blacklist": "Blacklist",
     "accountants": "Accountants",
-    "overview": "Overview"
+    "overview": "Overview",
+    "catalog": "Catalog",
+    "team": "Team"
   },
   "roles": {
     "student": "Student",
@@ -50,7 +52,8 @@
     "super_admin": "Super Admin",
     "user": "User",
     "superadmin": "Super Admin",
-    "finance": "Accountant"
+    "finance": "Accountant",
+    "assistant": "Assistant"
   },
   "status": {
     "active": "Active",
@@ -253,5 +256,52 @@
     "grossRevenue": "Gross revenue",
     "refunds": "Refunds",
     "revenueChartTitle": "Revenue vs commission"
+  },
+  "chat": {
+    "newConversation": "New conversation",
+    "searchContacts": "Search contacts…",
+    "noContacts": "No contacts available",
+    "emptyList": "No conversations yet",
+    "emptyListHint": "Start one with “New conversation”",
+    "selectConversation": "Select a conversation to start messaging",
+    "inputPlaceholder": "Type a message…",
+    "send": "Send",
+    "typing": "typing…",
+    "online": "Online",
+    "offline": "Offline",
+    "connectionLost": "Connection lost — reconnecting, messages will be sent once back online",
+    "loadOlder": "Load older messages",
+    "sendFailed": "Failed to send",
+    "retry": "Retry",
+    "unknownUser": "Unknown user",
+    "noPreview": "No messages yet",
+    "you": "You: ",
+    "escalation": "Escalation",
+    "groups": {
+      "assistants": "Assistants",
+      "team": "My team",
+      "teachers": "Teachers",
+      "centers": "Centers",
+      "students": "Students",
+      "parents": "Parents",
+      "platform": "Platform"
+    }
+  },
+  "team": {
+    "title": "My team",
+    "subtitle": "Assistants are the primary contact point for your students and parents — you step in on escalations only.",
+    "add": "Add assistant",
+    "empty": "No assistants yet",
+    "emptyHint": "Create assistant accounts so students and parents have a first line of contact.",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "roleTitle": "Title (optional)",
+    "roleTitlePlaceholder": "e.g. Grading assistant",
+    "create": "Create account",
+    "createFailed": "Could not create the assistant account",
+    "remove": "Remove",
+    "removeTitle": "Remove assistant?",
+    "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students."
   }
 }

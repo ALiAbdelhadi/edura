@@ -1,7 +1,7 @@
-import { MessagesScreen } from "@/features/messaging/messages-screen";
+import { ChatScreen } from "@/features/messaging/chat-screen";
 
 export const metadata = { title: "Messages | Edura" };
 
-export default function StudentMessagesPage() {
-  return <MessagesScreen />;
+export default function MessagesPage() {
+  return <ChatScreen />;
 }

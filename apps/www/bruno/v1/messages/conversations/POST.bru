@@ -1,0 +1,21 @@
+meta {
+  name: POST conversations
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/messages/conversations
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "recipientId": "{{recipientId}}"
+  }
+}

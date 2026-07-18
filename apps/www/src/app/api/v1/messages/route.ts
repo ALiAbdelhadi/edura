@@ -7,20 +7,23 @@ import { sendMessage } from "@/lib/services/messages/messages";
 
 export const dynamic = "force-dynamic";
 
-const createSchema = z.object({
-  threadId: z.string().optional(),
-  recipientId: z.string().optional(),
-  body: z.string().min(1, "Message cannot be empty"),
-}).refine(data => data.threadId || data.recipientId, {
-  message: "Either threadId or recipientId must be provided",
-  path: ["threadId"]
-});
+// REST fallback send — the primary path is the realtime socket. Both funnel
+// into the same domain logic (matrix + relationship authorization included).
+const createSchema = z
+  .object({
+    conversationId: z.uuid().optional(),
+    recipientId: z.uuid().optional(),
+    body: z.string().min(1, "Message cannot be empty").max(4000),
+    clientId: z.string().max(64).optional(),
+  })
+  .refine((data) => data.conversationId || data.recipientId, {
+    message: "Either conversationId or recipientId must be provided",
+    path: ["conversationId"],
+  });
 
 export const POST = withErrors(async (req) => {
   const user = await requireSession();
-
   const data = await parseJson(req, createSchema);
-  const message = await sendMessage(data, user);
-  
+  const message = await sendMessage(user, data);
   return ok(message, { status: 201 });
 });

@@ -5,10 +5,24 @@ import RoleGuard from "@/components/refine/role-guard";
 
 const navItems = [
   { href: "/dashboard/superadmin", icon: "grid", label: "Overview" },
-  { href: "/dashboard/superadmin/registrations", icon: "bell", label: "Registrations" },
+  {
+    href: "/dashboard/superadmin/registrations",
+    icon: "bell",
+    label: "Registrations",
+  },
+  { href: "/dashboard/superadmin/catalog", icon: "book", label: "Catalog" },
+  {
+    href: "/dashboard/superadmin/messages",
+    icon: "message",
+    label: "Messages",
+  },
 ];
 
-export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
+export default function SuperAdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <RoleGuard allowedRole="super_admin">
       <DashboardShell role="superadmin" navItems={navItems}>
