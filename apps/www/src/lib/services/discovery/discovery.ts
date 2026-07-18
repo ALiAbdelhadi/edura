@@ -36,12 +36,42 @@ type CourseSearchInput = {
   limit?: string;
 };
 
-export async function searchCourses(filters: CourseSearchInput) {
+export type StudentCatalogScope = {
+  gradeLevelId: string;
+  trackId: string | null;
+};
+
+export async function searchCourses(
+  filters: CourseSearchInput,
+  studentScope?: StudentCatalogScope | null,
+) {
   const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const limit = Math.min(
+    100,
+    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
+  );
 
   return platformDb(async (tx) => {
     const where: Prisma.CourseWhereInput = { status: "active" };
+
+    if (studentScope) {
+      where.AND = [
+        {
+          OR: [
+            { gradeLevelId: null },
+            { gradeLevelId: studentScope.gradeLevelId },
+          ],
+        },
+        {
+          OR: [
+            { trackId: null },
+            ...(studentScope.trackId
+              ? [{ trackId: studentScope.trackId }]
+              : []),
+          ],
+        },
+      ];
+    }
 
     if (filters.subject) where.subject = filters.subject;
 
@@ -111,7 +141,14 @@ export async function searchCourses(filters: CourseSearchInput) {
         maxStudents: true,
         status: true,
         center: {
-          select: { id: true, name: true, shortId: true, area: true, address: true, logoUrl: true },
+          select: {
+            id: true,
+            name: true,
+            shortId: true,
+            area: true,
+            address: true,
+            logoUrl: true,
+          },
         },
       },
       skip: (page - 1) * limit,
@@ -125,7 +162,9 @@ export async function searchCourses(filters: CourseSearchInput) {
       where: { userId: { in: teacherIds } },
       select: { userId: true, ratingAvg: true },
     });
-    const ratingByTeacher = new Map(profiles.map((p) => [p.userId, p.ratingAvg]));
+    const ratingByTeacher = new Map(
+      profiles.map((p) => [p.userId, p.ratingAvg]),
+    );
 
     const courseIds = courses.map((c) => c.id);
     const grouped = await tx.enrollment.groupBy({
@@ -133,7 +172,9 @@ export async function searchCourses(filters: CourseSearchInput) {
       where: { courseId: { in: courseIds }, status: "active" },
       _count: { _all: true },
     });
-    const countByCourse = new Map(grouped.map((g) => [g.courseId, g._count._all]));
+    const countByCourse = new Map(
+      grouped.map((g) => [g.courseId, g._count._all]),
+    );
 
     const enriched = courses.map((c) => {
       const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
@@ -161,7 +202,10 @@ type CenterSearchInput = {
 
 export async function searchCenters(filters: CenterSearchInput) {
   const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const limit = Math.min(
+    100,
+    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
+  );
 
   return platformDb(async (tx) => {
     const where: Prisma.CenterWhereInput = {
@@ -222,15 +266,23 @@ type TeacherSearchInput = {
 
 export async function searchTeachers(filters: TeacherSearchInput) {
   const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const limit = Math.min(
+    100,
+    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
+  );
 
   return platformDb(async (tx) => {
-    const userFilter: Prisma.UserWhereInput = { status: "active", role: "teacher" };
-    if (filters.q) userFilter.name = { contains: filters.q, mode: "insensitive" };
+    const userFilter: Prisma.UserWhereInput = {
+      status: "active",
+      role: "teacher",
+    };
+    if (filters.q)
+      userFilter.name = { contains: filters.q, mode: "insensitive" };
 
     const where: Prisma.TeacherProfileWhereInput = { user: userFilter };
     if (filters.subject) where.subjects = { has: filters.subject };
-    if (filters.minRating) where.ratingAvg = { gte: parseFloat(filters.minRating) };
+    if (filters.minRating)
+      where.ratingAvg = { gte: parseFloat(filters.minRating) };
 
     const rows = await tx.teacherProfile.findMany({
       where,

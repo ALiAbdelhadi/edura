@@ -1,0 +1,86 @@
+{
+  "title": "الكتالوج التعليمي",
+  "subtitle": "الأنظمة والمراحل والصفوف والشعب والمواد وأماكن تدريسها — كله قابل للتعديل من غير أي deploy.",
+  "tabs": {
+    "structure": "الهيكل",
+    "subjects": "المواد",
+    "offerings": "عروض المواد",
+    "requests": "طلبات المواد"
+  },
+  "fields": {
+    "code": "الكود",
+    "codeHint": "معرّف ثابت (حروف إنجليزية صغيرة وأرقام وشرطات). لا يمكن تغييره لاحقًا.",
+    "nameAr": "الاسم بالعربية",
+    "nameEn": "الاسم بالإنجليزية",
+    "iconKey": "مفتاح الأيقونة",
+    "sortOrder": "ترتيب الظهور",
+    "isActive": "مفعّل",
+    "level": "الترتيب داخل المرحلة",
+    "language": "لغة التدريس",
+    "isAzhari": "مادة شرعية (أزهري)",
+    "isSecondLanguage": "خيار لغة ثانية",
+    "hasSecondLanguage": "تتطلب لغة ثانية"
+  },
+  "structure": {
+    "systems": "الأنظمة التعليمية",
+    "stages": "المراحل",
+    "gradeLevels": "الصفوف",
+    "tracks": "الشعب / المسارات",
+    "addSystem": "إضافة نظام",
+    "addStage": "إضافة مرحلة",
+    "addGrade": "إضافة صف",
+    "addTrack": "إضافة شعبة",
+    "editSystem": "تعديل النظام",
+    "editStage": "تعديل المرحلة",
+    "editGrade": "تعديل الصف",
+    "editTrack": "تعديل الشعبة",
+    "selectSystemFirst": "اختر نظامًا لإدارة مراحله",
+    "selectStageFirst": "اختر مرحلة لإدارة صفوفها وشعبها",
+    "linkedGrades": "تُدرّس في الصفوف",
+    "linkTrack": "ربط شعبة بالصف",
+    "unlinkTrack": "فك الربط",
+    "noTracks": "لا توجد شعب لهذه المرحلة",
+    "noGrades": "لا توجد صفوف بعد",
+    "tracksForGrade": "الشعب المطلوبة في هذا الصف",
+    "secondLanguageBadge": "لغة ثانية"
+  },
+  "subjects": {
+    "add": "إضافة مادة",
+    "edit": "تعديل المادة",
+    "offeringsCount": "العروض",
+    "teachersCount": "المدرسون",
+    "azhari": "أزهري",
+    "secondLanguage": "لغة ثانية",
+    "searchPlaceholder": "ابحث في المواد"
+  },
+  "offerings": {
+    "add": "إضافة عرض",
+    "subject": "المادة",
+    "gradeLevel": "الصف",
+    "track": "الشعبة",
+    "allTracks": "كل الشعب",
+    "filterGrade": "تصفية بالصف",
+    "filterSubject": "تصفية بالمادة",
+    "deleteTitle": "حذف العرض؟",
+    "deleteBody": "سيُزال ظهور المادة في هذا الصف/الشعبة، ولن يراها الطلاب أو المدرسون هناك.",
+    "emptyHint": "اختر تصفية بالصف أو المادة، أو أضف عرضًا جديدًا."
+  },
+  "requests": {
+    "empty": "لا توجد طلبات مواد",
+    "requestedBy": "مقدّم الطلب",
+    "suggestedName": "الاسم المقترح",
+    "notes": "ملاحظات",
+    "approveTitle": "اعتماد الطلب",
+    "approveBody": "أنشئ مادة جديدة من هذا الطلب، أو اربطه بمادة موجودة.",
+    "createNew": "إنشاء مادة جديدة",
+    "linkExisting": "ربط بمادة موجودة",
+    "rejectTitle": "رفض الطلب",
+    "reviewNote": "ملاحظة المراجعة (اختياري)",
+    "reviewedAt": "تمت المراجعة"
+  },
+  "toasts": {
+    "created": "تمت الإضافة",
+    "updated": "تم التحديث",
+    "deleted": "تم الحذف"
+  }
+}

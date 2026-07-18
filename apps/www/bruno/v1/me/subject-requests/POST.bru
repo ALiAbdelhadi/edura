@@ -1,0 +1,23 @@
+meta {
+  name: POST subject-requests
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/subject-requests
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "suggestedName": "",
+    "gradeLevelId": "{{gradeLevelId}}",
+    "notes": ""
+  }
+}

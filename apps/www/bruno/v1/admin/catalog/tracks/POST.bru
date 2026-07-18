@@ -1,0 +1,26 @@
+meta {
+  name: POST tracks
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/catalog/tracks
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "",
+    "stageId": "{{stageId}}",
+    "nameAr": "",
+    "nameEn": "",
+    "isActive": "",
+    "sortOrder": ""
+  }
+}

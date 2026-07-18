@@ -1,0 +1,78 @@
+{
+  "welcomeStudent": "Welcome! Let's set up your study profile",
+  "welcomeTeacher": "Welcome! Let's set up your teaching profile",
+  "subtitleStudent": "A few quick questions so we can show you exactly the content for your grade.",
+  "subtitleTeacher": "Pick the grades and subjects you teach so we can match you with the right students.",
+  "stepOf": "Step {current} of {total}",
+  "back": "Back",
+  "next": "Next",
+  "skip": "Skip",
+  "confirm": "Confirm & save",
+  "saving": "Saving…",
+  "draftRestored": "We restored your previous selections",
+  "completedToast": "Your profile has been saved!",
+  "steps": {
+    "system": "Education system",
+    "stage": "Stage",
+    "grade": "Grade",
+    "track": "Track",
+    "secondLanguage": "Second language",
+    "review": "Review",
+    "grades": "Grades you teach",
+    "subjects": "Subjects you teach",
+    "centerInfo": "Center details",
+    "coverage": "Stages you cover"
+  },
+  "prompts": {
+    "system": "Which education system are you in?",
+    "stage": "Which stage are you in?",
+    "grade": "Which grade exactly?",
+    "track": "Choose your track",
+    "secondLanguage": "What is your second foreign language?",
+    "review": "Review your selections before saving",
+    "teacherGrades": "Select every grade you teach (you can pick more than one)",
+    "teacherSubjects": "Pick your subjects — the list is filtered to your selected grades",
+    "teacherReview": "Review your grades and subjects before saving",
+    "centerInfo": "Enter the center's basic details",
+    "coverage": "Pick the educational stages your center serves",
+    "centerReview": "Review the center details before saving"
+  },
+  "review": {
+    "system": "System",
+    "stage": "Stage",
+    "grade": "Grade",
+    "track": "Track",
+    "secondLanguage": "Second language",
+    "subjectsPreview": "Subjects you will see",
+    "gradesCount": "{count} grades",
+    "subjectsCount": "{count} subjects",
+    "none": "—"
+  },
+  "teacher": {
+    "searchSubjects": "Search subjects",
+    "requestSubject": "Can't find your subject? Request it",
+    "requestSubjectTitle": "Request a subject",
+    "requestSubjectBody": "Your request goes to the platform admins for review; we'll notify you once approved.",
+    "suggestedName": "Suggested subject name",
+    "notes": "Notes (optional)",
+    "requestSent": "Request sent for review",
+    "selectedGrades": "Selected grades",
+    "noSubjectsForGrades": "No subjects available for the selected grades"
+  },
+  "empty": {
+    "noOptions": "No options available right now — contact support"
+  },
+  "errors": {
+    "selectOne": "Pick an option to continue",
+    "selectAtLeastOne": "Pick at least one option"
+  },
+  "welcomeCenter": "Welcome! Let's set up your center profile",
+  "center": {
+    "name": "Center name",
+    "governorate": "Governorate",
+    "area": "Area",
+    "phone": "Phone",
+    "coverage": "Covered stages",
+    "stagesCount": "{count} stages"
+  }
+}

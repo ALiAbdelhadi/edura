@@ -1,0 +1,26 @@
+meta {
+  name: POST systems
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/catalog/systems
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "code": "",
+    "nameAr": "",
+    "nameEn": "",
+    "iconKey": "",
+    "isActive": "",
+    "sortOrder": ""
+  }
+}

@@ -2,6 +2,7 @@
 
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
+import { OnboardingGate } from "@/features/onboarding/onboarding-gate";
 
 const navItems = [
   { href: "/dashboard/admin", icon: "grid", label: "Overview" },
@@ -25,9 +26,11 @@ export default function AdminLayout({
 }) {
   return (
     <RoleGuard allowedRole="center_admin">
+      <OnboardingGate>
       <DashboardShell role="admin" navItems={navItems}>
         {children}
       </DashboardShell>
+    </OnboardingGate>
     </RoleGuard>
   );
 }

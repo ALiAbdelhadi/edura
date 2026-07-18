@@ -1,0 +1,23 @@
+meta {
+  name: POST offerings
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/catalog/offerings
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "subjectId": "{{subjectId}}",
+    "gradeLevelId": "{{gradeLevelId}}",
+    "trackId": "{{trackId}}"
+  }
+}

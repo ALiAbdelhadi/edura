@@ -1,0 +1,21 @@
+meta {
+  name: PATCH onboarding
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/me/onboarding
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "draft": ""
+  }
+}
