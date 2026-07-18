@@ -13,8 +13,6 @@ const DASHBOARD_BY_ROLE: Record<string, string> = {
   teacher: "/dashboard/teacher",
   parent: "/dashboard/parent",
   center_admin: "/dashboard/admin",
-  super_admin: "/dashboard/superadmin",
-  accountant: "/dashboard/finance",
 };
 
 export default function OnboardingPage() {

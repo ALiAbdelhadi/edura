@@ -3,6 +3,17 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
 
+// www serves exactly these roles. Back-office staff (super_admin, accountant)
+// sign in to apps/superadmin only — enforced here at credential-check time so
+// a staff account can never mint a www session.
+const WWW_ROLES = new Set([
+  "center_admin",
+  "teacher",
+  "parent",
+  "student",
+  "assistant",
+]);
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
   secret: process.env.NEXTAUTH_SECRET,
@@ -20,6 +31,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.toLowerCase().trim() },
         });
         if (!user) return null;
+        if (!WWW_ROLES.has(user.role)) return null;
         if (user.status !== "active") return null;
         if (!user.passwordHash) return null;
 

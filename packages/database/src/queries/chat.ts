@@ -279,24 +279,9 @@ async function assertRelationship(
     );
 
   switch (pair) {
-    case "super_admin:super_admin":
-    case "super_admin:accountant":
-    case "super_admin:center_admin":
-    case "super_admin:teacher":
-    case "super_admin:assistant":
-    case "super_admin:parent":
-    case "super_admin:student": {
-      // Platform staff needs no data relationship.
-      const admin =
-        lo.role === "center_admin"
-          ? lo
-          : hi.role === "center_admin"
-            ? hi
-            : null;
-      return {
-        centerId: admin ? await adminCenterId(db, admin.id) : null,
-      };
-    }
+    // (super_admin/accountant pairs intentionally absent: the initiation
+    // matrix denies them before this gate is ever reached — back-office
+    // staff have no chat.)
 
     case "center_admin:teacher": {
       const [admin, teacher] =
@@ -1046,32 +1031,8 @@ export async function listContacts(
       break;
     }
 
-    case "super_admin": {
-      const users = await db.user.findMany({
-        where: {
-          status: "active",
-          id: { not: actor.id },
-          role: { not: "super_admin" },
-          ...nameFilter,
-        },
-        select: userPick,
-        orderBy: { name: "asc" },
-        take: limit,
-      });
-      push(users, "platform", "open");
-      break;
-    }
-
-    case "accountant": {
-      const users = await db.user.findMany({
-        where: { status: "active", role: "super_admin", ...nameFilter },
-        select: userPick,
-        orderBy: { name: "asc" },
-        take: limit,
-      });
-      push(users, "platform", "open");
-      break;
-    }
+    // super_admin / accountant: no chat — back-office staff live in
+    // apps/superadmin (no chat surface) and cannot hold a www session.
   }
 
   return contacts;

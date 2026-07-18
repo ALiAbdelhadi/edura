@@ -1,0 +1,48 @@
+{
+  "name": "superadmin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3004",
+    "build": "next build",
+    "start": "next start -p 3006",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "test:db": "tsx --env-file=.env.local tests/db/refund.test.ts"
+  },
+  "dependencies": {
+    "@refinedev/core": "^5.0.12",
+    "@repo/database": "workspace:*",
+    "@repo/server-core": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
+    "bcryptjs": "3.0.3",
+    "dayjs": "^1.11.20",
+    "ky": "^2.0.2",
+    "lucide-react": "^1.24.0",
+    "next": "16.2.10",
+    "next-auth": "4.24.14",
+    "next-intl": "^4.13.2",
+    "pdf-lib": "^1.17.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "recharts": "^3.9.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/ws": "^8.5.13",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4.2.4",
+    "tsx": "4.23.0",
+    "tw-animate-css": "^1.0.0",
+    "typescript": "5.9.3",
+    "ws": "^8.18.0"
+  }
+}

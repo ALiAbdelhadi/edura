@@ -101,3 +101,11 @@ Work stops after each step for review before the next begins.
    grades, materials, schedules, collaboration requests, attendance-mode
    setting, messaging) EXCEPT wallet/payouts/financial settings and managing
    other assistants. Audit every action as "assistant X on behalf of teacher Y".
+10. **Step 2 follow-on (approved 2026-07-18 — schedule right after the Step 2
+    review, before Step 3):** in `apps/superadmin`, add generic auto-CRUD
+    screens for every entity plus custom screens for the important ones
+    (users, centers, teachers, subscriptions, payments), an audit-log viewer
+    UI, and a dashboard home with counters (students / teachers / centers /
+    active subscriptions / total revenue). Every list view gets search,
+    filters, and pagination; destructive actions use soft-delete. This was
+    deliberately deferred out of Step 2, which was extraction only.

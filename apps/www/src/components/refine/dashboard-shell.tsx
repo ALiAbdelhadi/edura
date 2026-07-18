@@ -119,8 +119,6 @@ const roleLabels: Record<string, string> = {
   assistant: "Assistant",
   parent: "Parent",
   admin: "Admin",
-  superadmin: "Super Admin",
-  finance: "Accountant",
 };
 
 function getInitials(name: string) {

@@ -1,5 +1,5 @@
-import { platformDb } from "@/lib/db/scope";
-import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors/classes";
+import { platformDb } from "../../db/scope";
+import { ConflictError, NotFoundError, ValidationError } from "../../errors/classes";
 import type { Locale } from "@repo/database";
 
 type BaseCreate = {

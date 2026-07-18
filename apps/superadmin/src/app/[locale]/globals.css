@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../../../../../packages/ui/src/styles/globals.css";
+
+body {
+  font-family: var(--font-plex-arabic), var(--font-noto-sans), sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.display {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d3db; border-radius: 8px; }
+
+.shadow-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgb(224,226,232); }
+.shadow-ring { box-shadow: 0 0 0 1px rgb(224,226,232); }
+
+/* ── Typographic voice ───────────────────────────────────────────────────────
+   Plus Jakarta is loaded as a display face; put it to work on headings and the
+   dashboard KPI numbers so the product has a distinct voice instead of one flat
+   font everywhere. Body/UI stays Noto Sans (set via the AntD theme). */
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+.ant-card-head-title,
+.ant-statistic-content-value,
+.ant-statistic-content {
+  font-family: var(--font-plus-jakarta-sans), var(--font-noto-sans), sans-serif;
+  letter-spacing: -0.01em;
+}
+.ant-statistic-content-value { font-weight: 700; }
+
+::selection { background: #bae6fd; color: #0c4a6e; }
+
+[dir="rtl"] .anticon-arrow-left > svg,
+[dir="rtl"] .anticon-arrow-right > svg {
+  transform: scaleX(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

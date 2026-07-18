@@ -40,3 +40,4 @@ yarn-error.log*
 # Local claude config
 .claude/settings.local.json
 
+*.tsbuildinfo

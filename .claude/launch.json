@@ -20,6 +20,12 @@
       "port": 3003
     },
     {
+      "name": "edura-superadmin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "superadmin", "dev"],
+      "port": 3004
+    },
+    {
       "name": "edura-realtime",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "realtime", "dev"],

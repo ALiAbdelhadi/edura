@@ -24,7 +24,7 @@ import {
   getOnboardingState,
 } from "@/lib/services/catalog/onboarding";
 import { getCatalogTree, getSubjectsForSelection, getSubjectsForGradeLevels } from "@/lib/services/catalog/catalog-read";
-import { createSystem, createStage, createGradeLevel, createSubject, createOffering } from "@/lib/services/catalog/catalog-admin";
+import { createSystem, createStage, createGradeLevel, createSubject, createOffering } from "@repo/server-core/services/catalog/catalog-admin";
 import { searchCourses } from "@/lib/services/discovery/discovery";
 
 neonConfig.webSocketConstructor = ws as never;

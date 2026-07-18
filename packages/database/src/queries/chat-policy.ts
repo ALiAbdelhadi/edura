@@ -61,18 +61,11 @@ export const CONVERSATION_INITIATION: Readonly<
     teacher: "open",
     assistant: "open",
   },
-  // الأدمن: دعم المنصّة — يبدأ مع أي حد؛ لا أحد يبدأ معه.
-  super_admin: {
-    student: "open",
-    parent: "open",
-    teacher: "open",
-    assistant: "open",
-    center_admin: "open",
-    accountant: "open",
-  },
-  accountant: {
-    super_admin: "open",
-  },
+  // Back-office staff live in apps/superadmin, which has no chat surface —
+  // superadmin live chat is dropped for now (broadcast notifications only).
+  // These roles can no longer hold a www session, so the rows are empty.
+  super_admin: {},
+  accountant: {},
 };
 
 /** null ⇒ initiation denied by the matrix. */

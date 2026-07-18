@@ -1,0 +1,86 @@
+{
+  "title": "Education Catalog",
+  "subtitle": "Systems, stages, grades, tracks, subjects and where they are taught — all editable with zero deploys.",
+  "tabs": {
+    "structure": "Structure",
+    "subjects": "Subjects",
+    "offerings": "Subject offerings",
+    "requests": "Subject requests"
+  },
+  "fields": {
+    "code": "Code",
+    "codeHint": "Stable identifier (lowercase letters, digits, dashes). Cannot be changed later.",
+    "nameAr": "Arabic name",
+    "nameEn": "English name",
+    "iconKey": "Icon key",
+    "sortOrder": "Sort order",
+    "isActive": "Active",
+    "level": "Level within stage",
+    "language": "Instruction language",
+    "isAzhari": "Azhari (religious) subject",
+    "isSecondLanguage": "Second-language option",
+    "hasSecondLanguage": "Asks for a second language"
+  },
+  "structure": {
+    "systems": "Education systems",
+    "stages": "Stages",
+    "gradeLevels": "Grade levels",
+    "tracks": "Tracks",
+    "addSystem": "Add system",
+    "addStage": "Add stage",
+    "addGrade": "Add grade level",
+    "addTrack": "Add track",
+    "editSystem": "Edit system",
+    "editStage": "Edit stage",
+    "editGrade": "Edit grade level",
+    "editTrack": "Edit track",
+    "selectSystemFirst": "Select a system to manage its stages",
+    "selectStageFirst": "Select a stage to manage its grades and tracks",
+    "linkedGrades": "Offered in grades",
+    "linkTrack": "Link track to grade",
+    "unlinkTrack": "Unlink",
+    "noTracks": "No tracks for this stage",
+    "noGrades": "No grade levels yet",
+    "tracksForGrade": "Tracks asked at this grade",
+    "secondLanguageBadge": "2nd language"
+  },
+  "subjects": {
+    "add": "Add subject",
+    "edit": "Edit subject",
+    "offeringsCount": "Offerings",
+    "teachersCount": "Teachers",
+    "azhari": "Azhari",
+    "secondLanguage": "2nd language",
+    "searchPlaceholder": "Search subjects"
+  },
+  "offerings": {
+    "add": "Add offering",
+    "subject": "Subject",
+    "gradeLevel": "Grade level",
+    "track": "Track",
+    "allTracks": "All tracks",
+    "filterGrade": "Filter by grade",
+    "filterSubject": "Filter by subject",
+    "deleteTitle": "Delete offering?",
+    "deleteBody": "This removes the subject from this grade/track. Students and teachers will no longer see it there.",
+    "emptyHint": "Pick a grade or subject filter, or add a new offering."
+  },
+  "requests": {
+    "empty": "No subject requests",
+    "requestedBy": "Requested by",
+    "suggestedName": "Suggested name",
+    "notes": "Notes",
+    "approveTitle": "Approve request",
+    "approveBody": "Create a new subject from this request, or link it to an existing subject.",
+    "createNew": "Create new subject",
+    "linkExisting": "Link to existing subject",
+    "rejectTitle": "Reject request",
+    "reviewNote": "Review note (optional)",
+    "reviewedAt": "Reviewed"
+  },
+  "toasts": {
+    "created": "Created",
+    "updated": "Updated",
+    "deleted": "Deleted"
+  }
+}

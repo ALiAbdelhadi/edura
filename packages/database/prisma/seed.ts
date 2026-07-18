@@ -7,6 +7,24 @@ import { seedCatalog } from "./seed-catalog";
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 
 async function main() {
+  // Dev-only fallback gate (same style as the quick-login gating): in
+  // production the staff accounts MUST come from explicit env credentials —
+  // fail fast, before any DB write, rather than ever seeding a
+  // known-credential super_admin/accountant.
+  if (process.env.NODE_ENV === "production") {
+    const missing = [
+      !process.env.SEED_SUPERADMIN_EMAIL && "SEED_SUPERADMIN_EMAIL",
+      !process.env.SEED_SUPERADMIN_PASSWORD && "SEED_SUPERADMIN_PASSWORD",
+      !process.env.SEED_ACCOUNTANT_EMAIL && "SEED_ACCOUNTANT_EMAIL",
+      !process.env.SEED_ACCOUNTANT_PASSWORD && "SEED_ACCOUNTANT_PASSWORD",
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new Error(
+        `Refusing to seed staff accounts in production without explicit credentials — missing: ${missing.join(", ")}`,
+      );
+    }
+  }
+
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await withPlatformContext(
@@ -53,12 +71,49 @@ async function main() {
           },
         });
 
-      await mkUser(
+      // Back-office staff (sign in to apps/superadmin only). Credentials come
+      // from env vars; when provided the account is NOT flagged is_demo, so it
+      // survives the pre-launch demo purge. The hardcoded fallbacks are
+      // dev-only — production runs are hard-gated at the top of main() (same
+      // style as the quick-login gating) and never reach this fallback.
+      const mkStaffUser = async (
+        role: "super_admin" | "accountant",
+        emailEnv: string | undefined,
+        passwordEnv: string | undefined,
+        fallbackEmail: string,
+        name: string,
+      ) => {
+        const email = emailEnv || fallbackEmail;
+        const isDemo = !emailEnv;
+        const hash = passwordEnv ? await bcrypt.hash(passwordEnv, 10) : passwordHash;
+        return tx.user.upsert({
+          where: { email },
+          update: { isDemo, passwordHash: hash },
+          create: {
+            email,
+            name,
+            role,
+            status: "active",
+            passwordHash: hash,
+            isDemo,
+          },
+        });
+      };
+
+      await mkStaffUser(
+        "super_admin",
+        process.env.SEED_SUPERADMIN_EMAIL,
+        process.env.SEED_SUPERADMIN_PASSWORD,
         "superadmin@edura.eg",
         "Platform Super Admin",
-        "super_admin",
       );
-      await mkUser("accountant@edura.eg", "Platform Accountant", "accountant");
+      await mkStaffUser(
+        "accountant",
+        process.env.SEED_ACCOUNTANT_EMAIL,
+        process.env.SEED_ACCOUNTANT_PASSWORD,
+        "accountant@edura.eg",
+        "Platform Accountant",
+      );
 
       const admin = await mkUser(
         "admin@nile-academy.eg",

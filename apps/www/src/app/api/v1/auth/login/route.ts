@@ -17,6 +17,16 @@ const bodySchema = z.object({
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
+// Same allowlist as lib/auth/options.ts — back-office staff (super_admin,
+// accountant) sign in to apps/superadmin only.
+const WWW_ROLES = new Set([
+  "center_admin",
+  "teacher",
+  "parent",
+  "student",
+  "assistant",
+]);
+
 const DUMMY_HASH = "$2b$10$wrFkXDBP7l73KSdBAgzutOaGQi9FZfAP/69GAeqzK0AiUDGWqhpsW";
 
 function cookieName(): string {
@@ -31,7 +41,13 @@ export const POST = withRateLimit(
     const user = await platformDb((tx) => tx.user.findFirst({ where: { email } }));
     const hashToCheck = user?.passwordHash ?? DUMMY_HASH;
     const pwMatches = await bcrypt.compare(password, hashToCheck);
-    if (!user || user.status !== "active" || !user.passwordHash || !pwMatches) {
+    if (
+      !user ||
+      !WWW_ROLES.has(user.role) ||
+      user.status !== "active" ||
+      !user.passwordHash ||
+      !pwMatches
+    ) {
       throw new AuthError("Invalid email or password");
     }
 

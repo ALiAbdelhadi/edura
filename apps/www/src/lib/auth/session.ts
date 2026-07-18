@@ -1,16 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./options";
 import { AuthError } from "@/lib/errors/classes";
-import type { Role } from "@repo/database";
+import type { SessionUser } from "@repo/server-core/auth/types";
 
-export type SessionUser = {
-  id: string;
-  role: Role;
-  centerId?: string;
-  locale: "ar" | "en";
-  name?: string | null;
-  email?: string | null;
-};
+export type { SessionUser };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await getServerSession(authOptions);

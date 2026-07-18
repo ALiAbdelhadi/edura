@@ -19,7 +19,7 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   reactStrictMode: true,
 
-  transpilePackages: ["@repo/database", "@repo/ui"],
+  transpilePackages: ["@repo/database", "@repo/ui", "@repo/server-core"],
   serverExternalPackages: [
     "bcryptjs",
     "@prisma/client",

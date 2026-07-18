@@ -7,14 +7,7 @@ import { syncQueuedAttendance } from "@/lib/pwa/attendance-outbox";
 export type MeResponse = {
   id: string;
   email: string;
-  role:
-    | "student"
-    | "parent"
-    | "teacher"
-    | "assistant"
-    | "center_admin"
-    | "super_admin"
-    | "accountant";
+  role: "student" | "parent" | "teacher" | "assistant" | "center_admin";
   status: string;
   name: string | null;
   locale: "ar" | "en";

@@ -1,0 +1,31 @@
+{
+  "name": "@repo/server-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura shared server kernel — HTTP envelope/errors, scoped DB wrappers, rate limiting, validation, notification dispatch, and the money-engine primitives used by both apps/www and apps/superadmin. Drift-critical code lives here exactly once.",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "dependencies": {
+    "@repo/database": "workspace:*",
+    "web-push": "^3.6.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.1.1",
+    "@types/web-push": "^3.6.4",
+    "next": "16.2.10",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "next": ">=16"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  }
+}
