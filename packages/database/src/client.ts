@@ -71,6 +71,17 @@ const DEFAULT_TX_OPTIONS: Required<TxOptions> = {
   timeout: 20_000,
 };
 
+// Neon's serverless pool can occasionally fail to hand out a connection in time
+// under concurrent load, which Prisma surfaces as P2028 "Unable to start a
+// transaction in the given time." That specific failure happens before the
+// transaction body ever runs, so retrying the whole thing is safe — nothing
+// has been written yet.
+//
+// P2028 is also used for other transaction-manager errors (e.g. a transaction
+// that expired mid-flight after actually starting) that must NOT be blindly
+// retried here — the transaction body already ran partway, and re-running it
+// under the same contention would add load rather than relieve it. Match on
+// the specific message rather than the code alone.
 const TRANSACTION_START_RETRIES = 2;
 const TRANSACTION_RETRY_DELAY_MS = 300;
 

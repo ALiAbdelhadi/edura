@@ -51,6 +51,25 @@ const bru = (s) => s.replace(/\{/g, "{").trimStart();
 const indent = (obj) => JSON.stringify(obj, null, 2).split("\n").map((l) => "  " + l).join("\n");
 
 const PRESERVE = new Set(["README.md", "environments", "bruno.json"]);
+
+// Snapshot non-empty body:json blocks from the existing collection before the
+// cleanup below deletes it, keyed by file path relative to bruno/. When a
+// route's schema can't be stubbed (bodyStub returns null), the hand-written
+// example body is carried over instead of being overwritten with {}.
+const handBodies = new Map();
+function snapshotBodies(dir, rel = "") {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const r = rel ? `${rel}/${e}` : e;
+    if (statSync(p).isDirectory()) snapshotBodies(p, r);
+    else if (e.endsWith(".bru")) {
+      const m = readFileSync(p, "utf8").match(/\nbody:json \{\n([\s\S]*?)\n\}/);
+      if (m && m[1].trim() && m[1].trim() !== "{}") handBodies.set(r, m[1]);
+    }
+  }
+}
+if (existsSync(OUT)) snapshotBodies(OUT);
+
 if (existsSync(OUT)) {
   for (const e of readdirSync(OUT)) {
     if (!PRESERVE.has(e)) rmSync(join(OUT, e), { recursive: true, force: true });
@@ -127,9 +146,11 @@ for (const file of files) {
     const name = `${method} ${segs[segs.length - 1] || "root"}`;
     const isWrite = method !== "GET" && method !== "DELETE";
     const stub = isWrite ? bodyStub(src) : null;
+    const relFile = [...segs.map((s) => s.replace(/^:/, "_")), `${method}.bru`].join("/");
+    const preserved = stub == null ? handBodies.get(relFile) : null;
     const bodyBlock =
       isWrite
-        ? `\nbody:json {\n${indent(stub ?? {})}\n}\n`
+        ? `\nbody:json {\n${preserved ?? indent(stub ?? {})}\n}\n`
         : "";
     const bodyLine = isWrite ? "\n  body: json" : "";
     const content = `meta {

@@ -138,7 +138,9 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
                   },
                 });
               });
-            } catch {}
+            } catch {
+              // Audit must never break the primary mutation; swallow + log upstream.
+            }
           }
           return result;
         },

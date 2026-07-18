@@ -47,6 +47,8 @@ export const POST = withErrors(async (req) => {
 
 const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 
+// Body-based (not /push-subscription/[endpoint]) because a push endpoint is a
+// full URL — putting it in a path segment would need double URL-encoding.
 export const DELETE = withErrors(async (req) => {
   const user = await requireSession();
   const data = await parseJson(req, unsubscribeSchema);

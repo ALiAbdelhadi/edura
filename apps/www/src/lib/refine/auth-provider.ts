@@ -49,6 +49,11 @@ export const authProvider: AuthProvider = {
 
   logout: async () => {
     if (typeof window !== "undefined") {
+      // Best-effort: give any offline-queued attendance a last chance to sync
+      // before the session goes away. Everything the outbox exposes is
+      // filtered by teacherId, so anything left unsynced (still offline) is
+      // simply invisible to whichever account signs in next — no need to
+      // block logout on it or discard it outright.
       const session = await getSession();
       const teacherId = session?.user?.id;
       if (teacherId) await syncQueuedAttendance(teacherId);
@@ -57,6 +62,8 @@ export const authProvider: AuthProvider = {
     await signOut({ redirect: false });
     if (typeof window !== "undefined") {
       localStorage.removeItem("edura_state");
+      // Cached /api and page/RSC responses are scoped to the signed-out user —
+      // must not leak to the next account on a shared device.
       await purgeUserScopedCaches();
     }
     return {

@@ -13,6 +13,11 @@ export type FlushResult =
 
 const POLL_INTERVAL_MS = 60_000;
 
+/**
+ * Owns the attendance outbox lifecycle: tracks how many records are queued
+ * for this teacher and replays them through the sync endpoint on reconnect,
+ * on tab foreground, and on a slow poll while anything remains queued.
+ */
 export function useAttendanceSync(teacherId: string | undefined) {
   const [queueCount, setQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -37,6 +42,8 @@ export function useAttendanceSync(teacherId: string | undefined) {
     try {
       const result = await syncQueuedAttendance(teacherId);
       await refreshCount();
+      // A queue was confirmed non-empty above, so a null result here can only
+      // mean the request itself failed (connectivity dropped mid-flight).
       return result ? { status: "done", ...result } : { status: "offline" };
     } finally {
       flushingRef.current = false;
@@ -45,12 +52,16 @@ export function useAttendanceSync(teacherId: string | undefined) {
   }, [teacherId, refreshCount]);
 
   useEffect(() => {
+    // IndexedDB is only available client-side, so this can't be a lazy
+    // useState initializer — it must run post-mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshCount();
   }, [refreshCount]);
 
   useEffect(() => {
     if (!teacherId) return;
+    // Attempt a flush immediately on mount (e.g. the app was reopened after
+    // being offline) — same post-mount-only constraint as above.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void flush();
 
