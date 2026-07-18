@@ -15,6 +15,7 @@ export const GET = withRateLimit(
     const url = new URL(req.url);
     const filters = {
       subject: url.searchParams.get("subject") ?? undefined,
+      subjectId: url.searchParams.get("subjectId") ?? undefined,
       priceMin: url.searchParams.get("priceMin") ?? undefined,
       priceMax: url.searchParams.get("priceMax") ?? undefined,
       daysOfWeek: url.searchParams.get("daysOfWeek") ?? undefined,
@@ -28,9 +29,13 @@ export const GET = withRateLimit(
       limit: url.searchParams.get("limit") ?? undefined,
     };
 
+    // scope=all — explicit browse-all opt-in: skip the student's grade/track
+    // scope entirely. The default stays track-filtered.
+    const browseAll = url.searchParams.get("scope") === "all";
+
     let studentScope: StudentCatalogScope | null = null;
     const user = await getSessionUser();
-    if (user?.role === "student") {
+    if (!browseAll && user?.role === "student") {
       const profile = await platformDb((tx) =>
         tx.studentProfile.findUnique({
           where: { userId: user.id },

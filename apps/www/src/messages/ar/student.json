@@ -115,5 +115,18 @@
     "sendRequest": "إرسال الطلب",
     "linkRequests": "طلبات الربط",
     "noLinkRequests": "لا توجد طلبات ربط."
+  },
+  "studentSubjects": {
+    "myTab": "موادي",
+    "allTab": "تصفح الكل",
+    "myTabHint": "مواد صفّك وشعبتك. اضغط على المادة لعرض الحصص المتاحة.",
+    "searchPlaceholder": "ابحث في كل المواد…",
+    "loadingSubjects": "جارٍ تحميل المواد…",
+    "noSubjectsFound": "لا توجد مواد مطابقة لبحثك",
+    "noTrackSubjects": "لا توجد مواد مضبوطة لصفّك/شعبتك بعد",
+    "noCoursesForSubject": "لا توجد حصص متاحة لهذه المادة حاليًا",
+    "noCenter": "بدون سنتر (أونلاين/مباشر)",
+    "uncategorized": "غير مصنّفة (قديمة)",
+    "uncategorizedHint": "حصص قديمة لم تُربط بمادة من الكتالوج بعد"
   }
 }

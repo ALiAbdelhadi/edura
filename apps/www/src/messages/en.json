@@ -40,7 +40,8 @@
     "accountants": "Accountants",
     "overview": "Overview",
     "catalog": "Catalog",
-    "team": "Team"
+    "team": "Team",
+    "subjects": "Subjects"
   },
   "roles": {
     "student": "Student",

@@ -115,5 +115,18 @@
     "sendRequest": "Send Request",
     "linkRequests": "Link Requests",
     "noLinkRequests": "No link requests."
+  },
+  "studentSubjects": {
+    "myTab": "My subjects",
+    "allTab": "Browse all",
+    "myTabHint": "Subjects for your academic year and track. Tap a subject to see its available classes.",
+    "searchPlaceholder": "Search all subjects…",
+    "loadingSubjects": "Loading subjects…",
+    "noSubjectsFound": "No subjects match your search",
+    "noTrackSubjects": "No subjects are configured for your year/track yet",
+    "noCoursesForSubject": "No classes available for this subject right now",
+    "noCenter": "No center (online/direct)",
+    "uncategorized": "Uncategorized (legacy)",
+    "uncategorizedHint": "Older classes not yet linked to a catalog subject"
   }
 }

@@ -23,6 +23,8 @@ function boundingBox(lat: number, lng: number, distanceKm: number) {
 
 type CourseSearchInput = {
   subject?: string;
+  /** Catalog subject FK; the sentinel "none" matches uncatalogued courses (subjectId IS NULL). */
+  subjectId?: string;
   priceMin?: string;
   priceMax?: string;
   daysOfWeek?: string;
@@ -55,13 +57,13 @@ export async function searchCourses(
     const where: Prisma.CourseWhereInput = { status: "active" };
 
     if (studentScope) {
+      // Strict grade match: legacy uncatalogued courses (gradeLevelId NULL)
+      // are hidden from the track-scoped default — they stay reachable via
+      // the explicit browse-all mode (scope=all skips this whole block).
+      // A NULL trackId on a *catalogued* course means "all tracks of the
+      // grade", so that arm must stay.
       where.AND = [
-        {
-          OR: [
-            { gradeLevelId: null },
-            { gradeLevelId: studentScope.gradeLevelId },
-          ],
-        },
+        { gradeLevelId: studentScope.gradeLevelId },
         {
           OR: [
             { trackId: null },
@@ -74,6 +76,9 @@ export async function searchCourses(
     }
 
     if (filters.subject) where.subject = filters.subject;
+    if (filters.subjectId) {
+      where.subjectId = filters.subjectId === "none" ? null : filters.subjectId;
+    }
 
     const price: Prisma.IntFilter = {};
     if (filters.priceMin) price.gte = parseInt(filters.priceMin, 10);
@@ -130,6 +135,8 @@ export async function searchCourses(
         teacherId: true,
         title: true,
         subject: true,
+        subjectId: true,
+        subjectRef: { select: { nameAr: true, nameEn: true } },
         description: true,
         gradeTag: true,
         daysOfWeek: true,
@@ -158,13 +165,20 @@ export async function searchCourses(
     if (courses.length === 0) return { courses: [], page, limit };
 
     const teacherIds = [...new Set(courses.map((c) => c.teacherId))];
-    const profiles = await tx.teacherProfile.findMany({
-      where: { userId: { in: teacherIds } },
-      select: { userId: true, ratingAvg: true },
-    });
+    const [profiles, teacherUsers] = await Promise.all([
+      tx.teacherProfile.findMany({
+        where: { userId: { in: teacherIds } },
+        select: { userId: true, ratingAvg: true },
+      }),
+      tx.user.findMany({
+        where: { id: { in: teacherIds } },
+        select: { id: true, name: true },
+      }),
+    ]);
     const ratingByTeacher = new Map(
       profiles.map((p) => [p.userId, p.ratingAvg]),
     );
+    const nameByTeacher = new Map(teacherUsers.map((u) => [u.id, u.name]));
 
     const courseIds = courses.map((c) => c.id);
     const grouped = await tx.enrollment.groupBy({
@@ -180,6 +194,7 @@ export async function searchCourses(
       const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
       return {
         ...c,
+        teacherName: nameByTeacher.get(c.teacherId) ?? null,
         teacherRatingAvg: ratingByTeacher.get(c.teacherId) ?? 0,
         activeEnrollmentCount,
         remainingSeats: c.maxStudents - activeEnrollmentCount,

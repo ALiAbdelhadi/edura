@@ -94,6 +94,25 @@ export function getSubjectsForSelection(gradeLevelId: string, trackId?: string |
   });
 }
 
+export function getAllActiveSubjects() {
+  return platformDb(async (tx) => {
+    const subjects = await tx.subject.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: {
+        id: true,
+        code: true,
+        nameAr: true,
+        nameEn: true,
+        language: true,
+        isAzhari: true,
+        isSecondLanguage: true,
+      },
+    });
+    return subjects;
+  });
+}
+
 export async function getSecondLanguageOptions(gradeLevelId: string) {
   const subjects = await getSubjectsForSelection(gradeLevelId, null);
   return subjects.filter((s) => s.isSecondLanguage);

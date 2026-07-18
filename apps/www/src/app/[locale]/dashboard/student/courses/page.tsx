@@ -1,7 +1,9 @@
-import { StudentBrowseCoursesScreen } from "@/features/student/student-browse-courses-screen";
+import { redirect } from "@/i18n/navigation";
+import { getLocale } from "next-intl/server";
 
-export const metadata = { title: "Browse Courses | Edura" };
-
-export default function StudentCoursesPage() {
-  return <StudentBrowseCoursesScreen />;
+// The standalone Browse Courses page was absorbed into the Subjects page
+// (subjects expand in place to show their courses). Redirect so old links keep working.
+export default async function StudentCoursesPage() {
+  const locale = await getLocale();
+  redirect({ href: "/dashboard/student/subjects", locale });
 }
