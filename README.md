@@ -1,159 +1,71 @@
-# Turborepo starter
+# Edura
 
-This Turborepo starter is maintained by the Turborepo core team.
+Education platform for the Egyptian market — K-12 private lessons and teaching
+centers. Centers, teachers, parents, and students each get a role-scoped portal;
+a separate super-admin back-office app is planned (see [CLAUDE.md](CLAUDE.md)).
 
-## Using this example
+Arabic-first (RTL, `ar` default) with full English support. Installable PWA with
+offline attendance capture and native web-push notifications.
 
-Run the following command:
+## Monorepo layout
 
-```sh
-npx create-turbo@latest
-```
+pnpm workspaces + Turborepo. Node ≥ 20, pnpm 9.
 
-## What's inside?
+| Workspace | Description |
+|---|---|
+| [`apps/www`](apps/www) | Next.js App Router app — all portals (center/teacher/parent/student/assistant) and the REST API under `app/api/v1/**`. Dev port 3002. |
+| [`apps/realtime`](apps/realtime) | Socket.IO chat server (long-running Node process, port 3005). |
+| [`packages/database`](packages/database) | `@repo/database` — Prisma schema, migrations, Neon client with RLS wrappers, seeds, shared domain queries. The **only** package that imports Prisma. |
+| [`packages/ui`](packages/ui) | `@repo/ui` — shadcn/ui design system (Tailwind v4, Radix, RTL-aware). |
+| `packages/eslint-config`, `packages/typescript-config` | Shared tooling config. |
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Getting started
 
 ```sh
-cd my-turborepo
-turbo build
+pnpm install
+
+# Environment: copy and fill (Neon URLs, NEXTAUTH_SECRET, VAPID keys, …)
+cp apps/www/.env.example apps/www/.env.local
+
+# Apply migrations to the database (custom runner — see packages/database/README.md)
+node packages/database/scripts/apply-migrations.mjs
+
+# Seed demo data + the Egyptian education catalog
+pnpm --filter @repo/database run seed
+
+# Run everything (www + realtime)
+pnpm dev
+
+# Or a single app
+pnpm dev --filter=edura
 ```
 
-Without global `turbo`, use your package manager:
+## Common commands
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+pnpm build                        # turbo build (www uses `next build --webpack` for Serwist)
+pnpm lint                         # eslint across workspaces
+pnpm check-types                  # tsc --noEmit across workspaces
+pnpm --filter edura test          # vitest unit tests
+pnpm --filter @repo/database run generate   # prisma generate
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Architecture notes
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+- **Auth**: NextAuth (JWT, credentials) in `apps/www`; role + centerId are session
+  claims. Authorization is enforced per-API-route (`requireRole`), portal layouts
+  are client-side UX guards only.
+- **Multi-tenancy**: Postgres row-level security on Neon. The runtime role
+  `edura_app` is `NOBYPASSRLS`; center-scoped traffic runs under
+  `withTenant(centerId)`, platform traffic under `withPlatformContext`.
+- **Money**: integer piasters everywhere; append-only `transactions` /
+  `points_ledger` (DB-level `REVOKE UPDATE/DELETE`), sequenced receipt numbers.
+- **Chat**: REST + Socket.IO share one domain module
+  (`@repo/database/chat`); who-may-message-whom lives in the conversation policy
+  matrix (`@repo/database/chat-policy`).
 
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Deeper docs: [docs/architecture-review.md](docs/architecture-review.md) (full
+review: stack, schema, auth, roadmap gap analysis), [AUDIT.md](AUDIT.md) (PRD
+compliance audit), [SCALE.md](SCALE.md) (load-test proof),
+[docs/education-catalog.md](docs/education-catalog.md) (catalog + onboarding
+guide), [edura-fullstack-prd.md](edura-fullstack-prd.md) (original PRD).
