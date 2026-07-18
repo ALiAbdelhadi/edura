@@ -19,10 +19,26 @@ function isSafeNext(value: string | null): value is string {
 }
 
 const QUICK_LOGINS = [
-  { roleKey: "roles.admin", email: "admin@nile-academy.eg", tone: "bg-warning/15 text-warning" },
-  { roleKey: "roles.teacher", email: "hossam.aziz@nile-academy.eg", tone: "bg-brand-teal/15 text-brand-teal" },
-  { roleKey: "roles.student", email: "lina.hassan@student.nile-academy.eg", tone: "bg-primary/15 text-primary" },
-  { roleKey: "roles.parent", email: "mona.hassan@email.eg", tone: "bg-info/15 text-info" },
+  {
+    roleKey: "roles.admin",
+    email: "admin@nile-academy.eg",
+    tone: "bg-warning/15 text-warning",
+  },
+  {
+    roleKey: "roles.teacher",
+    email: "hossam.aziz@nile-academy.eg",
+    tone: "bg-brand-teal/15 text-brand-teal",
+  },
+  {
+    roleKey: "roles.student",
+    email: "lina.hassan@student.nile-academy.eg",
+    tone: "bg-primary/15 text-primary",
+  },
+  {
+    roleKey: "roles.parent",
+    email: "mona.hassan@email.eg",
+    tone: "bg-info/15 text-info",
+  },
 ] as const;
 
 const ROLE_MAP: Record<string, string> = {
@@ -70,12 +86,15 @@ export default function LoginPage() {
           const uiRole = ROLE_MAP[userData.role] ?? userData.role;
           localStorage.setItem(
             "edura_state",
-            JSON.stringify({ role: uiRole, screen: "dashboard", name: userData.name, email: userData.email }),
+            JSON.stringify({
+              role: uiRole,
+              screen: "dashboard",
+              name: userData.name,
+              email: userData.email,
+            }),
           );
         }
-      } catch {
-        /* non-critical, dashboard will figure it out */
-      }
+      } catch {}
       window.location.href = next;
     } catch {
       setError(t("auth.loginFailed"));
@@ -105,7 +124,9 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("auth.signInTitle")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Nile Educational Academy</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Nile Educational Academy
+          </p>
         </div>
 
         <Card className="mb-4">
@@ -205,7 +226,10 @@ export default function LoginPage() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           {t("auth.noAccountPrompt")}{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
+          <Link
+            href="/register"
+            className="font-medium text-primary hover:underline"
+          >
             {t("auth.signUp")}
           </Link>
         </p>

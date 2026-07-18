@@ -2,14 +2,8 @@ import { Badge } from "@repo/ui/components/badge";
 import { cn } from "@repo/ui/lib/utils";
 
 export type StatusTone =
-  | "success"
-  | "warning"
-  | "info"
-  | "danger"
-  | "primary"
-  | "neutral";
+  "success" | "warning" | "info" | "danger" | "primary" | "neutral";
 
-/** High-contrast soft status chip (replaces coloured AntD `Tag`). */
 const TONE: Record<StatusTone, string> = {
   success: "border-transparent bg-success/15 text-success",
   warning: "border-transparent bg-warning/15 text-warning",

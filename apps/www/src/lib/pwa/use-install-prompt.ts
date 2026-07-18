@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-// Not part of lib.dom.d.ts yet.
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
@@ -14,8 +13,8 @@ const DISMISS_DAYS = 14;
 function isStandalone(): boolean {
   return (
     window.matchMedia?.("(display-mode: standalone)").matches ||
-    // iOS Safari exposes this instead of the display-mode media query.
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+      true
   );
 }
 
@@ -35,20 +34,15 @@ export type InstallPromptState =
   | { kind: "ios"; dismiss: () => void }
   | { kind: "native"; install: () => void; dismiss: () => void };
 
-/**
- * Surfaces an install affordance for both install paths: Chromium's
- * `beforeinstallprompt` (Android/desktop) and iOS Safari, which has no such
- * event and needs manual "Add to Home Screen" instructions instead.
- */
 export function useInstallPrompt(): InstallPromptState {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
+    null,
+  );
   const [dismissed, setDismissed] = useState(true);
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
     if (isStandalone()) return;
-    // window/localStorage don't exist during SSR, so this can't be a lazy
-    // useState initializer — it must run post-mount, on the client only.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(wasRecentlyDismissed());
     setIos(isIos());
@@ -58,7 +52,8 @@ export function useInstallPrompt(): InstallPromptState {
       setDeferred(e as BeforeInstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
   }, []);
 
   const dismiss = useCallback(() => {

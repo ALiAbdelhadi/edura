@@ -75,7 +75,6 @@ export async function listStudentPointsHistory(
         eventName: true,
         reason: true,
         createdAt: true,
-        // internalNote intentionally excluded — hidden from students.
       },
     });
     return rows;

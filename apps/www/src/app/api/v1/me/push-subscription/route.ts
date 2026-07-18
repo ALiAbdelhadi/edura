@@ -45,8 +45,6 @@ export const POST = withErrors(async (req) => {
   return ok({ subscribed: true }, { status: 201 });
 });
 
-// Body-based (not /push-subscription/[endpoint]) because a push endpoint is a
-// full URL — putting it in a path segment would need double URL-encoding.
 const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 
 export const DELETE = withErrors(async (req) => {
@@ -54,9 +52,12 @@ export const DELETE = withErrors(async (req) => {
   const data = await parseJson(req, unsubscribeSchema);
 
   const result = await scopedDb(user, (tx) =>
-    tx.webPushSubscription.deleteMany({ where: { endpoint: data.endpoint, userId: user.id } }),
+    tx.webPushSubscription.deleteMany({
+      where: { endpoint: data.endpoint, userId: user.id },
+    }),
   );
 
-  if (result.count === 0) throw new NotFoundError("Push subscription not found");
+  if (result.count === 0)
+    throw new NotFoundError("Push subscription not found");
   return ok({ unsubscribed: true });
 });

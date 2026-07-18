@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import { useList, useUpdate, useCustomMutation, useInvalidate } from "@refinedev/core";
+import {
+  useList,
+  useUpdate,
+  useCustomMutation,
+  useInvalidate,
+} from "@refinedev/core";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,7 +55,6 @@ import { Spinner, PageSpinner } from "@/components/kit/spinner";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 
-/** Per-row blacklist / unblacklist controls (preserves reason-required flow). */
 function StudentRowActions({
   record,
   onBlacklist,
@@ -93,7 +97,11 @@ function StudentRowActions({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="link" size="sm" className="h-auto p-0 text-destructive">
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-destructive"
+        >
           {t("actions.blacklist")}
         </Button>
       </AlertDialogTrigger>
@@ -174,18 +182,30 @@ export function AdminStudentsScreen() {
     updateStudent(
       { resource: "students", id, values: { blacklisted: false } },
       {
-        onSuccess: () => toast.success(t("adminHome.students_unblacklistSuccess")),
-        onError: (err) => toast.error((err as any)?.message || t("adminHome.students_unblacklistFailed")),
+        onSuccess: () =>
+          toast.success(t("adminHome.students_unblacklistSuccess")),
+        onError: (err) =>
+          toast.error(
+            (err as any)?.message || t("adminHome.students_unblacklistFailed"),
+          ),
       },
     );
   };
 
   const handleBlacklist = (id: string, reason: string) => {
     updateStudent(
-      { resource: "students", id, values: { blacklisted: true, blacklistReason: reason } },
       {
-        onSuccess: () => toast.success(t("adminHome.students_blacklistSuccess")),
-        onError: (err) => toast.error((err as any)?.message || t("adminHome.students_blacklistFailed")),
+        resource: "students",
+        id,
+        values: { blacklisted: true, blacklistReason: reason },
+      },
+      {
+        onSuccess: () =>
+          toast.success(t("adminHome.students_blacklistSuccess")),
+        onError: (err) =>
+          toast.error(
+            (err as any)?.message || t("adminHome.students_blacklistFailed"),
+          ),
       },
     );
   };
@@ -195,13 +215,18 @@ export function AdminStudentsScreen() {
       { url: "roster/students/invite", method: "post", values },
       {
         onSuccess: () => {
-          toast.success(`${t("adminHome.students_inviteSent")} ${values.email}`);
+          toast.success(
+            `${t("adminHome.students_inviteSent")} ${values.email}`,
+          );
           inviteForm.reset();
           setIsInviteOpen(false);
           invalidate({ resource: "students", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error((err as { message?: string })?.message || t("adminHome.students_inviteFailed"));
+          toast.error(
+            (err as { message?: string })?.message ||
+              t("adminHome.students_inviteFailed"),
+          );
         },
       },
     );
@@ -209,7 +234,8 @@ export function AdminStudentsScreen() {
 
   const totalStudents = students.length;
   const blacklistedCount = students.filter((s: any) => s.blacklisted).length;
-  const pendingRequestsCount = pendingRequestsResult?.total ?? (pendingRequestsResult?.data?.length ?? 0);
+  const pendingRequestsCount =
+    pendingRequestsResult?.total ?? pendingRequestsResult?.data?.length ?? 0;
 
   const columns: ColumnDef<any>[] = [
     {
@@ -221,7 +247,10 @@ export function AdminStudentsScreen() {
         return (
           <div className="flex items-center gap-2">
             <UserRound className="size-4 text-muted-foreground" />
-            <StudentLink studentId={id} name={record.name || record.user?.name} />
+            <StudentLink
+              studentId={id}
+              name={record.name || record.user?.name}
+            />
           </div>
         );
       },
@@ -230,7 +259,10 @@ export function AdminStudentsScreen() {
       id: "userId",
       header: t("adminHome.students_colUserId"),
       cell: ({ row }) => (
-        <CopyableText value={row.original.studentId || row.original.id || row.original._id} label="User ID" />
+        <CopyableText
+          value={row.original.studentId || row.original.id || row.original._id}
+          label="User ID"
+        />
       ),
     },
     {
@@ -249,7 +281,9 @@ export function AdminStudentsScreen() {
       cell: ({ row }) => {
         const record = row.original;
         if (record.blacklisted) {
-          return <StatusBadge tone="danger">{t("status.blacklisted")}</StatusBadge>;
+          return (
+            <StatusBadge tone="danger">{t("status.blacklisted")}</StatusBadge>
+          );
         }
         const status = record.status || "active";
         const toneMap: Record<string, StatusTone> = {
@@ -264,7 +298,8 @@ export function AdminStudentsScreen() {
         };
         return (
           <StatusBadge tone={toneMap[status] || "neutral"}>
-            {labelMap[status] || (status.charAt(0).toUpperCase() + status.slice(1))}
+            {labelMap[status] ||
+              status.charAt(0).toUpperCase() + status.slice(1)}
           </StatusBadge>
         );
       },
@@ -305,14 +340,20 @@ export function AdminStudentsScreen() {
           <>
             <Suspense fallback={null}>
               <FilterBar
-                searchField={{ key: "q", placeholder: t("adminHome.students_searchPlaceholder") }}
+                searchField={{
+                  key: "q",
+                  placeholder: t("adminHome.students_searchPlaceholder"),
+                }}
                 facets={[
                   {
                     key: "status",
                     placeholder: t("adminHome.students_status"),
                     options: [
                       { label: t("status.active"), value: "active" },
-                      { label: t("adminHome.students_statusShell"), value: "shell" },
+                      {
+                        label: t("adminHome.students_statusShell"),
+                        value: "shell",
+                      },
                       { label: t("status.blacklisted"), value: "blacklisted" },
                     ],
                   },
@@ -355,7 +396,12 @@ export function AdminStudentsScreen() {
             <DataTable
               columns={columns}
               data={filtered}
-              emptyState={<EmptyState icon={Users} title={t("adminHome.students_noStudents")} />}
+              emptyState={
+                <EmptyState
+                  icon={Users}
+                  title={t("adminHome.students_noStudents")}
+                />
+              }
             />
           )}
         </CardContent>
@@ -371,7 +417,9 @@ export function AdminStudentsScreen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("adminHome.students_inviteStudent")}</DialogTitle>
-            <DialogDescription>{t("adminHome.students_inviteHint")}</DialogDescription>
+            <DialogDescription>
+              {t("adminHome.students_inviteHint")}
+            </DialogDescription>
           </DialogHeader>
           <Form {...inviteForm}>
             <form
@@ -386,7 +434,11 @@ export function AdminStudentsScreen() {
                   <FormItem>
                     <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="student@example.com" autoFocus {...field} />
+                      <Input
+                        placeholder="student@example.com"
+                        autoFocus
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -397,9 +449,14 @@ export function AdminStudentsScreen() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("adminHome.students_nameOptional")}</FormLabel>
+                    <FormLabel>
+                      {t("adminHome.students_nameOptional")}
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder={t("adminHome.students_fullName")} {...field} />
+                      <Input
+                        placeholder={t("adminHome.students_fullName")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

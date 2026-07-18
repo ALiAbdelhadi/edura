@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { useList, useCustomMutation, useCreate, useUpdate, useInvalidate } from "@refinedev/core";
+import {
+  useList,
+  useCustomMutation,
+  useCreate,
+  useUpdate,
+  useInvalidate,
+} from "@refinedev/core";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,9 +65,16 @@ export function AdminClassesScreen() {
   const t = useTranslations();
   const { formatEGP } = useFormatters();
   const { query, result } = useList({ resource: "courses" });
-  const { result: teachersResult } = useList({ resource: "teachers", pagination: { mode: "off" } });
-  const { result: roomsResult } = useList({ resource: "rooms", pagination: { mode: "off" } });
-  const { mutate: cancelCourse, mutation: cancelMutation } = useCustomMutation();
+  const { result: teachersResult } = useList({
+    resource: "teachers",
+    pagination: { mode: "off" },
+  });
+  const { result: roomsResult } = useList({
+    resource: "rooms",
+    pagination: { mode: "off" },
+  });
+  const { mutate: cancelCourse, mutation: cancelMutation } =
+    useCustomMutation();
   const { mutate: createCourse, mutation: createMutation } = useCreate();
   const { mutate: updateCourse, mutation: updateMutation } = useUpdate();
   const invalidate = useInvalidate();
@@ -70,7 +83,10 @@ export function AdminClassesScreen() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [teacherFilter, setTeacherFilter] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<{ id: string; title: string } | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
@@ -90,9 +106,10 @@ export function AdminClassesScreen() {
   const rooms = (roomsResult?.data ?? []) as any[];
   const activeTeachers = teachers.filter((t) => t.status === "active");
 
-  // Zod schemas built inside the component so t() localises validation messages.
   const scheduleShape = {
-    daysOfWeek: z.array(z.number()).min(1, t("adminManage.classes.pickAtLeastOneDay")),
+    daysOfWeek: z
+      .array(z.number())
+      .min(1, t("adminManage.classes.pickAtLeastOneDay")),
     startTime: z.string().min(1, t("adminManage.classes.required")),
     endTime: z.string().min(1, t("adminManage.classes.required")),
     startDate: z.string().min(1, t("adminManage.classes.termDatesRequired")),
@@ -178,13 +195,18 @@ export function AdminClassesScreen() {
       { resource: "courses", values: payload },
       {
         onSuccess: () => {
-          toast.success(`${t("adminManage.classes.courseCreated")}: "${payload.title}"`);
+          toast.success(
+            `${t("adminManage.classes.courseCreated")}: "${payload.title}"`,
+          );
           setIsCreateOpen(false);
           createForm.reset();
           invalidate({ resource: "courses", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error((err as { message?: string })?.message || t("adminManage.classes.failedCreate"));
+          toast.error(
+            (err as { message?: string })?.message ||
+              t("adminManage.classes.failedCreate"),
+          );
         },
       },
     );
@@ -192,15 +214,21 @@ export function AdminClassesScreen() {
 
   const courses = (result?.data ?? []) as any[];
 
-  const subjects = [...new Set(courses.map((c: any) => c.subject).filter(Boolean))].sort();
-  const teacherNames = [...new Set(courses.map((c: any) => c.teacherName).filter(Boolean))].sort();
+  const subjects = [
+    ...new Set(courses.map((c: any) => c.subject).filter(Boolean)),
+  ].sort();
+  const teacherNames = [
+    ...new Set(courses.map((c: any) => c.teacherName).filter(Boolean)),
+  ].sort();
 
   const filtered = courses.filter((c: any) => {
-    const matchesSearch = !search ||
+    const matchesSearch =
+      !search ||
       (c.title || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.teacherName || "").toLowerCase().includes(search.toLowerCase());
     const matchesSubject = !subjectFilter || c.subject === subjectFilter;
-    const matchesStatus = !statusFilter || (c.status || "active") === statusFilter;
+    const matchesStatus =
+      !statusFilter || (c.status || "active") === statusFilter;
     const matchesTeacher = !teacherFilter || c.teacherName === teacherFilter;
     return matchesSearch && matchesSubject && matchesStatus && matchesTeacher;
   });
@@ -244,13 +272,18 @@ export function AdminClassesScreen() {
       { resource: "courses", id, values: payload },
       {
         onSuccess: () => {
-          toast.success(`${t("adminManage.classes.courseUpdated")}: "${payload.title}"`);
+          toast.success(
+            `${t("adminManage.classes.courseUpdated")}: "${payload.title}"`,
+          );
           setEditTarget(null);
           editForm.reset();
           invalidate({ resource: "courses", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error((err as { message?: string })?.message || t("adminManage.classes.failedUpdate"));
+          toast.error(
+            (err as { message?: string })?.message ||
+              t("adminManage.classes.failedUpdate"),
+          );
         },
       },
     );
@@ -266,20 +299,27 @@ export function AdminClassesScreen() {
       },
       {
         onSuccess: () => {
-          toast.success(`${t("adminManage.classes.courseCancelled")}: "${cancelTarget.title}"`);
+          toast.success(
+            `${t("adminManage.classes.courseCancelled")}: "${cancelTarget.title}"`,
+          );
           setCancelTarget(null);
           setCancelReason("");
           invalidate({ resource: "courses", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error((err as { message?: string })?.message || t("adminManage.classes.failedCancel"));
+          toast.error(
+            (err as { message?: string })?.message ||
+              t("adminManage.classes.failedCancel"),
+          );
         },
       },
     );
   };
 
   const mapDays = (days: number[] = []) => {
-    return days.map((d) => dayLabels[d] || t("adminManage.classes.unknown")).join(", ");
+    return days
+      .map((d) => dayLabels[d] || t("adminManage.classes.unknown"))
+      .join(", ");
   };
 
   const statusLabel = (status: string) => {
@@ -312,7 +352,8 @@ export function AdminClassesScreen() {
       id: "teacherName",
       accessorKey: "teacherName",
       header: t("roles.teacher"),
-      cell: ({ row }) => row.original.teacherName || t("adminManage.classes.unassigned"),
+      cell: ({ row }) =>
+        row.original.teacherName || t("adminManage.classes.unassigned"),
     },
     {
       id: "schedule",
@@ -392,7 +433,10 @@ export function AdminClassesScreen() {
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               disabled={record.status === "cancelled"}
               onClick={() => {
-                setCancelTarget({ id: record.id || record._id, title: record.title });
+                setCancelTarget({
+                  id: record.id || record._id,
+                  title: record.title,
+                });
                 setCancelReason("");
               }}
             >
@@ -436,7 +480,10 @@ export function AdminClassesScreen() {
               ) : null}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
                 <Filter className="size-4" />
                 {t("adminManage.classes.filters")}
               </Button>
@@ -454,16 +501,24 @@ export function AdminClassesScreen() {
           {showFilters && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <p className="mb-1 text-xs text-muted-foreground">{t("adminManage.classes.subject")}</p>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  {t("adminManage.classes.subject")}
+                </p>
                 <Select
                   value={subjectFilter ?? "all"}
-                  onValueChange={(v) => setSubjectFilter(v === "all" ? null : v)}
+                  onValueChange={(v) =>
+                    setSubjectFilter(v === "all" ? null : v)
+                  }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("adminManage.classes.allSubjects")} />
+                    <SelectValue
+                      placeholder={t("adminManage.classes.allSubjects")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t("adminManage.classes.allSubjects")}</SelectItem>
+                    <SelectItem value="all">
+                      {t("adminManage.classes.allSubjects")}
+                    </SelectItem>
                     {subjects.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
@@ -473,26 +528,41 @@ export function AdminClassesScreen() {
                 </Select>
               </div>
               <div>
-                <p className="mb-1 text-xs text-muted-foreground">{t("adminManage.classes.status")}</p>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  {t("adminManage.classes.status")}
+                </p>
                 <Select
                   value={statusFilter ?? "all"}
                   onValueChange={(v) => setStatusFilter(v === "all" ? null : v)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("adminManage.classes.allStatuses")} />
+                    <SelectValue
+                      placeholder={t("adminManage.classes.allStatuses")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t("adminManage.classes.allStatuses")}</SelectItem>
+                    <SelectItem value="all">
+                      {t("adminManage.classes.allStatuses")}
+                    </SelectItem>
                     <SelectItem value="active">{t("status.active")}</SelectItem>
-                    <SelectItem value="ended">{t("adminManage.classes.ended")}</SelectItem>
-                    <SelectItem value="cancelled">{t("status.cancelled")}</SelectItem>
+                    <SelectItem value="ended">
+                      {t("adminManage.classes.ended")}
+                    </SelectItem>
+                    <SelectItem value="cancelled">
+                      {t("status.cancelled")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <p className="mb-1 text-xs text-muted-foreground">{t("roles.teacher")}</p>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  {t("roles.teacher")}
+                </p>
                 <Combobox
-                  options={teacherNames.map((name) => ({ value: name as string, label: name as string }))}
+                  options={teacherNames.map((name) => ({
+                    value: name as string,
+                    label: name as string,
+                  }))}
                   value={teacherFilter}
                   onChange={setTeacherFilter}
                   placeholder={t("adminManage.classes.allTeachers")}
@@ -512,14 +582,17 @@ export function AdminClassesScreen() {
               data={filtered}
               pageSize={10}
               emptyState={
-                <EmptyState icon={BookOpen} title={t("adminManage.classes.emptyText")} />
+                <EmptyState
+                  icon={BookOpen}
+                  title={t("adminManage.classes.emptyText")}
+                />
               }
             />
           )}
         </CardContent>
       </Card>
 
-      {/* Cancel course */}
+      {}
       <Dialog
         open={!!cancelTarget}
         onOpenChange={(o) => {
@@ -537,7 +610,9 @@ export function AdminClassesScreen() {
                 : t("adminManage.classes.cancelCourse")}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t("adminManage.classes.cancelWarning")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("adminManage.classes.cancelWarning")}
+          </p>
           <Textarea
             placeholder={t("adminManage.classes.cancelReasonPlaceholder")}
             rows={3}
@@ -567,7 +642,7 @@ export function AdminClassesScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Create course */}
+      {}
       <Dialog
         open={isCreateOpen}
         onOpenChange={(o) => {
@@ -577,10 +652,14 @@ export function AdminClassesScreen() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t("adminManage.classes.createCourseTitle")}</DialogTitle>
+            <DialogTitle>
+              {t("adminManage.classes.createCourseTitle")}
+            </DialogTitle>
           </DialogHeader>
           {activeTeachers.length === 0 && (
-            <p className="text-sm text-destructive">{t("adminManage.classes.noActiveTeachers")}</p>
+            <p className="text-sm text-destructive">
+              {t("adminManage.classes.noActiveTeachers")}
+            </p>
           )}
           <Form {...createForm}>
             <form
@@ -594,9 +673,16 @@ export function AdminClassesScreen() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.fieldTitle")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.fieldTitle")}
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder={t("adminManage.classes.titlePlaceholder")} {...field} />
+                        <Input
+                          placeholder={t(
+                            "adminManage.classes.titlePlaceholder",
+                          )}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -609,7 +695,12 @@ export function AdminClassesScreen() {
                     <FormItem>
                       <FormLabel>{t("adminManage.classes.subject")}</FormLabel>
                       <FormControl>
-                        <Input placeholder={t("adminManage.classes.subjectPlaceholder")} {...field} />
+                        <Input
+                          placeholder={t(
+                            "adminManage.classes.subjectPlaceholder",
+                          )}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -628,7 +719,10 @@ export function AdminClassesScreen() {
                         <Combobox
                           options={activeTeachers.map((tch: any) => ({
                             value: tch.teacherId,
-                            label: tch.name || tch.email || t("adminManage.classes.unknown"),
+                            label:
+                              tch.name ||
+                              tch.email ||
+                              t("adminManage.classes.unknown"),
                           }))}
                           value={field.value}
                           onChange={(v) => field.onChange(v ?? "")}
@@ -646,12 +740,21 @@ export function AdminClassesScreen() {
                   name="defaultRoomId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.roomOptional")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.roomOptional")}
+                      </FormLabel>
                       <div className="flex items-center gap-1">
-                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={field.onChange}
+                        >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={t("adminManage.classes.selectRoom")} />
+                              <SelectValue
+                                placeholder={t(
+                                  "adminManage.classes.selectRoom",
+                                )}
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -667,7 +770,6 @@ export function AdminClassesScreen() {
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            /* TODO i18n: no dedicated "clear" key */
                             aria-label="clear"
                             onClick={() => field.onChange(undefined)}
                           >
@@ -692,7 +794,9 @@ export function AdminClassesScreen() {
                         type="multiple"
                         variant="outline"
                         value={(field.value ?? []).map(String)}
-                        onValueChange={(vals) => field.onChange(vals.map(Number))}
+                        onValueChange={(vals) =>
+                          field.onChange(vals.map(Number))
+                        }
                         className="flex-wrap justify-start"
                       >
                         {dayOptions.map((d) => (
@@ -718,7 +822,9 @@ export function AdminClassesScreen() {
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.startTime")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.startTime")}
+                      </FormLabel>
                       <FormControl>
                         <Input type="time" step={300} {...field} />
                       </FormControl>
@@ -744,9 +850,16 @@ export function AdminClassesScreen() {
                   name="gradeTag"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.gradeTagOptional")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.gradeTagOptional")}
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder={t("adminManage.classes.gradeTagPlaceholder")} {...field} />
+                        <Input
+                          placeholder={t(
+                            "adminManage.classes.gradeTagPlaceholder",
+                          )}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -763,7 +876,11 @@ export function AdminClassesScreen() {
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <Input type="date" aria-label={t("adminManage.classes.term")} {...field} />
+                          <Input
+                            type="date"
+                            aria-label={t("adminManage.classes.term")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -775,7 +892,11 @@ export function AdminClassesScreen() {
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <Input type="date" aria-label={t("adminManage.classes.term")} {...field} />
+                          <Input
+                            type="date"
+                            aria-label={t("adminManage.classes.term")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -796,9 +917,15 @@ export function AdminClassesScreen() {
                           type="number"
                           min={0}
                           step={50}
-                          value={Number.isFinite(field.value) ? field.value : ""}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ""
+                          }
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(
+                              e.target.value === ""
+                                ? NaN
+                                : e.target.valueAsNumber,
+                            )
                           }
                           onBlur={field.onBlur}
                           name={field.name}
@@ -814,15 +941,23 @@ export function AdminClassesScreen() {
                   name="maxStudents"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.maxStudents")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.maxStudents")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min={1}
                           step={1}
-                          value={Number.isFinite(field.value) ? field.value : ""}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ""
+                          }
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(
+                              e.target.value === ""
+                                ? NaN
+                                : e.target.valueAsNumber,
+                            )
                           }
                           onBlur={field.onBlur}
                           name={field.name}
@@ -840,12 +975,16 @@ export function AdminClassesScreen() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("adminManage.classes.descriptionOptional")}</FormLabel>
+                    <FormLabel>
+                      {t("adminManage.classes.descriptionOptional")}
+                    </FormLabel>
                     <FormControl>
                       <Textarea
                         rows={2}
                         maxLength={500}
-                        placeholder={t("adminManage.classes.descriptionPlaceholder")}
+                        placeholder={t(
+                          "adminManage.classes.descriptionPlaceholder",
+                        )}
                         {...field}
                       />
                     </FormControl>
@@ -866,7 +1005,11 @@ export function AdminClassesScreen() {
             >
               {t("actions.cancel")}
             </Button>
-            <Button type="submit" form="create-course-form" disabled={createMutation.isPending}>
+            <Button
+              type="submit"
+              form="create-course-form"
+              disabled={createMutation.isPending}
+            >
               {createMutation.isPending ? <Spinner /> : null}
               {t("adminManage.classes.create")}
             </Button>
@@ -874,7 +1017,7 @@ export function AdminClassesScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit course */}
+      {}
       <Dialog
         open={!!editTarget}
         onOpenChange={(o) => {
@@ -892,7 +1035,9 @@ export function AdminClassesScreen() {
                 : t("adminManage.classes.editCourse")}
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">{t("adminManage.classes.editNote")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("adminManage.classes.editNote")}
+          </p>
           <Form {...editForm}>
             <form
               id="edit-course-form"
@@ -905,7 +1050,9 @@ export function AdminClassesScreen() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.fieldTitle")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.fieldTitle")}
+                      </FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -923,7 +1070,10 @@ export function AdminClassesScreen() {
                 <div className="space-y-2">
                   <Label>{t("roles.teacher")}</Label>
                   <Input
-                    value={editTarget?.teacherName || t("adminManage.classes.unassigned")}
+                    value={
+                      editTarget?.teacherName ||
+                      t("adminManage.classes.unassigned")
+                    }
                     disabled
                   />
                 </div>
@@ -932,12 +1082,21 @@ export function AdminClassesScreen() {
                   name="defaultRoomId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.roomOptional")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.roomOptional")}
+                      </FormLabel>
                       <div className="flex items-center gap-1">
-                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={field.onChange}
+                        >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={t("adminManage.classes.selectRoom")} />
+                              <SelectValue
+                                placeholder={t(
+                                  "adminManage.classes.selectRoom",
+                                )}
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -953,7 +1112,6 @@ export function AdminClassesScreen() {
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            /* TODO i18n: no dedicated "clear" key */
                             aria-label="clear"
                             onClick={() => field.onChange(undefined)}
                           >
@@ -978,7 +1136,9 @@ export function AdminClassesScreen() {
                         type="multiple"
                         variant="outline"
                         value={(field.value ?? []).map(String)}
-                        onValueChange={(vals) => field.onChange(vals.map(Number))}
+                        onValueChange={(vals) =>
+                          field.onChange(vals.map(Number))
+                        }
                         className="flex-wrap justify-start"
                       >
                         {dayOptions.map((d) => (
@@ -1004,7 +1164,9 @@ export function AdminClassesScreen() {
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.startTime")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.startTime")}
+                      </FormLabel>
                       <FormControl>
                         <Input type="time" step={300} {...field} />
                       </FormControl>
@@ -1030,7 +1192,9 @@ export function AdminClassesScreen() {
                   name="gradeTag"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.gradeTagOptional")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.gradeTagOptional")}
+                      </FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -1049,7 +1213,11 @@ export function AdminClassesScreen() {
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <Input type="date" aria-label={t("adminManage.classes.term")} {...field} />
+                          <Input
+                            type="date"
+                            aria-label={t("adminManage.classes.term")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1061,7 +1229,11 @@ export function AdminClassesScreen() {
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <Input type="date" aria-label={t("adminManage.classes.term")} {...field} />
+                          <Input
+                            type="date"
+                            aria-label={t("adminManage.classes.term")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1082,9 +1254,15 @@ export function AdminClassesScreen() {
                           type="number"
                           min={0}
                           step={50}
-                          value={Number.isFinite(field.value) ? field.value : ""}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ""
+                          }
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(
+                              e.target.value === ""
+                                ? NaN
+                                : e.target.valueAsNumber,
+                            )
                           }
                           onBlur={field.onBlur}
                           name={field.name}
@@ -1100,15 +1278,23 @@ export function AdminClassesScreen() {
                   name="maxStudents"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("adminManage.classes.maxStudents")}</FormLabel>
+                      <FormLabel>
+                        {t("adminManage.classes.maxStudents")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min={1}
                           step={1}
-                          value={Number.isFinite(field.value) ? field.value : ""}
+                          value={
+                            Number.isFinite(field.value) ? field.value : ""
+                          }
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(
+                              e.target.value === ""
+                                ? NaN
+                                : e.target.valueAsNumber,
+                            )
                           }
                           onBlur={field.onBlur}
                           name={field.name}
@@ -1126,7 +1312,9 @@ export function AdminClassesScreen() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("adminManage.classes.descriptionOptional")}</FormLabel>
+                    <FormLabel>
+                      {t("adminManage.classes.descriptionOptional")}
+                    </FormLabel>
                     <FormControl>
                       <Textarea rows={2} maxLength={500} {...field} />
                     </FormControl>
@@ -1147,7 +1335,11 @@ export function AdminClassesScreen() {
             >
               {t("actions.cancel")}
             </Button>
-            <Button type="submit" form="edit-course-form" disabled={updateMutation.isPending}>
+            <Button
+              type="submit"
+              form="edit-course-form"
+              disabled={updateMutation.isPending}
+            >
               {updateMutation.isPending ? <Spinner /> : null}
               {t("actions.save")}
             </Button>

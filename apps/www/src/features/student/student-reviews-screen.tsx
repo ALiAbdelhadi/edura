@@ -39,7 +39,6 @@ import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 
-/** Row of 1–5 lucide stars (replaces AntD `Rate`): read-only display or clickable input. */
 function StarRating({
   value,
   onChange,
@@ -157,7 +156,11 @@ export function StudentReviewsScreen() {
   const handleSubmit = (values: { rating: number; text?: string }) => {
     if (editingReview) {
       updateReview(
-        { resource: "reviews", id: editingReview.id || editingReview._id, values },
+        {
+          resource: "reviews",
+          id: editingReview.id || editingReview._id,
+          values,
+        },
         {
           onSuccess: () => {
             toast.success(t("studentReviews.reviewUpdated"));
@@ -167,13 +170,16 @@ export function StudentReviewsScreen() {
           },
           onError: (err: any) =>
             toast.error(err?.message || t("studentReviews.reviewUpdateFailed")),
-        }
+        },
       );
     } else if (selectedTeacher) {
       createReview(
         {
           resource: "reviews",
-          values: { teacherId: selectedTeacher.id || selectedTeacher._id, ...values },
+          values: {
+            teacherId: selectedTeacher.id || selectedTeacher._id,
+            ...values,
+          },
         },
         {
           onSuccess: () => {
@@ -185,7 +191,7 @@ export function StudentReviewsScreen() {
           },
           onError: (err: any) =>
             toast.error(err?.message || t("studentReviews.reviewSubmitFailed")),
-        }
+        },
       );
     }
   };

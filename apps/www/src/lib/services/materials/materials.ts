@@ -1,9 +1,18 @@
 import { scopedDb } from "@/lib/db/scope";
 import type { SessionUser as AuthUser } from "@/lib/auth/session";
 import type { TenantTx } from "@/lib/db/scope";
-import { uploadBuffer, generateSignedUrl, deleteResource, isCloudinaryConfigured } from "@/lib/cloudinary/cloudinary";
+import {
+  uploadBuffer,
+  generateSignedUrl,
+  deleteResource,
+  isCloudinaryConfigured,
+} from "@/lib/cloudinary/cloudinary";
 import { notify } from "@/lib/services/notifications/notify";
-import { ForbiddenError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
+import {
+  ForbiddenError,
+  NotFoundError,
+  BusinessRuleError,
+} from "@/lib/errors/classes";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -15,19 +24,30 @@ function asAuthUser(user: SessionUser): AuthUser {
   return user as unknown as AuthUser;
 }
 
-async function verifyTeacherOwnsCourse(tx: TenantTx, courseId: string, teacherId: string) {
+async function verifyTeacherOwnsCourse(
+  tx: TenantTx,
+  courseId: string,
+  teacherId: string,
+) {
   const course = await tx.course.findUnique({ where: { id: courseId } });
   if (!course) throw new NotFoundError("Course not found");
   if (course.teacherId !== teacherId)
-    throw new ForbiddenError("Only the assigned teacher can manage materials for this course");
+    throw new ForbiddenError(
+      "Only the assigned teacher can manage materials for this course",
+    );
   return course;
 }
 
-async function verifyActiveEnrollment(tx: TenantTx, courseId: string, studentId: string) {
+async function verifyActiveEnrollment(
+  tx: TenantTx,
+  courseId: string,
+  studentId: string,
+) {
   const enrollment = await tx.enrollment.findFirst({
     where: { courseId, studentId, status: "active" },
   });
-  if (!enrollment) throw new ForbiddenError("You are not enrolled in this course");
+  if (!enrollment)
+    throw new ForbiddenError("You are not enrolled in this course");
 }
 
 function parseExternalPdfUrl(value: FormDataEntryValue | null): string | null {
@@ -44,18 +64,17 @@ function parseExternalPdfUrl(value: FormDataEntryValue | null): string | null {
   return url.toString();
 }
 
-export async function uploadMaterial(
-  formData: FormData,
-  user: SessionUser,
-) {
+export async function uploadMaterial(formData: FormData, user: SessionUser) {
   const courseId = formData.get("courseId") as string;
   const title = formData.get("title") as string;
   const type = formData.get("type") as string;
   const file = formData.get("file") as File | null;
   const externalUrl = parseExternalPdfUrl(formData.get("fileUrl"));
 
-  if (!courseId || !title || !type) throw new BusinessRuleError("courseId, title and type are required");
-  if (!file && !externalUrl) throw new BusinessRuleError("A PDF file or material link is required");
+  if (!courseId || !title || !type)
+    throw new BusinessRuleError("courseId, title and type are required");
+  if (!file && !externalUrl)
+    throw new BusinessRuleError("A PDF file or material link is required");
 
   const course = await scopedDb(asAuthUser(user), (tx) =>
     verifyTeacherOwnsCourse(tx, courseId, user.id),
@@ -80,8 +99,10 @@ export async function uploadMaterial(
         "File uploads need Cloudinary storage configured. Add Cloudinary env vars or use a PDF link for now.",
       );
     }
-    if (uploadFile.type !== "application/pdf") throw new BusinessRuleError("Only PDF files are accepted");
-    if (uploadFile.size > MAX_FILE_SIZE) throw new BusinessRuleError("File size must be 10 MB or less");
+    if (uploadFile.type !== "application/pdf")
+      throw new BusinessRuleError("Only PDF files are accepted");
+    if (uploadFile.size > MAX_FILE_SIZE)
+      throw new BusinessRuleError("File size must be 10 MB or less");
 
     const buffer = Buffer.from(await uploadFile.arrayBuffer());
     const uploaded = await uploadBuffer(buffer, {
@@ -95,24 +116,30 @@ export async function uploadMaterial(
     materialInput.fileSizeBytes = uploaded.bytes;
   }
 
-  const { material, studentIds } = await scopedDb(asAuthUser(user), async (tx) => {
-    const created = await tx.material.create({
-      data: {
-        courseId,
-        centerId: course.centerId,
-        teacherId: user.id,
-        title,
-        type: type as MaterialType,
-        ...materialInput,
-      },
-    });
+  const { material, studentIds } = await scopedDb(
+    asAuthUser(user),
+    async (tx) => {
+      const created = await tx.material.create({
+        data: {
+          courseId,
+          centerId: course.centerId,
+          teacherId: user.id,
+          title,
+          type: type as MaterialType,
+          ...materialInput,
+        },
+      });
 
-    const enrollments = await tx.enrollment.findMany({
-      where: { courseId, status: "active" },
-      select: { studentId: true },
-    });
-    return { material: created, studentIds: enrollments.map((e) => e.studentId) };
-  });
+      const enrollments = await tx.enrollment.findMany({
+        where: { courseId, status: "active" },
+        select: { studentId: true },
+      });
+      return {
+        material: created,
+        studentIds: enrollments.map((e) => e.studentId),
+      };
+    },
+  );
 
   if (studentIds.length > 0) {
     await notify({
@@ -127,7 +154,10 @@ export async function uploadMaterial(
   return material;
 }
 
-export async function listMaterials(courseId: string | undefined, user: SessionUser) {
+export async function listMaterials(
+  courseId: string | undefined,
+  user: SessionUser,
+) {
   return scopedDb(asAuthUser(user), async (tx) => {
     const where: {
       courseId?: string | { in: string[] };
@@ -157,7 +187,8 @@ export async function listMaterials(courseId: string | undefined, user: SessionU
         select: { studentId: true },
       });
       const studentIds = links.map((l) => l.studentId);
-      if (studentIds.length === 0) throw new ForbiddenError("No linked children");
+      if (studentIds.length === 0)
+        throw new ForbiddenError("No linked children");
       const enrollments = await tx.enrollment.findMany({
         where: { studentId: { in: studentIds }, status: "active" },
         select: { courseId: true },
@@ -174,7 +205,10 @@ export async function listMaterials(courseId: string | undefined, user: SessionU
   });
 }
 
-export async function getMaterialDownloadUrl(materialId: string, user: SessionUser) {
+export async function getMaterialDownloadUrl(
+  materialId: string,
+  user: SessionUser,
+) {
   const material = await scopedDb(asAuthUser(user), async (tx) => {
     const found = await tx.material.findUnique({ where: { id: materialId } });
     if (!found) throw new NotFoundError("Material not found");
@@ -187,7 +221,8 @@ export async function getMaterialDownloadUrl(materialId: string, user: SessionUs
         select: { studentId: true },
       });
       const studentIds = links.map((l) => l.studentId);
-      if (studentIds.length === 0) throw new ForbiddenError("No linked children");
+      if (studentIds.length === 0)
+        throw new ForbiddenError("No linked children");
       const enrollment = await tx.enrollment.findFirst({
         where: {
           courseId: found.courseId,
@@ -195,12 +230,11 @@ export async function getMaterialDownloadUrl(materialId: string, user: SessionUs
           status: "active",
         },
       });
-      if (!enrollment) throw new ForbiddenError("No linked child is enrolled in this course");
+      if (!enrollment)
+        throw new ForbiddenError("No linked child is enrolled in this course");
     } else if (user.role === "center_admin") {
       if (found.centerId !== user.centerId) throw new ForbiddenError();
-    }
-    // teacher: verify they own the course
-    else if (user.role === "teacher") {
+    } else if (user.role === "teacher") {
       if (found.teacherId !== user.id) throw new ForbiddenError();
     }
 
@@ -208,12 +242,14 @@ export async function getMaterialDownloadUrl(materialId: string, user: SessionUs
   });
 
   if (material.storageProvider === "external") {
-    if (!material.externalUrl) throw new NotFoundError("Material link not found");
+    if (!material.externalUrl)
+      throw new NotFoundError("Material link not found");
     return { url: material.externalUrl };
   }
 
   if (material.cloudinaryUrl) return { url: material.cloudinaryUrl };
-  if (!material.cloudinaryPublicId) throw new NotFoundError("Material file not found");
+  if (!material.cloudinaryPublicId)
+    throw new NotFoundError("Material file not found");
 
   const url = await generateSignedUrl(material.cloudinaryPublicId);
   return { url };
@@ -263,8 +299,10 @@ export async function updateMaterial(
         "File uploads need Cloudinary storage configured. Add Cloudinary env vars or use a PDF link for now.",
       );
     }
-    if (file.type !== "application/pdf") throw new BusinessRuleError("Only PDF files are accepted");
-    if (file.size > MAX_FILE_SIZE) throw new BusinessRuleError("File size must be 20 MB or less");
+    if (file.type !== "application/pdf")
+      throw new BusinessRuleError("Only PDF files are accepted");
+    if (file.size > MAX_FILE_SIZE)
+      throw new BusinessRuleError("File size must be 20 MB or less");
 
     if (material.cloudinaryPublicId) {
       await deleteResource(material.cloudinaryPublicId).catch(() => {});
@@ -299,6 +337,8 @@ export async function deleteMaterial(materialId: string, user: SessionUser) {
   if (material.cloudinaryPublicId) {
     await deleteResource(material.cloudinaryPublicId).catch(() => {});
   }
-  await scopedDb(asAuthUser(user), (tx) => tx.material.delete({ where: { id: materialId } }));
+  await scopedDb(asAuthUser(user), (tx) =>
+    tx.material.delete({ where: { id: materialId } }),
+  );
   return { deleted: true };
 }

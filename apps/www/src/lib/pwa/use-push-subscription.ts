@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 
-export type PushPermissionState = "unsupported" | "default" | "denied" | "subscribed";
+export type PushPermissionState =
+  "unsupported" | "default" | "denied" | "subscribed";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -13,14 +14,13 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 }
 
 function isSupported(): boolean {
-  return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+  return (
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window
+  );
 }
 
-/**
- * Native Web Push (VAPID) subscribe/unsubscribe against the same Serwist
- * service worker that handles offline caching — a combined worker, not a
- * dedicated push-only one, so there's a single registration to reason about.
- */
 export function usePushSubscription() {
   const [state, setState] = useState<PushPermissionState>("default");
   const [isBusy, setIsBusy] = useState(false);
@@ -40,8 +40,6 @@ export function usePushSubscription() {
   }, []);
 
   useEffect(() => {
-    // serviceWorker/Notification are browser-only — can't be a lazy useState
-    // initializer, must run post-mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
@@ -61,13 +59,12 @@ export function usePushSubscription() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        // Uint8Array's ArrayBufferLike generic doesn't structurally satisfy
-        // BufferSource's ArrayBuffer requirement in current lib.dom types —
-        // a known TS/DOM typing gap, not a real runtime mismatch.
         applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
       });
       const json = sub.toJSON();
-      await api.post("me/push-subscription", { json: { endpoint: json.endpoint, keys: json.keys } });
+      await api.post("me/push-subscription", {
+        json: { endpoint: json.endpoint, keys: json.keys },
+      });
       setState("subscribed");
       return true;
     } finally {
@@ -82,7 +79,9 @@ export function usePushSubscription() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await api.delete("me/push-subscription", { json: { endpoint: sub.endpoint } }).catch(() => {});
+        await api
+          .delete("me/push-subscription", { json: { endpoint: sub.endpoint } })
+          .catch(() => {});
         await sub.unsubscribe();
       }
       setState("default");

@@ -17,7 +17,6 @@ const TrendIcon: Record<Trend, LucideIcon> = {
   flat: Minus,
 };
 
-/** KPI tile (replaces AntD `Statistic`): label + big tabular value + trend chip. */
 export function StatCard({
   label,
   value,
@@ -36,7 +35,6 @@ export function StatCard({
   trend?: Trend;
   trendValue?: React.ReactNode;
   icon?: LucideIcon;
-  /** Elevates this one tile above its siblings (hero metric per screen — use on at most one). */
   accent?: boolean;
   className?: string;
 }) {
@@ -51,7 +49,9 @@ export function StatCard({
     >
       <CardContent className="flex items-start justify-between gap-3 px-5">
         <div className="min-w-0 space-y-2">
-          <p className="truncate text-sm font-medium text-muted-foreground">{label}</p>
+          <p className="truncate text-sm font-medium text-muted-foreground">
+            {label}
+          </p>
           <p className="text-[1.75rem] leading-none font-bold tracking-tight tabular-nums text-foreground">
             {value}
             {unit ? (
@@ -74,7 +74,9 @@ export function StatCard({
                 </span>
               ) : null}
               {hint ? (
-                <span className="truncate text-xs text-muted-foreground">{hint}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {hint}
+                </span>
               ) : null}
             </div>
           ) : null}

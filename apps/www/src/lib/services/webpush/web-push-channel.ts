@@ -38,14 +38,15 @@ async function sendToSubscription(
     return "ok";
   } catch (err: unknown) {
     const status = (err as { statusCode?: number }).statusCode;
-    // 404/410 = the push service has invalidated this subscription
-    // (uninstalled, permission revoked, endpoint rotated) — prune it.
     if (status === 404 || status === 410) return "gone";
     return "error";
   }
 }
 
-export async function webPushToUser(userId: string, message: WebPushMessage): Promise<void> {
+export async function webPushToUser(
+  userId: string,
+  message: WebPushMessage,
+): Promise<void> {
   if (!ensureVapid()) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[webpush] VAPID keys not set; skipping push delivery");
@@ -70,6 +71,8 @@ export async function webPushToUser(userId: string, message: WebPushMessage): Pr
   );
 
   if (staleIds.length > 0) {
-    await platformDb((tx) => tx.webPushSubscription.deleteMany({ where: { id: { in: staleIds } } }));
+    await platformDb((tx) =>
+      tx.webPushSubscription.deleteMany({ where: { id: { in: staleIds } } }),
+    );
   }
 }

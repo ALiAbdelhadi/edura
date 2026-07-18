@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Noto_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
+import {
+  Plus_Jakarta_Sans,
+  Noto_Sans,
+  IBM_Plex_Sans_Arabic,
+} from "next/font/google";
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -26,12 +30,10 @@ const plexArabic = IBM_Plex_Sans_Arabic({
   variable: "--font-plex-arabic",
 });
 
-// Pre-render both locale segments at build time instead of on-demand.
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-// PWA: browser chrome + iOS status-bar theming (light/dark aware).
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#5b76fe" },
@@ -42,7 +44,6 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Localized <title>/description + hreflang alternates for every locale (Phase 6).
 export async function generateMetadata({
   params,
 }: {
@@ -64,7 +65,6 @@ export async function generateMetadata({
       canonical: `/${locale}`,
       languages: { ...languages, "x-default": `/${routing.defaultLocale}` },
     },
-    // <link rel="manifest"> is auto-injected by Next because app/manifest.ts exists.
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
@@ -100,7 +100,9 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}>
+      <body
+        className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}
+      >
         <NextIntlClientProvider>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>

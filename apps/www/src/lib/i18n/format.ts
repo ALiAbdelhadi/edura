@@ -19,23 +19,37 @@ export function formatEGP(
   return locale === "ar" ? `${num} ج.م` : `${num} EGP`;
 }
 
-export function formatShortEGP(piasters: number | null | undefined, locale: Locale): string {
+export function formatShortEGP(
+  piasters: number | null | undefined,
+  locale: Locale,
+): string {
   const egp = Math.round((piasters ?? 0) / 100);
   const suffix = locale === "ar" ? "ج.م" : "EGP";
   if (Math.abs(egp) >= 1000) {
-    const nf = new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 });
+    const nf = new Intl.NumberFormat(intlLocale(locale), {
+      maximumFractionDigits: 1,
+    });
     return `${nf.format(egp / 1000)}k ${suffix}`;
   }
   return `${new Intl.NumberFormat(intlLocale(locale)).format(egp)} ${suffix}`;
 }
 
-export function formatNumber(value: number | null | undefined, locale: Locale): string {
+export function formatNumber(
+  value: number | null | undefined,
+  locale: Locale,
+): string {
   return new Intl.NumberFormat(intlLocale(locale)).format(value ?? 0);
 }
 
-export function formatPercent(value: number | null | undefined, locale: Locale): string {
-  return new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 0 }).format(value ?? 0) +
-    (locale === "ar" ? "٪" : "%");
+export function formatPercent(
+  value: number | null | undefined,
+  locale: Locale,
+): string {
+  return (
+    new Intl.NumberFormat(intlLocale(locale), {
+      maximumFractionDigits: 0,
+    }).format(value ?? 0) + (locale === "ar" ? "٪" : "%")
+  );
 }
 
 export function formatDate(
@@ -51,11 +65,6 @@ export function formatDate(
   ).format(d);
 }
 
-/**
- * Locale-aware short weekday name from a 0=Sunday..6=Saturday index — replaces
- * hardcoded `["Sun","Mon",…]` arrays so Arabic renders Arabic day names.
- * 2023-01-01 is a Sunday; add the index to land on the right weekday.
- */
 export function formatWeekdayShort(dayIndex: number, locale: Locale): string {
   const d = new Date(Date.UTC(2023, 0, 1 + dayIndex));
   return new Intl.DateTimeFormat(intlLocale(locale), {

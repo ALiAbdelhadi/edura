@@ -20,48 +20,53 @@ type EmailPayload = {
 };
 
 type Channels = { inapp: boolean; fcm: boolean; email: boolean; sms: boolean };
-const C = (inapp: boolean, fcm: boolean, email: boolean, sms: boolean): Channels => ({ inapp, fcm, email, sms });
+const C = (
+  inapp: boolean,
+  fcm: boolean,
+  email: boolean,
+  sms: boolean,
+): Channels => ({ inapp, fcm, email, sms });
 
 const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
-  absence_marked:                 C(true,  true,  false, false),
-  attendance_corrected:           C(true,  true,  false, false),
-  session_cancelled:              C(true,  true,  false, true),
-  session_postponed:              C(true,  true,  false, false),
-  course_cancelled:               C(true,  true,  false, true),
-  grade_entered:                  C(true,  true,  false, false),
-  material_uploaded:              C(true,  true,  false, false),
-  payment_recorded:               C(true,  true,  false, false),
-  payment_refunded:               C(true,  true,  false, false),
-  enrollment_request_submitted:   C(true,  false, false, false),
-  enrollment_request_approved:    C(true,  true,  false, false),
-  enrollment_request_declined:    C(true,  true,  false, false),
-  student_added_to_roster:        C(true,  false, false, false),
-  teacher_invited:                C(true,  false, true,  false),
-  parent_link_requested:          C(true,  false, true,  false),
-  admin_broadcast:                C(true,  true,  false, false),
-  password_reset_requested:       C(false, false, true,  false),
-  shell_activation_invite:        C(false, false, true,  false),
-  registration_approved:          C(true,  true,  true,  false),
-  registration_rejected:          C(true,  false, true,  false),
-  blacklist_action:               C(true,  true,  true,  false),
-  payout_approved:                C(true,  true,  true,  false),
-  classroom_request:              C(true,  true,  false, false),
-  classroom_request_decided:      C(true,  true,  false, false),
-  lesson_reminder:                C(true,  true,  false, false),
-  homework_deadline:              C(true,  true,  false, false),
-  invite_code_sent:               C(false, false, false, true),
-  new_chat_message:               C(true,  true,  false, false), // New chat message -> recipient (FCM)
+  absence_marked: C(true, true, false, false),
+  attendance_corrected: C(true, true, false, false),
+  session_cancelled: C(true, true, false, true),
+  session_postponed: C(true, true, false, false),
+  course_cancelled: C(true, true, false, true),
+  grade_entered: C(true, true, false, false),
+  material_uploaded: C(true, true, false, false),
+  payment_recorded: C(true, true, false, false),
+  payment_refunded: C(true, true, false, false),
+  enrollment_request_submitted: C(true, false, false, false),
+  enrollment_request_approved: C(true, true, false, false),
+  enrollment_request_declined: C(true, true, false, false),
+  student_added_to_roster: C(true, false, false, false),
+  teacher_invited: C(true, false, true, false),
+  parent_link_requested: C(true, false, true, false),
+  admin_broadcast: C(true, true, false, false),
+  password_reset_requested: C(false, false, true, false),
+  shell_activation_invite: C(false, false, true, false),
+  registration_approved: C(true, true, true, false),
+  registration_rejected: C(true, false, true, false),
+  blacklist_action: C(true, true, true, false),
+  payout_approved: C(true, true, true, false),
+  classroom_request: C(true, true, false, false),
+  classroom_request_decided: C(true, true, false, false),
+  lesson_reminder: C(true, true, false, false),
+  homework_deadline: C(true, true, false, false),
+  invite_code_sent: C(false, false, false, true),
+  new_chat_message: C(true, true, false, false),
 };
 
-export async function notify(input: NotifyInput, email?: EmailPayload): Promise<void> {
+export async function notify(
+  input: NotifyInput,
+  email?: EmailPayload,
+): Promise<void> {
   const ch = CHANNEL_MATRIX[input.type] ?? C(true, false, false, false);
   const recipients = input.recipients.filter(Boolean);
   if (recipients.length === 0 && !email) return;
 
   const enabledChannels = [
-    // "fcm" covers both delivery mechanisms gated by the same matrix flag —
-    // FCM (currently dormant; firebase-admin isn't installed) and native Web
-    // Push (installed PWA, the one that's actually live).
     ch.fcm && "fcm",
     ch.fcm && "webpush",
     ch.email && "email",
@@ -81,7 +86,8 @@ export async function notify(input: NotifyInput, email?: EmailPayload): Promise<
     await platformDb((tx) => tx.notification.createMany({ data: docs }));
   }
 
-  let contacts: { id: string; email: string | null; phone: string | null }[] = [];
+  let contacts: { id: string; email: string | null; phone: string | null }[] =
+    [];
   if ((ch.email || ch.sms) && recipients.length > 0) {
     contacts = await platformDb((tx) =>
       tx.user.findMany({
@@ -93,20 +99,30 @@ export async function notify(input: NotifyInput, email?: EmailPayload): Promise<
 
   if (ch.email) {
     if (email) {
-      await sendMail({ to: email.to, subject: email.subject, text: email.text }).catch(() => {});
+      await sendMail({
+        to: email.to,
+        subject: email.subject,
+        text: email.text,
+      }).catch(() => {});
     } else {
       await Promise.all(
         contacts
           .filter((u) => u.email)
           .map((u) =>
-            sendMail({ to: u.email as string, subject: input.title, text: input.body }).catch(() => {}),
+            sendMail({
+              to: u.email as string,
+              subject: input.title,
+              text: input.body,
+            }).catch(() => {}),
           ),
       );
     }
   }
 
   if (ch.sms) {
-    await Promise.all(contacts.map((u) => smsToUser(u.phone, `${input.title}: ${input.body}`)));
+    await Promise.all(
+      contacts.map((u) => smsToUser(u.phone, `${input.title}: ${input.body}`)),
+    );
   }
 
   if (ch.fcm && recipients.length > 0) {
@@ -116,10 +132,18 @@ export async function notify(input: NotifyInput, email?: EmailPayload): Promise<
     }
     await Promise.all([
       ...recipients.map((uid) =>
-        pushToUser(uid.toString(), { title: input.title, body: input.body, data: fcmData }).catch(() => {}),
+        pushToUser(uid.toString(), {
+          title: input.title,
+          body: input.body,
+          data: fcmData,
+        }).catch(() => {}),
       ),
       ...recipients.map((uid) =>
-        webPushToUser(uid.toString(), { title: input.title, body: input.body, data: fcmData }).catch(() => {}),
+        webPushToUser(uid.toString(), {
+          title: input.title,
+          body: input.body,
+          data: fcmData,
+        }).catch(() => {}),
       ),
     ]);
   }

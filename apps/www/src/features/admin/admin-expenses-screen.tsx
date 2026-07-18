@@ -48,7 +48,15 @@ import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 
-const CATEGORIES = ["rent", "utilities", "salaries", "supplies", "marketing", "maintenance", "other"] as const;
+const CATEGORIES = [
+  "rent",
+  "utilities",
+  "salaries",
+  "supplies",
+  "marketing",
+  "maintenance",
+  "other",
+] as const;
 type Category = (typeof CATEGORIES)[number];
 
 const categoryTone: Record<Category, StatusTone> = {
@@ -73,8 +81,12 @@ type Expense = {
 export function AdminExpensesScreen() {
   const t = useTranslations();
   const { formatEGP, formatDate } = useFormatters();
-  const categoryLabel = (c: Category) => t(`adminManage.expenses.categories.${c}`);
-  const { query, result } = useList<Expense>({ resource: "expenses", pagination: { mode: "off" } });
+  const categoryLabel = (c: Category) =>
+    t(`adminManage.expenses.categories.${c}`);
+  const { query, result } = useList<Expense>({
+    resource: "expenses",
+    pagination: { mode: "off" },
+  });
   const { mutate: createExpense, mutation: createMutation } = useCreate();
   const { mutate: updateExpense, mutation: updateMutation } = useUpdate();
   const { mutate: deleteExpense } = useDelete();
@@ -86,11 +98,11 @@ export function AdminExpensesScreen() {
 
   const total = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-  // Default sort mirrors the AntD `defaultSortOrder: "descend"` on the date column.
   const sortedExpenses = useMemo(
     () =>
       [...expenses].sort(
-        (a, b) => dayjs(b.expenseDate).valueOf() - dayjs(a.expenseDate).valueOf(),
+        (a, b) =>
+          dayjs(b.expenseDate).valueOf() - dayjs(a.expenseDate).valueOf(),
       ),
     [expenses],
   );
@@ -154,19 +166,35 @@ export function AdminExpensesScreen() {
       expenseDate: values.expenseDate,
     };
     const onDone = () => {
-      toast.success(editTarget ? t("adminManage.expenses.expenseUpdated") : t("adminManage.expenses.expenseRecorded"));
+      toast.success(
+        editTarget
+          ? t("adminManage.expenses.expenseUpdated")
+          : t("adminManage.expenses.expenseRecorded"),
+      );
       setIsOpen(false);
       form.reset(defaultValues);
     };
     if (editTarget) {
       updateExpense(
-        { resource: "expenses", id: editTarget.id || editTarget._id || "", values: payload },
-        { onSuccess: onDone, onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.failed")) },
+        {
+          resource: "expenses",
+          id: editTarget.id || editTarget._id || "",
+          values: payload,
+        },
+        {
+          onSuccess: onDone,
+          onError: (err: any) =>
+            toast.error(err?.message || t("adminManage.expenses.failed")),
+        },
       );
     } else {
       createExpense(
         { resource: "expenses", values: payload },
-        { onSuccess: onDone, onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.failed")) },
+        {
+          onSuccess: onDone,
+          onError: (err: any) =>
+            toast.error(err?.message || t("adminManage.expenses.failed")),
+        },
       );
     }
   };
@@ -175,8 +203,10 @@ export function AdminExpensesScreen() {
     deleteExpense(
       { resource: "expenses", id },
       {
-        onSuccess: () => toast.success(t("adminManage.expenses.expenseDeleted")),
-        onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.deleteFailed")),
+        onSuccess: () =>
+          toast.success(t("adminManage.expenses.expenseDeleted")),
+        onError: (err: any) =>
+          toast.error(err?.message || t("adminManage.expenses.deleteFailed")),
       },
     );
   };
@@ -187,7 +217,8 @@ export function AdminExpensesScreen() {
       header: t("adminManage.expenses.date"),
       cell: ({ row }) => formatDate(row.original.expenseDate),
       sortingFn: (a, b) =>
-        dayjs(a.original.expenseDate).valueOf() - dayjs(b.original.expenseDate).valueOf(),
+        dayjs(a.original.expenseDate).valueOf() -
+        dayjs(b.original.expenseDate).valueOf(),
     },
     {
       accessorKey: "category",
@@ -204,7 +235,9 @@ export function AdminExpensesScreen() {
       header: t("adminManage.expenses.description"),
       enableSorting: false,
       cell: ({ row }) =>
-        row.original.description || <span className="text-muted-foreground">—</span>,
+        row.original.description || (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       accessorKey: "amount",
@@ -333,7 +366,9 @@ export function AdminExpensesScreen() {
                           onChange={(e) => {
                             const v = e.target.valueAsNumber;
                             field.onChange(
-                              e.target.value === "" || Number.isNaN(v) ? undefined : v,
+                              e.target.value === "" || Number.isNaN(v)
+                                ? undefined
+                                : v,
                             );
                           }}
                         />
@@ -374,7 +409,9 @@ export function AdminExpensesScreen() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("adminManage.expenses.description")}</FormLabel>
+                    <FormLabel>
+                      {t("adminManage.expenses.description")}
+                    </FormLabel>
                     <FormControl>
                       <Textarea
                         rows={2}
@@ -413,7 +450,9 @@ export function AdminExpensesScreen() {
                 </Button>
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? <Spinner /> : null}
-                  {editTarget ? t("actions.save") : t("adminManage.expenses.record")}
+                  {editTarget
+                    ? t("actions.save")
+                    : t("adminManage.expenses.record")}
                 </Button>
               </DialogFooter>
             </form>

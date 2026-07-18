@@ -9,7 +9,6 @@ import {
   EmptyContent,
 } from "@repo/ui/components/empty";
 
-/** Empty / no-results panel (replaces AntD `Empty`; also serves `Result`). */
 export function EmptyState({
   icon: Icon,
   title,
@@ -24,7 +23,12 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <Empty className={cn("border border-dashed border-border bg-muted/30", className)}>
+    <Empty
+      className={cn(
+        "border border-dashed border-border bg-muted/30",
+        className,
+      )}
+    >
       <EmptyHeader>
         {Icon ? (
           <EmptyMedia variant="icon" className="bg-primary/10 text-primary">
@@ -32,7 +36,9 @@ export function EmptyState({
           </EmptyMedia>
         ) : null}
         <EmptyTitle>{title}</EmptyTitle>
-        {description ? <EmptyDescription>{description}</EmptyDescription> : null}
+        {description ? (
+          <EmptyDescription>{description}</EmptyDescription>
+        ) : null}
       </EmptyHeader>
       {action ? <EmptyContent>{action}</EmptyContent> : null}
     </Empty>

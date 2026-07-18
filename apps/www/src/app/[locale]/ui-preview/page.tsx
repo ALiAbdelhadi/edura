@@ -1,12 +1,5 @@
 "use client";
 
-/**
- * Living style guide for the @repo/ui (shadcn/ui) design system.
- * Renders the shared primitives against the EduConnect "Deep Trust" tokens so we
- * can eyeball light / dark / RTL as the AntD -> shadcn migration proceeds.
- * Public route (no RoleGuard); safe to keep as the team's component reference.
- */
-
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -72,9 +65,10 @@ export default function UiPreviewPage() {
             EduConnect component gallery · معرض المكوّنات
           </h1>
           <p className="max-w-prose text-muted-foreground">
-            shadcn/ui (Radix · new-york) on the Deep Trust tokens. Toggle the OS /
-            app theme to see dark mode; the page inherits <code>dir</code> from the
-            locale, so <code>/ar</code> renders RTL and <code>/en</code> LTR.
+            shadcn/ui (Radix · new-york) on the Deep Trust tokens. Toggle the OS
+            / app theme to see dark mode; the page inherits <code>dir</code>{" "}
+            from the locale, so <code>/ar</code> renders RTL and{" "}
+            <code>/en</code> LTR.
           </p>
         </header>
 

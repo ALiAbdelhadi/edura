@@ -16,7 +16,6 @@ import { StatCard } from "@/components/kit/stat-card";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 
-/** Read-only row of 1–5 lucide stars (replaces AntD `Rate disabled`). */
 function StarRating({ value }: { value: number }) {
   return (
     <div className="flex items-center gap-1">
@@ -48,7 +47,9 @@ export function TeacherReviewsScreen() {
 
   const avgRating =
     reviews.length > 0
-      ? (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length).toFixed(1)
+      ? (
+          reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+        ).toFixed(1)
       : "0.0";
 
   const columns: ColumnDef<any>[] = [

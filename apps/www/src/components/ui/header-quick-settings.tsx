@@ -16,20 +16,16 @@ import {
 import { Button } from "@repo/ui/components/button";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
-import { useThemeMode, type ThemeMode } from "@/components/providers/theme-mode-provider";
+import {
+  useThemeMode,
+  type ThemeMode,
+} from "@/components/providers/theme-mode-provider";
 
 const LOCALE_LABELS: Record<string, string> = {
   ar: "العربية",
   en: "English",
 };
 
-/**
- * Small-screen replacement for the header's language + theme ToggleGroups
- * (apps/www/src/components/ui/language-switcher.tsx, theme-toggle.tsx):
- * those render every option as a labelled segment and overflow the header
- * below ~640px. This collapses both into one icon-trigger dropdown so the
- * header never needs horizontal scroll to reach notifications/avatar.
- */
 export function HeaderQuickSettings() {
   const t = useTranslations();
   const locale = useLocale();
@@ -64,7 +60,10 @@ export function HeaderQuickSettings() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>{t("shared.settingsLanguage")}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={locale} onValueChange={handleLocaleChange}>
+        <DropdownMenuRadioGroup
+          value={locale}
+          onValueChange={handleLocaleChange}
+        >
           {routing.locales.map((l) => (
             <DropdownMenuRadioItem key={l} value={l}>
               <Globe className="size-4" />

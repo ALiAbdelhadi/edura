@@ -13,26 +13,19 @@ const LOCALE_LABELS: Record<string, string> = {
   en: "English",
 };
 
-/**
- * Locale toggle (Phase 6). Switches the active locale while preserving the
- * current path AND query string, using next-intl's locale-aware router. The
- * middleware persists the choice in the NEXT_LOCALE cookie on navigation.
- */
 export function LanguageSwitcher() {
   const locale = useLocale();
-  const pathname = usePathname(); // path WITHOUT the locale prefix
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleChange(next: string) {
     const nextLocale = next as (typeof routing.locales)[number];
-    // ToggleGroup emits "" on deselect; ignore it and same-locale clicks.
     if (!nextLocale || nextLocale === locale) return;
     const qs = searchParams.toString();
     const href = qs ? `${pathname}?${qs}` : pathname;
     startTransition(() => {
-      // `locale` option swaps only the prefix; path + query are preserved.
       router.replace(href, { locale: nextLocale });
     });
   }

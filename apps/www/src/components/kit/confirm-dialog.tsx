@@ -15,10 +15,6 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 
-/**
- * Declarative confirm (replaces AntD `Popconfirm` / `Modal.confirm`). Wrap the
- * trigger control; `onConfirm` fires on the confirm action.
- */
 export function ConfirmDialog({
   trigger,
   title,
@@ -50,7 +46,9 @@ export function ConfirmDialog({
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             className={
-              destructive ? cn(buttonVariants({ variant: "destructive" })) : undefined
+              destructive
+                ? cn(buttonVariants({ variant: "destructive" }))
+                : undefined
             }
             onClick={onConfirm}
           >

@@ -1,10 +1,28 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useGetIdentity, useList, useCustom, useCustomMutation, useInvalidate } from "@refinedev/core";
-import { CheckCircle2, XCircle, Clock, CalendarOff, AlertTriangle, CloudOff } from "lucide-react";
+import {
+  useGetIdentity,
+  useList,
+  useCustom,
+  useCustomMutation,
+  useInvalidate,
+} from "@refinedev/core";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  CalendarOff,
+  AlertTriangle,
+  CloudOff,
+} from "lucide-react";
 import dayjs from "dayjs";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { Alert, AlertTitle, AlertDescription } from "@repo/ui/components/alert";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
@@ -20,9 +38,27 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { enqueueAttendance } from "@/lib/pwa/attendance-outbox";
 import { useAttendanceSync } from "@/lib/pwa/use-attendance-sync";
 type Identity = { id: string; name?: string; email?: string };
-type EnrollmentRow = { _id?: string; id?: string; studentId: string; studentName?: string; studentEmail?: string };
-type SessionRow = { _id?: string; id?: string; courseId: string; teacherId: string; date: string; startTime?: string; endTime?: string; status: string };
-type AttendanceRecord = { studentId: string; status: "present" | "absent" | "excused" };
+type EnrollmentRow = {
+  _id?: string;
+  id?: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+};
+type SessionRow = {
+  _id?: string;
+  id?: string;
+  courseId: string;
+  teacherId: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  status: string;
+};
+type AttendanceRecord = {
+  studentId: string;
+  status: "present" | "absent" | "excused";
+};
 type AttendanceStatus = "present" | "absent" | "excused";
 
 const statusTone: Record<AttendanceStatus, StatusTone> = {
@@ -40,7 +76,9 @@ export function TeacherAttendanceScreen() {
 
   const { query: sessionsQuery, result: sessionsResult } = useList<SessionRow>({
     resource: "sessions",
-    filters: teacherId ? [{ field: "teacherId", operator: "eq", value: teacherId }] : undefined,
+    filters: teacherId
+      ? [{ field: "teacherId", operator: "eq", value: teacherId }]
+      : undefined,
     queryOptions: { enabled: !!teacherId },
     pagination: { mode: "off" },
   });
@@ -52,23 +90,34 @@ export function TeacherAttendanceScreen() {
     return allSessions
       .filter((s) => {
         const d = dayjs(s.date);
-        return d.isAfter(now.subtract(14, "day")) && d.isBefore(now.add(1, "day")) && s.status !== "cancelled";
+        return (
+          d.isAfter(now.subtract(14, "day")) &&
+          d.isBefore(now.add(1, "day")) &&
+          s.status !== "cancelled"
+        );
       })
       .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
   }, [allSessions]);
 
-  const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionRow | null>(
+    null,
+  );
   const sessionId = selectedSession?.id || selectedSession?._id;
 
   const { result: enrollmentsResult } = useList<EnrollmentRow>({
     resource: "enrollments",
-    filters: selectedSession ? [{ field: "courseId", operator: "eq", value: selectedSession.courseId }] : undefined,
+    filters: selectedSession
+      ? [{ field: "courseId", operator: "eq", value: selectedSession.courseId }]
+      : undefined,
     queryOptions: { enabled: !!selectedSession },
     pagination: { mode: "off" },
   });
   const enrollments = (enrollmentsResult?.data ?? []) as EnrollmentRow[];
 
-  const { query: attendanceQuery, result: attendanceResult } = useCustom<{ locked: boolean; records: AttendanceRecord[] }>({
+  const { query: attendanceQuery, result: attendanceResult } = useCustom<{
+    locked: boolean;
+    records: AttendanceRecord[];
+  }>({
     url: sessionId ? `sessions/${sessionId}/attendance` : "",
     method: "get",
     queryOptions: { enabled: !!sessionId },
@@ -76,7 +125,9 @@ export function TeacherAttendanceScreen() {
   const locked = (attendanceResult?.data as any)?.locked ?? false;
   const existingRecords = (attendanceResult?.data as any)?.records ?? [];
 
-  const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>({});
+  const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>(
+    {},
+  );
 
   React.useEffect(() => {
     if (!selectedSession) return;
@@ -90,7 +141,8 @@ export function TeacherAttendanceScreen() {
     setStatuses(next);
   }, [selectedSession, enrollments.length, existingRecords.length]);
 
-  const { mutate: saveAttendance, mutation: saveMutation } = useCustomMutation();
+  const { mutate: saveAttendance, mutation: saveMutation } =
+    useCustomMutation();
   const invalidate = useInvalidate();
 
   const handleSave = async () => {
@@ -100,8 +152,6 @@ export function TeacherAttendanceScreen() {
       status: statuses[e.studentId] ?? "present",
     }));
 
-    // Offline: PUT would just fail — queue instead and let useAttendanceSync
-    // replay it through the offline sync endpoint once back online.
     if (teacherId && typeof navigator !== "undefined" && !navigator.onLine) {
       await enqueueAttendance(teacherId, sessionId, records);
       toast.info(t("teacher.savedOffline"));
@@ -121,7 +171,9 @@ export function TeacherAttendanceScreen() {
           invalidate({ resource: "sessions", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error((err as { message?: string })?.message || t("teacher.saveError"));
+          toast.error(
+            (err as { message?: string })?.message || t("teacher.saveError"),
+          );
         },
       },
     );
@@ -130,7 +182,8 @@ export function TeacherAttendanceScreen() {
   const handleSyncNow = async () => {
     const result = await flush();
     if (result.status === "empty") toast.info(t("teacher.syncNothingToSync"));
-    else if (result.status === "offline") toast.warning(t("teacher.syncOffline"));
+    else if (result.status === "offline")
+      toast.warning(t("teacher.syncOffline"));
     else {
       toast.success(t("teacher.syncedCount", { n: result.synced }));
       const skipped = result.conflicts + result.errors;
@@ -146,7 +199,12 @@ export function TeacherAttendanceScreen() {
         const s = row.original;
         return (
           <span>
-            {formatDate(s.date, { weekday: "short", month: "short", day: "numeric" })} · {s.startTime}–{s.endTime}
+            {formatDate(s.date, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}{" "}
+            · {s.startTime}–{s.endTime}
           </span>
         );
       },
@@ -157,7 +215,15 @@ export function TeacherAttendanceScreen() {
       cell: ({ row }) => {
         const s = row.original;
         return (
-          <StatusBadge tone={s.status === "completed" ? "success" : s.status === "scheduled" ? "info" : "neutral"}>
+          <StatusBadge
+            tone={
+              s.status === "completed"
+                ? "success"
+                : s.status === "scheduled"
+                  ? "info"
+                  : "neutral"
+            }
+          >
             {t(asKey("status." + s.status))}
           </StatusBadge>
         );
@@ -182,8 +248,14 @@ export function TeacherAttendanceScreen() {
         const e = row.original;
         return (
           <div className="flex flex-col">
-            <span className="font-semibold">{e.studentName || e.studentId}</span>
-            {e.studentEmail && <span className="text-xs text-muted-foreground">{e.studentEmail}</span>}
+            <span className="font-semibold">
+              {e.studentName || e.studentId}
+            </span>
+            {e.studentEmail && (
+              <span className="text-xs text-muted-foreground">
+                {e.studentEmail}
+              </span>
+            )}
           </div>
         );
       },
@@ -200,7 +272,11 @@ export function TeacherAttendanceScreen() {
             value={v}
             disabled={locked}
             onValueChange={(val) => {
-              if (val) setStatuses((s) => ({ ...s, [e.studentId]: val as AttendanceStatus }));
+              if (val)
+                setStatuses((s) => ({
+                  ...s,
+                  [e.studentId]: val as AttendanceStatus,
+                }));
             }}
             variant="outline"
             size="sm"
@@ -223,7 +299,11 @@ export function TeacherAttendanceScreen() {
       header: t("teacher.tag"),
       cell: ({ row }) => {
         const v = statuses[row.original.studentId] ?? "present";
-        return <StatusBadge tone={statusTone[v]}>{t(asKey("status." + v))}</StatusBadge>;
+        return (
+          <StatusBadge tone={statusTone[v]}>
+            {t(asKey("status." + v))}
+          </StatusBadge>
+        );
       },
     },
   ];
@@ -233,7 +313,10 @@ export function TeacherAttendanceScreen() {
   if (selectedSession) {
     const sessionComposition = [
       {
-        label: formatDate(selectedSession.date, { month: "short", day: "numeric" }),
+        label: formatDate(selectedSession.date, {
+          month: "short",
+          day: "numeric",
+        }),
         present: Object.values(statuses).filter((s) => s === "present").length,
         absent: Object.values(statuses).filter((s) => s === "absent").length,
         excused: Object.values(statuses).filter((s) => s === "excused").length,
@@ -251,7 +334,9 @@ export function TeacherAttendanceScreen() {
               {t("teacher.back")}
             </Button>
             <Button
-              disabled={locked || enrollments.length === 0 || saveMutation.isPending}
+              disabled={
+                locked || enrollments.length === 0 || saveMutation.isPending
+              }
               onClick={handleSave}
             >
               {saveMutation.isPending && <Spinner />}
@@ -269,15 +354,29 @@ export function TeacherAttendanceScreen() {
           )}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("teacher.composition")}</CardTitle>
+              <CardTitle className="text-base">
+                {t("teacher.composition")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <BarChart
                 data={sessionComposition}
                 series={[
-                  { key: "present", label: t("status.present"), color: "var(--success)" },
-                  { key: "absent", label: t("status.absent"), color: "var(--destructive)" },
-                  { key: "excused", label: t("status.excused"), color: "var(--warning)" },
+                  {
+                    key: "present",
+                    label: t("status.present"),
+                    color: "var(--success)",
+                  },
+                  {
+                    key: "absent",
+                    label: t("status.absent"),
+                    color: "var(--destructive)",
+                  },
+                  {
+                    key: "excused",
+                    label: t("status.excused"),
+                    color: "var(--warning)",
+                  },
                 ]}
                 stacked
               />
@@ -301,13 +400,18 @@ export function TeacherAttendanceScreen() {
       <Card>
         <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>{t("teacher.takeAttendance")}</CardTitle>
-          <span className="text-xs text-muted-foreground">{t("teacher.last14Days")}</span>
+          <span className="text-xs text-muted-foreground">
+            {t("teacher.last14Days")}
+          </span>
         </CardHeader>
         <CardContent>
           {sessionsQuery.isLoading ? (
             <PageSpinner label={t("teacher.loadingSessions")} />
           ) : recentSessions.length === 0 ? (
-            <EmptyState icon={CalendarOff} title={t("teacher.noRecentSessions")} />
+            <EmptyState
+              icon={CalendarOff}
+              title={t("teacher.noRecentSessions")}
+            />
           ) : (
             <DataTable
               columns={sessionColumns}
@@ -332,7 +436,12 @@ export function TeacherAttendanceScreen() {
             <CloudOff className="size-4 shrink-0" />
             {t("teacher.pendingSync", { n: queueCount })}
           </div>
-          <Button size="sm" variant="outline" disabled={isSyncing} onClick={handleSyncNow}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isSyncing}
+            onClick={handleSyncNow}
+          >
             {isSyncing && <Spinner />}
             {t("teacher.syncNow")}
           </Button>

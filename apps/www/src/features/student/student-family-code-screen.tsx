@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useList, useCreate, useCustom, useCustomMutation } from "@refinedev/core";
+import {
+  useList,
+  useCreate,
+  useCustom,
+  useCustomMutation,
+} from "@refinedev/core";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -74,7 +79,9 @@ export function StudentFamilyCodeScreen() {
     method: "get",
   });
   const { mutate: rotateCode, mutation: rotateMutation } = useCustomMutation();
-  const { query: linksQuery, result: linksResult } = useList({ resource: "parent-links" });
+  const { query: linksQuery, result: linksResult } = useList({
+    resource: "parent-links",
+  });
   const { mutate: createLink, mutation: createMutation } = useCreate();
   const { mutate: approveMut, mutation: approveMutation } = useCustomMutation();
   const { mutate: rejectMut, mutation: rejectMutation } = useCustomMutation();
@@ -105,9 +112,7 @@ export function StudentFamilyCodeScreen() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable */
-    }
+    } catch {}
   };
 
   const handleRotate = () => {
@@ -118,13 +123,16 @@ export function StudentFamilyCodeScreen() {
           toast.success(t("studentFamilyCode.codeRotated"));
           codeQuery.refetch();
         },
-        onError: (err: any) => toast.error(err?.message || t("studentFamilyCode.codeRotateFailed")),
-      }
+        onError: (err: any) =>
+          toast.error(err?.message || t("studentFamilyCode.codeRotateFailed")),
+      },
     );
   };
 
   const handleInitiate = (values: { email?: string; phone?: string }) => {
-    const payload = values.email ? { email: values.email } : { phone: values.phone };
+    const payload = values.email
+      ? { email: values.email }
+      : { phone: values.phone };
     createLink(
       { resource: "parent-links", values: payload },
       {
@@ -133,8 +141,9 @@ export function StudentFamilyCodeScreen() {
           form.reset({ email: "" });
           linksQuery.refetch();
         },
-        onError: (err: any) => toast.error(err?.message || t("studentFamilyCode.linkRequestFailed")),
-      }
+        onError: (err: any) =>
+          toast.error(err?.message || t("studentFamilyCode.linkRequestFailed")),
+      },
     );
   };
 
@@ -146,8 +155,9 @@ export function StudentFamilyCodeScreen() {
           toast.success(t("studentFamilyCode.linkApproved"));
           linksQuery.refetch();
         },
-        onError: (err: any) => toast.error(err?.message || t("studentFamilyCode.linkApproveFailed")),
-      }
+        onError: (err: any) =>
+          toast.error(err?.message || t("studentFamilyCode.linkApproveFailed")),
+      },
     );
   };
 
@@ -159,8 +169,9 @@ export function StudentFamilyCodeScreen() {
           toast.success(t("studentFamilyCode.linkRejected"));
           linksQuery.refetch();
         },
-        onError: (err: any) => toast.error(err?.message || t("studentFamilyCode.linkRejectFailed")),
-      }
+        onError: (err: any) =>
+          toast.error(err?.message || t("studentFamilyCode.linkRejectFailed")),
+      },
     );
   };
 
@@ -172,7 +183,9 @@ export function StudentFamilyCodeScreen() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <User className="size-4 text-muted-foreground" />
-          <span>{row.original.parentId?.name || t("studentFamilyCode.unknown")}</span>
+          <span>
+            {row.original.parentId?.name || t("studentFamilyCode.unknown")}
+          </span>
         </div>
       ),
     },
@@ -202,7 +215,8 @@ export function StudentFamilyCodeScreen() {
       accessorKey: "createdAt",
       header: t("studentFamilyCode.date"),
       enableSorting: false,
-      cell: ({ row }) => (row.original.createdAt ? formatDate(row.original.createdAt) : "—"),
+      cell: ({ row }) =>
+        row.original.createdAt ? formatDate(row.original.createdAt) : "—",
     },
     {
       id: "actions",
@@ -308,7 +322,10 @@ export function StudentFamilyCodeScreen() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleInitiate)} autoComplete="off">
+            <form
+              onSubmit={form.handleSubmit(handleInitiate)}
+              autoComplete="off"
+            >
               <FormField
                 control={form.control}
                 name="email"
@@ -325,10 +342,7 @@ export function StudentFamilyCodeScreen() {
                         </FormControl>
                         <FormMessage />
                       </div>
-                      <Button
-                        type="submit"
-                        disabled={createMutation.isPending}
-                      >
+                      <Button type="submit" disabled={createMutation.isPending}>
                         {createMutation.isPending ? (
                           <Spinner />
                         ) : (

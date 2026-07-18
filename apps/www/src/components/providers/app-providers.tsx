@@ -61,7 +61,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <Suspense fallback={null}>
             <RefineProvider>{children}</RefineProvider>
           </Suspense>
-          {/* One global sonner host (replaces AntD `message`); themed via --popover CSS vars. */}
+          {}
           <Toaster position={dir === "rtl" ? "bottom-left" : "bottom-right"} />
           <InstallPrompt />
         </DirectionProvider>

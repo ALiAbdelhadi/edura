@@ -42,7 +42,6 @@ function PushNotificationsCard() {
   const t = useTranslations();
   const { state, isBusy, subscribe, unsubscribe } = usePushSubscription();
 
-  // Nothing useful to offer on a browser without the Push API — no dead-end control.
   if (state === "unsupported") return null;
 
   const handleToggle = async () => {
@@ -78,7 +77,9 @@ function PushNotificationsCard() {
             onClick={handleToggle}
           >
             {isBusy && <Spinner />}
-            {state === "subscribed" ? t("shared.pushDisable") : t("shared.pushEnable")}
+            {state === "subscribed"
+              ? t("shared.pushDisable")
+              : t("shared.pushEnable")}
           </Button>
         </div>
       </CardContent>
@@ -194,7 +195,7 @@ export function SettingsScreen() {
                   <button
                     type="button"
                     onClick={() => setSaved(false)}
-                    aria-label="Dismiss" // TODO i18n: no existing key for dismiss/close
+                    aria-label="Dismiss"
                     className="absolute inset-y-0 end-0 flex items-center pe-3 text-success/80 transition-colors hover:text-success"
                   >
                     <X className="size-4" />
@@ -254,10 +255,7 @@ export function SettingsScreen() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t("shared.settingsLanguage")}</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue />

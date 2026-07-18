@@ -12,15 +12,6 @@ import {
   formatWeekdayShort,
 } from "./format";
 
-/**
- * Client hook exposing locale-aware, domain-specific formatters bound to the
- * active next-intl locale. These stay custom (rather than next-intl's generic
- * `useFormatter`) because they encode Edura/PRD rules: piasters → EGP, the
- * "ج.م" / "EGP" suffix, and Western-numeral default (`ar-EG-u-nu-latn`).
- *
- * Translations come from next-intl's `useTranslations()`; this is only for
- * numbers, currency, percentages and dates.
- */
 export function useFormatters() {
   const locale = useLocale() as Locale;
   const dir: "rtl" | "ltr" = isRtlLocale(locale) ? "rtl" : "ltr";
@@ -40,6 +31,7 @@ export function useFormatters() {
       v: string | Date | null | undefined,
       opts?: Intl.DateTimeFormatOptions,
     ) => formatDate(v, locale, opts),
-    formatWeekdayShort: (dayIndex: number) => formatWeekdayShort(dayIndex, locale),
+    formatWeekdayShort: (dayIndex: number) =>
+      formatWeekdayShort(dayIndex, locale),
   };
 }

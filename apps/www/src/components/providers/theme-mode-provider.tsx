@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
 type Resolved = "light" | "dark";
@@ -9,14 +16,17 @@ type ThemeModeContextValue = {
   mode: ThemeMode;
   resolved: Resolved;
   setMode: (m: ThemeMode) => void;
-  toggle: () => void; // cycles light ↔ dark (explicit)
+  toggle: () => void;
 };
 
 const ThemeModeContext = createContext<ThemeModeContextValue | null>(null);
 const STORAGE_KEY = "edura-theme";
 
 function systemPrefersDark(): boolean {
-  return typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches
+  );
 }
 
 export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
@@ -24,8 +34,10 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   const [systemDark, setSystemDark] = useState<boolean>(false);
 
   useEffect(() => {
-    const saved = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_KEY)) as ThemeMode | null;
-    if (saved === "light" || saved === "dark" || saved === "system") setModeState(saved);
+    const saved = (typeof localStorage !== "undefined" &&
+      localStorage.getItem(STORAGE_KEY)) as ThemeMode | null;
+    if (saved === "light" || saved === "dark" || saved === "system")
+      setModeState(saved);
     setSystemDark(systemPrefersDark());
   }, []);
 
@@ -37,7 +49,8 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  const resolved: Resolved = mode === "system" ? (systemDark ? "dark" : "light") : mode;
+  const resolved: Resolved =
+    mode === "system" ? (systemDark ? "dark" : "light") : mode;
 
   useEffect(() => {
     const el = document.documentElement;
@@ -49,9 +62,7 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     setModeState(m);
     try {
       localStorage.setItem(STORAGE_KEY, m);
-    } catch {
-      /* storage may be unavailable (private mode) — non-fatal */
-    }
+    } catch {}
   }, []);
 
   const toggle = useCallback(() => {
@@ -63,11 +74,16 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     [mode, resolved, setMode, toggle],
   );
 
-  return <ThemeModeContext.Provider value={value}>{children}</ThemeModeContext.Provider>;
+  return (
+    <ThemeModeContext.Provider value={value}>
+      {children}
+    </ThemeModeContext.Provider>
+  );
 }
 
 export function useThemeMode(): ThemeModeContextValue {
   const ctx = useContext(ThemeModeContext);
-  if (!ctx) throw new Error("useThemeMode must be used within ThemeModeProvider");
+  if (!ctx)
+    throw new Error("useThemeMode must be used within ThemeModeProvider");
   return ctx;
 }

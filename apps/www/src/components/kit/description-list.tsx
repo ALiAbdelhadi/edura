@@ -1,6 +1,5 @@
 import { cn } from "@repo/ui/lib/utils";
 
-/** Key/value detail grid (replaces AntD `Descriptions`). */
 export function DescriptionList({
   items,
   columns = 2,

@@ -35,14 +35,14 @@ type Affiliation = {
 
 type Me = { id: string; role: string; name?: string };
 
-const RESULT_TONE: Record<"success" | "warning" | "info" | "neutral", string> = {
-  success: "bg-success/15 text-success",
-  warning: "bg-warning/15 text-warning",
-  info: "bg-info/15 text-info",
-  neutral: "bg-muted text-muted-foreground",
-};
+const RESULT_TONE: Record<"success" | "warning" | "info" | "neutral", string> =
+  {
+    success: "bg-success/15 text-success",
+    warning: "bg-warning/15 text-warning",
+    info: "bg-info/15 text-info",
+    neutral: "bg-muted text-muted-foreground",
+  };
 
-/** Centred result panel (replaces AntD `Result`). */
 function ResultCard({
   icon: Icon,
   tone,
@@ -113,7 +113,7 @@ export default function AffiliationLandingPage() {
           const affBody = await affRes.json();
           const list: Affiliation[] = Array.isArray(affBody.data)
             ? affBody.data
-            : affBody.data?.items ?? [];
+            : (affBody.data?.items ?? []);
           const found = list.find((a) => (a.id ?? a._id) === id) ?? null;
           if (!cancelled) setAffiliation(found);
         }
@@ -141,7 +141,7 @@ export default function AffiliationLandingPage() {
         try {
           const body = await res.json();
           msg = body?.error?.message ?? msg;
-        } catch { /* ignore */ }
+        } catch {}
         throw new Error(msg);
       }
       setDone(action === "accept" ? "accepted" : "declined");
@@ -258,7 +258,9 @@ export default function AffiliationLandingPage() {
         icon={Info}
         tone="info"
         title={t("affiliationInvite.statusTitle", {
-          status: t(("status." + affiliation.status) as Parameters<typeof t>[0]),
+          status: t(
+            ("status." + affiliation.status) as Parameters<typeof t>[0],
+          ),
         })}
         description={
           affiliation.status === "active"
@@ -310,8 +312,12 @@ export default function AffiliationLandingPage() {
           <div>
             <StatusBadge tone={expired ? "danger" : "info"}>
               {expired
-                ? t("affiliationInvite.expired", { date: formatDate(affiliation.expiresAt) })
-                : t("affiliationInvite.expires", { date: formatDate(affiliation.expiresAt) })}
+                ? t("affiliationInvite.expired", {
+                    date: formatDate(affiliation.expiresAt),
+                  })
+                : t("affiliationInvite.expires", {
+                    date: formatDate(affiliation.expiresAt),
+                  })}
             </StatusBadge>
           </div>
         )}

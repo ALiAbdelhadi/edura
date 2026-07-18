@@ -34,10 +34,14 @@ export const GET = withErrors(async (_req, ctx) => {
       if (!course) throw new NotFoundError("Course not found");
       requireCenterScope(user, course.centerId);
     }
-    // student/parent: scoped inside service
   });
 
-  const result = await getSessionAttendance(sessionId, user.id, user.role, user.centerId);
+  const result = await getSessionAttendance(
+    sessionId,
+    user.id,
+    user.role,
+    user.centerId,
+  );
   return ok(result);
 });
 
@@ -81,6 +85,11 @@ export const PUT = withErrors(async (req, ctx) => {
     return course.centerId;
   });
 
-  const result = await bulkMarkAttendance(sessionId, entries, user.id, centerId);
+  const result = await bulkMarkAttendance(
+    sessionId,
+    entries,
+    user.id,
+    centerId,
+  );
   return ok(result);
 });

@@ -1,7 +1,5 @@
 import type { MetadataRoute } from "next";
 
-// Served at /manifest.webmanifest — the dot in the filename means the next-intl
-// middleware skips it (no locale redirect).
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -9,7 +7,6 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Edura",
     short_name: "Edura",
     description: "Edura — education management platform",
-    // "/" 307-redirects to the negotiated locale (/ar or /en) via middleware.
     start_url: "/",
     scope: "/",
     display: "standalone",

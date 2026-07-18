@@ -4,7 +4,11 @@ import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { Button } from "@repo/ui/components/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/components/popover";
 import {
   Command,
   CommandEmpty,
@@ -16,7 +20,6 @@ import {
 
 export type ComboboxOption = { value: string; label: string };
 
-/** Searchable single-select (shadcn's documented Combobox pattern: Popover + Command). */
 export function Combobox({
   options,
   value,
@@ -52,13 +55,18 @@ export function Combobox({
           id={id}
           className="w-full justify-between font-normal"
         >
-          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+          <span
+            className={cn("truncate", !selected && "text-muted-foreground")}
+          >
             {selected ? selected.label : placeholder}
           </span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
@@ -85,7 +93,12 @@ export function Combobox({
                     setOpen(false);
                   }}
                 >
-                  <Check className={cn("size-4", value === o.value ? "opacity-100" : "opacity-0")} />
+                  <Check
+                    className={cn(
+                      "size-4",
+                      value === o.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
                   {o.label}
                 </CommandItem>
               ))}

@@ -10,10 +10,6 @@ import {
   InputGroupInput,
 } from "@repo/ui/components/input-group";
 
-/**
- * Password field with a show/hide toggle (AntD `Input.Password` has no shadcn
- * equivalent). Built on the official shadcn InputGroup primitive.
- */
 export function PasswordInput({
   className,
   ...props

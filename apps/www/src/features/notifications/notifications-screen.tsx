@@ -51,7 +51,7 @@ export function NotificationsScreen() {
   const { formatNumber } = useFormatters();
   const router = useRouter();
   const params = useParams();
-  const role = params?.role as string || "student";
+  const role = (params?.role as string) || "student";
   const basePath = `/dashboard/${role === "center_admin" ? "admin" : role}`;
 
   const { query, result } = useList<Notification>({
@@ -89,9 +89,13 @@ export function NotificationsScreen() {
 
   const markRead = async (id: string) => {
     try {
-      await markReadMut({ url: `notifications/${id}/read`, method: "post", values: {} });
+      await markReadMut({
+        url: `notifications/${id}/read`,
+        method: "post",
+        values: {},
+      });
       query.refetch();
-    } catch { /* non-critical */ }
+    } catch {}
   };
 
   const handleNotificationClick = async (n: Notification) => {
@@ -102,9 +106,13 @@ export function NotificationsScreen() {
 
   const markAllRead = async () => {
     try {
-      await markAllReadMut({ url: "notifications/read-all", method: "post", values: {} });
+      await markAllReadMut({
+        url: "notifications/read-all",
+        method: "post",
+        values: {},
+      });
       query.refetch();
-    } catch { /* non-critical */ }
+    } catch {}
   };
 
   if (query.isLoading && notifications.length === 0) {
@@ -142,44 +150,51 @@ export function NotificationsScreen() {
       />
 
       <div className="flex flex-col gap-3">
-      {notifications.map((n) => {
-        const tone = TYPE_TONE[n.type] ?? TYPE_TONE.default;
-        const typeKey = `shared.notifType_${n.type}`;
-        const typeLabel = t.has(asKey(typeKey)) ? t(asKey(typeKey)) : null;
-        const typeText = typeLabel ?? n.type.replace(/_/g, " ");
-        return (
-          <Card
-            key={n.id}
-            onClick={() => handleNotificationClick(n)}
-            className={cn(
-              "cursor-pointer border-s-2 py-0 transition-colors hover:border-primary/40 hover:bg-accent",
-              n.read ? "border-s-transparent opacity-65" : "border-s-primary",
-            )}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className={cn("text-sm", n.read ? "font-normal" : "font-semibold")}>
-                      {n.title}
-                    </span>
-                    {!n.read && (
-                      <span className="size-2 shrink-0 rounded-full bg-info" />
-                    )}
+        {notifications.map((n) => {
+          const tone = TYPE_TONE[n.type] ?? TYPE_TONE.default;
+          const typeKey = `shared.notifType_${n.type}`;
+          const typeLabel = t.has(asKey(typeKey)) ? t(asKey(typeKey)) : null;
+          const typeText = typeLabel ?? n.type.replace(/_/g, " ");
+          return (
+            <Card
+              key={n.id}
+              onClick={() => handleNotificationClick(n)}
+              className={cn(
+                "cursor-pointer border-s-2 py-0 transition-colors hover:border-primary/40 hover:bg-accent",
+                n.read ? "border-s-transparent opacity-65" : "border-s-primary",
+              )}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "text-sm",
+                          n.read ? "font-normal" : "font-semibold",
+                        )}
+                      >
+                        {n.title}
+                      </span>
+                      {!n.read && (
+                        <span className="size-2 shrink-0 rounded-full bg-info" />
+                      )}
+                    </div>
+                    <p className="m-0 text-[13px] text-muted-foreground">
+                      {n.body}
+                    </p>
                   </div>
-                  <p className="m-0 text-[13px] text-muted-foreground">{n.body}</p>
-                </div>
-                <div className="shrink-0 text-end">
-                  <StatusBadge tone={tone}>{typeText}</StatusBadge>
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    {timeAgo(n.createdAt, t, formatNumber)}
+                  <div className="shrink-0 text-end">
+                    <StatusBadge tone={tone}>{typeText}</StatusBadge>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {timeAgo(n.createdAt, t, formatNumber)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

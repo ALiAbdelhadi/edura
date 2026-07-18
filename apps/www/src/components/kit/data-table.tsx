@@ -39,12 +39,6 @@ export type { ColumnDef };
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-/**
- * Generic client-side data table (replaces AntD `Table`): sortable headers,
- * pagination, row-per-page control, empty state, horizontal scroll. RTL-safe
- * (dir-aware chevrons, logical scroll container). Feed it
- * `useList().result?.data` + a columns def.
- */
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -56,7 +50,6 @@ export function DataTable<TData, TValue>({
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   pageSize?: number;
-  /** Choices offered in the "rows per page" control. */
   pageSizeOptions?: number[];
   emptyState?: React.ReactNode;
   className?: string;
@@ -78,9 +71,6 @@ export function DataTable<TData, TValue>({
   const from = data.length === 0 ? 0 : pageIndex * size + 1;
   const to = Math.min((pageIndex + 1) * size, data.length);
 
-  // Keep the current page size selectable even if it isn't one of the
-  // standard options (e.g. a screen that opts out of pagination via a huge
-  // fixed pageSize).
   const sizeOptions = [...new Set([...pageSizeOptions, size])].sort(
     (a, b) => a - b,
   );
@@ -135,7 +125,10 @@ export function DataTable<TData, TValue>({
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -191,7 +184,7 @@ export function DataTable<TData, TValue>({
                 disabled={!table.getCanPreviousPage()}
                 aria-label="Previous page"
               >
-                {/* points to inline-start; mirrored under RTL */}
+                {}
                 <ChevronLeft className="size-4 rtl:-scale-x-100" />
               </Button>
               <Button

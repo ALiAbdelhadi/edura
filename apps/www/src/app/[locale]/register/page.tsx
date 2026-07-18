@@ -8,7 +8,15 @@ import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Loader2, Lock, Mail, Phone, User, UserPlus } from "lucide-react";
+import {
+  Building2,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  User,
+  UserPlus,
+} from "lucide-react";
 import ky from "ky";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -29,10 +37,22 @@ import { PasswordInput } from "@/components/kit/password-input";
 type RoleOption = "student" | "parent" | "center_admin";
 
 const ROLE_OPTIONS = [
-  { value: "student", labelKey: "roles.student", descKey: "auth.roleStudentDesc" },
+  {
+    value: "student",
+    labelKey: "roles.student",
+    descKey: "auth.roleStudentDesc",
+  },
   { value: "parent", labelKey: "roles.parent", descKey: "auth.roleParentDesc" },
-  { value: "center_admin", labelKey: "auth.roleCenterLabel", descKey: "auth.roleCenterDesc" },
-] as const satisfies readonly { value: RoleOption; labelKey: string; descKey: string }[];
+  {
+    value: "center_admin",
+    labelKey: "auth.roleCenterLabel",
+    descKey: "auth.roleCenterDesc",
+  },
+] as const satisfies readonly {
+  value: RoleOption;
+  labelKey: string;
+  descKey: string;
+}[];
 
 type RegisterFormValues = {
   name: string;
@@ -52,7 +72,10 @@ export default function RegisterPage() {
 
   const schema = z
     .object({
-      name: z.string().trim().min(1, { message: t("auth.nameRequired") }),
+      name: z
+        .string()
+        .trim()
+        .min(1, { message: t("auth.nameRequired") }),
       email: z
         .string()
         .min(1, { message: t("auth.emailRequired") })
@@ -64,14 +87,17 @@ export default function RegisterPage() {
         .string()
         .min(1, { message: t("auth.passwordRequired") })
         .min(8, { message: t("auth.passwordMinLength") }),
-      confirmPassword: z.string().min(1, { message: t("auth.confirmPasswordRequired") }),
+      confirmPassword: z
+        .string()
+        .min(1, { message: t("auth.confirmPasswordRequired") }),
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t("auth.passwordsNoMatch"),
       path: ["confirmPassword"],
     })
     .refine(
-      (data) => role !== "center_admin" || (data.centerName?.trim().length ?? 0) > 0,
+      (data) =>
+        role !== "center_admin" || (data.centerName?.trim().length ?? 0) > 0,
       {
         message: t("auth.centerNameRequired"),
         path: ["centerName"],
@@ -138,13 +164,11 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       let msg = t("auth.registrationFailed");
       try {
-        const body = (await (err as { response?: Response }).response?.json()) as
-          | { error?: { message?: string } }
-          | undefined;
+        const body = (await (
+          err as { response?: Response }
+        ).response?.json()) as { error?: { message?: string } } | undefined;
         if (body?.error?.message) msg = body.error.message;
-      } catch {
-        /* ignore */
-      }
+      } catch {}
       setError(msg);
     } finally {
       setLoading(false);
@@ -166,7 +190,9 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("auth.createAccountTitle")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("auth.registerSubtitle")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("auth.registerSubtitle")}
+          </p>
         </div>
 
         <Card className="mb-4">
@@ -379,7 +405,10 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           {t("auth.haveAccountPrompt")}{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link
+            href="/login"
+            className="font-medium text-primary hover:underline"
+          >
             {t("auth.signInTitle")}
           </Link>
         </p>

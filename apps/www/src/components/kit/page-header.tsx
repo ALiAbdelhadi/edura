@@ -1,6 +1,5 @@
 import { cn } from "@repo/ui/lib/utils";
 
-/** Screen title + optional eyebrow/description and right-aligned actions slot. */
 export function PageHeader({
   eyebrow,
   title,
@@ -31,7 +30,9 @@ export function PageHeader({
           {title}
         </h1>
         {description ? (
-          <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? (

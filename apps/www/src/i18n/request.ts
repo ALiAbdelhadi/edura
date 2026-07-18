@@ -3,15 +3,10 @@ import { hasLocale } from "next-intl";
 import { routing } from "./routing";
 import { getMessages, type Locale, type Messages } from "@/lib/i18n";
 
-/**
- * Missing keys in a non-fallback locale resolve against this locale so a
- * partially-translated catalog never renders a raw key.
- */
 const FALLBACK_LOCALE: Locale = "en";
 
 type Dict = Record<string, unknown>;
 
-/** Overlay `override` onto `base`, recursing into plain objects. */
 function deepMerge(base: Dict, override: Dict): Dict {
   const out: Dict = { ...base };
   for (const key of Object.keys(override)) {
