@@ -39,6 +39,7 @@ enum Role {
   accountant
   center_admin // PRD "center"
   teacher
+  assistant // teacher's team member — primary contact point for students/parents
   parent
   student
 
@@ -357,6 +358,19 @@ enum BotType {
   @@map("bot_type")
 }
 
+// ---- Education catalog (onboarding) ----
+// NOTE: the catalog itself (systems/stages/grades/tracks/subjects) is DATA,
+// never enums — the whole point is admin-managed config with zero deploys.
+// Only the administrative workflow status below is an enum.
+
+enum SubjectRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("subject_request_status")
+}
+
 // =============================================================================
 // CORE IDENTITY
 // =============================================================================
@@ -389,25 +403,42 @@ model User {
 }
 
 model StudentProfile {
-  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId             String?    @unique @map("user_id") @db.Uuid // NULL for temporary/invited students (PRD)
-  fullName           String     @map("full_name")
-  phone              String?
-  grade              String?
-  familyLinkCode     String     @unique @map("family_link_code")
-  entityType         EntityType @default(registered) @map("entity_type")
-  inviteCode         String?    @unique @map("invite_code")
-  pointsBalance      Int        @default(0) @map("points_balance")
-  savedAreaCity      String?    @map("saved_area_city")
-  savedAreaLat       Float?     @map("saved_area_lat")
-  savedAreaLng       Float?     @map("saved_area_lng")
-  invitationSentAt   DateTime?  @map("invitation_sent_at") @db.Timestamptz(6)
-  claimedAt          DateTime?  @map("claimed_at") @db.Timestamptz(6)
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String?    @unique @map("user_id") @db.Uuid // NULL for temporary/invited students (PRD)
+  fullName                String     @map("full_name")
+  phone                   String?
+  grade                   String? // DEPRECATED free text — superseded by gradeLevelId (education catalog)
+  familyLinkCode          String     @unique @map("family_link_code")
+  entityType              EntityType @default(registered) @map("entity_type")
+  inviteCode              String?    @unique @map("invite_code")
+  pointsBalance           Int        @default(0) @map("points_balance")
+  savedAreaCity           String?    @map("saved_area_city")
+  savedAreaLat            Float?     @map("saved_area_lat")
+  savedAreaLng            Float?     @map("saved_area_lng")
+  invitationSentAt        DateTime?  @map("invitation_sent_at") @db.Timestamptz(6)
+  claimedAt               DateTime?  @map("claimed_at") @db.Timestamptz(6)
+  // ---- Education catalog (onboarding §4). stage/system stored alongside
+  // gradeLevel per the PRD; the API layer enforces chain consistency.
+  // Catalog FKs are ON DELETE RESTRICT: admins hide via is_active, never
+  // hard-delete rows students still point at.
+  educationSystemId       String?    @map("education_system_id") @db.Uuid
+  stageId                 String?    @map("stage_id") @db.Uuid
+  gradeLevelId            String?    @map("grade_level_id") @db.Uuid
+  trackId                 String?    @map("track_id") @db.Uuid
+  secondLanguageSubjectId String?    @map("second_language_subject_id") @db.Uuid
+  onboardingCompleted     Boolean    @default(false) @map("onboarding_completed")
+  onboardingDraft         Json?      @map("onboarding_draft") // wizard auto-save (§9)
+  createdAt               DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User? @relation(fields: [userId], references: [id])
+  user                  User?            @relation(fields: [userId], references: [id])
+  educationSystem       EducationSystem? @relation(fields: [educationSystemId], references: [id], onDelete: Restrict)
+  stage                 Stage?           @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  gradeLevel            GradeLevel?      @relation(fields: [gradeLevelId], references: [id], onDelete: Restrict)
+  track                 Track?           @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  secondLanguageSubject Subject?         @relation("StudentSecondLanguage", fields: [secondLanguageSubjectId], references: [id], onDelete: Restrict)
 
+  @@index([gradeLevelId, trackId]) // content-matching hot path
   @@map("student_profiles")
 }
 
@@ -423,22 +454,26 @@ model ParentProfile {
 }
 
 model TeacherProfile {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId          String   @unique @map("user_id") @db.Uuid
-  bio             String?
-  subjects        String[]
-  qualifications  String?
-  experienceYears Int      @default(0) @map("experience_years")
-  photoUrl        String?  @map("photo_url")
-  lessonPrice     Int?     @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
-  ratingAvg       Float    @default(0) @map("rating_avg")
-  ratingCount     Int      @default(0) @map("rating_count")
-  walletBalance   Int      @default(0) @map("wallet_balance") // piasters
-  certificates    Json?    // [{name, file_url, issued_by}]
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  bio                 String?
+  subjects            String[] // DEPRECATED free text — superseded by teacher_subjects (education catalog)
+  qualifications      String?
+  experienceYears     Int      @default(0) @map("experience_years")
+  photoUrl            String?  @map("photo_url")
+  lessonPrice         Int?     @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
+  ratingAvg           Float    @default(0) @map("rating_avg")
+  ratingCount         Int      @default(0) @map("rating_count")
+  walletBalance       Int      @default(0) @map("wallet_balance") // piasters
+  certificates        Json? // [{name, file_url, issued_by}]
+  onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
+  onboardingDraft     Json?    @map("onboarding_draft") // wizard auto-save (§9)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id])
+  user        User                @relation(fields: [userId], references: [id])
+  gradeLevels TeacherGradeLevel[]
+  subjectRefs TeacherSubject[]
 
   @@index([subjects])
   @@map("teacher_profiles")
@@ -459,31 +494,35 @@ model CenterAdminProfile {
 }
 
 model Center {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerUserId     String?      @map("owner_user_id") @db.Uuid // NULL for shadow centers
-  name            String
-  shortId         String       @unique @map("short_id")
-  description     String?
-  address         String?
-  area            String?
-  subjects        String[]
-  lat             Float?
-  lng             Float?
-  phone           String?
-  whatsapp        String?
-  email           String?
-  logoUrl         String?      @map("logo_url")
-  classroomCount  Int          @default(0) @map("classroom_count")
-  entityType      EntityType   @default(registered) @map("entity_type")
-  status          CenterStatus @default(pending)
-  walletBalance   Int          @default(0) @map("wallet_balance") // piasters
-  receiptSeq      Int          @default(0) @map("receipt_seq")
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId         String?      @map("owner_user_id") @db.Uuid // NULL for shadow centers
+  name                String
+  shortId             String       @unique @map("short_id")
+  description         String?
+  address             String?
+  area                String?
+  subjects            String[]
+  lat                 Float?
+  lng                 Float?
+  phone               String?
+  whatsapp            String?
+  email               String?
+  logoUrl             String?      @map("logo_url")
+  classroomCount      Int          @default(0) @map("classroom_count")
+  entityType          EntityType   @default(registered) @map("entity_type")
+  status              CenterStatus @default(pending)
+  walletBalance       Int          @default(0) @map("wallet_balance") // piasters
+  receiptSeq          Int          @default(0) @map("receipt_seq")
+  governorate         String? // المحافظة (onboarding §6; `area` stays المنطقة)
+  onboardingCompleted Boolean      @default(false) @map("onboarding_completed")
+  onboardingDraft     Json?        @map("onboarding_draft") // wizard auto-save (§9)
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  admins   CenterAdminProfile[]
-  rooms    Room[]
-  courses  Course[]
+  admins       CenterAdminProfile[]
+  rooms        Room[]
+  courses      Course[]
+  centerStages CenterStage[]
 
   @@index([status])
   @@index([area])
@@ -605,6 +644,23 @@ model CenterTeacherAffiliation {
   @@map("center_teacher_affiliations")
 }
 
+// Teacher's team: assistants are the primary messaging contact point for the
+// teacher's students/parents (the teacher only handles escalations). One row
+// per teacher↔assistant pair; `removedAt` soft-revokes membership.
+model TeacherAssistant {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId   String    @map("teacher_id") @db.Uuid // users.id (role=teacher)
+  assistantId String    @map("assistant_id") @db.Uuid // users.id (role=assistant)
+  title       String? // e.g. "Grading assistant", shown in chat directory
+  removedAt   DateTime? @map("removed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([teacherId, assistantId])
+  @@index([assistantId])
+  @@map("teacher_assistants")
+}
+
 model ParentStudentLink {
   id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parentId    String           @map("parent_id") @db.Uuid
@@ -625,15 +681,15 @@ model ParentStudentLink {
 // =============================================================================
 
 model Room {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId  String   @map("center_id") @db.Uuid
-  name      String
-  capacity  Int?
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId   String   @map("center_id") @db.Uuid
+  name       String
+  capacity   Int?
   facilities String[]
-  photos    String[]
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  photos     String[]
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   center   Center    @relation(fields: [centerId], references: [id])
   courses  Course[]
@@ -644,55 +700,65 @@ model Room {
 }
 
 model Course {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId       String       @map("center_id") @db.Uuid
-  teacherId      String       @map("teacher_id") @db.Uuid
-  defaultRoomId  String?      @map("default_room_id") @db.Uuid
-  title          String
-  subject        String
-  description    String?
-  gradeTag       String?      @map("grade_tag")
-  daysOfWeek     Int[]        @map("days_of_week")
-  startTime      String       @map("start_time")
-  endTime        String       @map("end_time")
-  startDate      DateTime     @map("start_date") @db.Timestamptz(6)
-  endDate        DateTime?    @map("end_date") @db.Timestamptz(6)
-  price          Int          // piasters
-  maxStudents    Int          @map("max_students")
-  status         CourseStatus @default(active)
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String       @map("center_id") @db.Uuid
+  teacherId     String       @map("teacher_id") @db.Uuid
+  defaultRoomId String?      @map("default_room_id") @db.Uuid
+  title         String
+  subject       String // DEPRECATED free text — superseded by subjectId (education catalog)
+  description   String?
+  gradeTag      String?      @map("grade_tag") // DEPRECATED free text — superseded by gradeLevelId
+  // ---- Education catalog linkage: what makes "students see only their
+  // grade/track content" queryable. trackId NULL = open to all tracks.
+  subjectId     String?      @map("subject_id") @db.Uuid
+  gradeLevelId  String?      @map("grade_level_id") @db.Uuid
+  trackId       String?      @map("track_id") @db.Uuid
+  daysOfWeek    Int[]        @map("days_of_week")
+  startTime     String       @map("start_time")
+  endTime       String       @map("end_time")
+  startDate     DateTime     @map("start_date") @db.Timestamptz(6)
+  endDate       DateTime?    @map("end_date") @db.Timestamptz(6)
+  price         Int // piasters
+  maxStudents   Int          @map("max_students")
+  status        CourseStatus @default(active)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  center      Center       @relation(fields: [centerId], references: [id])
-  room        Room?        @relation(fields: [defaultRoomId], references: [id])
-  sessions    Session[]
-  enrollments Enrollment[]
+  center        Center       @relation(fields: [centerId], references: [id])
+  room          Room?        @relation(fields: [defaultRoomId], references: [id])
+  subjectRef    Subject?     @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  gradeLevelRef GradeLevel?  @relation(fields: [gradeLevelId], references: [id], onDelete: Restrict)
+  trackRef      Track?       @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  sessions      Session[]
+  enrollments   Enrollment[]
 
   @@index([centerId])
   @@index([teacherId])
   @@index([subject])
   @@index([status])
+  @@index([gradeLevelId, trackId]) // student content-matching hot path
+  @@index([subjectId])
   @@map("courses")
 }
 
 model Session {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId          String        @map("course_id") @db.Uuid
-  teacherId         String        @map("teacher_id") @db.Uuid
-  roomId            String?       @map("room_id") @db.Uuid
-  originalDate      DateTime      @map("original_date") @db.Timestamptz(6)
-  date              DateTime      @db.Timestamptz(6)
-  startTime         String        @map("start_time")
-  endTime           String        @map("end_time")
-  status            SessionStatus @default(scheduled)
-  cancellationReason String?      @map("cancellation_reason")
-  postponedFromDate DateTime?     @map("postponed_from_date") @db.Timestamptz(6)
-  editedAt          DateTime?     @map("edited_at") @db.Timestamptz(6)
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId           String        @map("course_id") @db.Uuid
+  teacherId          String        @map("teacher_id") @db.Uuid
+  roomId             String?       @map("room_id") @db.Uuid
+  originalDate       DateTime      @map("original_date") @db.Timestamptz(6)
+  date               DateTime      @db.Timestamptz(6)
+  startTime          String        @map("start_time")
+  endTime            String        @map("end_time")
+  status             SessionStatus @default(scheduled)
+  cancellationReason String?       @map("cancellation_reason")
+  postponedFromDate  DateTime?     @map("postponed_from_date") @db.Timestamptz(6)
+  editedAt           DateTime?     @map("edited_at") @db.Timestamptz(6)
   // Set once revenue distribution has run for this session. Guards against
   // double-distribution under concurrency (see finance/distribution.ts).
-  distributedAt     DateTime?     @map("distributed_at") @db.Timestamptz(6)
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  distributedAt      DateTime?     @map("distributed_at") @db.Timestamptz(6)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course     Course             @relation(fields: [courseId], references: [id])
   room       Room?              @relation(fields: [roomId], references: [id])
@@ -705,16 +771,16 @@ model Session {
 }
 
 model Enrollment {
-  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId   String           @map("student_id") @db.Uuid
-  courseId    String           @map("course_id") @db.Uuid
-  centerId    String           @map("center_id") @db.Uuid
-  status      EnrollmentStatus @default(active)
-  enrolledAt  DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz(6)
-  unenrolledAt DateTime?       @map("unenrolled_at") @db.Timestamptz(6)
-  enrolledBy  String           @map("enrolled_by") @db.Uuid
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId    String           @map("student_id") @db.Uuid
+  courseId     String           @map("course_id") @db.Uuid
+  centerId     String           @map("center_id") @db.Uuid
+  status       EnrollmentStatus @default(active)
+  enrolledAt   DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz(6)
+  unenrolledAt DateTime?        @map("unenrolled_at") @db.Timestamptz(6)
+  enrolledBy   String           @map("enrolled_by") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course Course @relation(fields: [courseId], references: [id])
 
@@ -725,18 +791,18 @@ model Enrollment {
 }
 
 model EnrollmentRequest {
-  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId    String                  @map("student_id") @db.Uuid
-  courseId     String                  @map("course_id") @db.Uuid
-  centerId     String                  @map("center_id") @db.Uuid
-  status       EnrollmentRequestStatus @default(pending)
-  submittedAt  DateTime                @default(now()) @map("submitted_at") @db.Timestamptz(6)
-  respondedAt  DateTime?               @map("responded_at") @db.Timestamptz(6)
-  respondedBy  String?                 @map("responded_by") @db.Uuid
-  declineReason String?                @map("decline_reason")
-  expiresAt    DateTime                @map("expires_at") @db.Timestamptz(6)
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String                  @map("student_id") @db.Uuid
+  courseId      String                  @map("course_id") @db.Uuid
+  centerId      String                  @map("center_id") @db.Uuid
+  status        EnrollmentRequestStatus @default(pending)
+  submittedAt   DateTime                @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  respondedAt   DateTime?               @map("responded_at") @db.Timestamptz(6)
+  respondedBy   String?                 @map("responded_by") @db.Uuid
+  declineReason String?                 @map("decline_reason")
+  expiresAt     DateTime                @map("expires_at") @db.Timestamptz(6)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([studentId])
   @@index([courseId])
@@ -745,19 +811,19 @@ model EnrollmentRequest {
 }
 
 model AttendanceRecord {
-  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId     String           @map("session_id") @db.Uuid
-  studentId     String           @map("student_id") @db.Uuid
-  courseId      String           @map("course_id") @db.Uuid
-  centerId      String           @map("center_id") @db.Uuid
-  status        AttendanceStatus
-  markedBy      String           @map("marked_by") @db.Uuid
-  editedAt      DateTime?        @map("edited_at") @db.Timestamptz(6)
-  synced        Boolean          @default(true) // false = captured offline, not yet synced (PRD)
-  localTimestamp DateTime?       @map("local_timestamp") @db.Timestamptz(6) // device time when marked offline
-  notes         String?
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId      String           @map("session_id") @db.Uuid
+  studentId      String           @map("student_id") @db.Uuid
+  courseId       String           @map("course_id") @db.Uuid
+  centerId       String           @map("center_id") @db.Uuid
+  status         AttendanceStatus
+  markedBy       String           @map("marked_by") @db.Uuid
+  editedAt       DateTime?        @map("edited_at") @db.Timestamptz(6)
+  synced         Boolean          @default(true) // false = captured offline, not yet synced (PRD)
+  localTimestamp DateTime?        @map("local_timestamp") @db.Timestamptz(6) // device time when marked offline
+  notes          String?
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   session Session @relation(fields: [sessionId], references: [id])
 
@@ -769,16 +835,16 @@ model AttendanceRecord {
 }
 
 model Grade {
-  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId  String       @map("course_id") @db.Uuid
-  centerId  String       @map("center_id") @db.Uuid
-  teacherId String       @map("teacher_id") @db.Uuid
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId  String    @map("course_id") @db.Uuid
+  centerId  String    @map("center_id") @db.Uuid
+  teacherId String    @map("teacher_id") @db.Uuid
   name      String
-  gradeType GradeType    @default(numeric) @map("grade_type")
-  maxScore  Int          @map("max_score")
-  date      DateTime     @db.Timestamptz(6)
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  gradeType GradeType @default(numeric) @map("grade_type")
+  maxScore  Int       @map("max_score")
+  date      DateTime  @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   scores GradeScore[]
 
@@ -824,20 +890,20 @@ model Material {
 // PRD classroom_bookings: teacher requests a Room for a Session; center approves
 // with an agreed center_share. This is the hook the fee/distribution engine reads.
 model ClassroomBooking {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId    String        @map("center_id") @db.Uuid
-  roomId      String        @map("room_id") @db.Uuid
-  sessionId   String?       @map("session_id") @db.Uuid
-  courseId    String?       @map("course_id") @db.Uuid
-  teacherId   String        @map("teacher_id") @db.Uuid
-  status      BookingStatus @default(pending)
-  centerShare Int?          @map("center_share") // piasters
-  requestedAt DateTime      @default(now()) @map("requested_at") @db.Timestamptz(6)
-  decidedAt   DateTime?     @map("decided_at") @db.Timestamptz(6)
-  decidedBy   String?       @map("decided_by") @db.Uuid
-  rejectReason String?      @map("reject_reason")
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId     String        @map("center_id") @db.Uuid
+  roomId       String        @map("room_id") @db.Uuid
+  sessionId    String?       @map("session_id") @db.Uuid
+  courseId     String?       @map("course_id") @db.Uuid
+  teacherId    String        @map("teacher_id") @db.Uuid
+  status       BookingStatus @default(pending)
+  centerShare  Int?          @map("center_share") // piasters
+  requestedAt  DateTime      @default(now()) @map("requested_at") @db.Timestamptz(6)
+  decidedAt    DateTime?     @map("decided_at") @db.Timestamptz(6)
+  decidedBy    String?       @map("decided_by") @db.Uuid
+  rejectReason String?       @map("reject_reason")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([centerId])
   @@index([roomId])
@@ -855,7 +921,7 @@ model Payment {
   studentId     String        @map("student_id") @db.Uuid
   courseId      String?       @map("course_id") @db.Uuid
   status        PaymentStatus @default(paid)
-  amount        Int           // piasters, SIGNED (positive=payment, negative=refund)
+  amount        Int // piasters, SIGNED (positive=payment, negative=refund)
   currency      String        @default("EGP")
   note          String?
   receiptNumber String        @unique @map("receipt_number")
@@ -872,7 +938,7 @@ model Payment {
 model Expense {
   id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId    String          @map("center_id") @db.Uuid
-  amount      Int             // piasters (positive)
+  amount      Int // piasters (positive)
   currency    String          @default("EGP")
   category    ExpenseCategory
   description String?
@@ -890,7 +956,7 @@ model Transaction {
   id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   refNumber     String            @unique @map("ref_number") // TXN-2026-XXXXX
   type          TransactionType
-  amount        Int               // piasters
+  amount        Int // piasters
   fromEntityId  String?           @map("from_entity_id") @db.Uuid
   toEntityId    String?           @map("to_entity_id") @db.Uuid
   centerId      String?           @map("center_id") @db.Uuid
@@ -921,8 +987,8 @@ model Invoice {
   issuedToId    String?       @map("issued_to_id") @db.Uuid
   periodStart   DateTime?     @map("period_start") @db.Date
   periodEnd     DateTime?     @map("period_end") @db.Date
-  subtotal      Int?          // piasters
-  commission    Int?          // piasters
+  subtotal      Int? // piasters
+  commission    Int? // piasters
   netAmount     Int?          @map("net_amount") // piasters
   status        InvoiceStatus @default(issued)
   pdfUrl        String?       @map("pdf_url")
@@ -937,22 +1003,22 @@ model Invoice {
 }
 
 model Payout {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId      String?         @map("center_id") @db.Uuid
-  beneficiaryId String          @map("beneficiary_id") @db.Uuid
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId        String?         @map("center_id") @db.Uuid
+  beneficiaryId   String          @map("beneficiary_id") @db.Uuid
   beneficiaryType BeneficiaryType @map("beneficiary_type")
-  periodStart   DateTime?       @map("period_start") @db.Date
-  periodEnd     DateTime?       @map("period_end") @db.Date
-  lessonCount   Int?            @map("lesson_count")
-  grossAmount   Int?            @map("gross_amount") // piasters
-  commission    Int?            // piasters
-  netPayable    Int?            @map("net_payable") // piasters
-  status        PayoutStatus    @default(pending)
-  approvedBy    String?         @map("approved_by") @db.Uuid
-  rejectionReason String?       @map("rejection_reason")
-  paidAt        DateTime?       @map("paid_at") @db.Timestamptz(6)
-  receiptUrl    String?         @map("receipt_url")
-  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  periodStart     DateTime?       @map("period_start") @db.Date
+  periodEnd       DateTime?       @map("period_end") @db.Date
+  lessonCount     Int?            @map("lesson_count")
+  grossAmount     Int?            @map("gross_amount") // piasters
+  commission      Int? // piasters
+  netPayable      Int?            @map("net_payable") // piasters
+  status          PayoutStatus    @default(pending)
+  approvedBy      String?         @map("approved_by") @db.Uuid
+  rejectionReason String?         @map("rejection_reason")
+  paidAt          DateTime?       @map("paid_at") @db.Timestamptz(6)
+  receiptUrl      String?         @map("receipt_url")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([centerId])
   @@index([beneficiaryId])
@@ -966,13 +1032,13 @@ model Payout {
 // =============================================================================
 
 model PointsRule {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventName  String   @map("event_name") // attendance|online_payment|first_booking|...
-  pointsValue Int     @map("points_value")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdBy  String?  @map("created_by") @db.Uuid // must be super_admin
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventName   String   @map("event_name") // attendance|online_payment|first_booking|...
+  pointsValue Int      @map("points_value")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   String?  @map("created_by") @db.Uuid // must be super_admin
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   ledger PointsLedger[]
 
@@ -984,7 +1050,7 @@ model PointsRule {
 model PointsLedger {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studentId    String   @map("student_id") @db.Uuid
-  delta        Int      // positive = earned, negative = deducted
+  delta        Int // positive = earned, negative = deducted
   balanceAfter Int      @map("balance_after")
   eventName    String?  @map("event_name")
   ruleId       String?  @map("rule_id") @db.Uuid
@@ -1005,18 +1071,18 @@ model PointsLedger {
 // =============================================================================
 
 model Notification {
-  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String             @map("user_id") @db.Uuid
-  type          NotificationType
-  title         String
-  body          String
-  data          Json               @default("{}")
-  channels      String[]           @default([]) // ['fcm','email','sms']
-  status        NotificationStatus @default(pending)
-  fcmMessageId  String?            @map("fcm_message_id")
-  read          Boolean            @default(false)
-  readAt        DateTime?          @map("read_at") @db.Timestamptz(6)
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  type         NotificationType
+  title        String
+  body         String
+  data         Json               @default("{}")
+  channels     String[]           @default([]) // ['fcm','email','sms']
+  status       NotificationStatus @default(pending)
+  fcmMessageId String?            @map("fcm_message_id")
+  read         Boolean            @default(false)
+  readAt       DateTime?          @map("read_at") @db.Timestamptz(6)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([read])
@@ -1024,16 +1090,16 @@ model Notification {
 }
 
 model BlacklistEntry {
-  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  targetId   String         @map("target_id") @db.Uuid
-  level      BlacklistLevel
-  centerId   String?        @map("center_id") @db.Uuid // scope for center/teacher levels
-  imposedById String        @map("imposed_by_id") @db.Uuid
-  reason     String
-  isActive   Boolean        @default(true) @map("is_active")
-  removedAt  DateTime?      @map("removed_at") @db.Timestamptz(6)
-  removedBy  String?        @map("removed_by") @db.Uuid
-  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  targetId    String         @map("target_id") @db.Uuid
+  level       BlacklistLevel
+  centerId    String?        @map("center_id") @db.Uuid // scope for center/teacher levels
+  imposedById String         @map("imposed_by_id") @db.Uuid
+  reason      String
+  isActive    Boolean        @default(true) @map("is_active")
+  removedAt   DateTime?      @map("removed_at") @db.Timestamptz(6)
+  removedBy   String?        @map("removed_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([targetId])
   @@index([centerId])
@@ -1044,7 +1110,7 @@ model BlacklistEntry {
 model AuditLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorId     String?  @map("actor_id") @db.Uuid
-  action      String   // e.g. 'center.approved', 'blacklist.added'
+  action      String // e.g. 'center.approved', 'blacklist.added'
   targetType  String?  @map("target_type")
   targetId    String?  @map("target_id") @db.Uuid
   centerId    String?  @map("center_id") @db.Uuid
@@ -1092,7 +1158,7 @@ model Review {
   teacherId String   @map("teacher_id") @db.Uuid
   centerId  String?  @map("center_id") @db.Uuid
   lessonId  String?  @map("lesson_id") @db.Uuid // -> sessions.id, for per-lesson ratings (PRD)
-  rating    Int      // 1..5 (enforced at API layer + CHECK constraint in migration)
+  rating    Int // 1..5 (enforced at API layer + CHECK constraint in migration)
   text      String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1103,34 +1169,79 @@ model Review {
   @@map("reviews")
 }
 
-model MessageThread {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  participantIds  String[]  @map("participant_ids") @db.Uuid
-  centerId        String?   @map("center_id") @db.Uuid
-  lastMessageAt   DateTime  @default(now()) @map("last_message_at") @db.Timestamptz(6)
-  lastMessageBody String?   @map("last_message_body")
-  unreadCounts    Json      @default("{}") @map("unread_counts")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+// =============================================================================
+// REAL-TIME CHAT (1:1 conversations only — exactly two participants)
+//
+// The pair is stored canonically (user_a_id < user_b_id, enforced by a CHECK
+// constraint in the migration) so one unique index guarantees a single
+// conversation per pair. Per-side unread counters / read cursors live on the
+// conversation row; per-message delivery state lives on the message.
+// Who may talk to whom is enforced by src/queries/chat-policy.ts (the single
+// source of truth), NOT here.
+// =============================================================================
 
-  messages Message[]
+enum MessageDeliveryStatus {
+  sent // persisted, recipient not yet reached
+  delivered // recipient's client received it (socket ack / delivered-on-connect sweep)
+  read // recipient opened the conversation past this message
 
-  @@index([participantIds])
-  @@index([centerId, lastMessageAt(sort: Desc)])
-  @@map("message_threads")
+  @@map("message_delivery_status")
 }
 
-model Message {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  threadId  String   @map("thread_id") @db.Uuid
-  senderId  String   @map("sender_id") @db.Uuid
-  body      String
+model Conversation {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Canonical pair: user_a_id < user_b_id (CHECK constraint in migration).
+  userAId  String  @map("user_a_id") @db.Uuid
+  userBId  String  @map("user_b_id") @db.Uuid
+  // Tenant context when either side belongs to a center (RLS defense-in-depth).
+  centerId String? @map("center_id") @db.Uuid
+
+  // Denormalized list-view state.
+  lastMessageAt       DateTime @default(now()) @map("last_message_at") @db.Timestamptz(6)
+  lastMessagePreview  String?  @map("last_message_preview")
+  lastMessageSenderId String?  @map("last_message_sender_id") @db.Uuid
+
+  // Per-side unread counters + read cursors (a = userA's state, b = userB's).
+  aUnreadCount Int       @default(0) @map("a_unread_count")
+  bUnreadCount Int       @default(0) @map("b_unread_count")
+  aLastReadAt  DateTime? @map("a_last_read_at") @db.Timestamptz(6)
+  bLastReadAt  DateTime? @map("b_last_read_at") @db.Timestamptz(6)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  messages ConversationMessage[]
 
-  @@index([threadId, createdAt])
-  @@map("messages")
+  @@unique([userAId, userBId])
+  @@index([userAId, lastMessageAt(sort: Desc)])
+  @@index([userBId, lastMessageAt(sort: Desc)])
+  @@index([centerId, lastMessageAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String  @map("conversation_id") @db.Uuid
+  senderId       String  @map("sender_id") @db.Uuid
+  // Monotonic insertion order (bigserial) — the authoritative sort key.
+  // Wall-clock timestamps are for display only; seq survives clock skew.
+  seq            BigInt  @default(autoincrement())
+  body           String
+  // Client-generated idempotency key: retries after reconnect can't duplicate.
+  clientId       String? @map("client_id")
+
+  status      MessageDeliveryStatus @default(sent)
+  deliveredAt DateTime?             @map("delivered_at") @db.Timestamptz(6)
+  readAt      DateTime?             @map("read_at") @db.Timestamptz(6)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, clientId])
+  @@index([conversationId, seq])
+  // Delivered-on-connect sweep: find a recipient's undelivered messages fast.
+  @@index([conversationId, status])
+  @@map("conversation_messages")
 }
 
 // =============================================================================
@@ -1138,14 +1249,14 @@ model Message {
 // =============================================================================
 
 model ChatbotConfig {
-  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supportBotEnabled    Boolean   @default(true) @map("support_bot_enabled")
-  academicBotEnabled   Boolean   @default(true) @map("academic_bot_enabled")
-  monthlyTokenLimit    Int       @default(1000000) @map("monthly_token_limit")
-  tokensUsedThisMonth  Int       @default(0) @map("tokens_used_this_month")
-  lastResetAt          DateTime? @map("last_reset_at") @db.Date
-  updatedBy            String?   @map("updated_by") @db.Uuid
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supportBotEnabled   Boolean   @default(true) @map("support_bot_enabled")
+  academicBotEnabled  Boolean   @default(true) @map("academic_bot_enabled")
+  monthlyTokenLimit   Int       @default(1000000) @map("monthly_token_limit")
+  tokensUsedThisMonth Int       @default(0) @map("tokens_used_this_month")
+  lastResetAt         DateTime? @map("last_reset_at") @db.Date
+  updatedBy           String?   @map("updated_by") @db.Uuid
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("chatbot_config")
 }
@@ -1165,14 +1276,239 @@ model ChatbotConversation {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId       String?  @map("user_id") @db.Uuid
   sessionId    String?  @map("session_id") @db.Uuid
-  messages     Json?    // [{role, content, timestamp}]
+  messages     Json? // [{role, content, timestamp}]
   botType      BotType? @map("bot_type")
   handedOff    Boolean  @default(false) @map("handed_off") // feeds human support queue
   handoffTo    String?  @map("handoff_to")
-  satisfaction Int?     // 1..5
+  satisfaction Int? // 1..5
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([userId])
   @@index([handedOff])
   @@map("chatbot_conversations")
+}
+
+// =============================================================================
+// EDUCATION CATALOG  (config-driven onboarding — Egyptian market)
+// -----------------------------------------------------------------------------
+// Platform-global lookup tables (no center_id): system → stage → grade level
+// → track, subjects, and subject_offerings ("this subject is taught THERE").
+// Everything is admin-managed data; wizards and matching read it — no
+// hardcoded subject/track names anywhere in business logic. `code` is the
+// stable seed/reference key (ids stay opaque); is_active + sort_order give
+// admins soft-hide and ordering without deletes. RLS: world-readable,
+// writable only under rls_bypass() (super_admin platform context) — see the
+// education_catalog migration.
+// "Grade level" = school year (الصف). NOT the existing `grades` table, which
+// holds exam grades.
+// =============================================================================
+
+model EducationSystem {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique // 'general' | 'azhari' | 'bacc' | ...
+  nameAr    String   @map("name_ar")
+  nameEn    String?  @map("name_en")
+  iconKey   String?  @map("icon_key") // wizard card icon
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stages          Stage[]
+  studentProfiles StudentProfile[]
+
+  @@index([isActive, sortOrder])
+  @@map("education_systems")
+}
+
+model Stage {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  educationSystemId String   @map("education_system_id") @db.Uuid
+  code              String   @unique // 'general-primary', 'azhari-secondary', ...
+  nameAr            String   @map("name_ar")
+  nameEn            String?  @map("name_en")
+  hasSecondLanguage Boolean  @default(false) @map("has_second_language") // gates the wizard's 2nd-language step
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  system          EducationSystem  @relation(fields: [educationSystemId], references: [id])
+  gradeLevels     GradeLevel[]
+  tracks          Track[]
+  studentProfiles StudentProfile[]
+  centerStages    CenterStage[]
+
+  @@index([educationSystemId, isActive, sortOrder])
+  @@map("stages")
+}
+
+model GradeLevel {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stageId   String   @map("stage_id") @db.Uuid
+  code      String   @unique // 'general-primary-1' ... 'bacc-secondary-3'
+  nameAr    String   @map("name_ar") // "الصف الأول الابتدائي"
+  nameEn    String?  @map("name_en")
+  level     Int // 1..n within the stage
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stage              Stage               @relation(fields: [stageId], references: [id])
+  gradeTracks        GradeLevelTrack[]
+  offerings          SubjectOffering[]
+  studentProfiles    StudentProfile[]
+  teacherGradeLevels TeacherGradeLevel[]
+  courses            Course[]
+
+  @@index([stageId, isActive, sortOrder])
+  @@map("grade_levels")
+}
+
+model Track {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stageId   String   @map("stage_id") @db.Uuid // tracks belong to a stage (ثانوي عام/أزهري/بكالوريا)
+  code      String   @unique // 'general-sci-science' | 'bacc-medicine' | ...
+  nameAr    String   @map("name_ar")
+  nameEn    String?  @map("name_en")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stage           Stage             @relation(fields: [stageId], references: [id])
+  gradeTracks     GradeLevelTrack[]
+  offerings       SubjectOffering[]
+  studentProfiles StudentProfile[]
+  courses         Course[]
+
+  @@index([stageId, isActive, sortOrder])
+  @@map("tracks")
+}
+
+// A row here means "this grade level asks for this track" — the data-driven
+// grade-range: أولى ثانوي has no rows, so the wizard auto-skips the track step.
+model GradeLevelTrack {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gradeLevelId String @map("grade_level_id") @db.Uuid
+  trackId      String @map("track_id") @db.Uuid
+
+  gradeLevel GradeLevel @relation(fields: [gradeLevelId], references: [id])
+  track      Track      @relation(fields: [trackId], references: [id])
+
+  @@unique([gradeLevelId, trackId])
+  @@index([trackId])
+  @@map("grade_level_tracks")
+}
+
+model Subject {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String   @unique // 'math', 'quran-tajweed', 'lang2-french', ...
+  nameAr           String   @map("name_ar")
+  nameEn           String?  @map("name_en")
+  language         Locale   @default(ar) // instruction language (عربي/إنجليزي)
+  isAzhari         Boolean  @default(false) @map("is_azhari") // المواد الشرعية
+  isSecondLanguage Boolean  @default(false) @map("is_second_language") // فرنسي/ألماني/...
+  isActive         Boolean  @default(true) @map("is_active")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  offerings              SubjectOffering[]
+  teacherSubjects        TeacherSubject[]
+  secondLanguageStudents StudentProfile[]  @relation("StudentSecondLanguage")
+  courses                Course[]
+
+  @@index([isActive, sortOrder])
+  @@map("subjects")
+}
+
+// "Where is this subject taught" — the matching key for wizards and content
+// filtering. track_id NULL = offered to the whole grade level (all tracks, or
+// a grade that has no tracks) — hence ON DELETE RESTRICT, never SET NULL,
+// which would silently widen an offering to every track. True uniqueness
+// incl. NULL track is a NULLS NOT DISTINCT unique index in the migration.
+model SubjectOffering {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId    String   @map("subject_id") @db.Uuid
+  gradeLevelId String   @map("grade_level_id") @db.Uuid
+  trackId      String?  @map("track_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subject    Subject    @relation(fields: [subjectId], references: [id])
+  gradeLevel GradeLevel @relation(fields: [gradeLevelId], references: [id])
+  track      Track?     @relation(fields: [trackId], references: [id], onDelete: Restrict)
+
+  @@index([gradeLevelId, trackId])
+  @@index([subjectId])
+  @@map("subject_offerings")
+}
+
+// Teacher self-service catalog links (onboarding §5). teacher_id follows the
+// repo-wide convention: it is users.id (via teacher_profiles.user_id).
+model TeacherGradeLevel {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId    String @map("teacher_id") @db.Uuid
+  gradeLevelId String @map("grade_level_id") @db.Uuid
+
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [userId])
+  gradeLevel     GradeLevel     @relation(fields: [gradeLevelId], references: [id])
+
+  @@unique([teacherId, gradeLevelId])
+  @@index([gradeLevelId])
+  @@map("teacher_grade_levels")
+}
+
+model TeacherSubject {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId String @map("teacher_id") @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [userId])
+  subject        Subject        @relation(fields: [subjectId], references: [id])
+
+  @@unique([teacherId, subjectId])
+  @@index([subjectId])
+  @@map("teacher_subjects")
+}
+
+// Center coverage (onboarding §6): which stages the center serves. The system
+// is derivable from the stage. Tenant-scoped (has center_id) → joins the
+// standard tenant_isolation RLS list.
+model CenterStage {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId String @map("center_id") @db.Uuid
+  stageId  String @map("stage_id") @db.Uuid
+
+  center Center @relation(fields: [centerId], references: [id])
+  stage  Stage  @relation(fields: [stageId], references: [id])
+
+  @@unique([centerId, stageId])
+  @@index([centerId])
+  @@map("center_stages")
+}
+
+// "اطلب إضافة مادة" — teachers request missing subjects; super_admin reviews
+// (§5/§8). Plain UUID columns (no relations) per the repo's request-table
+// style (cf. enrollment_requests); names resolved app-side.
+model SubjectRequest {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestedById    String               @map("requested_by_id") @db.Uuid // teacher users.id
+  suggestedName    String               @map("suggested_name")
+  gradeLevelId     String?              @map("grade_level_id") @db.Uuid // optional context
+  notes            String?
+  status           SubjectRequestStatus @default(pending)
+  reviewedBy       String?              @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?            @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote       String?              @map("review_note")
+  createdSubjectId String?              @map("created_subject_id") @db.Uuid // set on approval
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status])
+  @@index([requestedById])
+  @@map("subject_requests")
 }
