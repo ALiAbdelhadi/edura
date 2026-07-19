@@ -109,6 +109,42 @@ export function AdminFeesScreen() {
   });
   const { mutate: createPayment, mutation: createMutation } = useCreate();
   const { mutate: createSubscription, mutation: subMutation } = useCreate();
+  const { mutate: requestPayout, mutation: payoutMutation } = useCreate();
+
+  // Center wallet + withdraw (Step 4.5).
+  const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
+  const { query: centerPayoutsQuery, result: centerPayoutsRes } = useCustom({ url: "center/wallet/payouts", method: "get" });
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [withdrawEgp, setWithdrawEgp] = useState("");
+
+  const centerWallet = walletRes?.data as
+    | { balance: number; available: number; pendingPayouts: { count: number; amount: number } }
+    | undefined;
+  const centerPayouts = (centerPayoutsRes?.data ?? []) as any[];
+
+  const handleWithdraw = () => {
+    const egp = withdrawEgp.trim() === "" ? null : Number(withdrawEgp);
+    if (egp !== null && (!Number.isFinite(egp) || egp <= 0)) {
+      toast.error(t("adminManage.fees.walletInvalidAmount"));
+      return;
+    }
+    requestPayout(
+      {
+        resource: "center/wallet/payout-request",
+        values: egp === null ? {} : { amount: Math.round(egp * 100) },
+      },
+      {
+        onSuccess: () => {
+          setIsWithdrawOpen(false);
+          setWithdrawEgp("");
+          toast.success(t("adminManage.fees.walletRequestSubmitted"));
+          walletQuery.refetch();
+          centerPayoutsQuery.refetch();
+        },
+        onError: (err: any) => toast.error(err?.message || t("adminManage.fees.recordFailed")),
+      },
+    );
+  };
 
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -431,6 +467,85 @@ export function AdminFeesScreen() {
           icon={BarChart3}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("adminManage.fees.walletTitle")}</CardTitle>
+          <CardAction>
+            <Button
+              variant="outline"
+              onClick={() => setIsWithdrawOpen(true)}
+              disabled={(centerWallet?.available ?? 0) <= 0}
+            >
+              <DollarSign className="size-4" />
+              {t("adminManage.fees.walletWithdraw")}
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard label={t("adminManage.fees.walletBalance")} value={formatEGP(centerWallet?.balance ?? 0)} icon={DollarSign} accent />
+            <StatCard label={t("adminManage.fees.walletAvailable")} value={formatEGP(centerWallet?.available ?? 0)} icon={DollarSign} />
+            <StatCard
+              label={t("adminManage.fees.walletReserved")}
+              value={`${formatEGP(centerWallet?.pendingPayouts.amount ?? 0)} (${centerWallet?.pendingPayouts.count ?? 0})`}
+              icon={Receipt}
+            />
+          </div>
+          {centerPayouts.length > 0 ? (
+            <div className="space-y-1">
+              <div className="text-sm font-medium">{t("adminManage.fees.walletPayoutHistory")}</div>
+              {centerPayouts.slice(0, 5).map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                  <span className="font-semibold">{formatEGP(p.netPayable ?? 0)}</span>
+                  <StatusBadge
+                    tone={p.status === "paid" ? "success" : p.status === "rejected" ? "danger" : "warning"}
+                  >
+                    {p.status}
+                  </StatusBadge>
+                  <span className="text-xs text-muted-foreground">{formatDate(p.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={isWithdrawOpen}
+        onOpenChange={(open) => {
+          setIsWithdrawOpen(open);
+          if (!open) setWithdrawEgp("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("adminManage.fees.walletWithdraw")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t("adminManage.fees.walletAvailable")}: <strong>{formatEGP(centerWallet?.available ?? 0)}</strong>
+            </p>
+            <div>
+              <div className="mb-1 text-sm font-medium">{t("adminManage.fees.walletAmountEgp")}</div>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={t("adminManage.fees.walletEmptyMeansAll")}
+                value={withdrawEgp}
+                onChange={(e) => setWithdrawEgp(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleWithdraw} disabled={payoutMutation.isPending}>
+              {payoutMutation.isPending ? <Spinner /> : null}
+              {t("adminManage.fees.walletConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

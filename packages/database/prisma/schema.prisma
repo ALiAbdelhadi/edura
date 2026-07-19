@@ -1663,3 +1663,34 @@ model Subscription {
   @@index([sessionId])
   @@map("subscriptions")
 }
+
+// ---------------------------------------------------------------------------
+// Commission settings — Step 4.5. Scoped rows: the single `global` row is the
+// platform default; per-center / per-teacher override rows can be added later
+// WITHOUT a migration (resolution: teacher > center > global > code fallback).
+// Platform-global config, superadmin-managed — app-scoped, no RLS.
+// ---------------------------------------------------------------------------
+
+enum CommissionScope {
+  global
+  center
+  teacher
+
+  @@map("commission_scope")
+}
+
+model CommissionSetting {
+  id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope                     CommissionScope @default(global)
+  centerId                  String?         @map("center_id") @db.Uuid // set when scope=center
+  teacherId                 String?         @map("teacher_id") @db.Uuid // set when scope=teacher
+  teacherDirectCommissionBp Int             @map("teacher_direct_commission_bp") // basis points (1500 = 15%)
+  platformTeacherFee        Int             @map("platform_teacher_fee") // piasters per present student (center split)
+  platformCenterFee         Int             @map("platform_center_fee") // piasters per present student (center split)
+  updatedBy                 String?         @map("updated_by") @db.Uuid
+  createdAt                 DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([scope])
+  @@map("commission_settings")
+}

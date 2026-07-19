@@ -41,7 +41,8 @@
     "overview": "Overview",
     "catalog": "Catalog",
     "team": "Team",
-    "subjects": "Subjects"
+    "subjects": "Subjects",
+    "wallet": "Wallet"
   },
   "roles": {
     "student": "Student",
@@ -168,6 +169,10 @@
   },
   "common": {
     "loading": "Loading…",
+    "redirecting": "Redirecting…",
+    "anyField": "{field}: any",
+    "language": "Language",
+    "calendarHeatmap": "calendar heatmap",
     "noData": "No data yet",
     "emptyStateCta": "Nothing here yet — get started by adding one.",
     "total": "Total",

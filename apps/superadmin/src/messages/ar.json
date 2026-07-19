@@ -75,7 +75,9 @@
     "declined": "مرفوضة",
     "expired": "منتهية",
     "removed": "مُزالة",
-    "withdrawn": "مسحوبة"
+    "withdrawn": "مسحوبة",
+    "failed": "فاشلة",
+    "pending_payment": "في انتظار الدفع"
   },
   "actions": {
     "rowsPerPage": "عدد الصفوف في الصفحة",
@@ -98,6 +100,10 @@
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
+    "backofficeTitle": "إدارة إديورا (Edura Back-office)",
+    "backofficeSubtitle": "تسجيل دخول الموظفين — الإدارة العامة والمالية فقط",
+    "signingIn": "جاري تسجيل الدخول...",
+    "invalidCredentialsBackoffice": "بيانات الاعتماد غير صالحة أو الحساب غير مصرح له.",
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "forgotPassword": "هل نسيت كلمة المرور؟",
@@ -167,6 +173,10 @@
   },
   "common": {
     "loading": "جارٍ التحميل…",
+    "redirecting": "جاري التوجيه…",
+    "anyField": "{field}: الكل",
+    "language": "اللغة",
+    "calendarHeatmap": "مخطط النشاط السنوي",
     "noData": "لا توجد بيانات بعد",
     "emptyStateCta": "لا يوجد شيء هنا بعد — ابدأ بإضافة عنصر.",
     "total": "الإجمالي",
@@ -303,5 +313,81 @@
     "remove": "إزالة",
     "removeTitle": "إزالة المساعد؟",
     "removeDescription": "سيفقد {name} صلاحية الوصول للفريق. تُحفَظ المحادثات القائمة لكن لن يستطيع طلابك التواصل معه."
+  },
+  "paymentIntents": {
+    "title": "المدفوعات الإلكترونية",
+    "searchPlaceholder": "البحث عن طالب، رقم الطلب، المرجع...",
+    "clearSearch": "مسح البحث",
+    "loading": "جاري تحميل عمليات الدفع...",
+    "notFound": "لم يتم العثور على عمليات دفع",
+    "student": "الطالب",
+    "course": "الدورة",
+    "center": "المركز",
+    "amount": "المبلغ",
+    "method": "الطريقة",
+    "gateway": "البوابة",
+    "status": "الحالة",
+    "created": "تاريخ الإنشاء",
+    "prev": "السابق",
+    "next": "التالي",
+    "pageInfo": "الصفحة {page} من {pageCount} · الإجمالي {total}",
+    "intentDetail": "تفاصيل عملية الدفع",
+    "intentId": "معرف العملية",
+    "methodGateway": "الطريقة / البوابة",
+    "gatewayOrderRef": "طلب البوابة / المرجع",
+    "receipt": "الإيصال",
+    "ledgerTxn": "حركة الدفتر",
+    "createdPaid": "تاريخ الإنشاء / الدفع",
+    "rawWebhook": "بيانات الويب هوك الخام"
+  },
+  "subscriptions": {
+    "title": "الاشتراكات",
+    "searchPlaceholder": "البحث عن طالب أو دورة...",
+    "clearSearch": "مسح البحث",
+    "loading": "جاري تحميل الاشتراكات...",
+    "notFound": "لم يتم العثور على اشتراكات",
+    "student": "الطالب",
+    "course": "الدورة",
+    "target": "المستهدف",
+    "plan": "الخطة",
+    "price": "السعر",
+    "source": "المصدر",
+    "status": "الحالة",
+    "created": "تاريخ الإنشاء",
+    "prev": "السابق",
+    "next": "التالي",
+    "pageInfo": "الصفحة {page} من {pageCount} · الإجمالي {total}",
+    "detailTitle": "تفاصيل الاشتراك",
+    "subId": "معرف الاشتراك",
+    "targetVal": "المستهدف",
+    "planPrice": "الخطة / السعر",
+    "sourceMethod": "المصدر / الطريقة",
+    "coverage": "التغطية",
+    "receipt": "الإيصال",
+    "paymentIntent": "طلب الدفع",
+    "enrollment": "التسجيل",
+    "createdActivated": "تاريخ الإنشاء / التنشيط"
+  },
+  "gateways": {
+    "mock": "تجريبي (Mock)",
+    "paymob": "بيموب (Paymob)"
+  },
+  "methods": {
+    "card": "بطاقة",
+    "wallet": "محفظة إلكترونية"
+  },
+  "plans": {
+    "monthly": "شهري",
+    "term": "ترم",
+    "yearly": "سنوي"
+  },
+  "sources": {
+    "admin": "لوحة التحكم",
+    "portal": "بوابة الطالب"
+  },
+  "targets": {
+    "course": "دورة",
+    "teacher": "معلم",
+    "center": "مركز"
   }
 }

@@ -80,7 +80,7 @@ export function generatePayouts() {
 }
 
 export function listPayouts(filters: { status?: string; beneficiaryType?: string }) {
-  return platformDb((tx) => {
+  return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.status && ["pending", "approved", "paid", "rejected"].includes(filters.status)) {
       where.status = filters.status;
@@ -88,7 +88,24 @@ export function listPayouts(filters: { status?: string; beneficiaryType?: string
     if (filters.beneficiaryType && ["teacher", "center"].includes(filters.beneficiaryType)) {
       where.beneficiaryType = filters.beneficiaryType;
     }
-    return tx.payout.findMany({ where, orderBy: { createdAt: "desc" } });
+    const rows = await tx.payout.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 });
+
+    const teacherIds = rows.filter((r) => r.beneficiaryType === "teacher").map((r) => r.beneficiaryId);
+    const centerIds = rows.filter((r) => r.beneficiaryType === "center").map((r) => r.beneficiaryId);
+    const [teachers, centers] = await Promise.all([
+      tx.user.findMany({ where: { id: { in: teacherIds } }, select: { id: true, name: true, email: true } }),
+      tx.center.findMany({ where: { id: { in: centerIds } }, select: { id: true, name: true } }),
+    ]);
+    const tMap = new Map(teachers.map((u) => [u.id, u]));
+    const cMap = new Map(centers.map((c) => [c.id, c]));
+    return rows.map((r) => ({
+      ...r,
+      beneficiaryName:
+        r.beneficiaryType === "teacher"
+          ? (tMap.get(r.beneficiaryId)?.name ?? null)
+          : (cMap.get(r.beneficiaryId)?.name ?? null),
+      beneficiaryEmail: r.beneficiaryType === "teacher" ? (tMap.get(r.beneficiaryId)?.email ?? null) : null,
+    }));
   });
 }
 

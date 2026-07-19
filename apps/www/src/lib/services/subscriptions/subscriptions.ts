@@ -11,6 +11,7 @@ import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import { computeTeacherDirectSplit } from "@/lib/services/finance/fees";
+import { resolveCommission } from "@/lib/services/finance/commission";
 import { assertNotBlacklisted } from "@/lib/services/blacklist/blacklist";
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // monthly coverage window
@@ -167,8 +168,9 @@ async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
  *   completion via distributeSessionRevenue (unchanged engine).
  *
  * - TEACHER-DIRECT course (centerId NULL): the split happens HERE, at payment
- *   time — platform commission only (15% STEP 4.5 placeholder, see
- *   TEACHER_DIRECT_COMMISSION_BP), remainder straight to the teacher wallet.
+ *   time — platform commission only, at the rate resolved from
+ *   commission_settings (global default, future per-teacher/center overrides),
+ *   remainder straight to the teacher wallet.
  *   distributeSessionRevenue skips these courses ("teacher_direct_settled_at_
  *   payment"), which is the double-pay guard.
  */
@@ -220,8 +222,13 @@ async function settleSubscriptionMoney(
       },
     });
   } else {
-    // Teacher-direct: pay the teacher NOW (minus platform commission).
-    const { teacherNet, platformCommission } = computeTeacherDirectSplit(sub.price);
+    // Teacher-direct: pay the teacher NOW (minus the platform commission
+    // resolved from commission_settings at charge time).
+    const rate = await resolveCommission(tx, { teacherId: sub.teacherId });
+    const { teacherNet, platformCommission } = computeTeacherDirectSplit(
+      sub.price,
+      rate.teacherDirectCommissionBp,
+    );
     const [payRef, feeRef] = [await nextTxnRef(tx), await nextTxnRef(tx)];
     await tx.transaction.createMany({
       data: [
@@ -245,7 +252,7 @@ async function settleSubscriptionMoney(
           toEntityId: null,
           centerId: null,
           status: "completed",
-          notes: `Platform commission 15% (STEP 4.5 placeholder) — subscription ${sub.id}`,
+          notes: `Platform commission ${rate.teacherDirectCommissionBp / 100}% (${rate.source} setting) — subscription ${sub.id}`,
         },
       ],
     });

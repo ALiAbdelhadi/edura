@@ -75,7 +75,9 @@
     "declined": "Declined",
     "expired": "Expired",
     "removed": "Removed",
-    "withdrawn": "Withdrawn"
+    "withdrawn": "Withdrawn",
+    "failed": "Failed",
+    "pending_payment": "Pending Payment"
   },
   "actions": {
     "rowsPerPage": "Rows per page",
@@ -98,6 +100,10 @@
   },
   "auth": {
     "signInTitle": "Sign in",
+    "backofficeTitle": "Edura Back-office",
+    "backofficeSubtitle": "Staff sign-in — super admin & finance only",
+    "signingIn": "Signing in…",
+    "invalidCredentialsBackoffice": "Invalid credentials or unauthorized account.",
     "email": "Email",
     "password": "Password",
     "forgotPassword": "Forgot password?",
@@ -167,6 +173,10 @@
   },
   "common": {
     "loading": "Loading…",
+    "redirecting": "Redirecting…",
+    "anyField": "{field}: any",
+    "language": "Language",
+    "calendarHeatmap": "calendar heatmap",
     "noData": "No data yet",
     "emptyStateCta": "Nothing here yet — get started by adding one.",
     "total": "Total",
@@ -303,5 +313,81 @@
     "remove": "Remove",
     "removeTitle": "Remove assistant?",
     "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students."
+  },
+  "paymentIntents": {
+    "title": "Online Payments",
+    "searchPlaceholder": "Search student, order id, ref…",
+    "clearSearch": "Clear search",
+    "loading": "Loading payment intents…",
+    "notFound": "No payment intents found",
+    "student": "Student",
+    "course": "Course",
+    "center": "Center",
+    "amount": "Amount",
+    "method": "Method",
+    "gateway": "Gateway",
+    "status": "Status",
+    "created": "Created",
+    "prev": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {pageCount} · {total} total",
+    "intentDetail": "Payment intent",
+    "intentId": "Intent id",
+    "methodGateway": "Method / gateway",
+    "gatewayOrderRef": "Gateway order / ref",
+    "receipt": "Receipt",
+    "ledgerTxn": "Ledger txn",
+    "createdPaid": "Created / paid",
+    "rawWebhook": "Raw webhook payload"
+  },
+  "subscriptions": {
+    "title": "Subscriptions",
+    "searchPlaceholder": "Search student or course…",
+    "clearSearch": "Clear search",
+    "loading": "Loading subscriptions…",
+    "notFound": "No subscriptions found",
+    "student": "Student",
+    "course": "Course",
+    "target": "Target",
+    "plan": "Plan",
+    "price": "Price",
+    "source": "Source",
+    "status": "Status",
+    "created": "Created",
+    "prev": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {pageCount} · {total} total",
+    "detailTitle": "Subscription",
+    "subId": "Id",
+    "targetVal": "Target",
+    "planPrice": "Plan / price",
+    "sourceMethod": "Source / method",
+    "coverage": "Coverage",
+    "receipt": "Receipt",
+    "paymentIntent": "Payment intent",
+    "enrollment": "Enrollment",
+    "createdActivated": "Created / activated"
+  },
+  "gateways": {
+    "mock": "Mock",
+    "paymob": "Paymob"
+  },
+  "methods": {
+    "card": "Card",
+    "wallet": "Wallet"
+  },
+  "plans": {
+    "monthly": "Monthly",
+    "term": "Term",
+    "yearly": "Yearly"
+  },
+  "sources": {
+    "admin": "Admin Dashboard",
+    "portal": "Student Portal"
+  },
+  "targets": {
+    "course": "Course",
+    "teacher": "Teacher",
+    "center": "Center"
   }
 }

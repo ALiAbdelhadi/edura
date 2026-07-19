@@ -2,7 +2,7 @@ import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 import { nextTxnRefs } from "@/lib/services/finance/ref-numbers";
-import { PLATFORM_TEACHER_FEE, PLATFORM_CENTER_FEE } from "@/lib/services/finance/fees";
+import { resolveCommission } from "@/lib/services/finance/commission";
 import type { SessionUser } from "@/lib/auth/session";
 
 export async function refundLessonForStudent(
@@ -50,8 +50,27 @@ export async function refundLessonForStudent(
         select: { centerShare: true },
       });
       const centerShare = affiliation?.centerShare ?? 0;
-      const teacherNet = perSessionPrice - PLATFORM_TEACHER_FEE - centerShare;
-      const centerNet = centerShare - PLATFORM_CENTER_FEE;
+
+      // Step 4.5 correctness: reverse the fees that were ACTUALLY CHARGED for
+      // this lesson (the commission Transactions written at distribution
+      // time), not whatever the setting says today — commission is mutable
+      // now. The resolved setting is only a fallback for ledger rows that
+      // somehow predate the fee transactions.
+      const chargedFees = await tx.transaction.findMany({
+        where: { type: "commission", lessonId: sessionId, fromEntityId: { in: [teacherId, centerId] } },
+        select: { fromEntityId: true, amount: true },
+      });
+      const chargedTeacherFee = chargedFees.find((f) => f.fromEntityId === teacherId)?.amount;
+      const chargedCenterFee = chargedFees.find((f) => f.fromEntityId === centerId)?.amount;
+      const fallback =
+        chargedTeacherFee === undefined || chargedCenterFee === undefined
+          ? await resolveCommission(tx, { teacherId, centerId })
+          : null;
+      const teacherFee = chargedTeacherFee ?? fallback!.platformTeacherFee;
+      const centerFee = chargedCenterFee ?? fallback!.platformCenterFee;
+
+      const teacherNet = perSessionPrice - teacherFee - centerShare;
+      const centerNet = centerShare - centerFee;
 
       const [refundRef, teacherAdjRef, centerAdjRef] = await nextTxnRefs(tx, 3);
       await tx.transaction.createMany({
@@ -71,7 +90,7 @@ export async function refundLessonForStudent(
           {
             refNumber: teacherAdjRef,
             type: "adjustment",
-            amount: PLATFORM_TEACHER_FEE,
+            amount: teacherFee,
             toEntityId: teacherId,
             centerId,
             lessonId: sessionId,
@@ -81,7 +100,7 @@ export async function refundLessonForStudent(
           {
             refNumber: centerAdjRef,
             type: "adjustment",
-            amount: PLATFORM_CENTER_FEE,
+            amount: centerFee,
             toEntityId: centerId,
             centerId,
             lessonId: sessionId,

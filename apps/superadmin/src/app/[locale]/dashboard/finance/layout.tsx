@@ -7,6 +7,8 @@ const navItems = [
   { href: "/dashboard/finance", icon: "grid", label: "Overview" },
   { href: "/dashboard/finance/payments", icon: "dollar", label: "Payments" },
   { href: "/dashboard/finance/subscriptions", icon: "book", label: "Subscriptions" },
+  { href: "/dashboard/finance/payouts", icon: "chart", label: "Payouts" },
+  { href: "/dashboard/finance/commission", icon: "settings", label: "Commission" },
 ];
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

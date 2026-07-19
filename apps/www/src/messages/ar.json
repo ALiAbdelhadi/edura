@@ -41,7 +41,8 @@
     "overview": "نظرة عامة",
     "catalog": "الكتالوج التعليمي",
     "team": "الفريق",
-    "subjects": "المواد الدراسية"
+    "subjects": "المواد الدراسية",
+    "wallet": "المحفظة"
   },
   "roles": {
     "student": "طالب",
@@ -168,6 +169,10 @@
   },
   "common": {
     "loading": "جارٍ التحميل…",
+    "redirecting": "جاري التوجيه…",
+    "anyField": "{field}: الكل",
+    "language": "اللغة",
+    "calendarHeatmap": "مخطط النشاط السنوي",
     "noData": "لا توجد بيانات بعد",
     "emptyStateCta": "لا يوجد شيء هنا بعد — ابدأ بإضافة عنصر.",
     "total": "الإجمالي",

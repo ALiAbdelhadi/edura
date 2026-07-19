@@ -3,13 +3,10 @@ import { ForbiddenError, NotFoundError, BusinessRuleError } from "../../errors/c
 import { awardPoints } from "../points/points";
 import { nextTxnRefs } from "./ref-numbers";
 import type { SessionUser } from "../../auth/types";
-import {
-  PLATFORM_TEACHER_FEE,
-  PLATFORM_CENTER_FEE,
-  computeLessonSplit,
-} from "./fees";
+import { computeLessonSplit } from "./fees";
+import { resolveCommission } from "./commission";
 
-export { PLATFORM_TEACHER_FEE, PLATFORM_CENTER_FEE, computeLessonSplit };
+export { computeLessonSplit };
 
 type Distribution = {
   distributed: boolean;
@@ -64,7 +61,10 @@ export async function distributeSessionRevenue(
   });
   const centerShare = affiliation?.centerShare ?? 0;
 
-  const { teacherNet, centerNet } = computeLessonSplit(perSessionPrice, centerShare);
+  // Step 4.5: platform fees come from commission_settings (resolved inside
+  // the same DB transaction so the split and its ledger rows always agree).
+  const fees = await resolveCommission(tx, { teacherId, centerId });
+  const { teacherNet, centerNet } = computeLessonSplit(perSessionPrice, centerShare, fees);
 
   const refs = await nextTxnRefs(tx, present.length * 3);
 
@@ -87,7 +87,7 @@ export async function distributeSessionRevenue(
       {
         refNumber: teacherFeeRef,
         type: "commission",
-        amount: PLATFORM_TEACHER_FEE,
+        amount: fees.platformTeacherFee,
         fromEntityId: teacherId,
         toEntityId: null,
         centerId,
@@ -98,7 +98,7 @@ export async function distributeSessionRevenue(
       {
         refNumber: centerFeeRef,
         type: "commission",
-        amount: PLATFORM_CENTER_FEE,
+        amount: fees.platformCenterFee,
         fromEntityId: centerId,
         toEntityId: null,
         centerId,
@@ -134,7 +134,7 @@ export async function distributeSessionRevenue(
     centerShare,
     teacherNetTotal,
     centerNetTotal,
-    platformEarned: present.length * (PLATFORM_TEACHER_FEE + PLATFORM_CENTER_FEE),
+    platformEarned: present.length * (fees.platformTeacherFee + fees.platformCenterFee),
   };
 }
 

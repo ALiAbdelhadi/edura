@@ -85,6 +85,7 @@ const NAV_KEY: Record<string, string> = {
   Centers: "nav.centers",
   Browse: "nav.browse",
   Subjects: "nav.subjects",
+  Wallet: "nav.wallet",
   Catalog: "nav.catalog",
 };
 

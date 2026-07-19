@@ -147,7 +147,18 @@
     "confirmCashSubscription": "تأكيد الاشتراك النقدي",
     "subscriptionRecorded": "تم تسجيل الاشتراك وتفعيله",
     "subMissingFields": "اختر الطالب والكورس",
-    "subMissingSession": "اختر الحصة لخطة الدفع بالحصة"
+    "subMissingSession": "اختر الحصة لخطة الدفع بالحصة",
+    "walletTitle": "محفظة السنتر",
+    "walletWithdraw": "سحب الأرباح",
+    "walletBalance": "رصيد المحفظة",
+    "walletAvailable": "المتاح للسحب",
+    "walletReserved": "محجوز بطلبات مفتوحة",
+    "walletPayoutHistory": "آخر طلبات السحب",
+    "walletAmountEgp": "المبلغ (جنيه)",
+    "walletEmptyMeansAll": "اتركه فارغًا لسحب كل الرصيد",
+    "walletConfirm": "إرسال طلب السحب",
+    "walletInvalidAmount": "أدخل مبلغًا صحيحًا",
+    "walletRequestSubmitted": "تم إرسال طلب السحب"
   },
   "expenses": {
     "categories": {

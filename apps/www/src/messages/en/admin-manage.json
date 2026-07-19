@@ -147,7 +147,18 @@
     "confirmCashSubscription": "Confirm cash subscription",
     "subscriptionRecorded": "Subscription recorded and active",
     "subMissingFields": "Pick a student and a course",
-    "subMissingSession": "Pick a session for the per-session pass"
+    "subMissingSession": "Pick a session for the per-session pass",
+    "walletTitle": "Center wallet",
+    "walletWithdraw": "Withdraw earnings",
+    "walletBalance": "Wallet balance",
+    "walletAvailable": "Available to withdraw",
+    "walletReserved": "Reserved by open requests",
+    "walletPayoutHistory": "Recent payout requests",
+    "walletAmountEgp": "Amount (EGP)",
+    "walletEmptyMeansAll": "Leave empty to withdraw everything",
+    "walletConfirm": "Request payout",
+    "walletInvalidAmount": "Enter a valid amount",
+    "walletRequestSubmitted": "Payout request submitted"
   },
   "expenses": {
     "categories": {

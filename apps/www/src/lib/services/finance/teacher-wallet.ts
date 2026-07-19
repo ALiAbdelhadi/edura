@@ -38,7 +38,7 @@ export function getTeacherWalletTransactions(teacher: SessionUser, opts?: { take
   });
 }
 
-export function requestTeacherPayout(teacher: SessionUser) {
+export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
   return platformDb(async (tx) => {
     const profile = await tx.teacherProfile.findUnique({
       where: { userId: teacher.id },
@@ -50,8 +50,19 @@ export function requestTeacherPayout(teacher: SessionUser) {
       where: { beneficiaryId: teacher.id, status: { in: ["pending", "approved"] } },
       _sum: { netPayable: true },
     });
+    // Available = wallet minus funds already reserved by open requests — the
+    // guard that makes double-requesting the same money impossible.
     const available = profile.walletBalance - (open._sum.netPayable ?? 0);
     if (available <= 0) throw new BusinessRuleError("No available balance to pay out");
+    const requested = amount ?? available; // default: withdraw everything available
+    if (!Number.isInteger(requested) || requested <= 0) {
+      throw new BusinessRuleError("Amount must be a positive whole number of piasters");
+    }
+    if (requested > available) {
+      throw new BusinessRuleError(
+        `Amount exceeds available balance (${(available / 100).toFixed(2)} EGP available)`,
+      );
+    }
 
     const commission = await tx.transaction.aggregate({
       where: { fromEntityId: teacher.id, type: "commission" },
@@ -66,12 +77,22 @@ export function requestTeacherPayout(teacher: SessionUser) {
       data: {
         beneficiaryId: teacher.id,
         beneficiaryType: "teacher",
-        netPayable: available,
-        grossAmount: available + (commission._sum.amount ?? 0),
+        netPayable: requested,
+        grossAmount: requested + (commission._sum.amount ?? 0),
         commission: commission._sum.amount ?? 0,
         lessonCount: lessons.length,
         status: "pending",
       },
     });
   }, { actorId: teacher.id });
+}
+
+export function listTeacherPayouts(teacher: SessionUser) {
+  return platformDb((tx) =>
+    tx.payout.findMany({
+      where: { beneficiaryId: teacher.id, beneficiaryType: "teacher" },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+  );
 }
