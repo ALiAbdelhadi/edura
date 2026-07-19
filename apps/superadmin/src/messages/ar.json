@@ -3,7 +3,7 @@
     "dashboard": "لوحة التحكم",
     "finance": "الشؤون المالية",
     "students": "الطلاب",
-    "teachers": "المعلمون",
+    "teachers": "المدرّسون",
     "classes": "الفصول",
     "courses": "الدورات",
     "grades": "الدرجات",
@@ -413,5 +413,28 @@
     "affiliation": "الارتباط",
     "message": "الرسالة",
     "pageOf": "صفحة {page} من {pageCount} · الإجمالي {total}"
+  },
+  "teachers": {
+    "title": "المدرّسون",
+    "description": "جميع مدرّسي المنصة — بحث وحالة ووضع الحضور.",
+    "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف…",
+    "clearSearch": "مسح البحث",
+    "statusFilter": "الحالة",
+    "modeFilter": "وضع الحضور",
+    "any": "الكل",
+    "colName": "الاسم",
+    "colContact": "التواصل",
+    "colStatus": "الحالة",
+    "colMode": "وضع الحضور",
+    "colJoined": "تاريخ الانضمام",
+    "empty": "لا يوجد مدرّسون",
+    "noProfile": "لا يوجد ملف بعد",
+    "mode_counter_only": "كاونتر فقط",
+    "mode_counter_and_door": "كاونتر + باب",
+    "modeSaved": "تم تحديث وضع الحضور",
+    "modeFailed": "تعذّر تحديث وضع الحضور",
+    "total": "{count} مدرّسًا",
+    "prev": "السابق",
+    "next": "التالي"
   }
 }

@@ -181,5 +181,13 @@
     "requestFailed": "Payout request failed",
     "loading": "Loading wallet…"
   },
-  "unpricedNotice": "This class has no monthly or per-session price yet — students cannot subscribe until the center sets one."
+  "unpricedNotice": "This class has no monthly or per-session price yet — students cannot subscribe until the center sets one.",
+  "attendanceModeTitle": "Attendance mode",
+  "attendanceModeSaved": "Attendance mode saved",
+  "attendanceModeFailed": "Could not save the attendance mode",
+  "modeCounterOnly": "Counter only",
+  "modeCounterOnlyDesc": "The front-desk check-in alone marks the student present.",
+  "modeCounterAndDoor": "Counter + door",
+  "modeCounterAndDoorDesc": "Your assistant confirms students at the classroom door; counter alone shows as \"at center — didn't attend class\" and does NOT count as present.",
+  "statusCounterOnly": "At center — didn't attend class"
 }

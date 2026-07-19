@@ -193,21 +193,81 @@ export async function toggleCenter(centerId: string, adminId: string) {
   return { id: centerId, status: updated.status };
 }
 
-export function listTeachers(filters: { status?: string; take?: number; cursor?: string }) {
-  const take = Math.min(100, Math.max(1, filters.take ?? 50));
+export function listTeachers(filters: {
+  q?: string;
+  status?: string;
+  mode?: string;
+  page?: string;
+  limit?: string;
+}) {
+  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = { role: "teacher" };
     if (filters.status) where.status = filters.status;
-    const rows = await tx.user.findMany({
-      where,
-      select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: take + 1,
-      ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
-    });
-    const nextCursor = rows.length > take ? rows[take].id : null;
-    return { data: rows.slice(0, take), nextCursor };
+    if (filters.mode) where.teacherProfile = { is: { attendanceMode: filters.mode } };
+    if (filters.q?.trim()) {
+      const q = filters.q.trim();
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q } },
+      ];
+    }
+    const [rows, total] = await Promise.all([
+      tx.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          status: true,
+          createdAt: true,
+          teacherProfile: { select: { attendanceMode: true } },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      tx.user.count({ where }),
+    ]);
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        phone: r.phone,
+        status: r.status,
+        createdAt: r.createdAt,
+        attendanceMode: r.teacherProfile?.attendanceMode ?? null,
+      })),
+      total,
+      page,
+      limit,
+    };
   });
+}
+
+export async function setTeacherAttendanceMode(
+  teacherUserId: string,
+  mode: "counter_only" | "counter_and_door",
+  adminId: string,
+) {
+  await platformDb(async (tx) => {
+    const profile = await tx.teacherProfile.findUnique({
+      where: { userId: teacherUserId },
+      select: { userId: true, attendanceMode: true },
+    });
+    if (!profile) throw new NotFoundError("Teacher not found");
+    if (profile.attendanceMode === mode) return;
+    await tx.teacherProfile.update({ where: { userId: teacherUserId }, data: { attendanceMode: mode } });
+    await audit(tx, adminId, "teacher.attendance_mode_changed", "teacher", teacherUserId, {
+      from: profile.attendanceMode,
+      to: mode,
+    });
+  }, { actorId: adminId });
+  return { id: teacherUserId, attendanceMode: mode };
 }
 
 export async function approveTeacher(teacherUserId: string, adminId: string) {

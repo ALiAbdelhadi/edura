@@ -60,6 +60,7 @@ export async function createTempStudent(
         phone,
         inviteCode,
         entityType: profile.entityType,
+        studentCode: profile.studentCode, // Step 6: typeable counter ID
       };
     },
     { actorId: creator.id },

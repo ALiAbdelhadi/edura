@@ -54,7 +54,14 @@ export const GET = withErrors(async (req) => {
         where: { teacherId: user.id },
         select: { id: true },
       });
-      where.courseId = { in: teacherCourses.map((c) => c.id) };
+      const teacherCourseIds = teacherCourses.map((c) => c.id);
+      // A ?courseId= filter must narrow within the teacher's own courses,
+      // not be replaced by them (an off-scope courseId yields nothing).
+      where.courseId = courseId
+        ? teacherCourseIds.includes(courseId)
+          ? courseId
+          : { in: [] }
+        : { in: teacherCourseIds };
       if (resolvedStudentId) where.studentId = resolvedStudentId;
     } else {
       throw new ForbiddenError();

@@ -1,3 +1,7 @@
+/// <reference lib="webworker" />
+/// <reference lib="es2015" />
+/* cspell:disable */
+
 import { defaultCache } from "@serwist/next/worker";
 import type {
   PrecacheEntry,
@@ -49,7 +53,7 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
-self.addEventListener("push", (event) => {
+self.addEventListener("push", (event: PushEvent) => {
   let payload: { title?: string; body?: string; url?: string } = {};
   if (event.data) {
     try {
@@ -69,7 +73,7 @@ self.addEventListener("push", (event) => {
   );
 });
 
-self.addEventListener("notificationclick", (event) => {
+self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const url =
     (event.notification.data as { url?: string } | undefined)?.url ?? "/";
@@ -79,7 +83,8 @@ self.addEventListener("notificationclick", (event) => {
       .then((clientsArr) => {
         const existing = clientsArr.find((c) =>
           c.url.startsWith(self.location.origin),
-        );
+        ) as WindowClient | undefined;
+        
         if (existing) return existing.focus();
         return self.clients.openWindow(url);
       }),

@@ -413,5 +413,28 @@
     "affiliation": "Affiliation",
     "message": "Message",
     "pageOf": "Page {page} of {pageCount} · {total} total"
+  },
+  "teachers": {
+    "title": "Teachers",
+    "description": "All platform teachers — search, status, and attendance mode.",
+    "searchPlaceholder": "Search name, email, or phone…",
+    "clearSearch": "Clear search",
+    "statusFilter": "Status",
+    "modeFilter": "Attendance mode",
+    "any": "Any",
+    "colName": "Name",
+    "colContact": "Contact",
+    "colStatus": "Status",
+    "colMode": "Attendance mode",
+    "colJoined": "Joined",
+    "empty": "No teachers found",
+    "noProfile": "No profile yet",
+    "mode_counter_only": "Counter only",
+    "mode_counter_and_door": "Counter + door",
+    "modeSaved": "Attendance mode updated",
+    "modeFailed": "Could not update the attendance mode",
+    "total": "{count} teachers",
+    "prev": "Previous",
+    "next": "Next"
   }
 }

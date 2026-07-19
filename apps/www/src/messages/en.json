@@ -42,7 +42,9 @@
     "catalog": "Catalog",
     "team": "Team",
     "subjects": "Subjects",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "checkin": "Check-in",
+    "doorCheckin": "Door Check-in"
   },
   "roles": {
     "student": "Student",
@@ -77,7 +79,8 @@
     "declined": "Declined",
     "expired": "Expired",
     "removed": "Removed",
-    "withdrawn": "Withdrawn"
+    "withdrawn": "Withdrawn",
+    "counter_only": "At center — didn't attend class"
   },
   "actions": {
     "rowsPerPage": "Rows per page",

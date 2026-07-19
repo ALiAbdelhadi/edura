@@ -13,6 +13,7 @@ const recordSchema = z.object({
   studentId: z.string().min(1),
   status: z.enum(["present", "absent", "late", "excused"]),
   localTimestamp: z.coerce.date().optional(),
+  stage: z.enum(["door"]).optional(),
 });
 
 const bodySchema = z
@@ -24,7 +25,7 @@ const bodySchema = z
   .transform((d) => d.records ?? d.offlineRecords ?? d.offline_records ?? []);
 
 export const POST = withErrors(async (req) => {
-  const user = await requireRole("teacher");
+  const user = await requireRole("teacher", "assistant");
   const records = await parseJson(req, bodySchema);
   if (records.length === 0) throw new BusinessRuleError("No offline records provided");
   return ok(await syncOfflineAttendance(records, user));

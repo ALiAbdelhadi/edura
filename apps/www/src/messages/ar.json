@@ -42,7 +42,9 @@
     "catalog": "الكتالوج التعليمي",
     "team": "الفريق",
     "subjects": "المواد الدراسية",
-    "wallet": "المحفظة"
+    "wallet": "المحفظة",
+    "checkin": "تسجيل الحضور",
+    "doorCheckin": "تشيك-إن الباب"
   },
   "roles": {
     "student": "طالب",
@@ -77,7 +79,8 @@
     "declined": "مرفوضة",
     "expired": "منتهية",
     "removed": "مُزالة",
-    "withdrawn": "مسحوبة"
+    "withdrawn": "مسحوبة",
+    "counter_only": "في السنتر — لم يحضر الحصة"
   },
   "actions": {
     "rowsPerPage": "عدد الصفوف في الصفحة",

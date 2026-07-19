@@ -57,14 +57,17 @@ type SessionRow = {
 };
 type AttendanceRecord = {
   studentId: string;
-  status: "present" | "absent" | "excused";
+  status: "present" | "absent" | "excused" | "counter_only";
 };
-type AttendanceStatus = "present" | "absent" | "excused";
+// counter_only (Step 6): passed the center counter but never door-checked in
+// counter_and_door mode — visible to the teacher, NOT counted as present.
+type AttendanceStatus = "present" | "absent" | "excused" | "counter_only";
 
 const statusTone: Record<AttendanceStatus, StatusTone> = {
   present: "success",
   absent: "danger",
   excused: "warning",
+  counter_only: "warning",
 };
 
 export function TeacherAttendanceScreen() {
@@ -147,10 +150,17 @@ export function TeacherAttendanceScreen() {
 
   const handleSave = async () => {
     if (!sessionId) return;
-    const records: AttendanceRecord[] = enrollments.map((e) => ({
-      studentId: e.studentId,
-      status: statuses[e.studentId] ?? "present",
-    }));
+    // counter_only rows are stage-derived at the counter/door — the bulk save
+    // must not overwrite them unless the teacher explicitly resolved them.
+    const records = enrollments
+      .map((e) => ({
+        studentId: e.studentId,
+        status: statuses[e.studentId] ?? ("present" as const),
+      }))
+      .filter(
+        (r): r is { studentId: string; status: "present" | "absent" | "excused" } =>
+          r.status !== "counter_only",
+      );
 
     if (teacherId && typeof navigator !== "undefined" && !navigator.onLine) {
       await enqueueAttendance(teacherId, sessionId, records);
@@ -266,6 +276,36 @@ export function TeacherAttendanceScreen() {
       cell: ({ row }) => {
         const e = row.original;
         const v = statuses[e.studentId] ?? "present";
+        if (v === "counter_only") {
+          // Step 6 distinct state: at the center, never door-confirmed. The
+          // teacher resolves it via the toggle (or the assistant door-checks).
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone="warning">{t("teacher.statusCounterOnly")}</StatusBadge>
+              <ToggleGroup
+                type="single"
+                value=""
+                disabled={locked}
+                onValueChange={(val) => {
+                  if (val)
+                    setStatuses((s) => ({
+                      ...s,
+                      [e.studentId]: val as AttendanceStatus,
+                    }));
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <ToggleGroupItem value="present">
+                  <CheckCircle2 className="size-3.5" /> {t("status.present")}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="absent">
+                  <XCircle className="size-3.5" /> {t("status.absent")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          );
+        }
         return (
           <ToggleGroup
             type="single"

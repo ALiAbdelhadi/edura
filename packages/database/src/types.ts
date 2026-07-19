@@ -53,6 +53,7 @@ export {
   ParentLinkStatus,
   LinkActor,
   AttendanceStatus,
+  AttendanceMode,
   GradeType,
   MaterialType,
   MaterialStorage,

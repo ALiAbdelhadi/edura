@@ -9,9 +9,11 @@ export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const sp = new URL(req.url).searchParams;
   const result = await listTeachers({
+    q: sp.get("q") ?? undefined,
     status: sp.get("status") ?? undefined,
-    cursor: sp.get("cursor") ?? undefined,
-    take: sp.get("take") ? Number(sp.get("take")) : undefined,
+    mode: sp.get("mode") ?? undefined,
+    page: sp.get("page") ?? undefined,
+    limit: sp.get("limit") ?? sp.get("pageSize") ?? undefined,
   });
-  return ok(result.data, { meta: { nextCursor: result.nextCursor } });
+  return ok(result.data, { meta: { total: result.total, page: result.page, limit: result.limit } });
 });

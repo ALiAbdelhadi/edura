@@ -158,8 +158,16 @@ enum AttendanceStatus {
   late
   excused
   removed
+  counter_only // passed the center counter, never door-checked (counter_and_door mode) — NOT present
 
   @@map("attendance_status")
+}
+
+enum AttendanceMode {
+  counter_only // front-desk check-in alone marks the student present
+  counter_and_door // counter + assistant door check-in required for present
+
+  @@map("attendance_mode")
 }
 
 enum GradeType {
@@ -405,6 +413,9 @@ model StudentProfile {
   phone                   String?
   grade                   String? // DEPRECATED free text — superseded by gradeLevelId (education catalog)
   familyLinkCode          String     @unique @map("family_link_code")
+  // Step 6: typeable Student ID ("STU-000123") for counter check-in; DB default
+  // covers every creation site, migration backfilled existing rows.
+  studentCode             String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")
   entityType              EntityType @default(registered) @map("entity_type")
   inviteCode              String?    @unique @map("invite_code")
   pointsBalance           Int        @default(0) @map("points_balance")
@@ -464,6 +475,8 @@ model TeacherProfile {
   certificates        Json? // [{name, file_url, issued_by}]
   onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
   onboardingDraft     Json?    @map("onboarding_draft") // wizard auto-save (§9)
+  // Step 6: global per-teacher check-in mode (approved decision #4).
+  attendanceMode      AttendanceMode @default(counter_only) @map("attendance_mode")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -824,6 +837,11 @@ model AttendanceRecord {
   centerId       String?          @map("center_id") @db.Uuid // NULL for teacher-direct courses
   status         AttendanceStatus
   markedBy       String           @map("marked_by") @db.Uuid
+  // Step 6 check-in stages — facts; `status` is the derived truth.
+  counterAt      DateTime?        @map("counter_at") @db.Timestamptz(6)
+  counterBy      String?          @map("counter_by") @db.Uuid // front-desk staff
+  doorAt         DateTime?        @map("door_at") @db.Timestamptz(6)
+  doorBy         String?          @map("door_by") @db.Uuid // assistant (teacher fallback)
   editedAt       DateTime?        @map("edited_at") @db.Timestamptz(6)
   synced         Boolean          @default(true) // false = captured offline, not yet synced (PRD)
   localTimestamp DateTime?        @map("local_timestamp") @db.Timestamptz(6) // device time when marked offline

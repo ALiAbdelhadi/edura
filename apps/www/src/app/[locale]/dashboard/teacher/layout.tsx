@@ -17,6 +17,7 @@ const navItems = [
     label: "Assignments",
   },
   { href: "/dashboard/teacher/materials", icon: "book", label: "Materials" },
+  { href: "/dashboard/teacher/door", icon: "check", label: "Door Check-in" },
   { href: "/dashboard/teacher/wallet", icon: "dollar", label: "Wallet" },
   { href: "/dashboard/teacher/team", icon: "users", label: "Team" },
   { href: "/dashboard/teacher/messages", icon: "message", label: "Messages" },

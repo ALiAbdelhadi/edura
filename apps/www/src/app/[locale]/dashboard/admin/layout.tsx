@@ -6,6 +6,7 @@ import { OnboardingGate } from "@/features/onboarding/onboarding-gate";
 
 const navItems = [
   { href: "/dashboard/admin", icon: "grid", label: "Overview" },
+  { href: "/dashboard/admin/checkin", icon: "check", label: "Check-in" },
   { href: "/dashboard/admin/students", icon: "users", label: "Students" },
   { href: "/dashboard/admin/enrollment-requests", icon: "bell", label: "Requests" },
   { href: "/dashboard/admin/teachers", icon: "person", label: "Teachers" },

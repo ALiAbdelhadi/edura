@@ -11,6 +11,7 @@ const navItems = [
     label: "Registrations",
   },
   { href: "/dashboard/superadmin/catalog", icon: "book", label: "Catalog" },
+  { href: "/dashboard/superadmin/teachers", icon: "users", label: "Teachers" },
   { href: "/dashboard/superadmin/payments", icon: "dollar", label: "Payments" },
   { href: "/dashboard/superadmin/subscriptions", icon: "book", label: "Subscriptions" },
   { href: "/dashboard/superadmin/collaborations", icon: "users", label: "Collaborations" },

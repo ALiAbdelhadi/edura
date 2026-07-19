@@ -1,13 +1,16 @@
 import { platformDb } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
 import type { SessionUser } from "@/lib/auth/session";
-
+import { doorTransitionTx, resolveAssistantTeacher } from "./checkin";
 
 export type OfflineRecord = {
   sessionId: string;
   studentId: string;
   status: "present" | "absent" | "late" | "excused";
   localTimestamp?: Date;
+  // Step 6: a door-stage record applies the door transition (counter -> present)
+  // instead of a raw status write. Optional — legacy outbox payloads unchanged.
+  stage?: "door";
 };
 
 type SyncOutcome = {
@@ -17,12 +20,15 @@ type SyncOutcome = {
   reason?: string;
 };
 
-export async function syncOfflineAttendance(records: OfflineRecord[], teacher: SessionUser) {
+export async function syncOfflineAttendance(records: OfflineRecord[], caller: SessionUser) {
   const results: SyncOutcome[] = [];
   const absences: { studentId: string; sessionId: string }[] = [];
 
   await platformDb(
     async (tx) => {
+      // Step 6: assistants sync door-stage records for THEIR teacher's
+      // sessions (teacher's own account works as fallback, unchanged).
+      const teacherId = await resolveAssistantTeacher(tx, caller);
       const sessionCache = new Map<string, { teacherId: string; courseId: string; centerId: string } | null>();
 
       for (const rec of records) {
@@ -50,8 +56,29 @@ export async function syncOfflineAttendance(records: OfflineRecord[], teacher: S
           results.push({ ...key, result: "error", reason: "session_not_found" });
           continue;
         }
-        if (meta.teacherId !== teacher.id) {
+        if (meta.teacherId !== teacherId) {
           results.push({ ...key, result: "error", reason: "not_your_session" });
+          continue;
+        }
+
+        // Door-stage record: idempotent stage transition; the device time is
+        // preserved as the doorAt fact. Replays are no-ops, never dup rows
+        // (unique (sessionId, studentId) + doorAt-already-set short-circuit).
+        if (rec.stage === "door") {
+          const res = await doorTransitionTx(tx, {
+            studentId: rec.studentId,
+            sessionId: rec.sessionId,
+            actorId: caller.id,
+            teacherId,
+            at: rec.localTimestamp ?? undefined,
+          });
+          if (res.outcome === "present" || res.outcome === "already_present") {
+            results.push({ ...key, result: "synced", reason: res.outcome });
+          } else if (res.outcome === "no_counter") {
+            results.push({ ...key, result: "error", reason: "no_counter_checkin" });
+          } else {
+            results.push({ ...key, result: "error", reason: res.reason });
+          }
           continue;
         }
 
@@ -80,7 +107,7 @@ export async function syncOfflineAttendance(records: OfflineRecord[], teacher: S
             courseId: meta.courseId,
             centerId: meta.centerId,
             status: rec.status,
-            markedBy: teacher.id,
+            markedBy: caller.id,
             synced: true,
             localTimestamp: rec.localTimestamp ?? null,
           },
@@ -91,7 +118,7 @@ export async function syncOfflineAttendance(records: OfflineRecord[], teacher: S
         }
       }
     },
-    { actorId: teacher.id },
+    { actorId: caller.id },
   );
 
   if (absences.length > 0) {
