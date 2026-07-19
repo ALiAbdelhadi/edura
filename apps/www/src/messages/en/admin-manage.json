@@ -135,7 +135,19 @@
     "record": "Record",
     "validAmountError": "Please enter a valid amount",
     "paymentRecorded": "Payment recorded",
-    "recordFailed": "Failed to record payment"
+    "recordFailed": "Failed to record payment",
+    "recordSubscription": "Record subscription (cash)",
+    "plan": "Plan",
+    "planMonthly": "Monthly",
+    "planPerSession": "Per-session",
+    "session": "Session",
+    "selectSession": "Select a session…",
+    "markAttendanceNow": "Mark attendance for this session now (counter check-in)",
+    "subCashHint": "Cash is collected at the counter. The plan price configured on the course is charged — it activates immediately and writes the receipt + ledger entry.",
+    "confirmCashSubscription": "Confirm cash subscription",
+    "subscriptionRecorded": "Subscription recorded and active",
+    "subMissingFields": "Pick a student and a course",
+    "subMissingSession": "Pick a session for the per-session pass"
   },
   "expenses": {
     "categories": {

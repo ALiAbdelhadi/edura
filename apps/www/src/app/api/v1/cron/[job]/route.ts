@@ -3,6 +3,7 @@ import { ok, fail } from "@/lib/http/envelope";
 import { BusinessRuleError } from "@/lib/errors/classes";
 import { runMonthEndStatements, runLessonReminders } from "@/lib/services/cron/jobs";
 import { expirePaymentIntents } from "@/lib/services/payments/payment-intents";
+import { expireSubscriptions } from "@/lib/services/subscriptions/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export const POST = withErrors(async (req, ctx) => {
       return ok(await runLessonReminders(now));
     case "expire-payment-intents":
       return ok(await expirePaymentIntents(now));
+    case "expire-subscriptions":
+      return ok(await expireSubscriptions(now));
     default:
       throw new BusinessRuleError(`Unknown cron job: ${job}`);
   }

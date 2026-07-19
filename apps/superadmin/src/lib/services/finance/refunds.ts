@@ -34,7 +34,15 @@ export async function refundLessonForStudent(
         select: { centerId: true, teacherId: true },
       });
       if (!course) throw new NotFoundError("Course not found");
-      const { centerId, teacherId } = course;
+      if (!course.centerId) {
+        // Lesson-revenue refunds reverse distributeSessionRevenue, which never
+        // runs for teacher-direct courses (revenue settles at subscription
+        // payment). Refunding teacher-direct subscriptions is a Step 4.5+
+        // flow of its own.
+        throw new BusinessRuleError("Teacher-direct sessions have no lesson charge to refund");
+      }
+      const centerId = course.centerId;
+      const teacherId = course.teacherId;
 
       const perSessionPrice = payment.amount;
       const affiliation = await tx.centerTeacherAffiliation.findFirst({

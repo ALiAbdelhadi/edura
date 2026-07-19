@@ -98,6 +98,76 @@ export async function initiatePayment(
   return toClientIntent(updated, checkout);
 }
 
+/**
+ * Step 4: intent that pays for a SUBSCRIPTION. The amount is the
+ * subscription's server-side price snapshot; settlement activates the
+ * subscription instead of the bare-course Payment path.
+ */
+export async function initiateSubscriptionIntent(
+  sub: {
+    id: string;
+    studentId: string;
+    courseId: string;
+    centerId: string | null;
+    price: number;
+  },
+  method: "card" | "wallet",
+  idempotencyKey: string,
+  user: SessionUser,
+) {
+  const driver = resolveDriver();
+
+  const { intent, student } = await platformDb(
+    async (tx) => {
+      const existing = await tx.paymentIntent.findUnique({
+        where: { idempotencyKey },
+      });
+      if (existing) {
+        if (existing.studentId !== user.id) {
+          throw new ForbiddenError("Idempotency key belongs to another user");
+        }
+        return { intent: existing, student: null };
+      }
+      const student = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, name: true, email: true, phone: true },
+      });
+      const intent = await tx.paymentIntent.create({
+        data: {
+          studentId: sub.studentId,
+          courseId: sub.courseId,
+          subscriptionId: sub.id,
+          centerId: sub.centerId,
+          amount: sub.price,
+          method,
+          gateway: driver.name,
+          idempotencyKey,
+          expiresAt: new Date(Date.now() + INTENT_TTL_MS),
+        },
+      });
+      await tx.subscription.update({
+        where: { id: sub.id },
+        data: { paymentIntentId: intent.id },
+      });
+      return { intent, student };
+    },
+    { actorId: user.id },
+  );
+
+  if (!student) return toClientIntent(intent, null);
+
+  const { gatewayOrderId, checkout } = await driver.createCheckout(intent, {
+    id: student.id,
+    name: student.name,
+    email: student.email,
+    phone: student.phone,
+  });
+  const updated = await platformDb((tx) =>
+    tx.paymentIntent.update({ where: { id: intent.id }, data: { gatewayOrderId } }),
+  );
+  return toClientIntent(updated, checkout);
+}
+
 // ---------------------------------------------------------------------------
 // Read (owner polling)
 // ---------------------------------------------------------------------------
@@ -185,7 +255,20 @@ export async function processWebhookEvent(
     return { handled: true, intentId: intent.id, result: "failed" };
   }
 
-  await settleIntent(intent.id);
+  if (intent.subscriptionId) {
+    // Subscription checkout (Step 4): activation + subscription-aware money
+    // movements. Dynamic import avoids a module cycle with the subscriptions
+    // service (which reuses initiateSubscriptionIntent above).
+    const { settleSubscriptionFromIntent } = await import(
+      "@/lib/services/subscriptions/subscriptions"
+    );
+    await settleSubscriptionFromIntent(intent.subscriptionId, {
+      id: intent.id,
+      gatewayRef: event.gatewayRef,
+    });
+  } else {
+    await settleIntent(intent.id);
+  }
   return { handled: true, intentId: intent.id, result: "paid" };
 }
 

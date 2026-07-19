@@ -2,6 +2,7 @@ import { scopedDb } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
+import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -64,6 +65,24 @@ export async function recordPayment(
         receiptNumber,
         recordedBy: user.id,
         paidAt: new Date(),
+      },
+    });
+
+    // Step 4 ledger reconciliation: cash payments mirror to the Transaction
+    // ledger exactly like online ones, so the accountant ledger is complete.
+    // Refunds (negative amounts) mirror as type=refund with reversed parties.
+    const refNumber = await nextTxnRef(tx);
+    await tx.transaction.create({
+      data: {
+        refNumber,
+        type: data.amount >= 0 ? "payment" : "refund",
+        amount: Math.abs(data.amount),
+        fromEntityId: data.amount >= 0 ? data.studentId : (user.centerId as string),
+        toEntityId: data.amount >= 0 ? (user.centerId as string) : data.studentId,
+        centerId: user.centerId as string,
+        status: "completed",
+        paymentMethod: "cash",
+        notes: `Cash payment at center (receipt ${receiptNumber})`,
       },
     });
 

@@ -6,6 +6,7 @@ import RoleGuard from "@/components/refine/role-guard";
 const navItems = [
   { href: "/dashboard/finance", icon: "grid", label: "Overview" },
   { href: "/dashboard/finance/payments", icon: "dollar", label: "Payments" },
+  { href: "/dashboard/finance/subscriptions", icon: "book", label: "Subscriptions" },
 ];
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

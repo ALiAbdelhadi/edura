@@ -127,6 +127,17 @@
     "noCoursesForSubject": "No classes available for this subject right now",
     "noCenter": "No center (online/direct)",
     "uncategorized": "Uncategorized (legacy)",
-    "uncategorizedHint": "Older classes not yet linked to a catalog subject"
+    "uncategorizedHint": "Older classes not yet linked to a catalog subject",
+    "subscribeMonthly": "Subscribe monthly",
+    "bookSession": "Book session",
+    "pickSession": "Pick a session…",
+    "pickSessionFirst": "Pick a session first",
+    "checkoutFailed": "Checkout failed",
+    "subscriptionActive": "Payment complete — subscription active",
+    "paymentDeclined": "Payment declined (simulated)",
+    "mockCheckoutTitle": "Mock checkout:",
+    "mockCheckoutHint": "no real gateway in mock mode — confirm or decline the payment",
+    "mockPay": "Complete payment",
+    "mockFail": "Simulate failure"
   }
 }

@@ -12,6 +12,7 @@ const navItems = [
   },
   { href: "/dashboard/superadmin/catalog", icon: "book", label: "Catalog" },
   { href: "/dashboard/superadmin/payments", icon: "dollar", label: "Payments" },
+  { href: "/dashboard/superadmin/subscriptions", icon: "book", label: "Subscriptions" },
 ];
 
 export default function SuperAdminLayout({

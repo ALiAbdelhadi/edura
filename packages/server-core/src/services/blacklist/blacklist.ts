@@ -6,7 +6,7 @@ import type { SessionUser } from "../../auth/types";
 
 export async function assertNotBlacklisted(
   studentId: string,
-  centerId: string,
+  centerId: string | null, // NULL for teacher-direct courses — center-level check skipped
   teacherId?: string,
 ): Promise<void> {
   await platformDb(async (tx) => {

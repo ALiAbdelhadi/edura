@@ -4,7 +4,7 @@ import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { requireSession } from "@/lib/auth/session";
 import { scopedDb, platformDb } from "@/lib/db/scope";
-import { ForbiddenError, ConflictError } from "@/lib/errors/classes";
+import { ForbiddenError, ConflictError, BusinessRuleError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { notify } from "@/lib/services/notifications/notify";
@@ -104,9 +104,15 @@ export const POST = withErrors(async (req) => {
       throw err;
     }
     if (!course) throw new ForbiddenError("Course not found");
+    if (!course.centerId) {
+      // Teacher-direct courses have no center to approve a request — they are
+      // joined by subscribing (Step 4), never via the enrollment-request flow.
+      throw new BusinessRuleError("This course is joined by subscription, not enrollment request");
+    }
+    const centerId = course.centerId;
 
     const roster = await tx.centerStudentRoster.findFirst({
-      where: { centerId: course.centerId, studentId: user.id, leftAt: null },
+      where: { centerId, studentId: user.id, leftAt: null },
     });
     if (roster?.blacklisted) throw new ForbiddenError("You cannot request enrollment in this course");
 
@@ -126,14 +132,14 @@ export const POST = withErrors(async (req) => {
       data: {
         studentId: user.id,
         courseId,
-        centerId: course.centerId,
+        centerId,
         submittedAt: new Date(),
         expiresAt,
       },
     });
 
     const adminProfiles = await tx.centerAdminProfile.findMany({
-      where: { centerId: course.centerId },
+      where: { centerId },
       select: { userId: true },
     });
 

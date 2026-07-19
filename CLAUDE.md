@@ -93,6 +93,11 @@ Work stops after each step for review before the next begins.
    no stable identifiers) stay untouched for now. Before launch, ALL non-seed
    data gets wiped — this is on the Step 9 (deprecation & hardening) checklist
    in docs/architecture-review.md; do not attempt to flag it by heuristic.
+   **Step 9 wipe note (added in Step 4):** cash payments recorded BEFORE the
+   Step 4 ledger reconciliation were never mirrored to the Transaction ledger
+   (forward-only reconciliation, deliberately not backfilled) — they are part
+   of the pre-launch wipe; do not read pre-Step-4 cash history as
+   ledger-complete.
 7. **Paymob**: card iframe + mobile wallets only; kiosk/Aman and Fawry out of
    scope this phase. Mock-first with the paymob driver ready; `PAYMOB_*` env
    keys arrive when the account is created.
@@ -120,9 +125,9 @@ Work stops after each step for review before the next begins.
     amount always from the server-side intent. Successful online settlement
     writes Payment + **Transaction** + points + notification.
 
-    > **⚠️ STEP 4 MUST-DO — LEDGER RECONCILIATION (do not forget):**
-    > Reconcile CASH payments into the Transaction ledger so online and cash
-    > are consistent — until this is done, the accountant ledger is
-    > **INCOMPLETE (online-only)**. The finance overview and the back-office
-    > Payments screens carry a visible "online payments only" note that must
-    > be REMOVED in the same change that lands the reconciliation.
+    > **✅ LEDGER RECONCILIATION — DONE in Step 4 (2026-07-19):** cash
+    > payments now mirror to the Transaction ledger (type payment/refund,
+    > method cash) in the same DB transaction as the Payment row; the
+    > "online payments only" caveat notes were removed. Forward-only: cash
+    > payments recorded BEFORE Step 4 were never mirrored — see the Step 9
+    > wipe note in decision #6.

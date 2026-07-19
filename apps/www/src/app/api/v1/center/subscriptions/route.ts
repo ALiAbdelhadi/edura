@@ -1,0 +1,62 @@
+import { z } from "zod";
+import { withErrors } from "@/lib/errors/http";
+import { requireRole } from "@/lib/authz/require-role";
+import { ok } from "@/lib/http/envelope";
+import { parseJson } from "@/lib/validation/zod";
+import { scopedDb } from "@/lib/db/scope";
+import { createWalkInSubscription } from "@/lib/services/subscriptions/subscriptions";
+import type { Prisma } from "@repo/database";
+
+export const dynamic = "force-dynamic";
+
+const bodySchema = z
+  .object({
+    studentId: z.string().uuid(),
+    courseId: z.string().uuid(),
+    plan: z.enum(["monthly", "per_session"]),
+    sessionId: z.string().uuid().optional(),
+    // Classic counter workflow: cash for a single session + check-in in ONE step.
+    markAttendance: z.boolean().optional(),
+  })
+  .strict();
+
+/** Walk-in cash subscription, recorded by center staff — active immediately. */
+export const POST = withErrors(async (req) => {
+  const user = await requireRole("center_admin");
+  const body = await parseJson(req, bodySchema);
+  return ok(await createWalkInSubscription(body, user), { status: 201 });
+});
+
+/** Center's own subscriptions (walk-in management view). */
+export const GET = withErrors(async (req) => {
+  const user = await requireRole("center_admin");
+  const url = new URL(req.url);
+  const status = url.searchParams.get("status") ?? undefined;
+
+  const rows = await scopedDb(user, async (tx) => {
+    const where: Prisma.SubscriptionWhereInput = { centerId: user.centerId };
+    if (status) where.status = status as Prisma.SubscriptionWhereInput["status"];
+    const subs = await tx.subscription.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    const studentIds = [...new Set(subs.map((s) => s.studentId))];
+    const courseIds = [...new Set(subs.map((s) => s.courseId))];
+    const [students, courses] = await Promise.all([
+      tx.user.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, name: true, email: true },
+      }),
+      tx.course.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true } }),
+    ]);
+    const sMap = new Map(students.map((s) => [s.id, s]));
+    const cMap = new Map(courses.map((c) => [c.id, c]));
+    return subs.map((s) => ({
+      ...s,
+      studentName: sMap.get(s.studentId)?.name ?? null,
+      courseTitle: cMap.get(s.courseId)?.title ?? null,
+    }));
+  });
+  return ok(rows);
+});

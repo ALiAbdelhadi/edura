@@ -135,7 +135,19 @@
     "record": "تسجيل",
     "validAmountError": "يرجى إدخال مبلغ صحيح",
     "paymentRecorded": "تم تسجيل الدفعة",
-    "recordFailed": "فشل تسجيل الدفعة"
+    "recordFailed": "فشل تسجيل الدفعة",
+    "recordSubscription": "تسجيل اشتراك (نقدًا)",
+    "plan": "الخطة",
+    "planMonthly": "شهري",
+    "planPerSession": "بالحصة",
+    "session": "الحصة",
+    "selectSession": "اختر الحصة…",
+    "markAttendanceNow": "تسجيل الحضور لهذه الحصة الآن (تشيك-إن الكاونتر)",
+    "subCashHint": "يُحصَّل المبلغ نقدًا عند الكاونتر. يُخصم سعر الخطة المحدد على الكورس — يُفعَّل الاشتراك فورًا مع إصدار الإيصال وقيد الدفتر.",
+    "confirmCashSubscription": "تأكيد الاشتراك النقدي",
+    "subscriptionRecorded": "تم تسجيل الاشتراك وتفعيله",
+    "subMissingFields": "اختر الطالب والكورس",
+    "subMissingSession": "اختر الحصة لخطة الدفع بالحصة"
   },
   "expenses": {
     "categories": {

@@ -107,16 +107,23 @@ export async function searchCourses(
     }
 
     const centerFilter: Prisma.CenterWhereInput = { status: "active" };
-    if (filters.nearLat && filters.nearLng && filters.distanceKm) {
+    const hasGeoFilter = !!(filters.nearLat && filters.nearLng && filters.distanceKm);
+    if (hasGeoFilter) {
       const box = boundingBox(
-        parseFloat(filters.nearLat),
-        parseFloat(filters.nearLng),
-        parseFloat(filters.distanceKm),
+        parseFloat(filters.nearLat as string),
+        parseFloat(filters.nearLng as string),
+        parseFloat(filters.distanceKm as string),
       );
       centerFilter.lat = { gte: box.latMin, lte: box.latMax };
       centerFilter.lng = { gte: box.lngMin, lte: box.lngMax };
     }
-    where.center = centerFilter;
+    // Teacher-direct courses (centerId NULL) have no center to be "active" —
+    // a bare relation filter would silently drop them. Include them unless a
+    // geo filter is applied (they have no coordinates to match).
+    const centerArm: Prisma.CourseWhereInput = hasGeoFilter
+      ? { center: { is: centerFilter } }
+      : { OR: [{ centerId: null }, { center: { is: centerFilter } }] };
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), centerArm];
 
     if (filters.minRating) {
       const minR = parseFloat(filters.minRating);
@@ -145,6 +152,9 @@ export async function searchCourses(
         startDate: true,
         endDate: true,
         price: true,
+        pricePerMonth: true,
+        pricePerSession: true,
+        location: true,
         maxStudents: true,
         status: true,
         center: {
@@ -181,6 +191,23 @@ export async function searchCourses(
     const nameByTeacher = new Map(teacherUsers.map((u) => [u.id, u.name]));
 
     const courseIds = courses.map((c) => c.id);
+
+    // Upcoming sessions (for the per-session pass picker on the student UI).
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const upcoming = await tx.session.findMany({
+      where: { courseId: { in: courseIds }, status: "scheduled", date: { gte: today } },
+      orderBy: { date: "asc" },
+      select: { id: true, courseId: true, date: true, startTime: true, endTime: true },
+      take: 400,
+    });
+    const upcomingByCourse = new Map<string, typeof upcoming>();
+    for (const s of upcoming) {
+      const list = upcomingByCourse.get(s.courseId) ?? [];
+      if (list.length < 8) list.push(s);
+      upcomingByCourse.set(s.courseId, list);
+    }
+
     const grouped = await tx.enrollment.groupBy({
       by: ["courseId"],
       where: { courseId: { in: courseIds }, status: "active" },
@@ -198,6 +225,7 @@ export async function searchCourses(
         teacherRatingAvg: ratingByTeacher.get(c.teacherId) ?? 0,
         activeEnrollmentCount,
         remainingSeats: c.maxStudents - activeEnrollmentCount,
+        upcomingSessions: upcomingByCourse.get(c.id) ?? [],
       };
     });
 

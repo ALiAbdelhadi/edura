@@ -40,7 +40,9 @@ export const GET = withErrors(async (_req, ctx) => {
     const [enrolledCount, teacher, center, reviews] = await Promise.all([
       tx.enrollment.count({ where: { courseId: id, status: "active" } }),
       tx.user.findUnique({ where: { id: course.teacherId }, select: { id: true, name: true } }),
-      tx.center.findUnique({ where: { id: course.centerId }, select: { id: true, name: true } }),
+      course.centerId
+        ? tx.center.findUnique({ where: { id: course.centerId }, select: { id: true, name: true } })
+        : null,
       tx.review.aggregate({
         where: { teacherId: course.teacherId },
         _avg: { rating: true },

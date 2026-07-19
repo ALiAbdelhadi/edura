@@ -125,16 +125,6 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
     <div className="space-y-6">
       <PageHeader title="Online Payments" />
 
-      <Alert>
-        <Info className="size-4" />
-        <AlertTitle>Ledger reflects online payments only</AlertTitle>
-        <AlertDescription>
-          Cash payments recorded at centers are not yet reconciled into the
-          transaction ledger (planned for the subscriptions step). Until then,
-          do not read these figures as complete finance data.
-        </AlertDescription>
-      </Alert>
-
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-64 flex-1">

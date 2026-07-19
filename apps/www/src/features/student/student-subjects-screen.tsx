@@ -31,6 +31,8 @@ type CatalogSubject = {
   nameEn: string;
 };
 
+type UpcomingSession = { id: string; date: string; startTime: string; endTime: string };
+
 type CourseHit = {
   id: string;
   title: string;
@@ -40,12 +42,16 @@ type CourseHit = {
   startTime: string;
   endTime: string;
   price: number;
+  pricePerMonth: number | null;
+  pricePerSession: number | null;
+  location: string | null;
   maxStudents: number;
   activeEnrollmentCount: number;
   remainingSeats: number;
   teacherName: string | null;
   teacherRatingAvg: number;
   center: { id: string; name: string; area: string | null } | null;
+  upcomingSessions: UpcomingSession[];
 };
 
 /** Sentinel understood by /api/v1/search/courses: subjectId=none ⇒ uncatalogued (subjectId IS NULL). */
@@ -65,9 +71,13 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
 
   const { mutateAsync: requestEnrollment } = useCustomMutation();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  // Per-course session choice for the per-session pass plan.
+  const [sessionChoice, setSessionChoice] = useState<Record<string, string>>({});
+  // Pending mock checkout: intent to confirm via the mock gateway.
+  const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Existing request-enrollment flow ONLY — no payment/subscription logic here
-  // (that is Steps 3 & 4); price on the card is a read-only display.
+  // Legacy flow for courses WITHOUT subscription plans configured.
   const handleRequest = async (courseId: string) => {
     setLoadingId(courseId);
     try {
@@ -83,6 +93,63 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
       setLoadingId(null);
     }
   };
+
+  // Subscription checkout (Step 4): plan price is a server-side snapshot; the
+  // client only names the plan. In mock mode the returned checkout URL points
+  // at the local mock gateway, so we confirm via the mock-complete endpoint.
+  const handleSubscribe = async (course: CourseHit, plan: "monthly" | "per_session") => {
+    setLoadingId(course.id);
+    try {
+      const sessionId = plan === "per_session" ? sessionChoice[course.id] : undefined;
+      if (plan === "per_session" && !sessionId) {
+        toast.error(t("studentSubjects.pickSessionFirst"));
+        return;
+      }
+      const res = await requestEnrollment({
+        url: "subscriptions/checkout",
+        method: "post",
+        values: {
+          courseId: course.id,
+          plan,
+          ...(sessionId ? { sessionId } : {}),
+          method: "card",
+          idempotencyKey: `sub-${course.id}-${plan}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+      });
+      const intent = (res as any)?.data?.data ?? (res as any)?.data;
+      if (intent?.checkout?.url?.includes("mock-checkout")) {
+        setMockIntent({ intentId: intent.id, amount: intent.amount });
+      } else if (intent?.checkout?.url) {
+        window.open(intent.checkout.url, "_blank");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || t("studentSubjects.checkoutFailed"));
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const completeMockPayment = async (outcome: "success" | "failure") => {
+    if (!mockIntent) return;
+    try {
+      await requestEnrollment({
+        url: `payments/intents/${mockIntent.intentId}/mock-complete`,
+        method: "post",
+        values: { outcome },
+      });
+      if (outcome === "success") {
+        toast.success(t("studentSubjects.subscriptionActive"));
+      } else {
+        toast.error(t("studentSubjects.paymentDeclined"));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || t("studentSubjects.checkoutFailed"));
+    } finally {
+      setMockIntent(null);
+      setRefreshKey((k) => k + 1);
+    }
+  };
+  void refreshKey;
 
   const dayNames = [
     t("studentBrowse.sun"),
@@ -144,19 +211,82 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               )}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="text-sm font-semibold text-foreground">{formatEGP(c.price ?? 0)}</div>
-            <Button
-              size="sm"
-              disabled={loadingId === c.id}
-              onClick={() => handleRequest(c.id)}
-            >
-              {loadingId === c.id ? <Spinner /> : null}
-              {t("studentBrowse.requestEnrollment")}
-            </Button>
-          </div>
+          {c.pricePerMonth || c.pricePerSession ? (
+            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+              {c.pricePerMonth ? (
+                <Button
+                  size="sm"
+                  disabled={loadingId === c.id}
+                  onClick={() => handleSubscribe(c, "monthly")}
+                >
+                  {loadingId === c.id ? <Spinner /> : null}
+                  {t("studentSubjects.subscribeMonthly")} · {formatEGP(c.pricePerMonth)}
+                </Button>
+              ) : null}
+              {c.pricePerSession ? (
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label={t("studentSubjects.pickSession")}
+                    className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                    value={sessionChoice[c.id] ?? ""}
+                    onChange={(e) =>
+                      setSessionChoice((m) => ({ ...m, [c.id]: e.target.value }))
+                    }
+                  >
+                    <option value="">{t("studentSubjects.pickSession")}</option>
+                    {c.upcomingSessions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {new Date(s.date).toLocaleDateString()} {s.startTime}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={loadingId === c.id}
+                    onClick={() => handleSubscribe(c, "per_session")}
+                  >
+                    {t("studentSubjects.bookSession")} · {formatEGP(c.pricePerSession)}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-3">
+              <div className="text-sm font-semibold text-foreground">{formatEGP(c.price ?? 0)}</div>
+              <Button
+                size="sm"
+                disabled={loadingId === c.id}
+                onClick={() => handleRequest(c.id)}
+              >
+                {loadingId === c.id ? <Spinner /> : null}
+                {t("studentBrowse.requestEnrollment")}
+              </Button>
+            </div>
+          )}
         </li>
       ))}
+
+      {mockIntent ? (
+        <li className="border-t border-dashed border-border bg-muted/30 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <span className="font-medium">{t("studentSubjects.mockCheckoutTitle")}</span>{" "}
+              <span className="text-muted-foreground">
+                {formatEGP(mockIntent.amount)} — {t("studentSubjects.mockCheckoutHint")}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => completeMockPayment("success")}>
+                {t("studentSubjects.mockPay")}
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => completeMockPayment("failure")}>
+                {t("studentSubjects.mockFail")}
+              </Button>
+            </div>
+          </div>
+        </li>
+      ) : null}
     </ul>
   );
 }

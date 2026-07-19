@@ -706,7 +706,7 @@ model Room {
 
 model Course {
   id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId      String       @map("center_id") @db.Uuid
+  centerId      String?      @map("center_id") @db.Uuid // NULL = teacher-owned (teacher-direct, NO shadow centers)
   teacherId     String       @map("teacher_id") @db.Uuid
   defaultRoomId String?      @map("default_room_id") @db.Uuid
   title         String
@@ -723,7 +723,13 @@ model Course {
   endTime       String       @map("end_time")
   startDate     DateTime     @map("start_date") @db.Timestamptz(6)
   endDate       DateTime?    @map("end_date") @db.Timestamptz(6)
-  price         Int // piasters
+  price         Int // piasters — legacy full-course price (pre-subscriptions)
+  // Subscription plan pricing (piasters). NULL = plan disabled for this course;
+  // "at least one enabled" is enforced at the subscribe API, not by CHECK
+  // (legacy courses may have neither until the owner configures plans).
+  pricePerMonth   Int?       @map("price_per_month")
+  pricePerSession Int?       @map("price_per_session")
+  location        String? // teacher-direct free-text venue ("own hall", "Online", ...)
   maxStudents   Int          @map("max_students")
   status        CourseStatus @default(active)
   // Demo/seed data marker — see User.isDemo.
@@ -731,7 +737,7 @@ model Course {
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  center        Center       @relation(fields: [centerId], references: [id])
+  center        Center?      @relation(fields: [centerId], references: [id])
   room          Room?        @relation(fields: [defaultRoomId], references: [id])
   subjectRef    Subject?     @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   gradeLevelRef GradeLevel?  @relation(fields: [gradeLevelId], references: [id], onDelete: Restrict)
@@ -781,7 +787,7 @@ model Enrollment {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studentId    String           @map("student_id") @db.Uuid
   courseId     String           @map("course_id") @db.Uuid
-  centerId     String           @map("center_id") @db.Uuid
+  centerId     String?          @map("center_id") @db.Uuid // NULL for teacher-direct courses
   status       EnrollmentStatus @default(active)
   enrolledAt   DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz(6)
   unenrolledAt DateTime?        @map("unenrolled_at") @db.Timestamptz(6)
@@ -822,7 +828,7 @@ model AttendanceRecord {
   sessionId      String           @map("session_id") @db.Uuid
   studentId      String           @map("student_id") @db.Uuid
   courseId       String           @map("course_id") @db.Uuid
-  centerId       String           @map("center_id") @db.Uuid
+  centerId       String?          @map("center_id") @db.Uuid // NULL for teacher-direct courses
   status         AttendanceStatus
   markedBy       String           @map("marked_by") @db.Uuid
   editedAt       DateTime?        @map("edited_at") @db.Timestamptz(6)
@@ -924,7 +930,7 @@ model ClassroomBooking {
 
 model Payment {
   id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId      String        @map("center_id") @db.Uuid
+  centerId      String?       @map("center_id") @db.Uuid // NULL for teacher-direct receipts (platform_receipt_seq)
   studentId     String        @map("student_id") @db.Uuid
   courseId      String?       @map("course_id") @db.Uuid
   status        PaymentStatus @default(paid)
@@ -1553,7 +1559,8 @@ enum PaymentIntentStatus {
 model PaymentIntent {
   id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studentId      String              @map("student_id") @db.Uuid
-  courseId       String?             @map("course_id") @db.Uuid // nullable for Step 4 (subscriptions); the initiate API requires it today
+  courseId       String?             @map("course_id") @db.Uuid
+  subscriptionId String?             @map("subscription_id") @db.Uuid // Step 4: intent pays for a subscription
   centerId       String?             @map("center_id") @db.Uuid // snapshot from the course at initiate time (nullable for future teacher-direct)
   amount         Int // piasters — ALWAYS server-set from the course, never from the client
   currency       String              @default("EGP")
@@ -1576,4 +1583,83 @@ model PaymentIntent {
   @@index([status, createdAt(sort: Desc)])
   @@index([centerId, createdAt(sort: Desc)])
   @@map("payment_intents")
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions — Step 4. A subscription links a student to EITHER an
+// individual teacher OR a center (exactly one, CHECK-enforced) and WRAPS
+// enrollment: the enrollment stays the roster link, the subscription is the
+// payment-coverage layer that access/attendance checks consult.
+// Money-table style columns; center-target rows are tenant-RLS-visible to
+// their center, teacher-target rows (center_id NULL) are bypass-only per the
+// documented RLS convention.
+// ---------------------------------------------------------------------------
+
+enum SubscriptionTarget {
+  teacher
+  center
+
+  @@map("subscription_target")
+}
+
+enum SubscriptionPlan {
+  monthly // covers one month from activation; manual renewal, no auto-charge
+  per_session // single-session pass tied to a specific session
+
+  @@map("subscription_plan")
+}
+
+enum SubscriptionStatus {
+  pending_payment
+  active
+  expired
+  cancelled
+
+  @@map("subscription_status")
+}
+
+enum SubscriptionSource {
+  online
+  walk_in
+
+  @@map("subscription_source")
+}
+
+model Subscription {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String             @map("student_id") @db.Uuid
+  targetType      SubscriptionTarget @map("target_type")
+  teacherId       String             @map("teacher_id") @db.Uuid // course teacher, ALWAYS set; the target when targetType=teacher
+  centerId        String?            @map("center_id") @db.Uuid // the target when targetType=center; NULL for teacher-direct
+  courseId        String             @map("course_id") @db.Uuid
+  sessionId       String?            @map("session_id") @db.Uuid // per_session plan: the covered session
+  subjectId       String?            @map("subject_id") @db.Uuid // snapshots from the course at creation time
+  gradeLevelId    String?            @map("grade_level_id") @db.Uuid
+  trackId         String?            @map("track_id") @db.Uuid
+  plan            SubscriptionPlan
+  price           Int // piasters — server-side snapshot of the chosen plan price
+  currency        String             @default("EGP")
+  paymentMethod   PaymentMethod?     @map("payment_method") // cash | online_paymob, set when paid
+  status          SubscriptionStatus @default(pending_payment)
+  source          SubscriptionSource
+  periodStart     DateTime?          @map("period_start") @db.Timestamptz(6) // monthly coverage window
+  periodEnd       DateTime?          @map("period_end") @db.Timestamptz(6)
+  enrollmentId    String?            @map("enrollment_id") @db.Uuid // the wrapped enrollment
+  paymentIntentId String?            @map("payment_intent_id") @db.Uuid // online payment linkage
+  paymentId       String?            @map("payment_id") @db.Uuid // settlement linkage
+  createdBy       String?            @map("created_by") @db.Uuid // center staff for walk-ins (audit)
+  activatedAt     DateTime?          @map("activated_at") @db.Timestamptz(6)
+  cancelledAt     DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  // Demo/seed marker (explicit on this table per the Step 4 review decision).
+  isDemo          Boolean            @default(false) @map("is_demo")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([studentId, createdAt(sort: Desc)])
+  @@index([courseId, status])
+  @@index([centerId, status])
+  @@index([teacherId, status])
+  @@index([status, periodEnd]) // expiry sweep
+  @@index([sessionId])
+  @@map("subscriptions")
 }

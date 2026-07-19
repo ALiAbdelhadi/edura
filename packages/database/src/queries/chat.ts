@@ -909,7 +909,7 @@ export async function listContacts(
     });
     return {
       teacherIds: [...new Set(enrollments.map((e) => e.course.teacherId))],
-      centerIds: [...new Set(enrollments.map((e) => e.centerId))],
+      centerIds: [...new Set(enrollments.map((e) => e.centerId).filter((id): id is string => !!id))],
     };
   };
 

@@ -54,7 +54,30 @@ export async function getSessionAttendance(
     }
 
     const records = await tx.attendanceRecord.findMany({ where: { sessionId } });
-    return { locked: isLocked(session.date), records };
+
+    // Step 4 coverage annotation: staff views see which students hold active
+    // payment coverage (monthly window or per-session pass) for this session.
+    // DELIBERATELY NON-BLOCKING: attendance can still be marked for uncovered
+    // students — enforcement policy (who may pass the counter/door without
+    // coverage) belongs to Step 6 attendance modes. Do not read the
+    // annotate-only behavior as a bug.
+    const enrolled = await tx.enrollment.findMany({
+      where: { courseId: session.courseId, status: "active" },
+      select: { studentId: true },
+    });
+    const allStudentIds = [
+      ...new Set([...enrolled.map((e) => e.studentId), ...records.map((r) => r.studentId)]),
+    ];
+    const { coveredStudentIds } = await import(
+      "@/lib/services/subscriptions/subscriptions"
+    );
+    const covered = await coveredStudentIds(tx, session, allStudentIds);
+
+    return {
+      locked: isLocked(session.date),
+      records: records.map((r) => ({ ...r, covered: covered.has(r.studentId) })),
+      coverage: allStudentIds.map((id) => ({ studentId: id, covered: covered.has(id) })),
+    };
   });
 }
 
@@ -62,12 +85,12 @@ export async function bulkMarkAttendance(
   sessionId: string,
   entries: AttendanceEntry[],
   adminId: string,
-  adminCenterId: string,
+  adminCenterId: string | null, // NULL for teacher-direct sessions (marked by the teacher, platform-scoped)
 ) {
   const actor = {
     id: adminId,
-    role: "center_admin",
-    centerId: adminCenterId,
+    role: adminCenterId ? "center_admin" : "teacher",
+    centerId: adminCenterId ?? undefined,
   } as unknown as SessionUser;
 
   const { absentEntries } = await scopedDb(actor, async (tx) => {

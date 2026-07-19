@@ -31,6 +31,14 @@ export async function distributeSessionRevenue(
 
   const course = await tx.course.findUnique({ where: { id: session.courseId } });
   if (!course) throw new NotFoundError("Course not found");
+
+  // Teacher-direct courses (NULL centerId): revenue is settled at SUBSCRIPTION
+  // PAYMENT time (price − platform commission straight to the teacher wallet,
+  // see subscriptions settlement). Skipping here is the double-pay guard —
+  // session completion must never pay the teacher a second time.
+  if (!course.centerId) {
+    return { distributed: false, reason: "teacher_direct_settled_at_payment" };
+  }
   const centerId = course.centerId;
   const teacherId = course.teacherId;
 

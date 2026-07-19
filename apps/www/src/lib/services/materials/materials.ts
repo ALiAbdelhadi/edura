@@ -79,6 +79,12 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
   const course = await scopedDb(asAuthUser(user), (tx) =>
     verifyTeacherOwnsCourse(tx, courseId, user.id),
   );
+  if (!course.centerId) {
+    // materials.center_id stays NOT NULL in Step 4 — materials for
+    // teacher-direct courses are deliberately deferred (tracked for 4.5+).
+    throw new BusinessRuleError("Materials are not yet available for teacher-direct courses");
+  }
+  const materialCenterId = course.centerId;
 
   const materialInput: {
     storageProvider: "external" | "cloudinary";
@@ -122,7 +128,7 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
       const created = await tx.material.create({
         data: {
           courseId,
-          centerId: course.centerId,
+          centerId: materialCenterId,
           teacherId: user.id,
           title,
           type: type as MaterialType,

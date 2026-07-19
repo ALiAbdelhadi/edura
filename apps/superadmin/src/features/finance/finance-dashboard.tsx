@@ -48,17 +48,6 @@ export function FinanceDashboard() {
     <div className="flex w-full flex-col gap-6">
       <PageHeader eyebrow={t("nav.finance")} title={t("financeHome.title")} description={t("financeHome.description")} />
 
-      {/* Step 3 ledger caveat — remove when Step 4 reconciles cash payments
-          into the transaction ledger (CLAUDE.md decision #11). */}
-      <Alert role="status" className="bg-info/12 text-info">
-        <Info />
-        <AlertTitle>
-          The transaction ledger currently reflects online payments only — cash
-          payments are not reconciled yet (pending the subscriptions step). Do
-          not read these figures as complete finance data.
-        </AlertTitle>
-      </Alert>
-
       {alerts.length > 0 && (
         <div className="flex w-full flex-col gap-2">
           {alerts.map((a) => (

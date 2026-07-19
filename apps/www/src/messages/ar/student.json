@@ -127,6 +127,17 @@
     "noCoursesForSubject": "لا توجد حصص متاحة لهذه المادة حاليًا",
     "noCenter": "بدون سنتر (أونلاين/مباشر)",
     "uncategorized": "غير مصنّفة (قديمة)",
-    "uncategorizedHint": "حصص قديمة لم تُربط بمادة من الكتالوج بعد"
+    "uncategorizedHint": "حصص قديمة لم تُربط بمادة من الكتالوج بعد",
+    "subscribeMonthly": "اشترك شهريًا",
+    "bookSession": "احجز حصة",
+    "pickSession": "اختر الحصة…",
+    "pickSessionFirst": "اختر الحصة أولًا",
+    "checkoutFailed": "فشل إتمام الدفع",
+    "subscriptionActive": "تم الدفع — الاشتراك مفعّل",
+    "paymentDeclined": "تم رفض الدفع (محاكاة)",
+    "mockCheckoutTitle": "دفع تجريبي:",
+    "mockCheckoutHint": "لا توجد بوابة حقيقية في الوضع التجريبي — أكّد الدفع أو ارفضه",
+    "mockPay": "إتمام الدفع",
+    "mockFail": "محاكاة فشل"
   }
 }

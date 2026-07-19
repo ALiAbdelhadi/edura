@@ -108,8 +108,70 @@ export function AdminFeesScreen() {
     pagination: { mode: "off" },
   });
   const { mutate: createPayment, mutation: createMutation } = useCreate();
+  const { mutate: createSubscription, mutation: subMutation } = useCreate();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // Walk-in cash subscription (Step 4): one-step counter workflow — pay cash
+  // for a plan (+ optional immediate check-in for a per-session pass).
+  const [isSubOpen, setIsSubOpen] = useState(false);
+  const [subStudentId, setSubStudentId] = useState("");
+  const [subCourseId, setSubCourseId] = useState("");
+  const [subPlan, setSubPlan] = useState<"monthly" | "per_session">("monthly");
+  const [subSessionId, setSubSessionId] = useState("");
+  const [subMarkAttendance, setSubMarkAttendance] = useState(true);
+
+  const { result: subSessionsResult } = useList({
+    resource: "sessions",
+    filters: subCourseId ? [{ field: "courseId", operator: "eq", value: subCourseId }] : [],
+    pagination: { mode: "off" },
+    queryOptions: { enabled: isSubOpen && !!subCourseId && subPlan === "per_session" },
+  });
+
+  const resetSubForm = () => {
+    setSubStudentId("");
+    setSubCourseId("");
+    setSubPlan("monthly");
+    setSubSessionId("");
+    setSubMarkAttendance(true);
+  };
+
+  const handleRecordSubscription = () => {
+    if (!subStudentId || !subCourseId) {
+      toast.error(t("adminManage.fees.subMissingFields"));
+      return;
+    }
+    if (subPlan === "per_session" && !subSessionId) {
+      toast.error(t("adminManage.fees.subMissingSession"));
+      return;
+    }
+    createSubscription(
+      {
+        resource: "center/subscriptions",
+        values: {
+          studentId: subStudentId,
+          courseId: subCourseId,
+          plan: subPlan,
+          ...(subPlan === "per_session"
+            ? { sessionId: subSessionId, markAttendance: subMarkAttendance }
+            : {}),
+        },
+      },
+      {
+        onSuccess: (res: any) => {
+          setIsSubOpen(false);
+          resetSubForm();
+          const receipt = res?.data?.data?.receiptNumber ?? res?.data?.receiptNumber;
+          toast.success(
+            `${t("adminManage.fees.subscriptionRecorded")}${receipt ? ` — ${receipt}` : ""}`,
+          );
+          paymentsQuery.refetch();
+          reportsQuery.refetch();
+        },
+        onError: (err: any) => toast.error(err?.message || t("adminManage.fees.recordFailed")),
+      },
+    );
+  };
 
   const payments = (paymentsResult?.data ?? []) as any[];
   const reports = (reportsResult?.data as any) || null;
@@ -374,10 +436,16 @@ export function AdminFeesScreen() {
         <CardHeader>
           <CardTitle>{t("adminManage.fees.paymentLog")}</CardTitle>
           <CardAction>
-            <Button onClick={() => setIsFormOpen(true)}>
-              <Plus className="size-4" />
-              {t("adminManage.fees.recordPayment")}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsSubOpen(true)}>
+                <Receipt className="size-4" />
+                {t("adminManage.fees.recordSubscription")}
+              </Button>
+              <Button onClick={() => setIsFormOpen(true)}>
+                <Plus className="size-4" />
+                {t("adminManage.fees.recordPayment")}
+              </Button>
+            </div>
           </CardAction>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -410,6 +478,110 @@ export function AdminFeesScreen() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={isSubOpen}
+        onOpenChange={(open) => {
+          setIsSubOpen(open);
+          if (!open) resetSubForm();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("adminManage.fees.recordSubscription")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1 text-sm font-medium">{t("adminManage.fees.student")}</div>
+              <Combobox
+                options={studentOptions}
+                value={subStudentId}
+                onChange={(v) => setSubStudentId(v ?? "")}
+                placeholder={t("adminManage.fees.selectStudent")}
+                searchPlaceholder={t("actions.search")}
+                emptyText={t("common.noData")}
+                disabled={studentsQuery.isLoading}
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-sm font-medium">{t("adminManage.fees.course")}</div>
+              <Combobox
+                options={courses.map((c: any) => ({ value: c.id, label: c.title }))}
+                value={subCourseId}
+                onChange={(v) => {
+                  setSubCourseId(v ?? "");
+                  setSubSessionId("");
+                }}
+                placeholder={t("adminManage.fees.selectClass")}
+                searchPlaceholder={t("actions.search")}
+                emptyText={t("common.noData")}
+                disabled={coursesQuery.isLoading}
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-sm font-medium">{t("adminManage.fees.plan")}</div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={subPlan === "monthly" ? "default" : "outline"}
+                  onClick={() => setSubPlan("monthly")}
+                >
+                  {t("adminManage.fees.planMonthly")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={subPlan === "per_session" ? "default" : "outline"}
+                  onClick={() => setSubPlan("per_session")}
+                >
+                  {t("adminManage.fees.planPerSession")}
+                </Button>
+              </div>
+            </div>
+            {subPlan === "per_session" ? (
+              <div className="space-y-2">
+                <div className="mb-1 text-sm font-medium">{t("adminManage.fees.session")}</div>
+                <select
+                  aria-label={t("adminManage.fees.session")}
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                  value={subSessionId}
+                  onChange={(e) => setSubSessionId(e.target.value)}
+                >
+                  <option value="">{t("adminManage.fees.selectSession")}</option>
+                  {((subSessionsResult?.data ?? []) as any[])
+                    .filter((s) => s.status === "scheduled")
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {formatDate(s.date)} {s.startTime}–{s.endTime}
+                      </option>
+                    ))}
+                </select>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={subMarkAttendance}
+                    onChange={(e) => setSubMarkAttendance(e.target.checked)}
+                  />
+                  {t("adminManage.fees.markAttendanceNow")}
+                </label>
+              </div>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              {t("adminManage.fees.subCashHint")}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleRecordSubscription}
+              disabled={subMutation.isPending}
+            >
+              {subMutation.isPending ? <Spinner /> : null}
+              {t("adminManage.fees.confirmCashSubscription")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
         <DialogContent>
