@@ -60,7 +60,21 @@ export interface PaymentGatewayDriver {
 }
 
 export function paymentsMode(): PaymentsMode {
-  const mode = (process.env.PAYMENTS_MODE ?? "mock").toLowerCase();
-  if (mode === "sandbox" || mode === "live") return mode;
+  const raw = process.env.PAYMENTS_MODE?.toLowerCase();
+  const isProd = process.env.NODE_ENV === "production";
+
+  // C1: production must NEVER silently default to the mock gateway. Require an
+  // explicit, valid PAYMENTS_MODE or fail closed (a request-time hard-fail —
+  // handlers never run with an ambiguous gateway).
+  if (isProd && !raw) {
+    throw new Error(
+      "PAYMENTS_MODE must be explicitly set in production (mock | sandbox | live)",
+    );
+  }
+  const mode = raw ?? "mock";
+  if (mode === "mock" || mode === "sandbox" || mode === "live") return mode;
+  if (isProd) {
+    throw new Error(`Invalid PAYMENTS_MODE "${raw}" in production`);
+  }
   return "mock";
 }

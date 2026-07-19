@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PaymentIntent } from "@repo/database";
 import type {
   CheckoutStudent,
@@ -12,7 +12,14 @@ import type {
 const MOCK_HMAC_FALLBACK = "edura-mock-hmac";
 
 export function mockHmacSecret(): string {
-  return process.env.PAYMOB_HMAC_SECRET || MOCK_HMAC_FALLBACK;
+  const secret = process.env.PAYMOB_HMAC_SECRET;
+  if (secret) return secret;
+  // C1: never use the in-repo fallback secret in production — a public signing
+  // key would let anyone forge a settlement. Require the real secret.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("PAYMOB_HMAC_SECRET is required in production (no mock fallback)");
+  }
+  return MOCK_HMAC_FALLBACK;
 }
 
 /**
@@ -55,7 +62,16 @@ export const mockDriver: PaymentGatewayDriver = {
     const provided = query.hmac ?? "";
     if (!provided) return { valid: false, error: "Missing hmac" };
     const expected = signMockWebhook(rawBody);
-    if (provided !== expected) return { valid: false, error: "Invalid hmac" };
+    // C1: constant-time compare so the HMAC can't be recovered byte-by-byte
+    // via response timing.
+    const providedBuf = Buffer.from(provided);
+    const expectedBuf = Buffer.from(expected);
+    if (
+      providedBuf.length !== expectedBuf.length ||
+      !timingSafeEqual(providedBuf, expectedBuf)
+    ) {
+      return { valid: false, error: "Invalid hmac" };
+    }
 
     let payload: {
       gateway_order_id?: string;

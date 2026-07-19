@@ -20,6 +20,11 @@ const bodySchema = z.object({ outcome: z.enum(["success", "failure"]) }).strict(
  * exercises HMAC checking and replay behavior for real.
  */
 export const POST = withErrors(async (req, ctx) => {
+  // C1: the mock settlement path must not exist in production, regardless of
+  // any env config — 404 as if the route weren't there.
+  if (process.env.NODE_ENV === "production") {
+    throw new NotFoundError("Not found");
+  }
   if (paymentsMode() !== "mock") {
     throw new BusinessRuleError("mock-complete is only available when PAYMENTS_MODE=mock");
   }
