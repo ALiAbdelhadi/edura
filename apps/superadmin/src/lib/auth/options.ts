@@ -2,11 +2,31 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
+import { checkRateLimit } from "@/lib/rate-limit/token-bucket";
 
 // Roles allowed into the back-office app. Enforced at credential-check time —
 // a valid www account (center/teacher/parent/student/assistant) can never mint
 // a superadmin session, regardless of route guards.
 const STAFF_ROLES = new Set(["super_admin", "accountant"]);
+
+// H5: bcrypt hash of a random string — compared against for missing/ineligible
+// accounts so login timing is identical to a real wrong-password attempt.
+const DUMMY_HASH = "$2b$10$wrFkXDBP7l73KSdBAgzutOaGQi9FZfAP/69GAeqzK0AiUDGWqhpsW";
+
+// C2: brute-force throttle. Staff accounts (super_admin/accountant) are the
+// highest-value targets, so the per-email limit is a strict backoff — a small
+// burst then ~1/min sustained — much tighter than www.
+const LOGIN_IP_CAP = 10;
+const LOGIN_IP_RATE = 10;
+const LOGIN_EMAIL_CAP = 5;
+const LOGIN_EMAIL_RATE = 1;
+
+function clientIp(req: unknown): string {
+  const fwd = (req as { headers?: Record<string, string> } | undefined)?.headers?.[
+    "x-forwarded-for"
+  ];
+  return (fwd ?? "").split(",")[0].trim() || "unknown";
+}
 
 // Sessions are fully separated from apps/www: distinct cookie names AND a
 // distinct signing secret, so tokens are mutually invalid across apps even
@@ -54,19 +74,31 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+        const email = credentials.email.toLowerCase().trim();
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-        });
-        if (!user) return null;
-        if (!STAFF_ROLES.has(user.role)) return null;
-        if (user.status !== "active") return null;
-        if (!user.passwordHash) return null;
+        // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work.
+        const ip = clientIp(req);
+        if (!checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE)) return null;
+        if (!checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE)) {
+          return null;
+        }
 
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        // H5: run bcrypt.compare UNCONDITIONALLY (real hash when eligible, else
+        // DUMMY_HASH) so a nonexistent email and a wrong password share timing.
+        const eligible =
+          !!user &&
+          STAFF_ROLES.has(user.role) &&
+          user.status === "active" &&
+          !!user.passwordHash;
+        const passwordOk = await bcrypt.compare(
+          credentials.password,
+          eligible ? (user.passwordHash as string) : DUMMY_HASH,
+        );
+        if (!user || !eligible || !passwordOk) return null;
 
         return {
           id: user.id,

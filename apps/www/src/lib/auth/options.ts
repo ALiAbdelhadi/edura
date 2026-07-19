@@ -16,6 +16,26 @@ const WWW_ROLES = new Set([
   "assistant",
 ]);
 
+// H5: a valid bcrypt hash of a random string. Compared against when the account
+// is missing/ineligible so login timing is identical to a real wrong-password
+// attempt (no email-enumeration oracle). Never matches a real password.
+const DUMMY_HASH = "$2b$10$wrFkXDBP7l73KSdBAgzutOaGQi9FZfAP/69GAeqzK0AiUDGWqhpsW";
+
+// C2: brute-force throttle on the login door (token bucket = burst capacity +
+// sustained refill/min). Per-IP is generous (shared NATs); per-email is the
+// tight one that stops credential-stuffing a single account.
+const LOGIN_IP_CAP = 20;
+const LOGIN_IP_RATE = 20;
+const LOGIN_EMAIL_CAP = 5;
+const LOGIN_EMAIL_RATE = 5;
+
+function clientIp(req: unknown): string {
+  const fwd = (req as { headers?: Record<string, string> } | undefined)?.headers?.[
+    "x-forwarded-for"
+  ];
+  return (fwd ?? "").split(",")[0].trim() || "unknown";
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
   secret: process.env.NEXTAUTH_SECRET,
@@ -26,19 +46,32 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+        const email = credentials.email.toLowerCase().trim();
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-        });
-        if (!user) return null;
-        if (!WWW_ROLES.has(user.role)) return null;
-        if (user.status !== "active") return null;
-        if (!user.passwordHash) return null;
+        // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work.
+        const ip = clientIp(req);
+        if (!checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE)) return null;
+        if (!checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE)) {
+          return null;
+        }
 
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        // H5: run bcrypt.compare UNCONDITIONALLY — against the real hash when
+        // the account is eligible, else against DUMMY_HASH — so a nonexistent
+        // email and a real-but-wrong password take the same timing path.
+        const eligible =
+          !!user &&
+          WWW_ROLES.has(user.role) &&
+          user.status === "active" &&
+          !!user.passwordHash;
+        const passwordOk = await bcrypt.compare(
+          credentials.password,
+          eligible ? (user.passwordHash as string) : DUMMY_HASH,
+        );
+        if (!user || !eligible || !passwordOk) return null;
 
         let centerId: string | undefined;
         if (user.role === "center_admin") {
