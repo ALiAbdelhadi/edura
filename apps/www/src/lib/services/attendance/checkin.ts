@@ -25,19 +25,10 @@ function dayBounds(date = new Date()): { start: Date; end: Date } {
   return { start, end };
 }
 
-export async function resolveAssistantTeacher(
-  tx: TenantTx,
-  user: SessionUser,
-): Promise<string> {
-  if (user.role === "teacher") return user.id;
-  if (user.role !== "assistant") throw new ForbiddenError();
-  const link = await tx.teacherAssistant.findFirst({
-    where: { assistantId: user.id, removedAt: null },
-    select: { teacherId: true },
-  });
-  if (!link) throw new ForbiddenError("Assistant is not linked to a teacher");
-  return link.teacherId;
-}
+// Step 8: the assistant->teacher resolution moved to the single delegation
+// helper; kept as an alias so Step 6 call sites stay unchanged.
+import { resolveActingTeacher } from "@/lib/authz/teacher-actor";
+export const resolveAssistantTeacher = resolveActingTeacher;
 
 // ---------------------------------------------------------------------------
 // Counter: lookup + suggest + check-in (center front desk)

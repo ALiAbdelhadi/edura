@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
+import { delegatedWithCenter, toActingUser } from "@/lib/authz/teacher-actor";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireSession();
+  const user = await toActingUser(await requireSession());
 
   const sessionId = (await ctx.params).id;
 
@@ -55,11 +56,7 @@ const bulkMarkSchema = z.union([
   z.object({ records: z.array(attendanceEntrySchema).min(1) }),
 ]);
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireSession();
-  if (user.role !== "teacher" && user.role !== "center_admin") {
-    throw new ForbiddenError("Only teachers and admins can mark attendance");
-  }
+export const PUT = delegatedWithCenter(async (req, ctx, { acting: user }) => {
 
   const sessionId = (await ctx.params).id;
   const parsed = await parseJson(req, bulkMarkSchema);

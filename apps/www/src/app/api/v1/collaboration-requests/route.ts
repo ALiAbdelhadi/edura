@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -39,8 +40,7 @@ const bodySchema = z
     path: ["endTime"],
   });
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("teacher", "center_admin");
+export const POST = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
   const body = await parseJson(req, bodySchema);
   const teacherId = user.role === "teacher" ? user.id : body.teacherId;
   const centerId = user.role === "center_admin" ? (user.centerId as string) : body.centerId;
@@ -55,8 +55,7 @@ export const POST = withErrors(async (req) => {
   );
 });
 
-export const GET = withErrors(async (req) => {
-  const user = await requireRole("teacher", "center_admin");
+export const GET = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
   const status = new URL(req.url).searchParams.get("status") ?? undefined;
   return ok(await listCollaborationRequests(user, status));
 });

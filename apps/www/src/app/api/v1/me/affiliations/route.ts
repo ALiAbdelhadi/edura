@@ -1,12 +1,12 @@
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  const user = await requireRole("teacher");
+export const GET = delegated(async (_req, _ctx, { acting: user }) => {
 
   const result = await scopedDb(user, async (tx) => {
     const now = new Date();

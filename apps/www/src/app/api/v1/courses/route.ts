@@ -3,6 +3,7 @@ import { Prisma } from "@repo/database";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { getSessionUser } from "@/lib/auth/session";
+import { toActingUser } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { BusinessRuleError, ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -35,7 +36,8 @@ function withSchedulePattern<
 
 export const GET = withErrors(async (req) => {
   const url = new URL(req.url);
-  const user = await getSessionUser();
+  const user0 = await getSessionUser();
+  const user = user0 ? await toActingUser(user0) : null;
 
   const centerIdParam = url.searchParams.get("centerId");
   const teacherIdParam = url.searchParams.get("teacherId");

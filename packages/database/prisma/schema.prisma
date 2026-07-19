@@ -714,6 +714,8 @@ model TeacherAssistant {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([teacherId, assistantId])
+  // Plus (Step 8, raw SQL — Prisma can't express partial uniques): UNIQUE on
+  // assistant_id WHERE removed_at IS NULL — one active teacher per assistant.
   @@index([assistantId])
   @@map("teacher_assistants")
 }
@@ -1165,6 +1167,8 @@ model AuditLog {
   centerId    String?  @map("center_id") @db.Uuid
   beforeState Json?    @map("before_state")
   afterState  Json?    @map("after_state")
+  // Step 8: set when an assistant acted for their teacher (actorId = assistant).
+  onBehalfOf  String?  @map("on_behalf_of") @db.Uuid
   ipAddress   String?  @map("ip_address") @db.Inet
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 

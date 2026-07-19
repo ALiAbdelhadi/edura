@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -17,8 +18,7 @@ const bodySchema = z
   .strict();
 
 /** Walk-in temp student (PRD §5.4) — shell account + roster + invite code. */
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("center_admin", "teacher");
+export const POST = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
   const body = await parseJson(req, bodySchema);
   return ok(await createTempStudent(body, user), { status: 201 });
 });

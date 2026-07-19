@@ -153,7 +153,7 @@ export function SettingsScreen() {
   return (
     <div className="flex w-full max-w-[600px] flex-col gap-6">
       <PageHeader title={t("nav.settings")} />
-      {me?.role === "teacher" ? <AttendanceModeCard /> : null}
+      {me?.role === "teacher" || me?.role === "assistant" ? <AttendanceModeCard /> : null}
       <Card>
         <CardHeader>
           <CardTitle>{t("shared.settingsProfile")}</CardTitle>

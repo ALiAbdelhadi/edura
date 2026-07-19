@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -14,8 +15,7 @@ const scoresSchema = z.array(
   }),
 ).min(1);
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("teacher");
+export const PUT = delegated(async (req, ctx, { acting: user }) => {
   const gradeId = ((await ctx?.params) as { id: string }).id;
   const scores = await parseJson(req, scoresSchema);
   const grade = await bulkUpsertScores(gradeId, scores, user);

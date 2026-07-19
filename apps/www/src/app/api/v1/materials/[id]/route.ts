@@ -1,4 +1,5 @@
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { ValidationError } from "@/lib/errors/classes";
@@ -6,8 +7,7 @@ import { updateMaterial, deleteMaterial } from "@/lib/services/materials/materia
 
 export const dynamic = "force-dynamic";
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("teacher");
+export const PATCH = delegated(async (req, ctx, { acting: user }) => {
   const materialId = ((await ctx?.params) as { id: string }).id;
   let formData: FormData;
   try {
@@ -19,8 +19,7 @@ export const PATCH = withErrors(async (req, ctx) => {
   return ok(material);
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("teacher");
+export const DELETE = delegated(async (_req, ctx, { acting: user }) => {
   const materialId = ((await ctx?.params) as { id: string }).id;
   const result = await deleteMaterial(materialId, user);
   return ok(result);

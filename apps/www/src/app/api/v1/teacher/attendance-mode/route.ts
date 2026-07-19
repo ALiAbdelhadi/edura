@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -25,8 +26,7 @@ export const GET = withErrors(async () => {
 });
 
 /** The global per-teacher setting (approved decision #4). */
-export const PATCH = withErrors(async (req) => {
-  const user = await requireRole("teacher");
+export const PATCH = delegated(async (req, _ctx, { acting: user }) => {
   const { mode } = await parseJson(req, bodySchema);
   const updated = await platformDb(
     (tx) =>

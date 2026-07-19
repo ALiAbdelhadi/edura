@@ -1,4 +1,5 @@
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, ForbiddenError, ExpiredError, BusinessRuleError } from "@/lib/errors/classes";
@@ -8,8 +9,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export const POST = withErrors(async (_req, ctx) => {
-  const user = await requireRole("teacher");
+export const POST = delegated(async (_req, ctx, { acting: user }) => {
   const { id } = await ctx.params;
 
   const updated = await scopedDb(user, async (tx) => {

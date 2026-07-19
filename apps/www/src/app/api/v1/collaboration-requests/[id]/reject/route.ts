@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -9,8 +10,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() }).strict();
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("teacher", "center_admin");
+export const POST = delegatedWithCenter(async (req, ctx, { acting: user }) => {
   const { id } = await ctx.params;
   const len = req.headers.get("content-length");
   const body = !len || len === "0" ? {} : await parseJson(req, bodySchema);

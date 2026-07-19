@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -14,8 +15,7 @@ const bodySchema = z.object({
   grade: z.string().trim().max(50).optional(),
 });
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("teacher");
+export const POST = delegated(async (req, _ctx, { acting: user }) => {
   const body = await parseJson(req, bodySchema);
   return ok(await createTempStudent(body, user), { status: 201 });
 });

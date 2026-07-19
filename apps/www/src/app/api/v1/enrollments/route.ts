@@ -3,6 +3,7 @@ import { Prisma } from "@repo/database";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { requireSession } from "@/lib/auth/session";
+import { toActingUser } from "@/lib/authz/teacher-actor";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { scopedDb, platformDb } from "@/lib/db/scope";
 import { NotFoundError, ForbiddenError, ConflictError, BusinessRuleError } from "@/lib/errors/classes";
@@ -14,7 +15,7 @@ import { assertNotBlacklisted } from "@/lib/services/blacklist/blacklist";
 export const dynamic = "force-dynamic";
 
 export const GET = withErrors(async (req) => {
-  const user = await requireSession();
+  const user = await toActingUser(await requireSession());
   const url = new URL(req.url);
 
   const studentId = url.searchParams.get("studentId");

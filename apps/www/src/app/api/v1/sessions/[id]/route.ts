@@ -1,5 +1,6 @@
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
+import { toActingUser } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireSession();
+  const user = await toActingUser(await requireSession());
 
   const { id } = await ctx.params;
 

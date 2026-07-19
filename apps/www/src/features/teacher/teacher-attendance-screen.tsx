@@ -74,7 +74,8 @@ export function TeacherAttendanceScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
   const { data: identity } = useGetIdentity<Identity>();
-  const teacherId = identity?.id;
+  // Step 8: an assistant operates on their teacher's data.
+  const teacherId = (identity as any)?.actingTeacherId ?? identity?.id;
   const { queueCount, isSyncing, flush } = useAttendanceSync(teacherId);
 
   const { query: sessionsQuery, result: sessionsResult } = useList<SessionRow>({

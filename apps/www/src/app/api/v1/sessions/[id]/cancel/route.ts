@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -11,8 +12,7 @@ const cancelSchema = z.object({
   reason: z.string().min(1, "Reason is required"),
 });
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("teacher");
+export const POST = delegatedWithCenter(async (req, ctx, { acting: user }) => {
   const sessionId = ((await ctx?.params) as { id: string }).id;
   const { reason } = await parseJson(req, cancelSchema);
 

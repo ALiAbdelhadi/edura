@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegated } from "@/lib/authz/teacher-actor";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -11,8 +12,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({ reason: z.string().trim().min(1).max(500) });
 
-export const DELETE = withErrors(async (req, ctx) => {
-  const user = await requireRole("teacher");
+export const DELETE = delegated(async (req, ctx, { acting: user }) => {
   const { id } = await ctx.params;
   const { reason } = await parseJson(req, bodySchema);
   return ok(await removeBlacklistEntry(id, user, reason));

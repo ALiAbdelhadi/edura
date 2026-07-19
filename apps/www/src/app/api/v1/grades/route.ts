@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
+import { delegated, toActingUser } from "@/lib/authz/teacher-actor";
 import { requireSession } from "@/lib/auth/session";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
@@ -9,7 +10,7 @@ import { createGrade, listGrades } from "@/lib/services/grades/grades";
 export const dynamic = "force-dynamic";
 
 export const GET = withErrors(async (req) => {
-  const user = await requireSession();
+  const user = await toActingUser(await requireSession());
 
   const url = new URL(req.url);
   const courseId = url.searchParams.get("courseId") ?? undefined;
@@ -27,8 +28,7 @@ const createSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("teacher");
+export const POST = delegated(async (req, _ctx, { acting: user }) => {
   const data = await parseJson(req, createSchema);
   const grade = await createGrade(data, user);
   return ok(grade, { status: 201 });

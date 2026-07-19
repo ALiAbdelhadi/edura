@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
+import { resolveActingTeacher } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -28,6 +29,21 @@ export const GET = withErrors(async () => {
   );
   if (!user) throw new NotFoundError("User not found");
 
+  // Step 8: assistants get their live acting-teacher (UI hint only; every
+  // request re-resolves server-side, so revocation is immediate regardless).
+  let actingTeacher: { id: string; name: string | null } | null = null;
+  if (session.role === "assistant") {
+    try {
+      const teacherId = await scopedDb(session, (tx) => resolveActingTeacher(tx, session));
+      const t = await scopedDb(session, (tx) =>
+        tx.user.findUnique({ where: { id: teacherId }, select: { name: true } }),
+      );
+      actingTeacher = { id: teacherId, name: t?.name ?? null };
+    } catch {
+      actingTeacher = null; // unlinked assistant
+    }
+  }
+
   return ok({
     id: session.id,
     email: user.email,
@@ -39,6 +55,8 @@ export const GET = withErrors(async () => {
     emailVerified: !!user.emailVerified,
     // Step 7: lets the claim flow know credentials still need to be set.
     hasPassword: !!user.passwordHash,
+    actingTeacherId: actingTeacher?.id ?? null,
+    actingTeacherName: actingTeacher?.name ?? null,
     centerId: session.centerId ?? null,
   });
 });
