@@ -312,5 +312,17 @@
     "remove": "إزالة",
     "removeTitle": "إزالة المساعد؟",
     "removeDescription": "سيفقد {name} صلاحية الوصول للفريق. تُحفَظ المحادثات القائمة لكن لن يستطيع طلابك التواصل معه."
+  },
+  "claim": {
+    "authenticating": "جارٍ تسجيل دخولك…",
+    "invalidTitle": "هذا الرابط لم يعد صالحًا",
+    "invalidBody": "ربما انتهت صلاحية الرابط أو تم استخدامه من قبل. اطلب من السنتر إعادة إرسال رسالة التسجيل.",
+    "credentialsTitle": "أمّن حسابك",
+    "credentialsBody": "حدّد بريدًا إلكترونيًا وكلمة مرور لتتمكن من تسجيل الدخول لاحقًا.",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "كلمة المرور (8 أحرف فأكثر)",
+    "continue": "حفظ ومتابعة",
+    "credentialsSaved": "تم حفظ بيانات الدخول",
+    "credentialsFailed": "تعذّر حفظ بيانات الدخول"
   }
 }

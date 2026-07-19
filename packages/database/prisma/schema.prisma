@@ -226,6 +226,7 @@ enum InvitePurpose {
   student_activation
   teacher_activation
   admin_invite
+  walk_in_onboarding // Step 7: tokenized walk-in claim link (phone-only shell student)
 
   @@map("invite_purpose")
 }
@@ -558,7 +559,10 @@ model PasswordResetToken {
 
 model InviteToken {
   id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email     String
+  // Nullable since Step 7: walk_in_onboarding tokens key on userId (phone-only
+  // shell students have no email); the email-based purposes still set it.
+  email     String?
+  userId    String?       @map("user_id") @db.Uuid
   tokenHash String        @unique @map("token_hash")
   purpose   InvitePurpose
   centerId  String?       @map("center_id") @db.Uuid
@@ -567,8 +571,50 @@ model InviteToken {
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([email])
+  @@index([userId])
   @@index([centerId])
   @@map("invite_tokens")
+}
+
+enum WhatsAppMessageStatus {
+  queued
+  sent
+  failed
+
+  @@map("whatsapp_message_status")
+}
+
+enum WhatsAppProvider {
+  mock
+  cloud_api
+
+  @@map("whatsapp_provider")
+}
+
+// Step 7: WhatsApp send-attempt log (every attempt, mock included). App-layer
+// scoped like payment_intents — not in the tenant_isolation RLS set.
+model WhatsAppMessage {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientPhone    String                @map("recipient_phone")
+  template          String
+  params            Json?
+  locale            String                @default("ar")
+  status            WhatsAppMessageStatus @default(queued)
+  provider          WhatsAppProvider
+  providerMessageId String?               @map("provider_message_id")
+  providerResponse  Json?                 @map("provider_response")
+  error             String?
+  userId            String?               @map("user_id") @db.Uuid
+  centerId          String?               @map("center_id") @db.Uuid
+  createdBy         String?               @map("created_by") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([recipientPhone, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("whatsapp_messages")
 }
 
 model UserDeviceToken {

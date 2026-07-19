@@ -40,7 +40,8 @@
     "accountants": "المحاسبون",
     "overview": "نظرة عامة",
     "catalog": "الكتالوج التعليمي",
-    "team": "الفريق"
+    "team": "الفريق",
+    "whatsapp": "واتساب"
   },
   "roles": {
     "student": "طالب",
@@ -434,6 +435,25 @@
     "modeSaved": "تم تحديث وضع الحضور",
     "modeFailed": "تعذّر تحديث وضع الحضور",
     "total": "{count} مدرّسًا",
+    "prev": "السابق",
+    "next": "التالي"
+  },
+  "whatsapp": {
+    "title": "رسائل واتساب",
+    "description": "كل محاولات الإرسال — الوهمية والفعلية — مع استجابات المزوّد.",
+    "searchPlaceholder": "ابحث بالهاتف أو القالب أو معرّف الرسالة…",
+    "clearSearch": "مسح البحث",
+    "statusFilter": "الحالة",
+    "any": "الكل",
+    "colRecipient": "المستلم",
+    "colTemplate": "القالب",
+    "colStatus": "الحالة",
+    "colProvider": "المزوّد",
+    "colAt": "وقت الإرسال",
+    "empty": "لا توجد رسائل بعد",
+    "detailParams": "المتغيرات",
+    "detailResponse": "استجابة المزوّد",
+    "total": "{count} رسالة",
     "prev": "السابق",
     "next": "التالي"
   }

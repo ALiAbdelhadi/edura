@@ -136,27 +136,55 @@ export function AdminCheckinScreen() {
     }
     setBusy(true);
     try {
+      // Step 7: registration + WhatsApp delivery (studentCode + one-time
+      // onboarding link) in one call; duplicates resolve to the existing
+      // account with a code-reminder message instead.
       const res = await post({
-        url: "temp-students",
+        url: "center/walk-in",
         method: "post",
         values: { fullName: walkName.trim(), phone: walkPhone.trim() },
       });
       const data = (res as any)?.data?.data ?? (res as any)?.data;
-      toast.success(t("shared.checkin.walkInCreated"));
+      toast.success(
+        data.existing
+          ? t("shared.checkin.existingResent", { code: data.studentCode ?? "" })
+          : t("shared.checkin.walkInCreated"),
+      );
+      if (data.whatsapp?.status === "sent") toast.success(t("shared.checkin.waSent"));
+      else toast.error(t("shared.checkin.waFailed"));
       setWalkInOpen(false);
       setWalkName("");
       setWalkPhone("");
       await pickStudent({
-        studentId: data.id,
+        studentId: data.studentId,
         name: data.fullName,
         studentCode: data.studentCode ?? "",
-        phone: data.phone,
-        isShell: true,
+        phone: walkPhone.trim(),
+        isShell: !data.existing,
         onOurRoster: true,
         otherCenters: [],
       });
     } catch (err: any) {
       toast.error(err?.message || t("shared.checkin.walkInFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendWhatsApp = async () => {
+    if (!student) return;
+    setBusy(true);
+    try {
+      const res = await post({
+        url: "center/walk-in/resend",
+        method: "post",
+        values: { studentId: student.studentId },
+      });
+      const data = (res as any)?.data?.data ?? (res as any)?.data;
+      if (data.whatsapp?.status === "sent") toast.success(t("shared.checkin.waSent"));
+      else toast.error(t("shared.checkin.waFailed"));
+    } catch (err: any) {
+      toast.error(err?.message || t("shared.checkin.checkinFailed"));
     } finally {
       setBusy(false);
     }
@@ -295,6 +323,12 @@ export function AdminCheckinScreen() {
               <p className="rounded-md bg-warning/10 px-3 py-2 text-sm text-warning">
                 {t("shared.checkin.crossCenterNote", { center: student.otherCenters[0] })}
               </p>
+            ) : null}
+
+            {student.isShell ? (
+              <Button variant="outline" size="sm" disabled={busy} onClick={resendWhatsApp}>
+                {t("shared.checkin.resendWhatsApp")}
+              </Button>
             ) : null}
 
             {sessions ? (

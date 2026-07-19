@@ -312,5 +312,17 @@
     "remove": "Remove",
     "removeTitle": "Remove assistant?",
     "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students."
+  },
+  "claim": {
+    "authenticating": "Signing you in…",
+    "invalidTitle": "This link is no longer valid",
+    "invalidBody": "The link may have expired or been used already. Ask the center to resend your registration message.",
+    "credentialsTitle": "Secure your account",
+    "credentialsBody": "Set an email and password so you can sign in next time.",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "Password (8+ characters)",
+    "continue": "Save & continue",
+    "credentialsSaved": "Credentials saved",
+    "credentialsFailed": "Could not save credentials"
   }
 }

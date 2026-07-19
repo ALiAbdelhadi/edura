@@ -153,7 +153,11 @@
     "walkInCreate": "Create temp student",
     "walkInCreated": "Temp student created",
     "walkInMissing": "Enter name and phone",
-    "walkInFailed": "Could not create the walk-in student"
+    "walkInFailed": "Could not create the walk-in student",
+    "existingResent": "Already registered — code {code} resent",
+    "waSent": "WhatsApp sent",
+    "waFailed": "WhatsApp delivery failed — see the back-office log",
+    "resendWhatsApp": "Resend WhatsApp"
   },
   "door": {
     "title": "Door check-in",

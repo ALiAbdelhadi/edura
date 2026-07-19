@@ -1,4 +1,6 @@
 export type {
+  WhatsAppMessage,
+  InviteToken,
   User,
   StudentProfile,
   ParentProfile,
@@ -83,4 +85,6 @@ export {
   NotificationStatus,
   NotificationType,
   BotType,
+  WhatsAppMessageStatus,
+  WhatsAppProvider,
 } from "./generated/client/index";

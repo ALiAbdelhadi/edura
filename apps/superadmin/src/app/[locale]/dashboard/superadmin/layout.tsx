@@ -17,6 +17,7 @@ const navItems = [
   { href: "/dashboard/superadmin/collaborations", icon: "users", label: "Collaborations" },
   { href: "/dashboard/superadmin/payouts", icon: "chart", label: "Payouts" },
   { href: "/dashboard/superadmin/commission", icon: "settings", label: "Commission" },
+  { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp" },
 ];
 
 export default function SuperAdminLayout({

@@ -22,6 +22,7 @@ export const GET = withErrors(async () => {
         locale: true,
         phone: true,
         emailVerified: true,
+        passwordHash: true,
       },
     }),
   );
@@ -36,6 +37,8 @@ export const GET = withErrors(async () => {
     locale: user.locale,
     phone: user.phone ?? null,
     emailVerified: !!user.emailVerified,
+    // Step 7: lets the claim flow know credentials still need to be set.
+    hasPassword: !!user.passwordHash,
     centerId: session.centerId ?? null,
   });
 });

@@ -40,7 +40,8 @@
     "accountants": "Accountants",
     "overview": "Overview",
     "catalog": "Catalog",
-    "team": "Team"
+    "team": "Team",
+    "whatsapp": "WhatsApp"
   },
   "roles": {
     "student": "Student",
@@ -434,6 +435,25 @@
     "modeSaved": "Attendance mode updated",
     "modeFailed": "Could not update the attendance mode",
     "total": "{count} teachers",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "whatsapp": {
+    "title": "WhatsApp messages",
+    "description": "Every send attempt — mock and live — with provider responses.",
+    "searchPlaceholder": "Search phone, template, or message id…",
+    "clearSearch": "Clear search",
+    "statusFilter": "Status",
+    "any": "Any",
+    "colRecipient": "Recipient",
+    "colTemplate": "Template",
+    "colStatus": "Status",
+    "colProvider": "Provider",
+    "colAt": "Sent at",
+    "empty": "No messages yet",
+    "detailParams": "Params",
+    "detailResponse": "Provider response",
+    "total": "{count} messages",
     "prev": "Previous",
     "next": "Next"
   }
