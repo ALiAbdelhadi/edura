@@ -357,6 +357,11 @@ export function TeacherClassesScreen() {
                   100
               )}
             />
+            {!selectedCourse.pricePerMonth && !selectedCourse.pricePerSession ? (
+              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+                {t("teacher.unpricedNotice")}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

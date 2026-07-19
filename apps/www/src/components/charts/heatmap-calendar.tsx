@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 
 export type HeatmapCell = {
   date: string;
@@ -28,6 +29,7 @@ export function HeatmapCalendar({
   columns = 7,
   emptyText = "No chart data available.",
 }: HeatmapCalendarProps) {
+  const t = useTranslations();
   if (cells.length === 0) {
     return (
       <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -41,7 +43,7 @@ export function HeatmapCalendar({
       className="grid gap-2"
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       role="img"
-      aria-label="calendar heatmap"
+      aria-label={t("common.calendarHeatmap")}
     >
       {cells.map((cell) => (
         <div

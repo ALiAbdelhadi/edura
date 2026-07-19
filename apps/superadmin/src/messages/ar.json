@@ -96,7 +96,9 @@
     "remove": "إزالة",
     "sendInvite": "إرسال دعوة",
     "export": "تصدير",
-    "review": "مراجعة"
+    "review": "مراجعة",
+    "previous": "السابق",
+    "next": "التالي"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -389,5 +391,27 @@
     "course": "دورة",
     "teacher": "معلم",
     "center": "مركز"
+  },
+  "collabRequests": {
+    "title": "طلبات التعاون",
+    "searchPlaceholder": "ابحث عن مدرّس أو سنتر…",
+    "clearSearch": "مسح البحث",
+    "loading": "جارٍ تحميل الطلبات…",
+    "notFound": "لا توجد طلبات تعاون",
+    "any": "الكل",
+    "teacher": "المدرّس",
+    "center": "السنتر",
+    "subject": "المادة",
+    "schedule": "الجدول",
+    "share": "حصة السنتر",
+    "initiator": "المُبادِر",
+    "status": "الحالة",
+    "created": "تاريخ الإنشاء",
+    "detailTitle": "طلب تعاون",
+    "expected": "عدد الطلاب المتوقع",
+    "createdCourse": "الفصل المُنشأ",
+    "affiliation": "الارتباط",
+    "message": "الرسالة",
+    "pageOf": "صفحة {page} من {pageCount} · الإجمالي {total}"
   }
 }

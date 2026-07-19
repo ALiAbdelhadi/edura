@@ -180,5 +180,6 @@
     "requestSubmitted": "Payout request submitted",
     "requestFailed": "Payout request failed",
     "loading": "Loading wallet…"
-  }
+  },
+  "unpricedNotice": "This class has no monthly or per-session price yet — students cannot subscribe until the center sets one."
 }

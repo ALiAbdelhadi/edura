@@ -89,6 +89,11 @@ const patchSchema = z.object({
   description: z.string().optional(),
   gradeTag: z.string().optional(),
   price: moneySchema.optional(),
+  // Step 4/5 plan pricing: null clears (disables) a plan. Courses created from
+  // accepted collaboration requests start UNPRICED — the owner sets these so
+  // students can subscribe.
+  pricePerMonth: moneySchema.positive().nullish(),
+  pricePerSession: moneySchema.positive().nullish(),
   maxStudents: z.number().int().positive().max(10000).optional(),
   defaultRoomId: z.string().optional(),
   schedulePattern: schedulePatternSchema.optional(),
@@ -112,6 +117,8 @@ export const PATCH = withErrors(async (req, ctx) => {
     if (body.description !== undefined) data.description = body.description;
     if (body.gradeTag !== undefined) data.gradeTag = body.gradeTag;
     if (body.price !== undefined) data.price = body.price;
+    if (body.pricePerMonth !== undefined) data.pricePerMonth = body.pricePerMonth;
+    if (body.pricePerSession !== undefined) data.pricePerSession = body.pricePerSession;
     if (body.maxStudents !== undefined) data.maxStudents = body.maxStudents;
     if (body.defaultRoomId !== undefined) data.defaultRoomId = body.defaultRoomId;
     if (newPattern) {

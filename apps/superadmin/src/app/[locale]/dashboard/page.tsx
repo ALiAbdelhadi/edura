@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGetIdentity } from "@refinedev/core";
+import { useTranslations } from "next-intl";
 import type { MeResponse } from "@/lib/refine";
 
 const ROLE_HOME: Record<string, string> = {
@@ -12,6 +13,7 @@ const ROLE_HOME: Record<string, string> = {
 
 export default function DashboardRouter() {
   const router = useRouter();
+  const t = useTranslations();
   const { data: identity, isLoading } = useGetIdentity<MeResponse>();
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function DashboardRouter() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="text-sm text-muted-foreground">Loading…</div>
+      <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
     </div>
   );
 }

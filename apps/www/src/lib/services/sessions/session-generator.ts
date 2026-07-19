@@ -11,7 +11,7 @@ type SchedulePattern = {
   endDate: Date;
 };
 
-type CourseInput = {
+export type CourseInput = {
   id: string;
   schedulePattern: SchedulePattern;
   teacherId: string;
@@ -34,7 +34,10 @@ function walkDates(startDate: Date, endDate: Date, daysOfWeek: number[]): Date[]
   return dates;
 }
 
-async function generateSessionsTx(tx: TenantTx, course: CourseInput): Promise<string[]> {
+// Exported so collaboration-request acceptance (Step 5) can generate the
+// course's sessions INSIDE its own transaction (affiliation + course +
+// sessions must commit or roll back together).
+export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Promise<string[]> {
   const { schedulePattern, teacherId, defaultRoomId } = course;
   const dates = walkDates(
     schedulePattern.startDate,

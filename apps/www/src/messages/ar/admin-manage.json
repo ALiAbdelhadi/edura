@@ -70,7 +70,14 @@
     "courseCancelled": "تم إلغاء الفصل",
     "failedCreate": "فشل إنشاء الفصل",
     "failedUpdate": "فشل تحديث الفصل",
-    "failedCancel": "فشل إلغاء الفصل"
+    "failedCancel": "فشل إلغاء الفصل",
+    "unpriced": "بدون سعر اشتراك",
+    "unpricedBanner": "بعض الفصول بدون سعر شهري أو سعر حصة — لن يتمكن الطلاب من الاشتراك حتى تحدد سعرًا (عدّل الفصل).",
+    "perMonthShort": "شهريًا",
+    "perSessionShort": "حصة",
+    "pricePerMonthEGP": "سعر الخطة الشهرية (جنيه)",
+    "pricePerSessionEGP": "سعر الحصة (جنيه)",
+    "planDisabled": "فارغ = الخطة معطّلة"
   },
   "rooms": {
     "colName": "الاسم",

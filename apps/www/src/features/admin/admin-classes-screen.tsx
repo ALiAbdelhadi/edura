@@ -22,6 +22,7 @@ import {
   Search,
   Trash2,
   X,
+  Info,
 } from "lucide-react";
 import { toast } from "@repo/ui/components/sonner";
 import { Button } from "@repo/ui/components/button";
@@ -56,6 +57,7 @@ import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
 import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge } from "@/components/kit/status-badge";
+import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner, PageSpinner } from "@/components/kit/spinner";
@@ -123,6 +125,9 @@ export function AdminClassesScreen() {
     maxStudents: z
       .number({ message: t("adminManage.classes.required") })
       .min(1, t("adminManage.classes.mustBeOneOrMore")),
+    // Step 4/5 subscription plan prices (EGP). NaN/0 = plan disabled.
+    pricePerMonth: z.number().optional(),
+    pricePerSession: z.number().optional(),
   };
   const createSchema = z.object({
     title: z.string().min(1, t("adminManage.classes.titleRequired")),
@@ -247,6 +252,8 @@ export function AdminClassesScreen() {
       endDate: course.schedulePattern?.endDate || "",
       price: (course.price ?? 0) / 100,
       maxStudents: course.maxStudents ?? 1,
+      pricePerMonth: course.pricePerMonth ? course.pricePerMonth / 100 : NaN,
+      pricePerSession: course.pricePerSession ? course.pricePerSession / 100 : NaN,
     });
   };
 
@@ -267,6 +274,14 @@ export function AdminClassesScreen() {
       },
       price: Math.round(values.price * 100),
       maxStudents: values.maxStudents,
+      pricePerMonth:
+        Number.isFinite(values.pricePerMonth) && (values.pricePerMonth as number) > 0
+          ? Math.round((values.pricePerMonth as number) * 100)
+          : null,
+      pricePerSession:
+        Number.isFinite(values.pricePerSession) && (values.pricePerSession as number) > 0
+          ? Math.round((values.pricePerSession as number) * 100)
+          : null,
     };
     updateCourse(
       { resource: "courses", id, values: payload },
@@ -374,7 +389,23 @@ export function AdminClassesScreen() {
     {
       id: "price",
       header: t("adminManage.classes.colPrice"),
-      cell: ({ row }) => formatEGP(row.original.price),
+      cell: ({ row }) => {
+        const c = row.original;
+        const unpriced = !c.pricePerMonth && !c.pricePerSession;
+        return (
+          <div>
+            {c.pricePerMonth ? (
+              <div className="text-xs">{formatEGP(c.pricePerMonth)}/{t("adminManage.classes.perMonthShort")}</div>
+            ) : null}
+            {c.pricePerSession ? (
+              <div className="text-xs">{formatEGP(c.pricePerSession)}/{t("adminManage.classes.perSessionShort")}</div>
+            ) : null}
+            {unpriced ? (
+              <StatusBadge tone="danger">{t("adminManage.classes.unpriced")}</StatusBadge>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "capacity",
@@ -495,6 +526,13 @@ export function AdminClassesScreen() {
           </div>
         }
       />
+
+      {courses.some((c: any) => c.status === "active" && !c.pricePerMonth && !c.pricePerSession) ? (
+        <Alert className="bg-warning/12 text-warning">
+          <Info />
+          <AlertTitle>{t("adminManage.classes.unpricedBanner")}</AlertTitle>
+        </Alert>
+      ) : null}
 
       <Card>
         <CardContent className="space-y-4">
@@ -1263,6 +1301,56 @@ export function AdminClassesScreen() {
                                 ? NaN
                                 : e.target.valueAsNumber,
                             )
+                          }
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="pricePerMonth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("adminManage.classes.pricePerMonthEGP")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={50}
+                          placeholder={t("adminManage.classes.planDisabled")}
+                          value={Number.isFinite(field.value) ? (field.value as number) : ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                          }
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="pricePerSession"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("adminManage.classes.pricePerSessionEGP")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={5}
+                          placeholder={t("adminManage.classes.planDisabled")}
+                          value={Number.isFinite(field.value) ? (field.value as number) : ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
                           }
                           onBlur={field.onBlur}
                           name={field.name}

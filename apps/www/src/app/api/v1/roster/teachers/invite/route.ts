@@ -37,6 +37,15 @@ export const POST = withErrors(async (req) => {
       throw new ConflictError("Email exists with a different role");
     }
 
+    // Step 5: the affiliation invite for EXISTING teachers is absorbed by
+    // collaboration requests — this route stays only as the shell-account
+    // onboarding path for teachers who are not registered yet.
+    if (existing && existing.status !== "shell") {
+      throw new ConflictError(
+        "This teacher is already registered — send them a collaboration request instead",
+      );
+    }
+
     if (existing) {
       const activeAffiliation = await tx.centerTeacherAffiliation.findFirst({
         where: {

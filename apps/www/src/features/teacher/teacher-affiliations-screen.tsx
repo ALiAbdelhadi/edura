@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 
 type Affiliation = {
   _id?: string;
@@ -160,6 +161,8 @@ export function TeacherAffiliationsScreen() {
   const pendingCount = affiliations.filter((a) => a.status === "pending").length;
 
   return (
+    <div className="space-y-6">
+      <CollaborationPanel role="teacher" />
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
@@ -186,5 +189,6 @@ export function TeacherAffiliationsScreen() {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

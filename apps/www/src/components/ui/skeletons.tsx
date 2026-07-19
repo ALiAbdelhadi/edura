@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Card, CardContent } from "@repo/ui/components/card";
 
@@ -21,9 +22,10 @@ export function StatCardsSkeleton({ count = 4 }: { count?: number }) {
 }
 
 export function TableSkeleton({ rows = 6, columns = 4 }: { rows?: number; columns?: number }) {
+  const t = useTranslations();
   const gridStyle = { gridTemplateColumns: `repeat(${columns}, 1fr)` };
   return (
-    <div role="status" aria-busy aria-label="Loading" className="w-full">
+    <div role="status" aria-busy aria-label={t("common.loading")} className="w-full">
       <div
         className="mb-2 grid gap-4 rounded-md bg-muted px-4 py-3"
         style={gridStyle}

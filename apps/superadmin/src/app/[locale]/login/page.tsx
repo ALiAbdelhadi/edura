@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
 import { useLogin } from "@refinedev/core";
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 
 export default function LoginPage() {
   const { mutate: login, isPending } = useLogin();
+  const t = useTranslations();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function LoginPage() {
       {
         onSuccess: (result) => {
           if (!result.success) {
-            setError("Invalid credentials or unauthorized account.");
+            setError(t("auth.invalidCredentialsBackoffice"));
           }
         },
       },
@@ -37,9 +39,9 @@ export default function LoginPage() {
           <div className="mb-2 flex size-12 items-center justify-center rounded-full bg-primary/10">
             <ShieldCheck className="size-6 text-primary" />
           </div>
-          <CardTitle className="text-xl">Edura Back-office</CardTitle>
+          <CardTitle className="text-xl">{t("auth.backofficeTitle")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Staff sign-in — super admin &amp; finance only
+            {t("auth.backofficeSubtitle")}
           </p>
         </CardHeader>
         <CardContent>
@@ -50,7 +52,7 @@ export default function LoginPage() {
               </Alert>
             ) : null}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -61,7 +63,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -72,7 +74,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Signing in…" : "Sign in"}
+              {isPending ? t("auth.signingIn") : t("auth.signInTitle")}
             </Button>
           </form>
         </CardContent>

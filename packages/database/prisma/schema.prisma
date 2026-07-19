@@ -230,13 +230,6 @@ enum DevicePlatform {
   @@map("device_platform")
 }
 
-enum BookingStatus {
-  pending
-  approved
-  rejected
-
-  @@map("booking_status")
-}
 
 // ---- Finance (PRD §3.3) ----
 
@@ -902,27 +895,6 @@ model Material {
 
 // PRD classroom_bookings: teacher requests a Room for a Session; center approves
 // with an agreed center_share. This is the hook the fee/distribution engine reads.
-model ClassroomBooking {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId     String        @map("center_id") @db.Uuid
-  roomId       String        @map("room_id") @db.Uuid
-  sessionId    String?       @map("session_id") @db.Uuid
-  courseId     String?       @map("course_id") @db.Uuid
-  teacherId    String        @map("teacher_id") @db.Uuid
-  status       BookingStatus @default(pending)
-  centerShare  Int?          @map("center_share") // piasters
-  requestedAt  DateTime      @default(now()) @map("requested_at") @db.Timestamptz(6)
-  decidedAt    DateTime?     @map("decided_at") @db.Timestamptz(6)
-  decidedBy    String?       @map("decided_by") @db.Uuid
-  rejectReason String?       @map("reject_reason")
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([centerId])
-  @@index([roomId])
-  @@index([teacherId])
-  @@map("classroom_bookings")
-}
 
 // =============================================================================
 // MONEY  (existing Payment/Expense preserved; PRD ledger added below)
@@ -1693,4 +1665,64 @@ model CommissionSetting {
 
   @@index([scope])
   @@map("commission_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Collaboration requests — Step 5. REPLACES ClassroomBooking and absorbs the
+// existing-teacher affiliation invite (approved decision #3). Either side
+// (teacher or center) proposes a class: catalog subject/grade/track, optional
+// hall, schedule, optional expected students, and the centerShare the money
+// engine will use. Acceptance transactionally creates the affiliation, the
+// course, and its sessions. Center-scoped RLS like other center tables.
+// ---------------------------------------------------------------------------
+
+enum CollaborationInitiator {
+  teacher
+  center
+
+  @@map("collaboration_initiator")
+}
+
+enum CollaborationStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+  expired
+
+  @@map("collaboration_status")
+}
+
+model CollaborationRequest {
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  initiator           CollaborationInitiator
+  teacherId           String                 @map("teacher_id") @db.Uuid
+  centerId            String                 @map("center_id") @db.Uuid
+  subjectId           String                 @map("subject_id") @db.Uuid // catalog FK — no free text
+  gradeLevelId        String                 @map("grade_level_id") @db.Uuid
+  trackId             String?                @map("track_id") @db.Uuid
+  roomId              String?                @map("room_id") @db.Uuid // optional hall; must belong to centerId
+  daysOfWeek          Int[]                  @map("days_of_week")
+  startTime           String                 @map("start_time") // "HH:MM"
+  endTime             String                 @map("end_time")
+  startDate           DateTime               @map("start_date") @db.Timestamptz(6)
+  endDate             DateTime?              @map("end_date") @db.Timestamptz(6) // acceptance defaults +3 months
+  expectedStudents    Int?                   @map("expected_students") // OPTIONAL — zero-student teachers can apply
+  proposedCenterShare Int                    @map("proposed_center_share") // piasters; the money-engine centerShare
+  message             String?
+  status              CollaborationStatus    @default(pending)
+  respondedAt         DateTime?              @map("responded_at") @db.Timestamptz(6)
+  respondedBy         String?                @map("responded_by") @db.Uuid
+  responseNote        String?                @map("response_note")
+  courseId            String?                @map("course_id") @db.Uuid // acceptance linkage
+  affiliationId       String?                @map("affiliation_id") @db.Uuid // acceptance linkage
+  expiresAt           DateTime               @map("expires_at") @db.Timestamptz(6) // pending TTL
+  createdBy           String                 @map("created_by") @db.Uuid
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([teacherId, status])
+  @@index([centerId, status])
+  @@index([status, expiresAt])
+  @@map("collaboration_requests")
 }

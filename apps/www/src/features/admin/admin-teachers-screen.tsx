@@ -13,6 +13,7 @@ import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { PageHeader } from "@/components/kit/page-header";
+import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
@@ -210,6 +211,8 @@ export function AdminTeachersScreen() {
         actions={
           <Button onClick={() => setIsInviteOpen(true)}>
             <Plus className="size-4" />
+
+      <CollaborationPanel role="center" />
             {t("adminHome.teachers_inviteTeacher")}
           </Button>
         }

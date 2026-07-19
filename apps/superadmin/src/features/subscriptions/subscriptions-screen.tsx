@@ -32,6 +32,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useTranslations } from "next-intl";
 
 const ANY = "__any__";
 
@@ -62,6 +63,7 @@ type SubRow = {
 
 export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" }) {
   const { formatEGP, formatDate } = useFormatters();
+  const t = useTranslations();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [plan, setPlan] = useState<string | null>(null);
@@ -125,14 +127,14 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Subscriptions" />
+      <PageHeader title={t("subscriptions.title")} />
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-64 flex-1">
             <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search student or course…"
+              placeholder={t("subscriptions.searchPlaceholder")}
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
@@ -143,7 +145,7 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
             {q && (
               <button
                 type="button"
-                aria-label="Clear search"
+                aria-label={t("subscriptions.clearSearch")}
                 onClick={() => setQ("")}
                 className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -151,22 +153,22 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
               </button>
             )}
           </div>
-          {filterSelect("Status", status, setStatus, [
+          {filterSelect(t("subscriptions.status"), status, setStatus, [
             "pending_payment",
             "active",
             "expired",
             "cancelled",
           ])}
-          {filterSelect("Plan", plan, setPlan, ["monthly", "per_session"])}
-          {filterSelect("Source", source, setSource, ["online", "walk_in"])}
-          {filterSelect("Target", targetType, setTargetType, ["center", "teacher"])}
+          {filterSelect(t("subscriptions.plan"), plan, setPlan, ["monthly", "per_session"])}
+          {filterSelect(t("subscriptions.source"), source, setSource, ["online", "walk_in"])}
+          {filterSelect(t("subscriptions.target"), targetType, setTargetType, ["center", "teacher"])}
         </CardContent>
       </Card>
 
-      {query.isLoading && <PageSpinner label="Loading subscriptions…" />}
+      {query.isLoading && <PageSpinner label={t("subscriptions.loading")} />}
 
       {!query.isLoading && rows.length === 0 && (
-        <EmptyState icon={BookMarked} title="No subscriptions found" />
+        <EmptyState icon={BookMarked} title={t("subscriptions.notFound")} />
       )}
 
       {rows.length > 0 && (
@@ -174,14 +176,14 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>{t("subscriptions.student")}</TableHead>
+                <TableHead>{t("subscriptions.course")}</TableHead>
+                <TableHead>{t("subscriptions.target")}</TableHead>
+                <TableHead>{t("subscriptions.plan")}</TableHead>
+                <TableHead>{t("subscriptions.price")}</TableHead>
+                <TableHead>{t("subscriptions.source")}</TableHead>
+                <TableHead>{t("subscriptions.status")}</TableHead>
+                <TableHead>{t("subscriptions.created")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -211,61 +213,59 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
           </Table>
         </Card>
       )}
-
       {pageCount > 1 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            Page {page} of {pageCount} · {total} total
+            {t("subscriptions.pageInfo", { page, pageCount, total })}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
+              {t("subscriptions.prev")}
             </Button>
             <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t("subscriptions.next")}
             </Button>
           </div>
         </div>
       )}
-
       <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Subscription</DialogTitle>
+            <DialogTitle>{t("subscriptions.detailTitle")}</DialogTitle>
           </DialogHeader>
           {d ? (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Id</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.subId")}</dt>
               <dd className="font-mono text-xs">{d.id}</dd>
-              <dt className="text-muted-foreground">Student</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.student")}</dt>
               <dd>
                 {d.student?.name} <span className="text-muted-foreground">({d.student?.email})</span>
               </dd>
-              <dt className="text-muted-foreground">Target</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.targetVal")}</dt>
               <dd>
                 {d.targetType === "center" ? d.center?.name : d.teacher?.name}{" "}
                 <span className="text-muted-foreground">({d.targetType})</span>
               </dd>
-              <dt className="text-muted-foreground">Course</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.course")}</dt>
               <dd>
                 {d.course?.title ?? "—"}
                 {d.course?.location ? (
                   <span className="text-muted-foreground"> · {d.course.location}</span>
                 ) : null}
               </dd>
-              <dt className="text-muted-foreground">Plan / price</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.planPrice")}</dt>
               <dd>
                 {d.plan} · <span className="font-semibold">{formatEGP(d.price)}</span>
               </dd>
-              <dt className="text-muted-foreground">Status</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.status")}</dt>
               <dd>
                 <StatusBadge tone={STATUS_TONE[d.status] ?? "neutral"}>{d.status}</StatusBadge>
               </dd>
-              <dt className="text-muted-foreground">Source / method</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.sourceMethod")}</dt>
               <dd>
                 {d.source} / {d.paymentMethod ?? "—"}
               </dd>
-              <dt className="text-muted-foreground">Coverage</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.coverage")}</dt>
               <dd>
                 {d.plan === "monthly"
                   ? d.periodStart
@@ -273,22 +273,22 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
                     : "—"
                   : (d.sessionId ?? "—")}
               </dd>
-              <dt className="text-muted-foreground">Receipt</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.receipt")}</dt>
               <dd>{d.payment?.receiptNumber ?? "—"}</dd>
-              <dt className="text-muted-foreground">Payment intent</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.paymentIntent")}</dt>
               <dd className="font-mono text-xs">
                 {d.intent ? `${d.intent.id.slice(0, 8)} (${d.intent.status})` : "—"}
               </dd>
-              <dt className="text-muted-foreground">Enrollment</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.enrollment")}</dt>
               <dd>{d.enrollment ? `${d.enrollment.status}` : "—"}</dd>
-              <dt className="text-muted-foreground">Created / activated</dt>
+              <dt className="text-muted-foreground">{t("subscriptions.createdActivated")}</dt>
               <dd>
                 {formatDate(d.createdAt)}
                 {d.activatedAt ? ` → ${formatDate(d.activatedAt)}` : ""}
               </dd>
             </dl>
           ) : (
-            <PageSpinner label="Loading…" />
+            <PageSpinner label={t("common.loading")} />
           )}
         </DialogContent>
       </Dialog>

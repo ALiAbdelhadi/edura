@@ -3,7 +3,7 @@ import ws from "ws";
 import { withTenant, withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { completeSession } from "@/lib/services/finance/distribution";
-import { approveBooking, rejectBooking } from "@/lib/services/bookings/classroom-bookings";
+import { acceptCollaborationRequest, rejectCollaborationRequest } from "@/lib/services/collaboration/collaboration";
 import { cancelSession } from "@/lib/services/session-actions/session-actions";
 
 neonConfig.webSocketConstructor = ws as never;
@@ -78,10 +78,20 @@ async function main() {
     const room = await tx.room.create({
       data: { centerId: centerA.id, name: tag + "-room", facilities: [], photos: [], isActive: true },
     });
-    const booking = await tx.classroomBooking.create({
+    // Step 5 replacement fixture: a pending collaboration request at center A.
+    const catalogSubject = await tx.subject.findFirst({ where: { isActive: true }, select: { id: true } });
+    const catalogOffering = await tx.subjectOffering.findFirst({
+      where: { subjectId: catalogSubject!.id, isActive: true, trackId: null },
+      select: { gradeLevelId: true },
+    });
+    const booking = await tx.collaborationRequest.create({
       data: {
-        centerId: centerA.id, roomId: room.id, sessionId: session.id, courseId: course.id,
-        teacherId: teacherA.id, status: "pending",
+        initiator: "teacher", teacherId: teacherA.id, centerId: centerA.id,
+        subjectId: catalogSubject!.id, gradeLevelId: catalogOffering!.gradeLevelId,
+        daysOfWeek: [0], startTime: "10:00", endTime: "11:00",
+        startDate: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        proposedCenterShare: 5000, status: "pending",
+        expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000), createdBy: teacherA.id,
       },
     });
 
@@ -109,13 +119,13 @@ async function main() {
     );
 
     await expectThrows(
-      () => approveBooking(fx.booking, 5000, wrongCenterAdmin),
+      () => acceptCollaborationRequest(fx.booking, wrongCenterAdmin),
       ForbiddenError,
-      "approveBooking by wrong-center admin",
+      "acceptCollaborationRequest by wrong-center admin",
     );
 
     await expectThrows(
-      () => rejectBooking(fx.booking, "no rooms available", wrongCenterAdmin),
+      () => rejectCollaborationRequest(fx.booking, "no rooms available", wrongCenterAdmin),
       ForbiddenError,
       "rejectBooking by wrong-center admin",
     );
@@ -128,11 +138,11 @@ async function main() {
 
     const untouched = await withPlatformContext(async (tx) => {
       const s = await tx.session.findUnique({ where: { id: fx.session }, select: { status: true, distributedAt: true } });
-      const b = await tx.classroomBooking.findUnique({ where: { id: fx.booking }, select: { status: true } });
+      const b = await tx.collaborationRequest.findUnique({ where: { id: fx.booking }, select: { status: true } });
       return { s, b };
     });
     assert(untouched.s?.status === "scheduled" && untouched.s?.distributedAt == null, "session left un-completed / un-distributed after rejected guards");
-    assert(untouched.b?.status === "pending", "booking left pending after rejected guards");
+    assert(untouched.b?.status === "pending", "collaboration request left pending after rejected guards");
 
     const seenByA = await withTenant(fx.centerA, (tx) => tx.course.findMany({ where: { id: fx.course } }));
     assert(seenByA.length === 1, "tenant A can read its own course");
@@ -162,7 +172,7 @@ async function main() {
     const allCenters = [fx.centerA, fx.centerB];
     const c = await adminPool.connect();
     try {
-      await c.query(`DELETE FROM classroom_bookings WHERE center_id = ANY($1::uuid[])`, [allCenters]);
+      await c.query(`DELETE FROM collaboration_requests WHERE center_id = ANY($1::uuid[])`, [allCenters]);
       await c.query(`DELETE FROM sessions WHERE id = $1`, [fx.session]);
       await c.query(`DELETE FROM courses WHERE center_id = ANY($1::uuid[])`, [allCenters]);
       await c.query(`DELETE FROM rooms WHERE center_id = ANY($1::uuid[])`, [allCenters]);

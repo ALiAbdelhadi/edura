@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGetIdentity } from "@refinedev/core";
+import { useTranslations } from "next-intl";
 import type { MeResponse } from "@/lib/refine";
 
 export default function RoleGuard({
@@ -13,6 +14,7 @@ export default function RoleGuard({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const t = useTranslations();
   const { data: identity, isLoading } = useGetIdentity<MeResponse>();
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function RoleGuard({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-400">Loading…</div>
+        <div className="text-sm text-gray-400">{t("common.loading")}</div>
       </div>
     );
   }
@@ -37,7 +39,7 @@ export default function RoleGuard({
   if (!identity || identity.role !== allowedRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-400">Redirecting…</div>
+        <div className="text-sm text-gray-400">{t("common.redirecting")}</div>
       </div>
     );
   }

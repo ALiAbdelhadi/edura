@@ -70,7 +70,14 @@
     "courseCancelled": "Course cancelled",
     "failedCreate": "Failed to create course",
     "failedUpdate": "Failed to update course",
-    "failedCancel": "Failed to cancel course"
+    "failedCancel": "Failed to cancel course",
+    "unpriced": "No subscription price",
+    "unpricedBanner": "Some classes have no monthly or per-session price — students cannot subscribe until you set one (edit the class).",
+    "perMonthShort": "mo",
+    "perSessionShort": "session",
+    "pricePerMonthEGP": "Monthly plan price (EGP)",
+    "pricePerSessionEGP": "Per-session price (EGP)",
+    "planDisabled": "Empty = plan disabled"
   },
   "rooms": {
     "colName": "Name",

@@ -96,7 +96,9 @@
     "remove": "Remove",
     "sendInvite": "Send invite",
     "export": "Export",
-    "review": "Review"
+    "review": "Review",
+    "previous": "Previous",
+    "next": "Next"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -389,5 +391,27 @@
     "course": "Course",
     "teacher": "Teacher",
     "center": "Center"
+  },
+  "collabRequests": {
+    "title": "Collaboration Requests",
+    "searchPlaceholder": "Search teacher or center…",
+    "clearSearch": "Clear search",
+    "loading": "Loading requests…",
+    "notFound": "No collaboration requests found",
+    "any": "any",
+    "teacher": "Teacher",
+    "center": "Center",
+    "subject": "Subject",
+    "schedule": "Schedule",
+    "share": "Center share",
+    "initiator": "Initiator",
+    "status": "Status",
+    "created": "Created",
+    "detailTitle": "Collaboration request",
+    "expected": "Expected students",
+    "createdCourse": "Created class",
+    "affiliation": "Affiliation",
+    "message": "Message",
+    "pageOf": "Page {page} of {pageCount} · {total} total"
   }
 }

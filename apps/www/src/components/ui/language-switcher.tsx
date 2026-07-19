@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Globe } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
@@ -15,6 +15,7 @@ const LOCALE_LABELS: Record<string, string> = {
 
 export function LanguageSwitcher() {
   const locale = useLocale();
+  const t = useTranslations();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -38,8 +39,8 @@ export function LanguageSwitcher() {
       value={locale}
       disabled={isPending}
       onValueChange={handleChange}
-      aria-label="Language"
-    >
+      aria-label={t("common.language")}
+>
       {routing.locales.map((l) => (
         <ToggleGroupItem key={l} value={l} aria-label={LOCALE_LABELS[l] ?? l}>
           <Globe className="me-1.5 size-4" />
