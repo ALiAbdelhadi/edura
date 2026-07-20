@@ -12,11 +12,18 @@ import {
   TrendingUp,
   BookOpenCheck,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { LineChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { PageHeader } from "@/components/kit/page-header";
 import { StatCard } from "@/components/kit/stat-card";
 import { StatCardsSkeleton } from "@/components/ui/skeletons";
 
@@ -47,6 +54,7 @@ export function SuperAdminDashboard() {
   if (kq.isLoading) {
     return (
       <div className="flex w-full flex-col gap-6">
+        <PageHeader title={t("adminHome.title")} description={t("adminHome.subtitle")} />
         <StatCardsSkeleton count={4} />
         <StatCardsSkeleton count={3} />
       </div>
@@ -57,6 +65,8 @@ export function SuperAdminDashboard() {
 
   return (
     <div className="flex w-full flex-col gap-6">
+      <PageHeader title={t("adminHome.title")} description={t("adminHome.subtitle")} />
+
       {hasPending && (
         <Card className="border-warning/40 bg-warning/10">
           <CardContent className="flex flex-wrap items-center justify-between gap-3">
@@ -89,7 +99,7 @@ export function SuperAdminDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <StatCard label={t("adminHome.platformRevenue")} value={formatShortEGP(k?.platformRevenue)} icon={DollarSign} accent />
+        <StatCard label={t("adminHome.platformRevenue")} value={formatShortEGP(k?.platformRevenue)} icon={DollarSign} filled />
         <StatCard label={t("adminHome.grossLessonRevenue")} value={formatShortEGP(k?.grossLessonRevenue)} icon={TrendingUp} />
         <StatCard label={t("adminHome.lessonsCompleted")} value={k?.lessonsCompleted ?? 0} icon={BookOpenCheck} />
       </div>
@@ -97,6 +107,9 @@ export function SuperAdminDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>{t("adminHome.platformRevenueChartTitle")}</CardTitle>
+          <CardDescription>
+            {t("adminHome.platformRevenueChartSubtitle")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {series.length > 0 ? (

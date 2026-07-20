@@ -1,0 +1,561 @@
+/* eslint-disable no-console */
+/**
+ * ============================================================================
+ * PREVIEW SEED — THROWAWAY is_demo DATA FOR VIEWING THE REFRESHED UI
+ * ============================================================================
+ * Purpose: the DB was wiped to catalog + config + real staff, so the refreshed
+ * screens render empty. This script adds the MINIMUM demo data needed to see
+ * the Track A visuals (student dashboard/assignments/grades + superadmin
+ * dashboard/teachers), then can be cleanly removed.
+ *
+ * SAFETY (enforced by construction — see comments inline):
+ *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true.
+ *     Children inherit demo-ness by ancestry (they have no is_demo column).
+ *   • ZERO writes to any money / ledger / wallet table: no transactions,
+ *     payments, payment_intents, payouts, invoices, expenses, points_ledger,
+ *     subscriptions, or commission_settings. wallet_balance / points_balance
+ *     stay at their 0 default; Session.distributedAt stays NULL.
+ *   • The permanent Egyptian catalog is READ, never written.
+ *   • The two real staff accounts (super_admin / accountant) are never touched.
+ *
+ * Idempotent: re-run safely (upserts on stable keys / deterministic ids).
+ *
+ *   Seed:   pnpm exec tsx --env-file=.env prisma/preview-seed.ts
+ *   Purge:  pnpm exec tsx --env-file=.env prisma/preview-seed.ts --purge
+ *
+ * Purge removes ALL isDemo data (this preview data AND the pre-existing demo
+ * login group) plus its child rows, returning the DB to catalog + config +
+ * your 2 real staff. Your real accounts and the catalog are untouched.
+ * ============================================================================
+ */
+import { createHash } from "node:crypto";
+import bcrypt from "bcryptjs";
+import { prisma, withPlatformContext } from "../src/index";
+
+const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
+const PURGE = process.argv.includes("--purge");
+const DAY = 24 * 60 * 60 * 1000;
+
+// Deterministic UUID from a stable key -> idempotent upsert-by-id.
+function did(key: string): string {
+  const h = createHash("sha1").update("edura-preview:" + key).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+function flc(userId: string): string {
+  return createHash("sha1").update("flc:" + userId).digest("hex").slice(0, 10).toUpperCase();
+}
+function at(daysFromNow: number, hhmm = "15:00"): Date {
+  const d = new Date(Date.now() + daysFromNow * DAY);
+  const [h, m] = hhmm.split(":").map(Number);
+  d.setUTCHours(h, m, 0, 0);
+  return d;
+}
+
+// ---------------------------------------------------------------------------
+// PURGE
+// ---------------------------------------------------------------------------
+async function purge() {
+  await withPlatformContext(
+    async (tx) => {
+      const demoUsers = await tx.user.findMany({ where: { isDemo: true }, select: { id: true } });
+      const demoCenters = await tx.center.findMany({ where: { isDemo: true }, select: { id: true } });
+      const demoCourses = await tx.course.findMany({ where: { isDemo: true }, select: { id: true } });
+      const U = demoUsers.map((u) => u.id);
+      const C = demoCenters.map((c) => c.id);
+      const K = demoCourses.map((c) => c.id);
+
+      const grades = await tx.grade.findMany({ where: { courseId: { in: K } }, select: { id: true } });
+      const G = grades.map((g) => g.id);
+
+      // Children first (FKs are mostly onDelete: Restrict), then roots.
+      await tx.gradeScore.deleteMany({ where: { OR: [{ gradeId: { in: G } }, { studentId: { in: U } }] } });
+      await tx.grade.deleteMany({ where: { courseId: { in: K } } });
+      await tx.attendanceRecord.deleteMany({ where: { OR: [{ courseId: { in: K } }, { studentId: { in: U } }] } });
+      await tx.session.deleteMany({ where: { courseId: { in: K } } });
+      await tx.material.deleteMany({ where: { courseId: { in: K } } });
+      await tx.review.deleteMany({ where: { OR: [{ studentId: { in: U } }, { teacherId: { in: U } }] } });
+      await tx.enrollment.deleteMany({ where: { OR: [{ courseId: { in: K } }, { studentId: { in: U } }] } });
+      await tx.enrollmentRequest.deleteMany({ where: { OR: [{ courseId: { in: K } }, { studentId: { in: U } }] } });
+      await tx.centerStudentRoster.deleteMany({ where: { OR: [{ centerId: { in: C } }, { studentId: { in: U } }] } });
+      await tx.centerTeacherAffiliation.deleteMany({ where: { OR: [{ centerId: { in: C } }, { teacherId: { in: U } }] } });
+      await tx.notification.deleteMany({ where: { userId: { in: U } } });
+      await tx.parentStudentLink.deleteMany({ where: { OR: [{ parentId: { in: U } }, { studentId: { in: U } }] } });
+      await tx.teacherAssistant.deleteMany({ where: { OR: [{ teacherId: { in: U } }, { assistantId: { in: U } }] } });
+      await tx.teacherSubject.deleteMany({ where: { teacherId: { in: U } } });
+      await tx.teacherGradeLevel.deleteMany({ where: { teacherId: { in: U } } });
+      await tx.room.deleteMany({ where: { centerId: { in: C } } });
+      await tx.centerStage.deleteMany({ where: { centerId: { in: C } } });
+      await tx.course.deleteMany({ where: { isDemo: true } });
+      await tx.centerAdminProfile.deleteMany({ where: { OR: [{ userId: { in: U } }, { centerId: { in: C } }] } });
+      await tx.teacherProfile.deleteMany({ where: { userId: { in: U } } });
+      await tx.studentProfile.deleteMany({ where: { userId: { in: U } } });
+      await tx.parentProfile.deleteMany({ where: { userId: { in: U } } });
+      await tx.userPref.deleteMany({ where: { userId: { in: U } } }).catch(() => {});
+      await tx.center.deleteMany({ where: { isDemo: true } });
+      await tx.user.deleteMany({ where: { isDemo: true } });
+
+      console.log("Purge complete: removed", {
+        users: U.length,
+        centers: C.length,
+        courses: K.length,
+        grades: G.length,
+      });
+    },
+    { timeout: 120_000, maxWait: 15_000 },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SEED
+// ---------------------------------------------------------------------------
+async function seed() {
+  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+
+  await withPlatformContext(
+    async (tx) => {
+      const mkUser = (
+        email: string,
+        name: string,
+        role: "center_admin" | "teacher" | "assistant" | "student" | "parent",
+        status: "active" | "pending" = "active",
+      ) =>
+        tx.user.upsert({
+          where: { email },
+          update: { isDemo: true, name, role, status },
+          create: { email, name, role, status, passwordHash, isDemo: true },
+        });
+
+      // ---- CENTERS (root, isDemo). NILE upserts the existing demo center. ----
+      const centerDefs = [
+        { shortId: "NILE", name: "Nile Educational Academy", status: "active", area: "المعادي" },
+        { shortId: "ANDL", name: "Al-Andalus Learning Center", status: "active", area: "مدينة نصر" },
+        { shortId: "FUTR", name: "Future Scholars Center", status: "active", area: "الدقي" },
+        { shortId: "BRGT", name: "Bright Minds Academy", status: "pending", area: "المهندسين" },
+      ] as const;
+      const centers: Record<string, { id: string }> = {};
+      for (const c of centerDefs) {
+        const row = await tx.center.upsert({
+          where: { shortId: c.shortId },
+          update: { isDemo: true, status: c.status },
+          create: {
+            name: c.name,
+            shortId: c.shortId,
+            status: c.status,
+            subjects: [],
+            address: "Cairo, Egypt",
+            governorate: "القاهرة",
+            area: c.area,
+            onboardingCompleted: true,
+            isDemo: true,
+          },
+        });
+        centers[c.shortId] = { id: row.id };
+        await tx.room.upsert({
+          where: { id: did("room:" + c.shortId) },
+          update: {},
+          create: { id: did("room:" + c.shortId), centerId: row.id, name: "قاعة 1", capacity: 30, isActive: true },
+        });
+      }
+      const nile = centers["NILE"]!;
+
+      // ---- LOGIN GROUP (reused quick-login demo accounts) ----
+      const admin = await mkUser("admin@nile-academy.eg", "Demo Admin", "center_admin");
+      await tx.centerAdminProfile.upsert({
+        where: { userId: admin.id },
+        update: {},
+        create: { userId: admin.id, centerId: nile.id },
+      });
+
+      const hossam = await mkUser("hossam.aziz@nile-academy.eg", "Hossam Aziz", "teacher");
+      const parent = await mkUser("mona.hassan@email.eg", "Mona Hassan", "parent");
+      await tx.parentProfile.upsert({ where: { userId: parent.id }, update: {}, create: { userId: parent.id } });
+
+      const student = await mkUser("lina.hassan@student.nile-academy.eg", "Lina Hassan", "student");
+      await tx.studentProfile.upsert({
+        where: { userId: student.id },
+        update: {},
+        create: { userId: student.id, fullName: student.name, familyLinkCode: flc(student.id) },
+      });
+      // Read Lina's real onboarding (she is already onboarded to azhari-secondary-3 / علمي).
+      const lina = await tx.studentProfile.findUnique({ where: { userId: student.id } });
+      if (!lina?.gradeLevelId) {
+        throw new Error("Lina is not onboarded (no gradeLevelId) — re-run the main seed/onboarding first.");
+      }
+      await tx.centerStudentRoster.upsert({
+        where: { centerId_studentId: { centerId: nile.id, studentId: student.id } },
+        update: {},
+        create: { centerId: nile.id, studentId: student.id },
+      });
+      const linkExists = await tx.parentStudentLink.findFirst({ where: { parentId: parent.id, studentId: student.id } });
+      if (!linkExists) {
+        await tx.parentStudentLink.create({
+          data: { parentId: parent.id, studentId: student.id, status: "approved", initiatedBy: "parent" },
+        });
+      }
+
+      // ---- EXTRA TEACHERS (for a populated superadmin teachers list) ----
+      const teacherDefs = [
+        { email: "hossam.aziz@nile-academy.eg", name: "Hossam Aziz", mode: "counter_and_door", status: "active", rating: 4.7, exp: 8 },
+        { email: "mariam.adel@nile-academy.eg", name: "Mariam Adel", mode: "counter_only", status: "active", rating: 4.9, exp: 12 },
+        { email: "khaled.samir@andalus.eg", name: "Khaled Samir", mode: "counter_and_door", status: "active", rating: 4.4, exp: 5 },
+        { email: "nour.ibrahim@future.eg", name: "Nour Ibrahim", mode: "counter_only", status: "active", rating: 4.8, exp: 10 },
+        { email: "tamer.fouad@preview.edura.eg", name: "Tamer Fouad", mode: "counter_only", status: "pending", rating: 0, exp: 2 },
+      ] as const;
+      const teachers: { id: string }[] = [];
+      for (const td of teacherDefs) {
+        const u = await mkUser(td.email, td.name, "teacher", td.status);
+        await tx.teacherProfile.upsert({
+          where: { userId: u.id },
+          update: {
+            attendanceMode: td.mode,
+            ratingAvg: td.rating,
+            ratingCount: td.rating > 0 ? 12 : 0,
+            experienceYears: td.exp,
+            onboardingCompleted: td.status === "active",
+          },
+          create: {
+            userId: u.id,
+            subjects: [],
+            attendanceMode: td.mode,
+            ratingAvg: td.rating,
+            ratingCount: td.rating > 0 ? 12 : 0,
+            experienceYears: td.exp,
+            onboardingCompleted: td.status === "active",
+          },
+        });
+        teachers.push({ id: u.id });
+      }
+
+      // ---- EXTRA STUDENTS (pad the superadmin students count) ----
+      const extraStudentDefs = [
+        { email: "omar.khaled@student.nile-academy.eg", name: "Omar Khaled" },
+        { email: "salma.tarek@student.nile-academy.eg", name: "Salma Tarek" },
+        { email: "youssef.adel@student.andalus.eg", name: "Youssef Adel" },
+        { email: "hana.sherif@student.future.eg", name: "Hana Sherif" },
+      ];
+      const extraStudents: { id: string }[] = [];
+      for (const sd of extraStudentDefs) {
+        const u = await mkUser(sd.email, sd.name, "student");
+        await tx.studentProfile.upsert({
+          where: { userId: u.id },
+          update: {},
+          create: { userId: u.id, fullName: sd.name, familyLinkCode: flc(u.id) },
+        });
+        extraStudents.push({ id: u.id });
+      }
+
+      // ---- SUBJECTS from Lina's real track offerings (read-only catalog) ----
+      const offerings = await tx.subjectOffering.findMany({
+        where: {
+          gradeLevelId: lina.gradeLevelId,
+          isActive: true,
+          OR: [{ trackId: lina.trackId }, { trackId: null }],
+        },
+        take: 4,
+      });
+      const subjectIds = offerings.map((o) => o.subjectId);
+      const subjects = await tx.subject.findMany({ where: { id: { in: subjectIds } } });
+      const subjById = new Map(subjects.map((s) => [s.id, s]));
+      const subjName = (id: string) => {
+        const s = subjById.get(id) as Record<string, unknown> | undefined;
+        return (s?.nameAr as string) || (s?.nameEn as string) || (s?.name as string) || (s?.code as string) || "مادة";
+      };
+
+      // ---- COURSES (root, isDemo) matched to Lina's grade + track ----
+      const courseTeachers = [teachers[0]!, teachers[1]!, teachers[2]!, teachers[3]!];
+      const courseCenters = [nile, centers["ANDL"]!, centers["FUTR"]!, nile];
+      const courses: { id: string; centerId: string; teacherId: string }[] = [];
+      for (let i = 0; i < offerings.length; i++) {
+        const off = offerings[i]!;
+        const t = courseTeachers[i % courseTeachers.length]!;
+        const ctr = courseCenters[i % courseCenters.length]!;
+        const id = did("course:" + off.subjectId + ":" + lina.gradeLevelId);
+        const name = subjName(off.subjectId);
+        await tx.course.upsert({
+          where: { id },
+          update: {
+            isDemo: true,
+            status: "active",
+            subjectId: off.subjectId,
+            gradeLevelId: lina.gradeLevelId,
+            trackId: lina.trackId,
+          },
+          create: {
+            id,
+            centerId: ctr.id,
+            teacherId: t.id,
+            title: `${name} — الثالث الثانوي`,
+            subject: name,
+            subjectId: off.subjectId,
+            gradeLevelId: lina.gradeLevelId,
+            trackId: lina.trackId,
+            daysOfWeek: [6, 1, 3],
+            startTime: "16:00",
+            endTime: "18:00",
+            startDate: at(-30),
+            price: 40000, // piasters — course CONFIG (display), not a ledger row
+            pricePerMonth: 40000,
+            maxStudents: 30,
+            status: "active",
+            isDemo: true,
+          },
+        });
+        courses.push({ id, centerId: ctr.id, teacherId: t.id });
+        // Teacher subject/grade links (so teachers have subjects; optional but tidy)
+        await tx.teacherSubject.upsert({
+          where: { teacherId_subjectId: { teacherId: t.id, subjectId: off.subjectId } },
+          update: {},
+          create: { teacherId: t.id, subjectId: off.subjectId },
+        });
+        await tx.teacherGradeLevel.upsert({
+          where: { teacherId_gradeLevelId: { teacherId: t.id, gradeLevelId: lina.gradeLevelId } },
+          update: {},
+          create: { teacherId: t.id, gradeLevelId: lina.gradeLevelId },
+        });
+        // Active affiliation of the teacher to the course's center
+        const aff = await tx.centerTeacherAffiliation.findFirst({ where: { centerId: ctr.id, teacherId: t.id } });
+        if (!aff) {
+          await tx.centerTeacherAffiliation.create({
+            data: {
+              centerId: ctr.id,
+              teacherId: t.id,
+              status: "active",
+              respondedAt: new Date(),
+              expiresAt: at(365),
+            },
+          });
+        }
+      }
+      if (courses.length === 0) throw new Error("No subject offerings found for Lina's grade/track.");
+
+      // ---- ENROLLMENTS (roster links — NO money) ----
+      const enroll = async (studentId: string, courseId: string, centerId: string) => {
+        const ex = await tx.enrollment.findFirst({ where: { studentId, courseId } });
+        if (!ex) {
+          await tx.enrollment.create({
+            data: { studentId, courseId, centerId, status: "active", enrolledBy: admin.id },
+          });
+        } else if (ex.status !== "active") {
+          await tx.enrollment.update({ where: { id: ex.id }, data: { status: "active", unenrolledAt: null } });
+        }
+      };
+      for (const c of courses) await enroll(student.id, c.id, c.centerId);
+      // a couple extra students on the first course (enrollment counts)
+      await enroll(extraStudents[0]!.id, courses[0]!.id, courses[0]!.centerId);
+      await enroll(extraStudents[1]!.id, courses[0]!.id, courses[0]!.centerId);
+
+      // ---- SESSIONS (schedule) — courses[0] gets a full week, others lighter ----
+      const c0 = courses[0]!;
+      const sessionPlan: { key: string; days: number; status: "scheduled" | "completed" }[] = [
+        { key: "s-today", days: 0, status: "scheduled" },
+        { key: "s+3", days: 3, status: "scheduled" },
+        { key: "s-3", days: -3, status: "completed" },
+        { key: "s-7", days: -7, status: "completed" },
+        { key: "s-14", days: -14, status: "completed" },
+        { key: "s-21", days: -21, status: "completed" },
+      ];
+      const c0Sessions: { id: string; days: number; status: string }[] = [];
+      for (const sp of sessionPlan) {
+        const id = did("sess:" + c0.id + ":" + sp.key);
+        await tx.session.upsert({
+          where: { id },
+          update: { status: sp.status },
+          create: {
+            id,
+            courseId: c0.id,
+            teacherId: c0.teacherId,
+            originalDate: at(sp.days),
+            date: at(sp.days),
+            startTime: "16:00",
+            endTime: "18:00",
+            status: sp.status,
+            roomId: did("room:NILE"),
+          },
+        });
+        c0Sessions.push({ id, days: sp.days, status: sp.status });
+      }
+      // one upcoming session on courses[1] so "today/upcoming" spans subjects
+      if (courses[1]) {
+        const id = did("sess:" + courses[1].id + ":s+1");
+        await tx.session.upsert({
+          where: { id },
+          update: { status: "scheduled" },
+          create: {
+            id,
+            courseId: courses[1].id,
+            teacherId: courses[1].teacherId,
+            originalDate: at(1),
+            date: at(1),
+            startTime: "18:00",
+            endTime: "20:00",
+            status: "scheduled",
+          },
+        });
+      }
+
+      // ---- ATTENDANCE (Lina: 4 present + 1 absent over past sessions) ----
+      const past = c0Sessions.filter((s) => s.days < 0).sort((a, b) => a.days - b.days); // oldest..newest
+      const attStatuses = ["present", "present", "present", "absent"] as const; // -21,-14,-7,-3
+      for (let i = 0; i < past.length; i++) {
+        const st = attStatuses[i] ?? "present";
+        await tx.attendanceRecord.upsert({
+          where: { sessionId_studentId: { sessionId: past[i]!.id, studentId: student.id } },
+          update: { status: st },
+          create: {
+            sessionId: past[i]!.id,
+            studentId: student.id,
+            courseId: c0.id,
+            centerId: c0.centerId,
+            status: st,
+            markedBy: admin.id,
+          },
+        });
+      }
+
+      // ---- GRADES — grade EVERY enrolled course (good scores) so the
+      // dashboard's subject-performance + average-grade read realistically,
+      // plus one PENDING assignment on c0 (drives "assignments due" / dueSoon).
+      // centerId is REQUIRED on grades. NO money is written.
+      const gradeName = ["اختبار الوحدة الأولى", "امتحان منتصف الفصل", "اختبار قصير", "الامتحان الشهري", "تقييم مستمر"];
+      const gradeMax = [20, 50, 30, 25, 40];
+      const gradeGot = [17, 44, 27, 23, 35]; // ~85–92%
+      // Grade EVERY course Lina is actively enrolled in (incl. any pre-existing
+      // course from the base seed) so no subject shows 0% / F.
+      const linaEnrollments = await tx.enrollment.findMany({
+        where: { studentId: student.id, status: "active" },
+        select: { courseId: true },
+      });
+      const enrolledIds = [...new Set(linaEnrollments.map((e) => e.courseId))];
+      const enrolledCourses = await tx.course.findMany({
+        where: { id: { in: enrolledIds } },
+        select: { id: true, centerId: true, teacherId: true },
+      });
+      let gi = 0;
+      for (const c of enrolledCourses) {
+        if (!c.centerId) continue; // grades require a center (teacher-direct can't carry grades)
+        const gid = did("grade:" + c.id + ":main");
+        await tx.grade.upsert({
+          where: { id: gid },
+          update: {},
+          create: {
+            id: gid,
+            courseId: c.id,
+            centerId: c.centerId,
+            teacherId: c.teacherId,
+            name: gradeName[gi % gradeName.length]!,
+            maxScore: gradeMax[gi % gradeMax.length]!,
+            date: at(-12 - gi * 3),
+            gradeType: "numeric",
+          },
+        });
+        await tx.gradeScore.upsert({
+          where: { gradeId_studentId: { gradeId: gid, studentId: student.id } },
+          update: { score: gradeGot[gi % gradeGot.length]! },
+          create: { gradeId: gid, studentId: student.id, score: gradeGot[gi % gradeGot.length]! },
+        });
+        gi++;
+      }
+      const gradePending = did("grade:" + c0.id + ":hw2");
+      await tx.grade.upsert({
+        where: { id: gradePending },
+        update: {},
+        create: {
+          id: gradePending,
+          courseId: c0.id,
+          centerId: c0.centerId,
+          teacherId: c0.teacherId,
+          name: "واجب الفصل الثاني",
+          maxScore: 10,
+          date: at(-4),
+          gradeType: "numeric",
+        },
+      });
+
+      // ---- MATERIALS (centerId REQUIRED) ----
+      const materialDefs = [
+        { c: c0, key: "m1", title: "مذكرة الوحدة الأولى", type: "lecture" },
+        { c: c0, key: "m2", title: "ورقة عمل — تمارين محلولة", type: "homework" },
+        { c: courses[1] ?? c0, key: "m3", title: "ملخص منتصف الفصل", type: "lecture" },
+        { c: courses[2] ?? c0, key: "m4", title: "نموذج امتحان تجريبي", type: "exam" },
+      ] as const;
+      for (const md of materialDefs) {
+        const id = did("mat:" + md.c.id + ":" + md.key);
+        await tx.material.upsert({
+          where: { id },
+          update: {},
+          create: {
+            id,
+            courseId: md.c.id,
+            centerId: md.c.centerId,
+            teacherId: md.c.teacherId,
+            title: md.title,
+            type: md.type,
+            storageProvider: "external",
+            externalUrl: "https://example.com/preview.pdf",
+          },
+        });
+      }
+
+      // ---- NOTIFICATIONS (display only; non-money types) ----
+      const notify = async (
+        userId: string,
+        key: string,
+        type: string,
+        title: string,
+        body: string,
+        read: boolean,
+      ) => {
+        await tx.notification.upsert({
+          where: { id: did("notif:" + userId + ":" + key) },
+          update: {},
+          create: { id: did("notif:" + userId + ":" + key), userId, type, title, body, read, status: "sent" },
+        });
+      };
+      await notify(student.id, "n1", "grade_entered", "تم رصد درجة جديدة", "درجة اختبار الوحدة الأولى: 17 / 20", false);
+      await notify(student.id, "n2", "material_uploaded", "مادة تعليمية جديدة", "تم رفع: مذكرة الوحدة الأولى", false);
+      await notify(student.id, "n3", "lesson_reminder", "تذكير بالحصة", "لديك حصة اليوم الساعة 4 عصرًا", true);
+      await notify(student.id, "n4", "session_postponed", "تم تأجيل حصة", "تم تأجيل حصة الغد إلى نفس الموعد الأسبوع القادم", true);
+      await notify(student.id, "n5", "admin_broadcast", "إعلان من الإدارة", "أهلًا بك في المنصة — تصفّح موادك وجدولك.", true);
+      await notify(hossam.id, "n1", "student_added_to_roster", "طالب جديد", "انضم طالب جديد إلى مجموعتك", false);
+      await notify(hossam.id, "n2", "material_uploaded", "تم رفع مادة", "تم نشر مذكرة الوحدة الأولى", true);
+      await notify(hossam.id, "n3", "admin_broadcast", "إعلان", "تذكير باجتماع المعلمين الأسبوعي", true);
+      await notify(admin.id, "n1", "enrollment_request_submitted", "طلب تسجيل جديد", "طلب انضمام بانتظار المراجعة", false);
+      await notify(admin.id, "n2", "admin_broadcast", "إعلان", "تقرير الحضور الأسبوعي جاهز", true);
+      await notify(parent.id, "n1", "grade_entered", "درجة جديدة لابنتك", "لينا حصلت على 17 / 20 في اختبار الوحدة الأولى", false);
+      await notify(parent.id, "n2", "admin_broadcast", "إعلان", "موعد اجتماع أولياء الأمور الأسبوع القادم", true);
+
+      // ---- REVIEW (rating 1..5) ----
+      await tx.review.upsert({
+        where: { studentId_teacherId: { studentId: student.id, teacherId: hossam.id } },
+        update: { rating: 5 },
+        create: { studentId: student.id, teacherId: hossam.id, centerId: nile.id, rating: 5, text: "شرح ممتاز ومبسّط، جزاه الله خيرًا." },
+      });
+
+      console.log("Preview seed complete:", {
+        centers: centerDefs.map((c) => c.shortId),
+        teachers: teacherDefs.length,
+        students: 1 + extraStudentDefs.length,
+        courses: courses.length,
+        sessions: c0Sessions.length + (courses[1] ? 1 : 0),
+        loginPassword: PASSWORD === "Passw0rd!" ? "Passw0rd! (default)" : "(SEED_PASSWORD)",
+      });
+    },
+    { timeout: 120_000, maxWait: 20_000 },
+  );
+}
+
+async function main() {
+  if (PURGE) {
+    console.log("PURGE mode — removing all is_demo preview data…");
+    await purge();
+  } else {
+    await seed();
+  }
+  await prisma.$disconnect();
+}
+
+main().catch(async (e) => {
+  console.error(PURGE ? "Purge failed:" : "Preview seed failed:", e);
+  await prisma.$disconnect();
+  process.exit(1);
+});

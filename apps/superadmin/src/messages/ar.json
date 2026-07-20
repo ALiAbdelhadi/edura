@@ -266,7 +266,8 @@
     "platformCommission": "عمولة المنصة",
     "grossRevenue": "إجمالي الإيرادات",
     "refunds": "المبالغ المستردة",
-    "revenueChartTitle": "الإيرادات مقابل العمولة"
+    "revenueChartTitle": "الإيرادات مقابل العمولة",
+    "revenueChartSubtitle": "الإيرادات الإجمالية مقابل عمولة المنصة شهريًا."
   },
   "chat": {
     "newConversation": "محادثة جديدة",

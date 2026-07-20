@@ -24,7 +24,8 @@
     "assignmentProgressTrend": "اتجاه تقدم الواجبات",
     "pending": "قيد الانتظار",
     "graded": "تم التقييم",
-    "noAssignmentTrend": "لا يوجد اتجاه للواجبات بعد"
+    "noAssignmentTrend": "لا يوجد اتجاه للواجبات بعد",
+    "subtitle": "حضورك وواجباتك وأداؤك في لمحة."
   },
   "studentBrowse": {
     "enrollmentSent": "تم إرسال طلب التسجيل",

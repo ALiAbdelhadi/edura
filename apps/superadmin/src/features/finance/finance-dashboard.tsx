@@ -3,7 +3,13 @@
 import React from "react";
 import { useCustom } from "@refinedev/core";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, FileCheck, AlertTriangle, Info, LineChart as LineChartIcon } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { StatCard } from "@/components/kit/stat-card";
 import { PageHeader } from "@/components/kit/page-header";
@@ -54,7 +60,11 @@ export function FinanceDashboard() {
             <Alert
               key={a.code}
               role="status"
-              className={a.level === "warning" ? "bg-warning/12 text-warning" : "bg-info/12 text-info"}
+              className={
+                a.level === "warning"
+                  ? "border-warning/40 bg-warning/10 text-warning"
+                  : "border-info/40 bg-info/10 text-info"
+              }
             >
               {a.level === "warning" ? <AlertTriangle /> : <Info />}
               <AlertTitle>{a.message}</AlertTitle>
@@ -64,7 +74,7 @@ export function FinanceDashboard() {
       )}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        <StatCard label={t("financeHome.platformCommission")} value={formatShortEGP(k?.platformCommission)} icon={DollarSign} accent />
+        <StatCard label={t("financeHome.platformCommission")} value={formatShortEGP(k?.platformCommission)} icon={DollarSign} filled />
         <StatCard label={t("financeHome.grossRevenue")} value={formatShortEGP(k?.grossLessonRevenue)} icon={TrendingUp} />
         <StatCard label={t("financeHome.refunds")} value={formatShortEGP(k?.totalRefunds)} icon={TrendingDown} />
         <StatCard
@@ -79,6 +89,9 @@ export function FinanceDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>{t("financeHome.revenueChartTitle")}</CardTitle>
+          <CardDescription>
+            {t("financeHome.revenueChartSubtitle")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {series.length > 0 ? (

@@ -110,5 +110,8 @@
   "lessonsCompleted": "الدروس المكتملة",
   "platformRevenueChartTitle": "إيرادات المنصة",
   "platformRevenueSeriesLabel": "إيرادات المنصة (ج.م)",
-  "platformRevenue": "إيرادات المنصة"
+  "platformRevenue": "إيرادات المنصة",
+  "title": "نظرة عامة على المنصة",
+  "subtitle": "أهم المؤشرات عبر السناتر والمعلمين والطلاب والإيرادات.",
+  "platformRevenueChartSubtitle": "عمولة المنصة شهريًا."
 }

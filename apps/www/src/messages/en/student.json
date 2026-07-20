@@ -24,7 +24,8 @@
     "assignmentProgressTrend": "Assignment Progress Trend",
     "pending": "Pending",
     "graded": "Graded",
-    "noAssignmentTrend": "No assignment trend yet"
+    "noAssignmentTrend": "No assignment trend yet",
+    "subtitle": "Your attendance, assignments, and performance at a glance."
   },
   "studentBrowse": {
     "enrollmentSent": "Enrollment request sent",

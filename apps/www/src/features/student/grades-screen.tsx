@@ -181,14 +181,14 @@ export function GradesScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.grades")} />
+      <PageHeader title={t("nav.grades")} description={t("studentClass.gradesSubtitle")} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label={t("studentClass.overallGpa")}
           value={String(gpa)}
           icon={Star}
-          accent
+          filled
         />
         <StatCard
           label={t("studentClass.highestGrade")}

@@ -163,7 +163,7 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
         <Card className="overflow-hidden py-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/40">
                 <TableHead>{t("paymentIntents.student")}</TableHead>
                 <TableHead>{t("paymentIntents.course")}</TableHead>
                 <TableHead>{t("paymentIntents.center")}</TableHead>
@@ -182,12 +182,22 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
                   onClick={() => setDetailId(r.id)}
                 >
                   <TableCell>
-                    <div className="font-medium">{r.studentName ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">{r.studentEmail}</div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        aria-hidden
+                        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
+                      >
+                        {r.studentName ? r.studentName.trim().charAt(0) : "—"}
+                      </span>
+                      <div>
+                        <div className="font-medium">{r.studentName ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{r.studentEmail}</div>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>{r.courseTitle ?? "—"}</TableCell>
                   <TableCell>{r.centerName ?? "—"}</TableCell>
-                  <TableCell className="font-semibold">{formatEGP(r.amount)}</TableCell>
+                  <TableCell className="font-semibold tabular-nums">{formatEGP(r.amount)}</TableCell>
                   <TableCell>{r.method}</TableCell>
                   <TableCell>{r.gateway}</TableCell>
                   <TableCell>
@@ -202,32 +212,32 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
               ))}
             </TableBody>
           </Table>
+          {pageCount > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4 text-sm">
+              <span className="text-muted-foreground">
+                {t("paymentIntents.pageInfo", { page, pageCount, total })}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  {t("paymentIntents.prev")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= pageCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  {t("paymentIntents.next")}
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
-      )}
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {t("paymentIntents.pageInfo", { page, pageCount, total })}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              {t("paymentIntents.prev")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pageCount}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              {t("paymentIntents.next")}
-            </Button>
-          </div>
-        </div>
       )}
       <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">

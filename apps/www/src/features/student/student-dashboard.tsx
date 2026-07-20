@@ -46,7 +46,7 @@ export function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.dashboard")} />
+      <PageHeader title={t("nav.dashboard")} description={t("studentDashboard.subtitle")} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -54,7 +54,7 @@ export function StudentDashboard() {
           value={data.attendanceRate ?? 0}
           unit="%"
           icon={CheckCircle2}
-          accent
+          filled
         />
         <StatCard
           label={t("studentDashboard.assignmentsDue")}

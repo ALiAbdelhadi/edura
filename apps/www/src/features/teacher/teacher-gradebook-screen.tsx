@@ -48,7 +48,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { BarChart } from "@/components/charts";
 
 interface RawGrade {
-  _id: string;
+  id: string;
   courseId: string;
   name: string;
   gradeType?: "numeric" | "letter";
@@ -183,14 +183,14 @@ export function TeacherGradebookScreen() {
 
   useEffect(() => {
     if (courses.length > 0 && !selectedCourseId) {
-      setSelectedCourseId(courses[0]._id);
+      setSelectedCourseId(courses[0].id);
     }
   }, [courses, selectedCourseId]);
 
   const entries: GradeEntry[] = useMemo(
     () =>
       rawGrades.map((g) => ({
-        _id: g._id,
+        _id: g.id,
         title: g.name,
         type: "exam",
         gradeType: g.gradeType || "numeric",
@@ -225,7 +225,7 @@ export function TeacherGradebookScreen() {
             scores: {},
           });
         }
-        studentMap.get(sid)!.scores[g._id] = s.score;
+        studentMap.get(sid)!.scores[g.id] = s.score;
       }
     }
     return Array.from(studentMap.values());
@@ -426,7 +426,7 @@ export function TeacherGradebookScreen() {
             </SelectTrigger>
             <SelectContent>
               {courses.map((c: any) => (
-                <SelectItem key={c._id} value={c._id}>
+                <SelectItem key={c.id} value={c.id}>
                   {`${c.subject} - ${c.gradeTag}`}
                 </SelectItem>
               ))}

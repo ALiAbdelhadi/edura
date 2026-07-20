@@ -12,9 +12,15 @@ import {
 
 export function PasswordInput({
   className,
+  showLabel = "Show password",
+  hideLabel = "Hide password",
   ...props
-}: React.ComponentProps<typeof Input>) {
+}: React.ComponentProps<typeof Input> & {
+  showLabel?: string;
+  hideLabel?: string;
+}) {
   const [show, setShow] = React.useState(false);
+  const label = show ? hideLabel : showLabel;
   return (
     <InputGroup>
       <InputGroupInput
@@ -27,8 +33,9 @@ export function PasswordInput({
           type="button"
           size="icon-xs"
           onClick={() => setShow((s) => !s)}
-          tabIndex={-1}
-          aria-label={show ? "Hide password" : "Show password"}
+          aria-label={label}
+          aria-pressed={show}
+          title={label}
         >
           {show ? <EyeOff /> : <Eye />}
         </InputGroupButton>

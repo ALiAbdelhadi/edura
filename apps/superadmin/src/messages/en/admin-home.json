@@ -110,5 +110,8 @@
   "lessonsCompleted": "Lessons completed",
   "platformRevenueChartTitle": "Platform revenue",
   "platformRevenueSeriesLabel": "Platform revenue (EGP)",
-  "platformRevenue": "Platform revenue"
+  "platformRevenue": "Platform revenue",
+  "title": "Platform overview",
+  "subtitle": "Key metrics across centers, teachers, students, and revenue.",
+  "platformRevenueChartSubtitle": "Monthly platform commission."
 }

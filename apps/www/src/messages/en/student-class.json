@@ -46,5 +46,7 @@
   "absentDays": "Absent Days",
   "lateExcused": "Late / Excused",
   "heatmapTitle": "Attendance Heatmap (Last 28 Records)",
-  "noAttendance": "No attendance records yet."
+  "noAttendance": "No attendance records yet.",
+  "assignmentsSubtitle": "Track your assignments and grading progress.",
+  "gradesSubtitle": "Your grades and performance by subject."
 }

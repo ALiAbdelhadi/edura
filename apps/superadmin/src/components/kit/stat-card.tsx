@@ -26,6 +26,7 @@ export function StatCard({
   trendValue,
   icon: Icon,
   accent = false,
+  filled = false,
   className,
 }: {
   label: React.ReactNode;
@@ -36,6 +37,7 @@ export function StatCard({
   trendValue?: React.ReactNode;
   icon?: LucideIcon;
   accent?: boolean;
+  filled?: boolean;
   className?: string;
 }) {
   const Arrow = trend ? TrendIcon[trend] : null;
@@ -43,19 +45,38 @@ export function StatCard({
     <Card
       className={cn(
         "gap-0 py-5 transition-shadow",
-        accent && "border-primary/15 shadow-glow",
+        accent && !filled && "border-primary/15 shadow-glow",
+        filled &&
+          "gradient-primary border-transparent text-primary-foreground shadow-glow",
         className,
       )}
     >
       <CardContent className="flex items-start justify-between gap-3 px-5">
         <div className="min-w-0 space-y-2">
-          <p className="truncate text-sm font-medium text-muted-foreground">
+          <p
+            className={cn(
+              "truncate text-sm font-medium",
+              filled ? "text-primary-foreground/80" : "text-muted-foreground",
+            )}
+          >
             {label}
           </p>
-          <p className="text-[1.75rem] leading-none font-bold tracking-tight tabular-nums text-foreground">
+          <p
+            className={cn(
+              "text-[1.75rem] leading-none font-bold tracking-tight tabular-nums",
+              filled ? "text-primary-foreground" : "text-foreground",
+            )}
+          >
             {value}
             {unit ? (
-              <span className="ms-1 text-base font-normal text-muted-foreground">
+              <span
+                className={cn(
+                  "ms-1 text-base font-normal",
+                  filled
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground",
+                )}
+              >
                 {unit}
               </span>
             ) : null}
@@ -85,9 +106,11 @@ export function StatCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-xl",
-              accent
-                ? "gradient-primary text-primary-foreground shadow-sm"
-                : "bg-primary/10 text-primary",
+              filled
+                ? "bg-white/15 text-primary-foreground"
+                : accent
+                  ? "gradient-primary text-primary-foreground shadow-sm"
+                  : "bg-primary/10 text-primary",
             )}
           >
             <Icon className="size-5" />

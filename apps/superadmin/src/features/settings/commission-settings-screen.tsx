@@ -5,7 +5,13 @@ import { useCustom, useCustomMutation } from "@refinedev/core";
 import { Percent, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
@@ -100,15 +106,31 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Percent className="size-4" />
-            Global defaults
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+            >
+              <Percent className="size-5" />
+            </span>
+            <div className="space-y-0.5">
+              <CardTitle>Global defaults</CardTitle>
+              <CardDescription>
+                Applied to every teacher and center without a specific override.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <div className="mb-1 text-sm font-medium">Teacher-direct commission (%)</div>
+            <label
+              htmlFor="commission-pct"
+              className="mb-1 block text-sm font-medium"
+            >
+              Teacher-direct commission (%)
+            </label>
             <Input
+              id="commission-pct"
               type="number"
               min="0"
               max="100"
@@ -125,8 +147,14 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <div className="mb-1 text-sm font-medium">Platform fee — teacher side (EGP)</div>
+              <label
+                htmlFor="platform-fee-teacher"
+                className="mb-1 block text-sm font-medium"
+              >
+                Platform fee — teacher side (EGP)
+              </label>
               <Input
+                id="platform-fee-teacher"
                 type="number"
                 min="0"
                 step="0.01"
@@ -136,8 +164,14 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
               />
             </div>
             <div>
-              <div className="mb-1 text-sm font-medium">Platform fee — center side (EGP)</div>
+              <label
+                htmlFor="platform-fee-center"
+                className="mb-1 block text-sm font-medium"
+              >
+                Platform fee — center side (EGP)
+              </label>
               <Input
+                id="platform-fee-center"
                 type="number"
                 min="0"
                 step="0.01"
@@ -153,10 +187,12 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
             {data.updatedAt ? ` Last changed ${formatDate(data.updatedAt)}.` : ""}
           </p>
           {!readOnly ? (
-            <Button onClick={submit} disabled={saving}>
-              {saving ? <Spinner /> : null}
-              Save settings
-            </Button>
+            <div className="flex justify-end pt-2">
+              <Button onClick={submit} disabled={saving}>
+                {saving ? <Spinner /> : null}
+                Save settings
+              </Button>
+            </div>
           ) : null}
         </CardContent>
       </Card>

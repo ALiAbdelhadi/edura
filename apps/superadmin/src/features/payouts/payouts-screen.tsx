@@ -157,18 +157,18 @@ export function PayoutsScreen() {
       <PageHeader
         title="Payouts"
         description="Withdraw requests from teachers and centers. Approving settles immediately: wallet is debited, the ledger transaction is written, and the payout is marked paid."
+        actions={
+          <Button variant="outline" onClick={generate}>
+            <RefreshCcw className="size-4" />
+            Generate month-end payouts
+          </Button>
+        }
       />
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           {filterSelect("Status", status, setStatus, ["pending", "approved", "paid", "rejected"])}
           {filterSelect("Beneficiary", type, setType, ["teacher", "center"])}
-          <div className="ms-auto">
-            <Button variant="outline" onClick={generate}>
-              <RefreshCcw className="size-4" />
-              Generate month-end payouts
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -182,7 +182,7 @@ export function PayoutsScreen() {
         <Card className="overflow-hidden py-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/40">
                 <TableHead>Beneficiary</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Net payable</TableHead>
@@ -196,13 +196,31 @@ export function PayoutsScreen() {
               {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
-                    <div className="font-medium">{p.beneficiaryName ?? p.beneficiaryId.slice(0, 8)}</div>
-                    {p.beneficiaryEmail ? (
-                      <div className="text-xs text-muted-foreground">{p.beneficiaryEmail}</div>
-                    ) : null}
+                    <div className="flex items-center gap-3">
+                      <span
+                        aria-hidden
+                        className={`flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${
+                          p.beneficiaryType === "center"
+                            ? "bg-brand-teal/10 text-brand-teal"
+                            : "bg-primary/10 text-primary"
+                        }`}
+                      >
+                        {(p.beneficiaryName ?? p.beneficiaryId).charAt(0).toUpperCase()}
+                      </span>
+                      <div>
+                        <div className="font-medium">{p.beneficiaryName ?? p.beneficiaryId.slice(0, 8)}</div>
+                        {p.beneficiaryEmail ? (
+                          <div className="text-xs text-muted-foreground">{p.beneficiaryEmail}</div>
+                        ) : null}
+                      </div>
+                    </div>
                   </TableCell>
-                  <TableCell>{p.beneficiaryType}</TableCell>
-                  <TableCell className="font-semibold">{formatEGP(p.netPayable ?? 0)}</TableCell>
+                  <TableCell>
+                    <StatusBadge tone={p.beneficiaryType === "center" ? "info" : "primary"}>
+                      {p.beneficiaryType}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="font-semibold text-brand-teal">{formatEGP(p.netPayable ?? 0)}</TableCell>
                   <TableCell>
                     <StatusBadge tone={TONE[p.status] ?? "neutral"}>{p.status}</StatusBadge>
                     {p.rejectionReason ? (
@@ -249,6 +267,11 @@ export function PayoutsScreen() {
               ))}
             </TableBody>
           </Table>
+          <div className="flex items-center justify-between border-t px-6 py-4">
+            <span className="text-sm text-muted-foreground">
+              Showing {rows.length} payout{rows.length === 1 ? "" : "s"}
+            </span>
+          </div>
         </Card>
       )}
 

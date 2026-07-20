@@ -266,7 +266,8 @@
     "platformCommission": "Platform commission",
     "grossRevenue": "Gross revenue",
     "refunds": "Refunds",
-    "revenueChartTitle": "Revenue vs commission"
+    "revenueChartTitle": "Revenue vs commission",
+    "revenueChartSubtitle": "Monthly gross revenue vs platform commission."
   },
   "chat": {
     "newConversation": "New conversation",

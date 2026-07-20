@@ -94,13 +94,13 @@ export function AssignmentsScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.assignments")} />
+      <PageHeader title={t("nav.assignments")} description={t("studentClass.assignmentsSubtitle")} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("status.pending")} value={pending} icon={FileText} />
         <StatCard label={t("studentClass.graded")} value={graded} icon={Trophy} />
         <StatCard label={t("studentClass.totalEntries")} value={assignments.length} icon={CheckCircle2} />
-        <StatCard label={t("studentClass.completion")} value={formatPercent(completion)} icon={BarChart3} accent />
+        <StatCard label={t("studentClass.completion")} value={formatPercent(completion)} icon={BarChart3} filled />
       </div>
 
       <Card>

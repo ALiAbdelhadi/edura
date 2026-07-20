@@ -28,6 +28,19 @@ Education platform for the Egyptian market (K-12 private lessons / teaching cent
 
 ## Conventions
 - All demo/seed data is flagged `is_demo = true` so it can be purged later.
+  Purgeable `is_demo` demo data is wiped before launch. This NEVER includes the
+  permanent reference data — the Egyptian education catalog (systems / stages /
+  grades / tracks / subjects / offerings) and my real superadmin/accountant
+  accounts — which always stay.
+- **Realistic demo data during development:** whenever building a new
+  feature/screen/system, also seed enough realistic demo data (flagged
+  `is_demo = true`) so I can view and test it as if it were real — populated
+  screens, not empty states. Keep all demo data in clearly-labeled,
+  cleanly-removable seed scripts. NEVER let demo data write to the money
+  ledger, wallets, or finance tables unless the feature being built IS a money
+  feature and I've approved its plan — and even then, flag it `is_demo` and
+  keep it purgeable. This demo data is for my preview only and gets wiped
+  before launch (Step 10 style).
 - Secrets only via env vars (e.g. PAYMOB_*, WHATSAPP_*). Never hardcode.
 - Destructive operations use soft-delete; all superadmin writes go to an audit log.
 - Prefer incremental, migration-safe schema changes.

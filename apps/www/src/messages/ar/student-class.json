@@ -46,5 +46,7 @@
   "absentDays": "أيام الغياب",
   "lateExcused": "التأخير / بعذر",
   "heatmapTitle": "خريطة الحضور (آخر ٢٨ سجلًا)",
-  "noAttendance": "لا توجد سجلات حضور بعد."
+  "noAttendance": "لا توجد سجلات حضور بعد.",
+  "assignmentsSubtitle": "تابع واجباتك وتقدّم التصحيح.",
+  "gradesSubtitle": "درجاتك وأداؤك في كل مادة."
 }

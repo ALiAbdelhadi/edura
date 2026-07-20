@@ -158,10 +158,10 @@ export function TeachersScreen() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>{t("teachers.colName")}</TableHead>
                   <TableHead>{t("teachers.colContact")}</TableHead>
-                  <TableHead>{t("teachers.colStatus")}</TableHead>
+                  <TableHead className="text-center">{t("teachers.colStatus")}</TableHead>
                   <TableHead>{t("teachers.colMode")}</TableHead>
                   <TableHead>{t("teachers.colJoined")}</TableHead>
                 </TableRow>
@@ -176,14 +176,24 @@ export function TeachersScreen() {
                 ) : (
                   rows.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.name ?? "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <span
+                            aria-hidden
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
+                          >
+                            {r.name ? r.name.trim().charAt(0) : "—"}
+                          </span>
+                          <span>{r.name ?? "—"}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <span className="block text-sm">{r.email ?? "—"}</span>
                         <span className="block text-xs text-muted-foreground" dir="ltr">
                           {r.phone ?? ""}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <StatusBadge
                           tone={
                             r.status === "active"
@@ -228,35 +238,34 @@ export function TeachersScreen() {
               </TableBody>
             </Table>
           )}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4">
+            <span className="text-sm text-muted-foreground">
+              {t("teachers.total", { count: total })}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                {t("teachers.prev")}
+              </Button>
+              <span className="self-center text-sm">
+                {page} / {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= pageCount}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t("teachers.next")}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
-
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {t("teachers.total", { count: total })}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("teachers.prev")}
-          </Button>
-          <span className="self-center text-sm">
-            {page} / {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pageCount}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("teachers.next")}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

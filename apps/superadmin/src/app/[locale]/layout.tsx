@@ -70,16 +70,13 @@ export default async function RootLayout({
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=localStorage.getItem('edura-theme')||'system';var d=m==='dark'||(m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.setAttribute('data-theme',d?'dark':'light');e.style.colorScheme=d?'dark':'light';}catch(_){}})();`,
-          }}
-        />
-      </head>
       <body
         className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}
       >
+        {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
+            it as a hoistable resource and never warns about client-rendered
+            inline scripts; same-origin + blocking so it runs before paint. */}
+        <script src="/theme-init.js" />
         <NextIntlClientProvider>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>
