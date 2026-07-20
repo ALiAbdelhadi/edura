@@ -6,16 +6,15 @@ import type {
   BridgeMessagePayload,
   BridgeReadPayload,
 } from "@repo/database/chat-protocol";
+import { requireDedicatedSecret } from "@/lib/config/secrets";
 
 const REALTIME_INTERNAL_URL = (
   process.env.REALTIME_INTERNAL_URL ?? "http://localhost:3005"
 ).replace(/\/$/, "");
 
 function internalSecret(): string {
-  const secret =
-    process.env.INTERNAL_API_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret) throw new Error("INTERNAL_API_SECRET / NEXTAUTH_SECRET not set");
-  return secret;
+  // M2: dedicated internal-bridge secret, required in production.
+  return requireDedicatedSecret("INTERNAL_API_SECRET");
 }
 
 async function post(path: string, body: unknown): Promise<unknown | null> {

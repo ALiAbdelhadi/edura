@@ -1,4 +1,4 @@
-import { platformDb } from "@/lib/db/scope";
+import { platformDb, type TenantTx } from "@/lib/db/scope";
 import {
   BusinessRuleError,
   ForbiddenError,
@@ -211,6 +211,19 @@ export type WebhookOutcome =
   | { handled: true; intentId: string; result: "paid" | "failed" | "replay" | "not_pending" }
   | { handled: false; reason: string };
 
+/**
+ * Notification to fire AFTER a settlement transaction commits — a failed
+ * notify must never roll back settled money. Returned by the settle helpers
+ * so processWebhookEvent can send it post-commit.
+ */
+export type SettleNotification = {
+  studentId: string;
+  type: "payment_recorded";
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+};
+
 export async function processWebhookEvent(
   event: WebhookEvent,
   rawPayload: unknown,
@@ -222,139 +235,147 @@ export async function processWebhookEvent(
 
   const payloadJson = rawPayload as Prisma.InputJsonValue;
 
-  // Idempotent claim — the same trick as Session.distributedAt: only ONE
-  // caller can move the intent out of `pending`. Replays and races fall
-  // through to a no-op 200.
-  const claim = await platformDb((tx) =>
-    tx.paymentIntent.updateMany({
-      where: { id: intent.id, status: "pending" },
-      data: event.success
-        ? {
-            status: "paid",
-            paidAt: new Date(),
-            gatewayRef: event.gatewayRef,
-            webhookPayload: payloadJson,
-          }
-        : {
-            status: "failed",
-            failureReason: event.reason ?? "Payment failed",
-            gatewayRef: event.gatewayRef,
-            webhookPayload: payloadJson,
+  // M1: claim + settlement run in ONE transaction. If settlement throws, the
+  // pending->paid claim rolls back with it, so the intent stays `pending` and
+  // a webhook redelivery settles cleanly — a charged-but-empty intent can no
+  // longer exist. Still idempotent: the claim's `updateMany where pending`
+  // takes a row lock, so a concurrent second delivery blocks then sees 0
+  // pending rows and no-ops.
+  const dynamicSettle = intent.subscriptionId
+    ? (
+        await import("@/lib/services/subscriptions/subscriptions")
+      ).settleSubscriptionFromIntentTx
+    : null;
+
+  const { result, toNotify } = await platformDb(
+    async (tx): Promise<{ result: WebhookOutcome & { handled: true }; toNotify: SettleNotification | null }> => {
+      const claim = await tx.paymentIntent.updateMany({
+        where: { id: intent.id, status: "pending" },
+        data: event.success
+          ? {
+              status: "paid",
+              paidAt: new Date(),
+              gatewayRef: event.gatewayRef,
+              webhookPayload: payloadJson,
+            }
+          : {
+              status: "failed",
+              failureReason: event.reason ?? "Payment failed",
+              gatewayRef: event.gatewayRef,
+              webhookPayload: payloadJson,
+            },
+      });
+      if (claim.count === 0) {
+        const cur = await tx.paymentIntent.findUnique({
+          where: { id: intent.id },
+          select: { status: true },
+        });
+        return {
+          result: {
+            handled: true,
+            intentId: intent.id,
+            result: cur?.status === "paid" ? "replay" : "not_pending",
           },
-    }),
+          toNotify: null,
+        };
+      }
+
+      if (!event.success) {
+        return { result: { handled: true, intentId: intent.id, result: "failed" }, toNotify: null };
+      }
+
+      // Settle inside the SAME transaction as the claim.
+      const toNotify = dynamicSettle
+        ? await dynamicSettle(tx, intent.subscriptionId!, {
+            id: intent.id,
+            gatewayRef: event.gatewayRef,
+          })
+        : await settleIntentTx(tx, intent.id);
+
+      return { result: { handled: true, intentId: intent.id, result: "paid" }, toNotify };
+    },
   );
-  if (claim.count === 0) {
-    return {
-      handled: true,
-      intentId: intent.id,
-      result: intent.status === "paid" ? "replay" : "not_pending",
-    };
-  }
 
-  if (!event.success) {
-    return { handled: true, intentId: intent.id, result: "failed" };
-  }
-
-  if (intent.subscriptionId) {
-    // Subscription checkout (Step 4): activation + subscription-aware money
-    // movements. Dynamic import avoids a module cycle with the subscriptions
-    // service (which reuses initiateSubscriptionIntent above).
-    const { settleSubscriptionFromIntent } = await import(
-      "@/lib/services/subscriptions/subscriptions"
-    );
-    await settleSubscriptionFromIntent(intent.subscriptionId, {
-      id: intent.id,
-      gatewayRef: event.gatewayRef,
+  // Notifications AFTER commit — a notify failure cannot un-settle the money.
+  if (toNotify) {
+    await notify({
+      recipients: await studentAndParents(toNotify.studentId),
+      type: toNotify.type,
+      title: toNotify.title,
+      body: toNotify.body,
+      data: toNotify.data,
     });
-  } else {
-    await settleIntent(intent.id);
   }
-  return { handled: true, intentId: intent.id, result: "paid" };
+  return result;
 }
 
 /**
- * Settlement for a successfully paid intent (runs exactly once — the caller
- * holds the pending->paid claim): Payment row (receipt via the center
- * sequence), immutable Transaction (type payment, online_paymob), points
- * event, notification. Amounts come from the intent row only.
- *
- * NOTE (ledger consistency): cash payments do NOT write Transactions yet, so
- * the accountant ledger is online-only until the Step 4 reconciliation
- * (tracked prominently in CLAUDE.md decision #11).
+ * Settlement for a successfully paid intent, run WITHIN the webhook claim
+ * transaction (M1) so charge and fulfillment are atomic: Payment row (receipt
+ * via the center sequence), immutable Transaction (type payment,
+ * online_paymob), points event. Amounts come from the intent row only.
+ * Returns the notification to fire after the tx commits.
  */
-async function settleIntent(intentId: string): Promise<void> {
-  const { receiptNumber, paymentId, amount, studentId } = await platformDb(
-    async (tx) => {
-      const intent = await tx.paymentIntent.findUnique({ where: { id: intentId } });
-      if (!intent) throw new NotFoundError("Intent vanished during settlement");
-      if (!intent.centerId) {
-        // Cannot happen today (initiate requires a centered course); guards
-        // the Step 4 teacher-direct future from silently mis-settling.
-        throw new BusinessRuleError("Intent has no center to settle against");
-      }
+async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNotification> {
+  const intent = await tx.paymentIntent.findUnique({ where: { id: intentId } });
+  if (!intent) throw new NotFoundError("Intent vanished during settlement");
+  if (!intent.centerId) {
+    // Cannot happen today (initiate requires a centered course); guards
+    // the Step 4 teacher-direct future from silently mis-settling.
+    throw new BusinessRuleError("Intent has no center to settle against");
+  }
 
-      const center = await tx.center.update({
-        where: { id: intent.centerId },
-        data: { receiptSeq: { increment: 1 } },
-      });
-      const receiptNumber = formatReceiptNumber(center.shortId, center.receiptSeq);
+  const center = await tx.center.update({
+    where: { id: intent.centerId },
+    data: { receiptSeq: { increment: 1 } },
+  });
+  const receiptNumber = formatReceiptNumber(center.shortId, center.receiptSeq);
 
-      const payment = await tx.payment.create({
-        data: {
-          centerId: intent.centerId,
-          studentId: intent.studentId,
-          courseId: intent.courseId,
-          amount: intent.amount,
-          note: `Online payment (${intent.gateway}/${intent.method})`,
-          receiptNumber,
-          recordedBy: intent.studentId, // self-service online payment
-          paidAt: new Date(),
-        },
-      });
-
-      const refNumber = await nextTxnRef(tx);
-      const transaction = await tx.transaction.create({
-        data: {
-          refNumber,
-          type: "payment",
-          amount: intent.amount,
-          fromEntityId: intent.studentId,
-          toEntityId: intent.centerId,
-          centerId: intent.centerId,
-          status: "completed",
-          paymentMethod: "online_paymob",
-          gatewayRef: intent.gatewayRef,
-          notes: `Online course payment (intent ${intent.id})`,
-        },
-      });
-
-      await tx.paymentIntent.update({
-        where: { id: intent.id },
-        data: { paymentId: payment.id, transactionId: transaction.id },
-      });
-
-      await awardPoints(tx, intent.studentId, "online_payment", {
-        reason: "Online payment",
-      });
-
-      return {
-        receiptNumber,
-        paymentId: payment.id,
-        amount: intent.amount,
-        studentId: intent.studentId,
-      };
+  const payment = await tx.payment.create({
+    data: {
+      centerId: intent.centerId,
+      studentId: intent.studentId,
+      courseId: intent.courseId,
+      amount: intent.amount,
+      note: `Online payment (${intent.gateway}/${intent.method})`,
+      receiptNumber,
+      recordedBy: intent.studentId, // self-service online payment
+      paidAt: new Date(),
     },
-    // No session here (gateway callback) — audit actor stays system/null;
-    // the intent row keeps the full trace (payload, refs, linkage).
-  );
+  });
 
-  await notify({
-    recipients: await studentAndParents(studentId),
+  const refNumber = await nextTxnRef(tx);
+  const transaction = await tx.transaction.create({
+    data: {
+      refNumber,
+      type: "payment",
+      amount: intent.amount,
+      fromEntityId: intent.studentId,
+      toEntityId: intent.centerId,
+      centerId: intent.centerId,
+      status: "completed",
+      paymentMethod: "online_paymob",
+      gatewayRef: intent.gatewayRef,
+      notes: `Online course payment (intent ${intent.id})`,
+    },
+  });
+
+  await tx.paymentIntent.update({
+    where: { id: intent.id },
+    data: { paymentId: payment.id, transactionId: transaction.id },
+  });
+
+  await awardPoints(tx, intent.studentId, "online_payment", {
+    reason: "Online payment",
+  });
+
+  return {
+    studentId: intent.studentId,
     type: "payment_recorded",
     title: "Payment received",
     body: `Receipt ${receiptNumber} has been issued.`,
-    data: { paymentId, receiptNumber, amount, studentId },
-  });
+    data: { paymentId: payment.id, receiptNumber, amount: intent.amount, studentId: intent.studentId },
+  };
 }
 
 // ---------------------------------------------------------------------------

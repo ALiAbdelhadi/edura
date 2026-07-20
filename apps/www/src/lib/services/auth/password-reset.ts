@@ -48,7 +48,15 @@ export async function resetPassword(token: string, newPassword: string): Promise
     if (row.usedAt) throw new ExpiredError("Reset token already used");
     if (row.expiresAt.getTime() < Date.now()) throw new ExpiredError("Reset token expired");
 
-    await tx.user.update({ where: { id: row.userId }, data: { passwordHash } });
+    // L1: bump the session epoch in the SAME tx as the new hash. Every JWT
+    // issued before this reset recorded the old value and is rejected by the
+    // NextAuth jwt callback from here on — so a reset after a compromise
+    // immediately logs out the attacker's existing session, while a fresh
+    // login (which reads the new value) works.
+    await tx.user.update({
+      where: { id: row.userId },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    });
     await tx.passwordResetToken.update({
       where: { id: row.id },
       data: { usedAt: new Date() },

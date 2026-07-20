@@ -74,6 +74,7 @@ export const POST = withRateLimit(
         locale: user.locale,
         name: user.name,
         email: user.email,
+        ver: user.tokenVersion, // L1: session epoch, revalidated per request
       },
       maxAge: SESSION_MAX_AGE,
     });

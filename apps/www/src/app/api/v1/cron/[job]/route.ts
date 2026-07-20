@@ -8,9 +8,13 @@ import { expireCollaborationRequests } from "@/lib/services/collaboration/collab
 
 export const dynamic = "force-dynamic";
 
+// Fail closed, in EVERY environment: with no CRON_SECRET set there is no
+// valid caller, so every request is rejected — there is no env-based bypass.
+// (These jobs mutate data — statements, expiries — so an open staging/preview
+// would let anyone trigger them unauthenticated.)
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
+  if (!secret) return false;
   const auth = req.headers.get("authorization");
   const header = req.headers.get("x-cron-secret");
   return auth === `Bearer ${secret}` || header === secret;
@@ -36,4 +40,6 @@ export const POST = withErrors(async (req, ctx) => {
   }
 });
 
-export const GET = POST;
+// POST-only: these jobs mutate data. A plain GET (prefetchers, link scanners,
+// crawlers) must never trigger a side-effectful job. The GET = POST alias was
+// removed; GET falls through to Next's 405 Method Not Allowed.

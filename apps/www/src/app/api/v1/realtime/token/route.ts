@@ -1,6 +1,7 @@
 import { SignJWT } from "jose";
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
+import { requireDedicatedSecret } from "@/lib/config/secrets";
 import { ok } from "@/lib/http/envelope";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +13,8 @@ export const dynamic = "force-dynamic";
 // handshake only; the socket session itself lives as long as the connection.
 export const GET = withErrors(async () => {
   const user = await requireSession();
-  const secret =
-    process.env.REALTIME_JWT_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    throw new Error("REALTIME_JWT_SECRET / NEXTAUTH_SECRET is not configured");
-  }
+  // M2: dedicated realtime secret, required in production.
+  const secret = requireDedicatedSecret("REALTIME_JWT_SECRET");
 
   const token = await new SignJWT({
     role: user.role,

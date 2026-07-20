@@ -1,4 +1,4 @@
-import { platformDb } from "@/lib/db/scope";
+import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, ConflictError, BusinessRuleError } from "@/lib/errors/classes";
 import { generateFamilyCode, generateInviteCode } from "@/lib/utils/random";
 import { sendMail } from "@/lib/mail/send";
@@ -67,9 +67,56 @@ export async function createTempStudent(
   );
 }
 
+/**
+ * M5 — the caller must actually OWN this temp student before we hand back its
+ * invite code + phone. Runs under `platformDb` (RLS bypassed), so ownership is
+ * asserted explicitly here, never left to row-level security.
+ *
+ * - center_admin: a `centerStudentRoster` row {centerId, studentId}. This is
+ *   exactly what `createTempStudent` writes for the center, and what the
+ *   walk-in/counter flow adds — so a center invites only its own roster.
+ * - teacher / assistant (both arrive as a teacher-shaped actor whose `id` is
+ *   the TEACHER's id): an `Enrollment` in a course owned by that teacher
+ *   (`course.teacherId`). Teacher-direct temp students are enrolled into the
+ *   teacher's own course at checkout, so this is the teacher-scope equivalent
+ *   of the roster link.
+ *
+ * Default-closed: anyone else (or a center_admin with no centerId) is not an
+ * owner. A non-owner gets a 404 — we never confirm the shell exists, nor leak
+ * the code/phone.
+ */
+async function callerOwnsTempStudent(
+  tx: TenantTx,
+  tempUserId: string,
+  actor: SessionUser,
+): Promise<boolean> {
+  if (actor.role === "center_admin") {
+    if (!actor.centerId) return false;
+    const row = await tx.centerStudentRoster.findUnique({
+      where: { centerId_studentId: { centerId: actor.centerId, studentId: tempUserId } },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+  if (actor.role === "teacher") {
+    const enrollment = await tx.enrollment.findFirst({
+      where: { studentId: tempUserId, course: { teacherId: actor.id } },
+      select: { id: true },
+    });
+    return enrollment !== null;
+  }
+  return false;
+}
+
 export async function sendTempStudentInvite(tempUserId: string, actor: SessionUser) {
   return platformDb(
     async (tx) => {
+      if (!(await callerOwnsTempStudent(tx, tempUserId, actor))) {
+        // Same error as a missing student — a non-owner learns nothing about
+        // whether the shell exists, and never sees the code or phone.
+        throw new NotFoundError("Temp student not found");
+      }
+
       const profile = await tx.studentProfile.findFirst({
         where: { userId: tempUserId },
         select: { id: true, fullName: true, phone: true, inviteCode: true, entityType: true },

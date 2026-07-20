@@ -8,6 +8,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import type { Course, Prisma, Session, Subscription } from "@repo/database";
 import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
+import type { SettleNotification } from "@/lib/services/payments/payment-intents";
 import { awardPoints } from "@/lib/services/points/points";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import { computeTeacherDirectSplit } from "@/lib/services/finance/fees";
@@ -154,9 +155,8 @@ function formatCenterReceipt(shortId: string, seq: number): string {
 }
 
 async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
-  const rows = await tx.$queryRawUnsafe<{ nextval: bigint }[]>(
-    `SELECT nextval('platform_receipt_seq')`,
-  );
+  const rows = await tx.$queryRaw<{ nextval: bigint }[]>`
+    SELECT nextval('platform_receipt_seq'::regclass)`;
   return `RCP-EDURA-${new Date().getFullYear()}-${String(Number(rows[0].nextval)).padStart(5, "0")}`;
 }
 
@@ -314,44 +314,45 @@ export async function createSubscriptionCheckout(
   return initiateSubscriptionIntent(sub, input.method, input.idempotencyKey, user);
 }
 
-/** Called from webhook settlement with the intent's pending->paid claim held. */
-export async function settleSubscriptionFromIntent(
+/**
+ * Settle a subscription from its paid intent, WITHIN the caller's webhook claim
+ * transaction (M1) — charge and activation are atomic. Returns the
+ * notification to fire after commit, or null on a replay no-op. The
+ * `status !== "pending_payment"` check is the subscription-side double-settle
+ * guard (defense in depth alongside the intent claim).
+ */
+export async function settleSubscriptionFromIntentTx(
+  tx: TenantTx,
   subscriptionId: string,
   intent: { id: string; gatewayRef: string | null },
-): Promise<void> {
-  const { receiptNumber, studentId, subId } = await platformDb(async (tx) => {
-    const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
-    if (!sub) throw new NotFoundError("Subscription vanished during settlement");
-    if (sub.status !== "pending_payment") return { receiptNumber: null, studentId: null, subId: sub.id }; // replay no-op
+): Promise<SettleNotification | null> {
+  const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
+  if (!sub) throw new NotFoundError("Subscription vanished during settlement");
+  if (sub.status !== "pending_payment") return null; // replay no-op
 
-    const { paymentId, receiptNumber } = await settleSubscriptionMoney(
-      tx,
-      sub,
-      "online_paymob",
-      intent.gatewayRef,
-      sub.studentId,
-    );
-    await tx.subscription.update({
-      where: { id: sub.id },
-      data: { paymentIntentId: intent.id },
-    });
-    await activateSubscription(tx, sub.id, {
-      paymentMethod: "online_paymob",
-      paymentId,
-      enrolledBy: sub.studentId,
-    });
-    return { receiptNumber, studentId: sub.studentId, subId: sub.id };
+  const { paymentId, receiptNumber } = await settleSubscriptionMoney(
+    tx,
+    sub,
+    "online_paymob",
+    intent.gatewayRef,
+    sub.studentId,
+  );
+  await tx.subscription.update({
+    where: { id: sub.id },
+    data: { paymentIntentId: intent.id },
   });
-
-  if (receiptNumber && studentId) {
-    await notify({
-      recipients: await studentAndParents(studentId),
-      type: "payment_recorded",
-      title: "Subscription active",
-      body: `Your subscription is active. Receipt ${receiptNumber}.`,
-      data: { subscriptionId: subId, receiptNumber },
-    });
-  }
+  await activateSubscription(tx, sub.id, {
+    paymentMethod: "online_paymob",
+    paymentId,
+    enrolledBy: sub.studentId,
+  });
+  return {
+    studentId: sub.studentId,
+    type: "payment_recorded",
+    title: "Subscription active",
+    body: `Your subscription is active. Receipt ${receiptNumber}.`,
+    data: { subscriptionId: sub.id, receiptNumber },
+  };
 }
 
 // ---------------------------------------------------------------------------

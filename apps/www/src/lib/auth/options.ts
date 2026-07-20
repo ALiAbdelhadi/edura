@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
-import { checkRateLimit } from "@/lib/rate-limit/token-bucket";
+import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 
 // www serves exactly these roles. Back-office staff (super_admin, accountant)
 // sign in to apps/superadmin only — enforced here at credential-check time so
@@ -30,10 +30,9 @@ const LOGIN_EMAIL_CAP = 5;
 const LOGIN_EMAIL_RATE = 5;
 
 function clientIp(req: unknown): string {
-  const fwd = (req as { headers?: Record<string, string> } | undefined)?.headers?.[
-    "x-forwarded-for"
-  ];
-  return (fwd ?? "").split(",")[0].trim() || "unknown";
+  const headers = (req as { headers?: Record<string, string> } | undefined)?.headers;
+  // M3: trusted proxy hop, not the spoofable leftmost XFF entry.
+  return trustedClientIp((n) => headers?.[n]);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -52,8 +51,8 @@ export const authOptions: NextAuthOptions = {
 
         // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work.
         const ip = clientIp(req);
-        if (!checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE)) return null;
-        if (!checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE)) {
+        if (!(await checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE))) return null;
+        if (!(await checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE))) {
           return null;
         }
 
@@ -91,6 +90,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           centerId,
           locale: user.locale,
+          tokenVersion: user.tokenVersion, // L1: session epoch at issue time
         };
       },
     }),
@@ -114,11 +114,8 @@ export const authOptions: NextAuthOptions = {
         const token = credentials?.token?.trim();
         if (!token || token.length < 32) return null;
 
-        const fwd = (req as { headers?: Record<string, string> } | undefined)?.headers?.[
-          "x-forwarded-for"
-        ];
-        const ip = (fwd ?? "").split(",")[0].trim() || "unknown";
-        if (!checkRateLimit(`walkin-token:${ip}`, 10, 10)) return null;
+        const ip = clientIp(req);
+        if (!(await checkRateLimit(`walkin-token:${ip}`, 10, 10))) return null;
 
         const tokenHash = createHash("sha256").update(token).digest("hex");
 
@@ -157,6 +154,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             centerId: undefined,
             locale: user.locale,
+            tokenVersion: user.tokenVersion, // L1: session epoch at issue time
           };
         });
       },
@@ -165,10 +163,30 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Fresh sign-in: stamp the token with the account's current epoch.
         token.uid = user.id;
         token.role = user.role;
         token.centerId = user.centerId;
         token.locale = user.locale;
+        token.ver = user.tokenVersion;
+        return token;
+      }
+      // L1: every subsequent request re-checks the token's epoch against the
+      // DB. A password reset/change bumps users.token_version, so any token
+      // minted before it now trails the column and is rejected here (all
+      // claims stripped → the session callback yields no user → logged out).
+      // A missing row (deleted user) invalidates too. Unbumped accounts read
+      // back the same value, so normal sessions are untouched.
+      if (token?.uid) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.uid },
+          select: { tokenVersion: true },
+        });
+        if (!fresh || fresh.tokenVersion !== (token.ver ?? 0)) {
+          // Strip every claim: the encoded cookie carries no uid, so the
+          // session callback yields no user → the request is unauthenticated.
+          return {} as typeof token;
+        }
       }
       return token;
     },

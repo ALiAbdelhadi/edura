@@ -16,6 +16,21 @@ import {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+// M6 — trust the actual bytes, not the client-declared MIME type. `file.type`
+// is attacker-controlled: a teacher could spoof "application/pdf" on an
+// HTML/SVG/EXE payload, which students would then open as trusted course
+// material (phishing, or HTML rendering on the Cloudinary domain). Every real
+// PDF begins with the "%PDF-" signature (0x25 0x50 0x44 0x46 0x2D), so verify
+// it server-side against the uploaded buffer and reject anything else.
+const PDF_MAGIC = Buffer.from("%PDF-", "latin1");
+
+function assertPdfBytes(buffer: Buffer): void {
+  const header = buffer.subarray(0, PDF_MAGIC.length);
+  if (header.length < PDF_MAGIC.length || !header.equals(PDF_MAGIC)) {
+    throw new BusinessRuleError("Only PDF files are accepted");
+  }
+}
+
 type MaterialType = "lecture" | "homework" | "exam" | "other";
 
 type SessionUser = { id: string; role: string; centerId?: string };
@@ -111,6 +126,7 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
       throw new BusinessRuleError("File size must be 10 MB or less");
 
     const buffer = Buffer.from(await uploadFile.arrayBuffer());
+    assertPdfBytes(buffer); // real bytes must be a PDF, not just the declared type
     const uploaded = await uploadBuffer(buffer, {
       folder: `edura/materials/${courseId}`,
       resource_type: "raw",
@@ -308,13 +324,17 @@ export async function updateMaterial(
     if (file.type !== "application/pdf")
       throw new BusinessRuleError("Only PDF files are accepted");
     if (file.size > MAX_FILE_SIZE)
-      throw new BusinessRuleError("File size must be 20 MB or less");
+      throw new BusinessRuleError("File size must be 10 MB or less");
+
+    // Read + verify the real bytes BEFORE deleting the existing resource, so a
+    // rejected spoof can never destroy the current valid PDF.
+    const buffer = Buffer.from(await file.arrayBuffer());
+    assertPdfBytes(buffer);
 
     if (material.cloudinaryPublicId) {
       await deleteResource(material.cloudinaryPublicId).catch(() => {});
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
     const uploaded = await uploadBuffer(buffer, {
       folder: `edura/materials/${material.courseId}`,
       resource_type: "raw",

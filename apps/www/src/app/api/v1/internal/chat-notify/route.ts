@@ -3,6 +3,7 @@ import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { parseJson } from "@/lib/validation/zod";
+import { requireDedicatedSecret } from "@/lib/config/secrets";
 import { notify } from "@/lib/services/notifications/notify";
 import { platformDb } from "@/lib/db/scope";
 
@@ -21,9 +22,9 @@ const schema = z.object({
 });
 
 export const POST = withErrors(async (req) => {
-  const secret =
-    process.env.INTERNAL_API_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret || req.headers.get("x-internal-secret") !== secret) {
+  // M2: dedicated internal-bridge secret, required in production.
+  const secret = requireDedicatedSecret("INTERNAL_API_SECRET");
+  if (req.headers.get("x-internal-secret") !== secret) {
     throw new ForbiddenError("Invalid internal secret");
   }
 

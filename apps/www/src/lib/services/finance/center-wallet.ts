@@ -51,17 +51,19 @@ export function getCenterWalletTransactions(user: SessionUser, opts?: { take?: n
 export function requestCenterPayout(user: SessionUser, amount?: number) {
   const centerId = centerIdOf(user);
   return platformDb(async (tx) => {
-    const center = await tx.center.findUnique({
-      where: { id: centerId },
-      select: { walletBalance: true },
-    });
-    if (!center) throw new NotFoundError("Center not found");
+    // H1: lock the beneficiary row FIRST so concurrent requests serialize;
+    // the second waits, then re-reads the now-committed open payouts and
+    // correctly sees the reduced available balance.
+    const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
+      SELECT wallet_balance FROM centers WHERE id = ${centerId}::uuid FOR UPDATE`;
+    if (locked.length === 0) throw new NotFoundError("Center not found");
+    const walletBalance = locked[0].wallet_balance;
 
     const open = await tx.payout.aggregate({
       where: { beneficiaryId: centerId, status: { in: ["pending", "approved"] } },
       _sum: { netPayable: true },
     });
-    const available = center.walletBalance - (open._sum.netPayable ?? 0);
+    const available = walletBalance - (open._sum.netPayable ?? 0);
     if (available <= 0) throw new BusinessRuleError("No available balance to pay out");
     const requested = amount ?? available;
     if (!Number.isInteger(requested) || requested <= 0) {

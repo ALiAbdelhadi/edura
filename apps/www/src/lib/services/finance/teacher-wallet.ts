@@ -40,19 +40,21 @@ export function getTeacherWalletTransactions(teacher: SessionUser, opts?: { take
 
 export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
   return platformDb(async (tx) => {
-    const profile = await tx.teacherProfile.findUnique({
-      where: { userId: teacher.id },
-      select: { walletBalance: true },
-    });
-    if (!profile) throw new NotFoundError("Teacher profile not found");
+    // H1: lock the beneficiary row FIRST. Under Read Committed a second
+    // concurrent request blocks here until the first commits, then the
+    // aggregate below reads the now-committed open payout and correctly sees
+    // the reduced available balance — two full-balance requests can't both win.
+    const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
+      SELECT wallet_balance FROM teacher_profiles WHERE user_id = ${teacher.id}::uuid FOR UPDATE`;
+    if (locked.length === 0) throw new NotFoundError("Teacher profile not found");
+    const walletBalance = locked[0].wallet_balance;
 
     const open = await tx.payout.aggregate({
       where: { beneficiaryId: teacher.id, status: { in: ["pending", "approved"] } },
       _sum: { netPayable: true },
     });
-    // Available = wallet minus funds already reserved by open requests — the
-    // guard that makes double-requesting the same money impossible.
-    const available = profile.walletBalance - (open._sum.netPayable ?? 0);
+    // Available = wallet minus funds already reserved by open requests.
+    const available = walletBalance - (open._sum.netPayable ?? 0);
     if (available <= 0) throw new BusinessRuleError("No available balance to pay out");
     const requested = amount ?? available; // default: withdraw everything available
     if (!Number.isInteger(requested) || requested <= 0) {
