@@ -115,8 +115,6 @@
     "loginFailed": "Login failed. Please try again.",
     "emailPlaceholder": "you@example.com",
     "passwordPlaceholder": "Enter your password",
-    "quickDemoLogin": "Quick demo login",
-    "demoPasswordHint": "All demo accounts use <code>Passw0rd!</code>",
     "noAccountPrompt": "Don't have an account?",
     "signUp": "Sign up",
     "roleStudentDesc": "I want to enroll in courses",

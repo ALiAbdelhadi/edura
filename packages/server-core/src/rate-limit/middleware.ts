@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkRateLimit } from "./token-bucket";
+import { checkRateLimit, trustedClientIp } from "./token-bucket";
 
 type RouteCtx = { params: Promise<Record<string, string>> };
 type Handler = (req: Request, ctx: RouteCtx) => Promise<NextResponse> | NextResponse;
@@ -10,12 +10,12 @@ export function withRateLimit(
   perMinute: number,
 ): Handler {
   return async (req, ctx) => {
-    const ip =
-      (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    // M3: trusted proxy hop, not the spoofable leftmost XFF entry.
+    const ip = trustedClientIp((n) => req.headers.get(n));
     const url = new URL(req.url);
     const key = `${url.pathname}:${ip}`;
 
-    if (!checkRateLimit(key, capacity, perMinute)) {
+    if (!(await checkRateLimit(key, capacity, perMinute))) {
       return NextResponse.json(
         { error: { code: "rate_limited", message: "Too many requests, please slow down." } },
         { status: 429, headers: { "Retry-After": "60" } },

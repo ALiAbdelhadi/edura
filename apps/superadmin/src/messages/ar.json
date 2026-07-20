@@ -115,8 +115,6 @@
     "loginFailed": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
     "emailPlaceholder": "you@example.com",
     "passwordPlaceholder": "أدخل كلمة المرور",
-    "quickDemoLogin": "تسجيل دخول تجريبي سريع",
-    "demoPasswordHint": "جميع الحسابات التجريبية تستخدم <code>Passw0rd!</code>",
     "noAccountPrompt": "ليس لديك حساب؟",
     "signUp": "إنشاء حساب",
     "roleStudentDesc": "أريد التسجيل في الدورات",

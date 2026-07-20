@@ -16,5 +16,20 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=20"
+  },
+  "pnpm": {
+    "comments": {
+      "overrides": "Security-clear for the 13 pnpm-audit advisories (docs/security-audit.md §7). All are dev/build-time transitive tooling (eslint plugins, next-pwa/workbox build chain, next-auth's bundled uuid, next's bundled postcss, @prisma/dev) — none on the runtime request path. Each override forces the patched version WITHIN THE SAME MAJOR to avoid API breakage. Do NOT add the security-sensitive runtime deps here (next/react/next-auth/prisma/bcryptjs/zod/jose/socket.io/ioredis) — those are current and out of scope."
+    },
+    "overrides": {
+      "minimatch@3": "^3.1.5",
+      "flatted": "^3.4.2",
+      "brace-expansion@1": "^1.1.16",
+      "picomatch@2": "^2.3.2",
+      "picomatch@4": "^4.0.5",
+      "@hono/node-server": "^1.19.14",
+      "postcss@8": "^8.5.20",
+      "uuid@8": "^11.1.1"
+    }
   }
 }

@@ -35,7 +35,13 @@ export function generatePayouts() {
       select: { userId: true, walletBalance: true },
     });
     for (const t of teachers) {
-      const avail = t.walletBalance - (await openPayoutSum(tx, t.userId));
+      // H1: lock this beneficiary so a concurrent self-service payout request
+      // can't race the batch generator into an over-draw. Re-read the balance
+      // from the locked row for an authoritative available figure.
+      const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
+        SELECT wallet_balance FROM teacher_profiles WHERE user_id = ${t.userId}::uuid FOR UPDATE`;
+      const walletBalance = locked[0]?.wallet_balance ?? t.walletBalance;
+      const avail = walletBalance - (await openPayoutSum(tx, t.userId));
       if (avail <= 0) continue;
       const stats = await beneficiaryLedgerStats(tx, t.userId);
       await tx.payout.create({
@@ -57,7 +63,11 @@ export function generatePayouts() {
       select: { id: true, walletBalance: true },
     });
     for (const c of centers) {
-      const avail = c.walletBalance - (await openPayoutSum(tx, c.id));
+      // H1: lock this beneficiary (see teacher loop above).
+      const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
+        SELECT wallet_balance FROM centers WHERE id = ${c.id}::uuid FOR UPDATE`;
+      const walletBalance = locked[0]?.wallet_balance ?? c.walletBalance;
+      const avail = walletBalance - (await openPayoutSum(tx, c.id));
       if (avail <= 0) continue;
       const stats = await beneficiaryLedgerStats(tx, c.id);
       await tx.payout.create({
@@ -124,16 +134,24 @@ async function settlePayout(tx: TenantTx, payoutId: string, approverId: string) 
   if (!payout) throw new NotFoundError("Payout not found");
   const net = payout.netPayable ?? 0;
 
-  if (payout.beneficiaryType === "teacher") {
-    await tx.teacherProfile.updateMany({
-      where: { userId: payout.beneficiaryId },
-      data: { walletBalance: { decrement: net } },
-    });
-  } else {
-    await tx.center.update({
-      where: { id: payout.beneficiaryId },
-      data: { walletBalance: { decrement: net } },
-    });
+  // H2: conditional decrement — only settle if the wallet actually covers the
+  // net. count===0 means insufficient balance; throw to roll back the whole
+  // settlement (status claim + txn) rather than push the wallet negative.
+  // (The DB CHECK (wallet_balance >= 0) is the backstop if this is bypassed.)
+  const decremented =
+    payout.beneficiaryType === "teacher"
+      ? await tx.teacherProfile.updateMany({
+          where: { userId: payout.beneficiaryId, walletBalance: { gte: net } },
+          data: { walletBalance: { decrement: net } },
+        })
+      : await tx.center.updateMany({
+          where: { id: payout.beneficiaryId, walletBalance: { gte: net } },
+          data: { walletBalance: { decrement: net } },
+        });
+  if (decremented.count === 0) {
+    throw new BusinessRuleError(
+      "Insufficient wallet balance to settle this payout",
+    );
   }
 
   await tx.transaction.create({

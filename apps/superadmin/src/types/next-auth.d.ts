@@ -20,6 +20,8 @@ declare module "next-auth" {
     locale: "ar" | "en";
     email?: string | null;
     name?: string | null;
+    // L1: session epoch captured at sign-in, revalidated on every request.
+    tokenVersion: number;
   }
 }
 
@@ -29,5 +31,7 @@ declare module "next-auth/jwt" {
     role: Role;
     centerId?: string;
     locale: "ar" | "en";
+    // L1: token's session epoch; rejected when it falls behind the DB column.
+    ver: number;
   }
 }

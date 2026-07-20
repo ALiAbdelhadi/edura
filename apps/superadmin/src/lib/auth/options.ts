@@ -2,7 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
-import { checkRateLimit } from "@/lib/rate-limit/token-bucket";
+import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 
 // Roles allowed into the back-office app. Enforced at credential-check time —
 // a valid www account (center/teacher/parent/student/assistant) can never mint
@@ -22,10 +22,9 @@ const LOGIN_EMAIL_CAP = 5;
 const LOGIN_EMAIL_RATE = 1;
 
 function clientIp(req: unknown): string {
-  const fwd = (req as { headers?: Record<string, string> } | undefined)?.headers?.[
-    "x-forwarded-for"
-  ];
-  return (fwd ?? "").split(",")[0].trim() || "unknown";
+  const headers = (req as { headers?: Record<string, string> } | undefined)?.headers;
+  // M3: trusted proxy hop, not the spoofable leftmost XFF entry.
+  return trustedClientIp((n) => headers?.[n]);
 }
 
 // Sessions are fully separated from apps/www: distinct cookie names AND a
@@ -80,8 +79,8 @@ export const authOptions: NextAuthOptions = {
 
         // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work.
         const ip = clientIp(req);
-        if (!checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE)) return null;
-        if (!checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE)) {
+        if (!(await checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE))) return null;
+        if (!(await checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE))) {
           return null;
         }
 
@@ -106,6 +105,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           locale: user.locale,
+          tokenVersion: user.tokenVersion, // L1: session epoch at issue time
         };
       },
     }),
@@ -113,9 +113,28 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Fresh sign-in: stamp the token with the account's current epoch.
         token.uid = user.id;
         token.role = user.role;
         token.locale = user.locale;
+        token.ver = user.tokenVersion;
+        return token;
+      }
+      // L1: revalidate the token's epoch against the DB on every request so a
+      // password reset/change (which bumps users.token_version, shared across
+      // both apps) also revokes a stolen super_admin/accountant session. A
+      // trailing or missing version strips all claims → the session callback
+      // yields no user → logged out. Unchanged accounts are untouched.
+      if (token?.uid) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.uid },
+          select: { tokenVersion: true },
+        });
+        if (!fresh || fresh.tokenVersion !== (token.ver ?? 0)) {
+          // Strip every claim: the encoded cookie carries no uid, so the
+          // session callback yields no user → the request is unauthenticated.
+          return {} as typeof token;
+        }
       }
       return token;
     },

@@ -388,6 +388,12 @@ model User {
   theme         Theme      @default(system)
   status        UserStatus @default(active)
   emailVerified Boolean    @default(false) @map("email_verified")
+  // L1: monotonic session epoch. Every JWT records the value at issue time; the
+  // NextAuth jwt callback rejects any token whose recorded value < this column.
+  // Bumped on password reset/change so all pre-existing 30-day tokens (e.g. an
+  // attacker's after a compromise) are invalidated at once — server-side
+  // revocation for otherwise-stateless sessions.
+  tokenVersion  Int        @default(0) @map("token_version")
   fcmToken      String?    @map("fcm_token")
   // Demo/seed data marker so it can be purged before launch. Flagged on root
   // entities only (users, centers, courses); child rows inherit by ancestry.
@@ -472,7 +478,7 @@ model TeacherProfile {
   lessonPrice         Int?     @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
   ratingAvg           Float    @default(0) @map("rating_avg")
   ratingCount         Int      @default(0) @map("rating_count")
-  walletBalance       Int      @default(0) @map("wallet_balance") // piasters
+  walletBalance       Int      @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0), H2
   certificates        Json? // [{name, file_url, issued_by}]
   onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
   onboardingDraft     Json?    @map("onboarding_draft") // wizard auto-save (§9)
@@ -521,7 +527,7 @@ model Center {
   classroomCount      Int          @default(0) @map("classroom_count")
   entityType          EntityType   @default(registered) @map("entity_type")
   status              CenterStatus @default(pending)
-  walletBalance       Int          @default(0) @map("wallet_balance") // piasters
+  walletBalance       Int          @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0) NOT VALID, H2
   receiptSeq          Int          @default(0) @map("receipt_seq")
   governorate         String? // المحافظة (onboarding §6; `area` stays المنطقة)
   onboardingCompleted Boolean      @default(false) @map("onboarding_completed")
@@ -1027,6 +1033,8 @@ model Transaction {
   @@index([toEntityId])
   // Hot path: accountant ledger filtered by type+status, newest first.
   @@index([type, status, createdAt(sort: Desc)])
+  // Plus (H3, raw SQL — Prisma can't express partial uniques): UNIQUE on
+  // reversal_of_id WHERE type='refund' — a charge is refunded at most once.
   @@map("transactions")
 }
 

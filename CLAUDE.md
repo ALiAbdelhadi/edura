@@ -131,3 +131,117 @@ Work stops after each step for review before the next begins.
     > "online payments only" caveat notes were removed. Forward-only: cash
     > payments recorded BEFORE Step 4 were never mirrored — see the Step 9
     > wipe note in decision #6.
+
+## Stitch MCP design workflow (binding rules, added 2026-07-20)
+
+The Stitch MCP (Google's design tool) is connected. When working with designs
+from Stitch:
+
+1. **Read, then implement faithfully.** Use Stitch to READ and understand the
+   designs, then implement them in the existing UI, matching the design's
+   layout, spacing, colors, and components.
+2. **Additive only on existing work.** Applying a design must never delete,
+   remove, or break any existing feature, screen, route, or functionality. If
+   a design appears to REPLACE something that already exists, STOP and ask
+   before removing anything — additions and refinements are fine, silent
+   deletions are not.
+3. **Never weaken what we built.** The security fixes, the money engine, the
+   auth/session model, RLS/data-isolation, and the assistant delegation
+   boundary are untouchable. A design change must never weaken them — UI
+   changes stay on the presentation layer.
+4. **Database changes require an approved plan first.** If a design genuinely
+   requires a schema change, propose one — but ALWAYS present the plan first
+   (exact schema change + migration) and WAIT for approval before touching the
+   DB. Never modify the database silently. Same additive, migration-safe
+   discipline as the rest of the project.
+5. **One design system.** Follow the existing conventions — @repo/ui
+   components, Tailwind v4 tokens, RTL/Arabic support. Do not introduce a
+   parallel styling approach.
+
+## Security remediation progress (BATCH 1 + BATCH 2, from docs/security-audit.md)
+
+Findings fixed one-at-a-time, each with a proof, stop-per-fix. See
+docs/security-audit.md for the full report and severities.
+
+**DONE (reviewed + accepted):**
+- **C1** — mock payment gateway can't settle real money in prod (PAYMENTS_MODE
+  must be explicit; PAYMOB_HMAC_SECRET required, no fallback; mock-complete
+  404s in prod; timingSafeEqual HMAC compare).
+- **C2 + H5** — login rate-limiting + dummy-hash constant-time compare in BOTH
+  apps' NextAuth authorize() (closes brute-force + email enumeration).
+- **H1** — payout-request TOCTOU: `SELECT … FOR UPDATE` on the beneficiary in
+  teacher/center wallet + generatePayouts.
+- **H2** — payout-settlement floor: conditional decrement (updateMany where
+  balance >= net) + DB `CHECK (wallet_balance >= 0)` (centers CHECK is NOT
+  VALID — one legacy -2600 row left for the Step 9 wipe; VALIDATE after).
+- **H3** — refund double-refund TOCTOU: partial unique
+  `transactions_one_refund_per_payment` on (reversal_of_id) WHERE type='refund'.
+- **H4** — security headers on both apps (HSTS, nosniff, Referrer-Policy,
+  X-Frame-Options DENY/superadmin + SAMEORIGIN/www) + a **Report-Only** CSP
+  (allows Cloudinary img, the realtime socket connect-src on www, Paymob
+  frame-src on www; self-hosted fonts). CSP still needs tightening to a
+  nonce-based script-src before flipping to enforce.
+- **M1** — webhook claim + settlement in ONE transaction (self-heals on
+  redelivery; no charged-but-empty intent); idempotent replay preserved.
+- **M2** — split the shared secret: REALTIME_JWT_SECRET + INTERNAL_API_SECRET
+  are dedicated + required in prod (fail closed); NEXTAUTH_SECRET fallback is
+  dev-only.
+
+**REMAINING (in priority order):**
+- **M3** — shared-store (Redis) rate limiter + trusted client-IP hop.
+  *Implemented + proven, awaiting review* (adds REDIS_URL / TRUSTED_PROXY_HOPS /
+  TRUSTED_CLIENT_IP_HEADER; falls back to in-memory when REDIS_URL unset).
+- **M4** — return a generic "Internal error" for unhandled errors in prod (stop
+  leaking raw err.message).
+- **M7** — cron auth: require CRON_SECRET unconditionally (fail closed if
+  unset) and drop the side-effectful GET alias.
+  *Done (2026-07-20):* `authorized()` returns false when CRON_SECRET is unset
+  in EVERY env (no `NODE_ENV` bypass); `GET = POST` alias removed so the
+  data-mutating jobs are POST-only (plain GET → 405). Proof in
+  apps/www/tests/unit/m7-cron-auth.test.ts.
+- **Dependency overrides** — pnpm `overrides` to clear the 13 dev/build-time
+  advisories (all transitive tooling; no runtime-path exposure).
+  *Done (2026-07-20):* root `package.json` `pnpm.overrides` forces the patched
+  version WITHIN THE SAME MAJOR for minimatch (^3.1.5), flatted (^3.4.2),
+  brace-expansion@1 (^1.1.16), picomatch@2 (^2.3.2) + picomatch@4 (^4.0.5),
+  @hono/node-server (^1.19.14), postcss@8 (^8.5.20), uuid@8 (→ ^11.1.1 for
+  next-auth). `pnpm audit` now reports **0 vulnerabilities**; typecheck (5/5),
+  www unit suite (48 pass/1 skip), and `pnpm build` (both apps) all green. No
+  security-sensitive runtime dep (next/react/next-auth/prisma/bcryptjs/zod/
+  jose/socket.io/ioredis) was bumped — deliberately out of scope.
+- Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
+  **M6** (materials %PDF- magic-byte check), **M8** (kill $queryRawUnsafe).
+- Then **Step 10** — final cleanup pass (batch the remaining L-findings; flip
+  the CSP to enforce; VALIDATE the centers wallet CHECK after the Step 9 wipe).
+
+### BATCH 3 (L-findings)
+- **L1** — password reset/change now invalidates pre-existing 30-day JWT
+  sessions (server-side revocation for otherwise-stateless tokens).
+  *Done (2026-07-20 — awaiting review):* new `users.token_version` int
+  (migration `20260720180000_user_token_version`, default 0, backfilled 0 so
+  no one is logged out on deploy). Every JWT records `ver` at issue time (both
+  apps' `authorize` return it + the manual `/api/v1/auth/login` encode); the
+  NextAuth `jwt` callback re-reads `token_version` on EVERY request and strips
+  all claims (→ no session user → logged out) when the token's `ver` trails the
+  column or the user row is gone. `resetPassword` bumps `token_version` in the
+  SAME tx as the new hash. The check lives in BOTH apps' callbacks, and the
+  column is shared, so a reset also revokes a stolen super_admin/accountant
+  session. Cost: one indexed PK lookup per request (cacheable later). Proof
+  (live DB, real authorize + jwt/session callbacks + real resetPassword),
+  12/12: apps/www/tests/db/l1-session-invalidation.test.ts — pre-reset token
+  accepted → reset bumps ver → same token now rejected → unrelated session
+  still valid → old password stops working → fresh login (ver 1) accepted.
+  Note: `me/credentials` (set-once first password for walk-ins) deliberately
+  NOT bumped — no prior password to revoke.
+
+### Env vars now REQUIRED in production (deployment must set these)
+Missing any of these fails closed (refuse to boot / hard error) — by design.
+- `PAYMENTS_MODE` — must be explicit: `mock` | `sandbox` | `live` (C1).
+- `PAYMOB_HMAC_SECRET` — required in prod, no fallback (C1).
+- `REALTIME_JWT_SECRET` — dedicated realtime handshake secret (M2).
+- `INTERNAL_API_SECRET` — dedicated server↔server bridge secret (M2).
+- `CRON_SECRET` — guards `/api/v1/cron/[job]`; required in EVERY environment
+  (endpoint fails closed / rejects all requests when unset, no bypass) (M7).
+
+(Recommended once M3 lands: `REDIS_URL` for a shared rate-limit store across
+instances, `TRUSTED_PROXY_HOPS` matching the deploy's proxy depth.)

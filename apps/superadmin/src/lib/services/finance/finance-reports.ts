@@ -19,13 +19,12 @@ export function revenueReport(
 ) {
   const trunc = TRUNC[period] ?? "month";
   return platformDb(async (tx) => {
-    const rows = await (tx as TenantTx).$queryRawUnsafe<
+    const rows = await (tx as TenantTx).$queryRaw<
       { bucket: Date; type: string; total: bigint }[]
-    >(
-      `SELECT date_trunc('${trunc}', created_at) AS bucket, type, COALESCE(SUM(amount),0) AS total
+    >`
+      SELECT date_trunc(${trunc}, created_at) AS bucket, type, COALESCE(SUM(amount),0) AS total
        FROM transactions WHERE status = 'completed'
-       GROUP BY 1, 2 ORDER BY 1 DESC LIMIT 300`,
-    );
+       GROUP BY 1, 2 ORDER BY 1 DESC LIMIT 300`;
     const byPeriod = new Map<
       string,
       {

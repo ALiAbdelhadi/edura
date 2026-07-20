@@ -45,12 +45,11 @@ type Bucket = { period: string; value: number };
 export function revenueChart(period: "weekly" | "monthly" = "monthly") {
   const trunc = period === "weekly" ? "week" : "month";
   return platformDb(async (tx) => {
-    const rows = await (tx as TenantTx).$queryRawUnsafe<{ bucket: Date; total: bigint }[]>(
-      `SELECT date_trunc('${trunc}', created_at) AS bucket, COALESCE(SUM(amount),0) AS total
+    const rows = await (tx as TenantTx).$queryRaw<{ bucket: Date; total: bigint }[]>`
+      SELECT date_trunc(${trunc}, created_at) AS bucket, COALESCE(SUM(amount),0) AS total
        FROM transactions
        WHERE type = 'commission' AND status = 'completed'
-       GROUP BY 1 ORDER BY 1 DESC LIMIT 24`,
-    );
+       GROUP BY 1 ORDER BY 1 DESC LIMIT 24`;
     const series: Bucket[] = rows
       .map((r) => ({ period: r.bucket.toISOString().slice(0, 10), value: Number(r.total) }))
       .reverse();
@@ -60,12 +59,11 @@ export function revenueChart(period: "weekly" | "monthly" = "monthly") {
 
 export function userGrowthChart() {
   return platformDb(async (tx) => {
-    const rows = await (tx as TenantTx).$queryRawUnsafe<{ bucket: Date; role: string; total: bigint }[]>(
-      `SELECT date_trunc('month', created_at) AS bucket, role, COUNT(*) AS total
+    const rows = await (tx as TenantTx).$queryRaw<{ bucket: Date; role: string; total: bigint }[]>`
+      SELECT date_trunc('month', created_at) AS bucket, role, COUNT(*) AS total
        FROM users
        WHERE deleted_at IS NULL
-       GROUP BY 1, 2 ORDER BY 1 DESC LIMIT 120`,
-    );
+       GROUP BY 1, 2 ORDER BY 1 DESC LIMIT 120`;
     const byPeriod = new Map<string, { period: string; counts: Record<string, number> }>();
     for (const r of rows) {
       const key = r.bucket.toISOString().slice(0, 10);

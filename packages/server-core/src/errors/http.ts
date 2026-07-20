@@ -41,10 +41,17 @@ export function toErrorResponse(err: unknown): NextResponse {
     return fail(prismaMapped.status, prismaMapped.code, prismaMapped.message);
   }
 
-  const message = err instanceof Error ? err.message : "Internal error";
-  if (process.env.NODE_ENV !== "production") {
-    console.error("[unhandled]", err);
-  }
+  // Always log the real error server-side, with full detail, in every
+  // environment — the logs keep the table/column names, constraint text, file
+  // paths and library internals we need to debug.
+  console.error("[unhandled]", err);
+  // But never leak those internals to the client in production: return a fixed
+  // generic message for the fallback branch. In development, surface the real
+  // message for debuggability.
+  const message =
+    process.env.NODE_ENV !== "production" && err instanceof Error
+      ? err.message
+      : "Internal error";
   return fail(500, "internal", message);
 }
 
