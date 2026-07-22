@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "@repo/database";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { ConflictError, NotFoundError, BusinessRuleError, ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -14,9 +13,9 @@ const addSchema = z.object({
   studentId: z.string().min(1),
 });
 
-export const GET = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const url = new URL(req.url);
+export const GET = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const url = new URL(req.url);
   const blacklisted = url.searchParams.get("blacklisted");
   const courseId = url.searchParams.get("courseId");
   const q = url.searchParams.get("q");
@@ -75,12 +74,14 @@ export const GET = withErrors(async (req) => {
     });
   });
 
-  return ok({ items });
-});
+    return ok({ items });
+  },
+  { allow: RECEPTION },
+);
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const { studentId } = await parseJson(req, addSchema);
+export const POST = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const { studentId } = await parseJson(req, addSchema);
 
   const entry = await scopedDb(user, async (tx) => {
     const student = await tx.user.findFirst({
@@ -113,13 +114,15 @@ export const POST = withErrors(async (req) => {
     }
   });
 
-  await notify({
-    recipients: [studentId],
-    type: "student_added_to_roster",
-    title: "You have been added to a center",
-    body: "A center has added you to their student roster.",
-    data: { centerId: user.centerId },
-  });
+    await notify({
+      recipients: [studentId],
+      type: "student_added_to_roster",
+      title: "You have been added to a center",
+      body: "A center has added you to their student roster.",
+      data: { centerId: user.centerId },
+    });
 
-  return ok(entry, { status: 201 });
-});
+    return ok(entry, { status: 201 });
+  },
+  { allow: RECEPTION },
+);

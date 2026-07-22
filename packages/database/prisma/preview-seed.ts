@@ -51,6 +51,102 @@ function at(daysFromNow: number, hhmm = "15:00"): Date {
   return d;
 }
 
+// Demo room profiles (presentation only — NEVER a ledger row). Photos use
+// picsum placeholders so the room-profile + teacher-booking screens render
+// populated. price is piasters (the center's hall price, not the split).
+// Which pricing methods each demo room offers (Room Pricing Methods):
+//   NILE → BOTH (teacher chooses at booking — exercises the method radio),
+//   ANDL → per-student ONLY (forced; teacher sees NO price),
+//   FUTR/others → percent only (the classic default).
+type DemoPricingMethod = "whole_room_percent" | "per_attending_student";
+const ROOM_METHODS: Record<string, DemoPricingMethod[]> = {
+  NILE: ["whole_room_percent", "per_attending_student"],
+  ANDL: ["per_attending_student"],
+  DEFAULT: ["whole_room_percent"],
+};
+
+const ROOM_PROFILES: Record<
+  string,
+  { capacity: number; price: number; facilities: string[]; photos: string[]; description: string }
+> = {
+  // facilities use canonical amenity KEYS (see apps/www/src/lib/rooms/amenities.ts)
+  // + optionally a free-text extra, so the room-profile screens render populated
+  // and localized.
+  NILE: {
+    capacity: 30,
+    price: 60000,
+    facilities: ["ac", "smart_board", "projector", "wifi", "seating", "شرفة إطلالة"],
+    photos: [
+      "https://picsum.photos/seed/nile-room-a/800/450",
+      "https://picsum.photos/seed/nile-room-b/800/450",
+    ],
+    description: "قاعة رئيسية مجهزة بالكامل بالمعادي.",
+  },
+  ANDL: {
+    capacity: 25,
+    price: 45000,
+    facilities: ["ac", "whiteboard", "projector"],
+    photos: ["https://picsum.photos/seed/andl-room/800/450"],
+    description: "قاعة واسعة بمدينة نصر.",
+  },
+  FUTR: {
+    capacity: 20,
+    price: 40000,
+    facilities: ["ac", "whiteboard"],
+    photos: ["https://picsum.photos/seed/futr-room/800/450"],
+    description: "قاعة بالدقي.",
+  },
+  DEFAULT: {
+    capacity: 30,
+    price: 40000,
+    facilities: ["ac", "whiteboard"],
+    photos: ["https://picsum.photos/seed/room-default/800/450"],
+    description: "قاعة تدريس.",
+  },
+};
+
+// The tx type withPlatformContext hands its callback (the real Prisma client).
+type SeedTx = Parameters<Parameters<typeof withPlatformContext>[0]>[0];
+
+// Upsert a split-only revenue-split override row (center or room scope).
+// CONFIG only (commission_settings) — never touches the money ledger.
+async function upsertSplit(
+  tx: SeedTx,
+  scope: { scope: "center"; centerId: string } | { scope: "room"; roomId: string },
+  split: { platformShareBp: number; teacherShareBp: number; centerShareBp: number },
+) {
+  const where =
+    scope.scope === "center"
+      ? { scope: "center" as const, centerId: scope.centerId }
+      : { scope: "room" as const, roomId: scope.roomId };
+  const existing = await tx.commissionSetting.findFirst({ where });
+  if (existing) {
+    await tx.commissionSetting.update({ where: { id: existing.id }, data: split });
+  } else {
+    await tx.commissionSetting.create({ data: { ...scope, ...split } });
+  }
+}
+
+// Upsert a Method-2 per-attending-student rate onto the SAME scope row the
+// split uses (merging columns, exactly like superadmin's rate editor). CONFIG
+// only — never touches the money ledger.
+async function upsertM2Rate(
+  tx: SeedTx,
+  scope: { scope: "center"; centerId: string } | { scope: "room"; roomId: string },
+  rate: { centerPerStudentFee: number | null; centerPerStudentBp: number | null },
+) {
+  const where =
+    scope.scope === "center"
+      ? { scope: "center" as const, centerId: scope.centerId }
+      : { scope: "room" as const, roomId: scope.roomId };
+  const existing = await tx.commissionSetting.findFirst({ where });
+  if (existing) {
+    await tx.commissionSetting.update({ where: { id: existing.id }, data: rate });
+  } else {
+    await tx.commissionSetting.create({ data: { ...scope, ...rate } });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // PURGE
 // ---------------------------------------------------------------------------
@@ -71,6 +167,10 @@ async function purge() {
       await tx.gradeScore.deleteMany({ where: { OR: [{ gradeId: { in: G } }, { studentId: { in: U } }] } });
       await tx.grade.deleteMany({ where: { courseId: { in: K } } });
       await tx.attendanceRecord.deleteMany({ where: { OR: [{ courseId: { in: K } }, { studentId: { in: U } }] } });
+      // NOTE: session_settlements rows are append-only (REVOKE + immutability
+      // extension) and only exist if a demo session was manually completed —
+      // like any demo-driven ledger rows, they are Step-9-wipe territory, not
+      // purge territory. Loose sessionId refs mean this delete never conflicts.
       await tx.session.deleteMany({ where: { courseId: { in: K } } });
       await tx.material.deleteMany({ where: { courseId: { in: K } } });
       await tx.review.deleteMany({ where: { OR: [{ studentId: { in: U } }, { teacherId: { in: U } }] } });
@@ -81,13 +181,36 @@ async function purge() {
       await tx.notification.deleteMany({ where: { userId: { in: U } } });
       await tx.parentStudentLink.deleteMany({ where: { OR: [{ parentId: { in: U } }, { studentId: { in: U } }] } });
       await tx.teacherAssistant.deleteMany({ where: { OR: [{ teacherId: { in: U } }, { assistantId: { in: U } }] } });
+      await tx.centerStaff.deleteMany({ where: { OR: [{ staffUserId: { in: U } }, { centerId: { in: C } }] } });
       await tx.teacherSubject.deleteMany({ where: { teacherId: { in: U } } });
       await tx.teacherGradeLevel.deleteMany({ where: { teacherId: { in: U } } });
+      // Revenue-split override rows (config, not ledger) by ancestry: per-center
+      // rows for demo centers + per-room rows for demo rooms.
+      const demoRoomsForPurge = await tx.room.findMany({
+        where: { centerId: { in: C } },
+        select: { id: true },
+      });
+      const R = demoRoomsForPurge.map((r) => r.id);
+      await tx.commissionSetting.deleteMany({
+        where: {
+          OR: [
+            { scope: "center", centerId: { in: C } },
+            { scope: "room", roomId: { in: R } },
+          ],
+        },
+      });
       await tx.room.deleteMany({ where: { centerId: { in: C } } });
       await tx.centerStage.deleteMany({ where: { centerId: { in: C } } });
       await tx.course.deleteMany({ where: { isDemo: true } });
       await tx.centerAdminProfile.deleteMany({ where: { OR: [{ userId: { in: U } }, { centerId: { in: C } }] } });
       await tx.teacherProfile.deleteMany({ where: { userId: { in: U } } });
+      // Demo wallet-ledger rows: append-only, so the Prisma immutability
+      // extension blocks a normal delete — raw DELETE (wallet_ledger is not
+      // DB-REVOKEd for delete, by design, so demo data stays purgeable). Wallet
+      // balances vanish with the student profile below.
+      for (const uid of U) {
+        await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${uid}::uuid`;
+      }
       await tx.studentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.parentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.userPref.deleteMany({ where: { userId: { in: U } } }).catch(() => {});
@@ -116,7 +239,7 @@ async function seed() {
       const mkUser = (
         email: string,
         name: string,
-        role: "center_admin" | "teacher" | "assistant" | "student" | "parent",
+        role: "center_admin" | "center_staff" | "teacher" | "assistant" | "student" | "parent",
         status: "active" | "pending" = "active",
       ) =>
         tx.user.upsert({
@@ -150,13 +273,65 @@ async function seed() {
           },
         });
         centers[c.shortId] = { id: row.id };
+        const rp = ROOM_PROFILES[c.shortId] ?? ROOM_PROFILES.DEFAULT!;
+        const methods = ROOM_METHODS[c.shortId] ?? ROOM_METHODS.DEFAULT!;
         await tx.room.upsert({
           where: { id: did("room:" + c.shortId) },
-          update: {},
-          create: { id: did("room:" + c.shortId), centerId: row.id, name: "قاعة 1", capacity: 30, isActive: true },
+          update: {
+            capacity: rp.capacity,
+            facilities: rp.facilities,
+            photos: rp.photos,
+            price: rp.price,
+            description: rp.description,
+            allowedPricingMethods: methods,
+          },
+          create: {
+            id: did("room:" + c.shortId),
+            centerId: row.id,
+            name: "قاعة 1",
+            capacity: rp.capacity,
+            facilities: rp.facilities,
+            photos: rp.photos,
+            price: rp.price,
+            description: rp.description,
+            allowedPricingMethods: methods,
+            isActive: true,
+          },
         });
       }
       const nile = centers["NILE"]!;
+
+      // ---- Revenue-split OVERRIDES (config rows, NOT ledger) so the superadmin
+      //      screen shows per-center + per-room precedence live. ----
+      // ANDL: per-CENTER override — its rooms inherit this (platform 12 / teacher
+      // 68 / center 20). NILE: per-ROOM override on قاعة 1 — wins over center &
+      // global for that room (platform 20 / teacher 60 / center 20). FUTR/BRGT:
+      // no override → inherit the editable global default (15/70/15).
+      await upsertSplit(
+        tx,
+        { scope: "center", centerId: centers["ANDL"]!.id },
+        { platformShareBp: 1200, teacherShareBp: 6800, centerShareBp: 2000 },
+      );
+      await upsertSplit(
+        tx,
+        { scope: "room", roomId: did("room:NILE") },
+        { platformShareBp: 2000, teacherShareBp: 6000, centerShareBp: 2000 },
+      );
+
+      // ---- Method-2 per-student RATES (config rows, NOT ledger) so per-student
+      //      halls are bookable and the rate editors show precedence live. ----
+      // ANDL (per-student-only hall): per-CENTER flat rate 7 EGP/attending student.
+      // NILE (both-methods hall): per-ROOM rate 10% of the lesson price/student.
+      await upsertM2Rate(
+        tx,
+        { scope: "center", centerId: centers["ANDL"]!.id },
+        { centerPerStudentFee: 700, centerPerStudentBp: null },
+      );
+      await upsertM2Rate(
+        tx,
+        { scope: "room", roomId: did("room:NILE") },
+        { centerPerStudentFee: null, centerPerStudentBp: 1000 },
+      );
 
       // ---- LOGIN GROUP (reused quick-login demo accounts) ----
       const admin = await mkUser("admin@nile-academy.eg", "Demo Admin", "center_admin");
@@ -165,6 +340,24 @@ async function seed() {
         update: {},
         create: { userId: admin.id, centerId: nile.id },
       });
+
+      // ---- CENTER STAFF (demo, isDemo via mkUser). One per preset role on NILE.
+      //      Purely users + center_staff link rows — NO money/ledger/wallet
+      //      writes (staff have no wallet), so the "flag roots only / zero money
+      //      writes" contract holds. Re-runs re-activate rather than duplicate.
+      const staffDefs = [
+        { email: "reception@nile-academy.eg", name: "Yasmin Adel", role: "receptionist" as const, title: "Front desk" },
+        { email: "manager@nile-academy.eg", name: "Karim Fouad", role: "manager" as const, title: "Operations manager" },
+        { email: "accountant@nile-academy.eg", name: "Dalia Sobhy", role: "center_accountant" as const, title: "Center accountant" },
+      ];
+      for (const s of staffDefs) {
+        const staffUser = await mkUser(s.email, s.name, "center_staff");
+        await tx.centerStaff.upsert({
+          where: { centerId_staffUserId: { centerId: nile.id, staffUserId: staffUser.id } },
+          update: { removedAt: null, role: s.role, title: s.title },
+          create: { centerId: nile.id, staffUserId: staffUser.id, role: s.role, title: s.title },
+        });
+      }
 
       const hossam = await mkUser("hossam.aziz@nile-academy.eg", "Hossam Aziz", "teacher");
       const parent = await mkUser("mona.hassan@email.eg", "Mona Hassan", "parent");
@@ -244,6 +437,55 @@ async function seed() {
         extraStudents.push({ id: u.id });
       }
 
+      // ---- DEMO WALLETS (is_demo by student ancestry) — balances + running
+      //      history for preview. Writes ONLY the wallet subledger + the cached
+      //      balance; NO Transaction rows, so the real money ledger stays clean.
+      const seedWallet = async (
+        studentId: string,
+        moves: {
+          type: "topup" | "payment" | "refund";
+          delta: number;
+          method?: "cash" | "online_paymob" | "wallet";
+          reason: string;
+          daysAgo: number;
+        }[],
+      ) => {
+        // Idempotent re-seed: clear prior rows (raw — immutability blocks delete).
+        await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${studentId}::uuid`;
+        let bal = 0;
+        for (const m of moves) {
+          bal += m.delta;
+          await tx.walletLedger.create({
+            data: {
+              studentId,
+              type: m.type,
+              delta: m.delta,
+              balanceAfter: bal, // running balance reconciles to walletBalance below
+              method: m.method ?? null,
+              reason: m.reason,
+              createdAt: at(-m.daysAgo),
+            },
+          });
+        }
+        await tx.studentProfile.update({
+          where: { userId: studentId },
+          data: { walletBalance: bal },
+        });
+      };
+      await seedWallet(student.id, [
+        { type: "topup", delta: 30000, method: "online_paymob", reason: "Online top-up", daysAgo: 20 },
+        { type: "payment", delta: -8000, method: "wallet", reason: "Subscription payment", daysAgo: 12 },
+        { type: "topup", delta: 10000, method: "cash", reason: "Cash top-up at center", daysAgo: 5 },
+        { type: "refund", delta: 8000, reason: "Refund to wallet", daysAgo: 2 },
+      ]); // final 40000 (400 EGP)
+      await seedWallet(extraStudents[0]!.id, [
+        { type: "topup", delta: 15000, method: "cash", reason: "Cash top-up at center", daysAgo: 10 },
+        { type: "payment", delta: -5000, method: "wallet", reason: "Session pass", daysAgo: 3 },
+      ]); // final 10000
+      await seedWallet(extraStudents[1]!.id, [
+        { type: "topup", delta: 20000, method: "online_paymob", reason: "Online top-up", daysAgo: 7 },
+      ]); // final 20000
+
       // ---- SUBJECTS from Lina's real track offerings (read-only catalog) ----
       const offerings = await tx.subjectOffering.findMany({
         where: {
@@ -251,6 +493,10 @@ async function seed() {
           isActive: true,
           OR: [{ trackId: lina.trackId }, { trackId: null }],
         },
+        // Deterministic pick + round-robin: without an orderBy the teacher ↔
+        // subject pairing (courses AND TeacherSubject below) shuffles between
+        // seed runs.
+        orderBy: { subjectId: "asc" },
         take: 4,
       });
       const subjectIds = offerings.map((o) => o.subjectId);
@@ -271,6 +517,19 @@ async function seed() {
         const ctr = courseCenters[i % courseCenters.length]!;
         const id = did("course:" + off.subjectId + ":" + lina.gradeLevelId);
         const name = subjName(off.subjectId);
+        // NILE demo courses are ROOM-BASED (book قاعة 1) → they carry the frozen
+        // Method-1 snapshot = the NILE room override (20/60/20). Config only,
+        // no ledger. Other centers' demo courses stay no-room (legacy).
+        const roomBased =
+          ctr.id === nile.id
+            ? {
+                defaultRoomId: did("room:NILE"),
+                pricingMethod: "whole_room_percent" as const,
+                splitPlatformBp: 2000,
+                splitTeacherBp: 6000,
+                splitCenterBp: 2000,
+              }
+            : {};
         await tx.course.upsert({
           where: { id },
           update: {
@@ -279,6 +538,7 @@ async function seed() {
             subjectId: off.subjectId,
             gradeLevelId: lina.gradeLevelId,
             trackId: lina.trackId,
+            ...roomBased,
           },
           create: {
             id,
@@ -298,6 +558,7 @@ async function seed() {
             maxStudents: 30,
             status: "active",
             isDemo: true,
+            ...roomBased,
           },
         });
         courses.push({ id, centerId: ctr.id, teacherId: t.id });
@@ -327,6 +588,63 @@ async function seed() {
         }
       }
       if (courses.length === 0) throw new Error("No subject offerings found for Lina's grade/track.");
+
+      // ---- METHOD-2 DEMO COURSE (per-attending-student) on ANDL's forced hall.
+      //      Frozen snapshot: platform 12% (ANDL center split) + 7 EGP/attending
+      //      student (ANDL center rate). CONFIG + roster only — NO ledger rows;
+      //      sessions settle only if Ali completes one from the UI. ----
+      {
+        const off0 = offerings[0]!;
+        const m2Teacher = teachers[1]!;
+        const m2Id = did("course:m2:" + off0.subjectId);
+        await tx.course.upsert({
+          where: { id: m2Id },
+          update: {
+            isDemo: true,
+            status: "active",
+            defaultRoomId: did("room:ANDL"),
+            pricingMethod: "per_attending_student",
+            splitPlatformBp: 1200,
+            m2CenterFee: 700,
+            m2CenterBp: null,
+          },
+          create: {
+            id: m2Id,
+            centerId: centers["ANDL"]!.id,
+            teacherId: m2Teacher.id,
+            title: `${subjName(off0.subjectId)} — قاعة بالطالب (تجريبي)`,
+            subject: subjName(off0.subjectId),
+            subjectId: off0.subjectId,
+            gradeLevelId: lina.gradeLevelId,
+            trackId: lina.trackId,
+            defaultRoomId: did("room:ANDL"),
+            daysOfWeek: [0, 2],
+            startTime: "18:00",
+            endTime: "20:00",
+            startDate: at(-14),
+            price: 30000, // piasters — config/display only, never a ledger row
+            pricePerMonth: 30000,
+            pricePerSession: 4000,
+            maxStudents: 25,
+            status: "active",
+            isDemo: true,
+            pricingMethod: "per_attending_student",
+            splitPlatformBp: 1200,
+            m2CenterFee: 700,
+            m2CenterBp: null,
+          },
+        });
+        // Mirror the course subject into the teacher's specialization — the
+        // main loop only does this for the round-robin teacher, so without it
+        // the M2 teacher gets a class whose subject the specialization-scoped
+        // pickers (collaboration dialog) never show.
+        await tx.teacherSubject.upsert({
+          where: { teacherId_subjectId: { teacherId: m2Teacher.id, subjectId: off0.subjectId } },
+          update: {},
+          create: { teacherId: m2Teacher.id, subjectId: off0.subjectId },
+        });
+        courses.push({ id: m2Id, centerId: centers["ANDL"]!.id, teacherId: m2Teacher.id });
+      }
 
       // ---- ENROLLMENTS (roster links — NO money) ----
       const enroll = async (studentId: string, courseId: string, centerId: string) => {

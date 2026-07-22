@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { scopedDb } from "@/lib/db/scope";
@@ -21,16 +20,18 @@ const bodySchema = z
   .strict();
 
 /** Walk-in cash subscription, recorded by center staff — active immediately. */
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const body = await parseJson(req, bodySchema);
-  return ok(await createWalkInSubscription(body, user), { status: 201 });
-});
+export const POST = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const body = await parseJson(req, bodySchema);
+    return ok(await createWalkInSubscription(body, user), { status: 201 });
+  },
+  { allow: RECEPTION },
+);
 
 /** Center's own subscriptions (walk-in management view). */
-export const GET = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const url = new URL(req.url);
+export const GET = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const url = new URL(req.url);
   const status = url.searchParams.get("status") ?? undefined;
 
   const rows = await scopedDb(user, async (tx) => {
@@ -58,5 +59,7 @@ export const GET = withErrors(async (req) => {
       courseTitle: cMap.get(s.courseId)?.title ?? null,
     }));
   });
-  return ok(rows);
-});
+    return ok(rows);
+  },
+  { allow: RECEPTION },
+);

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { ConflictError, BusinessRuleError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -18,9 +17,9 @@ const bodySchema = z.object({
 const INVITE_EXPIRY_DAYS = 30;
 const LEAK_TOKEN = process.env.NODE_ENV !== "production" || process.env.E2E === "1";
 
-export const POST = withErrors(async (req) => {
-  const admin = await requireRole("center_admin");
-  const { email, name } = await parseJson(req, bodySchema);
+export const POST = centerStaff(
+  async (req, _ctx, { acting: admin }) => {
+    const { email, name } = await parseJson(req, bodySchema);
 
   const token = generateOpaqueToken();
   const tokenHash = hashToken(token);
@@ -104,4 +103,6 @@ export const POST = withErrors(async (req) => {
       meta: LEAK_TOKEN ? { inviteToken: token } : undefined,
     },
   );
-});
+  },
+  { allow: RECEPTION },
+);

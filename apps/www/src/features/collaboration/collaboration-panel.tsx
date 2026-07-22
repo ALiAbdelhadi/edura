@@ -1,10 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
-import { Handshake, Plus, Check, X as XIcon, Ban } from "lucide-react";
+import dayjs from "dayjs";
+import {
+  Handshake,
+  Plus,
+  Check,
+  X as XIcon,
+  Ban,
+  Users,
+  ImageOff,
+  Clock,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
+import { Badge } from "@repo/ui/components/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
   Dialog,
@@ -15,6 +27,17 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import { Calendar } from "@repo/ui/components/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import {
   Table,
   TableBody,
@@ -30,6 +53,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { amenityLabel } from "@/lib/rooms/amenities";
 
 const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   accepted: "success",
@@ -38,6 +62,8 @@ const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> 
   pending: "warning",
   expired: "neutral",
 };
+
+type PricingMethod = "whole_room_percent" | "per_attending_student";
 
 type CollabRow = {
   id: string;
@@ -48,6 +74,7 @@ type CollabRow = {
   centerName: string | null;
   subjectName: { nameAr: string; nameEn: string | null } | null;
   gradeName: { nameAr: string; nameEn: string | null } | null;
+  roomId: string | null;
   roomName: string | null;
   daysOfWeek: number[];
   startTime: string;
@@ -55,13 +82,20 @@ type CollabRow = {
   startDate: string;
   expectedStudents: number | null;
   proposedCenterShare: number;
+  proposedPricingMethod: PricingMethod | null;
   message: string | null;
   status: string;
   responseNote: string | null;
   createdAt: string;
 };
 
-type GradeOption = { id: string; nameEn: string; trackOptions: { id: string; nameEn: string }[] };
+type GradeOption = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  trackOptions: { id: string; nameAr: string; nameEn: string }[];
+};
+type StageGroup = { key: string; nameAr: string; nameEn: string; grades: GradeOption[] };
 
 // useCustom result shapes differ between envelope/raw payloads — extract
 // arrays tolerantly (same trick as the useOne envelope tolerance).
@@ -104,10 +138,35 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   const isIncoming = (r: CollabRow) =>
     role === "teacher" ? r.initiator === "center" : r.initiator === "teacher";
 
-  const decide = async (r: CollabRow, action: "accept" | "reject" | "cancel") => {
+  const methodLabel = (m: PricingMethod | null) =>
+    m === "per_attending_student"
+      ? t("shared.collab.methodPerStudent")
+      : m === "whole_room_percent"
+        ? t("shared.collab.methodPercent")
+        : t("shared.collab.methodPendingChoice");
+
+  // Accepting a center invite on a both-methods hall requires the teacher's
+  // method choice — routed through a dedicated dialog instead of the plain
+  // confirm.
+  const needsMethodChoice = (r: CollabRow) =>
+    role === "teacher" &&
+    r.initiator === "center" &&
+    !!r.roomId &&
+    r.proposedPricingMethod == null;
+  const [methodChoiceFor, setMethodChoiceFor] = useState<CollabRow | null>(null);
+
+  const decide = async (
+    r: CollabRow,
+    action: "accept" | "reject" | "cancel",
+    pricingMethod?: PricingMethod,
+  ) => {
     setBusyId(r.id);
     try {
-      await act({ url: `collaboration-requests/${r.id}/${action}`, method: "post", values: {} });
+      await act({
+        url: `collaboration-requests/${r.id}/${action}`,
+        method: "post",
+        values: pricingMethod ? { pricingMethod } : {},
+      });
       toast.success(
         action === "accept"
           ? t("shared.collab.acceptedToast")
@@ -180,7 +239,21 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
                     </div>
                   </TableCell>
                   <TableCell className="font-semibold">
-                    {formatEGP(r.proposedCenterShare)}
+                    {r.roomId ? (
+                      <Badge
+                        variant={
+                          r.proposedPricingMethod === "per_attending_student"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {methodLabel(r.proposedPricingMethod)}
+                      </Badge>
+                    ) : (
+                      // No-room arrangement: the flat share is platform config,
+                      // never a number either side proposed.
+                      <Badge variant="outline">{t("shared.collab.byPlatform")}</Badge>
+                    )}
                     {r.expectedStudents ? (
                       <div className="text-xs font-normal text-muted-foreground">
                         ~<span dir="ltr">{r.expectedStudents}</span> {t("shared.collab.students")}
@@ -196,18 +269,29 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
                   <TableCell>
                     {r.status === "pending" && isIncoming(r) ? (
                       <div className="flex gap-2">
-                        <ConfirmDialog
-                          trigger={
-                            <Button size="sm" disabled={busyId === r.id}>
-                              {busyId === r.id ? <Spinner /> : <Check className="size-4" />}
-                              {t("shared.collab.accept")}
-                            </Button>
-                          }
-                          title={t("shared.collab.acceptTitle")}
-                          description={t("shared.collab.acceptDesc")}
-                          confirmText={t("shared.collab.accept")}
-                          onConfirm={() => decide(r, "accept")}
-                        />
+                        {needsMethodChoice(r) ? (
+                          <Button
+                            size="sm"
+                            disabled={busyId === r.id}
+                            onClick={() => setMethodChoiceFor(r)}
+                          >
+                            {busyId === r.id ? <Spinner /> : <Check className="size-4" />}
+                            {t("shared.collab.accept")}
+                          </Button>
+                        ) : (
+                          <ConfirmDialog
+                            trigger={
+                              <Button size="sm" disabled={busyId === r.id}>
+                                {busyId === r.id ? <Spinner /> : <Check className="size-4" />}
+                                {t("shared.collab.accept")}
+                              </Button>
+                            }
+                            title={t("shared.collab.acceptTitle")}
+                            description={t("shared.collab.acceptDesc")}
+                            confirmText={t("shared.collab.accept")}
+                            onConfirm={() => decide(r, "accept")}
+                          />
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -246,7 +330,111 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
           query.refetch();
         }}
       />
+
+      {methodChoiceFor ? (
+        <AcceptMethodDialog
+          row={methodChoiceFor}
+          onOpenChange={(o) => !o && setMethodChoiceFor(null)}
+          onConfirm={async (m) => {
+            const r = methodChoiceFor;
+            setMethodChoiceFor(null);
+            await decide(r, "accept", m);
+          }}
+        />
+      ) : null}
     </Card>
+  );
+}
+
+// The teacher's pricing-method choice when accepting a center invite on a hall
+// that offers both methods. Labels only — the numbers are platform-set.
+function AcceptMethodDialog({
+  row,
+  onOpenChange,
+  onConfirm,
+}: {
+  row: CollabRow;
+  onOpenChange: (o: boolean) => void;
+  onConfirm: (m: PricingMethod) => Promise<void>;
+}) {
+  const t = useTranslations();
+  const [method, setMethod] = useState<PricingMethod>("whole_room_percent");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("shared.collab.chooseMethodTitle")}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          {t("shared.collab.chooseMethodDesc", { hall: row.roomName ?? "" })}
+        </p>
+        <MethodRadio value={method} onChange={setMethod} />
+        <DialogFooter>
+          <Button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onConfirm(method);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? <Spinner /> : null}
+            {t("shared.collab.accept")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Shared two-option method picker (radio-style buttons, labels only).
+function MethodRadio({
+  value,
+  onChange,
+  allowed,
+}: {
+  value: PricingMethod;
+  onChange: (m: PricingMethod) => void;
+  allowed?: PricingMethod[];
+}) {
+  const t = useTranslations();
+  const options: { value: PricingMethod; label: string; hint: string }[] = [
+    {
+      value: "whole_room_percent",
+      label: t("shared.collab.methodPercent"),
+      hint: t("shared.collab.methodPercentHint"),
+    },
+    {
+      value: "per_attending_student",
+      label: t("shared.collab.methodPerStudent"),
+      hint: t("shared.collab.methodPerStudentHint"),
+    },
+  ];
+  const visible = allowed ? options.filter((o) => allowed.includes(o.value)) : options;
+  return (
+    <div className="space-y-2">
+      {visible.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`w-full rounded-md border p-2 text-start transition ${
+            value === o.value ? "border-primary ring-2 ring-primary/40" : "hover:border-primary/50"
+          }`}
+        >
+          <div className="flex items-center gap-2 text-sm font-medium">
+            {value === o.value ? <Check className="size-4 text-primary" /> : null}
+            {o.label}
+          </div>
+          <p className="text-xs text-muted-foreground">{o.hint}</p>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -262,8 +450,22 @@ function CreateCollabDialog({
   onCreated: () => void;
 }) {
   const t = useTranslations();
-  const { locale } = useFormatters();
+  const { locale, formatEGP, formatDate } = useFormatters();
   const { mutateAsync: create } = useCustomMutation();
+
+  // Class-time picker options — 30-minute slots (06:00–22:00). The submitted
+  // value is unchanged ("HH:mm" strings); this only replaces the raw <input
+  // type=time> with a clear shadcn Select.
+  const timeOptions = useMemo(() => {
+    const out: string[] = [];
+    for (let h = 6; h <= 22; h++) {
+      for (const m of [0, 30]) {
+        if (h === 22 && m === 30) break;
+        out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      }
+    }
+    return out;
+  }, []);
 
   const [targetQuery, setTargetQuery] = useState("");
   const [targetId, setTargetId] = useState("");
@@ -276,7 +478,7 @@ function CreateCollabDialog({
   const [endTime, setEndTime] = useState("18:00");
   const [startDate, setStartDate] = useState("");
   const [expected, setExpected] = useState("");
-  const [shareEgp, setShareEgp] = useState("");
+  const [method, setMethod] = useState<PricingMethod>("whole_room_percent");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -302,26 +504,97 @@ function CreateCollabDialog({
     method: "get",
     queryOptions: { enabled: open },
   });
-  const grades: GradeOption[] = useMemo(() => {
-    const out: GradeOption[] = [];
+  // Academic years grouped by stage, with localized names — powers a clear,
+  // grouped year picker. `grades` stays a flat list for the track lookup.
+  const stageGroups: StageGroup[] = useMemo(() => {
+    const out: StageGroup[] = [];
     for (const sys of asArray(treeRes)) {
       for (const stage of sys.stages ?? []) {
-        for (const g of stage.gradeLevels ?? []) {
-          out.push({ id: g.id, nameEn: g.nameEn ?? g.nameAr, trackOptions: g.trackOptions ?? [] });
+        const gs: GradeOption[] = (stage.gradeLevels ?? []).map((g: any) => ({
+          id: g.id,
+          nameAr: g.nameAr,
+          nameEn: g.nameEn ?? g.nameAr,
+          trackOptions: g.trackOptions ?? [],
+        }));
+        if (gs.length) {
+          out.push({
+            key: stage.id ?? stage.nameEn ?? stage.nameAr,
+            nameAr: stage.nameAr,
+            nameEn: stage.nameEn ?? stage.nameAr,
+            grades: gs,
+          });
         }
       }
     }
     return out;
   }, [treeRes]);
+  const grades: GradeOption[] = useMemo(
+    () => stageGroups.flatMap((s) => s.grades),
+    [stageGroups],
+  );
   const trackOptions = grades.find((g) => g.id === gradeId)?.trackOptions ?? [];
+  const gradeLabel = (g: GradeOption) => (locale === "ar" ? g.nameAr : g.nameEn);
 
-  // Halls: only the center side can pick one of ITS rooms.
+  // Halls: only the center side can pick one of ITS rooms (name-only picker).
   const { result: roomsRes } = useList({
     resource: "rooms",
     pagination: { mode: "off" },
     queryOptions: { enabled: open && role === "center" },
   });
   const rooms = (roomsRes?.data ?? []) as any[];
+
+  // Teacher side: browse the TARGET center's rooms (photos, capacity, features,
+  // price, busy times) to pick a hall. Fetched per selected center.
+  const { result: centerRoomsRes } = useCustom({
+    url: targetId ? `centers/${targetId}/rooms` : "centers/none/rooms",
+    method: "get",
+    queryOptions: { enabled: open && role === "teacher" && !!targetId },
+  });
+  const centerRooms = (((centerRoomsRes as any)?.data?.rooms ?? []) as any[]) ?? [];
+
+  // Subject auto-fill: a teacher's picker is scoped to their specialization
+  // (TeacherSubject). Falls back to the full catalog if none are recorded.
+  const { result: mySubjectsRes } = useCustom({
+    url: "me/subjects",
+    method: "get",
+    queryOptions: { enabled: open && role === "teacher" },
+  });
+  const mySubjects = asArray(mySubjectsRes);
+  const subjectOptions = role === "teacher" && mySubjects.length > 0 ? mySubjects : subjects;
+
+  // Auto-select the sole specialization subject for a teacher.
+  useEffect(() => {
+    if (role === "teacher" && !subjectId && mySubjects.length === 1) {
+      setSubjectId(mySubjects[0].id);
+    }
+  }, [role, subjectId, mySubjects]);
+
+  // Changing the target center invalidates a previously-picked hall.
+  useEffect(() => {
+    setRoomId("");
+  }, [targetId]);
+
+  // The picked hall's center-set method availability (teacher side reads the
+  // target center's rooms; center side its own).
+  const pickedRoom =
+    role === "teacher"
+      ? centerRooms.find((r) => r.id === roomId)
+      : rooms.find((r) => r.id === roomId);
+  const allowedMethods: PricingMethod[] = roomId
+    ? ((pickedRoom?.allowedPricingMethods ?? ["whole_room_percent"]) as PricingMethod[])
+    : [];
+  const forcedMethod = allowedMethods.length === 1 ? allowedMethods[0] : null;
+  // What this request will actually propose (teacher chooses on both-methods
+  // halls; the center never pre-picks — the teacher decides at accept time).
+  const effectiveMethod: PricingMethod | null = roomId
+    ? (forcedMethod ?? (role === "teacher" ? method : null))
+    : null;
+
+  // Re-seed the choice whenever the hall changes.
+  useEffect(() => {
+    setMethod(forcedMethod ?? "whole_room_percent");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   const dayNames = [
     t("studentBrowse.sun"),
@@ -345,18 +618,13 @@ function CreateCollabDialog({
     setEndTime("18:00");
     setStartDate("");
     setExpected("");
-    setShareEgp("");
+    setMethod("whole_room_percent");
     setMessage("");
   };
 
   const submit = async () => {
     if (!targetId || !subjectId || !gradeId || days.length === 0 || !startDate) {
       toast.error(t("shared.collab.missingFields"));
-      return;
-    }
-    const share = shareEgp.trim() === "" ? 0 : Math.round(Number(shareEgp) * 100);
-    if (!Number.isFinite(share) || share < 0) {
-      toast.error(t("shared.collab.invalidShare"));
       return;
     }
     setSubmitting(true);
@@ -373,7 +641,12 @@ function CreateCollabDialog({
         endTime,
         startDate,
         ...(expected.trim() !== "" ? { expectedStudents: Number(expected) } : {}),
-        proposedCenterShare: share,
+        // NO money field is sent by either side — the server owns every rate.
+        // Teacher's method choice for the hall (or its forced method). Center-
+        // initiated requests never send one — the teacher picks at accept.
+        ...(roomId && role === "teacher" && effectiveMethod
+          ? { proposedPricingMethod: effectiveMethod }
+          : {}),
         ...(message.trim() ? { message: message.trim() } : {}),
       };
       await create({ url: "collaboration-requests", method: "post", values });
@@ -431,7 +704,7 @@ function CreateCollabDialog({
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.subject")}</div>
               <Combobox
-                options={subjects.map((s: any) => ({
+                options={subjectOptions.map((s: any) => ({
                   value: s.id,
                   label: locale === "ar" ? s.nameAr : (s.nameEn ?? s.nameAr),
                 }))}
@@ -444,17 +717,29 @@ function CreateCollabDialog({
             </div>
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.grade")}</div>
-              <Combobox
-                options={grades.map((g) => ({ value: g.id, label: g.nameEn }))}
+              <Select
                 value={gradeId}
-                onChange={(v) => {
-                  setGradeId(v ?? "");
+                onValueChange={(v) => {
+                  setGradeId(v);
                   setTrackId("");
                 }}
-                placeholder={t("shared.collab.grade")}
-                searchPlaceholder={t("actions.search")}
-                emptyText={t("common.noData")}
-              />
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("shared.collab.grade")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {stageGroups.map((st) => (
+                    <SelectGroup key={st.key}>
+                      <SelectLabel>{locale === "ar" ? st.nameAr : st.nameEn}</SelectLabel>
+                      {st.grades.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -464,7 +749,10 @@ function CreateCollabDialog({
               <Combobox
                 options={[
                   { value: "", label: t("shared.collab.allTracks") },
-                  ...trackOptions.map((tr) => ({ value: tr.id, label: tr.nameEn })),
+                  ...trackOptions.map((tr) => ({
+                    value: tr.id,
+                    label: locale === "ar" ? tr.nameAr : (tr.nameEn ?? tr.nameAr),
+                  })),
                 ]}
                 value={trackId}
                 onChange={(v) => setTrackId(v ?? "")}
@@ -489,6 +777,114 @@ function CreateCollabDialog({
                 searchPlaceholder={t("actions.search")}
                 emptyText={t("common.noData")}
               />
+              {roomId ? (
+                <p className="mt-1 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                  {forcedMethod
+                    ? t("shared.collab.forcedMethod", {
+                        method:
+                          forcedMethod === "per_attending_student"
+                            ? t("shared.collab.methodPerStudent")
+                            : t("shared.collab.methodPercent"),
+                      })
+                    : t("shared.collab.teacherPicksAtAccept")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Teacher-facing hall browser: photos, capacity, features, price. */}
+          {role === "teacher" && targetId ? (
+            <div>
+              <div className="mb-1 text-sm font-medium">{t("shared.collab.chooseHall")}</div>
+              {centerRooms.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("shared.collab.noHallsAtCenter")}</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {centerRooms.map((r) => {
+                    const selected = roomId === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setRoomId(selected ? "" : r.id)}
+                        className={`overflow-hidden rounded-lg border text-start transition ${
+                          selected ? "border-primary ring-2 ring-primary/40" : "hover:border-primary/50"
+                        }`}
+                      >
+                        <div className="relative aspect-video w-full bg-muted">
+                          {r.photos?.[0] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.photos[0]} alt={r.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                              <ImageOff className="size-6" />
+                            </div>
+                          )}
+                          {selected ? (
+                            <span className="absolute end-1 top-1 rounded-full bg-primary p-1 text-primary-foreground">
+                              <Check className="size-3" />
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="space-y-1 p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium">{r.name}</span>
+                            {/* Per-student pricing hides the hall price: the cost
+                                depends on attendance (server already nulls it for
+                                per-student-only halls). */}
+                            {r.price != null &&
+                            !(selected && effectiveMethod === "per_attending_student") ? (
+                              <span className="text-sm font-semibold text-primary">{formatEGP(r.price)}</span>
+                            ) : null}
+                          </div>
+                          {r.capacity != null ? (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Users className="size-3" />
+                              {t("shared.collab.seats", { count: r.capacity })}
+                            </div>
+                          ) : null}
+                          {r.facilities?.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {r.facilities.slice(0, 4).map((f: string) => (
+                                <Badge key={f} variant="secondary" className="text-[10px]">
+                                  {amenityLabel(f, locale)}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          {r.busyTimes?.length ? (
+                            <p className="text-[10px] text-muted-foreground">
+                              {t("shared.collab.busySlots", { count: r.busyTimes.length })}
+                            </p>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pricing method for the picked hall: forced → read-only label;
+                  both offered → the teacher's choice (labels only, no numbers). */}
+              {roomId ? (
+                <div className="mt-2">
+                  <div className="mb-1 text-sm font-medium">
+                    {t("shared.collab.methodLabel")}
+                  </div>
+                  {forcedMethod ? (
+                    <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                      {t("shared.collab.forcedMethod", {
+                        method:
+                          forcedMethod === "per_attending_student"
+                            ? t("shared.collab.methodPerStudent")
+                            : t("shared.collab.methodPercent"),
+                      })}
+                    </p>
+                  ) : (
+                    <MethodRadio value={method} onChange={setMethod} allowed={allowedMethods} />
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -513,18 +909,66 @@ function CreateCollabDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.from")}</div>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              <Select value={startTime} onValueChange={setStartTime}>
+                <SelectTrigger className="w-full">
+                  <Clock className="size-4 shrink-0 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {timeOptions.map((tm) => (
+                    <SelectItem key={tm} value={tm}>
+                      <span dir="ltr">{tm}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.to")}</div>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              <Select value={endTime} onValueChange={setEndTime}>
+                <SelectTrigger className="w-full">
+                  <Clock className="size-4 shrink-0 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {timeOptions.map((tm) => (
+                    <SelectItem key={tm} value={tm}>
+                      <span dir="ltr">{tm}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.startDate")}</div>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 font-normal"
+                  >
+                    <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
+                    {startDate ? (
+                      formatDate(dayjs(startDate).toDate())
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("shared.collab.startDate")}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate ? dayjs(startDate).toDate() : undefined}
+                    onSelect={(d) => setStartDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
+                    defaultMonth={startDate ? dayjs(startDate).toDate() : undefined}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -539,16 +983,19 @@ function CreateCollabDialog({
                 onChange={(e) => setExpected(e.target.value)}
               />
             </div>
+            {/* No money input for EITHER side. Every rate — the hall split,
+                the per-student rate, and the flat no-room center share — is
+                platform (superadmin) config; the request only carries WHICH
+                method a hall uses. */}
             <div>
-              <div className="mb-1 text-sm font-medium">{t("shared.collab.shareEgp")}</div>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0"
-                value={shareEgp}
-                onChange={(e) => setShareEgp(e.target.value)}
-              />
+              <div className="mb-1 text-sm font-medium">{t("shared.collab.revenueSplit")}</div>
+              <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                {!roomId
+                  ? t("shared.collab.shareByPlatform")
+                  : effectiveMethod === "per_attending_student"
+                    ? t("shared.collab.perStudentNote")
+                    : t("shared.collab.splitByPlatform")}
+              </p>
             </div>
           </div>
 

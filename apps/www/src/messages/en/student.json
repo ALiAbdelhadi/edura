@@ -140,5 +140,33 @@
     "mockCheckoutHint": "no real gateway in mock mode — confirm or decline the payment",
     "mockPay": "Complete payment",
     "mockFail": "Simulate failure"
+  },
+  "studentWallet": {
+    "subtitle": "Top up and pay for classes from your balance",
+    "topUp": "Top up",
+    "balance": "Wallet balance",
+    "limit": "Wallet limit",
+    "limitHint": "Set by the platform",
+    "history": "Transaction history",
+    "noHistory": "No wallet activity yet",
+    "colDate": "Date",
+    "colType": "Type",
+    "colAmount": "Amount",
+    "colBalance": "Balance",
+    "type_topup": "Top-up",
+    "type_payment": "Payment",
+    "type_refund": "Refund",
+    "type_adjustment": "Adjustment",
+    "enterValidAmount": "Enter a valid amount",
+    "amountEgp": "Amount (EGP)",
+    "cardOnly": "Pay online by card to add to your wallet.",
+    "cashHint": "You can also top up with cash at your center.",
+    "continue": "Continue",
+    "mockPrompt": "Mock gateway — add {amount} to your wallet?",
+    "mockPay": "Complete payment",
+    "mockFail": "Simulate failure",
+    "topupFailed": "Top-up failed",
+    "topupSuccess": "Wallet topped up",
+    "topupDeclined": "Payment declined"
   }
 }

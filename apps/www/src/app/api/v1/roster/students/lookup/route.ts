@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -20,8 +19,8 @@ const bodySchema = z
 // email — so a single probe reveals no PII beyond existence, and rate-limiting
 // (20 burst, 20/min per IP) stops it being used to sweep the user base.
 export const POST = withRateLimit(
-  withErrors(async (req) => {
-    const user = await requireRole("center_admin");
+  centerStaff(
+    async (req, _ctx, { acting: user }) => {
     const body = await parseJson(req, bodySchema);
 
     const filter: { email?: string; phone?: string } = {};
@@ -42,7 +41,9 @@ export const POST = withRateLimit(
     const inviteSendable = !found || student.status === "shell";
 
     return ok({ found, inviteSendable });
-  }),
+    },
+    { allow: RECEPTION },
+  ),
   20,
   20,
 );

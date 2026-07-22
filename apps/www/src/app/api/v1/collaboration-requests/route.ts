@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
-import { requireRole } from "@/lib/authz/require-role";
+import { MANAGER } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import {
@@ -27,7 +26,15 @@ const bodySchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date().nullish(),
     expectedStudents: z.number().int().positive().max(10000).nullish(),
-    proposedCenterShare: z.number().int().min(0).max(99_999_900),
+    // Accepted for backward compatibility with older clients, then IGNORED:
+    // the flat center share is superadmin-only config (the service forces 0).
+    // Kept optional rather than rejected so a stale PWA bundle still submits.
+    proposedCenterShare: z.number().int().min(0).max(99_999_900).nullish(),
+    // Room-based only. Validated against the room's center-set availability in
+    // the service; never carries a number — superadmin owns all rates.
+    proposedPricingMethod: z
+      .enum(["whole_room_percent", "per_attending_student"])
+      .nullish(),
     message: z.string().trim().max(1000).nullish(),
   })
   .strict()
@@ -40,22 +47,28 @@ const bodySchema = z
     path: ["endTime"],
   });
 
-export const POST = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
-  const body = await parseJson(req, bodySchema);
-  const teacherId = user.role === "teacher" ? user.id : body.teacherId;
-  const centerId = user.role === "center_admin" ? (user.centerId as string) : body.centerId;
-  if (!teacherId || !centerId) {
-    throw new (await import("@/lib/errors/classes")).ValidationError(
-      user.role === "teacher" ? "centerId is required" : "teacherId is required",
+export const POST = delegatedWithCenter(
+  async (req, _ctx, { acting: user }) => {
+    const body = await parseJson(req, bodySchema);
+    const teacherId = user.role === "teacher" ? user.id : body.teacherId;
+    const centerId = user.role === "center_admin" ? (user.centerId as string) : body.centerId;
+    if (!teacherId || !centerId) {
+      throw new (await import("@/lib/errors/classes")).ValidationError(
+        user.role === "teacher" ? "centerId is required" : "teacherId is required",
+      );
+    }
+    return ok(
+      await createCollaborationRequest({ ...body, teacherId, centerId }, user),
+      { status: 201 },
     );
-  }
-  return ok(
-    await createCollaborationRequest({ ...body, teacherId, centerId }, user),
-    { status: 201 },
-  );
-});
+  },
+  { staffAllow: MANAGER },
+);
 
-export const GET = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
-  const status = new URL(req.url).searchParams.get("status") ?? undefined;
-  return ok(await listCollaborationRequests(user, status));
-});
+export const GET = delegatedWithCenter(
+  async (req, _ctx, { acting: user }) => {
+    const status = new URL(req.url).searchParams.get("status") ?? undefined;
+    return ok(await listCollaborationRequests(user, status));
+  },
+  { staffAllow: MANAGER },
+);

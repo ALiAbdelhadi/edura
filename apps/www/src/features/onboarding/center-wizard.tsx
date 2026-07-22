@@ -11,6 +11,13 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
+import { Combobox } from "@/components/kit/combobox";
+import {
+  governorateOptions,
+  cityOptions,
+  governorateLabel,
+  cityLabel,
+} from "@/lib/egypt-locations";
 import { WizardShell, OptionChip } from "./wizard-shell";
 import { useOnboarding, apiSend } from "./use-onboarding";
 
@@ -132,29 +139,72 @@ export function CenterWizard() {
   );
 
   if (stepId === "centerInfo") {
-    const fields: { key: keyof typeof info; label: string; dir?: "ltr" }[] = [
-      { key: "name", label: t("onboarding.center.name") },
-      { key: "governorate", label: t("onboarding.center.governorate") },
-      { key: "area", label: t("onboarding.center.area") },
-      { key: "phone", label: t("onboarding.center.phone"), dir: "ltr" },
-    ];
+    const setField = (key: keyof typeof info, value: string) => {
+      const next = { ...info, [key]: value };
+      setInfo(next);
+      persist(stepId, next);
+    };
+    // Changing the governorate invalidates any previously chosen area.
+    const setGovernorate = (value: string | null) => {
+      const next = { ...info, governorate: value ?? "", area: "" };
+      setInfo(next);
+      persist(stepId, next);
+    };
     return shell(
       <div className="grid gap-4">
-        {fields.map((f) => (
-          <div key={f.key} className="grid gap-1.5">
-            <Label htmlFor={`c-${f.key}`}>{f.label}</Label>
-            <Input
-              id={`c-${f.key}`}
-              dir={f.dir}
-              value={info[f.key]}
-              onChange={(e) => {
-                const next = { ...info, [f.key]: e.target.value };
-                setInfo(next);
-                persist(stepId, next);
-              }}
-            />
-          </div>
-        ))}
+        <div className="grid gap-1.5">
+          <Label htmlFor="c-name">{t("onboarding.center.name")}</Label>
+          <Input
+            id="c-name"
+            value={info.name}
+            onChange={(e) => setField("name", e.target.value)}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="c-governorate">
+            {t("onboarding.center.governorate")}
+          </Label>
+          <Combobox
+            id="c-governorate"
+            options={governorateOptions(locale)}
+            value={info.governorate || null}
+            onChange={setGovernorate}
+            placeholder={t("onboarding.center.governoratePlaceholder")}
+            searchPlaceholder={t("onboarding.center.searchPlaceholder")}
+            emptyText={t("onboarding.center.noResults")}
+            clearLabel={t("onboarding.center.clear")}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="c-area">{t("onboarding.center.area")}</Label>
+          <Combobox
+            id="c-area"
+            options={cityOptions(info.governorate, locale)}
+            value={info.area || null}
+            onChange={(v) => setField("area", v ?? "")}
+            placeholder={
+              info.governorate
+                ? t("onboarding.center.areaPlaceholder")
+                : t("onboarding.center.areaNeedsGovernorate")
+            }
+            searchPlaceholder={t("onboarding.center.searchPlaceholder")}
+            emptyText={t("onboarding.center.noResults")}
+            clearLabel={t("onboarding.center.clear")}
+            disabled={!info.governorate}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="c-phone">{t("onboarding.center.phone")}</Label>
+          <Input
+            id="c-phone"
+            dir="ltr"
+            value={info.phone}
+            onChange={(e) => setField("phone", e.target.value)}
+          />
+        </div>
       </div>,
       <Button
         className="w-full"
@@ -214,8 +264,14 @@ export function CenterWizard() {
         {(
           [
             [t("onboarding.center.name"), info.name],
-            [t("onboarding.center.governorate"), info.governorate || t("onboarding.review.none")],
-            [t("onboarding.center.area"), info.area || t("onboarding.review.none")],
+            [
+              t("onboarding.center.governorate"),
+              info.governorate ? governorateLabel(info.governorate, locale) : t("onboarding.review.none"),
+            ],
+            [
+              t("onboarding.center.area"),
+              info.area ? cityLabel(info.governorate, info.area, locale) : t("onboarding.review.none"),
+            ],
             [t("onboarding.center.phone"), info.phone || t("onboarding.review.none")],
           ] as [string, string][]
         ).map(([k, v]) => (

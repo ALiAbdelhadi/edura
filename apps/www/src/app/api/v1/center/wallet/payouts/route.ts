@@ -1,11 +1,13 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, ACCOUNTANT } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { listCenterPayouts } from "@/lib/services/finance/center-wallet";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  const user = await requireRole("center_admin");
-  return ok(await listCenterPayouts(user));
-});
+// READ center payout history — owner + center_accountant (read-only).
+export const GET = centerStaff(
+  async (_req, _ctx, { acting: user }) => {
+    return ok(await listCenterPayouts(user));
+  },
+  { allow: ACCOUNTANT },
+);

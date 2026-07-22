@@ -70,7 +70,13 @@
   "center": {
     "name": "Center name",
     "governorate": "Governorate",
+    "governoratePlaceholder": "Select governorate",
     "area": "Area",
+    "areaPlaceholder": "Select area",
+    "areaNeedsGovernorate": "Select a governorate first",
+    "searchPlaceholder": "Search…",
+    "noResults": "No results",
+    "clear": "Clear",
     "phone": "Phone",
     "coverage": "Covered stages",
     "stagesCount": "{count} stages"

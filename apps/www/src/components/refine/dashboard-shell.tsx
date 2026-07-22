@@ -15,6 +15,7 @@ import {
   Users,
   User,
   DollarSign,
+  Wallet as WalletIcon,
   Bell,
   Settings,
   LayoutGrid,
@@ -88,7 +89,16 @@ const NAV_KEY: Record<string, string> = {
   Wallet: "nav.wallet",
   "Check-in": "nav.checkin",
   "Door Check-in": "nav.doorCheckin",
+  Staff: "nav.staff",
+  Finance: "nav.finance",
   Catalog: "nav.catalog",
+};
+
+// Maps a session role to its dashboard URL segment (center_admin/center_staff
+// don't share their role string with their folder name).
+const PORTAL_BASE: Record<string, string> = {
+  center_admin: "admin",
+  center_staff: "staff",
 };
 
 const iconMap: Record<string, LucideIcon> = {
@@ -102,6 +112,7 @@ const iconMap: Record<string, LucideIcon> = {
   users: Users,
   person: User,
   dollar: DollarSign,
+  wallet: WalletIcon,
   bell: Bell,
   settings: Settings,
   grid: LayoutGrid,
@@ -123,6 +134,7 @@ const roleLabels: Record<string, string> = {
   assistant: "Assistant",
   parent: "Parent",
   admin: "Admin",
+  center_staff: "Center Staff",
 };
 
 function getInitials(name: string) {
@@ -293,7 +305,7 @@ export default function DashboardShell({
                 aria-label={`${t("nav.notifications")}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
               >
                 <Link
-                  href={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}
+                  href={`/dashboard/${PORTAL_BASE[role] ?? role}/notifications`}
                 >
                   <Bell className="size-4" />
                 </Link>

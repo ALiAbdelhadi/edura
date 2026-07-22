@@ -12,6 +12,7 @@ const navItems = [
     label: "Subjects",
   },
   { href: "/dashboard/student/schedule", icon: "calendar", label: "Schedule" },
+  { href: "/dashboard/student/wallet", icon: "wallet", label: "Wallet" },
   {
     href: "/dashboard/student/assignments",
     icon: "clipboard",

@@ -3,8 +3,9 @@ import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { ForbiddenError } from "@/lib/errors/classes";
-import type { Role } from "@repo/database";
-import type { SessionUser } from "@/lib/auth/session";
+import type { Role, CenterStaffRole } from "@repo/database";
+import { requireSession, type SessionUser } from "@/lib/auth/session";
+import { runCenterActor, type CenterActorHandler } from "@/lib/authz/center-actor";
 
 /**
  * Step 8 — assistant delegation, concentrated in THIS module only.
@@ -142,8 +143,38 @@ export function delegated(
   });
 }
 
-/** delegated() variant for routes shared with center admins (collab, session
- *  lifecycle, temp students) — a center_admin passes through undelegated. */
-export function delegatedWithCenter(handler: ActorHandler) {
-  return delegated(handler, { alsoRoles: ["center_admin"] });
+/**
+ * Gate for routes SHARED between the teacher side (teacher/assistant) and the
+ * center side (center_admin/center_staff): collaboration requests, session
+ * lifecycle, etc.
+ *
+ * - teacher / assistant caller -> the unchanged Step 8 `delegated()` path
+ *   (assistant mutations audited on-behalf-of the teacher). This path is
+ *   byte-for-byte identical to before — no Step 8 regression.
+ * - center_admin caller -> passes through with full power (acting = itself),
+ *   no on-behalf-of audit (unchanged prior behavior).
+ * - center_staff caller -> routed through the center actor, gated by
+ *   `staffAllow` (e.g. MANAGER for collaboration accept/reject); mutations
+ *   audited on-behalf-of the center. If `staffAllow` is omitted, NO staff role
+ *   may pass (default-closed) and only the owner reaches the handler.
+ */
+export function delegatedWithCenter(
+  handler: ActorHandler,
+  opts?: { staffAllow?: readonly CenterStaffRole[] },
+) {
+  const teacherPath = delegated(handler); // teacher/assistant only
+  return withErrors(async (req, ctx) => {
+    const user = await requireSession();
+    if (user.role === "center_admin" || user.role === "center_staff") {
+      // CenterActor is a structural superset of TeacherActor (adds staffRole);
+      // handlers only read acting/caller/actorId/onBehalfOf, so this is safe.
+      return runCenterActor(
+        req,
+        ctx,
+        handler as unknown as CenterActorHandler,
+        { allow: opts?.staffAllow ?? [] },
+      );
+    }
+    return teacherPath(req, ctx);
+  });
 }

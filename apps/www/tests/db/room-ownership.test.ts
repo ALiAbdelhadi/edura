@@ -1,0 +1,114 @@
+/**
+ * Room ownership — a center can manage ONLY its own rooms.
+ *
+ * Proves:
+ *  - requireCenterScope (the gate every room write path uses) blocks a
+ *    cross-center id and allows the caller's own.
+ *  - uploadRoomPhoto through the real service is blocked for another center's
+ *    room (RLS hides it under the caller's tenant → the write can't happen).
+ *  - a center_admin CAN set profile fields (features/photos/price) on its OWN
+ *    room, and cannot even see another center's room under its tenant scope.
+ *
+ * Run: pnpm --filter edura exec tsx --env-file=.env.local tests/db/room-ownership.test.ts
+ */
+import { withTenant, withPlatformContext } from "@repo/database";
+import { ForbiddenError } from "@/lib/errors/classes";
+import { requireCenterScope } from "@/lib/authz/require-center-scope";
+import { uploadRoomPhoto } from "@/lib/services/rooms/rooms";
+import type { SessionUser } from "@/lib/auth/session";
+
+let pass = 0;
+let fail = 0;
+function assert(cond: boolean, msg: string) {
+  if (cond) {
+    pass++;
+    console.log("  ✓", msg);
+  } else {
+    fail++;
+    console.error("  ✗", msg);
+  }
+}
+async function expectThrows(fn: () => Promise<unknown>, label: string) {
+  try {
+    await fn();
+    assert(false, `${label} (did not throw)`);
+  } catch (e) {
+    assert(true, `${label} (threw: ${(e as Error).message.slice(0, 80)})`);
+  }
+}
+
+const rid = () => Math.floor(Math.random() * 1e9).toString(36);
+// Minimal valid PNG signature so the magic-byte check passes and execution
+// reaches the ownership gate (never actually uploaded for the cross-center case).
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+async function main() {
+  const tag = "roomown-" + rid();
+  console.log("Room ownership DB tests —", tag);
+
+  const fx = await withPlatformContext(async (tx) => {
+    const mkCenter = async (k: string) => {
+      const c = await tx.center.create({
+        data: { name: `${tag}-${k}`, shortId: ("C" + rid() + rid()).slice(0, 12).toUpperCase(), status: "active", walletBalance: 0 },
+      });
+      const admin = await tx.user.create({
+        data: { name: `${tag}-${k}-admin`, role: "center_admin", email: `${tag}-${k}@x.io`, status: "active" },
+      });
+      await tx.centerAdminProfile.create({ data: { userId: admin.id, centerId: c.id } });
+      const room = await tx.room.create({ data: { centerId: c.id, name: `${k}-hall`, isActive: true } });
+      return { centerId: c.id, adminId: admin.id, roomId: room.id };
+    };
+    return { A: await mkCenter("A"), B: await mkCenter("B") };
+  });
+
+  const userA: SessionUser = { id: fx.A.adminId, role: "center_admin", centerId: fx.A.centerId } as SessionUser;
+
+  // --- requireCenterScope gate ---
+  expectThrowsSync(() => requireCenterScope(userA, fx.B.centerId), ForbiddenError, "requireCenterScope BLOCKS another center's id");
+  let ownOk = true;
+  try {
+    requireCenterScope(userA, fx.A.centerId);
+  } catch {
+    ownOk = false;
+  }
+  assert(ownOk, "requireCenterScope ALLOWS the caller's own center id");
+
+  // --- uploadRoomPhoto through the real service, cross-center ---
+  const file = new File([new Uint8Array(PNG)], "x.png", { type: "image/png" });
+  await expectThrows(
+    () => uploadRoomPhoto(fx.B.roomId, file, userA),
+    "center A cannot upload a photo to center B's room",
+  );
+
+  // --- positive: center A manages its OWN room; B's room invisible under A ---
+  const managed = await withTenant(fx.A.centerId, async (tx) => {
+    const updated = await tx.room.update({
+      where: { id: fx.A.roomId },
+      data: { facilities: ["ac", "projector"], photos: ["https://x/p1.jpg"], price: 50000 },
+    });
+    const foreign = await tx.room.findUnique({ where: { id: fx.B.roomId } });
+    return { updated, foreignVisible: foreign !== null };
+  });
+  assert(
+    managed.updated.facilities.join(",") === "ac,projector" && managed.updated.price === 50000,
+    "center A set features + price on its OWN room",
+  );
+  assert(!managed.foreignVisible, "center B's room is INVISIBLE under center A's tenant scope (RLS)");
+
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+function expectThrowsSync(fn: () => void, ErrClass: new (...a: never[]) => Error, label: string) {
+  try {
+    fn();
+    assert(false, `${label} (did not throw)`);
+  } catch (e) {
+    assert(e instanceof ErrClass, `${label} (${(e as Error).constructor.name})`);
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

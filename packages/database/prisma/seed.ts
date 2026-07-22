@@ -27,6 +27,10 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
+  // Catalog first: it is permanent reference data (idempotent upserts) and the
+  // demo course below links to it by code.
+  await seedCatalog();
+
   await withPlatformContext(
     async (tx) => {
       // Everything this seed creates is demo data — flagged is_demo on the
@@ -231,6 +235,21 @@ async function main() {
         });
       }
 
+      // Catalog linkage: math @ الصف الثالث الثانوي (علمي رياضة). The course
+      // must be catalog-linked AND mirrored into TeacherSubject /
+      // TeacherGradeLevel so the teacher's classes never show a subject that
+      // the specialization-scoped pickers (e.g. the collaboration dialog)
+      // don't offer.
+      const mathSubject = await tx.subject.findUniqueOrThrow({
+        where: { code: "math" },
+      });
+      const grade12 = await tx.gradeLevel.findUniqueOrThrow({
+        where: { code: "general-secondary-3" },
+      });
+      const sciMathTrack = await tx.track.findUniqueOrThrow({
+        where: { code: "general-sci-math" },
+      });
+
       let course = await tx.course.findFirst({
         where: {
           centerId: center.id,
@@ -245,6 +264,9 @@ async function main() {
             teacherId: teacher.id,
             title: "Math — Grade 12",
             subject: "Math",
+            subjectId: mathSubject.id,
+            gradeLevelId: grade12.id,
+            trackId: sciMathTrack.id,
             daysOfWeek: [1, 3],
             startTime: "16:00",
             endTime: "18:00",
@@ -254,7 +276,37 @@ async function main() {
             isDemo: true,
           },
         });
+      } else if (!course.subjectId) {
+        // Backfill pre-catalog rows from earlier seed runs.
+        course = await tx.course.update({
+          where: { id: course.id },
+          data: {
+            subjectId: mathSubject.id,
+            gradeLevelId: grade12.id,
+            trackId: sciMathTrack.id,
+          },
+        });
       }
+      await tx.teacherSubject.upsert({
+        where: {
+          teacherId_subjectId: {
+            teacherId: teacher.id,
+            subjectId: mathSubject.id,
+          },
+        },
+        update: {},
+        create: { teacherId: teacher.id, subjectId: mathSubject.id },
+      });
+      await tx.teacherGradeLevel.upsert({
+        where: {
+          teacherId_gradeLevelId: {
+            teacherId: teacher.id,
+            gradeLevelId: grade12.id,
+          },
+        },
+        update: {},
+        create: { teacherId: teacher.id, gradeLevelId: grade12.id },
+      });
       const existingEnrollment = await tx.enrollment.findFirst({
         where: { studentId: student.id, courseId: course.id },
       });
@@ -309,8 +361,6 @@ async function main() {
     },
     { timeout: 60_000, maxWait: 15_000 },
   );
-
-  await seedCatalog();
 
   await prisma.$disconnect();
 }

@@ -70,7 +70,13 @@
   "center": {
     "name": "اسم السنتر",
     "governorate": "المحافظة",
+    "governoratePlaceholder": "اختر المحافظة",
     "area": "المنطقة",
+    "areaPlaceholder": "اختر المنطقة",
+    "areaNeedsGovernorate": "اختر المحافظة أولاً",
+    "searchPlaceholder": "بحث…",
+    "noResults": "لا توجد نتائج",
+    "clear": "مسح",
     "phone": "التليفون",
     "coverage": "المراحل المغطاة",
     "stagesCount": "{count} مرحلة"

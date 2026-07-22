@@ -14,6 +14,7 @@ import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import { computeTeacherDirectSplit } from "@/lib/services/finance/fees";
 import { resolveCommission } from "@/lib/services/finance/commission";
 import { assertNotBlacklisted } from "@/lib/services/blacklist/blacklist";
+import { walletDebit } from "@repo/server-core/services/wallet/wallet";
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // monthly coverage window
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000; // stale pending_payment sweep
@@ -107,7 +108,7 @@ async function activateSubscription(
   tx: TenantTx,
   subscriptionId: string,
   opts: {
-    paymentMethod: "cash" | "online_paymob";
+    paymentMethod: "cash" | "online_paymob" | "wallet";
     paymentId?: string | null;
     enrolledBy: string;
   },
@@ -177,10 +178,26 @@ async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
 async function settleSubscriptionMoney(
   tx: TenantTx,
   sub: Subscription,
-  method: "cash" | "online_paymob",
+  method: "cash" | "online_paymob" | "wallet",
   gatewayRef: string | null,
   recordedBy: string,
 ): Promise<{ paymentId: string; receiptNumber: string }> {
+  // WALLET funding source: debit the student's balance ALL-OR-NOTHING before any
+  // Payment row exists. walletDebit uses the H2 conditional decrement — an
+  // insufficient balance throws here, rolling back the whole enclosing tx
+  // (nothing charged, no receipt, no partial debit). Money still LANDS where it
+  // does for cash/online below (student->center or student->teacher); the wallet
+  // is only the funding leg, recorded on the Transaction as paymentMethod=wallet.
+  if (method === "wallet") {
+    await walletDebit(tx, sub.studentId, sub.price, {
+      type: "payment",
+      method: "wallet",
+      subscriptionId: sub.id,
+      reason: `Subscription payment (${sub.plan})`,
+      recordedBy,
+    });
+  }
+
   let receiptNumber: string;
   if (sub.centerId) {
     const center = await tx.center.update({
@@ -278,13 +295,71 @@ export async function createSubscriptionCheckout(
     courseId: string;
     plan: "monthly" | "per_session";
     sessionId?: string;
-    method: "card" | "wallet";
+    method: "card" | "wallet"; // Paymob sub-method (card iframe vs mobile wallets) — gateway path only
+    payFrom?: "gateway" | "wallet"; // funding source: gateway OR the student's own wallet balance
     idempotencyKey: string;
   },
   user: SessionUser,
 ) {
   if (user.role !== "student") throw new ForbiddenError("Students only");
+  const choice: PlanChoice = { plan: input.plan, sessionId: input.sessionId ?? null };
 
+  // ---- Pay from the student's own WALLET: settle synchronously, no gateway ----
+  if ((input.payFrom ?? "gateway") === "wallet") {
+    const course0 = await platformDb((tx) =>
+      tx.course.findFirst({
+        where: { id: input.courseId, status: "active" },
+        select: { id: true, centerId: true, teacherId: true },
+      }),
+    );
+    if (!course0) throw new NotFoundError("Course not found or not active");
+    await assertNotBlacklisted(user.id, course0.centerId, course0.teacherId);
+
+    const settled = await platformDb(
+      async (tx) => {
+        // Serialize concurrent wallet checkouts for this student so two submits
+        // can't both create-and-settle (double-charge). The FOR UPDATE lock +
+        // assertNoDuplicateActive make the loser see the winner's active sub.
+        await tx.$queryRaw`SELECT 1 FROM student_profiles WHERE user_id = ${user.id}::uuid FOR UPDATE`;
+        const course = await tx.course.findFirst({
+          where: { id: input.courseId, status: "active" },
+        });
+        if (!course) throw new NotFoundError("Course not found or not active");
+        const { price } = await resolvePlan(tx, course, choice);
+        await assertNoDuplicateActive(tx, user.id, course.id, choice);
+
+        const sub = await tx.subscription.create({
+          data: subscriptionShell(course, user.id, choice, price, "online"),
+        });
+        // Debits the wallet ALL-OR-NOTHING (throws + rolls back on insufficient).
+        const { paymentId, receiptNumber } = await settleSubscriptionMoney(
+          tx,
+          sub,
+          "wallet",
+          null,
+          user.id,
+        );
+        const active = await activateSubscription(tx, sub.id, {
+          paymentMethod: "wallet",
+          paymentId,
+          enrolledBy: user.id,
+        });
+        return { subscriptionId: active.id, receiptNumber, status: active.status };
+      },
+      { actorId: user.id },
+    );
+
+    await notify({
+      recipients: await studentAndParents(user.id),
+      type: "payment_recorded",
+      title: "Subscription active",
+      body: `Your subscription is active (paid from wallet). Receipt ${settled.receiptNumber}.`,
+      data: { subscriptionId: settled.subscriptionId, receiptNumber: settled.receiptNumber },
+    });
+    return { walletPaid: true, ...settled };
+  }
+
+  // ---- Gateway path (Paymob / mock) — unchanged ----
   const { sub, course } = await platformDb(
     async (tx) => {
       const course = await tx.course.findFirst({
@@ -292,7 +367,6 @@ export async function createSubscriptionCheckout(
       });
       if (!course) throw new NotFoundError("Course not found or not active");
 
-      const choice: PlanChoice = { plan: input.plan, sessionId: input.sessionId ?? null };
       const { price } = await resolvePlan(tx, course, choice);
       await assertNoDuplicateActive(tx, user.id, course.id, choice);
 

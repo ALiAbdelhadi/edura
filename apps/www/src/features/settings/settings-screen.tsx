@@ -35,6 +35,7 @@ import { toast } from "@repo/ui/components/sonner";
 import { DescriptionList } from "@/components/kit/description-list";
 import { PageHeader } from "@/components/kit/page-header";
 import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
+import { ProfileImageCard } from "@/features/settings/profile-image-card";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
@@ -154,6 +155,12 @@ export function SettingsScreen() {
     <div className="flex w-full max-w-[600px] flex-col gap-6">
       <PageHeader title={t("nav.settings")} />
       {me?.role === "teacher" || me?.role === "assistant" ? <AttendanceModeCard /> : null}
+      {me?.role === "teacher" ? (
+        <ProfileImageCard variant="teacherPhoto" name={me?.name} />
+      ) : null}
+      {me?.role === "center_admin" ? (
+        <ProfileImageCard variant="centerLogo" name={me?.name} />
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{t("shared.settingsProfile")}</CardTitle>

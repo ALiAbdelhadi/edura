@@ -35,6 +35,7 @@ export type {
   Conversation,
   ConversationMessage,
   TeacherAssistant,
+  CenterStaff,
   ChatbotConfig,
   ChatbotFaq,
   ChatbotConversation,
@@ -42,6 +43,7 @@ export type {
 
 export {
   Role,
+  CenterStaffRole,
   UserStatus,
   Locale,
   Theme,

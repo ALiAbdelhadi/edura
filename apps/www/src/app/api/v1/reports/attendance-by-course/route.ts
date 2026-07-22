@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseOrThrow } from "@/lib/validation/zod";
 import { getAttendanceByCourse } from "@/lib/services/reports/reports";
@@ -12,13 +11,17 @@ const querySchema = z.object({
   to: z.string().optional(),
 });
 
-export const GET = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const url = new URL(req.url);
-  const query = parseOrThrow(
-    querySchema,
-    Object.fromEntries(url.searchParams.entries()),
-  );
-  const result = await getAttendanceByCourse(user, query.from, query.to);
-  return ok(result);
-});
+// Operational report — MANAGER (and owner). Financial reports (revenue/profit/
+// expenses) are center_accountant-only; see center-actor.ts CAPABILITY MAP.
+export const GET = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const url = new URL(req.url);
+    const query = parseOrThrow(
+      querySchema,
+      Object.fromEntries(url.searchParams.entries()),
+    );
+    const result = await getAttendanceByCourse(user, query.from, query.to);
+    return ok(result);
+  },
+  { allow: MANAGER },
+);

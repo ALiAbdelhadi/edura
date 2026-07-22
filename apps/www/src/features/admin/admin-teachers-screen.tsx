@@ -211,12 +211,12 @@ export function AdminTeachersScreen() {
         actions={
           <Button onClick={() => setIsInviteOpen(true)}>
             <Plus className="size-4" />
-
-      <CollaborationPanel role="center" />
             {t("adminHome.teachers_inviteTeacher")}
           </Button>
         }
       />
+
+      <CollaborationPanel role="center" />
 
       <Card>
         <CardContent>

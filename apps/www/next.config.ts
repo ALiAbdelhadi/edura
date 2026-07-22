@@ -61,6 +61,15 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   reactStrictMode: true,
 
+  // Mirror the Cloudinary cloud name to the browser so @repo/ui/lib/cloudinary
+  // can build delivery/transformation URLs client-side. Only the cloud name is
+  // exposed — it appears in every delivery URL anyway; the API key and secret
+  // stay server-only. Derived from CLOUDINARY_CLOUD_NAME so deployments set
+  // one variable, not two.
+  env: {
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ?? "",
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

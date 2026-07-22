@@ -5,11 +5,12 @@ import { requireRole } from "@/lib/authz/require-role";
 import { getSessionUser } from "@/lib/auth/session";
 import { toActingUser } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
-import { BusinessRuleError, ForbiddenError } from "@/lib/errors/classes";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moneySchema, isNotPastDate } from "@/lib/validation/common";
 import { generateSessions } from "@/lib/services/sessions/session-generator";
+import { resolveCoursePricingSnapshot } from "@/lib/services/finance/commission";
 
 export const dynamic = "force-dynamic";
 
@@ -44,20 +45,55 @@ export const GET = withErrors(async (req) => {
   const subject = url.searchParams.get("subject");
   const status = url.searchParams.get("status");
 
-  const where: Prisma.CourseWhereInput = {};
-
-  if (user?.role === "center_admin") {
-    where.centerId = user.centerId;
-  } else if (user?.role === "teacher") {
-    where.teacherId = user.id;
-  } else if (centerIdParam) {
-    where.centerId = centerIdParam;
-  }
-  if (teacherIdParam && user?.role !== "teacher") where.teacherId = teacherIdParam;
-  if (subject) where.subject = subject;
-  if (status) where.status = status as Prisma.CourseWhereInput["status"];
-
   const result = await scopedDb(user, async (tx) => {
+    // SCOPE — FAIL-CLOSED. Every caller sees ONLY the courses within their own
+    // scope; a caller whose scope can't be resolved gets NOTHING. This mirrors
+    // the per-role scoping the enrollments endpoint already does, and closes the
+    // old fall-open where a student / parent / unauthenticated request (which
+    // matched no role branch) returned the ENTIRE course catalog.
+    const where: Prisma.CourseWhereInput = {};
+
+    if (user?.role === "center_admin") {
+      where.centerId = user.centerId;
+      // An admin MAY narrow to one of their center's teachers.
+      if (teacherIdParam) where.teacherId = teacherIdParam;
+    } else if (user?.role === "teacher") {
+      // A teacher sees ONLY the courses they teach — never another teacher's,
+      // and a teacherId param can never broaden this.
+      where.teacherId = user.id;
+    } else if (user?.role === "student") {
+      // A student sees only the courses they are enrolled in (any status, so
+      // completed-course grades still resolve their course name).
+      const enr = await tx.enrollment.findMany({
+        where: { studentId: user.id },
+        select: { courseId: true },
+      });
+      where.id = { in: enr.map((e) => e.courseId) };
+    } else if (user?.role === "parent") {
+      // A parent sees only their approved children's enrolled courses.
+      const links = await tx.parentStudentLink.findMany({
+        where: { parentId: user.id, status: "approved" },
+        select: { studentId: true },
+      });
+      const childIds = links.map((l) => l.studentId);
+      const enr = childIds.length
+        ? await tx.enrollment.findMany({
+            where: { studentId: { in: childIds } },
+            select: { courseId: true },
+          })
+        : [];
+      where.id = { in: enr.map((e) => e.courseId) };
+    } else if (centerIdParam) {
+      // Public/anonymous discovery is allowed ONLY for an explicit center.
+      where.centerId = centerIdParam;
+    } else {
+      // No scope could be resolved — fail closed, never dump the catalog.
+      return [];
+    }
+
+    if (subject) where.subject = subject;
+    if (status) where.status = status as Prisma.CourseWhereInput["status"];
+
     const courses = await tx.course.findMany({ where });
 
     const courseIds = courses.map((c) => c.id);
@@ -129,6 +165,8 @@ const createSchema = z.object({
   schedulePattern: schedulePatternSchema,
   price: moneySchema,
   maxStudents: z.number().int().positive().max(10000),
+  // Room-based only; validated against the room's allowed methods at snapshot.
+  pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),
 });
 
 export const POST = withErrors(async (req) => {
@@ -145,6 +183,27 @@ export const POST = withErrors(async (req) => {
     if (!affiliation) {
       throw new BusinessRuleError("Teacher does not have an active affiliation with this center");
     }
+
+    // The room must be the CALLER'S — an arbitrary roomId would freeze another
+    // center's method/rate onto this course (cross-tenant money leak).
+    if (body.defaultRoomId) {
+      const room = await tx.room.findFirst({
+        where: { id: body.defaultRoomId, centerId, isActive: true },
+        select: { id: true },
+      });
+      if (!room) throw new NotFoundError("Hall not found at this center");
+    }
+
+    // Freeze the pricing snapshot onto the course (room-based courses only):
+    // method + 3-way split % (Method 1) or platform % + per-student rate
+    // (Method 2), resolving room > center > global from the superadmin config.
+    // Settlement reads this snapshot, so later config changes never re-rate
+    // this course.
+    const splitSnapshot = await resolveCoursePricingSnapshot(tx, {
+      roomId: body.defaultRoomId ?? null,
+      centerId,
+      requestedMethod: body.pricingMethod ?? null,
+    });
 
     return tx.course.create({
       data: {
@@ -163,6 +222,7 @@ export const POST = withErrors(async (req) => {
         price: body.price,
         maxStudents: body.maxStudents,
         status: "active",
+        ...splitSnapshot,
       },
     });
   });

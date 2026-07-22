@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { phoneSchema } from "@/lib/validation/common";
@@ -14,8 +13,10 @@ const bodySchema = z.object({
   grade: z.string().trim().max(50).optional(),
 });
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const body = await parseJson(req, bodySchema);
-  return ok(await createTempStudent(body, user), { status: 201 });
-});
+export const POST = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const body = await parseJson(req, bodySchema);
+    return ok(await createTempStudent(body, user), { status: 201 });
+  },
+  { allow: RECEPTION },
+);

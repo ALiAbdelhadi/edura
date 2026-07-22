@@ -41,7 +41,8 @@
     "overview": "Overview",
     "catalog": "Catalog",
     "team": "Team",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "roomSettlements": "Room settlements"
   },
   "roles": {
     "student": "Student",

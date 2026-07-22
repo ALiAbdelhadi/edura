@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Prisma } from "@repo/database";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION, MANAGER } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, ConflictError, ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -11,11 +12,14 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ studentId: string }> };
 
-export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireRole("center_admin");
-  const { studentId } = await ctx.params;
+// GET (view) = receptionist+; PATCH (edit incl. blacklist toggle) = manager only
+// — blacklisting is a manager capability, so it must not leak to a receptionist.
+// DELETE (remove from roster) stays owner-only by omission.
+export const GET = centerStaff(
+  async (_req, ctx, { acting: user }) => {
+    const { studentId } = await ctx.params;
 
-  if (!user.centerId) throw new ForbiddenError("Admin has no center scope");
+    if (!user.centerId) throw new ForbiddenError("Admin has no center scope");
 
   const result = await scopedDb(user, async (tx) => {
     const roster = await tx.centerStudentRoster.findFirst({
@@ -31,8 +35,10 @@ export const GET = withErrors(async (_req, ctx) => {
     return { ...roster, user: student };
   });
 
-  return ok(result);
-});
+    return ok(result);
+  },
+  { allow: RECEPTION },
+);
 
 const patchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -44,12 +50,12 @@ const patchSchema = z.object({
   blacklistReason: z.string().optional(),
 });
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("center_admin");
-  const { studentId } = await ctx.params;
-  const body = await parseJson(req, patchSchema);
+export const PATCH = centerStaff(
+  async (req, ctx, { acting: user }) => {
+    const { studentId } = await ctx.params;
+    const body = await parseJson(req, patchSchema);
 
-  if (!user.centerId) throw new ForbiddenError("Admin has no center scope");
+    if (!user.centerId) throw new ForbiddenError("Admin has no center scope");
 
   const result = await scopedDb(user, async (tx) => {
     const inRoster = await tx.centerStudentRoster.findFirst({
@@ -107,8 +113,10 @@ export const PATCH = withErrors(async (req, ctx) => {
     return { ...(roster ?? {}), user: updatedUser };
   });
 
-  return ok(result);
-});
+    return ok(result);
+  },
+  { allow: MANAGER },
+);
 
 export const DELETE = withErrors(async (_req, ctx) => {
   const user = await requireRole("center_admin");

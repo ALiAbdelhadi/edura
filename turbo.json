@@ -5,7 +5,11 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"],
+      // NEXT_PUBLIC_* values are inlined into the client bundle at build time,
+      // so the build cache key must include them or a cloud-name change would
+      // serve a stale bundle.
+      "env": ["CLOUDINARY_CLOUD_NAME", "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"]
     },
     "lint": {
       "dependsOn": ["^lint"]

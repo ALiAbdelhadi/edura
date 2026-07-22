@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { ok, fail } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { BusinessRuleError } from "@/lib/errors/classes";
@@ -17,20 +16,22 @@ const bodySchema = z
  * the UI then runs the EXISTING Step 4 walk-in per-session cash path
  * (center/subscriptions) and retries; no money code lives in check-in.
  */
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const body = await parseJson(req, bodySchema);
-  try {
-    return ok(await counterCheckin(body, user));
-  } catch (err) {
-    if (
-      err instanceof BusinessRuleError &&
-      (err.details as { code?: string } | undefined)?.code === "needs_payment"
-    ) {
-      return fail(402, "needs_payment", err.message, {
-        details: err.details as Record<string, unknown>,
-      });
+export const POST = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const body = await parseJson(req, bodySchema);
+    try {
+      return ok(await counterCheckin(body, user));
+    } catch (err) {
+      if (
+        err instanceof BusinessRuleError &&
+        (err.details as { code?: string } | undefined)?.code === "needs_payment"
+      ) {
+        return fail(402, "needs_payment", err.message, {
+          details: err.details as Record<string, unknown>,
+        });
+      }
+      throw err;
     }
-    throw err;
-  }
-});
+  },
+  { allow: RECEPTION },
+);

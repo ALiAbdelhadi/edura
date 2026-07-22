@@ -1,40 +1,41 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { roomPatchSchema, assertMethod2Enablable } from "@/lib/services/rooms/rooms";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const patchSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  capacity: z.number().int().positive().optional(),
-});
+export const PATCH = centerStaff(
+  async (req, ctx, { acting: user }) => {
+    const { id } = await ctx.params;
+    const body = await parseJson(req, roomPatchSchema);
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("center_admin");
-  const { id } = await ctx.params;
-  const body = await parseJson(req, patchSchema);
+    const updated = await scopedDb(user, async (tx) => {
+      const room = await tx.room.findUnique({ where: { id } });
+      if (!room) throw new NotFoundError("Room not found");
+      requireCenterScope(user, room.centerId);
+      await assertMethod2Enablable(
+        tx,
+        { roomId: id, centerId: room.centerId },
+        body.allowedPricingMethods,
+      );
+      return tx.room.update({ where: { id }, data: body });
+    });
+    return ok(updated);
+  },
+  { allow: MANAGER },
+);
 
-  const updated = await scopedDb(user, async (tx) => {
-    const room = await tx.room.findUnique({ where: { id } });
-    if (!room) throw new NotFoundError("Room not found");
-    requireCenterScope(user, room.centerId);
-    return tx.room.update({ where: { id }, data: body });
-  });
-  return ok(updated);
-});
+export const DELETE = centerStaff(
+  async (_req, ctx, { acting: user }) => {
+    const { id } = await ctx.params;
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("center_admin");
-  const { id } = await ctx.params;
-
-  const result = await scopedDb(user, async (tx) => {
+    const result = await scopedDb(user, async (tx) => {
     const room = await tx.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError("Room not found");
     requireCenterScope(user, room.centerId);
@@ -51,7 +52,9 @@ export const DELETE = withErrors(async (_req, ctx) => {
     }
 
     await tx.room.update({ where: { id }, data: { isActive: false } });
-    return { deleted: true };
-  });
-  return ok(result);
-});
+      return { deleted: true };
+    });
+    return ok(result);
+  },
+  { allow: MANAGER },
+);

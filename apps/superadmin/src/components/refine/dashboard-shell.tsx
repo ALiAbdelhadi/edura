@@ -53,6 +53,7 @@ const NAV_KEY: Record<string, string> = {
   Registrations: "nav.registrations",
   Transactions: "nav.transactions",
   Payouts: "nav.payouts",
+  "Room settlements": "nav.roomSettlements",
   Statements: "nav.statements",
   Alerts: "nav.alerts",
   Dashboard: "nav.dashboard",

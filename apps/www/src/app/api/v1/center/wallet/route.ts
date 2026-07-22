@@ -1,11 +1,14 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, ACCOUNTANT } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { getCenterWallet } from "@/lib/services/finance/center-wallet";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  const user = await requireRole("center_admin");
-  return ok(await getCenterWallet(user));
-});
+// READ the center wallet balance — owner + center_accountant. WITHDRAWING
+// (payout-request) is a HARD EXCLUSION, owner-only by omission.
+export const GET = centerStaff(
+  async (_req, _ctx, { acting: user }) => {
+    return ok(await getCenterWallet(user));
+  },
+  { allow: ACCOUNTANT },
+);

@@ -36,6 +36,13 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
 
+  // Cloud name only (public by construction — it is in every delivery URL);
+  // the API key/secret stay server-side. Lets @repo/ui/lib/cloudinary build
+  // transformation URLs in the back-office too.
+  env: {
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ?? "",
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

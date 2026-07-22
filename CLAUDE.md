@@ -26,6 +26,49 @@ Education platform for the Egyptian market (K-12 private lessons / teaching cent
 - Teachers can delegate management to Assistant accounts acting on their behalf,
   with audit attribution.
 
+## Descoped (not building)
+
+These four systems are **permanently dropped** from the roadmap (decided
+2026-07-21). Do NOT build them, do NOT scaffold routes/screens/nav entries for
+them, and do NOT re-add them to the roadmap. If a Stitch design (or any future
+spec) includes them, skip those parts — treat their absence as intentional, not
+a gap to fill.
+
+1. **AI bot / chatbot / AI assistant** — no support bot, academic bot, AI tutor,
+   or any AI-assistant surface. (The `chatbot_config` / `chatbot_faq` /
+   `chatbot_conversations` tables in `schema.prisma` were always schema-only with
+   no logic wired; they stay inert — do NOT wire any AI logic to them. Removing
+   the tables is a DB migration and would need its own approved plan; leaving
+   them dormant is fine.)
+2. **Scholarships** — no scholarship entity, application flow, or UI.
+3. **Bookstore** — no book catalog, store, or purchase flow.
+4. **Videos / video lessons** — no pre-recorded video-lesson library, player, or
+   content-upload surface. NOTE: this does NOT touch "lessons" in the money/
+   attendance sense — in this codebase a `lesson` = a live class `Session`
+   (the fee/points/attendance engine), which is core and untouched.
+
+As of 2026-07-21 none of these four had any UI entry point in `apps/www` or
+`apps/superadmin` (verified by search) — nothing was built, so nothing was
+removed. This section is the guard so they are never revisited.
+
+## Deferred (revisit later)
+
+Unlike the Descoped systems above (permanently dropped), these are paused — not
+killed. Do NOT build them now, and strip/hide any placeholder UI for them from
+both the app and any designs. Revisit only when explicitly requested with the
+business rules defined.
+
+1. **Debt / credit (pay-later)** — deferred (decided 2026-07-21). Debt/credit
+   (pay-later) is high-risk money functionality; deferred until explicitly
+   needed with defined business rules (who can grant debt, limits, repayment,
+   interest). The wallet is built and is the foundation if/when we do it.
+   As of 2026-07-21 there is NO debt/pay-later feature, schema table, i18n
+   string, or placeholder UI anywhere (verified by search) — nothing was built,
+   so nothing needed removing. (The accounting `credit`/`debit` entries in the
+   Transaction ledger are the double-entry money engine, NOT this feature —
+   they stay.) If a Stitch design (or any future spec) includes a pay-later /
+   installments / "بالأجل" surface, skip it — treat its absence as intentional.
+
 ## Conventions
 - All demo/seed data is flagged `is_demo = true` so it can be purged later.
   Purgeable `is_demo` demo data is wiped before launch. This NEVER includes the

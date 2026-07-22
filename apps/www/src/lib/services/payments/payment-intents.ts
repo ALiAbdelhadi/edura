@@ -241,11 +241,26 @@ export async function processWebhookEvent(
   // longer exist. Still idempotent: the claim's `updateMany where pending`
   // takes a row lock, so a concurrent second delivery blocks then sees 0
   // pending rows and no-ops.
-  const dynamicSettle = intent.subscriptionId
-    ? (
-        await import("@/lib/services/subscriptions/subscriptions")
-      ).settleSubscriptionFromIntentTx
-    : null;
+  // Resolve the settler by the intent's target/purpose (before the tx):
+  //  wallet_topup -> credit the wallet; subscription -> activate the sub;
+  //  else -> the bare-course Payment path. Each runs INSIDE the claim tx below.
+  let settle: (tx: TenantTx) => Promise<SettleNotification | null>;
+  if (intent.purpose === "wallet_topup") {
+    const { settleWalletTopUpFromIntentTx } = await import("@/lib/services/wallet/wallet");
+    settle = (tx) =>
+      settleWalletTopUpFromIntentTx(tx, intent.id, { gatewayRef: event.gatewayRef });
+  } else if (intent.subscriptionId) {
+    const { settleSubscriptionFromIntentTx } = await import(
+      "@/lib/services/subscriptions/subscriptions"
+    );
+    settle = (tx) =>
+      settleSubscriptionFromIntentTx(tx, intent.subscriptionId!, {
+        id: intent.id,
+        gatewayRef: event.gatewayRef,
+      });
+  } else {
+    settle = (tx) => settleIntentTx(tx, intent.id);
+  }
 
   const { result, toNotify } = await platformDb(
     async (tx): Promise<{ result: WebhookOutcome & { handled: true }; toNotify: SettleNotification | null }> => {
@@ -285,12 +300,7 @@ export async function processWebhookEvent(
       }
 
       // Settle inside the SAME transaction as the claim.
-      const toNotify = dynamicSettle
-        ? await dynamicSettle(tx, intent.subscriptionId!, {
-            id: intent.id,
-            gatewayRef: event.gatewayRef,
-          })
-        : await settleIntentTx(tx, intent.id);
+      const toNotify = await settle(tx);
 
       return { result: { handled: true, intentId: intent.id, result: "paid" }, toNotify };
     },

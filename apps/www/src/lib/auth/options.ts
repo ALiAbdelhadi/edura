@@ -10,6 +10,7 @@ import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 // a staff account can never mint a www session.
 const WWW_ROLES = new Set([
   "center_admin",
+  "center_staff", // center front-desk / manager / center-accountant
   "teacher",
   "parent",
   "student",
@@ -81,6 +82,19 @@ export const authOptions: NextAuthOptions = {
             }),
           );
           centerId = profile?.centerId ?? undefined;
+        } else if (user.role === "center_staff") {
+          // Center staff carry their center on the session too. The AUTHORITATIVE
+          // revocation check still lives in requireCenterActor (re-resolved live
+          // per request against center_staff WHERE removed_at IS NULL), so a
+          // deactivated staff loses access on the next request regardless of the
+          // 30-day JWT.
+          const link = await withPlatformContext((tx) =>
+            tx.centerStaff.findFirst({
+              where: { staffUserId: user.id, removedAt: null },
+              select: { centerId: true },
+            }),
+          );
+          centerId = link?.centerId ?? undefined;
         }
 
         return {

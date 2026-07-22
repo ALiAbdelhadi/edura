@@ -118,7 +118,7 @@ export function AdminFeesScreen() {
   const [withdrawEgp, setWithdrawEgp] = useState("");
 
   const centerWallet = walletRes?.data as
-    | { balance: number; available: number; pendingPayouts: { count: number; amount: number } }
+    | { balance: number; available: number; pendingPayouts?: { count: number; amount: number } }
     | undefined;
   const centerPayouts = (centerPayoutsRes?.data ?? []) as any[];
 
@@ -488,7 +488,7 @@ export function AdminFeesScreen() {
             <StatCard label={t("adminManage.fees.walletAvailable")} value={formatEGP(centerWallet?.available ?? 0)} icon={DollarSign} />
             <StatCard
               label={t("adminManage.fees.walletReserved")}
-              value={`${formatEGP(centerWallet?.pendingPayouts.amount ?? 0)} (${centerWallet?.pendingPayouts.count ?? 0})`}
+              value={`${formatEGP(centerWallet?.pendingPayouts?.amount ?? 0)} (${centerWallet?.pendingPayouts?.count ?? 0})`}
               icon={Receipt}
             />
           </div>

@@ -44,7 +44,8 @@
     "subjects": "Subjects",
     "wallet": "Wallet",
     "checkin": "Check-in",
-    "doorCheckin": "Door Check-in"
+    "doorCheckin": "Door Check-in",
+    "staff": "Staff"
   },
   "roles": {
     "student": "Student",
@@ -57,7 +58,8 @@
     "user": "User",
     "superadmin": "Super Admin",
     "finance": "Accountant",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "center_staff": "Center Staff"
   },
   "status": {
     "active": "Active",
@@ -111,6 +113,13 @@
     "heroFeatureAttendance": "Attendance & progress tracking",
     "heroFeaturePayments": "Subscriptions & secure payments",
     "heroFeatureRoles": "For students, parents, teachers & centers",
+    "heroSignupBadge": "Free to join",
+    "heroTaglineSignup": "Join Egypt's growing learning network.",
+    "heroSubtitleSignup": "Create your account in a minute and start learning right away.",
+    "heroStepsTitle": "Get started in 3 steps",
+    "heroStep1": "Pick your role — student, parent, or center",
+    "heroStep2": "Create your free account",
+    "heroStep3": "Set up your profile and start learning",
     "email": "Email",
     "password": "Password",
     "forgotPassword": "Forgot password?",
@@ -202,7 +211,8 @@
     "price": "Price",
     "center": "Center",
     "phone": "Phone",
-    "address": "Address"
+    "address": "Address",
+    "netProfit": "Net Profit"
   },
   "theme": {
     "label": "Theme",
@@ -332,5 +342,55 @@
     "continue": "Save & continue",
     "credentialsSaved": "Credentials saved",
     "credentialsFailed": "Could not save credentials"
+  },
+  "centerStaff": {
+    "title": "Staff",
+    "subtitle": "Create staff accounts with preset roles. Staff act on behalf of your center — every action is logged, and no one can touch the wallet, pricing, settings, or other staff.",
+    "add": "Add staff member",
+    "empty": "No staff yet",
+    "emptyHint": "Add receptionists, managers, or a center accountant to run your front desk and back office.",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "role": "Role",
+    "roleTitle": "Title (optional)",
+    "roleTitlePlaceholder": "e.g. Front desk, Morning shift",
+    "create": "Create",
+    "createFailed": "Could not create staff member",
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "deactivateTitle": "Deactivate staff member?",
+    "deactivateDescription": "{name} will lose access on their next request. You can reactivate them later.",
+    "activateTitle": "Reactivate staff member?",
+    "activateDescription": "{name} will regain access with their assigned role.",
+    "phone": "Phone",
+    "status": "Status",
+    "permissionsTitle": "Role permissions",
+    "excluded": "Never allowed for any staff: wallet withdrawals, pricing & revenue split, center settings, and managing staff — those stay with you.",
+    "auditNote": "Every staff action is recorded on behalf of your center.",
+    "portalTitle": "Center Staff",
+    "loading": "Loading…",
+    "roleName": {
+      "receptionist": "Receptionist",
+      "manager": "Manager",
+      "center_accountant": "Center Accountant"
+    },
+    "roleDesc": {
+      "receptionist": "Counter check-in, walk-in registration, cash wallet top-ups, and student lookup.",
+      "manager": "Everything a receptionist can do, plus room management, collaboration requests, and operational reports.",
+      "center_accountant": "Read-only view of this center's financial reports and ledger. No changes."
+    },
+    "can": {
+      "checkin": "Counter check-in",
+      "walkin": "Walk-in registration",
+      "topup": "Cash wallet top-up",
+      "students": "Student lookup",
+      "rooms": "Room management",
+      "collaboration": "Collaboration requests",
+      "opsReports": "Operational reports",
+      "finance": "Financial reports (read-only)"
+    }
   }
 }

@@ -3,7 +3,12 @@ import { Prisma } from "../generated/client/index";
 
 const SOFT_DELETE_MODELS = new Set<string>(["User"]);
 
-const IMMUTABLE_MODELS = new Set<string>(["Transaction", "PointsLedger"]);
+const IMMUTABLE_MODELS = new Set<string>([
+  "Transaction",
+  "PointsLedger",
+  "WalletLedger",
+  "SessionSettlement",
+]);
 
 const NO_HARD_DELETE_MODELS = new Set<string>(["Invoice", "Payout"]);
 

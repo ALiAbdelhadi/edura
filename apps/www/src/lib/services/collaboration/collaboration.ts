@@ -10,6 +10,11 @@ import type { CollaborationRequest, Prisma } from "@repo/database";
 import { notify } from "@/lib/services/notifications/notify";
 import { resolveCenterAdmins } from "@/lib/services/notifications/fanout";
 import { generateSessionsTx } from "@/lib/services/sessions/session-generator";
+import {
+  resolveCoursePricingSnapshot,
+  type RoomPricingMethodValue,
+} from "@/lib/services/finance/commission";
+import { assertMethod2Enablable } from "@/lib/services/rooms/rooms";
 
 const PENDING_TTL_DAYS = 30;
 const DEFAULT_COURSE_MONTHS = 3;
@@ -32,7 +37,7 @@ export type CollaborationInput = {
   startDate: Date;
   endDate?: Date | null;
   expectedStudents?: number | null;
-  proposedCenterShare: number;
+  proposedPricingMethod?: RoomPricingMethodValue | null;
   message?: string | null;
 };
 
@@ -78,12 +83,50 @@ export async function createCollaborationRequest(
         throw new BusinessRuleError("This subject is not offered for the chosen grade/track");
       }
 
+      // Room-based requests: resolve the pricing method proposal against the
+      // room's center-set availability. WHO picks (approved rules): a forced
+      // room imposes its method on everyone; a both-methods room is the
+      // TEACHER's choice — at creation for teacher-initiated requests, at
+      // accept time for center-initiated ones (stored NULL until then; the
+      // center may NOT pre-pick for the teacher).
+      let proposedPricingMethod: RoomPricingMethodValue | null = null;
       if (input.roomId) {
         const room = await tx.room.findFirst({
           where: { id: input.roomId, centerId: input.centerId, isActive: true },
-          select: { id: true },
+          select: { id: true, allowedPricingMethods: true },
         });
         if (!room) throw new NotFoundError("Hall not found at this center");
+
+        const allowed = room.allowedPricingMethods as RoomPricingMethodValue[];
+        if (input.proposedPricingMethod && !allowed.includes(input.proposedPricingMethod)) {
+          throw new BusinessRuleError("This hall does not offer the requested pricing method");
+        }
+        if (allowed.length === 1) {
+          proposedPricingMethod = allowed[0];
+        } else if (initiator === "teacher") {
+          // Teacher is booking — their choice; default to the classic % method
+          // for pre-feature clients that send nothing.
+          proposedPricingMethod = input.proposedPricingMethod ?? "whole_room_percent";
+        } else {
+          // Center-initiated on a both-methods room: the teacher picks at
+          // accept time. Reject a center-supplied choice instead of silently
+          // dropping it.
+          if (input.proposedPricingMethod) {
+            throw new BusinessRuleError(
+              "The teacher chooses the pricing method for this hall when accepting",
+            );
+          }
+          proposedPricingMethod = null;
+        }
+        // Fail fast at request time when per-student pricing has no configured
+        // rate (the accept-time snapshot would throw anyway — worse moment).
+        if (proposedPricingMethod === "per_attending_student") {
+          await assertMethod2Enablable(
+            tx,
+            { roomId: input.roomId, centerId: input.centerId },
+            ["per_attending_student"],
+          );
+        }
       }
 
       // Duplicate guard (also enforced by the partial unique index).
@@ -117,7 +160,13 @@ export async function createCollaborationRequest(
           startDate: input.startDate,
           endDate: input.endDate ?? null,
           expectedStudents: input.expectedStudents ?? null,
-          proposedCenterShare: input.proposedCenterShare,
+          // NO party proposes a money number. Every rate — the room split, the
+          // per-student rate, and the flat no-room `affiliation.centerShare` —
+          // is SUPERADMIN-ONLY config. This is server-enforced (not merely
+          // hidden in the UI), so a crafted request from either side can never
+          // smuggle a share onto the affiliation.
+          proposedCenterShare: 0,
+          proposedPricingMethod,
           message: input.message ?? null,
           expiresAt: new Date(Date.now() + PENDING_TTL_DAYS * 24 * 60 * 60 * 1000),
           createdBy: user.id,
@@ -226,7 +275,11 @@ function assertResponder(request: CollaborationRequest, user: SessionUser): void
   }
 }
 
-export async function acceptCollaborationRequest(requestId: string, user: SessionUser) {
+export async function acceptCollaborationRequest(
+  requestId: string,
+  user: SessionUser,
+  opts: { pricingMethod?: RoomPricingMethodValue | null } = {},
+) {
   const { request, course, counterpartRecipients } = await platformDb(
     async (tx) => {
       const request = await tx.collaborationRequest.findUnique({ where: { id: requestId } });
@@ -249,8 +302,13 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
         throw new BusinessRuleError(`Request is already ${request.status}`);
       }
 
-      // 1. Affiliation (active) carrying the agreed centerShare — same
-      //    semantics the retired ClassroomBooking approval had.
+      // 1. Affiliation (active). Its flat `centerShare` (the legacy no-room
+      //    money knob) is SUPERADMIN-OWNED — neither side proposes it, so
+      //    acceptance never writes it here:
+      //      • existing affiliation → centerShare is left EXACTLY as it is,
+      //        or a superadmin-set value would be wiped by the next accepted
+      //        request between the same teacher and center;
+      //      • new affiliation     → starts at 0 until superadmin sets it.
       const existingAff = await tx.centerTeacherAffiliation.findFirst({
         where: {
           centerId: request.centerId,
@@ -264,7 +322,6 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
           where: { id: existingAff.id },
           data: {
             status: "active",
-            centerShare: request.proposedCenterShare,
             respondedAt: new Date(),
           },
         });
@@ -277,7 +334,7 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
             centerId: request.centerId,
             teacherId: request.teacherId,
             status: "active",
-            centerShare: request.proposedCenterShare,
+            centerShare: 0,
             respondedAt: new Date(),
             expiresAt,
           },
@@ -313,6 +370,48 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
           return d;
         })();
 
+      // Resolve the pricing method for the snapshot. The stored proposal wins;
+      // when it is NULL on a both-methods room (center-initiated request), the
+      // accepting TEACHER supplies the choice now — required, so the course is
+      // never created with an ambiguous method.
+      let effectiveMethod: RoomPricingMethodValue | null =
+        (request.proposedPricingMethod as RoomPricingMethodValue | null) ?? null;
+      if (request.roomId && !effectiveMethod) {
+        const room = await tx.room.findUnique({
+          where: { id: request.roomId },
+          select: { allowedPricingMethods: true },
+        });
+        const allowed = (room?.allowedPricingMethods ?? []) as RoomPricingMethodValue[];
+        if (allowed.length === 1) {
+          effectiveMethod = allowed[0];
+        } else if (request.initiator === "center" && user.role === "teacher") {
+          // The teacher accepts a center invite on a both-methods hall → the
+          // choice is theirs, and it must be explicit.
+          if (!opts.pricingMethod) {
+            throw new BusinessRuleError(
+              "Choose a pricing method for this hall to accept the request",
+              { code: "method_choice_required" },
+            );
+          }
+          effectiveMethod = opts.pricingMethod;
+        } else {
+          // Legacy pre-feature request accepted by the center → the classic %
+          // method, exactly what those requests meant when created.
+          effectiveMethod = "whole_room_percent";
+        }
+      }
+
+      // Freeze the pricing snapshot onto the course at creation (room-based
+      // courses only): the method + the 3-way split % (Method 1) or the
+      // platform % + per-student rate (Method 2). Resolves room > center >
+      // global from the superadmin config; the snapshot is what settlement
+      // reads later, so changing the config never re-rates this course (M4.5).
+      const splitSnapshot = await resolveCoursePricingSnapshot(tx, {
+        roomId: request.roomId,
+        centerId: request.centerId,
+        requestedMethod: effectiveMethod,
+      });
+
       const course = await tx.course.create({
         data: {
           centerId: request.centerId,
@@ -331,6 +430,7 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
           price: 0, // unpriced until the owner configures plans (Step 4 model)
           maxStudents: request.expectedStudents ?? DEFAULT_MAX_STUDENTS,
           status: "active",
+          ...splitSnapshot,
         },
       });
 
@@ -352,7 +452,9 @@ export async function acceptCollaborationRequest(requestId: string, user: Sessio
 
       await tx.collaborationRequest.update({
         where: { id: requestId },
-        data: { courseId: course.id, affiliationId },
+        // Persist the method the acceptance actually used (fills the NULL left
+        // for teacher-picks-at-accept requests — the record of what was agreed).
+        data: { courseId: course.id, affiliationId, proposedPricingMethod: effectiveMethod },
       });
 
       const counterpartRecipients =

@@ -381,10 +381,11 @@ const ROLE_ORDER: Record<Role, number> = {
   super_admin: 0,
   accountant: 1,
   center_admin: 2,
-  teacher: 3,
-  assistant: 4,
-  parent: 5,
-  student: 6,
+  center_staff: 3,
+  teacher: 4,
+  assistant: 5,
+  parent: 6,
+  student: 7,
 };
 
 // ---------------------------------------------------------------------------

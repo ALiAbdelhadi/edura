@@ -1,17 +1,19 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, ACCOUNTANT } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { getCenterWalletTransactions } from "@/lib/services/finance/center-wallet";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  const user = await requireRole("center_admin");
-  const url = new URL(req.url);
-  return ok(
-    await getCenterWalletTransactions(user, {
-      take: url.searchParams.get("take") ? Number(url.searchParams.get("take")) : undefined,
-      cursor: url.searchParams.get("cursor") ?? undefined,
-    }),
-  );
-});
+// READ the center wallet ledger — owner + center_accountant (read-only).
+export const GET = centerStaff(
+  async (req, _ctx, { acting: user }) => {
+    const url = new URL(req.url);
+    return ok(
+      await getCenterWalletTransactions(user, {
+        take: url.searchParams.get("take") ? Number(url.searchParams.get("take")) : undefined,
+        cursor: url.searchParams.get("cursor") ?? undefined,
+      }),
+    );
+  },
+  { allow: ACCOUNTANT },
+);

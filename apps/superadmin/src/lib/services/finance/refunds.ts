@@ -4,6 +4,7 @@ import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 import { nextTxnRefs } from "@/lib/services/finance/ref-numbers";
 import { resolveCommission } from "@/lib/services/finance/commission";
+import { walletCredit } from "@repo/server-core/services/wallet/wallet";
 import type { SessionUser } from "@/lib/auth/session";
 
 const ALREADY_REFUNDED = "This lesson charge has already been refunded";
@@ -51,7 +52,15 @@ export async function refundLessonForStudent(
         if (!session) throw new NotFoundError("Session not found");
         const course = await tx.course.findUnique({
           where: { id: session.courseId },
-          select: { centerId: true, teacherId: true },
+          select: {
+            centerId: true,
+            teacherId: true,
+            splitPlatformBp: true,
+            splitCenterBp: true,
+            pricingMethod: true,
+            m2CenterFee: true,
+            m2CenterBp: true,
+          },
         });
         if (!course) throw new NotFoundError("Course not found");
         if (!course.centerId) {
@@ -65,11 +74,29 @@ export async function refundLessonForStudent(
         const teacherId = course.teacherId;
 
         const perSessionPrice = payment.amount;
-        const affiliation = await tx.centerTeacherAffiliation.findFirst({
-          where: { centerId, teacherId, status: "active" },
-          select: { centerShare: true },
-        });
-        const centerShare = affiliation?.centerShare ?? 0;
+        // Mirror distribution's per-course rule so the reversal is exact:
+        //  • Method 2 (per_attending_student) → the center's share is the rate
+        //    frozen on the course (flat piasters, or bp of the charged price),
+        //    same formula the settlement used.
+        //  • Method 1 / ROOM-BASED → derived from the course's frozen split
+        //    snapshot (immutable → never drifts).
+        //  • NO-ROOM course → the flat affiliation.centerShare (legacy).
+        // The platform fees are reversed from the ACTUAL charged commission rows
+        // below (already the case), so all pricing models reverse correctly.
+        let centerShare: number;
+        if (course.pricingMethod === "per_attending_student") {
+          centerShare =
+            course.m2CenterFee ??
+            Math.round((perSessionPrice * (course.m2CenterBp ?? 0)) / 10_000);
+        } else if (course.splitPlatformBp != null && course.splitCenterBp != null) {
+          centerShare = Math.round((perSessionPrice * course.splitCenterBp) / 10_000);
+        } else {
+          const affiliation = await tx.centerTeacherAffiliation.findFirst({
+            where: { centerId, teacherId, status: "active" },
+            select: { centerShare: true },
+          });
+          centerShare = affiliation?.centerShare ?? 0;
+        }
 
         // Step 4.5 correctness: reverse the fees that were ACTUALLY CHARGED for
         // this lesson (the commission Transactions written at distribution
@@ -143,7 +170,34 @@ export async function refundLessonForStudent(
           });
         }
 
-        return { studentId, centerId, teacherId, refunded: perSessionPrice, teacherNet, centerNet };
+        // Return the originally-charged amount to the STUDENT'S WALLET. This
+        // credit rides the SAME tx as the refund insert above, which bears
+        // reversalOfId = payment.id under the transactions_one_refund_per_payment
+        // partial unique — so a concurrent/second refund's insert fails (P2002)
+        // and the whole tx (including this credit) rolls back. The wallet is
+        // therefore credited EXACTLY ONCE, at the originally-charged amount, with
+        // no extra guard.
+        const { balanceAfter: walletBalanceAfter } = await walletCredit(
+          tx,
+          studentId,
+          perSessionPrice,
+          {
+            type: "refund",
+            refNumber: refundRef,
+            reason: `Refund to wallet: ${reason}`,
+            recordedBy: user.id,
+          },
+        );
+
+        return {
+          studentId,
+          centerId,
+          teacherId,
+          refunded: perSessionPrice,
+          teacherNet,
+          centerNet,
+          walletBalanceAfter,
+        };
       },
       { actorId: user.id },
     );

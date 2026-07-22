@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 const ROLE_TO_PORTAL: Record<string, string> = {
   admin: "/dashboard/admin",
   center_admin: "/dashboard/admin",
+  center_staff: "/dashboard/staff",
   teacher: "/dashboard/teacher",
   assistant: "/dashboard/assistant",
   student: "/dashboard/student",

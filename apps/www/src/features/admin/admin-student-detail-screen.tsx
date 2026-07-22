@@ -110,6 +110,8 @@ export function AdminStudentDetailScreen() {
   const [blacklistModalOpen, setBlacklistModalOpen] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [walletAmount, setWalletAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const editSchema = z.object({
@@ -364,6 +366,32 @@ export function AdminStudentDetailScreen() {
     setEditModalOpen(true);
   };
 
+  // Center staff record a CASH top-up into this student's wallet (credit-only —
+  // there is no center wallet-debit path). Traceable: recordedBy = this staff.
+  const handleWalletTopup = async () => {
+    const egp = Number(walletAmount);
+    if (!Number.isFinite(egp) || egp <= 0) {
+      toast.error(t("adminHome.detail_walletInvalid"));
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await patchStudent({
+        url: "center/wallet-topup",
+        method: "post",
+        values: { studentId: userId, amount: Math.round(egp * 100) },
+      });
+      toast.success(t("adminHome.detail_walletTopupDone"));
+      setWalletModalOpen(false);
+      setWalletAmount("");
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.message || t("adminHome.detail_actionFailed"));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleEditSave = async (values: z.infer<typeof editSchema>) => {
     setActionLoading(true);
     try {
@@ -410,6 +438,10 @@ export function AdminStudentDetailScreen() {
         }
         actions={
           <>
+            <Button variant="outline" onClick={() => setWalletModalOpen(true)}>
+              <Wallet className="size-4" />
+              {t("adminHome.detail_walletTopup")}
+            </Button>
             <Button variant="outline" onClick={openEditModal}>
               <Pencil className="size-4" />
               {t("actions.edit")}
@@ -540,6 +572,44 @@ export function AdminStudentDetailScreen() {
             <Button variant="destructive" disabled={actionLoading} onClick={handleBlacklistToggle}>
               {actionLoading ? <Spinner /> : null}
               {t("actions.blacklist")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cash wallet top-up (credit-only) */}
+      <Dialog
+        open={walletModalOpen}
+        onOpenChange={(open) => {
+          if (!actionLoading) {
+            setWalletModalOpen(open);
+            if (!open) setWalletAmount("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("adminHome.detail_walletTopup")}</DialogTitle>
+            <DialogDescription>{t("adminHome.detail_walletTopupDesc")}</DialogDescription>
+          </DialogHeader>
+          <div>
+            <div className="mb-1 text-sm font-medium">{t("adminHome.detail_walletAmount")}</div>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="0"
+              value={walletAmount}
+              onChange={(e) => setWalletAmount(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWalletModalOpen(false)} disabled={actionLoading}>
+              {t("actions.cancel")}
+            </Button>
+            <Button disabled={actionLoading} onClick={handleWalletTopup}>
+              {actionLoading ? <Spinner /> : null}
+              {t("adminHome.detail_walletTopupConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

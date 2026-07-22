@@ -15,7 +15,10 @@ const bodySchema = z
     courseId: z.string().uuid(),
     plan: z.enum(["monthly", "per_session"]),
     sessionId: z.string().uuid().optional(),
-    method: z.enum(["card", "wallet"]),
+    // Paymob sub-method (gateway path only): card iframe vs mobile wallets.
+    method: z.enum(["card", "wallet"]).default("card"),
+    // Funding source: the gateway, or the student's own wallet balance.
+    payFrom: z.enum(["gateway", "wallet"]).default("gateway"),
     idempotencyKey: z.string().min(8).max(128),
   })
   .strict();

@@ -61,6 +61,10 @@ export const CONVERSATION_INITIATION: Readonly<
     teacher: "open",
     assistant: "open",
   },
+  // Center staff (receptionist / manager / center-accountant) have no chat
+  // surface for now — they operate the desk/back-office, not the messaging
+  // channels. Empty row = may not initiate any conversation.
+  center_staff: {},
   // Back-office staff live in apps/superadmin, which has no chat surface —
   // superadmin live chat is dropped for now (broadcast notifications only).
   // These roles can no longer hold a www session, so the rows are empty.

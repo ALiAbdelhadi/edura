@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { requireRole } from "@/lib/authz/require-role";
+import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { phoneSchema } from "@/lib/validation/common";
@@ -24,11 +23,13 @@ const bodySchema = z
  * account — never a duplicate).
  */
 export const POST = withRateLimit(
-  withErrors(async (req) => {
-    const user = await requireRole("center_admin");
-    const body = await parseJson(req, bodySchema);
-    return ok(await registerWalkIn(body, user));
-  }),
+  centerStaff(
+    async (req, _ctx, { acting: user }) => {
+      const body = await parseJson(req, bodySchema);
+      return ok(await registerWalkIn(body, user));
+    },
+    { allow: RECEPTION },
+  ),
   30,
   30,
 );
