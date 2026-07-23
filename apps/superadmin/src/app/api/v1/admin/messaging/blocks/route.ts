@@ -11,11 +11,10 @@ export const dynamic = "force-dynamic";
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const p = new URL(req.url).searchParams;
-  return ok(
-    await listBlocks({
-      page: p.get("page") ?? undefined,
-      limit: p.get("limit") ?? undefined,
-      all: p.get("all") ?? undefined,
-    }),
-  );
+  const result = await listBlocks({
+    page: p.get("page") ?? undefined,
+    limit: p.get("limit") ?? p.get("pageSize") ?? undefined,
+    all: p.get("all") ?? undefined,
+  });
+  return ok(result.data, { meta: { total: result.total, page: result.page, limit: result.limit } });
 });

@@ -2,8 +2,8 @@
 
 > Produced 2026-07-18 from a full read of the codebase (monorepo structure, `apps/www`,
 > `apps/realtime`, `packages/database` including the generated Prisma client and all
-> migrations), plus `AUDIT.md` and the PRD. No application code was modified.
-> Companion roadmap: [CLAUDE.md](../CLAUDE.md).
+> migrations), plus the PRD compliance audit (`docs/product/prd-compliance-audit.md`, formerly `AUDIT.md`) and the PRD. No application code was modified.
+> Companion roadmap: [CLAUDE.md](../../CLAUDE.md).
 
 ---
 
@@ -360,7 +360,7 @@ Backfill catalog FKs then drop DEPRECATED fields (`StudentProfile.grade`, `Teach
 - No OTP / phone verification anywhere (WhatsApp step could double as the phone-verification channel).
 - Client-side-only portal guards (fine given API-layer enforcement, but worth a server-side check when the admin app is built).
 - In-memory rate limiter (per-instance only) — fine for one node, not for horizontal scale.
-- 2 known open bugs from AUDIT.md: temp-student claim P2002 edge case; dead Newman e2e harness.
+- 2 known open bugs from the PRD compliance audit (docs/product/prd-compliance-audit.md): temp-student claim P2002 edge case; dead Newman e2e harness.
 
 ---
 

@@ -20,7 +20,7 @@ Re-run whenever routes change — `scripts/gen-bruno.mjs` re-derives every reque
 2. Start the app: `pnpm dev` (serves on `:3002` — matches the `Local` env `baseUrl`).
 3. Select the **Local** environment (top-right).
 4. Run **`_auth/Login`** first. It authenticates as the seeded super-admin
-   (`superadmin@edura.eg` / dev seed password — see `docs/test-credentials.md`)
+   (`superadmin@edura.eg` / dev seed password — see `docs/guides/test-credentials.md` (repo root))
    and seeds the session cookie (Bruno's cookie jar) + a `token` env var. Every
    other request then rides that session.
 5. For requests with `{{id}}`-style body/URL vars, set the value in the env or

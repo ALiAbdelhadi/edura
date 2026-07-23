@@ -10,10 +10,42 @@ import type { SessionUser } from "@/lib/auth/session";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
-const HOSSAM = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
-const CENTER = "24a08f67-c5be-4073-9f7a-76d0bf688e4d";
-const CENTER_ADMIN = "2d4b57cf-0dfc-48aa-aff9-ad2ae2673353";
+// H-03: these seed UUIDs were removed by the Step 9 pre-launch wipe. Prefer
+// them when they still exist, otherwise bind to any teacher / any center that
+// has an admin — the proof is about the row lock, not about a specific row.
+const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
+const SEED_CENTER = "24a08f67-c5be-4073-9f7a-76d0bf688e4d";
+const SEED_CENTER_ADMIN = "2d4b57cf-0dfc-48aa-aff9-ad2ae2673353";
+let HOSSAM = SEED_TEACHER;
+let CENTER = SEED_CENTER;
+let CENTER_ADMIN = SEED_CENTER_ADMIN;
 const BAL = 10_000; // 100 EGP
+
+async function resolveFixtures() {
+  const seededTeacher = await admin.query(
+    `SELECT user_id FROM teacher_profiles WHERE user_id=$1`, [SEED_TEACHER]);
+  if (seededTeacher.rows.length === 0) {
+    const any = await admin.query(`SELECT user_id FROM teacher_profiles ORDER BY user_id LIMIT 1`);
+    if (any.rows.length === 0) throw new Error("no teacher_profiles to run the H1 proof against");
+    HOSSAM = any.rows[0].user_id as string;
+  }
+  const seededCenter = await admin.query(
+    `SELECT user_id FROM center_admin_profiles WHERE center_id=$1 AND user_id=$2`,
+    [SEED_CENTER, SEED_CENTER_ADMIN]);
+  if (seededCenter.rows.length === 0) {
+    const any = await admin.query(
+      `SELECT cap.center_id, cap.user_id FROM center_admin_profiles cap
+         JOIN centers c ON c.id = cap.center_id
+        ORDER BY cap.center_id LIMIT 1`);
+    if (any.rows.length === 0) throw new Error("no center with an admin to run the H1 proof against");
+    CENTER = any.rows[0].center_id as string;
+    CENTER_ADMIN = any.rows[0].user_id as string;
+  }
+  console.log(
+    `  fixtures: teacher=${HOSSAM}${HOSSAM === SEED_TEACHER ? " (seed)" : " (resolved)"}, ` +
+      `center=${CENTER}${CENTER === SEED_CENTER ? " (seed)" : " (resolved)"}`,
+  );
+}
 
 async function openPayouts(beneficiaryId: string) {
   const r = await admin.query(
@@ -74,6 +106,7 @@ async function race(
 }
 
 async function main() {
+  await resolveFixtures();
   const teacher = { id: HOSSAM, role: "teacher", locale: "en" } as SessionUser;
   const centerAdmin = {
     id: CENTER_ADMIN,

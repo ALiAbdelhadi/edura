@@ -38,9 +38,9 @@ subject_requests: طلبات "أضيفوا مادة" من المدرسين
 
 | الجزء | المكان |
 |---|---|
-| الـ models | [schema.prisma](../packages/database/prisma/schema.prisma) (قسم EDUCATION CATALOG) |
+| الـ models | [schema.prisma](../../packages/database/prisma/schema.prisma) (قسم EDUCATION CATALOG) |
 | الـ migration | `packages/database/prisma/migrations/20260714142944_education_catalog/` |
-| الـ seed المصري | [seed-catalog.ts](../packages/database/prisma/seed-catalog.ts) (idempotent — upsert بالـ code) |
+| الـ seed المصري | [seed-catalog.ts](../../packages/database/prisma/seed-catalog.ts) (idempotent — upsert بالـ code) |
 | Admin API | `apps/www/src/app/api/v1/admin/catalog/*` (super_admin) |
 | قراءة الكتالوج | `apps/www/src/app/api/v1/catalog/{tree,subjects}` + `lib/services/catalog/catalog-read.ts` |
 | الـ onboarding | `apps/www/src/app/api/v1/me/onboarding` + `lib/services/catalog/onboarding.ts` |

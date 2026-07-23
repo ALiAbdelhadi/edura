@@ -51,5 +51,5 @@ but only needed for fresh/preview databases.
 ## Post-deploy checklist
 
 1. `GET /api/v1/_ping` → `{ ok: true, db: "ok" }`
-2. Log in as each role (see `docs/test-credentials.md`)
+2. Log in as each role (see `test-credentials.md`)
 3. `pnpm smoke:api` against the deployed URL: `SMOKE_BASE=https://<domain> pnpm smoke:api`

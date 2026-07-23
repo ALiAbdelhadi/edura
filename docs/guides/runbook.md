@@ -1,5 +1,26 @@
 # Edura — Complete Runbook
 
+> ## ⚠️ STALE — DO NOT TREAT AS CURRENT
+>
+> **Last accurate: 2026-05-07.** This runbook describes a stack the project no
+> longer uses. Specifically outdated:
+>
+> - **MongoDB Atlas** — the database is now **Neon Postgres via Prisma** with
+>   row-level security (`packages/database`). Every Mongo collection, query,
+>   connection-string, and backup instruction below is obsolete.
+> - **DaisyUI 5** — the UI migrated to **shadcn/ui** (Radix + Tailwind v4)
+>   via `@repo/ui`.
+> - **Zustand** — no longer the state layer described here.
+> - Setup, deploy, and troubleshooting steps predate the `apps/superadmin`
+>   extraction, the money/ledger engine, and the PWA work.
+>
+> Kept for historical reference and for the sections that are still
+> stack-independent. For anything current, use
+> [../guides/deployment.md](deployment.md),
+> [../architecture/architecture-review.md](../architecture/architecture-review.md),
+> and [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
+> anything in this file.
+
 > Last updated: 2026-05-07
 > Stack: Next.js 14 · MongoDB Atlas · NextAuth JWT · Zustand · DaisyUI 5 · Tailwind 4
 

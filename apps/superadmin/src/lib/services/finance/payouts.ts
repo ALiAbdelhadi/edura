@@ -1,92 +1,204 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
-import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
+import { AppError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import type { SessionUser } from "@/lib/auth/session";
 
+// ---------------------------------------------------------------------------
+// C-02 — payout generation used to run the WHOLE batch inside ONE interactive
+// transaction and issue four serial round-trips per beneficiary (FOR UPDATE,
+// open-payout aggregate, commission aggregate, distinct-lesson findMany). At
+// 45 beneficiaries that is ~180 sequential queries over the Neon serverless
+// socket, which blew the 20 s transaction ceiling — the accountant could never
+// generate a batch at all, and it degraded with volume.
+//
+// The shape is now: O(1) bulk reads up front, then SHORT per-chunk
+// transactions. Round-trips go from 4·N to ~4 + 5·ceil(N/25).
+//
+// The money math is byte-identical — the same four inputs are used, only the
+// number of statements that fetch them changed:
+//   netPayable  = locked wallet_balance − Σ open (pending|approved) payouts
+//   commission  = Σ transactions.amount   where from_entity = X, type=commission
+//   lessonCount = COUNT(DISTINCT lesson_id) over that same set (NULL counts as
+//                 one value — Prisma's `distinct` semantics, preserved below)
+//   grossAmount = netPayable + commission
+//
+// The batch is NOT one money event, so batch-level atomicity buys nothing: a
+// payout is a single `pending` row that moves no money until approvePayout()
+// settles it. What must be atomic is ONE BENEFICIARY — lock, read reserved,
+// insert — and that is exactly the scope of a chunk transaction. See
+// generateForChunk() for the H1 argument and the partial-failure guarantee.
+// ---------------------------------------------------------------------------
+const GENERATION_CHUNK_SIZE = 25;
 
-async function openPayoutSum(tx: TenantTx, beneficiaryId: string): Promise<number> {
-  const agg = await tx.payout.aggregate({
-    where: { beneficiaryId, status: { in: ["pending", "approved"] } },
-    _sum: { netPayable: true },
-  });
-  return agg._sum.netPayable ?? 0;
+type LedgerStats = { commission: number; lessonCount: number };
+type LockedRow = { id: string; wallet_balance: number };
+type GeneratedPayout = { beneficiaryType: string; beneficiaryId: string; netPayable: number };
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
 }
 
-async function beneficiaryLedgerStats(tx: TenantTx, beneficiaryId: string) {
-  const comm = await tx.transaction.aggregate({
-    where: { fromEntityId: beneficiaryId, type: "commission" },
-    _sum: { amount: true },
-  });
-  const lessons = await tx.transaction.findMany({
-    where: { fromEntityId: beneficiaryId, type: "commission" },
-    select: { lessonId: true },
-    distinct: ["lessonId"],
-  });
-  return { commission: comm._sum.amount ?? 0, lessonCount: lessons.length };
+// Bulk replacement for the per-beneficiary beneficiaryLedgerStats(): both
+// aggregates for every beneficiary in ONE round-trip.
+//
+// `COUNT(DISTINCT lesson_id) + (1 if any NULL)` is deliberate: the old code
+// used `findMany({ distinct: ["lessonId"] }).length`, where NULL is a distinct
+// VALUE, whereas SQL's COUNT(DISTINCT …) skips NULLs. Without the correction
+// term a beneficiary with commission rows carrying no lessonId would silently
+// lose a lesson from their payout record.
+async function bulkLedgerStats(tx: TenantTx, ids: string[]): Promise<Map<string, LedgerStats>> {
+  const stats = new Map<string, LedgerStats>();
+  if (ids.length === 0) return stats;
+  const rows = await tx.$queryRaw<
+    { from_entity_id: string; commission: bigint; lesson_count: number }[]
+  >`
+    SELECT from_entity_id,
+           COALESCE(SUM(amount), 0)::bigint AS commission,
+           (COUNT(DISTINCT lesson_id)
+             + CASE WHEN COUNT(*) FILTER (WHERE lesson_id IS NULL) > 0 THEN 1 ELSE 0 END)::int
+             AS lesson_count
+      FROM transactions
+     WHERE type = 'commission'::transaction_type
+       AND from_entity_id = ANY(${ids}::uuid[])
+     GROUP BY from_entity_id`;
+  for (const r of rows) {
+    stats.set(r.from_entity_id, {
+      commission: Number(r.commission),
+      lessonCount: Number(r.lesson_count),
+    });
+  }
+  return stats;
 }
 
-export function generatePayouts() {
+// H1: lock every beneficiary in the chunk in ONE statement. Same row lock the
+// self-service payout request takes (teacher-wallet.ts / center-wallet.ts), so
+// the two paths still serialise against each other; ORDER BY makes the lock
+// order deterministic so two concurrent generators cannot deadlock.
+function lockTeachers(tx: TenantTx, ids: string[]) {
+  return tx.$queryRaw<LockedRow[]>`
+    SELECT user_id AS id, wallet_balance FROM teacher_profiles
+     WHERE user_id = ANY(${ids}::uuid[])
+     ORDER BY user_id
+     FOR UPDATE`;
+}
+
+function lockCenters(tx: TenantTx, ids: string[]) {
+  return tx.$queryRaw<LockedRow[]>`
+    SELECT id, wallet_balance FROM centers
+     WHERE id = ANY(${ids}::uuid[])
+     ORDER BY id
+     FOR UPDATE`;
+}
+
+// One chunk = one short transaction = the atomic unit of generation.
+//
+// Exactly-once: the lock is taken BEFORE the open-payout sum is read, so a
+// concurrent self-service request or a second generator blocks here and then
+// reads the now-committed payout — its available balance is already reduced to
+// 0 and it creates nothing. A beneficiary can therefore never hold two payouts
+// reserving the same money, and re-running generation is a no-op.
+//
+// Partial failure: a chunk either commits whole or rolls back whole, and no
+// state is carried between chunks, so a mid-batch failure leaves every
+// beneficiary either fully generated or completely untouched — never half. The
+// same `avail = balance − reserved` rule makes the re-run self-healing: already
+// generated beneficiaries compute avail = 0 and are skipped, the rest are
+// picked up.
+async function generateForChunk(
+  beneficiaryType: "teacher" | "center",
+  ids: string[],
+  stats: Map<string, LedgerStats>,
+): Promise<GeneratedPayout[]> {
   return platformDb(async (tx) => {
-    const created: { beneficiaryType: string; beneficiaryId: string; netPayable: number }[] = [];
+    const locked =
+      beneficiaryType === "teacher" ? await lockTeachers(tx, ids) : await lockCenters(tx, ids);
 
+    // Funds already reserved by open payouts, for the whole chunk at once.
+    const open = await tx.payout.groupBy({
+      by: ["beneficiaryId"],
+      where: { beneficiaryId: { in: ids }, status: { in: ["pending", "approved"] } },
+      _sum: { netPayable: true },
+    });
+    const reserved = new Map(open.map((o) => [o.beneficiaryId, o._sum.netPayable ?? 0]));
+
+    const rows = [];
+    const created: GeneratedPayout[] = [];
+    for (const row of locked) {
+      const avail = row.wallet_balance - (reserved.get(row.id) ?? 0);
+      if (avail <= 0) continue;
+      const s = stats.get(row.id) ?? { commission: 0, lessonCount: 0 };
+      rows.push({
+        ...(beneficiaryType === "center" ? { centerId: row.id } : {}),
+        beneficiaryId: row.id,
+        beneficiaryType,
+        netPayable: avail,
+        grossAmount: avail + s.commission,
+        commission: s.commission,
+        lessonCount: s.lessonCount,
+        status: "pending" as const,
+      });
+      created.push({ beneficiaryType, beneficiaryId: row.id, netPayable: avail });
+    }
+    if (rows.length > 0) await tx.payout.createMany({ data: rows });
+    return created;
+  });
+}
+
+export async function generatePayouts() {
+  // Phase 1 — discovery + every historical aggregate, in one short read-only
+  // transaction (4 round-trips regardless of beneficiary count). Sorted so the
+  // chunk boundaries are deterministic across concurrent generators.
+  const { teacherIds, centerIds, stats } = await platformDb(async (tx) => {
     const teachers = await tx.teacherProfile.findMany({
       where: { walletBalance: { gt: 0 } },
-      select: { userId: true, walletBalance: true },
+      select: { userId: true },
+      orderBy: { userId: "asc" },
     });
-    for (const t of teachers) {
-      // H1: lock this beneficiary so a concurrent self-service payout request
-      // can't race the batch generator into an over-draw. Re-read the balance
-      // from the locked row for an authoritative available figure.
-      const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
-        SELECT wallet_balance FROM teacher_profiles WHERE user_id = ${t.userId}::uuid FOR UPDATE`;
-      const walletBalance = locked[0]?.wallet_balance ?? t.walletBalance;
-      const avail = walletBalance - (await openPayoutSum(tx, t.userId));
-      if (avail <= 0) continue;
-      const stats = await beneficiaryLedgerStats(tx, t.userId);
-      await tx.payout.create({
-        data: {
-          beneficiaryId: t.userId,
-          beneficiaryType: "teacher",
-          netPayable: avail,
-          grossAmount: avail + stats.commission,
-          commission: stats.commission,
-          lessonCount: stats.lessonCount,
-          status: "pending",
-        },
-      });
-      created.push({ beneficiaryType: "teacher", beneficiaryId: t.userId, netPayable: avail });
-    }
-
     const centers = await tx.center.findMany({
       where: { walletBalance: { gt: 0 } },
-      select: { id: true, walletBalance: true },
+      select: { id: true },
+      orderBy: { id: "asc" },
     });
-    for (const c of centers) {
-      // H1: lock this beneficiary (see teacher loop above).
-      const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
-        SELECT wallet_balance FROM centers WHERE id = ${c.id}::uuid FOR UPDATE`;
-      const walletBalance = locked[0]?.wallet_balance ?? c.walletBalance;
-      const avail = walletBalance - (await openPayoutSum(tx, c.id));
-      if (avail <= 0) continue;
-      const stats = await beneficiaryLedgerStats(tx, c.id);
-      await tx.payout.create({
-        data: {
-          centerId: c.id,
-          beneficiaryId: c.id,
-          beneficiaryType: "center",
-          netPayable: avail,
-          grossAmount: avail + stats.commission,
-          commission: stats.commission,
-          lessonCount: stats.lessonCount,
-          status: "pending",
-        },
-      });
-      created.push({ beneficiaryType: "center", beneficiaryId: c.id, netPayable: avail });
-    }
-
-    return { generated: created.length, payouts: created };
+    const teacherIds = teachers.map((t) => t.userId);
+    const centerIds = centers.map((c) => c.id);
+    return {
+      teacherIds,
+      centerIds,
+      stats: await bulkLedgerStats(tx, [...teacherIds, ...centerIds]),
+    };
   });
+
+  // Phase 2 — one short transaction per chunk. The authoritative wallet balance
+  // is re-read under the lock inside each, so a stale Phase 1 candidate whose
+  // balance moved (or whose profile row disappeared) is simply skipped.
+  const created: GeneratedPayout[] = [];
+  const batches: { type: "teacher" | "center"; ids: string[] }[] = [
+    ...chunk(teacherIds, GENERATION_CHUNK_SIZE).map((ids) => ({ type: "teacher" as const, ids })),
+    ...chunk(centerIds, GENERATION_CHUNK_SIZE).map((ids) => ({ type: "center" as const, ids })),
+  ];
+
+  for (const batch of batches) {
+    try {
+      created.push(...(await generateForChunk(batch.type, batch.ids, stats)));
+    } catch (cause) {
+      // Keep the real cause in the server log (M4 hides it from the client) and
+      // tell the accountant exactly where it stopped — the batch is resumable.
+      console.error("[payouts] generation chunk failed", cause);
+      throw new AppError(
+        500,
+        "internal",
+        `Payout generation stopped after ${created.length} payout(s). ` +
+          `Nothing partial was written — every generated payout is complete and ` +
+          `re-running generation is safe: it resumes where this run stopped.`,
+        { generated: created.length },
+      );
+    }
+  }
+
+  return { generated: created.length, payouts: created };
 }
 
 export function listPayouts(filters: { status?: string; beneficiaryType?: string }) {

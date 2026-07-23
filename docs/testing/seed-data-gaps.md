@@ -1,5 +1,22 @@
 # Seed Data Gap Analysis
 
+> ## ⚠️ STALE — DO NOT TREAT AS CURRENT
+>
+> **Last accurate: the MongoDB era (pre-Prisma migration).** This analysis
+> cross-references **MongoDB collections** and a Mongo-era seed layout
+> (`seed/center.ts`, `seed/users.ts`, …) that no longer exist. The project now
+> seeds **Neon Postgres via Prisma** (`packages/database/prisma/seed.ts` plus
+> the per-feature demo seeds), so the collection names, counts, and source-file
+> paths in the tables below do not map to the current codebase.
+>
+> The PRD compliance audit independently flags this document as stale — see
+> [../product/prd-compliance-audit.md](../product/prd-compliance-audit.md).
+>
+> Kept for historical reference and because the *gap-thinking* is still useful.
+> For current seed/demo-data rules see the `is_demo` conventions in
+> [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
+> anything in this file.
+
 > Cross-reference of all MongoDB collections vs what `pnpm seed` actually
 > creates. Identifies what's missing for production demo readiness.
 

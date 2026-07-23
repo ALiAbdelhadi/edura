@@ -10,28 +10,30 @@ import {
   auditLogExtension,
 } from "./extensions/index";
 
-if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
-  neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
-}
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is not set. Point it at the Neon POOLED connection string.",
-  );
-}
-
 // Driver selection: short-lived serverless functions (Next.js) use the Neon
 // serverless driver (default). Long-running processes (the realtime WebSocket
 // server) set DATABASE_DRIVER=pg to get a regular node-postgres connection
 // pool — persistent TCP connections instead of per-call WebSocket dials.
+//
+// Everything here runs on FIRST QUERY, not at import (see `prisma` below).
 function createAdapter() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL is not set. Point it at the Neon POOLED connection string.",
+    );
+  }
+
   if (process.env.DATABASE_DRIVER === "pg") {
     return new PrismaPg({
       connectionString,
       max: Number(process.env.DATABASE_POOL_MAX ?? 10),
       idleTimeoutMillis: 30_000,
     });
+  }
+
+  if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
+    neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
   }
   return new PrismaNeon({ connectionString });
 }
@@ -63,12 +65,55 @@ const globalForPrisma = globalThis as unknown as {
   __edura_prisma?: ExtendedPrismaClient;
 };
 
-export const prisma: ExtendedPrismaClient =
-  globalForPrisma.__edura_prisma ?? createPrisma();
+let instance: ExtendedPrismaClient | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.__edura_prisma = prisma;
+function getClient(): ExtendedPrismaClient {
+  instance ??= globalForPrisma.__edura_prisma ?? createPrisma();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.__edura_prisma = instance;
+  }
+  return instance;
 }
+
+// LAZY ON PURPOSE. `next build` imports every route module during "Collecting
+// page data" to read its config exports, which used to evaluate this file —
+// constructing the client and throwing on a missing DATABASE_URL before a
+// single request existed. A build must not need database config at all, and a
+// route added later must not be able to reintroduce that coupling.
+//
+// The proxy defers createAdapter()/createPrisma() to the first property access,
+// so the failure mode is unchanged in substance — same error, same loudness —
+// just relocated from import time to first query. Singleton semantics and the
+// dev globalThis cache are preserved by getClient(); methods are bound to the
+// real client so Prisma's internals never see the proxy as `this`.
+export const prisma: ExtendedPrismaClient = new Proxy(
+  {} as ExtendedPrismaClient,
+  {
+    get(_target, prop) {
+      const client = getClient() as object;
+      const value = Reflect.get(client, prop, client);
+      return typeof value === "function" ? value.bind(client) : value;
+    },
+    has(_target, prop) {
+      return Reflect.has(getClient() as object, prop);
+    },
+    set(_target, prop, value) {
+      return Reflect.set(getClient() as object, prop, value);
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(
+        getClient() as object,
+        prop,
+      );
+      // The proxy target is a plain `{}`, so a non-configurable descriptor from
+      // the real client would violate the invariant check and throw.
+      return descriptor && { ...descriptor, configurable: true };
+    },
+    ownKeys() {
+      return Reflect.ownKeys(getClient() as object);
+    },
+  },
+);
 
 export type TxOptions = { maxWait?: number; timeout?: number };
 

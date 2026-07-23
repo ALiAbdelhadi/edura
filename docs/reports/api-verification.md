@@ -2,8 +2,8 @@
 
 > Produced 2026-07-23 by exercising the **running applications against the live
 > Neon database** — not by reading code. Every row below is an actual HTTP
-> request/response. Companion documents: [architecture-review.md](architecture-review.md),
-> [security-audit.md](security-audit.md), [CLAUDE.md](../CLAUDE.md).
+> request/response. Companion documents: [architecture-review.md](../architecture/architecture-review.md),
+> [security-audit.md](../security/security-audit.md), [CLAUDE.md](../../CLAUDE.md).
 >
 > **PHASE 1 — REPORT ONLY. Nothing was fixed.**
 

@@ -94,7 +94,7 @@ business rules defined.
 ## Approved decisions (2026-07-18)
 
 The implementation roadmap is the 10-step order in
-[docs/architecture-review.md](docs/architecture-review.md) §5 (Step 0 done).
+[docs/architecture/architecture-review.md](docs/architecture/architecture-review.md) §5 (Step 0 done).
 Work stops after each step for review before the next begins.
 
 > **TERMINOLOGY WARNING:** in this codebase `dashboard/admin` is the **CENTER**
@@ -148,7 +148,7 @@ Work stops after each step for review before the next begins.
    21 centers / 19 courses created by past live-DB test runs (not by the seed,
    no stable identifiers) stay untouched for now. Before launch, ALL non-seed
    data gets wiped — this is on the Step 9 (deprecation & hardening) checklist
-   in docs/architecture-review.md; do not attempt to flag it by heuristic.
+   in docs/architecture/architecture-review.md; do not attempt to flag it by heuristic.
    **Step 9 wipe note (added in Step 4):** cash payments recorded BEFORE the
    Step 4 ledger reconciliation were never mirrored to the Transaction ledger
    (forward-only reconciliation, deliberately not backfilled) — they are part
@@ -275,10 +275,10 @@ from Stitch:
    components, Tailwind v4 tokens, RTL/Arabic support. Do not introduce a
    parallel styling approach.
 
-## Security remediation progress (BATCH 1 + BATCH 2, from docs/security-audit.md)
+## Security remediation progress (BATCH 1 + BATCH 2, from docs/security/security-audit.md)
 
 Findings fixed one-at-a-time, each with a proof, stop-per-fix. See
-docs/security-audit.md for the full report and severities.
+docs/security/security-audit.md for the full report and severities.
 
 **DONE (reviewed + accepted):**
 - **C1** — mock payment gateway can't settle real money in prod (PAYMENTS_MODE

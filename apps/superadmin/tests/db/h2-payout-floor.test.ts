@@ -10,7 +10,19 @@ import type { SessionUser } from "@/lib/auth/session";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
-const HOSSAM = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
+// H-03: the original hardcoded seed UUID was removed by the Step 9 pre-launch
+// wipe. Prefer it when it still exists, otherwise bind to any teacher profile —
+// the proof is about the settlement floor, not about a particular teacher.
+const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
+let HOSSAM = SEED_TEACHER;
+
+async function resolveTeacher(): Promise<string> {
+  const seeded = await admin.query(`SELECT user_id FROM teacher_profiles WHERE user_id=$1`, [SEED_TEACHER]);
+  if (seeded.rows.length > 0) return SEED_TEACHER;
+  const any = await admin.query(`SELECT user_id FROM teacher_profiles ORDER BY user_id LIMIT 1`);
+  if (any.rows.length === 0) throw new Error("no teacher_profiles in the database to run the H2 proof against");
+  return any.rows[0].user_id as string;
+}
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };
@@ -32,6 +44,8 @@ async function payoutStatus(id: string): Promise<string> {
 }
 
 async function main() {
+  HOSSAM = await resolveTeacher();
+  console.log(`  beneficiary under test: ${HOSSAM}${HOSSAM === SEED_TEACHER ? " (seed)" : " (resolved — seed UUID absent)"}`);
   const adminUser = (
     await admin.query(`SELECT id FROM users WHERE role='super_admin' LIMIT 1`)
   ).rows[0].id as string;

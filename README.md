@@ -64,8 +64,14 @@ pnpm --filter @repo/database run generate   # prisma generate
   (`@repo/database/chat`); who-may-message-whom lives in the conversation policy
   matrix (`@repo/database/chat-policy`).
 
-Deeper docs: [docs/architecture-review.md](docs/architecture-review.md) (full
-review: stack, schema, auth, roadmap gap analysis), [AUDIT.md](AUDIT.md) (PRD
-compliance audit), [SCALE.md](SCALE.md) (load-test proof),
-[docs/education-catalog.md](docs/education-catalog.md) (catalog + onboarding
-guide), [edura-fullstack-prd.md](edura-fullstack-prd.md) (original PRD).
+All project documentation lives under [docs/](docs/README.md) — start with that
+index. The essentials:
+[docs/architecture/architecture-review.md](docs/architecture/architecture-review.md)
+(full review: stack, schema, auth, roadmap gap analysis),
+[docs/product/prd-compliance-audit.md](docs/product/prd-compliance-audit.md) (PRD
+compliance audit), [docs/reports/scale-proof.md](docs/reports/scale-proof.md)
+(load-test proof),
+[docs/architecture/education-catalog.md](docs/architecture/education-catalog.md)
+(catalog + onboarding guide),
+[docs/product/edura-fullstack-prd.md](docs/product/edura-fullstack-prd.md)
+(original PRD).

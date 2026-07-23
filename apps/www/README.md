@@ -29,7 +29,7 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | **pnpm**            | ≥ 9      | `pnpm -v`                  |
 | **Git**             | any      | `git --version`            |
 
-> The database is a hosted **Neon Postgres** instance — nothing to install locally. Migrations/RLS live in `packages/database`; see `docs/deployment.md`.
+> The database is a hosted **Neon Postgres** instance — nothing to install locally. Migrations/RLS live in `packages/database`; see `docs/guides/deployment.md` (repo root).
 
 ---
 
@@ -58,7 +58,7 @@ Open `.env.local` and fill in:
 
 | Variable           | Required | Description                                                     |
 |--------------------|----------|-----------------------------------------------------------------|
-| `DATABASE_URL`     | ✅       | Neon Postgres pooled URL — **NOBYPASSRLS role** (see `docs/deployment.md`) |
+| `DATABASE_URL`     | ✅       | Neon Postgres pooled URL — **NOBYPASSRLS role** (see the repo-root `docs/guides/deployment.md`) |
 | `NEXTAUTH_SECRET`  | ✅       | Random secret — generate with `openssl rand -base64 32`         |
 | `NEXTAUTH_URL`     | ✅       | App URL (default: `http://localhost:3002`)                       |
 | `MAIL_PROVIDER`    | —        | `console` (default, logs to stdout) · `mailgun` · `sendgrid`   |

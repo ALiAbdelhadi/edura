@@ -1,6 +1,6 @@
 # EduConnect / Edura — PRD Compliance & Redesign Audit
 
-**Audited against:** `edura-fullstack-prd.md` (EduConnect PRD v1.0)
+**Audited against:** `edura-fullstack-prd.md` (EduConnect PRD v1.0 — same folder)
 **Codebase:** `apps/www` (Next.js 14 App Router) + `packages/database` (Prisma / Neon Postgres + RLS)
 **Method:** 13 parallel dimension auditors reading real source line-by-line, cross-checked by hand. Every row cites `file:line`. AI/chatbot scope (§3.6, §5.6, §4.6 AI/Chatbot) excluded per brief.
 **Status legend:** ✅ done · ⚠️ partial · ❌ missing · 🐛 buggy · **fixed** = corrected in this audit (commit referenced below).
@@ -24,7 +24,7 @@ The PRD recommends **Express/NestJS + PostgreSQL + React Native + React web**. T
 At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fixed **10 of 12 buggy** items (all money/data-integrity) plus notification delivery, and moved 19 items to done.
 
 ### What was already correct (highlights)
-- **Money math** is exactly to spec: `computeLessonSplit` implements `teacher_net = price − 200 − center_share`, `center_net = center_share − 200`, platform `= 400` piasters, all integer piasters ([distribution.ts](apps/www/lib/services/finance/distribution.ts)). Distribution fires only on session-complete with present students; ledger is append-only (immutability extension).
+- **Money math** is exactly to spec: `computeLessonSplit` implements `teacher_net = price − 200 − center_share`, `center_net = center_share − 200`, platform `= 400` piasters, all integer piasters ([distribution.ts](../../apps/www/src/lib/services/finance/distribution.ts)). Distribution fires only on session-complete with present students; ledger is append-only (immutability extension).
 - **RBAC**: `requireRole` guard on protected routes, `super_admin` passes all guards, per-center RLS enforced at the DB (FORCE RLS + NOBYPASSRLS runtime role). Blacklist (3-level, reason-required, reversible, audited) is solid (19/23 done).
 - **Auth**: register/login/forgot/reset/invite-accept all real (bcrypt, hashed single-use tokens, enumeration-silent).
 - **Data model**: all §3.1–3.5 tables present with UUID PKs, timestamps, integer money, string enums, audit_logs.
@@ -48,7 +48,7 @@ At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fix
 7. **2026 UI/UX redesign (Phase 3)** and **WCAG 2.2 AA pass (Phase 4)** — not started; there is no super_admin or accountant web surface yet.
 
 ### Open buggy items still to fix
-- 🐛 **temp-student claim** ([tempStudents.ts](apps/www/lib/services/tempStudents/tempStudents.ts)) can hit a P2002 (500) when a claimed student already has a present attendance row for the same session as their temp shell — needs per-row dedupe on re-point.
+- 🐛 **temp-student claim** ([tempStudents.ts](../../apps/www/src/lib/services/temp-students/temp-students.ts)) can hit a P2002 (500) when a claimed student already has a present attendance row for the same session as their temp shell — needs per-row dedupe on re-point.
 - 🐛 `tests/e2e` Newman/Postman harness is non-functional/misleading — delete or rewrite (`api-smoke.sh` is the real one).
 
 ### §11 Open Decisions that block full completion
@@ -80,7 +80,7 @@ At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fix
 | Invoice PDF (real `%PDF`) + auto-email + month-end/reminder scheduler | §5.5/§6 | ❌ → ✅ | `lib/services/finance/invoicePdf.ts`, `cron/[job]`, `7c21a52` |
 | Notification matrix wiring + FCM delivery | §6 | ⚠️ → ✅ | `f22e40f` |
 | Design system: dark mode, Arabic font, skeletons, super_admin + accountant portals; WCAG 2.2 AA (0 axe violations) | §0/§9.2 | ⚠️ → ✅ | `434f0ab`, `210248a`, `46e8b2e` |
-| Scale: composite indexes + keyset pagination; 400k-row EXPLAIN ANALYZE proof | §9.1 | ⚠️ → ✅ | migration 003, `a55c720`, [SCALE.md](SCALE.md) |
+| Scale: composite indexes + keyset pagination; 400k-row EXPLAIN ANALYZE proof | §9.1 | ⚠️ → ✅ | migration 003, `a55c720`, [scale-proof.md](../reports/scale-proof.md) |
 
 **Genuinely still open** (per §5): OTP (§4.1) + payment gateway (§4.6) — both §11 Open Decisions, owner-handled; transactions CSV/Excel export, invoice `/verify` public page + QR image, teacher shadow-centers (§4.8) — non-blocking fast-follows; auth refresh-token rotation and S3 upload — documented deviations.
 
@@ -577,7 +577,7 @@ Grouped by dimension; most critical first. Evidence is truncated to fit — full
 - ✅ **49 live-DB assertions** across four suites (`pnpm test:db:all`): money distribution (single distribution, unique refs, correct wallet math, idempotency, ledger REVOKE — 11); **offline-sync conflict** (§5.3 server-wins, enrollment/teacher-ownership guards, localTimestamp preserved — 16); **RBAC-negative + data-isolation** (wrong-actor `completeSession`/`approveBooking`/`cancelSession` → ForbiddenError; RLS blocks cross-tenant read + WITH CHECK insert — 11); **refund/reversal** (wallets unwind to 0, refund links original payment, platform fee returned, appears in refunds report, idempotent — 11).
 - ✅ 10 live-DB registration-approval assertions (pending→queue→approve→active→double-approve-rejected→toggle).
 - ✅ RLS tenant-isolation + append-only immutability + soft-delete smoke test (`packages/database` smoke-test).
-- ✅ **Scale proof** ([SCALE.md](SCALE.md)): 400k-transaction ledger, accountant list query **0.3 ms** on the composite index, all keyset/list queries sub-ms (~1000× under the 500 ms p95 target); the `SUM … GROUP BY type` dashboard aggregate (54 ms) is the flagged pre-aggregation candidate. Run capped at 400k by Neon's free-tier 512 MB disk (1M seeded in 26 s first).
+- ✅ **Scale proof** ([scale-proof.md](../reports/scale-proof.md)): 400k-transaction ledger, accountant list query **0.3 ms** on the composite index, all keyset/list queries sub-ms (~1000× under the 500 ms p95 target); the `SUM … GROUP BY type` dashboard aggregate (54 ms) is the flagged pre-aggregation candidate. Run capped at 400k by Neon's free-tier 512 MB disk (1M seeded in 26 s first).
 - ✅ **Accessibility (WCAG 2.2 AA):** axe-core 4.10 sweep of the super_admin portal in light + dark + Arabic-RTL → **0 violations, 30 checks pass** (fixed tertiary-text contrast, selected-menu contrast, avatar contrast, and keyboard access to the scrollable region).
 - ✅ **Invoice PDF** (pdf-lib, real `%PDF`) + auto-email + **month-end/lesson-reminder scheduler** (secured `/api/v1/cron/[job]`).
 - ✅ Skeleton loaders on the 4 role dashboards; empty states with CTA on new list surfaces.

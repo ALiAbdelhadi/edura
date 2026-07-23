@@ -1,5 +1,24 @@
 # Manual Testing Scenarios
 
+> ## ⚠️ PARTIALLY STALE — VERIFY BEFORE USE
+>
+> **Last accurate: the Newman/MongoDB era (pre-Prisma migration).** This
+> document is framed around a **Newman e2e harness that no longer exists** —
+> the PRD compliance audit confirms `scripts/e2e-runner.mjs` and the
+> `pnpm test:e2e` script were never present post-migration
+> ([../product/prd-compliance-audit.md](../product/prd-compliance-audit.md)).
+> Any statement here about "what Newman covers" or "what Newman cannot test" is
+> no longer a valid basis for deciding what needs manual testing.
+>
+> Route paths, roles, and screens also predate the `apps/superadmin` extraction,
+> the subscriptions/money engine, collaboration requests, attendance modes, and
+> the messaging layer — none of which are covered below.
+>
+> **The individual test scenarios themselves are still largely useful** as a
+> manual QA checklist; it is the automation framing and the coverage claims that
+> are outdated. Verify each scenario against the current codebase before relying
+> on it, and treat the scenario list as incomplete rather than authoritative.
+
 > Covers everything that Newman e2e cannot test: file uploads, email flows,
 > frontend UI, rate limiting, edge cases, and visual verification.
 >

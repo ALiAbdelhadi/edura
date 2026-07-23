@@ -4,6 +4,18 @@ Version: 1.0 | Date: July 2026 | Audience: Full-Stack Developer + Claude AI Conf
 
 ## 0. CLAUDE.md Root Instructions (Copy to project root) [URL 🔗](http://claude.md/)
 
+> ## ⚠️ NOT AUTHORITATIVE — historical draft
+>
+> The `CLAUDE.md` reproduced in this section is the **original PRD-era draft**.
+> It is **not** the project's instructions and must not be copied to the project
+> root. The authoritative version is the root [CLAUDE.md](../../CLAUDE.md),
+> which has since diverged substantially — it carries the approved 10-step
+> roadmap, the binding §"Approved decisions" list, the Descoped and Deferred
+> sections, and the security-remediation register, none of which appear below.
+>
+> Where this draft and the root `CLAUDE.md` disagree, **the root file wins**.
+> This section is kept only to show what the PRD originally proposed.
+
 ```
 \# CLAUDE.md — EduConnect Project Instructions
 ## Project Overview
