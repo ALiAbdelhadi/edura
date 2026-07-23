@@ -23,6 +23,7 @@ import {
   FileSearch,
   Star,
   Search,
+  ShieldCheck,
   LogOut,
   PanelLeft,
   type LucideIcon,
@@ -92,6 +93,7 @@ const NAV_KEY: Record<string, string> = {
   Staff: "nav.staff",
   Finance: "nav.finance",
   Catalog: "nav.catalog",
+  "Child Safety": "nav.childSafety",
 };
 
 // Maps a session role to its dashboard URL segment (center_admin/center_staff
@@ -120,6 +122,7 @@ const iconMap: Record<string, LucideIcon> = {
   report: FileSearch,
   star: Star,
   search: Search,
+  shield: ShieldCheck,
 };
 
 type NavItem = {

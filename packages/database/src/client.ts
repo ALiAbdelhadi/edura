@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import ws from "ws";
 import { PrismaClient, Prisma } from "./generated/client/index";
 import {
+  sessionRevocationExtension,
   softDeleteExtension,
   immutableExtension,
   auditLogExtension,
@@ -41,6 +42,11 @@ function createPrisma() {
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
   return base
+    // C-03 first (innermost) on purpose: softDeleteExtension rewrites
+    // user.delete → user.update({ deletedAt }) against the client it was
+    // extended FROM, so revocation must already be in place there for a
+    // soft-delete to bump the session epoch too.
+    .$extends(sessionRevocationExtension)
     .$extends(softDeleteExtension)
     .$extends(immutableExtension)
     .$extends(auditLogExtension);

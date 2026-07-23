@@ -4,6 +4,7 @@ import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 import { nextTxnRefs } from "@/lib/services/finance/ref-numbers";
 import { resolveCommission } from "@/lib/services/finance/commission";
+import { computeNoRoomLessonSplit } from "@/lib/services/finance/fees";
 import { walletCredit } from "@repo/server-core/services/wallet/wallet";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -95,7 +96,16 @@ export async function refundLessonForStudent(
             where: { centerId, teacherId, status: "active" },
             select: { centerShare: true },
           });
-          centerShare = affiliation?.centerShare ?? 0;
+          // C-01: distribution settles the no-room branch through
+          // computeNoRoomLessonSplit (which clamps the share so neither net can
+          // go negative). The reversal MUST use the same derivation — reversing
+          // the RAW affiliation share against a clamped charge would drift the
+          // wallets and could itself drive a balance under the H2 floor.
+          centerShare = computeNoRoomLessonSplit(
+            perSessionPrice,
+            affiliation?.centerShare ?? 0,
+            await resolveCommission(tx, { teacherId, centerId }),
+          ).centerShare;
         }
 
         // Step 4.5 correctness: reverse the fees that were ACTUALLY CHARGED for

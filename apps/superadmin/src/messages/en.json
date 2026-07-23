@@ -42,7 +42,8 @@
     "catalog": "Catalog",
     "team": "Team",
     "whatsapp": "WhatsApp",
-    "roomSettlements": "Room settlements"
+    "roomSettlements": "Room settlements",
+    "messaging": "Messaging"
   },
   "roles": {
     "student": "Student",
@@ -456,5 +457,44 @@
     "total": "{count} messages",
     "prev": "Previous",
     "next": "Next"
+  },
+  "adminMessaging": {
+    "title": "Messaging oversight",
+    "description": "Platform-wide message log, safety reports, and blocks. No adult–minor channel is private or unlogged.",
+    "tabs": {
+      "log": "Message log",
+      "reports": "Safety reports",
+      "blocks": "Blocks"
+    },
+    "searchPlaceholder": "Search by participant name or email…",
+    "anyRole": "Any role",
+    "minorsOnly": "Involving a minor",
+    "minorBadge": "Minor",
+    "participants": "Participants",
+    "messages": "Messages",
+    "lastActivity": "Last activity",
+    "view": "View",
+    "noResults": "No conversations found",
+    "threadTitle": "Conversation",
+    "auditNotice": "Opening this thread is recorded in the audit log, including which conversation and whether a minor is involved.",
+    "removedButRetained": "Removed for participants — retained here",
+    "allStatuses": "All statuses",
+    "reportStatus": {
+      "open": "Open",
+      "reviewing": "Reviewing",
+      "actioned": "Actioned",
+      "dismissed": "Dismissed"
+    },
+    "reportCategory": "Report",
+    "reporter": "Reported by",
+    "reported": "About",
+    "filed": "Filed",
+    "markActioned": "Mark actioned",
+    "dismiss": "Dismiss",
+    "noReports": "No reports",
+    "blocker": "Blocked by",
+    "blocked": "Blocked",
+    "reason": "Reason",
+    "noBlocks": "No blocks recorded"
   }
 }

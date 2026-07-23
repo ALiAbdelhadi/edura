@@ -15,14 +15,19 @@ import React, {
 import { useGetIdentity } from "@refinedev/core";
 import {
   AlertCircle,
+  Ban,
   Check,
   CheckCheck,
   ChevronUp,
   Clock3,
+  Eye,
+  Flag,
   MessageSquare,
+  MoreVertical,
   Plus,
   Search,
   Send,
+  ShieldAlert,
   User,
   WifiOff,
 } from "lucide-react";
@@ -40,12 +45,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/dialog";
+import { Textarea } from "@repo/ui/components/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
 import { cn } from "@repo/ui/lib/utils";
+import { api } from "@/lib/api/client";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
 import { useChat, type ChatController } from "./use-chat";
+import { useGroups } from "./use-groups";
+import { GroupPanel } from "./group-panel";
 import type { UiMessage, WireContact, WireConversation } from "./chat-types";
 
 export function ChatScreen() {
@@ -63,6 +78,10 @@ export function ChatScreen() {
 function ChatScreenInner({ meId }: { meId: string }) {
   const t = useTranslations();
   const chat = useChat(meId);
+  const groups = useGroups();
+  const [tab, setTab] = useState<"direct" | "groups">("direct");
+
+  const groupUnread = groups.groups.reduce((n, g) => n + g.unreadCount, 0);
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
@@ -72,11 +91,67 @@ function ChatScreenInner({ meId }: { meId: string }) {
           {t("chat.connectionLost")}
         </div>
       ) : null}
-      <div className="grid h-[calc(100vh-200px)] min-h-[600px] grid-cols-1 md:grid-cols-3">
-        <ConversationList chat={chat} meId={meId} />
-        <ThreadPane chat={chat} meId={meId} />
+
+      {/* Direct threads and derived-membership channels are two views of the
+          same inbox; keeping them as tabs (not separate screens) means one
+          unread story and one nav entry per role. */}
+      <div className="flex items-center gap-1 border-b border-border px-3 pt-3">
+        <TabButton
+          active={tab === "direct"}
+          onClick={() => setTab("direct")}
+          label={t("chat.tabs.direct")}
+        />
+        <TabButton
+          active={tab === "groups"}
+          onClick={() => setTab("groups")}
+          label={t("chat.tabs.groups")}
+          badge={groupUnread}
+        />
+      </div>
+
+      <div className="grid h-[calc(100vh-250px)] min-h-[560px] grid-cols-1 md:grid-cols-3">
+        {tab === "direct" ? (
+          <>
+            <ConversationList chat={chat} meId={meId} />
+            <ThreadPane chat={chat} meId={meId} />
+          </>
+        ) : (
+          <GroupPanel groups={groups} meId={meId} />
+        )}
       </div>
     </Card>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "-mb-px flex items-center gap-2 rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+      {badge ? (
+        <span className="flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -261,11 +336,204 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
                 : t("chat.offline")}
           </p>
         </div>
+        <div className="ms-auto">
+          <SafetyMenu
+            conversationId={chat.activeId}
+            partnerId={partner.id}
+            partnerName={partner.name || t("chat.unknownUser")}
+          />
+        </div>
       </div>
+
+      {/* DISCLOSURE, not surveillance: when a parent can see this thread BOTH
+          participants are told so, on every visit. The adult sees it too. */}
+      {chat.oversight?.monitored ? (
+        <div className="flex items-center gap-2 border-b border-border bg-sky-500/10 px-4 py-2 text-xs text-sky-800 dark:text-sky-300">
+          <Eye className="size-3.5 shrink-0" />
+          {chat.oversight.minorParticipantId === meId
+            ? t("chat.oversightBannerStudent")
+            : t("chat.oversightBanner")}
+        </div>
+      ) : null}
 
       <MessageThread chat={chat} meId={meId} />
       <Composer chat={chat} />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Block / report. Both are server-enforced in the single authorization module;
+// this menu is only the entry point.
+// ---------------------------------------------------------------------------
+function SafetyMenu({
+  conversationId,
+  partnerId,
+  partnerName,
+}: {
+  conversationId: string | null;
+  partnerId: string;
+  partnerName: string;
+}) {
+  const t = useTranslations();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const block = async () => {
+    if (!window.confirm(t("chat.blockConfirm", { name: partnerName }))) return;
+    setBusy(true);
+    try {
+      await api.post("messages/blocks", {
+        json: { userId: partnerId, conversationId: conversationId ?? undefined },
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={busy}
+            aria-label={t("chat.report")}
+          >
+            <MoreVertical className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setReportOpen(true)}>
+            <Flag className="size-4" />
+            {t("chat.report")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void block()} variant="destructive">
+            <Ban className="size-4" />
+            {t("chat.block")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        conversationId={conversationId}
+        partnerId={partnerId}
+      />
+    </>
+  );
+}
+
+const REPORT_CATEGORIES = [
+  "harassment",
+  "inappropriate",
+  "safety_concern",
+  "spam",
+  "other",
+] as const;
+
+function ReportDialog({
+  open,
+  onOpenChange,
+  conversationId,
+  partnerId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  conversationId: string | null;
+  partnerId: string;
+}) {
+  const t = useTranslations();
+  const [category, setCategory] =
+    useState<(typeof REPORT_CATEGORIES)[number]>("harassment");
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCategory("harassment");
+      setDetails("");
+      setSent(false);
+    }
+  }, [open]);
+
+  const submit = async () => {
+    setSending(true);
+    try {
+      await api.post("messages/reports", {
+        json: {
+          conversationId: conversationId ?? undefined,
+          reportedUserId: conversationId ? undefined : partnerId,
+          category,
+          details: details.trim() || undefined,
+        },
+      });
+      setSent(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldAlert className="size-4 text-destructive" />
+            {t("chat.reportTitle")}
+          </DialogTitle>
+        </DialogHeader>
+        {sent ? (
+          <p className="py-4 text-sm text-muted-foreground">
+            {t("chat.reportSent")}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="pb-2 text-sm font-medium">
+                {t("chat.reportCategory")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {REPORT_CATEGORIES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCategory(c)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      category === c
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border hover:bg-muted",
+                    )}
+                  >
+                    {t(`chat.reportCategories.${c}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="pb-2 text-sm font-medium">
+                {t("chat.reportDetails")}
+              </p>
+              <Textarea
+                value={details}
+                maxLength={2000}
+                rows={4}
+                onChange={(e) => setDetails(e.target.value)}
+              />
+            </div>
+            <Button type="button" onClick={() => void submit()} disabled={sending}>
+              {sending ? <Spinner /> : <Flag className="size-4" />}
+              {t("chat.reportSubmit")}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -397,7 +665,16 @@ function MessageBubble({
           msg.failed && "opacity-70",
         )}
       >
-        <div className="break-words whitespace-pre-wrap">{msg.body}</div>
+        {/* Soft-deleted: the participant view loses the text, the platform
+            record keeps it (retention). */}
+        <div
+          className={cn(
+            "break-words whitespace-pre-wrap",
+            msg.deleted && "italic opacity-60",
+          )}
+        >
+          {msg.deleted ? t("chat.removedMessage") : msg.body}
+        </div>
         <div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-70">
           <span>
             {formatDate(msg.createdAt, { hour: "2-digit", minute: "2-digit" })}
@@ -477,6 +754,20 @@ function Composer({ chat }: { chat: ChatController }) {
 
   return (
     <div className="border-t border-border bg-card p-4">
+      {chat.sendBlock ? (
+        <p
+          className={cn(
+            "mb-2 rounded-md px-3 py-2 text-xs",
+            chat.sendBlock === "rate_limited"
+              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {chat.sendBlock === "rate_limited"
+            ? t("chat.rateLimited")
+            : t("chat.blockedNotice")}
+        </p>
+      ) : null}
       <div className="flex items-center gap-2">
         <Input
           placeholder={t("chat.inputPlaceholder")}
@@ -512,15 +803,55 @@ function Composer({ chat }: { chat: ChatController }) {
 // matrix + real relationships), searchable, grouped; escalation contacts are
 // visually separated so assistant-first communication stays the norm.
 // ---------------------------------------------------------------------------
+// Display order only — authorization is entirely server-side. Assistants stay
+// first for students/parents so "ask the assistant" remains the visual default
+// even though the teacher is now directly reachable.
 const GROUP_ORDER: WireContact["group"][] = [
   "assistants",
   "team",
   "teachers",
   "centers",
+  "staff",
   "students",
   "parents",
   "platform",
 ];
+
+/** Role chips for the directory. Only roles the server returns can ever show. */
+const ROLE_FILTERS = [
+  "teacher",
+  "assistant",
+  "student",
+  "parent",
+  "center_admin",
+  "center_staff",
+] as const;
+
+function FilterChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-full border px-3 py-1 text-xs transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border text-muted-foreground hover:bg-muted",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
 
 function NewConversationDialog({ chat }: { chat: ChatController }) {
   const t = useTranslations();
@@ -529,6 +860,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
   const [contacts, setContacts] = useState<WireContact[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(
@@ -549,6 +881,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
     if (!open) return;
     void load("");
     setSearch("");
+    setRoleFilter(null);
   }, [open, load]);
 
   const onSearch = (value: string) => {
@@ -570,9 +903,18 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
     }
   };
 
+  // Client-side role narrowing on top of the server's already-scoped result.
+  // This can only ever REMOVE rows — it never widens reach, because the list it
+  // filters is exactly the set the server would let this actor message.
+  const visible = (contacts ?? []).filter(
+    (c) => !roleFilter || c.role === roleFilter,
+  );
+  const availableRoles = ROLE_FILTERS.filter((r) =>
+    (contacts ?? []).some((c) => c.role === r),
+  );
   const groups = GROUP_ORDER.map((g) => ({
     group: g,
-    items: (contacts ?? []).filter((c) => c.group === g),
+    items: visible.filter((c) => c.group === g),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -596,6 +938,27 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
             className="ps-9"
           />
         </div>
+        {availableRoles.length > 1 ? (
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label={t("chat.filterByRole")}
+          >
+            <FilterChip
+              active={roleFilter === null}
+              onClick={() => setRoleFilter(null)}
+              label={t("chat.filterAll")}
+            />
+            {availableRoles.map((r) => (
+              <FilterChip
+                key={r}
+                active={roleFilter === r}
+                onClick={() => setRoleFilter(r)}
+                label={t(`roles.${r}`)}
+              />
+            ))}
+          </div>
+        ) : null}
         <ScrollArea className="max-h-80">
           {loading && !contacts ? (
             <div className="flex justify-center p-5">

@@ -3,7 +3,7 @@ import { ForbiddenError, NotFoundError, BusinessRuleError } from "../../errors/c
 import { awardPoints } from "../points/points";
 import { nextTxnRefs } from "./ref-numbers";
 import type { SessionUser } from "../../auth/types";
-import { computeLessonSplit } from "./fees";
+import { computeLessonSplit, computeNoRoomLessonSplit } from "./fees";
 import { resolveCommission } from "./commission";
 
 export { computeLessonSplit };
@@ -75,6 +75,9 @@ export async function distributeSessionRevenue(
   // distributedAt exactly-once claim — no parallel money engine.
   let centerShare: number;
   let fees: { platformTeacherFee: number; platformCenterFee: number };
+  // Appended to the commission ledger notes ONLY when a clamp actually bit, so
+  // an operator can see from the books that the course was misconfigured.
+  let clampedNote = "";
   if (course.pricingMethod === "per_attending_student") {
     const platformCut = Math.round((perSessionPrice * (course.splitPlatformBp ?? 0)) / 10_000);
     centerShare =
@@ -98,21 +101,38 @@ export async function distributeSessionRevenue(
       where: { centerId, teacherId, status: "active" },
       select: { centerShare: true },
     });
-    centerShare = affiliation?.centerShare ?? 0;
     // Step 4.5: platform fees come from commission_settings (resolved inside
     // the same DB transaction so the split and its ledger rows always agree).
-    fees = await resolveCommission(tx, { teacherId, centerId });
+    const resolved = await resolveCommission(tx, { teacherId, centerId });
+    // C-01: the flat two-sided fee model produces a NEGATIVE net whenever the
+    // lesson price does not cover both fees plus the center's flat share — most
+    // of all when centerShare is 0, which is the default. Crediting a negative
+    // is a wallet debit and the H2 CHECK aborted the whole settlement (500), so
+    // the lesson could never settle. computeNoRoomLessonSplit is THE shared
+    // derivation (refund reversal uses the very same call) and clamps so both
+    // nets are non-negative by construction — see its doc comment for the money
+    // semantics. No-op for correctly configured courses.
+    const noRoom = computeNoRoomLessonSplit(
+      perSessionPrice,
+      affiliation?.centerShare ?? 0,
+      resolved,
+    );
+    centerShare = noRoom.centerShare;
+    fees = noRoom.fees;
+    clampedNote = noRoom.clamped
+      ? ` — capped to the lesson's value (price ${perSessionPrice}, center share ${affiliation?.centerShare ?? 0})`
+      : "";
   }
   const { teacherNet, centerNet } = computeLessonSplit(perSessionPrice, centerShare, fees);
 
   // Method 2 stamps the frozen rate into the commission notes (auditability);
   // Method 1 / legacy notes stay byte-identical.
   const noteSuffix =
-    course.pricingMethod === "per_attending_student"
+    (course.pricingMethod === "per_attending_student"
       ? course.m2CenterFee != null
         ? ` — per-student method, ${(course.m2CenterFee / 100).toFixed(2)} EGP/student`
         : ` — per-student method, ${(course.m2CenterBp ?? 0) / 100}%/student`
-      : "";
+      : "") + clampedNote;
 
   const refs = await nextTxnRefs(tx, present.length * 3);
 

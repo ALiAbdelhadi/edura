@@ -363,6 +363,8 @@ enum NotificationType {
   homework_deadline
   invite_code_sent
   new_chat_message
+  chat_group_message
+  chat_report_filed
 
   @@map("notification_type")
 }
@@ -439,6 +441,16 @@ model StudentProfile {
   studentCode             String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")
   entityType              EntityType @default(registered) @map("entity_type")
   inviteCode              String?    @unique @map("invite_code")
+  // ---- Child safety (messaging oversight). DEFAULT-MINOR by design: a student
+  // counts as an adult ONLY when a VERIFIED date of birth proves 18+. Missing,
+  // unverified, or under-18 all mean MINOR, so parent oversight stays active.
+  // Erring toward more protection is the safe failure mode on a K-12 platform;
+  // see isMinor() in src/queries/chat-minors.ts — the single implementation.
+  dateOfBirth             DateTime?  @map("date_of_birth") @db.Date
+  // Set by a super admin once the DOB is evidenced. NULL ⇒ unverified ⇒ minor,
+  // no matter what dateOfBirth says.
+  dateOfBirthVerifiedAt   DateTime?  @map("date_of_birth_verified_at") @db.Timestamptz(6)
+  dateOfBirthVerifiedBy   String?    @map("date_of_birth_verified_by") @db.Uuid
   pointsBalance           Int        @default(0) @map("points_balance")
   // Student money wallet (piasters). Cached balance — the append-only
   // WalletLedger is the source of truth; reconciles as SUM(delta) == this ==
@@ -1322,8 +1334,9 @@ model Review {
 // constraint in the migration) so one unique index guarantees a single
 // conversation per pair. Per-side unread counters / read cursors live on the
 // conversation row; per-message delivery state lives on the message.
-// Who may talk to whom is enforced by src/queries/chat-policy.ts (the single
-// source of truth), NOT here.
+// Who may talk to whom is enforced by src/queries/chat-scope.ts (the single
+// source of truth: the EDGES relationship table) gated by chat-policy.ts (the
+// role-pair matrix), NOT here.
 // =============================================================================
 
 enum MessageDeliveryStatus {
@@ -1353,6 +1366,11 @@ model Conversation {
   aLastReadAt  DateTime? @map("a_last_read_at") @db.Timestamptz(6)
   bLastReadAt  DateTime? @map("b_last_read_at") @db.Timestamptz(6)
 
+  // Belt-and-braces on top of ancestry inheritance (decision #6): conversations
+  // are children of flagged demo users, but an explicit flag makes the
+  // pre-launch purge a single DELETE instead of a join over both participants.
+  isDemo Boolean @default(false) @map("is_demo")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1380,6 +1398,11 @@ model ConversationMessage {
   deliveredAt DateTime?             @map("delivered_at") @db.Timestamptz(6)
   readAt      DateTime?             @map("read_at") @db.Timestamptz(6)
   createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  // Child-safety retention: soft-delete ONLY. The body is never erased — a
+  // removed message renders as "message removed" to participants while staying
+  // fully readable in the super-admin log. There is no hard-delete path.
+  deletedAt   DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  deletedBy   String?               @map("deleted_by") @db.Uuid
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -1388,6 +1411,195 @@ model ConversationMessage {
   // Delivered-on-connect sweep: find a recipient's undelivered messages fast.
   @@index([conversationId, status])
   @@map("conversation_messages")
+}
+
+// =============================================================================
+// GROUP CONVERSATIONS
+// -----------------------------------------------------------------------------
+// Announcement-style channels whose membership is DERIVED from real platform
+// relationships — never an arbitrary hand-picked list:
+//   course              → the course's active enrollments (+ teacher, the
+//                         teacher's active assistants, the center's staff, and
+//                         the enrolled students' approved parents)
+//   session             → the students whose coverage includes that session
+//   center_announcement → the center's roster ∪ its active enrollments
+//
+// `GroupMember` is a CACHE for fanout/listing only. Authorization ALWAYS
+// re-derives live for the single user being checked (chat-scope.ts
+// assertGroupAccess), so a stale snapshot can never grant access: a student who
+// dropped the course cannot post even if their cached row still exists.
+// =============================================================================
+
+enum GroupKind {
+  course
+  session
+  center_announcement
+
+  @@map("group_kind")
+}
+
+enum GroupPostPolicy {
+  owner_only // default — announcements: only the owner + their delegates post
+  members // open discussion among derived members
+
+  @@map("group_post_policy")
+}
+
+model ConversationGroup {
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind     GroupKind
+  // Exactly ONE source relation is set, matching `kind` (DB CHECK
+  // conversation_groups_source_shape). This is what membership derives from.
+  courseId String?   @map("course_id") @db.Uuid
+  // Scoped to one session of `courseId` when kind=session.
+  sessionId String?  @map("session_id") @db.Uuid
+  centerId  String?  @map("center_id") @db.Uuid
+
+  // The principal that owns the channel: the course teacher, or a center admin
+  // for center_announcement. Delegates (the teacher's assistants / the center's
+  // manager staff) post through the owner's derived rights, as themselves.
+  ownerId    String          @map("owner_id") @db.Uuid
+  title      String
+  postPolicy GroupPostPolicy @default(owner_only) @map("post_policy")
+
+  lastMessageAt       DateTime @default(now()) @map("last_message_at") @db.Timestamptz(6)
+  lastMessagePreview  String?  @map("last_message_preview")
+  lastMessageSenderId String?  @map("last_message_sender_id") @db.Uuid
+
+  isDemo     Boolean   @default(false) @map("is_demo")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members  GroupMember[]
+  messages GroupMessage[]
+
+  // One channel per source relation (partial uniques in the migration, since
+  // the source column differs per kind).
+  @@index([ownerId, lastMessageAt(sort: Desc)])
+  @@index([centerId, lastMessageAt(sort: Desc)])
+  @@index([courseId])
+  @@index([sessionId])
+  @@map("conversation_groups")
+}
+
+// Materialized membership snapshot — fanout + unread counters ONLY. Never the
+// authorization source (see assertGroupAccess).
+model GroupMember {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId  String   @map("group_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     Role
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt   DateTime? @map("left_at") @db.Timestamptz(6)
+
+  lastReadAt  DateTime? @map("last_read_at") @db.Timestamptz(6)
+  unreadCount Int       @default(0) @map("unread_count")
+  muted       Boolean   @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  group ConversationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId, leftAt])
+  @@map("group_members")
+}
+
+model GroupMessage {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId  String @map("group_id") @db.Uuid
+  senderId String @map("sender_id") @db.Uuid
+  // Same authoritative ordering key as 1:1 messages.
+  seq      BigInt @default(autoincrement())
+  body     String
+  clientId String? @map("client_id")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  // Soft-delete only — see ConversationMessage.deletedAt.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  group ConversationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, clientId])
+  @@index([groupId, seq])
+  @@map("group_messages")
+}
+
+// =============================================================================
+// SAFETY: BLOCKS & REPORTS
+// -----------------------------------------------------------------------------
+// Both are enforced in the SAME single place as every other messaging rule
+// (chat-scope.ts assertCanReach), so no entry point can bypass them.
+// =============================================================================
+
+enum ReportCategory {
+  harassment
+  spam
+  inappropriate
+  safety_concern // child-safety escalation — auto-prioritized
+  other
+
+  @@map("report_category")
+}
+
+enum ReportStatus {
+  open
+  reviewing
+  actioned
+  dismissed
+
+  @@map("report_status")
+}
+
+// A block halts NEW messages in BOTH directions for the pair. History is never
+// deleted, and a block never hides the conversation from parent oversight or
+// from the super-admin log — an adult cannot use it to bury a thread with a
+// minor. `removedAt` un-blocks (raw-SQL partial unique on the active row).
+model ConversationBlock {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockerId      String    @map("blocker_id") @db.Uuid
+  blockedId      String    @map("blocked_id") @db.Uuid
+  conversationId String?   @map("conversation_id") @db.Uuid
+  reason         String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  removedAt      DateTime? @map("removed_at") @db.Timestamptz(6)
+
+  // Plus (raw SQL — Prisma can't express partial uniques): UNIQUE on
+  // (blocker_id, blocked_id) WHERE removed_at IS NULL — one active block.
+  @@index([blockerId, removedAt])
+  @@index([blockedId, removedAt])
+  @@map("conversation_blocks")
+}
+
+model ConversationReport {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporterId     String  @map("reporter_id") @db.Uuid
+  reportedUserId String  @map("reported_user_id") @db.Uuid
+  conversationId String? @map("conversation_id") @db.Uuid
+  groupId        String? @map("group_id") @db.Uuid
+  messageId      String? @map("message_id") @db.Uuid
+
+  category ReportCategory
+  details  String?
+  status   ReportStatus   @default(open)
+  // Set when the reporter OR the reported user is a minor at filing time —
+  // drives the super-admin queue's priority sort.
+  involvesMinor Boolean @default(false) @map("involves_minor")
+
+  reviewedBy     String?   @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  resolutionNote String?   @map("resolution_note")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, involvesMinor, createdAt(sort: Desc)])
+  @@index([reportedUserId])
+  @@index([reporterId])
+  @@map("conversation_reports")
 }
 
 // =============================================================================

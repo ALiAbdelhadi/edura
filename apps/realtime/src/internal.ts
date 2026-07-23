@@ -23,6 +23,9 @@ const messageViewSchema = z.object({
   deliveredAt: z.coerce.date().nullable(),
   readAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),
+  // Soft-delete marker (retention): optional so an older Next.js instance
+  // mid-deploy can still bridge messages to a newer realtime server.
+  deleted: z.boolean().optional().default(false),
 });
 
 const bridgeMessageSchema = z.object({

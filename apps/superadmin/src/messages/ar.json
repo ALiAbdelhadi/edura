@@ -42,7 +42,8 @@
     "catalog": "الكتالوج التعليمي",
     "team": "الفريق",
     "whatsapp": "واتساب",
-    "roomSettlements": "تسويات القاعات"
+    "roomSettlements": "تسويات القاعات",
+    "messaging": "المراسلات"
   },
   "roles": {
     "student": "طالب",
@@ -456,5 +457,44 @@
     "total": "{count} رسالة",
     "prev": "السابق",
     "next": "التالي"
+  },
+  "adminMessaging": {
+    "title": "الإشراف على المراسلات",
+    "description": "سجل الرسائل على مستوى المنصة، وبلاغات السلامة، والحظر. لا توجد قناة بين بالغ وقاصر خاصة أو غير مسجّلة.",
+    "tabs": {
+      "log": "سجل الرسائل",
+      "reports": "بلاغات السلامة",
+      "blocks": "الحظر"
+    },
+    "searchPlaceholder": "ابحث باسم المشارك أو بريده…",
+    "anyRole": "كل الأدوار",
+    "minorsOnly": "تخص قاصراً",
+    "minorBadge": "قاصر",
+    "participants": "المشاركون",
+    "messages": "الرسائل",
+    "lastActivity": "آخر نشاط",
+    "view": "عرض",
+    "noResults": "لا توجد محادثات",
+    "threadTitle": "المحادثة",
+    "auditNotice": "فتح هذه المحادثة يُسجَّل في سجل التدقيق، بما في ذلك أي محادثة وهل تخص قاصراً.",
+    "removedButRetained": "محذوفة للمشاركين — محفوظة هنا",
+    "allStatuses": "كل الحالات",
+    "reportStatus": {
+      "open": "مفتوح",
+      "reviewing": "قيد المراجعة",
+      "actioned": "تم اتخاذ إجراء",
+      "dismissed": "مرفوض"
+    },
+    "reportCategory": "البلاغ",
+    "reporter": "المُبلِّغ",
+    "reported": "بخصوص",
+    "filed": "التاريخ",
+    "markActioned": "تم اتخاذ إجراء",
+    "dismiss": "رفض",
+    "noReports": "لا توجد بلاغات",
+    "blocker": "حظر بواسطة",
+    "blocked": "المحظور",
+    "reason": "السبب",
+    "noBlocks": "لا يوجد حظر مسجّل"
   }
 }

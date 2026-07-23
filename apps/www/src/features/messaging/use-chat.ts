@@ -36,6 +36,25 @@ import type {
 
 const PAGE_SIZE = 50;
 
+/**
+ * Ack codes that mean "the server decided no". Retrying over REST cannot change
+ * any of them — same authorization module, same rate-limit buckets.
+ */
+const TERMINAL_SEND_CODES = new Set([
+  "rate_limited",
+  "blocked",
+  "policy_denied",
+  "no_relationship",
+  "not_participant",
+  "invalid_body",
+]);
+
+/** Whether a parent can view the open thread (see chat-oversight.ts). */
+export type OversightNotice = {
+  monitored: boolean;
+  minorParticipantId: string | null;
+};
+
 function sortConversations(list: WireConversation[]): WireConversation[] {
   return [...list].sort(
     (a, b) =>
@@ -71,6 +90,9 @@ export function useChat(meId: string) {
   const [threadLoading, setThreadLoading] = useState(false);
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [typingIn, setTypingIn] = useState<Record<string, boolean>>({});
+  const [oversight, setOversight] = useState<OversightNotice | null>(null);
+  /** Last send rejection worth surfacing ("rate_limited" | "blocked"). */
+  const [sendBlock, setSendBlock] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const activeIdRef = useRef<string | null>(null);
@@ -105,8 +127,12 @@ export function useChat(meId: string) {
             conversation: WireConversation;
             messages: WireMessage[];
             hasMore: boolean;
+            oversight: OversightNotice;
           }>
         >();
+      // Disclosure state travels with the thread so the banner can never be
+      // out of date relative to the messages being shown.
+      setOversight(res.data.oversight ?? null);
       setMessages((prev) => {
         // Keep any local pending messages that are still in flight.
         const pending = (prev[conversationId] ?? []).filter((m) => m.pending);
@@ -378,6 +404,7 @@ export function useChat(meId: string) {
         deliveredAt: null,
         readAt: null,
         createdAt: new Date().toISOString(),
+        deleted: false,
         pending: true,
       };
       setMessages((prev) => ({
@@ -421,8 +448,13 @@ export function useChat(meId: string) {
           const res = await api
             .post("messages", { json: { conversationId, body: text, clientId } })
             .json<Envelope<WireMessage>>();
+          setSendBlock(null);
           finalize(res.data);
-        } catch {
+        } catch (e) {
+          const status = (e as { response?: { status?: number } })?.response
+            ?.status;
+          if (status === 429) setSendBlock("rate_limited");
+          else if (status === 403) setSendBlock("blocked");
           markFailed();
         }
       };
@@ -435,8 +467,24 @@ export function useChat(meId: string) {
             "message:send",
             { conversationId, body: text, clientId },
             (err: Error | null, ack: SendMessageAck) => {
-              if (err || !ack?.ok) void sendViaRest();
-              else finalize(ack.message as unknown as WireMessage);
+              if (!err && ack?.ok) {
+                setSendBlock(null);
+                finalize(ack.message as unknown as WireMessage);
+                return;
+              }
+              // A REFUSAL is final — REST runs the same authorization and the
+              // same shared rate-limit buckets, so retrying there would just
+              // burn a second call and report the same answer. Only transport
+              // failures fall back.
+              const code = !err && ack && !ack.ok ? ack.code : undefined;
+              if (code && TERMINAL_SEND_CODES.has(code)) {
+                if (code === "rate_limited" || code === "blocked") {
+                  setSendBlock(code);
+                }
+                markFailed();
+                return;
+              }
+              void sendViaRest();
             },
           );
       } else {
@@ -506,6 +554,8 @@ export function useChat(meId: string) {
 
   return {
     status,
+    oversight,
+    sendBlock,
     conversations,
     conversationsLoading,
     activeId,

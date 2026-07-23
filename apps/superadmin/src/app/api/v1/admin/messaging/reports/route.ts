@@ -1,0 +1,19 @@
+import { withErrors } from "@/lib/errors/http";
+import { requireRole } from "@/lib/authz/require-role";
+import { ok } from "@/lib/http/envelope";
+import { listReports } from "@/lib/services/admin/messaging";
+
+export const dynamic = "force-dynamic";
+
+// Safety queue. Reports involving a minor sort first (see listReportsForReview).
+export const GET = withErrors(async (req) => {
+  await requireRole("super_admin");
+  const p = new URL(req.url).searchParams;
+  return ok(
+    await listReports({
+      status: p.get("status") ?? undefined,
+      page: p.get("page") ?? undefined,
+      limit: p.get("limit") ?? undefined,
+    }),
+  );
+});

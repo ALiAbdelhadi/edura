@@ -31,6 +31,12 @@ function navForRole(role: StaffRole) {
   if (role === "center_accountant") {
     items.push({ href: `${base}/finance`, icon: "dollar", label: "Finance" });
   }
+  // Messaging follows the same sub-role split as the scope table in
+  // chat-scope.ts: reception + manager get an inbox, center_accountant gets
+  // NONE (that tier reaches nobody, so the screen would always be empty).
+  if (role === "receptionist" || role === "manager") {
+    items.push({ href: `${base}/messages`, icon: "message", label: "Messages" });
+  }
   items.push(
     { href: `${base}/notifications`, icon: "bell", label: "Notifications" },
     { href: `${base}/settings`, icon: "settings", label: "Settings" },

@@ -17,6 +17,7 @@ import { Server, type Socket } from "socket.io";
 import { z } from "zod";
 import * as chat from "@repo/database/chat";
 import * as proto from "@repo/database/chat-protocol";
+import { checkRateLimit } from "@repo/server-core/rate-limit/token-bucket";
 import { verifySocketToken, type SocketUser } from "./auth";
 import { PresenceRegistry } from "./presence";
 import { chatDb, disconnectDb } from "./db";
@@ -24,6 +25,17 @@ import { handleInternalRequest } from "./internal";
 import { notifyOffline } from "./notify";
 
 const presence = new PresenceRegistry();
+
+/**
+ * The socket send path was previously the ONLY unlimited one — it is the
+ * PRIMARY path (REST is the fallback) and it never touches Next.js middleware,
+ * so the route-level limiter could not see it. The domain layer now demands a
+ * limiter at the type level and this is the socket's injection point; it shares
+ * the same Redis buckets as REST, so a spammer cannot get a fresh allowance by
+ * switching transport mid-flood.
+ */
+const limiter: chat.ChatLimiter = (key, capacity, perMinute) =>
+  checkRateLimit(key, capacity, perMinute);
 
 // ---------------------------------------------------------------------------
 // HTTP server: /healthz + /internal/* bridge; Socket.IO attaches on /socket.io
@@ -156,6 +168,7 @@ io.on("connection", (socket: Socket) => {
           tx,
           { id: user.id, role: user.role, centerId: user.centerId },
           parsed.data,
+          { limiter },
         ),
       );
       const { recipientId, duplicate } = result;

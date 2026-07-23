@@ -153,5 +153,9 @@ export function trustedClientIp(getHeader: (name: string) => string | null | und
   if (xff.length === 0) return "unknown";
   const hops = Math.max(1, Math.floor(Number(process.env.TRUSTED_PROXY_HOPS ?? 1)) || 1);
   const idx = xff.length - hops;
-  return idx >= 0 ? xff[idx] : xff[0];
+  // `?? xff[0] ?? "unknown"` is type narrowing only — xff is non-empty here and
+  // idx is always < xff.length, so the first operand always wins at runtime.
+  // (Needed because apps/realtime typechecks this file under
+  // noUncheckedIndexedAccess.)
+  return (idx >= 0 ? xff[idx] : xff[0]) ?? xff[0] ?? "unknown";
 }

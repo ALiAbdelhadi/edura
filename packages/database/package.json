@@ -25,6 +25,26 @@
       "types": "./src/queries/chat-policy.ts",
       "default": "./src/queries/chat-policy.ts"
     },
+    "./chat-scope": {
+      "types": "./src/queries/chat-scope.ts",
+      "default": "./src/queries/chat-scope.ts"
+    },
+    "./chat-minors": {
+      "types": "./src/queries/chat-minors.ts",
+      "default": "./src/queries/chat-minors.ts"
+    },
+    "./chat-groups": {
+      "types": "./src/queries/chat-groups.ts",
+      "default": "./src/queries/chat-groups.ts"
+    },
+    "./chat-safety": {
+      "types": "./src/queries/chat-safety.ts",
+      "default": "./src/queries/chat-safety.ts"
+    },
+    "./chat-oversight": {
+      "types": "./src/queries/chat-oversight.ts",
+      "default": "./src/queries/chat-oversight.ts"
+    },
     "./chat-protocol": {
       "types": "./src/queries/chat-protocol.ts",
       "default": "./src/queries/chat-protocol.ts"

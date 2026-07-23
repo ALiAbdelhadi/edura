@@ -45,7 +45,8 @@
     "wallet": "Wallet",
     "checkin": "Check-in",
     "doorCheckin": "Door Check-in",
-    "staff": "Staff"
+    "staff": "Staff",
+    "childSafety": "Child safety"
   },
   "roles": {
     "student": "Student",
@@ -311,7 +312,60 @@
       "centers": "Centers",
       "students": "Students",
       "parents": "Parents",
-      "platform": "Platform"
+      "platform": "Platform",
+      "staff": "Center staff"
+    },
+    "tabs": {
+      "direct": "Direct",
+      "groups": "Channels"
+    },
+    "filterAll": "All",
+    "filterByRole": "Filter by role",
+    "removedMessage": "Message removed",
+    "rateLimited": "You are sending messages too quickly. Please wait a moment.",
+    "blockedNotice": "You can no longer send messages in this conversation.",
+    "block": "Block",
+    "unblock": "Unblock",
+    "blocked": "Blocked",
+    "blockConfirm": "Block {name}? Neither of you will be able to send new messages. Your existing conversation is kept, and it stays visible to platform staff.",
+    "blockedEmpty": "You haven't blocked anyone",
+    "blockedList": "Blocked people",
+    "report": "Report",
+    "reportTitle": "Report this conversation",
+    "reportCategory": "What is the problem?",
+    "reportDetails": "Details (optional)",
+    "reportSubmit": "Send report",
+    "reportSent": "Report sent. Platform staff will review it.",
+    "reportCategories": {
+      "harassment": "Harassment or bullying",
+      "spam": "Spam",
+      "inappropriate": "Inappropriate content",
+      "safety_concern": "Child-safety concern",
+      "other": "Something else"
+    },
+    "oversightBanner": "A parent can view this conversation.",
+    "oversightBannerStudent": "Your parent can view this conversation.",
+    "channels": {
+      "title": "Channels",
+      "empty": "No channels yet",
+      "emptyHint": "A channel is created by your teacher or your center",
+      "create": "New channel",
+      "createTitle": "Create a channel",
+      "pickCourse": "Choose a class",
+      "pickSession": "Choose a session",
+      "members": "{count} members",
+      "membersDerived": "Members come from the class roster and update automatically",
+      "announcementOnly": "Announcements only — the teacher and their team can post",
+      "allowReplies": "Let members reply",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "muted": "Muted",
+      "readOnly": "Only the teacher and their team can post here",
+      "kinds": {
+        "course": "Class",
+        "session": "Session",
+        "center_announcement": "Center announcements"
+      }
     }
   },
   "team": {
@@ -392,5 +446,17 @@
       "opsReports": "Operational reports",
       "finance": "Financial reports (read-only)"
     }
+  },
+  "oversight": {
+    "title": "My children's conversations",
+    "subtitle": "You can view your child's conversations with teachers, assistants and center staff. This is read-only — you cannot reply, and your child is told that you can see these.",
+    "noChildren": "No linked children yet",
+    "adultChild": "This student is a verified adult, so their conversations are private.",
+    "minorBadge": "Under 18",
+    "noConversations": "No conversations with staff yet",
+    "conversationsCount": "{count} conversations",
+    "messagesCount": "{count} messages",
+    "readOnlyNotice": "Read-only view. Opening this does not mark anything as read for your child.",
+    "backToChildren": "Back to children"
   }
 }

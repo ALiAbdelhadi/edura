@@ -125,12 +125,23 @@ export const authOptions: NextAuthOptions = {
       // both apps) also revokes a stolen super_admin/accountant session. A
       // trailing or missing version strips all claims → the session callback
       // yields no user → logged out. Unchanged accounts are untouched.
+      //
+      // C-03: the same read also re-checks the LIVE account state (one query),
+      // so suspending, blacklisting or soft-deleting a super_admin/accountant
+      // kills their back-office session on the very NEXT request rather than
+      // at JWT expiry. authorize() already requires status='active', so
+      // anything else here is a deactivation that happened mid-session.
       if (token?.uid) {
         const fresh = await prisma.user.findUnique({
           where: { id: token.uid },
-          select: { tokenVersion: true },
+          select: { tokenVersion: true, status: true, deletedAt: true },
         });
-        if (!fresh || fresh.tokenVersion !== (token.ver ?? 0)) {
+        if (
+          !fresh ||
+          fresh.tokenVersion !== (token.ver ?? 0) ||
+          fresh.status !== "active" ||
+          fresh.deletedAt !== null
+        ) {
           // Strip every claim: the encoded cookie carries no uid, so the
           // session callback yields no user → the request is unauthenticated.
           return {} as typeof token;

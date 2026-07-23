@@ -1,9 +1,15 @@
-// REST-side chat service. All authorization + persistence rules live in the
-// shared domain layer (@repo/database/chat — matrix + relationship gates),
-// which the standalone realtime server uses too. This module adapts it to
-// HTTP: session actors, AppError mapping, and the realtime/notify bridges.
+// REST-side chat service. All authorization rules live in the shared domain
+// layer (@repo/database/chat-scope — the EDGES table, matrix, blocks), which
+// the standalone realtime server uses too. This module adapts it to HTTP:
+// session actors, AppError mapping, rate-limiter injection, and the
+// realtime/notify bridges.
 import * as chat from "@repo/database/chat";
-import { scopedDb, type TenantTx } from "@/lib/db/scope";
+import * as groups from "@repo/database/chat-groups";
+import * as safety from "@repo/database/chat-safety";
+import * as oversight from "@repo/database/chat-oversight";
+import type { ReportCategory } from "@repo/database";
+import { checkRateLimit } from "@repo/server-core/rate-limit/token-bucket";
+import { scopedDb, platformDb, type TenantTx } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
 import {
   AppError,
@@ -14,16 +20,28 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import { bridgeMessage, bridgeRead } from "./realtime-bridge";
 
+/**
+ * THE limiter injected into every send path. Shared Redis store when REDIS_URL
+ * is set (M3), per-process fallback otherwise. Passing this is mandatory at the
+ * type level in the domain layer, so no transport can ship unlimited sending.
+ */
+const limiter: chat.ChatLimiter = (key, capacity, perMinute) =>
+  checkRateLimit(key, capacity, perMinute);
+
 function toAppError(err: unknown): unknown {
   if (!(err instanceof chat.ChatError)) return err;
   switch (err.code) {
     case "recipient_not_found":
     case "conversation_not_found":
+    case "group_not_found":
       return new NotFoundError(err.message);
     case "policy_denied":
     case "no_relationship":
     case "not_participant":
+    case "blocked":
       return new ForbiddenError(err.message);
+    case "rate_limited":
+      return new AppError(429, "rate_limited", err.message);
     case "invalid_body":
       return new BusinessRuleError(err.message);
     default:
@@ -47,6 +65,8 @@ function actor(user: SessionUser): chat.ChatActor {
 }
 
 // ---------------------------------------------------------------------------
+// 1:1 conversations
+// ---------------------------------------------------------------------------
 
 export function listConversations(
   user: SessionUser,
@@ -61,6 +81,7 @@ export function createConversation(user: SessionUser, recipientId: string) {
       tx,
       actor(user),
       recipientId,
+      { limiter },
     );
     // Return the list-shaped view so the client can insert it directly.
     return chat.getConversationView(tx, user.id, conversation.id);
@@ -80,7 +101,9 @@ export function getConversationThread(
       conversationId,
       opts,
     );
-    return { conversation, messages, hasMore };
+    // Disclosure: both sides are told when a parent can see this thread.
+    const notice = await oversight.oversightNoticeFor(tx, conversationId);
+    return { conversation, messages, hasMore, oversight: notice };
   });
 }
 
@@ -95,8 +118,6 @@ export function getUnreadTotal(user: SessionUser) {
   return run(user, (tx) => chat.getTotalUnread(tx, user.id));
 }
 
-// ---------------------------------------------------------------------------
-
 export async function sendMessage(
   user: SessionUser,
   input: {
@@ -106,7 +127,9 @@ export async function sendMessage(
     clientId?: string;
   },
 ) {
-  const result = await run(user, (tx) => chat.appendMessage(tx, actor(user), input));
+  const result = await run(user, (tx) =>
+    chat.appendMessage(tx, actor(user), input, { limiter }),
+  );
 
   if (!result.duplicate) {
     // Live fanout via the realtime server; if the recipient has no live
@@ -156,4 +179,174 @@ export async function markConversationRead(
     readAt: receipt.readAt,
     updatedCount: receipt.updatedCount,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Group channels
+// ---------------------------------------------------------------------------
+
+export function listGroups(user: SessionUser) {
+  return run(user, (tx) => groups.listGroupsForUser(tx, actor(user)));
+}
+
+export function createGroup(user: SessionUser, input: groups.CreateGroupInput) {
+  return run(user, (tx) => groups.createGroup(tx, actor(user), input));
+}
+
+export function getGroupThread(
+  user: SessionUser,
+  groupId: string,
+  opts: { beforeSeq?: number; limit?: number },
+) {
+  return run(user, async (tx) => {
+    const access = await groups.assertGroupAccess(tx, actor(user), groupId, "read");
+    const { messages, hasMore } = await groups.listGroupMessages(
+      tx,
+      actor(user),
+      groupId,
+      opts,
+    );
+    const memberCount = await tx.groupMember.count({
+      where: { groupId, leftAt: null },
+    });
+    return {
+      group: {
+        id: access.group.id,
+        kind: access.group.kind,
+        title: access.group.title,
+        postPolicy: access.group.postPolicy,
+        canPost: access.canPost,
+        canManage: access.canManage,
+        memberCount,
+      },
+      messages,
+      hasMore,
+    };
+  });
+}
+
+export async function postToGroup(
+  user: SessionUser,
+  groupId: string,
+  input: { body: string; clientId?: string },
+) {
+  const result = await run(user, (tx) =>
+    groups.postGroupMessage(tx, actor(user), groupId, input, { limiter }),
+  );
+
+  if (!result.duplicate && result.recipientIds.length) {
+    await notify({
+      recipients: result.recipientIds,
+      type: "chat_group_message",
+      title: user.name ? `${user.name}` : "New group message",
+      body:
+        result.message.body.length > 120
+          ? result.message.body.slice(0, 117) + "…"
+          : result.message.body,
+      data: { groupId, messageId: result.message.id, senderId: user.id },
+    });
+  }
+  return { ...result.message, duplicate: result.duplicate };
+}
+
+export function markGroupRead(user: SessionUser, groupId: string) {
+  return run(user, (tx) => groups.markGroupRead(tx, actor(user), groupId));
+}
+
+export function setGroupMuted(
+  user: SessionUser,
+  groupId: string,
+  muted: boolean,
+) {
+  return run(user, (tx) => groups.setGroupMuted(tx, actor(user), groupId, muted));
+}
+
+export function syncGroup(user: SessionUser, groupId: string) {
+  return run(user, async (tx) => {
+    await groups.assertGroupAccess(tx, actor(user), groupId, "manage");
+    return groups.syncGroupMembers(tx, groupId);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Safety: block & report
+// ---------------------------------------------------------------------------
+
+export function blockUser(
+  user: SessionUser,
+  targetUserId: string,
+  opts: { reason?: string; conversationId?: string } = {},
+) {
+  return run(user, async (tx) => {
+    const res = await safety.blockUser(tx, actor(user), targetUserId, opts);
+    return { blocked: true, flagged: res.flaggedAdultBlockingMinor };
+  });
+}
+
+export function unblockUser(user: SessionUser, targetUserId: string) {
+  return run(user, (tx) => safety.unblockUser(tx, actor(user), targetUserId));
+}
+
+export function listBlocks(user: SessionUser) {
+  return run(user, (tx) => safety.listMyBlocks(tx, actor(user)));
+}
+
+export async function fileReport(
+  user: SessionUser,
+  input: {
+    reportedUserId?: string;
+    conversationId?: string;
+    groupId?: string;
+    messageId?: string;
+    category: ReportCategory;
+    details?: string;
+  },
+) {
+  const report = await run(user, (tx) => safety.fileReport(tx, actor(user), input));
+
+  // Notify platform staff. Runs under the platform context because the
+  // reporter's own RLS scope must not decide who reviews safety reports.
+  const admins = await platformDb((tx) =>
+    tx.user.findMany({
+      where: { role: "super_admin", status: "active", deletedAt: null },
+      select: { id: true },
+    }),
+  );
+  if (admins.length) {
+    await notify({
+      recipients: admins.map((a) => a.id),
+      type: "chat_report_filed",
+      title: report.involvesMinor
+        ? "Safety report involving a minor"
+        : "New conversation report",
+      body: `${report.category} — reported by ${user.name ?? user.id}`,
+      data: { reportId: report.id, involvesMinor: report.involvesMinor },
+    });
+  }
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// Parent oversight (READ-ONLY — never mutates counters or read receipts)
+// ---------------------------------------------------------------------------
+
+export function listOversightChildren(user: SessionUser) {
+  return run(user, (tx) => oversight.listOversightChildren(tx, user.id));
+}
+
+export function listChildConversations(user: SessionUser, studentId: string) {
+  return run(user, (tx) =>
+    oversight.listChildConversations(tx, user.id, studentId),
+  );
+}
+
+export function getChildThread(
+  user: SessionUser,
+  studentId: string,
+  conversationId: string,
+  opts: { beforeSeq?: number; limit?: number },
+) {
+  return run(user, (tx) =>
+    oversight.getChildThread(tx, user.id, studentId, conversationId, opts),
+  );
 }

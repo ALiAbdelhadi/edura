@@ -20,6 +20,7 @@ const navItems = [
   { href: "/dashboard/superadmin/settlements", icon: "dollar", label: "Room settlements" },
   { href: "/dashboard/superadmin/commission", icon: "settings", label: "Commission" },
   { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp" },
+  { href: "/dashboard/superadmin/messaging", icon: "message", label: "Messaging" },
 ];
 
 export default function SuperAdminLayout({

@@ -28,6 +28,74 @@ const AUDITED: Record<string, string> = {
 
 void SOFT_DELETE_MODELS;
 
+// ---------------------------------------------------------------------------
+// C-03 — deactivation must revoke LIVE sessions, not just block the next login.
+//
+// Sessions are 30-day JWTs, so a suspend / blacklist / soft-delete that only
+// writes `users.status` leaves the account fully authenticated (writes included)
+// until the token expires. Instead of a parallel session store, a deactivating
+// write rides the SAME L1 epoch a password reset already uses:
+// `token_version += 1`, folded into the caller's OWN update statement so it
+// commits atomically with the status change inside their transaction.
+//
+// It lives here rather than at each call site precisely because there are many
+// of them (updateUserStatus, platformBlacklistUser, rejectTeacher, rejectCenter
+// / blacklistCenter / toggleCenter cascading to center admins, the deletion-
+// request approver, temp-student shell cleanup) and a future one must not be
+// able to forget it.
+//
+// Reactivation (`status: "active"`) deliberately does NOT bump: there is no
+// session to revoke, and a reinstated user logs in fresh against the current
+// epoch. A caller already managing the epoch itself (resetPassword) wins.
+//
+// This bump is defence in depth and the auditable record in the row; the
+// authoritative gate is the per-request live-status re-read in BOTH apps'
+// NextAuth `jwt` callback (see apps/*/src/lib/auth/options.ts), which also
+// catches status changes made outside Prisma entirely.
+// ---------------------------------------------------------------------------
+const SESSION_VALID_STATUS = "active";
+
+// Prisma accepts both `status: "x"` and `status: { set: "x" }`.
+function unwrapSet(value: unknown): unknown {
+  if (value && typeof value === "object" && "set" in (value as object)) {
+    return (value as { set: unknown }).set;
+  }
+  return value;
+}
+
+function deactivates(data: unknown): boolean {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  if ("status" in d) {
+    const status = unwrapSet(d.status);
+    if (typeof status === "string" && status !== SESSION_VALID_STATUS) return true;
+  }
+  if ("deletedAt" in d && unwrapSet(d.deletedAt) != null) return true;
+  return false;
+}
+
+function withSessionRevocation(args: unknown): unknown {
+  const a = (args ?? {}) as { data?: unknown };
+  if (!deactivates(a.data)) return a;
+  const d = a.data as Record<string, unknown>;
+  if ("tokenVersion" in d) return a; // caller owns the epoch — never double-bump
+  return { ...a, data: { ...d, tokenVersion: { increment: 1 } } };
+}
+
+export const sessionRevocationExtension = Prisma.defineExtension({
+  name: "edura-session-revocation",
+  query: {
+    user: {
+      async update({ args, query }) {
+        return query(withSessionRevocation(args) as never);
+      },
+      async updateMany({ args, query }) {
+        return query(withSessionRevocation(args) as never);
+      },
+    },
+  },
+});
+
 export const softDeleteExtension = Prisma.defineExtension((client) => {
   const c = client as unknown as {
     user: {

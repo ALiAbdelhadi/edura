@@ -56,6 +56,10 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   homework_deadline: C(true, true, false, false),
   invite_code_sent: C(false, false, false, true),
   new_chat_message: C(true, true, false, false),
+  chat_group_message: C(true, true, false, false),
+  // Safety escalation — in-app + push to the reviewing staff, never SMS/email
+  // (report details can contain a minor's own words; keep them in-platform).
+  chat_report_filed: C(true, true, false, false),
 };
 
 export async function notify(

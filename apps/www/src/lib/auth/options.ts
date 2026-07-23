@@ -191,12 +191,28 @@ export const authOptions: NextAuthOptions = {
       // claims stripped → the session callback yields no user → logged out).
       // A missing row (deleted user) invalidates too. Unbumped accounts read
       // back the same value, so normal sessions are untouched.
+      //
+      // C-03: the SAME per-request read now also re-reads the LIVE account
+      // state (one query, no extra cost). Every login door already requires
+      // status='active', so a session can only ever have been minted for an
+      // active account — meaning anything else here is a suspension, a
+      // blacklist or a soft-delete that happened DURING the session, and the
+      // very next request is rejected instead of writing for up to 30 days.
+      // This is the authoritative gate: it holds even for a status change that
+      // never went through Prisma (a manual SQL fix, a future call site).
+      // findUnique is deliberately not soft-delete-filtered, so deletedAt is
+      // checked explicitly.
       if (token?.uid) {
         const fresh = await prisma.user.findUnique({
           where: { id: token.uid },
-          select: { tokenVersion: true },
+          select: { tokenVersion: true, status: true, deletedAt: true },
         });
-        if (!fresh || fresh.tokenVersion !== (token.ver ?? 0)) {
+        if (
+          !fresh ||
+          fresh.tokenVersion !== (token.ver ?? 0) ||
+          fresh.status !== "active" ||
+          fresh.deletedAt !== null
+        ) {
           // Strip every claim: the encoded cookie carries no uid, so the
           // session callback yields no user → the request is unauthenticated.
           return {} as typeof token;

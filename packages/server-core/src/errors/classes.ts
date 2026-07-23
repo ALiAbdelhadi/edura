@@ -6,6 +6,9 @@ export type ErrorCode =
   | "conflict"
   | "expired"
   | "business_rule"
+  // Messaging send/new-conversation buckets surface as HTTP 429; the socket
+  // transport maps the same domain code onto its ack payload.
+  | "rate_limited"
   | "internal";
 
 export class AppError extends Error {
