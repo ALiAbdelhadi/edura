@@ -22,6 +22,7 @@ const navItems = [
   { href: "/dashboard/superadmin/wallet", icon: "wallet", label: "Wallet policy" },
   { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp" },
   { href: "/dashboard/superadmin/messaging", icon: "message", label: "Messaging" },
+  { href: "/dashboard/superadmin/notifications", icon: "bell", label: "Notifications" },
 ];
 
 export default function SuperAdminLayout({
