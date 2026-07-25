@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { Spinner } from "@/components/kit/spinner";
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   Dialog,
@@ -13,7 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import { Spinner } from "@/components/kit/spinner";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
+import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 
 export type FieldValue = string | number | boolean;
 

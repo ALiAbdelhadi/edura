@@ -1,11 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Input } from "@repo/ui/components/input";
 import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -13,6 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo } from "react";
+
 export type SearchFieldConfig = {
   key: string;
   placeholder?: string;

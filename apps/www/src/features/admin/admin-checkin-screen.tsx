@@ -1,18 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { PageHeader } from "@/components/kit/page-header";
+import { Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { api } from "@/lib/api/client";
+import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation } from "@refinedev/core";
-import { Search, UserPlus, CheckCircle2, DoorOpen, Banknote } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
-import { api } from "@/lib/api/client";
-import { PageHeader } from "@/components/kit/page-header";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Banknote, CheckCircle2, DoorOpen, Search, UserPlus } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 
 type Match = {
   studentId: string;
@@ -33,11 +34,6 @@ type SessionOption = {
   pricePerSession: number | null;
 };
 
-/**
- * Counter check-in (Step 6) — phone-first, single column, big targets.
- * Uncovered/temp students go through the EXISTING Step 4 walk-in per-session
- * cash path (center/subscriptions) — check-in itself never touches money.
- */
 export function AdminCheckinScreen() {
   const t = useTranslations();
   const { formatEGP } = useFormatters();
@@ -88,8 +84,6 @@ export function AdminCheckinScreen() {
     setBusy(true);
     try {
       if (payFirst) {
-        // THE Step 4 money path — per-session cash subscription; attendance
-        // marking is left to the check-in call right after.
         await post({
           url: "center/subscriptions",
           method: "post",
@@ -136,9 +130,6 @@ export function AdminCheckinScreen() {
     }
     setBusy(true);
     try {
-      // Step 7: registration + WhatsApp delivery (studentCode + one-time
-      // onboarding link) in one call; duplicates resolve to the existing
-      // account with a code-reminder message instead.
       const res = await post({
         url: "center/walk-in",
         method: "post",

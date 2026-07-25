@@ -1,39 +1,13 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useGetIdentity, useLogout, useList } from "@refinedev/core";
-import {
-  Home,
-  Calendar,
-  ClipboardList,
-  Award,
-  CheckCircle2,
-  MessageSquare,
-  BookOpen,
-  Users,
-  User,
-  DollarSign,
-  Wallet as WalletIcon,
-  Bell,
-  Settings,
-  LayoutGrid,
-  BarChart3,
-  FileSearch,
-  Star,
-  Search,
-  ShieldCheck,
-  LogOut,
-  PanelLeft,
-  type LucideIcon,
-} from "lucide-react";
-import type { MeResponse } from "@/lib/refine";
-import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { HeaderQuickSettings } from "@/components/ui/header-quick-settings";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import type { MeResponse } from "@/lib/refine";
+import { useGetIdentity, useList, useLogout } from "@refinedev/core";
+import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
+import { Button } from "@repo/ui/components/button";
 import {
   Sidebar,
   SidebarContent,
@@ -47,8 +21,35 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@repo/ui/components/sidebar";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { Button } from "@repo/ui/components/button";
+import Image from "next/image";
+import {
+  Award,
+  BarChart3,
+  Bell,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ClipboardList,
+  DollarSign,
+  FileSearch,
+  Home,
+  LayoutGrid,
+  LogOut,
+  MessageSquare,
+  PanelLeft,
+  Search,
+  Settings,
+  ShieldCheck,
+  Star,
+  User,
+  Users,
+  Wallet as WalletIcon,
+  type LucideIcon,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React from "react";
 
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
@@ -96,8 +97,6 @@ const NAV_KEY: Record<string, string> = {
   "Child Safety": "nav.childSafety",
 };
 
-// Maps a session role to its dashboard URL segment (center_admin/center_staff
-// don't share their role string with their folder name).
 const PORTAL_BASE: Record<string, string> = {
   center_admin: "admin",
   center_staff: "staff",
@@ -212,7 +211,9 @@ export default function DashboardShell({
       <Sidebar side={dir === "rtl" ? "right" : "left"} collapsible="icon">
         <SidebarHeader className="gap-0 border-b border-sidebar-border">
           <div className="flex h-12 items-center gap-2 px-1">
-            <img
+            <Image
+              width={36}
+              height={36}
               src="/edura-mark.svg"
               alt="Edura"
               className="size-9 shrink-0"

@@ -48,6 +48,10 @@
     "./chat-protocol": {
       "types": "./src/queries/chat-protocol.ts",
       "default": "./src/queries/chat-protocol.ts"
+    },
+    "./seed-ids": {
+      "types": "./prisma/seed-ids.ts",
+      "default": "./prisma/seed-ids.ts"
     }
   },
   "scripts": {

@@ -32,16 +32,17 @@ import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
+import { seedId } from "./seed-ids";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const DAY = 24 * 60 * 60 * 1000;
 
 // Deterministic UUID from a stable key -> idempotent upsert-by-id.
-function did(key: string): string {
-  const h = createHash("sha1").update("edura-preview:" + key).digest("hex");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
-}
+// RFC 9562 UUIDv5 via the shared generator — see prisma/seed-ids.ts for why
+// this must not be hand-rolled here (H-03: a raw SHA-1 slice is UUID-shaped but
+// not a UUID, and `z.uuid()` routes 400 on it).
+const did = seedId("edura-preview:");
 function flc(userId: string): string {
   return createHash("sha1").update("flc:" + userId).digest("hex").slice(0, 10).toUpperCase();
 }
@@ -154,7 +155,11 @@ async function upsertM2Rate(
 async function purge() {
   await withPlatformContext(
     async (tx) => {
-      const demoUsers = await tx.user.findMany({ where: { isDemo: true }, select: { id: true } });
+      // Raw, because `user.findMany` is narrowed to `deletedAt: null` by the
+      // soft-delete extension — and a previous purge left demo users
+      // soft-deleted. Missing them here would leave their child rows behind and
+      // the hard delete below would then fail on a foreign key.
+      const demoUsers = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM users WHERE is_demo = true`;
       const demoCenters = await tx.center.findMany({ where: { isDemo: true }, select: { id: true } });
       const demoCourses = await tx.course.findMany({ where: { isDemo: true }, select: { id: true } });
       const U = demoUsers.map((u) => u.id);
@@ -214,12 +219,24 @@ async function purge() {
       }
       await tx.studentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.parentProfile.deleteMany({ where: { userId: { in: U } } });
-      await tx.userPref.deleteMany({ where: { userId: { in: U } } }).catch(() => {});
+      // The model is `UserPrefs` (table `user_prefs`) — `tx.userPref` is
+      // `undefined`, so the old line threw a TypeError *before* it produced a
+      // promise and the trailing `.catch()` could never see it. That aborted
+      // the whole purge transaction, which is why demo data accumulated.
+      await tx.userPrefs.deleteMany({ where: { userId: { in: U } } });
       await tx.center.deleteMany({ where: { isDemo: true } });
-      await tx.user.deleteMany({ where: { isDemo: true } });
+      // `user.deleteMany` is intercepted by the soft-delete extension and turns
+      // into `updateMany { deletedAt: now }` — the row (and its UNIQUE email)
+      // survives, so "purge" left the demo accounts behind and the next seed
+      // either collided on the email or silently upserted onto a dead row.
+      // Demo users must be genuinely purgeable (CLAUDE.md), so this is a raw
+      // hard delete — narrowed to `is_demo = true` in SQL, on a non-production
+      // database (assertNotProduction, above). Same escape hatch, and the same
+      // reasoning, as the wallet_ledger delete further up.
+      const hardDeleted = await tx.$executeRaw`DELETE FROM users WHERE is_demo = true`;
 
       console.log("Purge complete: removed", {
-        users: U.length,
+        users: hardDeleted,
         centers: C.length,
         courses: K.length,
         grades: G.length,
@@ -245,7 +262,9 @@ async function seed() {
       ) =>
         tx.user.upsert({
           where: { email },
-          update: { isDemo: true, name, role, status },
+          // `deletedAt: null` revives a row the purge soft-deleted — see the
+          // same note in seed.ts and the raw hard-delete in purge() below.
+          update: { isDemo: true, name, role, status, deletedAt: null },
           create: { email, name, role, status, passwordHash, isDemo: true },
         });
 
@@ -370,10 +389,34 @@ async function seed() {
         update: {},
         create: { userId: student.id, fullName: student.name, familyLinkCode: flc(student.id) },
       });
-      // Read Lina's real onboarding (she is already onboarded to azhari-secondary-3 / علمي).
-      const lina = await tx.studentProfile.findUnique({ where: { userId: student.id } });
+      // Lina's onboarding: azhari-secondary-3 / علمي. This used to be READ and
+      // asserted, on the assumption she had been onboarded through the app —
+      // which meant that once a purge removed her profile, the preview seed
+      // could never run again ("Lina is not onboarded"). The seed now ESTABLISHES
+      // the onboarding it depends on, from the permanent catalog (read-only), so
+      // purge -> re-seed is a closed loop. An existing onboarding is respected.
+      let lina = await tx.studentProfile.findUnique({ where: { userId: student.id } });
       if (!lina?.gradeLevelId) {
-        throw new Error("Lina is not onboarded (no gradeLevelId) — re-run the main seed/onboarding first.");
+        // The whole chain, so the API's system -> stage -> grade -> track
+        // consistency check sees the same shape the onboarding wizard writes.
+        const linaGrade = await tx.gradeLevel.findUniqueOrThrow({
+          where: { code: "azhari-secondary-3" },
+          include: { stage: true },
+        });
+        const linaTrack = await tx.track.findUniqueOrThrow({ where: { code: "azhari-scientific" } });
+        lina = await tx.studentProfile.update({
+          where: { userId: student.id },
+          data: {
+            educationSystemId: linaGrade.stage.educationSystemId,
+            stageId: linaGrade.stageId,
+            gradeLevelId: linaGrade.id,
+            trackId: linaTrack.id,
+            onboardingCompleted: true,
+          },
+        });
+      }
+      if (!lina.gradeLevelId) {
+        throw new Error("preview-seed: could not establish Lina's onboarding (no gradeLevelId).");
       }
       await tx.centerStudentRoster.upsert({
         where: { centerId_studentId: { centerId: nile.id, studentId: student.id } },
@@ -539,6 +582,13 @@ async function seed() {
             subjectId: off.subjectId,
             gradeLevelId: lina.gradeLevelId,
             trackId: lina.trackId,
+            // Both plans enabled (approved decision #2 requires at least one).
+            // Without pricePerSession the seeded course cannot demonstrate the
+            // classic counter workflow at all — walk-in cash answers 422
+            // "Per-session plan is not enabled" and check-in stays 402 forever.
+            // CONFIG on a demo course; not a ledger row.
+            pricePerMonth: 40000,
+            pricePerSession: 5000,
             ...roomBased,
           },
           create: {
@@ -556,6 +606,7 @@ async function seed() {
             startDate: at(-30),
             price: 40000, // piasters — course CONFIG (display), not a ledger row
             pricePerMonth: 40000,
+            pricePerSession: 5000,
             maxStudents: 30,
             status: "active",
             isDemo: true,

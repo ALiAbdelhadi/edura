@@ -37,17 +37,19 @@ import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
+import { seedId } from "./seed-ids";
 import type { Role } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const MIN = 60 * 1000;
 
-/** Deterministic UUID from a stable key -> idempotent upsert-by-id. */
-function did(key: string): string {
-  const h = createHash("sha1").update("edura-msgdemo:" + key).digest("hex");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
-}
+/**
+ * Deterministic UUID from a stable key -> idempotent upsert-by-id.
+ * RFC 9562 UUIDv5 via the shared generator — see prisma/seed-ids.ts for why
+ * this must not be hand-rolled here (H-03).
+ */
+const did = seedId("edura-msgdemo:");
 const flc = (id: string) =>
   createHash("sha1").update("flc:" + id).digest("hex").slice(0, 10).toUpperCase();
 
@@ -79,6 +81,14 @@ const OMAR = P("omar", "عمر خالد", "student");
 
 const ALL = [HODA, MONA, KAMAL, SALMA, YOUSSEF, LAYLA, AMIRA, TAREK, NABIL, RANIA, OMAR];
 
+// Natural keys — the identity of the demo world that does NOT depend on the id
+// formula. The seed writes them and the purge reads them, so the two can never
+// disagree about which rows belong to this seed.
+const email = (p: Person) => `msgdemo-${p.key}@edura.test`;
+const EMAILS = ALL.map(email);
+const ALPHA_SHORT_ID = "MSGDEMOALFA";
+const BETA_SHORT_ID = "MSGDEMOBETA";
+
 const ALPHA = did("center:alpha");
 const BETA = did("center:beta");
 const COURSE_ALPHA = did("course:alpha-physics");
@@ -88,11 +98,37 @@ const GROUP_ALPHA = did("group:alpha-physics");
 async function purge() {
   console.log("Purging messaging demo data…");
   await withPlatformContext(async (tx) => {
-    const ids = ALL.map((p) => p.id);
+    // Resolve the demo world by its NATURAL keys (email / shortId), not by the
+    // derived ids. H-03 changed the id formula, and a purge keyed on the
+    // formula silently misses everything the previous formula wrote — the rows
+    // it is most important to remove. Email and shortId are stable across any
+    // id-scheme change, so this purge stays correct through the next one.
+    // Raw, because `user.findMany` is narrowed to `deletedAt: null` by the
+    // soft-delete extension, and a previous purge left these rows soft-deleted.
+    const users = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM users
+      WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
+    const ids = users.map((u) => u.id);
+    const centers = await tx.center.findMany({
+      where: { OR: [{ shortId: { in: [ALPHA_SHORT_ID, BETA_SHORT_ID] } }, { id: { in: [ALPHA, BETA] } }] },
+      select: { id: true },
+    });
+    const centerIds = centers.map((c) => c.id);
+    const courses = await tx.course.findMany({
+      where: { OR: [{ centerId: { in: centerIds } }, { id: { in: [COURSE_ALPHA, COURSE_BETA] } }] },
+      select: { id: true },
+    });
+    const courseIds = courses.map((c) => c.id);
+    const groups = await tx.conversationGroup.findMany({
+      where: { OR: [{ courseId: { in: courseIds } }, { id: GROUP_ALPHA }] },
+      select: { id: true },
+    });
+    const groupIds = groups.map((g) => g.id);
+
     // Children first (no FK cascade from users).
-    await tx.groupMessage.deleteMany({ where: { groupId: GROUP_ALPHA } });
-    await tx.groupMember.deleteMany({ where: { groupId: GROUP_ALPHA } });
-    await tx.conversationGroup.deleteMany({ where: { id: GROUP_ALPHA } });
+    await tx.groupMessage.deleteMany({ where: { groupId: { in: groupIds } } });
+    await tx.groupMember.deleteMany({ where: { groupId: { in: groupIds } } });
+    await tx.conversationGroup.deleteMany({ where: { id: { in: groupIds } } });
     await tx.conversationReport.deleteMany({
       where: { OR: [{ reporterId: { in: ids } }, { reportedUserId: { in: ids } }] },
     });
@@ -114,13 +150,29 @@ async function purge() {
     await tx.centerStaff.deleteMany({ where: { staffUserId: { in: ids } } });
     await tx.centerStudentRoster.deleteMany({ where: { studentId: { in: ids } } });
     await tx.centerTeacherAffiliation.deleteMany({ where: { teacherId: { in: ids } } });
-    await tx.course.deleteMany({ where: { id: { in: [COURSE_ALPHA, COURSE_BETA] } } });
+    await tx.course.deleteMany({ where: { id: { in: courseIds } } });
     await tx.centerAdminProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.parentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
-    await tx.center.deleteMany({ where: { id: { in: [ALPHA, BETA] } } });
-    await tx.user.deleteMany({ where: { id: { in: ids } } });
+    await tx.center.deleteMany({ where: { id: { in: centerIds } } });
+    // `user.deleteMany` is intercepted by the soft-delete extension and only
+    // sets `deleted_at` — the row and its UNIQUE email survive, so the next
+    // seed run failed with P2002 on `msgdemo-*@edura.test`. Raw hard delete,
+    // narrowed to these ids AND `is_demo = true`, on a non-production database
+    // (assertNotProduction, above).
+    const hardDeleted =
+      ids.length === 0
+        ? 0
+        : await tx.$executeRaw`DELETE FROM users WHERE is_demo = true AND id = ANY(${ids}::uuid[])`;
+
+    console.log("Purged:", {
+      users: hardDeleted,
+      centers: centerIds.length,
+      courses: courseIds.length,
+      groups: groupIds.length,
+      conversations: convs.length,
+    });
   });
   console.log("Purged.");
 }
@@ -144,12 +196,14 @@ async function main() {
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
-        update: { name: p.name, status: "active", isDemo: true },
+        // `deletedAt: null` revives a row the purge soft-deleted — see the note
+        // on the raw hard-delete in purge().
+        update: { name: p.name, status: "active", isDemo: true, deletedAt: null },
         create: {
           id: p.id,
           name: p.name,
           role: p.role,
-          email: `msgdemo-${p.key}@edura.test`,
+          email: email(p),
           passwordHash: hash,
           status: "active",
           locale: "ar",
@@ -165,7 +219,7 @@ async function main() {
       create: {
         id: ALPHA,
         name: "سنتر النخبة",
-        shortId: "MSGDEMOALFA",
+        shortId: ALPHA_SHORT_ID,
         status: "active",
         ownerUserId: HODA.id,
         isDemo: true,
@@ -177,7 +231,7 @@ async function main() {
       create: {
         id: BETA,
         name: "سنتر الأوائل",
-        shortId: "MSGDEMOBETA",
+        shortId: BETA_SHORT_ID,
         status: "active",
         ownerUserId: TAREK.id,
         isDemo: true,
@@ -543,7 +597,7 @@ async function main() {
 
   console.log("\nDemo logins (password: " + PASSWORD + ")");
   for (const p of ALL) {
-    console.log(`  ${p.role.padEnd(13)} msgdemo-${p.key}@edura.test  — ${p.name}`);
+    console.log(`  ${p.role.padEnd(13)} ${email(p)}  — ${p.name}`);
   }
   console.log(
     "\nTry: log in as msgdemo-amira@edura.test -> Child safety, to see Youssef's\n" +

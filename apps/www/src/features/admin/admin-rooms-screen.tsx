@@ -1,41 +1,42 @@
 "use client";
 
-import { useState, useMemo, useRef, type ReactNode } from "react";
-import { useList, useCreate, useUpdate, useDelete } from "@refinedev/core";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Plus, Home, Pencil, Trash2, X, ImagePlus, ChevronLeft, ChevronRight, Check, Users, ImageIcon, Eye } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { ROOM_AMENITIES, amenityLabel, AMENITY_KEYS } from "@/lib/rooms/amenities";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
-import { Badge } from "@repo/ui/components/badge";
-import { Checkbox } from "@repo/ui/components/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@repo/ui/components/dialog";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@repo/ui/components/form";
-import { toast } from "@repo/ui/components/sonner";
-import { StatCard } from "@/components/kit/stat-card";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenities";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useCreate, useDelete, useList, useUpdate } from "@refinedev/core";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
+import { toast } from "@repo/ui/components/sonner";
+import { Textarea } from "@repo/ui/components/textarea";
+import { Check, ChevronLeft, ChevronRight, Eye, Home, ImageIcon, ImagePlus, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Image from "next/image";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 type Room = {
   id?: string;
@@ -44,7 +45,7 @@ type Room = {
   capacity?: number | null;
   facilities?: string[];
   photos?: string[];
-  price?: number | null; // piasters
+  price?: number | null;
   description?: string | null;
   allowedPricingMethods?: PricingMethod[];
   createdAt?: string;
@@ -81,7 +82,7 @@ export function AdminRoomsScreen() {
       z.object({
         name: z.string().min(1, t("adminManage.rooms.roomNameRequired")),
         capacity: z.number().min(1).optional(),
-        price: z.number().min(0).optional(), // EGP in the form; → piasters on submit
+        price: z.number().min(0).optional(),
         description: z.string().max(2000).optional(),
       }),
     [t],
@@ -128,7 +129,6 @@ export function AdminRoomsScreen() {
     setIsModalOpen(true);
   };
 
-  // facilities[] holds selected amenity KEYS + free-text extras (verbatim).
   const toggleAmenity = (key: string) =>
     setFacilities((cur) => (cur.includes(key) ? cur.filter((x) => x !== key) : [...cur, key]));
 
@@ -186,7 +186,7 @@ export function AdminRoomsScreen() {
     const payload = {
       name: values.name,
       capacity: values.capacity,
-      price: values.price != null ? Math.round(values.price * 100) : null, // EGP → piasters
+      price: values.price != null ? Math.round(values.price * 100) : null,
       description: values.description?.trim() || null,
       facilities,
       photos,
@@ -265,30 +265,26 @@ export function AdminRoomsScreen() {
             const feats = room.facilities ?? [];
             return (
               <Card key={id} className="flex flex-col overflow-hidden p-0">
-                {/* Cover */}
                 <div className="relative aspect-video w-full bg-muted">
                   {cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover} alt={room.name} className="h-full w-full object-cover" />
+                    <Image src={cover} alt={room.name} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
                       <Home className="size-10" />
                     </div>
                   )}
                   {(room.photos?.length ?? 0) > 1 ? (
-                    <Badge variant="secondary" className="absolute end-2 top-2 gap-1 bg-black/60 text-white">
+                    <Badge variant="secondary" className="absolute inset-e-2 top-2 gap-1 bg-black/60 text-white">
                       <ImageIcon className="size-3" />
                       {room.photos!.length}
                     </Badge>
                   ) : null}
                   {room.price != null ? (
-                    <Badge className="absolute bottom-2 start-2 bg-primary text-primary-foreground">
+                    <Badge className="absolute bottom-2 inset-s-2 bg-primary text-primary-foreground">
                       {formatEGP(room.price)}
                     </Badge>
                   ) : null}
                 </div>
-
-                {/* Body */}
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
                   <div className="min-w-0">
                     <h3 className="truncate font-semibold text-foreground">{room.name}</h3>
@@ -299,7 +295,6 @@ export function AdminRoomsScreen() {
                         : "—"}
                     </p>
                   </div>
-
                   <div className="flex flex-wrap gap-1">
                     {(room.allowedPricingMethods ?? ["whole_room_percent"]).map((m) => (
                       <Badge
@@ -455,9 +450,6 @@ export function AdminRoomsScreen() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">{t("adminManage.rooms.priceHint")}</p>
-
-              {/* Which pricing methods this hall offers. Availability only —
-                  every number (split %, per-student rate) is platform-set. */}
               <div className="space-y-1">
                 <div className="text-sm font-medium">{t("adminManage.rooms.methodsLabel")}</div>
                 <div className="flex flex-wrap gap-3">
@@ -504,7 +496,6 @@ export function AdminRoomsScreen() {
                 )}
               />
 
-              {/* Features / amenities — selectable set + free-text extras */}
               <div className="space-y-2">
                 <FormLabel>{t("adminManage.rooms.features")}</FormLabel>
                 <div className="flex flex-wrap gap-1.5">
@@ -554,17 +545,15 @@ export function AdminRoomsScreen() {
                 )}
               </div>
 
-              {/* Photos */}
               <div className="space-y-2">
                 <FormLabel>{t("adminManage.rooms.photos")}</FormLabel>
                 {photos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => (
                       <div key={url} className="group relative aspect-video overflow-hidden rounded-md border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" className="h-full w-full object-cover" />
+                        <Image src={url} alt="" className="h-full w-full object-cover" />
                         {i === 0 ? (
-                          <span className="absolute start-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
+                          <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                             {t("adminManage.rooms.coverPhoto")}
                           </span>
                         ) : null}

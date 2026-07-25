@@ -12,6 +12,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Separator } from "@repo/ui/components/separator";
+import { toast } from "@repo/ui/components/sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -149,6 +150,69 @@ export default function UiPreviewPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
+        </Section>
+
+        <Section title="Toasts (sonner)">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast.success("تم حفظ التغييرات", {
+                  description: "Saved · the roster is up to date.",
+                })
+              }
+            >
+              Success
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast.error("فشل الدفع", {
+                  description: "Payment declined — try another card.",
+                })
+              }
+            >
+              Error
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast.warning("الحصة على وشك البدء", {
+                  description: "Session starts in 5 minutes.",
+                })
+              }
+            >
+              Warning
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast.info("تم تحديث الجدول", {
+                  description: "The schedule changed since you last looked.",
+                })
+              }
+            >
+              Info
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => toast.loading("جارٍ المزامنة… · Syncing…")}
+            >
+              Loading
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast("رسالة عادية · Plain toast", {
+                  description: "With an action and a cancel button.",
+                  action: { label: "تراجع", onClick: () => {} },
+                  cancel: { label: "إغلاق", onClick: () => {} },
+                })
+              }
+            >
+              With actions
+            </Button>
           </div>
         </Section>
 

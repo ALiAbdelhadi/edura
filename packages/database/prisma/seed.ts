@@ -68,8 +68,13 @@ async function main() {
           | "accountant",
       ) =>
         tx.user.upsert({
+          // `deletedAt: null` REVIVES the row. `user.deleteMany` is intercepted
+          // by the soft-delete extension, so a demo purge leaves the row in
+          // place with `deleted_at` set — and an upsert-by-email then updates
+          // that dead row instead of creating a live one. Without this the seed
+          // reports success and the account is invisible to every app query.
           where: { email },
-          update: { isDemo: true },
+          update: { isDemo: true, deletedAt: null },
           create: {
             email,
             name,
@@ -97,7 +102,7 @@ async function main() {
         const hash = passwordEnv ? await bcrypt.hash(passwordEnv, 10) : passwordHash;
         return tx.user.upsert({
           where: { email },
-          update: { isDemo, passwordHash: hash },
+          update: { isDemo, passwordHash: hash, deletedAt: null },
           create: {
             email,
             name,

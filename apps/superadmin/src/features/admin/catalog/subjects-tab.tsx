@@ -1,19 +1,19 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
-import { Pencil, Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { TableSkeleton } from "@/components/ui/skeletons";
+import { Pencil, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
 import { EntityDialog, type FieldSpec, type FieldValue } from "./entity-dialog";
-import { useCatalogMutation } from "./use-catalog-mutation";
 import type { SubjectRow } from "./types";
+import { useCatalogMutation } from "./use-catalog-mutation";
 
 
 function asArray<T>(v: unknown): T[] {

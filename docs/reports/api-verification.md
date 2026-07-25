@@ -423,6 +423,111 @@ CLAUDE.md convention "seed enough realistic demo data … so I can view and test
 it as if it were real". Recreating the same flow on *freshly created* entities
 worked end-to-end (see §4).
 
+**✅ FIXED (2026-07-25) — on the DATA side. No route guard was touched.**
+
+Measured before the fix on the live dev DB: **72 of 590** demo ids across 15
+tables failed the routes' own predicate. After: **0**.
+
+1. *One generator, and it is a real UUID.* New
+   `packages/database/prisma/seed-ids.ts` exports `seedId(prefix)`, producing an
+   RFC 9562 §5.5 name-based **UUIDv5** (SHA-1 under the standard DNS namespace).
+   The old helper was ~90% of the way there — it already hashed a
+   namespace-prefixed key — it just never stamped the two bytes RFC 9562
+   reserves: byte 6 (version) and byte 8 (variant). A raw digest leaves both
+   random, so only **1 id in 8** was valid (8/16 version nibbles × 4/16 variant
+   nibbles). The output is still deterministic and still namespaced, so the
+   seeds stay idempotent upsert-by-id, and it is reproducible by any uuid
+   library (`uuid.v5(name, uuid.v5.DNS)`) — verified against the published test
+   vector.
+2. *Why shared, not fixed twice.* Both seeds hand-rolled the same broken
+   formatter — the same duplicate-declaration shape as C-04's login allowlists.
+   They now import the one implementation and declare nothing of their own; a
+   unit test fails if either grows a local copy. `seedId` also runs its output
+   through `assertRfcUuid`, so a seed **throws at generation time** with the
+   offending key rather than writing an id the API will later reject.
+3. *Three defects in the purge path had to be fixed to re-seed at all*, and each
+   was independently breaking the "cleanly-removable demo data" convention:
+   - `tx.userPref` does not exist (the model is `UserPrefs`), so the line threw
+     a `TypeError` **before** producing a promise its trailing `.catch()` could
+     absorb — aborting the entire purge transaction. The preview purge had
+     therefore never completed, which is why demo data accumulated.
+   - `user.deleteMany` is intercepted by the soft-delete extension and becomes
+     `updateMany { deletedAt: now }`. The rows and their UNIQUE emails survived,
+     so a re-seed either collided (`P2002` on `msgdemo-*@edura.test`) or
+     upserted onto a dead row and reported success while the account stayed
+     invisible to every app query. Both purges now hard-delete via raw SQL,
+     narrowed to `is_demo = true`, behind `assertNotProduction`.
+   - Every user upsert now sets `deletedAt: null`, so a re-seed revives a
+     soft-deleted demo account even without a purge.
+4. *Purges key on natural identifiers now.* The messaging purge resolved its
+   world through `did()` — the very formula this fix changed — so it would have
+   silently skipped every row the previous formula wrote. It now resolves by
+   email / `shortId` / ancestry, and stays correct through the next id-scheme
+   change. Same reason the harness fixtures below stopped pasting ids.
+5. *Two seed-data gaps that made a "fixed" seed still undemonstrable:*
+   - `preview-seed` **asserted** Lina was already onboarded (a state only the
+     app had ever produced), so after any purge it died with "Lina is not
+     onboarded" and could never run again. It now establishes that onboarding
+     itself from the permanent catalog (read-only), respecting an existing one.
+   - the seeded courses set only `pricePerMonth`, so walk-in cash answered
+     **422 "Per-session plan is not enabled"** and counter check-in stayed
+     **402** forever — the classic Egyptian counter workflow was not
+     demonstrable on demo data. `pricePerSession` is now seeded alongside it
+     (course CONFIG, not a ledger row; approved decision #2 wants at least one
+     plan enabled).
+6. *Harness fixtures no longer paste ids.* `tests/db/_fixtures.ts` and
+   `tests/db/c01-lesson-settlement.test.ts` hardcoded center/course ids and the
+   legacy `superadmin.demo@edura.eg` account. Those are stale after ANY re-seed
+   (centers get a fresh `gen_random_uuid()`), which degrades a sweep to
+   "fixture not found" rather than to a visible failure. Both now resolve by
+   `short_id` / role / email. `_fixtures.ts` also pointed `msgStudent` at
+   `msgdemo-student-a@edura.test`, which has never existed in the seed.
+
+**Money:** the fix writes no money code. The proof run exercises the ledger
+deliberately and only through `is_demo` entities (NILE preview center, demo
+student Lina Hassan) and asserts every money table and every touched wallet back
+to its pre-run value. The purge/re-seed cycle itself created and destroyed **no**
+ledger row — `transactions 420→420, payments 14→14, payment_intents 8→8,
+wallet_ledger 99→99, session_settlements 27→27, points_ledger 140→140` — the
+only movement being demo profiles' cached wallet balances, which are re-seeded
+with the profiles that carry them, and one `commission_settings` config row.
+
+Proofs:
+
+* `apps/www/tests/unit/h03-seed-uuid.test.ts` **17/17** — the generator matches
+  the published UUIDv5 vector; the seed-side predicate is proven *equivalent* to
+  `z.uuid()` by sweeping both discriminating nibbles exhaustively (16×16×8
+  cases) rather than by copying a regex; 20 000 generated ids per seed all
+  validate; the ids this report quoted as rejected still fail (so the test would
+  have caught the bug); determinism, namespace separation and 20 000-key
+  collision-freedom hold; no seed hand-rolls a formatter; and **every field this
+  finding named still declares `z.uuid()`**, with no version pin and no
+  downgrade to `z.string()`.
+* `apps/www/tests/db/h03-seed-uuid-flows.test.ts` **48/48** (real HTTP, real
+  sessions, seeded `is_demo` fixtures only) — all 128 seeded ids pass the
+  routes' predicate; **counter check-in** reaches business logic on the seeded
+  student + session (402 `needs_payment`, previously 400 `Invalid UUID`);
+  **walk-in cash** creates the per-session subscription and check-in in ONE step
+  (201) with `payments +1` and the Step-4 `transactions +1` mirror, after which
+  **the SAME seeded ids check in 200** (402 → 200) and write exactly one
+  attendance row; **checkout** on a seeded course returns a 201 payment intent
+  and `payments/initiate` accepts the seeded `courseId`; **messaging** opens the
+  conversation with a seeded demo user (201) and files a report against a
+  **seeded conversation id** (201). F5 then proves the guard is intact: the
+  legacy id `8a0f946b-…` this report quoted is **still rejected 400
+  `Invalid UUID`** by the live route. Everything created is removed and the
+  ledger, the wallets and the notification counts are asserted back to baseline.
+
+Regressions green: `pnpm check-types` 5/5, www unit **111 pass / 1 skip**,
+`pnpm build` both apps, messaging-scope **87/87**, rbac-isolation **11/11**,
+C-01 **43/43**, C-04 **72/72**, H1 payout race PASS.
+
+> Known, unchanged: `superadmin.demo@edura.eg` was a legacy `is_demo`
+> super_admin that no current seed recreates (`seed.ts` mints staff from the
+> `SEED_SUPERADMIN_*` env vars, deliberately not `is_demo`). The harnesses now
+> bind to the real active `super_admin` instead. `_fixtures.ts` still reports
+> it as a missing actor — that is the account being gone, not a new defect.
+
 ---
 
 #### **H-04 · Blacklist side effects are not reversed when the blacklist is lifted**
@@ -730,6 +835,11 @@ directory-probing flood is throttled — as designed.
 
 Because the seeded ids are unusable (H-03), the flow was rebuilt on freshly
 created demo entities. With M-03's follow-up `PATCH` applied it passes completely:
+
+> Since H-03 was fixed (2026-07-25) this no longer needs fresh entities — the
+> counter → cash → check-in half of this sequence now runs on the SEEDED demo
+> fixtures themselves; see `apps/www/tests/db/h03-seed-uuid-flows.test.ts`.
+> The final `complete` step is C-01, fixed separately.
 
 ```
 POST /api/v1/courses                    (center_admin)  -> 201   id = a90a7d39-… (RFC-valid), 8 sessions generated
@@ -1139,6 +1249,6 @@ verified, success body not reachable).
 | 6 | **H-01** trial-balance formula | Wrong headline money number for the accountant. |
 | 7 | **H-02** 20 s transaction ceiling | Intermittent 500s on a child-safety read path. |
 | 8 | **H-05** center blacklist leaves admins suspended | Locks a center owner out of their own portal; split out of H-04. |
-| 9 | **H-03** seed UUIDs | Blocks demoing/QA of the counter and messaging flows. |
+| 9 | **H-03** seed UUIDs ✅ fixed | Blocks demoing/QA of the counter and messaging flows. |
 | 10 | **M-01 … M-05** | Workflow and consistency defects, no data at risk. |
 | 11 | **L-01 … L-07** | Cosmetic / needs-a-decision. |

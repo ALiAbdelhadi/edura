@@ -1,40 +1,41 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
-import { useCustom } from "@refinedev/core";
-import dayjs from "dayjs";
+import { BarChart, DonutChart } from "@/components/charts";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageSpinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
 import {
-  DollarSign,
-  FileText,
-  BarChart3,
-  CheckCircle2,
-  TriangleAlert,
-  Calendar as CalendarIcon,
-} from "lucide-react";
+  enrollmentFunnelBarData,
+  sessionStatusDonutData,
+} from "@/lib/analytics/transforms";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useCustom } from "@refinedev/core";
+import { Button } from "@repo/ui/components/button";
+import { Calendar } from "@repo/ui/components/calendar";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { Calendar } from "@repo/ui/components/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/components/popover";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
-import { StatCard } from "@/components/kit/stat-card";
-import { PageSpinner } from "@/components/kit/spinner";
-import { EmptyState } from "@/components/kit/empty-state";
-import { BarChart, DonutChart } from "@/components/charts";
+import dayjs from "dayjs";
 import {
-  enrollmentFunnelBarData,
-  sessionStatusDonutData,
-} from "@/lib/analytics/transforms";
+  BarChart3,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  DollarSign,
+  FileText,
+  TriangleAlert,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import React from "react";
 type DateRange = { from: Date | undefined; to?: Date | undefined };
 
 const CHART_COLORS = [

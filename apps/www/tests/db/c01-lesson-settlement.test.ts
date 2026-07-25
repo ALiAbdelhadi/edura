@@ -39,8 +39,8 @@ neonConfig.webSocketConstructor = ws as never;
 const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
 
-const WWW = "http://localhost:3002";
-const SA = "http://localhost:3004";
+const WWW = process.env.WWW_BASE_URL ?? "http://localhost:3002";
+const SA = process.env.SUPERADMIN_BASE_URL ?? "http://localhost:3004";
 const TAG = "c01-" + Math.random().toString(36).slice(2, 7);
 const PW = "C01Proof123";
 
@@ -192,8 +192,16 @@ async function main() {
   const base = await snap();
   console.log("BASELINE:", JSON.stringify(base));
 
-  const NILE = "27341830-38a3-4a74-8ace-59028c23a9d1";
-  const superadminId = (await q(`select id from users where email='superadmin.demo@edura.eg'`))[0].id;
+  // Resolved, never pasted: a demo purge + re-seed gives NILE a fresh
+  // gen_random_uuid(), and `superadmin.demo@edura.eg` was a legacy is_demo
+  // account that no current seed recreates (seed.ts mints staff from the
+  // SEED_SUPERADMIN_* env vars instead). short_id and role are stable.
+  const NILE = (await q(`select id from centers where short_id='NILE'`))[0]?.id as string;
+  if (!NILE) throw new Error("NILE center missing — run packages/database/prisma/preview-seed.ts");
+  const superadminId = (await q(
+    `select id from users where role='super_admin' and status='active' and deleted_at is null order by created_at limit 1`,
+  ))[0]?.id as string;
+  if (!superadminId) throw new Error("no active super_admin — run packages/database/prisma/seed.ts");
   const superCookie = await cookieFor(superadminId, "superadmin");
   const teacherId = (await q(`select id from users where email='hossam.aziz@nile-academy.eg'`))[0].id;
   const teacherCookie = await cookieFor(teacherId, "www");

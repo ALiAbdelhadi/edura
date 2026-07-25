@@ -1,16 +1,13 @@
 "use client";
 
-// Center accountant — READ-ONLY finance. This center's numbers only (RLS binds
-// every query to the accountant's own center). No mutation controls exist on
-// this screen, and every write endpoint 403s for a center_accountant.
-import React, { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
-import { Card } from "@repo/ui/components/card";
-import { Badge } from "@repo/ui/components/badge";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { api } from "@/lib/api/client";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Badge } from "@repo/ui/components/badge";
+import { Card } from "@repo/ui/components/card";
+import { useTranslations } from "next-intl";
+import React, { useEffect, useState } from "react";
 
 type NetProfit = { revenue: number; expenses: number; netProfit: number };
 type WalletInfo = { balance: number; available: number };

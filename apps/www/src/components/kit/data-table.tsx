@@ -1,30 +1,5 @@
 "use client";
 
-import * as React from "react";
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronUp,
-  ChevronsUpDown,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { Button } from "@repo/ui/components/button";
 import {
   Select,
@@ -33,7 +8,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  ChevronsUpDown,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import * as React from "react";
 
 export type { ColumnDef };
 
@@ -56,6 +56,7 @@ export function DataTable<TData, TValue>({
 }) {
   const t = useTranslations("actions");
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

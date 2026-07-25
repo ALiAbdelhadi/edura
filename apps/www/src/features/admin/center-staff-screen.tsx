@@ -1,27 +1,15 @@
 "use client";
 
-// Center staff management (owner-only). Folds in the colleague's "سجل الموظفين"
-// registry design — staff table + status badges + a side role-permissions panel
-// + the Zero-Trust exclusions note — rendered in @repo/ui / Tailwind v4 / RTL.
-// Preset roles (receptionist / manager / center_accountant), NOT free-form
-// permission toggles: the panel shows each role's FIXED capability set.
-import React, { useCallback, useEffect, useState } from "react";
-import { Plus, ShieldCheck, Users, Lock } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { HTTPError } from "ky";
-import { Card } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
-import { Badge } from "@repo/ui/components/badge";
+import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { PasswordInput } from "@/components/kit/password-input";
+import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Card } from "@repo/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +18,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/dialog";
-import { PageHeader } from "@/components/kit/page-header";
-import { EmptyState } from "@/components/kit/empty-state";
-import { Spinner } from "@/components/kit/spinner";
-import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { PasswordInput } from "@/components/kit/password-input";
-import { api } from "@/lib/api/client";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import { HTTPError } from "ky";
+import { Lock, Plus, ShieldCheck, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useState } from "react";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 const ROLES: StaffRole[] = ["receptionist", "manager", "center_accountant"];
@@ -89,9 +84,7 @@ export function CenterStaffScreen() {
         description={t("centerStaff.subtitle")}
         actions={<AddStaffDialog onCreated={load} />}
       />
-
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        {/* Staff registry */}
         <Card className="order-2 p-0 lg:order-1">
           {rows === null ? (
             <div className="flex justify-center p-8">
@@ -150,14 +143,12 @@ export function CenterStaffScreen() {
                       ))}
                     </SelectContent>
                   </Select>
-
                   <Badge
                     variant={row.active ? "default" : "outline"}
                     className={row.active ? "bg-emerald-600 hover:bg-emerald-600" : "text-muted-foreground"}
                   >
                     {row.active ? t("centerStaff.active") : t("centerStaff.inactive")}
                   </Badge>
-
                   <ConfirmDialog
                     trigger={
                       <Button type="button" variant={row.active ? "ghost" : "outline"} size="sm">
@@ -180,9 +171,6 @@ export function CenterStaffScreen() {
             </ul>
           )}
         </Card>
-
-        {/* Role permissions + exclusions (the design's "صلاحيات الموظف" panel,
-            adapted to fixed presets rather than free toggles). */}
         <RolePermissionsPanel />
       </div>
     </div>

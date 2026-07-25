@@ -1,36 +1,24 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
-import {
-  useList,
-  useCustomMutation,
-  useCreate,
-  useUpdate,
-  useInvalidate,
-} from "@refinedev/core";
-import { useForm } from "react-hook-form";
+import { Combobox } from "@/components/kit/combobox";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
 import {
-  BookOpen,
-  Eye,
-  Filter,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-  Info,
-} from "lucide-react";
-import { toast } from "@repo/ui/components/sonner";
+  useCreate,
+  useCustomMutation,
+  useInvalidate,
+  useList,
+  useUpdate,
+} from "@refinedev/core";
+import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
-import { Label } from "@repo/ui/components/label";
-import { Progress } from "@repo/ui/components/progress";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +34,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
+import { Progress } from "@repo/ui/components/progress";
 import {
   Select,
   SelectContent,
@@ -53,15 +44,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { toast } from "@repo/ui/components/sonner";
+import { Textarea } from "@repo/ui/components/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
-import { Combobox } from "@/components/kit/combobox";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { Alert, AlertTitle } from "@repo/ui/components/alert";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { Spinner, PageSpinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import {
+  BookOpen,
+  Eye,
+  Filter,
+  Info,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 export function AdminClassesScreen() {
   const t = useTranslations();
@@ -125,7 +126,6 @@ export function AdminClassesScreen() {
     maxStudents: z
       .number({ message: t("adminManage.classes.required") })
       .min(1, t("adminManage.classes.mustBeOneOrMore")),
-    // Step 4/5 subscription plan prices (EGP). NaN/0 = plan disabled.
     pricePerMonth: z.number().optional(),
     pricePerSession: z.number().optional(),
   };
@@ -210,7 +210,7 @@ export function AdminClassesScreen() {
         onError: (err) => {
           toast.error(
             (err as { message?: string })?.message ||
-              t("adminManage.classes.failedCreate"),
+            t("adminManage.classes.failedCreate"),
           );
         },
       },
@@ -297,7 +297,7 @@ export function AdminClassesScreen() {
         onError: (err) => {
           toast.error(
             (err as { message?: string })?.message ||
-              t("adminManage.classes.failedUpdate"),
+            t("adminManage.classes.failedUpdate"),
           );
         },
       },
@@ -324,7 +324,7 @@ export function AdminClassesScreen() {
         onError: (err) => {
           toast.error(
             (err as { message?: string })?.message ||
-              t("adminManage.classes.failedCancel"),
+            t("adminManage.classes.failedCancel"),
           );
         },
       },
@@ -415,7 +415,7 @@ export function AdminClassesScreen() {
         const max = row.original.maxStudents || 1;
         const pct = Math.min(100, (enrolled / max) * 100);
         return (
-          <div className="flex w-[120px] flex-col gap-1">
+          <div className="flex w-30 flex-col gap-1">
             <span className="text-xs">
               {enrolled}/{max}
             </span>
@@ -492,7 +492,7 @@ export function AdminClassesScreen() {
         actions={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-56">
-              <Search className="pointer-events-none absolute start-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute inset-s-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t("adminManage.classes.searchPlaceholder")}
                 value={search}
@@ -504,7 +504,7 @@ export function AdminClassesScreen() {
                   type="button"
                   onClick={() => setSearch("")}
                   aria-label={t("actions.search")}
-                  className="absolute end-0 top-1/2 me-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute inset-e-0 top-1/2 me-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
@@ -630,7 +630,7 @@ export function AdminClassesScreen() {
         </CardContent>
       </Card>
 
-      {}
+      { }
       <Dialog
         open={!!cancelTarget}
         onOpenChange={(o) => {
@@ -680,7 +680,7 @@ export function AdminClassesScreen() {
         </DialogContent>
       </Dialog>
 
-      {}
+      { }
       <Dialog
         open={isCreateOpen}
         onOpenChange={(o) => {
@@ -1055,7 +1055,7 @@ export function AdminClassesScreen() {
         </DialogContent>
       </Dialog>
 
-      {}
+      { }
       <Dialog
         open={!!editTarget}
         onOpenChange={(o) => {

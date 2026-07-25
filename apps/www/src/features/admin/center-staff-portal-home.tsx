@@ -1,17 +1,14 @@
 "use client";
 
-// Scoped portal home for a center staff member. Shows their role + center and
-// the exact set of things they may do (from the same capability map the owner
-// screen shows). Each card deep-links into a reused center screen.
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { CheckCircle2, Users, Home, DollarSign, BarChart3, Handshake, ShieldCheck } from "lucide-react";
-import { Card } from "@repo/ui/components/card";
-import { Badge } from "@repo/ui/components/badge";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
+import { Badge } from "@repo/ui/components/badge";
+import { Card } from "@repo/ui/components/card";
+import { BarChart3, CheckCircle2, DollarSign, Handshake, Home, ShieldCheck, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import React, { useEffect, useState } from "react";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 
@@ -89,7 +86,6 @@ export function CenterStaffPortalHome() {
           );
         })}
       </div>
-
       <p className="text-xs text-muted-foreground">{t("centerStaff.auditNote")}</p>
     </div>
   );

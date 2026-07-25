@@ -1,13 +1,13 @@
-import type { LucideIcon } from "lucide-react";
-import { cn } from "@repo/ui/lib/utils";
 import {
   Empty,
+  EmptyContent,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
 } from "@repo/ui/components/empty";
+import { cn } from "@repo/ui/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
 export function EmptyState({
   icon: Icon,

@@ -1,18 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { EmptyState } from "@/components/kit/empty-state";
+import { Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
-import { Plus, Trash2 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
+import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -21,15 +17,19 @@ import {
   DialogTitle,
 } from "@repo/ui/components/dialog";
 import { Label } from "@repo/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
 import { toast } from "@repo/ui/components/sonner";
-import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { EmptyState } from "@/components/kit/empty-state";
-import { Spinner } from "@/components/kit/spinner";
-import { TableSkeleton } from "@/components/ui/skeletons";
-import { useCatalogMutation } from "./use-catalog-mutation";
+import { Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
 import type { GradeRow, OfferingRow, SubjectRow } from "./types";
+import { useCatalogMutation } from "./use-catalog-mutation";
 
 const ALL = "__all__";
 

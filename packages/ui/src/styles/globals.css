@@ -225,3 +225,72 @@
 @utility shadow-glow {
   box-shadow: var(--shadow-glow);
 }
+
+/* Sonner status surfaces (see components/sonner.tsx).
+   Sonner paints the toast body, its border, the close button and the action /
+   cancel buttons from --normal-bg / --normal-border / --normal-text. Tinting
+   those VARIABLES per status — rather than overriding `background` with a
+   utility — keeps every sub-part in sync, and beats sonner's own
+   `[data-sonner-toast][data-styled='true']` rule (specificity 0,2,0) without a
+   single `!important`, because a declaration on the toast itself outranks one
+   inherited from the toaster.
+   Each tint blends the semantic token into --popover; both sides flip with
+   data-theme, so ONE recipe covers light and dark. --normal-text is left alone
+   so body copy stays --popover-foreground and keeps its contrast ratio. */
+@utility toast-success {
+  --normal-bg: color-mix(in oklab, var(--success) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--success) 30%, var(--border));
+}
+
+@utility toast-error {
+  --normal-bg: color-mix(in oklab, var(--destructive) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--destructive) 30%, var(--border));
+}
+
+@utility toast-warning {
+  --normal-bg: color-mix(in oklab, var(--warning) 9%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--warning) 32%, var(--border));
+}
+
+@utility toast-info {
+  --normal-bg: color-mix(in oklab, var(--info) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--info) 30%, var(--border));
+}
+
+/* Loading stays neutral on purpose — an in-flight action has no outcome yet, so
+   colouring it would pre-announce one. */
+@utility toast-loading {
+  --normal-bg: var(--popover);
+  --normal-border: var(--border);
+}
+
+/* Draw-in for the success mark (components/icons/success-icon.tsx). Both shapes
+   carry pathLength="100", so one keyframe covers the ring and the check.
+   Deliberately CSS and not SMIL: an <animate begin="…"> runs on the DOCUMENT
+   timeline, so an icon mounted after page load (every toast) starts already
+   past its begin time and snaps to the end state instead of drawing. A CSS
+   animation restarts per element. */
+@keyframes success-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility success-draw-ring {
+  animation: success-draw 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@utility success-draw-check {
+  animation: success-draw 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.22s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .success-draw-ring,
+  .success-draw-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

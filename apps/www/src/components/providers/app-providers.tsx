@@ -1,16 +1,16 @@
 "use client";
 
-import React, { Suspense } from "react";
-import { SessionProvider } from "next-auth/react";
-import { useLocale } from "next-intl";
-import { Refine } from "@refinedev/core";
-import { DirectionProvider } from "@repo/ui/components/direction-provider";
-import { Toaster } from "@repo/ui/components/sonner";
-import { dataProvider, authProvider } from "@/lib/refine";
-import { useAppRouterProvider } from "@/lib/refine/router-provider";
 import { ThemeModeProvider } from "@/components/providers/theme-mode-provider";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { isRtlLocale } from "@/i18n/routing";
+import { authProvider, dataProvider } from "@/lib/refine";
+import { useAppRouterProvider } from "@/lib/refine/router-provider";
+import { Refine } from "@refinedev/core";
+import { DirectionProvider } from "@repo/ui/components/direction-provider";
+import { Toaster } from "@repo/ui/components/sonner";
+import { SessionProvider } from "next-auth/react";
+import { useLocale } from "next-intl";
+import React, { Suspense } from "react";
 
 const resources = [
   { name: "students", meta: { label: "Students" } },
@@ -61,8 +61,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <Suspense fallback={null}>
             <RefineProvider>{children}</RefineProvider>
           </Suspense>
-          {}
-          <Toaster position={dir === "rtl" ? "bottom-left" : "bottom-right"} />
+          <Toaster
+            dir={dir}
+            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+          />
           <InstallPrompt />
         </DirectionProvider>
       </ThemeModeProvider>

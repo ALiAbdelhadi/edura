@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +13,7 @@ import {
 } from "@repo/ui/components/alert-dialog";
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
+import * as React from "react";
 
 export function ConfirmDialog({
   trigger,

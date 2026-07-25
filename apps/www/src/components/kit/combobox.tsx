@@ -1,14 +1,6 @@
 "use client";
 
-import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@repo/ui/lib/utils";
 import { Button } from "@repo/ui/components/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui/components/popover";
 import {
   Command,
   CommandEmpty,
@@ -17,6 +9,14 @@ import {
   CommandItem,
   CommandList,
 } from "@repo/ui/components/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/components/popover";
+import { cn } from "@repo/ui/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
+import * as React from "react";
 
 export type ComboboxOption = { value: string; label: string };
 
@@ -65,7 +65,7 @@ export function Combobox({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
+        className="w-(--radix-popover-trigger-width) p-0"
       >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />

@@ -16,10 +16,15 @@ const q = async (s: string, p: unknown[] = []) => {
 };
 const one = async (s: string, p: unknown[] = []) => (await q(s, p))[0] ?? null;
 
-const NILE = "27341830-38a3-4a74-8ace-59028c23a9d1";
-const ANDL = "19243e75-331c-40e5-b09b-794b0d3812d7";
-const FUTR = "cf4fdbbe-129a-4e8c-bfce-447902b4a952";
-const BRGT = "a8343c6a-50b1-4603-9f01-cb4513fe4bef";
+// Centers are resolved by their STABLE shortId, never by a pasted id. A demo
+// purge + re-seed hands every center a fresh `gen_random_uuid()`, and the demo
+// seeds' own deterministic ids changed with the H-03 UUIDv5 fix — a hardcoded
+// id here silently degrades the whole sweep to "fixture not found".
+const centerByShortId = async (shortId: string): Promise<string> => {
+  const r = await one(`select id from centers where short_id=$1`, [shortId]);
+  if (!r) console.error(`FIXTURE-MISSING: center ${shortId} — re-run prisma/preview-seed.ts`);
+  return (r?.id as string) ?? "";
+};
 
 const ACTOR_EMAILS: Record<string, string> = {
   superadmin: "superadmin.demo@edura.eg",
@@ -35,7 +40,9 @@ const ACTOR_EMAILS: Record<string, string> = {
   student: "lina.hassan@student.nile-academy.eg",
   teacherPending: "tamer.fouad@preview.edura.eg",
   msgTeacher: "msgdemo-kamal@edura.test",
-  msgStudent: "msgdemo-student-a@edura.test",
+  // The messaging seed's students are `youssef` (minor) and `layla` (verified
+  // adult); there has never been a `msgdemo-student-a`.
+  msgStudent: "msgdemo-youssef@edura.test",
   msgParent: "msgdemo-amira@edura.test",
   msgAssistant: "msgdemo-salma@edura.test",
   msgCenterAdmin: "msgdemo-hoda@edura.test",
@@ -73,6 +80,14 @@ async function mint(email: string) {
 }
 
 async function main() {
+  const NILE = await centerByShortId("NILE");
+  const ANDL = await centerByShortId("ANDL");
+  const FUTR = await centerByShortId("FUTR");
+  const BRGT = await centerByShortId("BRGT");
+  // The messaging demo's own center ("سنتر النخبة") — the cross-tenant "alien"
+  // side of every isolation probe.
+  const MSGC = await centerByShortId("MSGDEMOALFA");
+
   const actors: Record<string, unknown> = {};
   const missing: string[] = [];
   for (const [k, email] of Object.entries(ACTOR_EMAILS)) {
@@ -84,7 +99,8 @@ async function main() {
   // a second msgdemo student (any student in the msgdemo center)
   const msgStudents = await q(
     `select u.id,u.email from users u join enrollments e on e.student_id=u.id
-      where u.role='student' and u.is_demo=true and e.center_id='6579d76e-d537-9d34-4c35-e99ca688f973' limit 3`,
+      where u.role='student' and u.is_demo=true and e.center_id=$1 limit 3`,
+    [MSGC],
   );
   for (const s of msgStudents) {
     const a = await mint(s.email);
@@ -93,16 +109,21 @@ async function main() {
 
   const f: Record<string, unknown> = {};
   f.centerNile = NILE; f.centerAndl = ANDL; f.centerFutr = FUTR; f.centerPending = BRGT;
-  f.centerAlien = "6579d76e-d537-9d34-4c35-e99ca688f973";
+  f.centerAlien = MSGC;
   actors.centerAdminAlien = actors.msgCenterAdmin;
-  f.courseAlien = await one(`select id,title,teacher_id,center_id from courses where center_id='6579d76e-d537-9d34-4c35-e99ca688f973' limit 1`);
-  f.sessionAlien = await one(`select s.id,s.status from sessions s join courses c on c.id=s.course_id where c.center_id='6579d76e-d537-9d34-4c35-e99ca688f973' limit 1`);
-  f.roomAlien = await one(`select id,name from rooms where center_id='6579d76e-d537-9d34-4c35-e99ca688f973' limit 1`);
+  f.courseAlien = await one(`select id,title,teacher_id,center_id from courses where center_id=$1 limit 1`, [MSGC]);
+  f.sessionAlien = await one(`select s.id,s.status from sessions s join courses c on c.id=s.course_id where c.center_id=$1 limit 1`, [MSGC]);
+  f.roomAlien = await one(`select id,name from rooms where center_id=$1 limit 1`, [MSGC]);
   f.studentAlien = await one(`select u.id,u.email from users u where u.email='msgdemo-youssef@edura.test'`);
   f.studentNile2 = await one(`select id,email from users where email='omar.khaled@student.nile-academy.eg'`);
   f.studentAndl = await one(`select id,email from users where email='youssef.adel@student.andalus.eg'`);
-  f.courseNile = "4d1da783-79dc-f1b8-a948-c3e90e460997";
-  f.courseNile2 = "3c4085a7-7d71-4c13-bbc2-28a1bb904a48";
+  // Resolved, not pasted: the demo course ids are seed-derived and change with
+  // the seed's id scheme. Ordered by id so the pair is stable across runs.
+  const nileCourses = (await q(
+    `select id from courses where center_id=$1 and is_demo=true order by id`, [NILE],
+  )) as { id: string }[];
+  f.courseNile = nileCourses[0]?.id ?? null;
+  f.courseNile2 = nileCourses[1]?.id ?? nileCourses[0]?.id ?? null;
   f.courseAndl = await one(`select id,title,teacher_id from courses where center_id=$1 limit 1`, [ANDL]);
   f.sessionScheduled = await one(`select s.id,s.date,s.status from sessions s join courses c on c.id=s.course_id where c.center_id=$1 and s.status='scheduled' order by s.date limit 1`, [NILE]);
   f.sessionCompleted = await one(`select s.id,s.date,s.status,s.distributed_at from sessions s join courses c on c.id=s.course_id where c.center_id=$1 and s.status='completed' order by s.date desc limit 1`, [NILE]);
@@ -166,7 +187,7 @@ async function main() {
   f.messageAny = await one(`select id,conversation_id,sender_id from conversation_messages order by created_at desc limit 1`);
   f.reportAny = await one(`select id,status from conversation_reports order by created_at desc limit 1`);
   f.blockAny = await one(`select id from conversation_blocks limit 1`);
-  f.msgCenter = "6579d76e-d537-9d34-4c35-e99ca688f973";
+  f.msgCenter = MSGC;
   f.msgConvos = await q(`select c.id,c.user_a_id,c.user_b_id,ua.email ea,ub.email eb from conversations c join users ua on ua.id=c.user_a_id join users ub on ub.id=c.user_b_id where c.is_demo=true limit 10`);
   f.msgMinorChild = await one(`select psl.student_id, u.email, sp.date_of_birth, sp.date_of_birth_verified_at from parent_student_links psl join users u on u.id=psl.student_id join student_profiles sp on sp.user_id=u.id where psl.status='approved' and psl.parent_id=(select id from users where email='msgdemo-amira@edura.test') limit 1`);
 

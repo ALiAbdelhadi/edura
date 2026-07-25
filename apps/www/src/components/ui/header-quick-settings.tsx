@@ -1,9 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useSearchParams } from "next/navigation";
-import { Globe, Sun, Moon, Monitor, Settings2 } from "lucide-react";
+import {
+  useThemeMode,
+  type ThemeMode,
+} from "@/components/providers/theme-mode-provider";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { routing } from "@/i18n/routing";
+import { Button } from "@repo/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,13 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
-import { Button } from "@repo/ui/components/button";
-import { usePathname, useRouter } from "@/i18n/navigation";
-import { routing } from "@/i18n/routing";
-import {
-  useThemeMode,
-  type ThemeMode,
-} from "@/components/providers/theme-mode-provider";
+import { Globe, Monitor, Moon, Settings2, Sun } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
 const LOCALE_LABELS: Record<string, string> = {
   ar: "العربية",

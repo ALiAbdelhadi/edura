@@ -1,8 +1,5 @@
 "use client";
 
-import React from "react";
-import { Copy } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { toast } from "@repo/ui/components/sonner";
 import {
   Tooltip,
@@ -11,6 +8,9 @@ import {
   TooltipTrigger,
 } from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
+import { Copy } from "lucide-react";
+import { useTranslations } from "next-intl";
+import React from "react";
 type CopyableTextProps = {
   value?: string | number | null;
   label?: string;

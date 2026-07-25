@@ -1,29 +1,47 @@
 "use client"
 
-import {
-  CircleCheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from "lucide-react"
-import { useTheme } from "next-themes"
+import { CircleAlertIcon, InfoIcon, OctagonXIcon } from "lucide-react"
+import * as React from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+import { SuccessIcon } from "@repo/ui/components/icons/success-icon"
+import { Spinner } from "@repo/ui/components/spinner"
+
+/* Dark mode is driven by the `data-theme` attribute the app's ThemeModeProvider
+   stamps on <html> (same hook the `dark:` variant is bridged to in globals.css)
+   — NOT by next-themes, which this repo does not mount. Reading the attribute
+   directly is what keeps a manual light/dark toggle in sync; `useTheme()` used to
+   fall back to "system" here and left toasts on the OS preference. */
+function subscribeToTheme(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  })
+  return () => observer.disconnect()
+}
+
+function useDocumentTheme(): "light" | "dark" {
+  return React.useSyncExternalStore(
+    subscribeToTheme,
+    () =>
+      document.documentElement.getAttribute("data-theme") === "dark"
+        ? "dark"
+        : "light",
+    () => "light",
+  )
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const theme = useDocumentTheme()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
-      icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
-      }}
+      /* Base surface + radius come from the token layer. Sonner reads these on
+         every sub-part, so the per-status `toast-*` utilities below only have to
+         re-point the same two variables. */
       style={
         {
           "--normal-bg": "var(--popover)",
@@ -32,6 +50,43 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
+      icons={{
+        success: <SuccessIcon size={20} className="text-success" />,
+        error: <OctagonXIcon className="size-5 text-destructive" />,
+        warning: <CircleAlertIcon className="size-5 text-warning" />,
+        info: <InfoIcon className="size-5 text-info" />,
+        loading: <Spinner className="size-5 text-muted-foreground" />,
+      }}
+      toastOptions={{
+        classNames: {
+          /* `!` is a SUFFIX in Tailwind v4 (v3 wrote `!bg-x`). It is needed only
+             where sonner ships a competing declaration whose attribute-selector
+             specificity a plain utility cannot beat — not as a blanket habit. */
+          toast: "font-sans gap-3! shadow-[var(--shadow-lg)]!",
+          title: "text-sm font-medium tracking-tight",
+          description: "text-xs leading-5 text-muted-foreground!",
+          content: "gap-1!",
+          icon: "size-5!",
+          actionButton:
+            "h-7! rounded-full! bg-primary! px-3! text-xs! font-medium! text-primary-foreground!",
+          cancelButton:
+            "h-7! rounded-full! bg-muted! px-3! text-xs! font-medium! text-muted-foreground!",
+          closeButton:
+            "border-border! text-muted-foreground! hover:border-input! hover:bg-muted! hover:text-foreground!",
+
+          /* Status surfaces — defined as @utility in styles/globals.css. */
+          success: "toast-success",
+          error: "toast-error",
+          warning: "toast-warning",
+          info: "toast-info",
+          loading: "toast-loading",
+        },
+        duration: 4000,
+      }}
+      closeButton
+      expand={false}
+      visibleToasts={3}
+      gap={8}
       {...props}
     />
   )
@@ -40,3 +95,4 @@ const Toaster = ({ ...props }: ToasterProps) => {
 export { Toaster }
 
 export { toast } from "sonner"
+export type { ToasterProps }

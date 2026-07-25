@@ -1,9 +1,9 @@
 "use client";
 
+import { useInstallPrompt } from "@/lib/pwa/use-install-prompt";
+import { Button } from "@repo/ui/components/button";
 import { Download, Share, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { useInstallPrompt } from "@/lib/pwa/use-install-prompt";
 
 export function InstallPrompt() {
   const t = useTranslations();

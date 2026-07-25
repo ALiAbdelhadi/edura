@@ -1,13 +1,12 @@
 "use client";
 
-import React from "react";
-import { useTranslations } from "next-intl";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { PageHeader } from "@/components/kit/page-header";
-import { StructureTab } from "./structure-tab";
-import { SubjectsTab } from "./subjects-tab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
+import { useTranslations } from "next-intl";
 import { OfferingsTab } from "./offerings-tab";
 import { RequestsTab } from "./requests-tab";
+import { StructureTab } from "./structure-tab";
+import { SubjectsTab } from "./subjects-tab";
 
 export function CatalogAdminScreen() {
   const t = useTranslations();

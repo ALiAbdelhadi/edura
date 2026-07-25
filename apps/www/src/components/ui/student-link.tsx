@@ -1,12 +1,12 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+
 type StudentLinkProps = {
   studentId?: string | number | null;
   name?: string | null;
-  fallback?: string;
+  fallback?: string;  
 };
 
 export default function StudentLink({

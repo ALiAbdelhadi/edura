@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { EmptyState } from "@/components/kit/empty-state";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
-import { Pencil, Plus, X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
   Select,
   SelectContent,
@@ -14,14 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { cn } from "@repo/ui/lib/utils";
 import { toast } from "@repo/ui/components/sonner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { EmptyState } from "@/components/kit/empty-state";
-import { TableSkeleton } from "@/components/ui/skeletons";
+import { cn } from "@repo/ui/lib/utils";
+import { Pencil, Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { EntityDialog, type FieldSpec, type FieldValue } from "./entity-dialog";
-import { useCatalogMutation } from "./use-catalog-mutation";
 import type { GradeRow, StageRow, SystemRow, TrackRow } from "./types";
+import { useCatalogMutation } from "./use-catalog-mutation";
 
 type DialogState =
   | { kind: "system"; row?: SystemRow }

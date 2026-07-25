@@ -1,12 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useSearchParams } from "next/navigation";
-import { Globe } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
+import { Globe } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
 const LOCALE_LABELS: Record<string, string> = {
   ar: "العربية",

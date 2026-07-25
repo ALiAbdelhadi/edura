@@ -1,24 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useList, useDelete, useCustomMutation } from "@refinedev/core";
-import { useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { GraduationCap, Plus, Trash2 } from "lucide-react";
-import { asKey } from "@/lib/i18n/keys";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { PageHeader } from "@/components/kit/page-header";
-import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
+import { PageHeader } from "@/components/kit/page-header";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
+import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
+import { asKey } from "@/lib/i18n/keys";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useCustomMutation, useDelete, useList } from "@refinedev/core";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +28,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
+import { GraduationCap, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 type Teacher = Record<string, any>;
 

@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
-import { useTranslations } from "next-intl";
-import { Skeleton } from "@repo/ui/components/skeleton";
 import { Card, CardContent } from "@repo/ui/components/card";
+import { Skeleton } from "@repo/ui/components/skeleton";
+import { useTranslations } from "next-intl";
 
 
 export function StatCardsSkeleton({ count = 4 }: { count?: number }) {

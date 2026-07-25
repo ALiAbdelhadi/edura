@@ -1,15 +1,15 @@
 "use client";
 
+import { BarChart, DonutChart, LineChart } from "@/components/charts";
+import { StatCard } from "@/components/kit/stat-card";
+import { PageSkeleton } from "@/components/ui/skeletons";
+import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
+import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
-import { Users, GraduationCap, BookOpen, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Progress } from "@repo/ui/components/progress";
-import { StatCard } from "@/components/kit/stat-card";
-import { BarChart, DonutChart, LineChart } from "@/components/charts";
-import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
+import { BookOpen, GraduationCap, Users, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { PageSkeleton } from "@/components/ui/skeletons";
 
 interface DashboardData {
   totals: {

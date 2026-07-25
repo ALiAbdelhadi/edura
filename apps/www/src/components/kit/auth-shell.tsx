@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { cn } from "@repo/ui/lib/utils";
 import {
   CalendarCheck,
   CreditCard,
@@ -9,23 +9,9 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { cn } from "@repo/ui/lib/utils";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { useTranslations } from "next-intl";
+import { Suspense, type ReactNode } from "react";
 
-/**
- * Shared split-screen frame for the auth pages. The frame (branding panel +
- * centered form column), the logo and the ambient background are common, but
- * the `variant` gives each page its own identity so login and register read
- * as siblings rather than clones:
- *
- *  - "signin" (default): hero on the inline-start side, indigo "features" list.
- *  - "signup": hero MIRRORED to the opposite side (lg:flex-row-reverse), with a
- *    teal-accented "join in 3 steps" onboarding panel + a "free to join" badge.
- *
- * Presentation only — each page passes its own form / logo header / footer as
- * children. The form column uses `overflow-y-auto` + `m-auto` so it centers
- * when it fits and scrolls without clipping the top when the content is tall.
- */
 export function AuthShell({
   children,
   variant = "signin",
@@ -40,11 +26,9 @@ export function AuthShell({
     <div
       className={cn(
         "flex min-h-dvh w-full bg-background",
-        // Mirror the split for signup so it reads as a distinct page.
         isSignup && "lg:flex-row-reverse",
       )}
     >
-      {/* Branding hero — decorative, desktop only. */}
       <aside className="gradient-primary relative hidden w-[45%] shrink-0 flex-col justify-between overflow-hidden p-12 text-primary-foreground lg:flex xl:p-16">
         <div
           aria-hidden="true"
@@ -65,8 +49,6 @@ export function AuthShell({
           className="pointer-events-none absolute size-72 rounded-full bg-white/10 blur-3xl"
           style={{ bottom: "-6rem", insetInlineStart: "-6rem" }}
         />
-
-        {/* Logo lockup — common to both variants. */}
         <div className="relative">
           <div className="flex items-center gap-3">
             <span className="flex size-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur-md">
@@ -78,8 +60,6 @@ export function AuthShell({
           </div>
           <span className="mt-4 block h-1 w-12 rounded-full bg-brand-teal" />
         </div>
-
-        {/* Middle panel — differs per variant. */}
         {isSignup ? (
           <div className="relative max-w-md">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-teal/15 px-3 py-1 text-xs font-semibold text-brand-teal ring-1 ring-inset ring-brand-teal/30">
@@ -145,18 +125,12 @@ export function AuthShell({
               </li>
             </ul>
           </div>
-        )}
-
+        )} 
         <p className="relative text-xs text-primary-foreground/60">
           © {new Date().getFullYear()} Edura
         </p>
       </aside>
-
-      {/* Form column */}
       <main className="flex flex-1 flex-col overflow-y-auto p-6">
-        {/* Locale toggle — the auth pages sit outside the dashboard shell, so
-            without this a visitor has no way to switch language before signing
-            in. Suspense because the switcher reads useSearchParams(). */}
         <div className="flex shrink-0 justify-end">
           <Suspense fallback={null}>
             <LanguageSwitcher />

@@ -1,30 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useCustom, useList, useCustomMutation } from "@refinedev/core";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  ArrowLeft,
-  Ban,
-  BookOpen,
-  CheckCircle2,
-  Pencil,
-  User,
-  UserX,
-  Wallet,
-} from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { DescriptionList } from "@/components/kit/description-list";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
+import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import CopyableText from "@/components/ui/copyable-text";
-import { useTranslations } from "next-intl";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { cn } from "@repo/ui/lib/utils";
-import { toast } from "@repo/ui/components/sonner";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useCustom, useCustomMutation, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
 import {
   Card,
   CardContent,
@@ -47,13 +36,25 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/form";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
-import { DescriptionList } from "@/components/kit/description-list";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { Spinner, PageSpinner } from "@/components/kit/spinner";
+import { Input } from "@repo/ui/components/input";
+import { toast } from "@repo/ui/components/sonner";
+import { Textarea } from "@repo/ui/components/textarea";
+import { cn } from "@repo/ui/lib/utils";
+import {
+  ArrowLeft,
+  Ban,
+  BookOpen,
+  CheckCircle2,
+  Pencil,
+  User,
+  UserX,
+  Wallet,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 type StudentUser = {
   _id?: string;
@@ -366,8 +367,6 @@ export function AdminStudentDetailScreen() {
     setEditModalOpen(true);
   };
 
-  // Center staff record a CASH top-up into this student's wallet (credit-only —
-  // there is no center wallet-debit path). Traceable: recordedBy = this staff.
   const handleWalletTopup = async () => {
     const egp = Number(walletAmount);
     if (!Number.isFinite(egp) || egp <= 0) {
@@ -577,7 +576,6 @@ export function AdminStudentDetailScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Cash wallet top-up (credit-only) */}
       <Dialog
         open={walletModalOpen}
         onOpenChange={(open) => {
@@ -640,7 +638,7 @@ export function AdminStudentDetailScreen() {
                     <FormLabel>{t("adminHome.detail_name")}</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <User className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <User className="pointer-events-none absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           className="ps-9"
                           placeholder={t("adminHome.detail_studentNamePlaceholder")}

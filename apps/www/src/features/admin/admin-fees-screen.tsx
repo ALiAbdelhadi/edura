@@ -1,55 +1,56 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useMemo, useState } from "react";
-import { useList, useCreate, useCustom } from "@refinedev/core";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import dayjs, { type Dayjs } from "dayjs";
-import {
-  Plus,
-  DollarSign,
-  FileText,
-  BarChart3,
-  Receipt,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
+import { LineChart } from "@/components/charts";
+import { Combobox } from "@/components/kit/combobox";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
+import { StatusBadge } from "@/components/kit/status-badge";
 import CopyableText from "@/components/ui/copyable-text";
 import StudentLink from "@/components/ui/student-link";
-import { LineChart } from "@/components/charts";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { cn } from "@repo/ui/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useCreate, useCustom, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardAction,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@repo/ui/components/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@repo/ui/components/dialog";
 import {
   Form,
+  FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormControl,
   FormMessage,
 } from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
-import { Combobox } from "@/components/kit/combobox";
-import { StatCard } from "@/components/kit/stat-card";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { cn } from "@repo/ui/lib/utils";
+import dayjs, { type Dayjs } from "dayjs";
+import {
+  BarChart3,
+  DollarSign,
+  FileText,
+  Plus,
+  Receipt,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 export function AdminFeesScreen() {
   const t = useTranslations();

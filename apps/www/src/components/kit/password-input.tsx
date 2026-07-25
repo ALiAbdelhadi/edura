@@ -1,7 +1,5 @@
 "use client";
 
-import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@repo/ui/components/input";
 import {
   InputGroup,
@@ -9,6 +7,8 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@repo/ui/components/input-group";
+import { Eye, EyeOff } from "lucide-react";
+import * as React from "react";
 
 export function PasswordInput({
   className,

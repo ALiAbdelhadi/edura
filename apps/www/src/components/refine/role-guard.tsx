@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity } from "@refinedev/core";
 import { useTranslations } from "next-intl";
-import type { MeResponse } from "@/lib/refine";
+import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
 
 export default function RoleGuard({
   allowedRole,
@@ -30,16 +30,16 @@ export default function RoleGuard({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-400">{t("common.loading")}</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
       </div>
     );
   }
 
   if (!identity || identity.role !== allowedRole) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-400">{t("common.redirecting")}</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">{t("common.redirecting")}</div>
       </div>
     );
   }

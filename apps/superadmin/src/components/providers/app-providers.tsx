@@ -50,7 +50,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <Suspense fallback={null}>
             <RefineProvider>{children}</RefineProvider>
           </Suspense>
-          <Toaster position={dir === "rtl" ? "bottom-left" : "bottom-right"} />
+          <Toaster
+            dir={dir}
+            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+          />
         </DirectionProvider>
       </ThemeModeProvider>
     </SessionProvider>

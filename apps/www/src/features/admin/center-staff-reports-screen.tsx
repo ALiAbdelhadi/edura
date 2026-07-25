@@ -1,14 +1,11 @@
 "use client";
 
-// Manager operational reports — scoped to the endpoints a manager may hit.
-// Uses ONLY dashboards/admin (financial fields are stripped server-side for a
-// manager) so no financial endpoint is ever called from this screen.
-import React, { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
-import { Card } from "@repo/ui/components/card";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
+import { Card } from "@repo/ui/components/card";
+import { useTranslations } from "next-intl";
+import React, { useEffect, useState } from "react";
 
 type Dash = {
   totals: { students: number; teachers: number; activeCourses: number };

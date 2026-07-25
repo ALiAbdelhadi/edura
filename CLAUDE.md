@@ -69,6 +69,22 @@ business rules defined.
    they stay.) If a Stitch design (or any future spec) includes a pay-later /
    installments / "بالأجل" surface, skip it — treat its absence as intentional.
 
+## Post-launch improvements (do NOT implement now)
+
+Recorded 2026-07-25. These are tasks for AFTER launch. Do not start them while
+the launch path (DB separation, remaining fixes, hosting) is in progress.
+
+1. **Next.js 16 rendering + caching optimization pass** — review pages/routes
+   and apply the right rendering strategy (SSR / static / streaming) and
+   selective `'use cache'` where it genuinely helps.
+   **HARD CONSTRAINTS:** never cache money, wallet balances, subscriptions,
+   attendance, messaging, auth/session, or any per-user or stateful data —
+   those stay dynamic and fresh every request.
+   **Approach:** measure real traffic first to find actual slow paths, then
+   optimize those specific pages one batch at a time with review — NOT a
+   repo-wide sweep. This is a performance refinement for after launch, done
+   carefully, not a pre-launch task.
+
 ## Conventions
 - All demo/seed data is flagged `is_demo = true` so it can be purged later.
   Purgeable `is_demo` demo data is wiped before launch. This NEVER includes the
