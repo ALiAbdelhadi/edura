@@ -65,6 +65,20 @@ async function main() {
     assert(afterRefund.refund?.toEntityId === fx.student, "refund is paid to the student");
     assert(afterRefund.adjustments._count._all === 2 && afterRefund.adjustments._sum.amount === 400, `platform fee (400) returned via 2 adjustments (got ${afterRefund.adjustments._count._all} rows / ${afterRefund.adjustments._sum.amount})`);
 
+    // Audited (2026-07-23): WHO reversed it + WHY, in the same tx as the reversal.
+    const refundAudit = await withPlatformContext((tx) =>
+      tx.auditLog.findFirst({
+        where: { action: "refund.issued", actorId: fx.teacher, targetId: afterRefund.payment?.id },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+    const raState = (refundAudit?.afterState ?? {}) as Record<string, unknown>;
+    assert(!!refundAudit && refundAudit.centerId === fx.center, "refund is audited to the acting staff + center");
+    assert(
+      raState.sessionId === fx.s1 && raState.refunded === 20000 && raState.reason === "duplicate charge",
+      `refund audit records session, amount, and reason (${JSON.stringify(raState)})`,
+    );
+
     const report = await refundsReport();
     assert(report.refunds.some((r: { lessonId: string | null }) => r.lessonId === fx.s1), "refund appears in the refunds report");
 

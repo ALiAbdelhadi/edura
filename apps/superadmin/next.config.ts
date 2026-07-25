@@ -57,6 +57,7 @@ const nextConfig = {
     "@neondatabase/serverless",
     "ws",
     "ioredis",
+    "nodemailer",
   ],
 };
 

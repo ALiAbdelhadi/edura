@@ -2,16 +2,36 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "../src/index";
+import { readDbEnv } from "../scripts/db-guard";
 import { seedCatalog } from "./seed-catalog";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 
 async function main() {
-  // Dev-only fallback gate (same style as the quick-login gating): in
-  // production the staff accounts MUST come from explicit env credentials —
+  // WHAT GETS SEEDED IS DECIDED BY THE DATABASE, NOT BY NODE_ENV.
+  //
+  // This script used to create the NILE demo centre, five demo users and a demo
+  // course on EVERY run — including with NODE_ENV=production, where the only
+  // gate was a check that the staff credential env vars were present. Against
+  // the production database that would have written exactly the kind of fake
+  // data this whole separation exists to prevent.
+  //
+  // The environment now comes from the label stored inside the database (see
+  // scripts/db-guard.ts), so a stale or copy-pasted connection string cannot
+  // misreport it. An unlabelled database is refused outright.
+  const dbEnv = await readDbEnv();
+  if (dbEnv === null) {
+    throw new Error(
+      "seed: REFUSING TO RUN — target database carries no 'edura-env:' label.\n" +
+        "Label it first:  tsx --env-file=<file> scripts/label-db.ts <dev|test|production>",
+    );
+  }
+  const isProduction = dbEnv === "production";
+
+  // In production the staff accounts MUST come from explicit env credentials —
   // fail fast, before any DB write, rather than ever seeding a
   // known-credential super_admin/accountant.
-  if (process.env.NODE_ENV === "production") {
+  if (isProduction || process.env.NODE_ENV === "production") {
     const missing = [
       !process.env.SEED_SUPERADMIN_EMAIL && "SEED_SUPERADMIN_EMAIL",
       !process.env.SEED_SUPERADMIN_PASSWORD && "SEED_SUPERADMIN_PASSWORD",
@@ -25,6 +45,8 @@ async function main() {
     }
   }
 
+  console.log(`Seeding a '${dbEnv}' database${isProduction ? " — CATALOG + STAFF ONLY, no demo data" : ""}.`);
+
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   // Catalog first: it is permanent reference data (idempotent upserts) and the
@@ -33,23 +55,6 @@ async function main() {
 
   await withPlatformContext(
     async (tx) => {
-      // Everything this seed creates is demo data — flagged is_demo on the
-      // ROOT entities (center/users/course) so it can be purged before launch;
-      // child rows inherit demo-ness by ancestry. The education catalog
-      // (seedCatalog below) is permanent reference data and is NOT flagged.
-      const center = await tx.center.upsert({
-        where: { shortId: "NILE" },
-        update: { isDemo: true },
-        create: {
-          name: "Nile Educational Academy",
-          shortId: "NILE",
-          status: "active",
-          subjects: ["Math", "Physics", "Arabic"],
-          address: "Cairo, Egypt",
-          isDemo: true,
-        },
-      });
-
       const mkUser = async (
         email: string,
         name: string,
@@ -118,6 +123,57 @@ async function main() {
         "accountant@edura.eg",
         "Platform Accountant",
       );
+
+      // Points rules are operational CONFIGURATION, not demo data — the points
+      // engine reads them at runtime — so production needs them too. They carry
+      // no is_demo flag and are keyed by event name, so this stays idempotent.
+      const POINTS_RULES: { eventName: string; pointsValue: number }[] = [
+        { eventName: "attendance", pointsValue: 10 },
+        { eventName: "online_payment", pointsValue: 20 },
+        { eventName: "first_booking", pointsValue: 50 },
+        { eventName: "lesson_booking", pointsValue: 5 },
+        { eventName: "teacher_rating", pointsValue: 15 },
+        { eventName: "streak_bonus", pointsValue: 25 },
+      ];
+      for (const r of POINTS_RULES) {
+        const existing = await tx.pointsRule.findFirst({
+          where: { eventName: r.eventName },
+        });
+        if (!existing) {
+          await tx.pointsRule.create({ data: { ...r, isActive: true } });
+        }
+      }
+
+      // ======================================================================
+      // PRODUCTION STOPS HERE.
+      // Catalog (permanent reference data) + the two real staff accounts +
+      // points rules. Everything below this line is demo data and must never
+      // reach the production database.
+      // ======================================================================
+      if (isProduction) {
+        console.log(
+          "Production seed complete: education catalog, points rules, and the " +
+            "two staff accounts from SEED_* env vars. No demo data written.",
+        );
+        return;
+      }
+
+      // Everything below is demo data — flagged is_demo on the ROOT entities
+      // (center/users/course) so it can be purged before launch; child rows
+      // inherit demo-ness by ancestry. The education catalog seeded above is
+      // permanent reference data and is NOT flagged.
+      const center = await tx.center.upsert({
+        where: { shortId: "NILE" },
+        update: { isDemo: true },
+        create: {
+          name: "Nile Educational Academy",
+          shortId: "NILE",
+          status: "active",
+          subjects: ["Math", "Physics", "Arabic"],
+          address: "Cairo, Egypt",
+          isDemo: true,
+        },
+      });
 
       const admin = await mkUser(
         "admin@nile-academy.eg",
@@ -325,23 +381,6 @@ async function main() {
           where: { id: existingEnrollment.id },
           data: { status: "active", unenrolledAt: null },
         });
-      }
-
-      const POINTS_RULES: { eventName: string; pointsValue: number }[] = [
-        { eventName: "attendance", pointsValue: 10 },
-        { eventName: "online_payment", pointsValue: 20 },
-        { eventName: "first_booking", pointsValue: 50 },
-        { eventName: "lesson_booking", pointsValue: 5 },
-        { eventName: "teacher_rating", pointsValue: 15 },
-        { eventName: "streak_bonus", pointsValue: 25 },
-      ];
-      for (const r of POINTS_RULES) {
-        const existing = await tx.pointsRule.findFirst({
-          where: { eventName: r.eventName },
-        });
-        if (!existing) {
-          await tx.pointsRule.create({ data: { ...r, isActive: true } });
-        }
       }
 
       console.log("Seed complete:", {

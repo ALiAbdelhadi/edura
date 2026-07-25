@@ -6,11 +6,18 @@ node_modules
 .pnp.js
 
 # Local env files
+# NOTE: .env.test and .env.production hold real database credentials and MUST
+# stay ignored — the earlier list only covered the *.local variants, which would
+# have committed them. .env.example files are the committed, secret-free copies.
 .env
 .env.local
+.env.test
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
+!.env.*.example
 
 # Testing
 coverage

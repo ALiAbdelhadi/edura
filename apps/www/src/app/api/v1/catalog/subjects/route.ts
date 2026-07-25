@@ -1,13 +1,13 @@
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
 import { ok } from "@/lib/http/envelope";
-import { ValidationError, NotFoundError } from "@/lib/errors/classes";
-import { platformDb } from "@/lib/db/scope";
+import { ValidationError } from "@/lib/errors/classes";
 import {
   getSubjectsForSelection,
   getSubjectsForGradeLevels,
   getSecondLanguageOptions,
   getAllActiveSubjects,
+  getStudentOwnSubjects,
 } from "@/lib/services/catalog/catalog-read";
 
 export const dynamic = "force-dynamic";
@@ -23,19 +23,12 @@ export const GET = withErrors(async (req) => {
     return ok(await getAllActiveSubjects());
   }
 
-  // ?mine=1 — the session student's own track subjects, resolved server-side
-  // from their profile so the default list always tracks profile changes.
+  // ?mine=1 — the session student's own track subjects (their picked second
+  // language only), resolved server-side from their profile so the default list
+  // always tracks profile changes.
   if (params.get("mine") === "1") {
     if (user.role !== "student") throw new ValidationError("mine=1 is student-only");
-    const profile = await platformDb((tx) =>
-      tx.studentProfile.findUnique({
-        where: { userId: user.id },
-        select: { gradeLevelId: true, trackId: true },
-      }),
-    );
-    if (!profile) throw new NotFoundError("Student profile not found");
-    if (!profile.gradeLevelId) return ok([]);
-    return ok(await getSubjectsForSelection(profile.gradeLevelId, profile.trackId));
+    return ok(await getStudentOwnSubjects(user.id));
   }
 
   const gradeLevelIds = params.get("gradeLevelIds");

@@ -14,6 +14,8 @@ type StudentInput = {
 
 type ParentInput = StudentInput;
 
+type TeacherInput = Omit<StudentInput, "inviteCode">;
+
 type CenterInput = {
   admin: { email: string; password: string; name: string; locale?: "ar" | "en" };
   center: {
@@ -163,6 +165,73 @@ export async function registerParent(input: ParentInput) {
     }
 
     await tx.parentProfile.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id },
+      update: {},
+    });
+
+    return user;
+  });
+
+  return {
+    userId: user.id,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      status: user.status,
+    },
+  };
+}
+
+/**
+ * Teacher self-registration. Mirrors registerCenter's approval semantics: the
+ * account is created `pending` and can NOT sign in until a super_admin
+ * approves it (apps/superadmin `approveTeacher` — it already existed and
+ * already required `status === "pending"`; there was simply no door that
+ * created one). The TeacherProfile is created up front so the approved teacher
+ * lands straight in the existing onboarding wizard.
+ */
+export async function registerTeacher(input: TeacherInput) {
+  const email = input.email.toLowerCase().trim();
+  const phone = input.phone?.trim() || undefined;
+  const passwordHash = await hashPassword(input.password);
+
+  const user = await platformDb(async (tx) => {
+    await ensureUniqueUnshelled(tx, email, phone);
+    const shell = await tx.user.findFirst({ where: { email, status: "shell" } });
+
+    let user;
+    if (shell) {
+      if (shell.role !== "teacher") {
+        throw new ConflictError("Shell exists for this email with a different role");
+      }
+      user = await tx.user.update({
+        where: { id: shell.id },
+        data: {
+          passwordHash,
+          name: input.name,
+          status: "pending",
+          ...(phone ? { phone } : {}),
+          ...(input.locale ? { locale: input.locale } : {}),
+        },
+      });
+    } else {
+      user = await tx.user.create({
+        data: {
+          email,
+          phone,
+          passwordHash,
+          role: "teacher",
+          name: input.name,
+          locale: input.locale ?? "ar",
+          status: "pending",
+        },
+      });
+    }
+
+    await tx.teacherProfile.upsert({
       where: { userId: user.id },
       create: { userId: user.id },
       update: {},

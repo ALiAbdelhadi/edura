@@ -13,12 +13,14 @@
   "dependencies": {
     "@repo/database": "workspace:*",
     "ioredis": "^5.11.1",
+    "nodemailer": "^7.0.13",
     "web-push": "^3.6.7",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",
+    "@types/nodemailer": "^8.0.1",
     "@types/web-push": "^3.6.4",
     "next": "16.2.10",
     "typescript": "5.9.3"

@@ -22,6 +22,7 @@ import {
   FileSearch,
   Star,
   Search,
+  Wallet,
   LogOut,
   PanelLeft,
   type LucideIcon,
@@ -87,6 +88,7 @@ const NAV_KEY: Record<string, string> = {
   Centers: "nav.centers",
   Browse: "nav.browse",
   Catalog: "nav.catalog",
+  "Wallet policy": "nav.walletPolicy",
 };
 
 const iconMap: Record<string, LucideIcon> = {
@@ -107,6 +109,7 @@ const iconMap: Record<string, LucideIcon> = {
   report: FileSearch,
   star: Star,
   search: Search,
+  wallet: Wallet,
 };
 
 type NavItem = {

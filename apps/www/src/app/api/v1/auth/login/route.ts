@@ -7,6 +7,7 @@ import { parseJson } from "@/lib/validation/zod";
 import { ok } from "@/lib/http/envelope";
 import { AuthError } from "@/lib/errors/classes";
 import { platformDb } from "@/lib/db/scope";
+import { canSignIn, resolveLoginCenterId } from "@repo/server-core/auth/login-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +18,14 @@ const bodySchema = z.object({
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
-// Same allowlist as lib/auth/options.ts — back-office staff (super_admin,
-// accountant) sign in to apps/superadmin only.
-const WWW_ROLES = new Set([
-  "center_admin",
-  "teacher",
-  "parent",
-  "student",
-  "assistant",
-]);
+// C-04: this door used to keep its OWN copy of the www allowlist, which had
+// drifted from lib/auth/options.ts (center_staff was missing → every Center
+// Staff account got 401 with the correct password here while NextAuth let them
+// in). Both doors now call canSignIn("www", role) against the single shared
+// partition in @repo/server-core/auth/login-policy. No list lives in this file.
 
+// H5: a valid bcrypt hash of a random string. Compared against when the account
+// is missing/ineligible so login timing matches a real wrong-password attempt.
 const DUMMY_HASH = "$2b$10$wrFkXDBP7l73KSdBAgzutOaGQi9FZfAP/69GAeqzK0AiUDGWqhpsW";
 
 function cookieName(): string {
@@ -39,28 +38,25 @@ export const POST = withRateLimit(
     const { email, password } = await parseJson(req, bodySchema);
 
     const user = await platformDb((tx) => tx.user.findFirst({ where: { email } }));
-    const hashToCheck = user?.passwordHash ?? DUMMY_HASH;
-    const pwMatches = await bcrypt.compare(password, hashToCheck);
-    if (
-      !user ||
-      !WWW_ROLES.has(user.role) ||
-      user.status !== "active" ||
-      !user.passwordHash ||
-      !pwMatches
-    ) {
+
+    // H5: bcrypt.compare runs UNCONDITIONALLY — against the real hash when the
+    // account is eligible, else DUMMY_HASH — so a nonexistent email and a
+    // real-but-wrong password share a timing path (no enumeration oracle).
+    // Identical shape to lib/auth/options.ts.
+    const eligible =
+      !!user && canSignIn("www", user.role) && user.status === "active" && !!user.passwordHash;
+    const pwMatches = await bcrypt.compare(
+      password,
+      eligible ? (user.passwordHash as string) : DUMMY_HASH,
+    );
+    if (!user || !eligible || !pwMatches) {
       throw new AuthError("Invalid email or password");
     }
 
-    let centerId: string | undefined;
-    if (user.role === "center_admin") {
-      const profile = await platformDb((tx) =>
-        tx.centerAdminProfile.findFirst({
-          where: { userId: user.id },
-          select: { centerId: true },
-        }),
-      );
-      centerId = profile?.centerId ?? undefined;
-    }
+    // Same resolver NextAuth uses (center_admin → profile, center_staff → live
+    // link). Staff authorization is still re-derived per request by
+    // requireCenterActor; this claim is only a convenience.
+    const centerId = await resolveLoginCenterId(user.role, user.id);
 
     const secret = process.env.NEXTAUTH_SECRET;
     if (!secret) throw new Error("NEXTAUTH_SECRET is not configured");

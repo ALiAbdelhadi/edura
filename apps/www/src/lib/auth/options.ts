@@ -3,19 +3,14 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
+import { canSignIn, resolveLoginCenterId } from "@repo/server-core/auth/login-policy";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 
-// www serves exactly these roles. Back-office staff (super_admin, accountant)
-// sign in to apps/superadmin only — enforced here at credential-check time so
-// a staff account can never mint a www session.
-const WWW_ROLES = new Set([
-  "center_admin",
-  "center_staff", // center front-desk / manager / center-accountant
-  "teacher",
-  "parent",
-  "student",
-  "assistant",
-]);
+// C-04: the allowlist is NOT declared here. `canSignIn("www", role)` reads the
+// single shared partition in @repo/server-core/auth/login-policy, which this
+// door and the manual POST /api/v1/auth/login door both consult — they can no
+// longer drift. Back-office staff (super_admin, accountant) map to the
+// superadmin app there, so they can never mint a www session.
 
 // H5: a valid bcrypt hash of a random string. Compared against when the account
 // is missing/ineligible so login timing is identical to a real wrong-password
@@ -64,7 +59,7 @@ export const authOptions: NextAuthOptions = {
         // email and a real-but-wrong password take the same timing path.
         const eligible =
           !!user &&
-          WWW_ROLES.has(user.role) &&
+          canSignIn("www", user.role) &&
           user.status === "active" &&
           !!user.passwordHash;
         const passwordOk = await bcrypt.compare(
@@ -73,29 +68,12 @@ export const authOptions: NextAuthOptions = {
         );
         if (!user || !eligible || !passwordOk) return null;
 
-        let centerId: string | undefined;
-        if (user.role === "center_admin") {
-          const profile = await withPlatformContext((tx) =>
-            tx.centerAdminProfile.findFirst({
-              where: { userId: user.id },
-              select: { centerId: true },
-            }),
-          );
-          centerId = profile?.centerId ?? undefined;
-        } else if (user.role === "center_staff") {
-          // Center staff carry their center on the session too. The AUTHORITATIVE
-          // revocation check still lives in requireCenterActor (re-resolved live
-          // per request against center_staff WHERE removed_at IS NULL), so a
-          // deactivated staff loses access on the next request regardless of the
-          // 30-day JWT.
-          const link = await withPlatformContext((tx) =>
-            tx.centerStaff.findFirst({
-              where: { staffUserId: user.id, removedAt: null },
-              select: { centerId: true },
-            }),
-          );
-          centerId = link?.centerId ?? undefined;
-        }
+        // Shared with the REST login door (C-04): center_admin resolves its
+        // profile's center, center_staff its live (removed_at IS NULL) link.
+        // The AUTHORITATIVE staff revocation check still lives in
+        // requireCenterActor, re-resolved per request, so a deactivated staff
+        // member loses access on the next request regardless of the 30-day JWT.
+        const centerId = await resolveLoginCenterId(user.role, user.id);
 
         return {
           id: user.id,

@@ -30,6 +30,7 @@
  */
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -863,6 +864,11 @@ async function seed() {
 }
 
 async function main() {
+  // Demo data must never reach production — in either direction. The purge path
+  // is guarded too: it deletes every is_demo row it finds, which is correct on a
+  // dev database and unacceptable as a stray command against production.
+  await assertNotProduction("preview-seed");
+
   if (PURGE) {
     console.log("PURGE mode — removing all is_demo preview data…");
     await purge();

@@ -2,9 +2,7 @@ import { platformDb, type TenantTx } from "../../db/scope";
 import { NotFoundError, BusinessRuleError } from "../../errors/classes";
 import { sendMail } from "../../mail/send";
 import { nextInvoiceRef } from "./ref-numbers";
-
-
-const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3002";
+import { appBaseUrl } from "../../http/app-url";
 
 type InvoiceType = "payment_receipt" | "student_invoice" | "teacher_statement" | "center_statement";
 
@@ -94,12 +92,12 @@ export function generateInvoice(input: {
         commission,
         netAmount,
         status: "issued",
-        qrCode: `${APP_BASE_URL}/invoices/verify/${invoiceNumber}`,
+        qrCode: `${appBaseUrl()}/invoices/verify/${invoiceNumber}`,
       },
     });
     return tx.invoice.update({
       where: { id: created.id },
-      data: { pdfUrl: `${APP_BASE_URL}/api/v1/finance/invoices/${created.id}/pdf` },
+      data: { pdfUrl: `${appBaseUrl()}/api/v1/finance/invoices/${created.id}/pdf` },
     });
   });
 }

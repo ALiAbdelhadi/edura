@@ -24,6 +24,17 @@ const AUDITED: Record<string, string> = {
   "Payout.update": "payout.decided",
   "CenterAdminProfile.create": "permission.granted",
   "CenterAdminProfile.delete": "permission.revoked",
+  // Money policy: a change to the wallet top-up bounds affects every student's
+  // ability to put money in, so the back-office write is auditable. Safe to do
+  // model-level here because wallet_settings has exactly ONE writer.
+  //
+  // CommissionSetting is deliberately NOT listed: rooms-split.ts already writes
+  // its own before/after audit rows for the split + Method-2 rate edits of that
+  // same table (revenue_split.*, m2_rate.*), and commission-admin.ts does the
+  // same for the global rates — a model-level entry here would DOUBLE-log every
+  // one of them.
+  "WalletSettings.create": "wallet_settings.updated",
+  "WalletSettings.update": "wallet_settings.updated",
 };
 
 void SOFT_DELETE_MODELS;

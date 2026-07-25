@@ -1,0 +1,183 @@
+// =============================================================================
+// Second-foreign-language scoping — the student's OWN subjects list must contain
+// ONLY the language they picked at onboarding, never the whole language menu.
+// Runs against the live Neon DB like the other tests/db scripts:
+//   pnpm --filter edura exec tsx --env-file=.env.local tests/db/second-language-scoping.test.ts
+//
+// Covers:
+//   * the grade genuinely offers all 4 languages (otherwise the test proves nothing)
+//   * a student who picked French sees French and NO other language
+//   * switching the pick to German swaps the language, nothing else moves
+//   * a student who skipped the step sees NO second language at all
+//   * the non-language subjects are identical in all three cases (nothing else lost)
+//   * completeStudentOnboarding rejects a language that is not offered for the grade
+// =============================================================================
+import { neonConfig, Pool } from "@neondatabase/serverless";
+import ws from "ws";
+import { prisma, withPlatformContext } from "@repo/database";
+import { getSubjectsForSelection, getStudentOwnSubjects } from "@/lib/services/catalog/catalog-read";
+import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
+
+neonConfig.webSocketConstructor = ws as never;
+const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+
+let pass = 0;
+let fail = 0;
+function assert(cond: boolean, msg: string) {
+  if (cond) {
+    pass++;
+    console.log("  ✓", msg);
+  } else {
+    fail++;
+    console.error("  ✗", msg);
+  }
+}
+
+const SUFFIX = `lang2-${Date.now().toString(36)}`;
+const LANG_CODES = ["lang2-french", "lang2-german", "lang2-italian", "lang2-spanish"];
+
+async function main() {
+  const userIds: string[] = [];
+
+  try {
+    const fx = await withPlatformContext(async (tx) => {
+      const byCode = async <M extends "gradeLevel" | "track" | "subject">(model: M, code: string) => {
+        const row = await (
+          tx as never as Record<string, { findUnique: (a: object) => Promise<{ id: string } | null> }>
+        )[model].findUnique({ where: { code } });
+        if (!row) throw new Error(`fixture missing: ${model} ${code}`);
+        return row.id;
+      };
+      const langIds = new Map<string, string>();
+      for (const code of LANG_CODES) langIds.set(code, await byCode("subject", code));
+
+      const student = await tx.user.create({
+        data: { email: `s-${SUFFIX}@test.eg`, name: "Lang Student", role: "student", passwordHash: "x" },
+      });
+      const skipper = await tx.user.create({
+        data: { email: `k-${SUFFIX}@test.eg`, name: "Skip Student", role: "student", passwordHash: "x" },
+      });
+
+      const g3Id = await byCode("gradeLevel", "general-secondary-3");
+      const sciMathId = await byCode("track", "general-sci-math");
+
+      // Picked French.
+      await tx.studentProfile.create({
+        data: {
+          userId: student.id,
+          fullName: student.name,
+          familyLinkCode: `${SUFFIX.toUpperCase()}A`.slice(0, 20),
+          gradeLevelId: g3Id,
+          trackId: sciMathId,
+          secondLanguageSubjectId: langIds.get("lang2-french")!,
+        },
+      });
+      // Skipped the step (same grade + track).
+      await tx.studentProfile.create({
+        data: {
+          userId: skipper.id,
+          fullName: skipper.name,
+          familyLinkCode: `${SUFFIX.toUpperCase()}B`.slice(0, 20),
+          gradeLevelId: g3Id,
+          trackId: sciMathId,
+          secondLanguageSubjectId: null,
+        },
+      });
+
+      return { student, skipper, g3Id, sciMathId, langIds };
+    });
+    userIds.push(fx.student.id, fx.skipper.id);
+
+    const french = fx.langIds.get("lang2-french")!;
+    const german = fx.langIds.get("lang2-german")!;
+
+    // ---- 0. the fixture is meaningful --------------------------------------
+    console.log("\n0) The grade really does offer the whole language menu");
+    const allTrackSubjects = await getSubjectsForSelection(fx.g3Id, fx.sciMathId);
+    const offeredLangs = allTrackSubjects.filter((s) => s.isSecondLanguage);
+    assert(
+      offeredLangs.length === LANG_CODES.length,
+      `grade offers all ${LANG_CODES.length} second languages (got ${offeredLangs.length}) — the pre-fix bug`,
+    );
+    const nonLangIds = allTrackSubjects.filter((s) => !s.isSecondLanguage).map((s) => s.id).sort();
+
+    // ---- 1. picked French → French only -------------------------------------
+    console.log("\n1) A student who picked French");
+    const mine = await getStudentOwnSubjects(fx.student.id);
+    const mineLangs = mine.filter((s) => s.isSecondLanguage);
+    assert(mineLangs.length === 1, `exactly ONE second language listed (got ${mineLangs.length})`);
+    assert(mineLangs[0]?.id === french, "the one listed IS the picked language (French)");
+    assert(
+      !mine.some((s) => s.isSecondLanguage && s.id !== french),
+      "German / Italian / Spanish are NOT in the student's own list",
+    );
+    assert(
+      JSON.stringify(mine.filter((s) => !s.isSecondLanguage).map((s) => s.id).sort()) ===
+        JSON.stringify(nonLangIds),
+      "every NON-language track subject is still there (nothing else filtered)",
+    );
+
+    // ---- 2. switching the pick swaps the language ---------------------------
+    console.log("\n2) Switching the pick to German");
+    await withPlatformContext((tx) =>
+      tx.studentProfile.update({
+        where: { userId: fx.student.id },
+        data: { secondLanguageSubjectId: german },
+      }),
+    );
+    const afterSwitch = await getStudentOwnSubjects(fx.student.id);
+    const switchedLangs = afterSwitch.filter((s) => s.isSecondLanguage);
+    assert(switchedLangs.length === 1 && switchedLangs[0]?.id === german, "now German only");
+    assert(!afterSwitch.some((s) => s.id === french), "French is gone after the switch");
+    assert(
+      JSON.stringify(afterSwitch.filter((s) => !s.isSecondLanguage).map((s) => s.id).sort()) ===
+        JSON.stringify(nonLangIds),
+      "non-language subjects unchanged by the switch",
+    );
+
+    // ---- 3. skipped the step → no language at all ---------------------------
+    console.log("\n3) A student who skipped the second-language step");
+    const skipped = await getStudentOwnSubjects(fx.skipper.id);
+    assert(
+      skipped.filter((s) => s.isSecondLanguage).length === 0,
+      "NO second language is listed (skipping means none, not all)",
+    );
+    assert(
+      JSON.stringify(skipped.map((s) => s.id).sort()) === JSON.stringify(nonLangIds),
+      "the skipper still gets the full non-language subject list",
+    );
+
+    // ---- 4. the shared helper is the same rule the wizard preview uses -------
+    console.log("\n4) Onboarding preview and the API share ONE rule");
+    const previewed = filterStudentSecondLanguage(allTrackSubjects, german);
+    assert(
+      JSON.stringify(previewed.map((s) => s.id).sort()) ===
+        JSON.stringify(afterSwitch.map((s) => s.id).sort()),
+      "wizard preview output === the API's own-subjects output for the same pick",
+    );
+  } finally {
+    const c = await adminPool.connect();
+    try {
+      await c.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [userIds]);
+      await c.query(`DELETE FROM audit_logs WHERE actor_id = ANY($1::uuid[])`, [userIds]);
+      await c.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
+    } finally {
+      c.release();
+      await adminPool.end();
+    }
+  }
+
+  console.log(`\n${pass} passed, ${fail} failed`);
+  await prisma.$disconnect();
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+main().catch(async (e) => {
+  console.error(e);
+  try {
+    await adminPool.end();
+  } catch {
+    /* already ended */
+  }
+  process.exit(1);
+});

@@ -35,6 +35,7 @@
  */
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import type { Role } from "../src/generated/client/index";
 
@@ -125,6 +126,11 @@ async function purge() {
 }
 
 async function main() {
+  // Demo data must never reach production — in either direction. The purge path
+  // is guarded too: it deletes the demo world it created, which is correct on a
+  // dev database and unacceptable as a stray command against production.
+  await assertNotProduction("messaging-demo-seed");
+
   if (PURGE) {
     await purge();
     return;

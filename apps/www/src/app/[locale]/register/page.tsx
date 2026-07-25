@@ -1,28 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { signIn } from "next-auth/react";
-import { useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
+import { AuthShell } from "@/components/kit/auth-shell";
+import { PasswordInput } from "@/components/kit/password-input";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Building2,
-  Loader2,
-  Lock,
-  Mail,
-  Phone,
-  User,
-  UserPlus,
-} from "lucide-react";
-import ky from "ky";
-import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
+import { EGYPT_PHONE_RE } from "@repo/server-core/validation/common";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
+import { Button } from "@repo/ui/components/button";
 import {
   Form,
   FormControl,
@@ -31,11 +14,29 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { cn } from "@repo/ui/lib/utils";
-import { PasswordInput } from "@/components/kit/password-input";
-import { AuthShell } from "@/components/kit/auth-shell";
+import ky from "ky";
+import {
+  Building2,
+  Clock,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  User,
+  UserPlus,
+} from "lucide-react";
+import { signIn } from "next-auth/react";
+import { useTranslations } from "next-intl";
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
-type RoleOption = "student" | "parent" | "center_admin";
+type RoleOption = "student" | "parent" | "teacher" | "center_admin";
 
 const ROLE_OPTIONS = [
   {
@@ -44,6 +45,11 @@ const ROLE_OPTIONS = [
     descKey: "auth.roleStudentDesc",
   },
   { value: "parent", labelKey: "roles.parent", descKey: "auth.roleParentDesc" },
+  {
+    value: "teacher",
+    labelKey: "roles.teacher",
+    descKey: "auth.roleTeacherDesc",
+  },
   {
     value: "center_admin",
     labelKey: "auth.roleCenterLabel",
@@ -65,11 +71,46 @@ type RegisterFormValues = {
   confirmPassword: string;
 };
 
+type ApiError = {
+  code?: string;
+  message?: string;
+  fields?: Record<string, string[]>;
+};
+
+function readApiError(err: unknown): ApiError | undefined {
+  const data = (err as { data?: unknown } | undefined)?.data;
+  const parsed =
+    typeof data === "string"
+      ? (() => {
+          try {
+            return JSON.parse(data) as unknown;
+          } catch {
+            return undefined;
+          }
+        })()
+      : data;
+  if (parsed && typeof parsed === "object" && "error" in parsed) {
+    return (parsed as { error?: ApiError }).error;
+  }
+  return undefined;
+}
+
+const SERVER_FIELD_TO_FORM: Record<string, keyof RegisterFormValues> = {
+  adminName: "name",
+  name: "name",
+  email: "email",
+  phone: "phone",
+  password: "password",
+  centerName: "centerName",
+  address: "address",
+};
+
 export default function RegisterPage() {
   const t = useTranslations();
   const [role, setRole] = useState<RoleOption>("student");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const schema = z
     .object({
@@ -81,13 +122,20 @@ export default function RegisterPage() {
         .string()
         .min(1, { message: t("auth.emailRequired") })
         .email({ message: t("auth.emailInvalid") }),
-      phone: z.string().optional(),
+      phone: z
+        .string()
+        .optional()
+        .refine((v) => !v?.trim() || EGYPT_PHONE_RE.test(v.trim()), {
+          message: t("auth.phoneInvalid"),
+        }),
       centerName: z.string().optional(),
       address: z.string().optional(),
       password: z
         .string()
         .min(1, { message: t("auth.passwordRequired") })
-        .min(8, { message: t("auth.passwordMinLength") }),
+        .min(8, { message: t("auth.passwordMinLength") })
+        .regex(/[A-Za-z]/, { message: t("auth.passwordNeedsLetter") })
+        .regex(/[0-9]/, { message: t("auth.passwordNeedsDigit") }),
       confirmPassword: z
         .string()
         .min(1, { message: t("auth.confirmPasswordRequired") }),
@@ -121,37 +169,42 @@ export default function RegisterPage() {
   const onSubmit = async (values: RegisterFormValues) => {
     setLoading(true);
     setError(null);
+    const email = values.email.trim().toLowerCase();
     try {
-      if (role === "center_admin") {
-        await ky
-          .post("/api/v1/auth/register/center", {
-            json: {
+      const endpoint =
+        role === "center_admin"
+          ? "/api/v1/auth/register/center"
+          : `/api/v1/auth/register/${role}`;
+      const payload =
+        role === "center_admin"
+          ? {
               centerName: values.centerName?.trim() || values.name.trim(),
               adminName: values.name.trim(),
-              email: values.email.trim().toLowerCase(),
+              email,
               password: values.password,
               phone: values.phone?.trim() || undefined,
               address: values.address?.trim() || undefined,
               locale: "ar",
-            },
-          })
-          .json();
-      } else {
-        await ky
-          .post(`/api/v1/auth/register/${role}`, {
-            json: {
+            }
+          : {
               name: values.name.trim(),
-              email: values.email.trim().toLowerCase(),
+              email,
               password: values.password,
               phone: values.phone?.trim() || undefined,
               locale: "ar",
-            },
-          })
-          .json();
+            };
+
+      const created = await ky
+        .post(endpoint, { json: payload })
+        .json<{ data?: { user?: { status?: string } } }>();
+
+      if (created?.data?.user?.status !== "active") {
+        setPendingApproval(true);
+        return;
       }
 
       const result = await signIn("credentials", {
-        email: values.email.trim().toLowerCase(),
+        email,
         password: values.password,
         redirect: false,
       });
@@ -163,18 +216,64 @@ export default function RegisterPage() {
 
       window.location.assign("/dashboard");
     } catch (err: unknown) {
-      let msg = t("auth.registrationFailed");
-      try {
-        const body = (await (
-          err as { response?: Response }
-        ).response?.json()) as { error?: { message?: string } } | undefined;
-        if (body?.error?.message) msg = body.error.message;
-      } catch {}
-      setError(msg);
+      const apiError = readApiError(err);
+
+      let anchored = false;
+      for (const [serverField, messages] of Object.entries(
+        apiError?.fields ?? {},
+      )) {
+        const formField = SERVER_FIELD_TO_FORM[serverField];
+        if (!formField || !messages?.length) continue;
+        form.setError(formField, { type: "server", message: messages[0] });
+        anchored = true;
+      }
+
+      if (apiError?.code === "conflict") {
+        setError(t("auth.emailOrPhoneInUse"));
+        form.setError("email", {
+          type: "server",
+          message: t("auth.emailOrPhoneInUse"),
+        });
+      } else if (anchored) {
+        setError(t("auth.fixFieldsBelow"));
+      } else {
+        setError(apiError?.message || t("auth.registrationFailed"));
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (pendingApproval) {
+    return (
+      <AuthShell variant="signup">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Image
+            src="/edura-logo.svg"
+            alt="Edura"
+            width={120}
+            height={90}
+            priority
+            className="mb-4 h-[90px] w-auto"
+          />
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+            <Clock className="size-6 text-primary" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            {t("auth.pendingApprovalTitle")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t("auth.pendingApprovalBody")}
+          </p>
+          <Button asChild className="w-full">
+            <Link href="/login">{t("auth.signInTitle")}</Link>
+          </Button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  const activeRole = ROLE_OPTIONS.find((o) => o.value === role)!;
 
   return (
     <AuthShell variant="signup">
@@ -185,7 +284,7 @@ export default function RegisterPage() {
           width={120}
           height={90}
           priority
-          className="mb-4 h-[90px] w-auto"
+          className="mb-4 h-22.5 w-auto"
         />
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {t("auth.createAccountTitle")}
@@ -194,173 +293,123 @@ export default function RegisterPage() {
           {t("auth.registerSubtitle")}
         </p>
       </div>
-
-      <Card className="mb-4">
-        <CardContent>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="flex flex-col gap-4"
-            >
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <Label>{t("auth.roleSelectLabel")}</Label>
-                <div className="flex gap-2">
-                  {ROLE_OPTIONS.map((opt) => {
-                    const active = role === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setRole(opt.value)}
-                        className={cn(
-                          "flex-1 rounded-lg border-2 px-3 py-2.5 text-center transition-colors",
-                          active
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-card hover:bg-accent",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "text-sm font-semibold",
-                            active ? "text-primary" : "text-card-foreground",
-                          )}
-                        >
-                          {t(opt.labelKey)}
-                        </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          {t(opt.descKey)}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("auth.fullName")}</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <User className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                        <Input
-                          className="ps-9"
-                          placeholder={t("auth.fullNamePlaceholder")}
-                          autoComplete="name"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("auth.email")}</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                        <Input
-                          type="email"
-                          className="ps-9"
-                          placeholder={t("auth.emailPlaceholder")}
-                          autoComplete="email"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("auth.phoneOptional")}</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Phone className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                        <Input
-                          className="ps-9"
-                          placeholder={t("auth.phonePlaceholder")}
-                          autoComplete="tel"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {role === "center_admin" && (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="centerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("auth.centerName")}</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Building2 className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                            <Input
-                              className="ps-9"
-                              placeholder={t("auth.centerNamePlaceholder")}
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-4"
+        >
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <div className="flex flex-col gap-2">
+            <Label>{t("auth.roleSelectLabel")}</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-muted p-1">
+              {ROLE_OPTIONS.map((opt) => {
+                const active = role === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setRole(opt.value)}
+                    className={cn(
+                      "rounded-lg px-1 py-2 text-center text-sm font-medium transition-colors",
+                      active
+                        ? "bg-background text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("auth.addressOptional")}</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t("auth.centerAddressPlaceholder")}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </>
-              )}
-
+                  >
+                    {t(opt.labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(activeRole.descKey)}
+              {(role === "teacher" || role === "center_admin") &&
+                ` — ${t("auth.approvalRequiredHint")}`}
+            </p>
+          </div>
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.fullName")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <User className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <Input
+                      className="ps-9"
+                      placeholder={t("auth.fullNamePlaceholder")}
+                      autoComplete="name"
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.email")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      className="ps-9"
+                      placeholder={t("auth.emailPlaceholder")}
+                      autoComplete="email"
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.phoneOptional")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <Input
+                      className="ps-9"
+                      placeholder={t("auth.phonePlaceholder")}
+                      autoComplete="tel"
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {role === "center_admin" && (
+            <>
               <FormField
                 control={form.control}
-                name="password"
+                name="centerName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("auth.password")}</FormLabel>
+                    <FormLabel>{t("auth.centerName")}</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Lock className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                        <PasswordInput
+                        <Building2 className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                        <Input
                           className="ps-9"
-                          placeholder={t("auth.passwordMinPlaceholder")}
-                          autoComplete="new-password"
+                          placeholder={t("auth.centerNamePlaceholder")}
                           {...field}
                         />
                       </div>
@@ -371,39 +420,79 @@ export default function RegisterPage() {
               />
               <FormField
                 control={form.control}
-                name="confirmPassword"
+                name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("auth.confirmPassword")}</FormLabel>
+                    <FormLabel>{t("auth.addressOptional")}</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Lock className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                        <PasswordInput
-                          className="ps-9"
-                          placeholder={t("auth.confirmPasswordPlaceholder")}
-                          autoComplete="new-password"
-                          {...field}
-                        />
-                      </div>
+                      <Input
+                        placeholder={t("auth.centerAddressPlaceholder")}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <UserPlus className="size-4" />
-                )}
-                {t("auth.createAccountTitle")}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      <p className="text-center text-sm text-muted-foreground">
+            </>
+          )}
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.password")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <PasswordInput
+                      className="ps-9"
+                      placeholder={t("auth.passwordMinPlaceholder")}
+                      autoComplete="new-password"
+                      showLabel={t("auth.showPassword")}
+                      hideLabel={t("auth.hidePassword")}
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.confirmPassword")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <PasswordInput
+                      className="ps-9"
+                      placeholder={t("auth.confirmPasswordPlaceholder")}
+                      autoComplete="new-password"
+                      showLabel={t("auth.showPassword")}
+                      hideLabel={t("auth.hidePassword")}
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full gap-2" disabled={loading}>
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            {t("auth.createAccountTitle")}
+          </Button>
+        </form>
+      </Form>
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         {t("auth.haveAccountPrompt")}{" "}
         <Link
           href="/login"

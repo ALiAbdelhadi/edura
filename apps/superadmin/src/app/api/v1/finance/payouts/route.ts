@@ -12,6 +12,6 @@ export const GET = withErrors(async (req) => {
 });
 
 export const POST = withErrors(async () => {
-  await requireRole("accountant", "super_admin");
-  return ok(await generatePayouts(), { status: 201 });
+  const user = await requireRole("accountant", "super_admin");
+  return ok(await generatePayouts(user), { status: 201 });
 });

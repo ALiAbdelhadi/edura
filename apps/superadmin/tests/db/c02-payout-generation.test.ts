@@ -26,6 +26,7 @@ import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { withPlatformContext, type TenantTx } from "@repo/database";
 import { generatePayouts } from "@/lib/services/finance/payouts";
+import type { SessionUser } from "@/lib/auth/session";
 
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
@@ -209,7 +210,17 @@ async function snapshot(): Promise<Snapshot> {
   };
 }
 
-async function seed(): Promise<{ teacherIds: string[]; centerIds: string[] }> {
+async function seed(): Promise<{ teacherIds: string[]; centerIds: string[]; actorId: string }> {
+  // Generation is audited to the staff member who ran it, so the test needs a
+  // real actor row (cleaned up with the rest of the TAG fixtures).
+  const actorId = (
+    await q<{ id: string }>(
+      `INSERT INTO users (email, role, name, status, is_demo, updated_at)
+       VALUES ($1 || '-acct@demo.invalid', 'accountant', $1 || ' accountant', 'active', true, now())
+       RETURNING id`,
+      [TAG],
+    )
+  )[0].id;
   const idx = Array.from({ length: Math.max(DEMO_TEACHERS, DEMO_CENTERS) }, (_, i) => i);
 
   const teacherIds = (
@@ -266,7 +277,7 @@ async function seed(): Promise<{ teacherIds: string[]; centerIds: string[] }> {
     ],
   );
 
-  return { teacherIds, centerIds };
+  return { teacherIds, centerIds, actorId };
 }
 
 async function cleanup(since: Date) {
@@ -275,6 +286,7 @@ async function cleanup(since: Date) {
   await q(`DELETE FROM transactions WHERE ref_number LIKE $1`, [`TXN-${TAG.toUpperCase()}-%`]);
   await q(`DELETE FROM teacher_profiles WHERE user_id IN (SELECT id FROM users WHERE name LIKE $1)`, [`${TAG}%`]);
   await q(`DELETE FROM centers WHERE name LIKE $1`, [`${TAG}%`]);
+  await q(`DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE name LIKE $1)`, [`${TAG}%`]);
   await q(`DELETE FROM users WHERE name LIKE $1`, [`${TAG}%`]);
 }
 
@@ -327,7 +339,8 @@ async function main() {
   }
 
   try {
-    const { teacherIds, centerIds } = await seed();
+    const { teacherIds, centerIds, actorId } = await seed();
+    const ACTOR = { id: actorId, role: "accountant" } as SessionUser;
     const scale = await q<{ t: string; c: string }>(
       `SELECT (SELECT COUNT(*) FROM teacher_profiles WHERE wallet_balance > 0) t,
               (SELECT COUNT(*) FROM centers WHERE wallet_balance > 0) c`,
@@ -356,8 +369,21 @@ async function main() {
 
     const expectedGenerated = payable(await beneficiaryAvailability());
     const t0 = Date.now();
-    const fixed = await generatePayouts();
+    const fixed = await generatePayouts(ACTOR);
     const fixedMs = Date.now() - t0;
+
+    // Generation is AUDITED (2026-07-23): one row per committed chunk, so the
+    // counts across them must add up to exactly what the run reported.
+    const genAudit = await q<{ actor_id: string; after_state: { count: number; totalNetPayable: number } }>(
+      `SELECT actor_id, after_state FROM audit_logs
+        WHERE action = 'payout.generated' AND actor_id = $1`,
+      [actorId],
+    );
+    const auditedCount = genAudit.reduce((n, r) => n + Number(r.after_state.count), 0);
+    ok(
+      genAudit.length > 0 && auditedCount === fixed.generated,
+      `generation audited to the actor: ${genAudit.length} chunk row(s) totalling ${auditedCount} payouts (run generated ${fixed.generated})`,
+    );
 
     const legacyMap = new Map(legacy.rows.map((r) => [key(r), r]));
     const fixedKeys = new Set(fixed.payouts.map(key));
@@ -411,7 +437,7 @@ async function main() {
 
     // -----------------------------------------------------------------------
     console.log(`\n(4) EXACTLY-ONCE — re-running generation:`);
-    const rerun = await generatePayouts();
+    const rerun = await generatePayouts(ACTOR);
     ok(rerun.generated === 0, `second run generated 0 payouts (was ${fixed.generated})`);
     const afterRerun = await q<{ n: string }>(`SELECT COUNT(*) n FROM payouts`);
     ok(Number(afterRerun[0].n) === before.payouts + fixed.generated, "no duplicate rows written");
@@ -444,7 +470,7 @@ async function main() {
     await holder.query("BEGIN");
     await holder.query(`SELECT wallet_balance FROM teacher_profiles WHERE user_id=$1 FOR UPDATE`, [victim]);
     const genStart = Date.now();
-    const genPromise = generatePayouts();
+    const genPromise = generatePayouts(ACTOR);
     await new Promise((r) => setTimeout(r, 2_000));
     const midFlight = await q<{ n: string }>(
       `SELECT COUNT(*) n FROM payouts WHERE beneficiary_id=$1`, [victim]);
@@ -468,7 +494,7 @@ async function main() {
 
     // (5b) two concurrent generators.
     await q(`DELETE FROM payouts WHERE created_at >= $1`, [testStart]);
-    const [gA, gB] = await Promise.all([generatePayouts(), generatePayouts()]);
+    const [gA, gB] = await Promise.all([generatePayouts(ACTOR), generatePayouts(ACTOR)]);
     const conc = await openPayoutsByBeneficiary();
     const concDupes = conc.filter((r) => Number(r.n) > 1);
     ok(concDupes.length === 0, `two concurrent generators produced no duplicate: ${gA.generated} + ${gB.generated} payouts, 0 beneficiaries with >1`);
@@ -509,7 +535,7 @@ async function main() {
     );
     let failMsg = "";
     try {
-      await generatePayouts();
+      await generatePayouts(ACTOR);
     } catch (e) {
       failMsg = (e as Error).message;
     } finally {
@@ -535,7 +561,7 @@ async function main() {
 
     // Resume: re-run with the fault removed. The result must equal a clean
     // single run — no beneficiary paid twice, none left out.
-    const resumed = await generatePayouts();
+    const resumed = await generatePayouts(ACTOR);
     ok(resumed.generated === expectedGenerated - generatedBeforeFail,
       `re-run generated exactly the ${expectedGenerated - generatedBeforeFail} missing beneficiaries (${resumed.generated})`);
     const finalRows = await openPayoutsByBeneficiary();

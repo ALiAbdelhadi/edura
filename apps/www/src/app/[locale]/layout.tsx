@@ -9,6 +9,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, isRtlLocale } from "@/i18n/routing";
+import { appBaseUrl } from "@repo/server-core/http/app-url";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
@@ -58,7 +59,7 @@ export async function generateMetadata({
     routing.locales.map((l) => [l, `/${l}`]),
   );
   return {
-    metadataBase: new URL(process.env.APP_BASE_URL ?? "http://localhost:3002"),
+    metadataBase: new URL(appBaseUrl()),
     title: t("title"),
     description: t("description"),
     alternates: {

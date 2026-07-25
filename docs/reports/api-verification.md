@@ -272,6 +272,52 @@ Any client that authenticates through the REST endpoint rather than NextAuth
 locks out the entire Center Staff feature with a message that says the password
 is wrong.
 
+**✅ FIXED (2026-07-23)** — the allowlist was not added to the second file; it
+was removed from **both**, so there is no second copy left to drift.
+
+1. *One shared source.* New `packages/server-core/src/auth/login-policy.ts`
+   holds an exhaustive `Record<Role, LoginApp>` mapping every role to exactly
+   one app (`www` | `superadmin`), and exports `canSignIn(app, role)`. All
+   THREE login doors now call it and declare no list of their own: www NextAuth
+   (`apps/www/src/lib/auth/options.ts`), the www REST endpoint
+   (`apps/www/src/app/api/v1/auth/login/route.ts`) and the back-office door
+   (`apps/superadmin/src/lib/auth/options.ts`).
+2. *Why a `Record`, not two sets.* Adding a role to the Prisma `Role` enum
+   **fails typecheck** until it is classified, so a new role can never be
+   silently missing from a door; and because a role maps to exactly one app,
+   www and superadmin can never both claim (or both drop) the same role.
+   `canSignIn` is default-deny for anything that is not a known role.
+3. *Second drift, also fixed.* The doors disagreed on the session `centerId`
+   too — NextAuth resolved a center for `center_staff`, the REST door did not,
+   so a REST-issued staff token carried no center. Both now call the shared
+   `resolveLoginCenterId()`. The claim stays a convenience: `center_staff`
+   authorization is still re-derived per request from the live link
+   (`removed_at IS NULL`) in `authz/center-actor.ts`.
+4. *Nothing was weakened.* The role check feeds the same `eligible` expression
+   in every door, so the single unconditional `bcrypt.compare` (H5) still runs
+   on the ineligible-role path, and the `status='active'` + password-hash gates
+   are untouched. The REST door's ad-hoc compare was aligned to the exact
+   NextAuth shape while we were there.
+
+Proofs (live DB, real route handler + real authorize/jwt/session callbacks):
+
+* `apps/www/tests/db/c04-login-parity.test.ts` **72/72** — each of the three
+  sub-roles (receptionist / manager / center_accountant) gets **200** from
+  `POST /api/v1/auth/login` (was 401) *and* is accepted by NextAuth, with an
+  identical claim set (`role`/`centerId`/`ver`), and the REST-issued JWT
+  authenticates subsequent requests; all 8 roles agree across both doors;
+  `super_admin` + `accountant` still get 401 and no cookie; C2 (per-IP 429 at
+  request #11, correct password still refused while throttled), H5, L1, C-03
+  and the walk-in token provider re-asserted intact.
+* `apps/superadmin/tests/db/c04-login-boundary.test.ts` **26/26** — the other
+  direction: all 8 www principals refused with the correct password, staff
+  still admitted, plus C2/H5/L1/C-03 on that door.
+* `apps/www/tests/unit/c04-login-allowlist.test.ts` **9/9** — the drift test:
+  `www ∪ superadmin` equals the `Role` enum parsed from `schema.prisma`, the
+  two sets are disjoint, no door declares a local allowlist any more, no door
+  is pointed at the other app, and the H5 dummy-hash branch is still present in
+  all three.
+
 ---
 
 ### 2.2 HIGH
@@ -397,6 +443,100 @@ Discovered as collateral damage from this sweep, then confirmed:
 CLAUDE.md and the endpoint's own semantics describe the blacklist as
 **reversible**. The gating flag is reversible; its cascade is not. In production
 this silently destroys enrollment history and locks out a center owner.
+
+**✅ FIXED (2026-07-23) — the enrollment half.** The center-owner half is split
+out as **H-05** below and deliberately NOT covered here.
+
+The fix had to answer one question at lift time: *which* removals did THIS
+blacklist cause? Not "which rows carry an `unenrolled_at` near the blacklist
+timestamp" — wall-clock proximity sweeps in unrelated departures and goes
+ambiguous the second time a student is blacklisted. And not a boolean on
+`enrollments` either: it cannot survive a second blacklist/lift cycle, cannot
+record *why* a restore was skipped, and does not generalise past enrollments.
+
+1. *A cascade journal, not a heuristic.* New additive table
+   `blacklist_cascade_actions` (migration `20260723120100_blacklist_cascade_journal`):
+   one append-only row per entity a blacklist actually removed, keyed to the
+   `blacklist_entries.id` that removed it, written in the SAME transaction as
+   the removal. A lift **replays the journal** instead of re-deriving anything.
+   Level scoping therefore needs no logic at lift time (a center entry only ever
+   journaled that center's rows), and blacklist → lift → blacklist cycles are
+   independent, because each entry owns its rows and the lift stamps
+   `reversed_at` so a row is considered exactly once. The outcome vocabulary is
+   a DB `CHECK`, so a typo cannot silently become a new verdict.
+2. *All three levels now cascade, scoped* (`packages/server-core/src/services/
+   blacklist/blacklist.ts`, the single implementation both apps re-export).
+   Previously only a **platform** blacklist unenrolled; center and teacher
+   blacklists set flags and left the student enrolled — a center could "blacklist"
+   a student who kept attending that very center. Platform removes all, center
+   removes only that center's enrollments, teacher removes only that teacher's
+   courses (across centers). Safe to make real precisely because this change
+   makes it reversible.
+3. *Restore never inserts.* It reactivates the ORIGINAL rows, so a duplicate is
+   structurally impossible; the partial unique `enrollments_active_student_course`
+   is the DB backstop. Outcomes: `restored`, `restored_over_capacity`,
+   `skipped_course_ended`, `skipped_already_active`, `skipped_duplicate`,
+   `skipped_still_blacklisted`, `skipped_missing`.
+4. *A full course does not cost the student the seat.* The seat was taken by a
+   platform action, not given up, so the restore wins over `max_students` —
+   recorded as `restored_over_capacity` **and** notified to the course's center
+   admins + teacher (new `enrollment_restored_over_capacity` notification type),
+   so nobody discovers an over-cap course by accident.
+5. *A blocked restore is deferred, not dropped.* If another blacklist still
+   covers that scope (platform lifted while a center ban stands), the enrollment
+   correctly stays out — but the outstanding obligation is **transferred to the
+   blocking entry**, so lifting that one later still restores it. Without the
+   transfer the enrollment would be lost for good, which is H-04 again by
+   another path.
+6. *Money, explicitly.* Restoration is a roster operation. The path reads
+   `enrollments`, `courses`, `blacklist_entries`, `blacklist_cascade_actions`
+   and writes only `enrollments.status` / `unenrolled_at` and the journal stamp.
+   Blacklisting never refunded and never cancelled a subscription, so lifting
+   has nothing to re-charge — payment coverage is identical on both legs.
+
+Proof (live DB, real services, `is_demo` fixtures, full teardown):
+`apps/www/tests/db/h04-blacklist-cascade-reversal.test.ts` **44/44** — a student
+with 6 enrollments across 3 centers + a teacher-direct course is blacklisted
+(all 6 removed) and lifted (**all 6 restored, and only those**); an enrollment
+left for an unrelated reason is never journaled and never restored; a manual
+re-enrollment during the blacklist yields **zero** duplicate active rows
+(`skipped_already_active` / `skipped_duplicate`); a course ended mid-blacklist
+is not restored; a full course is (`restored_over_capacity`, center + teacher
+notified); center and teacher levels remove and restore only their own scope;
+overlapping levels defer correctly and the obligation transfers; blacklist →
+lift → blacklist → lift stay independent across a roster change in between; and
+**0 money rows were modified, deleted, or created** for any entity in the run
+across 9 ledger tables + every wallet. C-03 revocation and `assertNotBlacklisted`
+re-asserted intact.
+
+> The money witness asserts "nothing pre-existing modified or deleted, nothing
+> new referencing these entities" rather than a whole-table hash: the dev
+> servers run against this same live DB, so unrelated concurrent writes would
+> otherwise show up as a false failure. The scoped claim is the stronger one.
+
+Regressions green: `pnpm check-types` 5/5, www unit 94 pass/1 skip, C-03 www
+26/26 + superadmin 15/15, rbac-isolation 11/11, `pnpm build` both apps.
+
+---
+
+#### **H-05 · Center-entity blacklist leaves the center's admins suspended after reactivation**
+
+`POST /api/v1/admin/centers/[id]/blacklist` · **data integrity** · split out of H-04
+
+The second half of the original H-04. `blacklistCenter` (and `rejectCenter`)
+cascade `users.status = 'suspended'` to every `CenterAdminProfile` of the
+center; bringing the center back to `active` does not undo it, so
+`admin@nile-academy.eg` stayed `suspended` and the owner was locked out.
+
+Not covered by the H-04 fix, deliberately: this path creates **no
+`BlacklistEntry` row at all** and has no "remove" endpoint, so it needs its own
+reversal door rather than a widening of the enrollment fix. The
+`blacklist_cascade_actions` journal generalises to it — `entity_type` is the
+seam, and a `'user_status'` row would carry the previous status — but the
+reversal trigger (what counts as "the center blacklist was lifted") has to be
+designed alongside `toggleCenter`, which currently refuses any center that is
+not `active`/`suspended` and so cannot bring a `blacklisted` center back at all.
+Related: **M-02**, the same one-way-door shape on teacher/center rejection.
 
 ---
 
@@ -994,10 +1134,11 @@ verified, success body not reachable).
 | 1 | **C-01** session-completion 500 | The money engine cannot settle a lesson for the default course shape. Blocks launch. |
 | 2 | **C-03** status changes don't revoke sessions | A suspended or blacklisted user keeps write access for 30 days. |
 | 3 | **C-02** payout generation 500 | The accountant cannot pay anyone. |
-| 4 | **C-04** `center_staff` login allowlist | An entire built feature is unreachable through the REST login door. |
-| 5 | **H-04** blacklist cascade not reversed | Silent, irreversible data loss on a "reversible" action. |
+| 4 | **C-04** `center_staff` login allowlist ✅ fixed | An entire built feature is unreachable through the REST login door. |
+| 5 | **H-04** blacklist enrollment cascade not reversed ✅ fixed | Silent, irreversible data loss on a "reversible" action. |
 | 6 | **H-01** trial-balance formula | Wrong headline money number for the accountant. |
 | 7 | **H-02** 20 s transaction ceiling | Intermittent 500s on a child-safety read path. |
-| 8 | **H-03** seed UUIDs | Blocks demoing/QA of the counter and messaging flows. |
-| 9 | **M-01 … M-05** | Workflow and consistency defects, no data at risk. |
-| 10 | **L-01 … L-07** | Cosmetic / needs-a-decision. |
+| 8 | **H-05** center blacklist leaves admins suspended | Locks a center owner out of their own portal; split out of H-04. |
+| 9 | **H-03** seed UUIDs | Blocks demoing/QA of the counter and messaging flows. |
+| 10 | **M-01 … M-05** | Workflow and consistency defects, no data at risk. |
+| 11 | **L-01 … L-07** | Cosmetic / needs-a-decision. |

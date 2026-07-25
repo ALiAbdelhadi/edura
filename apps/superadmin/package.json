@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check-types": "tsc --noEmit",
-    "test:db": "tsx --env-file=.env.local tests/db/refund.test.ts"
+    "pretest:db": "tsx --env-file=.env.test ../../packages/database/scripts/db-guard.ts test",
+    "test:db": "pnpm pretest:db && tsx --env-file=.env.test tests/db/refund.test.ts"
   },
   "dependencies": {
     "@refinedev/core": "^5.0.12",

@@ -49,6 +49,9 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   registration_approved: C(true, true, true, false),
   registration_rejected: C(true, false, true, false),
   blacklist_action: C(true, true, true, false),
+  // H-04: operational heads-up to the course owner (a lifted blacklist put a
+  // student back into a now-full course). In-app + push; no email/SMS noise.
+  enrollment_restored_over_capacity: C(true, true, false, false),
   payout_approved: C(true, true, true, false),
   classroom_request: C(true, true, false, false),
   classroom_request_decided: C(true, true, false, false),

@@ -19,6 +19,7 @@ const navItems = [
   { href: "/dashboard/superadmin/payouts", icon: "chart", label: "Payouts" },
   { href: "/dashboard/superadmin/settlements", icon: "dollar", label: "Room settlements" },
   { href: "/dashboard/superadmin/commission", icon: "settings", label: "Commission" },
+  { href: "/dashboard/superadmin/wallet", icon: "wallet", label: "Wallet policy" },
   { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp" },
   { href: "/dashboard/superadmin/messaging", icon: "message", label: "Messaging" },
 ];

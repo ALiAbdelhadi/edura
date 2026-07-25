@@ -1,10 +1,10 @@
 "use client";
 
+import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -40,55 +40,47 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-6">
-        <div className="w-full max-w-sm">
-          <Card>
-            <CardContent className="flex flex-col items-center gap-4 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
-                <XCircle className="size-6" />
-              </div>
-              <div className="space-y-1">
-                <h1 className="text-xl font-bold tracking-tight text-foreground">
-                  {t("auth.resetInvalidTitle")}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {t("auth.resetInvalidSubtitle")}
-                </p>
-              </div>
-              <Button asChild className="w-full">
-                <Link href="/forgot-password">{t("auth.requestNewLink")}</Link>
-              </Button>
-            </CardContent>
-          </Card>
+      <AuthCenteredShell>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+            <XCircle className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              {t("auth.resetInvalidTitle")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("auth.resetInvalidSubtitle")}
+            </p>
+          </div>
+          <Button asChild className="w-full">
+            <Link href="/forgot-password">{t("auth.requestNewLink")}</Link>
+          </Button>
         </div>
-      </div>
+      </AuthCenteredShell>
     );
   }
 
   if (done) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-6">
-        <div className="w-full max-w-sm">
-          <Card>
-            <CardContent className="flex flex-col items-center gap-4 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-success/15 text-success">
-                <CheckCircle2 className="size-6" />
-              </div>
-              <div className="space-y-1">
-                <h1 className="text-xl font-bold tracking-tight text-foreground">
-                  {t("auth.resetDoneTitle")}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {t("auth.resetDoneSubtitle")}
-                </p>
-              </div>
-              <Button asChild className="w-full">
-                <Link href="/login">{t("auth.signInTitle")}</Link>
-              </Button>
-            </CardContent>
-          </Card>
+      <AuthCenteredShell>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-success/15 text-success">
+            <CheckCircle2 className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              {t("auth.resetDoneTitle")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("auth.resetDoneSubtitle")}
+            </p>
+          </div>
+          <Button asChild className="w-full">
+            <Link href="/login">{t("auth.signInTitle")}</Link>
+          </Button>
         </div>
-      </div>
+      </AuthCenteredShell>
     );
   }
 
@@ -123,73 +115,67 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <Image
-            src="/edura-logo.svg"
-            alt="Edura"
-            width={120}
-            height={90}
-            priority
-            className="mb-4 h-[90px] w-auto"
-          />
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("auth.resetTitle")}
-          </h1>
-        </div>
-
-        <Card>
-          <CardContent>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit();
-              }}
-              className="flex flex-col gap-4"
-            >
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="password">{t("auth.newPassword")}</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute inset-y-0 inset-s-0 z-10 my-auto ms-3 size-4 text-muted-foreground" />
-                  <PasswordInput
-                    id="password"
-                    className="ps-9"
-                    placeholder={t("auth.passwordMinPlaceholder")}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="confirm">{t("auth.confirmPassword")}</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute inset-y-0 inset-s-0 z-10 my-auto ms-3 size-4 text-muted-foreground" />
-                  <PasswordInput
-                    id="confirm"
-                    className="ps-9"
-                    placeholder={t("auth.reenterPasswordPlaceholder")}
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t("auth.resetButton")}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+    <AuthCenteredShell>
+      <div className="mb-8 flex flex-col items-center text-center">
+        <Image
+          src="/edura-logo.svg"
+          alt="Edura"
+          width={120}
+          height={90}
+          priority
+          className="mb-4 h-[90px] w-auto"
+        />
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {t("auth.resetTitle")}
+        </h1>
       </div>
-    </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="flex flex-col gap-4"
+      >
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">{t("auth.newPassword")}</Label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute inset-y-0 inset-s-0 z-10 my-auto ms-3 size-4 text-muted-foreground" />
+            <PasswordInput
+              id="password"
+              className="ps-9"
+              placeholder={t("auth.passwordMinPlaceholder")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="confirm">{t("auth.confirmPassword")}</Label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute inset-y-0 inset-s-0 z-10 my-auto ms-3 size-4 text-muted-foreground" />
+            <PasswordInput
+              id="confirm"
+              className="ps-9"
+              placeholder={t("auth.reenterPasswordPlaceholder")}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {t("auth.resetButton")}
+        </Button>
+      </form>
+    </AuthCenteredShell>
   );
 }

@@ -59,6 +59,10 @@
     "validate": "prisma validate",
     "format": "prisma format",
     "seed": "tsx prisma/seed.ts",
+    "db:label": "tsx scripts/label-db.ts",
+    "db:guard": "tsx scripts/db-guard.ts",
+    "db:bootstrap-role": "tsx scripts/bootstrap-app-role.ts",
+    "db:verify": "tsx scripts/verify-db.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -1,4 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
+import { NotFoundError } from "@/lib/errors/classes";
+import { filterStudentSecondLanguage } from "./second-language";
 
 export function getCatalogTree() {
   return platformDb(async (tx) => {
@@ -111,6 +113,25 @@ export function getAllActiveSubjects() {
     });
     return subjects;
   });
+}
+
+/**
+ * The student's OWN subject list (the "My subjects" default view): the subjects
+ * of their grade + track, minus every second foreign language EXCEPT the one
+ * they picked at onboarding. A student who skipped the step gets none of them.
+ * Resolved from the profile on every call so it always tracks profile changes.
+ */
+export async function getStudentOwnSubjects(userId: string) {
+  const profile = await platformDb((tx) =>
+    tx.studentProfile.findUnique({
+      where: { userId },
+      select: { gradeLevelId: true, trackId: true, secondLanguageSubjectId: true },
+    }),
+  );
+  if (!profile) throw new NotFoundError("Student profile not found");
+  if (!profile.gradeLevelId) return [];
+  const subjects = await getSubjectsForSelection(profile.gradeLevelId, profile.trackId);
+  return filterStudentSecondLanguage(subjects, profile.secondLanguageSubjectId);
 }
 
 export async function getSecondLanguageOptions(gradeLevelId: string) {

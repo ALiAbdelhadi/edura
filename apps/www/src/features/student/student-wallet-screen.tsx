@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ShieldCheck } from "lucide-react";
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -32,7 +32,6 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 
 type WalletInfo = {
   balance: number;
-  maxBalance: number | null;
   minTopup: number;
   maxTopup: number;
 };
@@ -147,22 +146,12 @@ export function StudentWalletScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard
-          filled
-          label={t("studentWallet.balance")}
-          value={formatEGP(wallet?.balance ?? 0)}
-          icon={Wallet}
-        />
-        {wallet?.maxBalance != null ? (
-          <StatCard
-            label={t("studentWallet.limit")}
-            value={formatEGP(wallet.maxBalance)}
-            hint={t("studentWallet.limitHint")}
-            icon={ShieldCheck}
-          />
-        ) : null}
-      </div>
+      <StatCard
+        filled
+        label={t("studentWallet.balance")}
+        value={formatEGP(wallet?.balance ?? 0)}
+        icon={Wallet}
+      />
 
       <Card>
         <CardHeader>

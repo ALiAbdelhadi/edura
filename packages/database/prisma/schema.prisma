@@ -356,6 +356,9 @@ enum NotificationType {
   registration_approved
   registration_rejected
   blacklist_action
+  // H-04: a lifted blacklist restored a student into a course that filled up
+  // while they were out — the owning center/teacher is told it is over cap.
+  enrollment_restored_over_capacity
   payout_approved
   classroom_request
   classroom_request_decided
@@ -1263,6 +1266,33 @@ model BlacklistEntry {
   @@map("blacklist_entries")
 }
 
+/// H-04 — the record of what a blacklist actually DID, so lifting it can give
+/// back exactly that and nothing else. One append-only row per entity removed
+/// by a blacklist, keyed to the BlacklistEntry that removed it; the lift stamps
+/// `reversedAt` + `reversal` on each. Never matched by timestamp: a blacklist
+/// can be applied and lifted repeatedly, and each entry owns its own rows.
+/// Roster bookkeeping only — nothing here touches the money ledger.
+model BlacklistCascadeAction {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entryId    String   @map("entry_id") @db.Uuid // BlacklistEntry that caused the removal
+  targetId   String   @map("target_id") @db.Uuid
+  entityType String   @map("entity_type") // 'enrollment' — the seam for future cascades
+  entityId   String   @map("entity_id") @db.Uuid
+  centerId   String?  @map("center_id") @db.Uuid // scope snapshot; NULL = teacher-direct course
+  courseId   String   @map("course_id") @db.Uuid
+  prevStatus String   @map("prev_status")
+  appliedAt  DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+  // NULL while outstanding — a lift only ever considers those, which is what
+  // makes reversal idempotent and blacklist→lift→blacklist cycles independent.
+  reversedAt DateTime? @map("reversed_at") @db.Timestamptz(6)
+  reversal   String? // restored | restored_over_capacity | skipped_* (DB CHECK)
+  reversedBy String?  @map("reversed_by") @db.Uuid
+
+  @@unique([entryId, entityType, entityId])
+  @@index([targetId, appliedAt(sort: Desc)])
+  @@map("blacklist_cascade_actions")
+}
+
 model AuditLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorId     String?  @map("actor_id") @db.Uuid
@@ -1986,7 +2016,10 @@ model WalletLedger {
 // Superadmin wallet policy (PRD §5.6). Singleton row (one global config).
 model WalletSettings {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  maxBalance Int?     @map("max_balance") // NULL = uncapped; piasters
+  // DEPRECATED (2026-07-23): the student wallet balance cap was removed — no
+  // code reads this column any more. Kept inert (nullable, nulled by migration
+  // 20260723130000_drop_wallet_balance_cap) rather than dropped.
+  maxBalance Int?     @map("max_balance")
   minTopup   Int      @default(1000) @map("min_topup") // 10 EGP
   maxTopup   Int      @default(500000) @map("max_topup") // 5000 EGP
   updatedBy  String?  @map("updated_by") @db.Uuid

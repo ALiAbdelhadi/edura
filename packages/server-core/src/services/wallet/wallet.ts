@@ -109,7 +109,6 @@ export async function walletDebit(
 }
 
 export type WalletSettings = {
-  maxBalance: number | null;
   minTopup: number;
   maxTopup: number;
 };
@@ -117,19 +116,20 @@ export type WalletSettings = {
 export async function getWalletSettings(tx: TenantTx): Promise<WalletSettings> {
   const row = await tx.walletSettings.findFirst();
   return {
-    maxBalance: row?.maxBalance ?? null,
     minTopup: row?.minTopup ?? 1000,
     maxTopup: row?.maxTopup ?? 500000,
   };
 }
 
 /**
- * Validate a requested top-up amount against policy + the remaining headroom to
- * the cap. Throws a clear BusinessRuleError; used BEFORE any money is taken.
+ * Validate a requested top-up amount against policy. Throws a clear
+ * BusinessRuleError; used BEFORE any money is taken. There is NO wallet balance
+ * cap — a student may hold any balance (removed 2026-07-23); only the
+ * per-transaction min/max bounds apply.
  */
 export async function assertTopupAllowed(
   tx: TenantTx,
-  studentId: string,
+  _studentId: string,
   amount: number,
 ): Promise<void> {
   if (!Number.isInteger(amount) || amount <= 0) {
@@ -145,18 +145,6 @@ export async function assertTopupAllowed(
     throw new BusinessRuleError(
       `Maximum top-up is ${(settings.maxTopup / 100).toFixed(2)} EGP`,
     );
-  }
-  if (settings.maxBalance != null) {
-    const p = await tx.studentProfile.findUnique({
-      where: { userId: studentId },
-      select: { walletBalance: true },
-    });
-    const current = p?.walletBalance ?? 0;
-    if (current + amount > settings.maxBalance) {
-      throw new BusinessRuleError(
-        `This top-up would exceed the wallet limit of ${(settings.maxBalance / 100).toFixed(2)} EGP`,
-      );
-    }
   }
 }
 

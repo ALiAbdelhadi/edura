@@ -145,8 +145,6 @@
     "subtitle": "Top up and pay for classes from your balance",
     "topUp": "Top up",
     "balance": "Wallet balance",
-    "limit": "Wallet limit",
-    "limitHint": "Set by the platform",
     "history": "Transaction history",
     "noHistory": "No wallet activity yet",
     "colDate": "Date",

@@ -3,10 +3,15 @@ import { platformDb } from "@/lib/db/scope";
 import { ExpiredError, NotFoundError } from "@/lib/errors/classes";
 import { generateOpaqueToken, hashToken } from "@/lib/utils/random";
 import { sendMail } from "@/lib/mail/send";
+import { normalizeMailLocale, passwordResetEmail } from "@/lib/mail/templates";
+import { appBaseUrl } from "@repo/server-core/http/app-url";
 
 const RESET_TTL_MS = 60 * 60 * 1000;
 
-export async function requestPasswordReset(email: string): Promise<void> {
+export async function requestPasswordReset(
+  email: string,
+  locale?: string | null,
+): Promise<void> {
   const normalized = email.toLowerCase().trim();
 
   const result = await platformDb(async (tx) => {
@@ -29,13 +34,21 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   if (!result || !result.email) return;
 
-  const base = process.env.APP_BASE_URL || "http://localhost:3002";
-  const link = `${base}/reset-password?token=${result.token}`;
-  await sendMail({
-    to: result.email,
-    subject: "Reset your Edura password",
-    text: `Use this link within 1 hour to reset your password: ${link}`,
-  });
+  const mailLocale = normalizeMailLocale(locale);
+  // The reset page lives under the [locale] segment, so the link must carry it
+  // — otherwise an Arabic user lands on the English form.
+  const link = `${appBaseUrl()}/${mailLocale}/reset-password?token=${result.token}`;
+  const { subject, html, text } = passwordResetEmail({ link, locale: mailLocale });
+
+  // sendMail never throws: a delivery failure must not turn the deliberately
+  // generic "if an account exists…" response into a 500, which would tell an
+  // attacker the address IS registered. Failures surface in the server log.
+  const outcome = await sendMail({ to: result.email, subject, html, text });
+  if (!outcome.sent) {
+    console.error(
+      `[password-reset] reset email was not delivered${outcome.error ? `: ${outcome.error}` : ""}`,
+    );
+  }
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

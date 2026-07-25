@@ -1,28 +1,33 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { AuthShell } from "@/components/kit/auth-shell";
+import { PasswordInput } from "@/components/kit/password-input";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
+import { Button } from "@repo/ui/components/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
+import { Loader2, Lock, LogIn, Mail } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { Loader2, LogIn, Mail } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { PasswordInput } from "@/components/kit/password-input";
-import { AuthShell } from "@/components/kit/auth-shell";
+import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 function isSafeNext(value: string | null): value is string {
   return !!value && value.startsWith("/") && !value.startsWith("//");
 }
 
-// Demo quick-logins are a dev/staging convenience only — the accounts are
-// seeded is_demo data with a known password, so never expose them in prod.
-// NODE_ENV is statically inlined at build time, so the whole card is
-// dead-code-eliminated from production bundles.
 const SHOW_QUICK_LOGINS = process.env.NODE_ENV !== "production";
 
 const QUICK_LOGINS = [
@@ -60,24 +65,32 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const nextParam = searchParams.get("next");
   const next = isSafeNext(nextParam) ? nextParam : "/dashboard";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const doLogin = async (loginEmail?: string, loginPassword?: string) => {
-    const em = loginEmail ?? email;
-    const pw = loginPassword ?? password;
-    if (!em || !pw) {
-      setError(t("auth.enterEmailAndPassword"));
-      return;
-    }
+  const schema = z.object({
+    email: z
+      .string()
+      .min(1, { message: t("auth.emailRequired") })
+      .email({ message: t("auth.emailInvalid") }),
+    password: z.string().min(1, { message: t("auth.passwordRequired") }),
+  });
+
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof schema>) => {
     setLoading(true);
     setError(null);
     try {
       const result = await signIn("credentials", {
-        email: em,
-        password: pw,
+        email: values.email,
+        password: values.password,
         redirect: false,
       });
       if (result?.error) {
@@ -102,6 +115,7 @@ export default function LoginPage() {
           );
         }
       } catch {}
+      // eslint-disable-next-line react-hooks/immutability
       window.location.href = next;
     } catch {
       setError(t("auth.loginFailed"));
@@ -111,9 +125,9 @@ export default function LoginPage() {
   };
 
   const handleQuickLogin = (loginEmail: string) => {
-    setEmail(loginEmail);
-    setPassword("Passw0rd!");
-    doLogin(loginEmail, "Passw0rd!");
+    form.setValue("email", loginEmail);
+    form.setValue("password", "Passw0rd!");
+    onSubmit({ email: loginEmail, password: "Passw0rd!" });
   };
 
   return (
@@ -125,7 +139,7 @@ export default function LoginPage() {
           width={120}
           height={90}
           priority
-          className="mb-4 h-[90px] w-auto"
+          className="mb-4 h-22.5 w-auto"
         />
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {t("auth.signInTitle")}
@@ -135,106 +149,119 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <Card className="mb-4">
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              doLogin();
-            }}
-            className="flex flex-col gap-4"
-          >
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-4"
+        >
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("auth.email")}</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      className="ps-9"
+                      placeholder={t("auth.emailPlaceholder")}
+                      autoComplete="email"
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">{t("auth.email")}</Label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  className="ps-9"
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t("auth.password")}</Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  {t("auth.forgotPassword")}
-                </Link>
-              </div>
-              <PasswordInput
-                id="password"
-                placeholder={t("auth.passwordPlaceholder")}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                showLabel={t("auth.showPassword")}
-                hideLabel={t("auth.hidePassword")}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <LogIn className="size-4" />
-              )}
-              {t("auth.signInTitle")}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {SHOW_QUICK_LOGINS && (
-        <Card>
-          <CardContent>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("auth.quickDemoLogin")}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {QUICK_LOGINS.map(({ roleKey, email: qEmail, tone }) => {
-                const label = t(roleKey);
-                return (
-                  <button
-                    key={roleKey}
-                    type="button"
-                    onClick={() => handleQuickLogin(qEmail)}
-                    disabled={loading}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>{t("auth.password")}</FormLabel>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-primary hover:underline"
                   >
-                    <span
-                      className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tone}`}
-                    >
-                      {label[0]}
-                    </span>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              {t.rich("auth.demoPasswordHint", {
-                code: (chunks) => (
-                  <code className="font-mono text-foreground">{chunks}</code>
-                ),
-              })}
-            </p>
-          </CardContent>
-        </Card>
+                    {t("auth.forgotPassword")}
+                  </Link>
+                </div>
+                <FormControl>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+                    <PasswordInput
+                      className="ps-9"
+                      placeholder={t("auth.passwordPlaceholder")}
+                      autoComplete="current-password"
+                      showLabel={t("auth.showPassword")}
+                      hideLabel={t("auth.hidePassword")}
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full gap-2" disabled={loading}>
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <LogIn className="size-4" />
+            )}
+            {t("auth.signInTitle")}
+          </Button>
+        </form>
+      </Form>
+      {SHOW_QUICK_LOGINS && (
+        <div className="mt-8">
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("auth.quickDemoLogin")}
+            </span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {QUICK_LOGINS.map(({ roleKey, email: qEmail, tone }) => {
+              const label = t(roleKey);
+              return (
+                <button
+                  key={roleKey}
+                  type="button"
+                  onClick={() => handleQuickLogin(qEmail)}
+                  disabled={loading}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tone}`}
+                  >
+                    {label[0]}
+                  </span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            {t.rich("auth.demoPasswordHint", {
+              code: (chunks) => (
+                <code className="font-mono text-foreground">{chunks}</code>
+              ),
+            })}
+          </p>
+        </div>
       )}
-
-      <p className="mt-4 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         {t("auth.noAccountPrompt")}{" "}
         <Link
           href="/register"

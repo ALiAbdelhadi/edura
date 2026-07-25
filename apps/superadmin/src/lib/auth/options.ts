@@ -2,12 +2,14 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
+import { canSignIn } from "@repo/server-core/auth/login-policy";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 
-// Roles allowed into the back-office app. Enforced at credential-check time —
-// a valid www account (center/teacher/parent/student/assistant) can never mint
-// a superadmin session, regardless of route guards.
-const STAFF_ROLES = new Set(["super_admin", "accountant"]);
+// Roles allowed into the back-office app come from the SAME shared partition
+// the www doors use (@repo/server-core/auth/login-policy) — see C-04. Because
+// that map assigns every Role to exactly one app, a www account
+// (center_admin/center_staff/teacher/assistant/parent/student) can never mint a
+// superadmin session, and a new role cannot silently land in both apps.
 
 // H5: bcrypt hash of a random string — compared against for missing/ineligible
 // accounts so login timing is identical to a real wrong-password attempt.
@@ -90,7 +92,7 @@ export const authOptions: NextAuthOptions = {
         // DUMMY_HASH) so a nonexistent email and a wrong password share timing.
         const eligible =
           !!user &&
-          STAFF_ROLES.has(user.role) &&
+          canSignIn("superadmin", user.role) &&
           user.status === "active" &&
           !!user.passwordHash;
         const passwordOk = await bcrypt.compare(

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import {
   CalendarCheck,
@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 /**
  * Shared split-screen frame for the auth pages. The frame (branding panel +
@@ -152,8 +153,16 @@ export function AuthShell({
       </aside>
 
       {/* Form column */}
-      <main className="flex flex-1 overflow-y-auto p-6">
-        <div className="m-auto w-full max-w-sm">{children}</div>
+      <main className="flex flex-1 flex-col overflow-y-auto p-6">
+        {/* Locale toggle — the auth pages sit outside the dashboard shell, so
+            without this a visitor has no way to switch language before signing
+            in. Suspense because the switcher reads useSearchParams(). */}
+        <div className="flex shrink-0 justify-end">
+          <Suspense fallback={null}>
+            <LanguageSwitcher />
+          </Suspense>
+        </div>
+        <div className="m-auto w-full max-w-sm py-6">{children}</div>
       </main>
     </div>
   );

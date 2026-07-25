@@ -9,6 +9,7 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
+import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
 import { WizardShell, OptionCard } from "./wizard-shell";
 import { useOnboarding, apiSend } from "./use-onboarding";
 import { studentSteps, stepAfterGrade, stepAfterSystem, stepAfterTrack, type StudentStepId } from "./steps";
@@ -294,8 +295,7 @@ export function StudentWizard() {
           <Skeleton className="h-16" />
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {preview
-              .filter((s) => !s.isSecondLanguage || s.id === sel.secondLanguageSubjectId)
+            {filterStudentSecondLanguage(preview, sel.secondLanguageSubjectId)
               .map((s) => (
                 <Badge key={s.id} variant="secondary">
                   {dn(s)}

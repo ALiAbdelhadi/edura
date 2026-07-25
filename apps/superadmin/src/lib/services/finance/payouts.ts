@@ -111,6 +111,7 @@ async function generateForChunk(
   beneficiaryType: "teacher" | "center",
   ids: string[],
   stats: Map<string, LedgerStats>,
+  user: SessionUser,
 ): Promise<GeneratedPayout[]> {
   return platformDb(async (tx) => {
     const locked =
@@ -142,12 +143,32 @@ async function generateForChunk(
       });
       created.push({ beneficiaryType, beneficiaryId: row.id, netPayable: avail });
     }
-    if (rows.length > 0) await tx.payout.createMany({ data: rows });
+    if (rows.length > 0) {
+      await tx.payout.createMany({ data: rows });
+      // Audited INSIDE the chunk tx, so the log row commits with exactly the
+      // payouts it describes — a chunk that rolls back leaves no claim that it
+      // generated anything. One row per chunk (not per payout): createMany
+      // returns no ids, and the batch is what the accountant actually did.
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "payout.generated",
+          targetType: "payout",
+          targetId: null,
+          afterState: {
+            beneficiaryType,
+            count: created.length,
+            totalNetPayable: created.reduce((s, c) => s + c.netPayable, 0),
+            beneficiaries: created.map((c) => ({ id: c.beneficiaryId, netPayable: c.netPayable })),
+          } as never,
+        },
+      });
+    }
     return created;
   });
 }
 
-export async function generatePayouts() {
+export async function generatePayouts(user: SessionUser) {
   // Phase 1 — discovery + every historical aggregate, in one short read-only
   // transaction (4 round-trips regardless of beneficiary count). Sorted so the
   // chunk boundaries are deterministic across concurrent generators.
@@ -182,7 +203,7 @@ export async function generatePayouts() {
 
   for (const batch of batches) {
     try {
-      created.push(...(await generateForChunk(batch.type, batch.ids, stats)));
+      created.push(...(await generateForChunk(batch.type, batch.ids, stats, user)));
     } catch (cause) {
       // Keep the real cause in the server log (M4 hides it from the client) and
       // tell the accountant exactly where it stopped — the batch is resumable.

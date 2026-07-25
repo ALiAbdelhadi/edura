@@ -61,7 +61,7 @@ function toClientIntent(
 
 /**
  * Create a wallet-top-up PaymentIntent. The requested amount is CLIENT-chosen
- * but SERVER-VALIDATED (min/max/cap via assertTopupAllowed) and snapshotted onto
+ * but SERVER-VALIDATED (min/max via assertTopupAllowed) and snapshotted onto
  * the intent — the webhook settles from the intent row, never from the gateway
  * payload. purpose=wallet_topup makes the webhook credit the wallet.
  */
@@ -84,7 +84,7 @@ export async function initiateWalletTopUpIntent(
         return { intent: existing, student: null };
       }
 
-      // Reject over-cap / out-of-range BEFORE creating the intent (no money taken).
+      // Reject out-of-range amounts BEFORE creating the intent (no money taken).
       await assertTopupAllowed(tx, user.id, input.amount);
 
       const student = await tx.user.findUnique({
@@ -300,7 +300,6 @@ export async function getWalletForStudent(user: SessionUser) {
     return {
       balance: profile?.walletBalance ?? 0,
       currency: "EGP",
-      maxBalance: settings.maxBalance,
       minTopup: settings.minTopup,
       maxTopup: settings.maxTopup,
     };

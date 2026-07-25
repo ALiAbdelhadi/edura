@@ -199,6 +199,31 @@ export async function refundLessonForStudent(
           },
         );
 
+        // Audited in the SAME tx as the reversal. The ledger already records
+        // WHAT moved; this records WHO reversed it and WHY — and because it
+        // rides the tx guarded by transactions_one_refund_per_payment, a losing
+        // concurrent refund leaves no audit row either.
+        await tx.auditLog.create({
+          data: {
+            actorId: user.id,
+            action: "refund.issued",
+            targetType: "transaction",
+            targetId: payment.id,
+            centerId,
+            afterState: {
+              sessionId,
+              studentId,
+              refunded: perSessionPrice,
+              teacherNet,
+              centerNet,
+              teacherFee,
+              centerFee,
+              reason,
+              refundRef,
+            } as never,
+          },
+        });
+
         return {
           studentId,
           centerId,

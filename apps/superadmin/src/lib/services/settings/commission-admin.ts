@@ -52,15 +52,39 @@ export function updateGlobalCommission(
   return platformDb(
     async (tx) => {
       const existing = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
-      if (existing) {
-        return tx.commissionSetting.update({
-          where: { id: existing.id },
-          data: { ...input, updatedBy: user.id },
-        });
-      }
-      return tx.commissionSetting.create({
-        data: { scope: "global", ...input, updatedBy: user.id },
+      const row = existing
+        ? await tx.commissionSetting.update({
+            where: { id: existing.id },
+            data: { ...input, updatedBy: user.id },
+          })
+        : await tx.commissionSetting.create({
+            data: { scope: "global", ...input, updatedBy: user.id },
+          });
+
+      // Audited like every other write to this table (rooms-split.ts writes
+      // revenue_split.* / m2_rate.* for the split + Method-2 columns of the
+      // same rows). These are the rates every charge is settled at, so the log
+      // carries BEFORE and AFTER — "who lowered the commission, from what".
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "commission.global.updated",
+          targetType: "commission_setting",
+          targetId: row.id,
+          afterState: {
+            before: existing
+              ? {
+                  teacherDirectCommissionBp: existing.teacherDirectCommissionBp,
+                  platformTeacherFee: existing.platformTeacherFee,
+                  platformCenterFee: existing.platformCenterFee,
+                }
+              : null,
+            after: input,
+          } as never,
+        },
       });
+
+      return row;
     },
     { actorId: user.id },
   );
