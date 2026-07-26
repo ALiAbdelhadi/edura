@@ -20,10 +20,34 @@
  * a session, Next will fail the build rather than leak — do not "fix" that by
  * restoring force-dynamic here; scope the dynamic behaviour to that segment.
  */
-export default function DashboardLayout({
+import { hasLocale, NextIntlClientProvider } from "next-intl";
+import { getMessages, setRequestLocale } from "next-intl/server";
+import { routing } from "@/i18n/routing";
+
+/**
+ * It also mounts the full message dictionary. The root layout ships only the
+ * base namespaces so that public pages (login especially) stop carrying the
+ * admin/teacher/parent/student blocks. Everything under /dashboard keeps the
+ * COMPLETE dictionary, so no dashboard screen's translations change — the
+ * per-role split is deliberately left as a follow-up, because `staff/layout.tsx`
+ * uses hooks and could not host a provider without refactoring the center-staff
+ * delegation boundary.
+ */
+export default async function DashboardLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
-  return <>{children}</>;
+  const { locale } = await params;
+  // Next's generated LayoutProps types `locale` as string; narrow with
+  // next-intl's own guard rather than casting. An invalid locale is already
+  // notFound()-ed by the root layout, so the else branch is unreachable.
+  if (hasLocale(routing.locales, locale)) setRequestLocale(locale);
+  return (
+    <NextIntlClientProvider messages={await getMessages()}>
+      {children}
+    </NextIntlClientProvider>
+  );
 }

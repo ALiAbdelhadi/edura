@@ -6,11 +6,12 @@ import {
 } from "next/font/google";
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, isRtlLocale } from "@/i18n/routing";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
 import { AppProviders } from "@/components/providers/app-providers";
+import { baseMessages } from "@/lib/i18n/scope";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -92,6 +93,11 @@ export default async function RootLayout({
   }
   setRequestLocale(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  // Only the app-wide chrome + public-page namespaces cross the wire here.
+  // Route groups that need more mount their own provider: dashboard/layout.tsx
+  // (full dictionary) and onboarding/layout.tsx. Omitting `messages` would
+  // serialize all 72KB (en) / 94KB (ar) into every page, login included.
+  const messages = baseMessages(await getMessages());
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
       <body
@@ -101,7 +107,7 @@ export default async function RootLayout({
             it as a hoistable resource and never warns about client-rendered
             inline scripts; same-origin + blocking so it runs before paint. */}
         <script src="/theme-init.js" />
-        <NextIntlClientProvider>
+        <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>
       </body>

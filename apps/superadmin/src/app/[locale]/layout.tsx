@@ -6,10 +6,11 @@ import {
 } from "next/font/google";
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, isRtlLocale } from "@/i18n/routing";
 import { AppProviders } from "@/components/providers/app-providers";
+import { baseMessages } from "@/lib/i18n/scope";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -68,6 +69,9 @@ export default async function RootLayout({
   }
   setRequestLocale(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  // Base namespaces only; /dashboard mounts the full dictionary. Omitting
+  // `messages` would serialize all 56KB (en) / 73KB (ar) into the login screen.
+  const messages = baseMessages(await getMessages());
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
       <body
@@ -77,7 +81,7 @@ export default async function RootLayout({
             it as a hoistable resource and never warns about client-rendered
             inline scripts; same-origin + blocking so it runs before paint. */}
         <script src="/theme-init.js" />
-        <NextIntlClientProvider>
+        <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>
       </body>
