@@ -11,7 +11,7 @@
 //   - typing indicators, read receipts, presence
 //   - /internal/* HTTP bridge so REST-sent messages still fan out live
 // =============================================================================
-import { env } from "./env"; // MUST be first — loads DATABASE_URL for @repo/database
+import { env, corsOrigin } from "./env"; // MUST be first — loads DATABASE_URL for @repo/database
 import { createServer } from "node:http";
 import { Server, type Socket } from "socket.io";
 import { z } from "zod";
@@ -54,7 +54,7 @@ const httpServer = createServer((req, res) => {
 });
 
 const io = new Server(httpServer, {
-  cors: { origin: env.allowedOrigins, credentials: true },
+  cors: { origin: corsOrigin, credentials: true },
   // Keep payloads sane; chat messages are capped far below this anyway.
   maxHttpBufferSize: 64 * 1024,
 });

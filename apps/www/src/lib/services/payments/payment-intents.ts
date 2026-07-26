@@ -6,6 +6,7 @@ import {
 } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Prisma } from "@repo/database";
+import type { SettleNotification } from "@repo/server-core/services/payments/notification-types";
 import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
@@ -216,13 +217,9 @@ export type WebhookOutcome =
  * notify must never roll back settled money. Returned by the settle helpers
  * so processWebhookEvent can send it post-commit.
  */
-export type SettleNotification = {
-  studentId: string;
-  type: "payment_recorded";
-  title: string;
-  body: string;
-  data: Record<string, unknown>;
-};
+// Declared in the kernel (the subscription settlement path there returns this
+// shape). Imported for local use AND re-exported, so every www import works.
+export type { SettleNotification };
 
 export async function processWebhookEvent(
   event: WebhookEvent,

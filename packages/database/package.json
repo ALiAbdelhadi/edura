@@ -37,6 +37,10 @@
       "types": "./src/queries/chat-groups.ts",
       "default": "./src/queries/chat-groups.ts"
     },
+    "./chat-guardian": {
+      "types": "./src/queries/chat-guardian.ts",
+      "default": "./src/queries/chat-guardian.ts"
+    },
     "./chat-safety": {
       "types": "./src/queries/chat-safety.ts",
       "default": "./src/queries/chat-safety.ts"
@@ -67,7 +71,8 @@
     "db:guard": "tsx scripts/db-guard.ts",
     "db:bootstrap-role": "tsx scripts/bootstrap-app-role.ts",
     "db:verify": "tsx scripts/verify-db.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

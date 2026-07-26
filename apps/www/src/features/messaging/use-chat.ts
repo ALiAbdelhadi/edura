@@ -55,6 +55,31 @@ export type OversightNotice = {
   minorParticipantId: string | null;
 };
 
+/**
+ * The realtime URL is configured for the machine running the servers
+ * (`http://localhost:3005`). Anything opening the app from ANOTHER device — a
+ * phone on the LAN testing the PWA, a tunnel — resolves `localhost` to itself,
+ * so the socket could never be reached and the UI sat on "Connection lost"
+ * forever for every role. When the page itself is not on loopback but the
+ * configured realtime host is, keep the port and reuse the host the app was
+ * loaded from. A non-loopback configured host (staging/production) is returned
+ * untouched.
+ */
+function resolveRealtimeUrl(configured: string): string {
+  if (typeof window === "undefined") return configured;
+  const loopback = (h: string) =>
+    h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+  try {
+    const target = new URL(configured, window.location.origin);
+    if (loopback(target.hostname) && !loopback(window.location.hostname)) {
+      target.hostname = window.location.hostname;
+    }
+    return target.origin;
+  } catch {
+    return configured;
+  }
+}
+
 function sortConversations(list: WireConversation[]): WireConversation[] {
   return [...list].sort(
     (a, b) =>
@@ -206,17 +231,51 @@ export function useChat(meId: string) {
   useEffect(() => {
     let disposed = false;
     let socket: Socket | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 1000;
+    let detachWake = () => {};
 
     const fetchToken = () =>
       api
         .get("realtime/token")
         .json<Envelope<{ token: string; url: string }>>();
 
+    /**
+     * socket.io does NOT retry when the server's auth middleware rejects the
+     * handshake — it flips `socket.active` to false and stays down for good. So
+     * one transient hiccup (an expired session, a token request that lost a
+     * race with a server restart) left the socket dead until a full page
+     * reload, showing "reconnecting" while nothing was reconnecting. Retry
+     * those ourselves, with a capped backoff.
+     */
+    const scheduleManualReconnect = () => {
+      if (disposed || retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (disposed || !socket || socket.connected || socket.active) return;
+        retryDelay = Math.min(retryDelay * 2, 10_000);
+        socket.connect();
+      }, retryDelay);
+    };
+
+    /** Network came back / the tab was resumed — attempt immediately. */
+    const wake = () => {
+      if (disposed || !socket || socket.connected) return;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      retryDelay = 1000;
+      socket.connect();
+    };
+
     void (async () => {
-      let url = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3005";
+      let url = resolveRealtimeUrl(
+        process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3005",
+      );
       try {
         const first = await fetchToken();
-        url = first.data.url || url;
+        if (first.data.url) url = resolveRealtimeUrl(first.data.url);
       } catch {
         // Session missing or endpoint down — socket auth callback will retry.
       }
@@ -234,7 +293,21 @@ export function useChat(meId: string) {
       });
       socketRef.current = socket;
 
+      // Mobile suspends the tab (and silently kills the socket) whenever the
+      // app is backgrounded; these two events are what actually fire on the way
+      // back, so they drive the reconnect instead of waiting on a ping timeout.
+      const onVisible = () => {
+        if (document.visibilityState === "visible") wake();
+      };
+      window.addEventListener("online", wake);
+      document.addEventListener("visibilitychange", onVisible);
+      detachWake = () => {
+        window.removeEventListener("online", wake);
+        document.removeEventListener("visibilitychange", onVisible);
+      };
+
       socket.on("connect", () => {
+        retryDelay = 1000;
         setStatus("online");
         // Resync anything missed while disconnected.
         void refreshConversations();
@@ -242,7 +315,11 @@ export function useChat(meId: string) {
         if (active) void loadThread(active);
       });
       socket.on("disconnect", () => setStatus("offline"));
-      socket.on("connect_error", () => setStatus("offline"));
+      socket.on("connect_error", () => {
+        setStatus("offline");
+        // `active === false` ⇒ the server denied us; socket.io has stopped.
+        if (socket && !socket.active) scheduleManualReconnect();
+      });
 
       socket.on("message:new", (ev: MessageNewEvent) => {
         const msg = ev.message as unknown as WireMessage;
@@ -369,6 +446,8 @@ export function useChat(meId: string) {
     const timers = typingTimers.current;
     return () => {
       disposed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      detachWake();
       socket?.disconnect();
       socketRef.current = null;
       for (const t of timers.values()) clearTimeout(t);

@@ -392,7 +392,8 @@
     "createFailed": "Could not create the assistant account",
     "remove": "Remove",
     "removeTitle": "Remove assistant?",
-    "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students."
+    "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students.",
+    "inviteNote": "The assistant sets their own password from an emailed invite link — you never see it."
   },
   "claim": {
     "authenticating": "Signing you in…",
@@ -404,7 +405,8 @@
     "passwordPlaceholder": "Password (8+ characters)",
     "continue": "Save & continue",
     "credentialsSaved": "Credentials saved",
-    "credentialsFailed": "Could not save credentials"
+    "credentialsFailed": "Could not save credentials",
+    "staffBody": "Choose a password for your account. Only you will know it."
   },
   "centerStaff": {
     "title": "Staff",
@@ -454,7 +456,12 @@
       "collaboration": "Collaboration requests",
       "opsReports": "Operational reports",
       "finance": "Financial reports (read-only)"
-    }
+    },
+    "inviteNote": "The staff member sets their own password from an emailed invite link — you never see it.",
+    "pendingInvite": "Invite pending",
+    "resendInvite": "Resend invite",
+    "resendBody": "Send {name} a fresh invite link. The previous link stops working immediately.",
+    "resendFailed": "Could not resend the invite"
   },
   "oversight": {
     "title": "My children's conversations",
@@ -467,5 +474,24 @@
     "messagesCount": "{count} messages",
     "readOnlyNotice": "Read-only view. Opening this does not mark anything as read for your child.",
     "backToChildren": "Back to children"
+  },
+  "invite": {
+    "linkTitle": "One-time invite link",
+    "emailSent": "Invite emailed to {email}.",
+    "emailNotSent": "The invite email could not be sent — share this link directly.",
+    "emailNoRecipient": "No email address to send to — share this link directly.",
+    "linkHint": "This link works once and expires. Sharing it again after it is used will not work.",
+    "done": "Done"
+  },
+  "guardian": {
+    "title": "A guardian email is required",
+    "overdueTitle": "A guardian email is still required",
+    "body": "Because this student is under 18, a parent or guardian email must be on file. It is where account and safety notices are sent.",
+    "locked": "Until it is added, messaging with teachers and center staff is turned off. Classes, materials, grades and payments are not affected.",
+    "phoneOnFile": "We have a guardian phone on file ({phone}) but no email yet.",
+    "emailPlaceholder": "Parent or guardian email",
+    "save": "Save",
+    "saved": "Guardian email saved — messaging is now available.",
+    "saveFailed": "Could not save the guardian email"
   }
 }

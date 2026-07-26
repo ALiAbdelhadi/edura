@@ -42,6 +42,12 @@ import {
   conversationInitiationMode,
   type InitiationMode,
 } from "./chat-policy";
+import { isAdultRole } from "./chat-minors";
+import {
+  GUARDIAN_LOCK_MESSAGE,
+  guardianLockedStudentIds,
+  isGuardianChannelLocked,
+} from "./chat-guardian";
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -50,6 +56,7 @@ export type ChatErrorCode =
   | "recipient_not_found"
   | "policy_denied"
   | "no_relationship"
+  | "guardian_required"
   | "blocked"
   | "rate_limited"
   | "conversation_not_found"
@@ -788,6 +795,37 @@ function edgeOpenToActor(edge: EdgeSpec, self: ResolvedActor): boolean {
   return (edge.staffAllow ?? []).includes(self.staffRole);
 }
 
+/**
+ * The DIRECTORY half of GATE 3. `assertCanReach` decides one pair; this decides
+ * a whole edge's worth at once, from the SAME predicate — so the auto-search
+ * can never offer a contact the gate would then refuse. The drift proof asserts
+ * set-equality between the two, which is what keeps these honest.
+ *
+ * Two directions, one rule:
+ *   - a locked STUDENT actor loses every adult-role edge outright;
+ *   - an ADULT actor loses the locked students from their student edge.
+ */
+async function guardianFilter(
+  ctx: EdgeCtx,
+  ids: string[],
+  edgeRole: Role,
+): Promise<string[]> {
+  const actorRole = ctx.self.actor.role;
+
+  if (actorRole === "student") {
+    if (!isAdultRole(edgeRole)) return ids;
+    return (await isGuardianChannelLocked(ctx.db, ctx.self.actor.id)) ? [] : ids;
+  }
+
+  if (edgeRole === "student" && isAdultRole(actorRole)) {
+    if (!ids.length) return ids;
+    const locked = await guardianLockedStudentIds(ctx.db, ids);
+    return ids.filter((id) => !locked.has(id));
+  }
+
+  return ids;
+}
+
 // ---------------------------------------------------------------------------
 // BLOCKS
 // ---------------------------------------------------------------------------
@@ -887,7 +925,19 @@ export async function assertCanReach(
     );
   }
 
-  // GATE 3 — blocks.
+  // GATE 3 — guardian channel (child safety). A MINOR with no guardian EMAIL
+  // on file may not open an adult-facing thread, and no adult may open one with
+  // them. Applied to whichever side of the pair is the student; `parent` is not
+  // an adult role, so a child is never cut off from their own guardian.
+  const studentSide =
+    actor.role === "student" ? actor.id : recipient.role === "student" ? recipient.id : null;
+  const adultSide =
+    actor.role === "student" ? recipient.role : recipient.role === "student" ? actor.role : null;
+  if (studentSide && isAdultRole(adultSide) && (await isGuardianChannelLocked(db, studentSide))) {
+    throw new ChatError("guardian_required", GUARDIAN_LOCK_MESSAGE);
+  }
+
+  // GATE 4 — blocks.
   await assertNotBlocked(db, actor.id, targetUserId);
 
   return {
@@ -971,7 +1021,7 @@ export async function listContacts(
     // edited together, but if they ever disagree the stricter one wins.
     if (!conversationInitiationMode(actor.role, edge.role)) continue;
 
-    const ids = await edge.reach(ctx);
+    const ids = await guardianFilter(ctx, await edge.reach(ctx), edge.role);
     const users = await selectUsers(ctx, ids, edge.role);
     if (!users.length) continue;
 

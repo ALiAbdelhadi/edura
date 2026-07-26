@@ -27,6 +27,7 @@ import {
 } from "@/lib/services/wallet/wallet";
 import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
 import { createSubscriptionCheckout } from "@/lib/services/subscriptions/subscriptions";
+import { initiateSubscriptionIntent } from "@/lib/services/payments/payment-intents";
 import type { SessionUser } from "@/lib/auth/session";
 
 let pass = 0;
@@ -181,9 +182,14 @@ async function main() {
   let threw = false;
   let errMsg = "";
   try {
+    // The gateway initiator is now injected by the caller (the kernel no longer
+    // reaches into www's Paymob machinery). This path funds from the WALLET, so
+    // the initiator is never reached — passing the real one keeps the call
+    // identical to what the route does.
     await createSubscriptionCheckout(
       { courseId: fx.courseId, plan: "monthly", payFrom: "wallet", method: "card", idempotencyKey: `w4-${rid()}` },
       s4user,
+      initiateSubscriptionIntent,
     );
   } catch (e) {
     threw = true;

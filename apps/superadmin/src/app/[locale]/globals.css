@@ -19,10 +19,6 @@ body {
 .shadow-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgb(224,226,232); }
 .shadow-ring { box-shadow: 0 0 0 1px rgb(224,226,232); }
 
-/* ── Typographic voice ───────────────────────────────────────────────────────
-   Plus Jakarta is loaded as a display face; put it to work on headings and the
-   dashboard KPI numbers so the product has a distinct voice instead of one flat
-   font everywhere. Body/UI stays Noto Sans (set via the AntD theme). */
 h1.ant-typography,
 h2.ant-typography,
 h3.ant-typography,

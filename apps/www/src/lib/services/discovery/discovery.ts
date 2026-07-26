@@ -23,7 +23,6 @@ function boundingBox(lat: number, lng: number, distanceKm: number) {
 
 type CourseSearchInput = {
   subject?: string;
-  /** Catalog subject FK; the sentinel "none" matches uncatalogued courses (subjectId IS NULL). */
   subjectId?: string;
   priceMin?: string;
   priceMax?: string;
@@ -57,11 +56,6 @@ export async function searchCourses(
     const where: Prisma.CourseWhereInput = { status: "active" };
 
     if (studentScope) {
-      // Strict grade match: legacy uncatalogued courses (gradeLevelId NULL)
-      // are hidden from the track-scoped default — they stay reachable via
-      // the explicit browse-all mode (scope=all skips this whole block).
-      // A NULL trackId on a *catalogued* course means "all tracks of the
-      // grade", so that arm must stay.
       where.AND = [
         { gradeLevelId: studentScope.gradeLevelId },
         {

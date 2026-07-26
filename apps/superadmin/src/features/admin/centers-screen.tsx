@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Home, Info } from "lucide-react";
+import { Eye, Home, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
@@ -776,7 +777,7 @@ export function CentersScreen() {
                   <TableHead>Name</TableHead>
                   <TableHead>Short ID</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Rooms &amp; split</TableHead>
+                  <TableHead className="text-end">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -787,11 +788,21 @@ export function CentersScreen() {
                     <TableCell>
                       <Badge variant="secondary">{c.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => setDetailId(c.id)}>
-                        <Home className="size-4" />
-                        Manage
-                      </Button>
+                    <TableCell className="text-end">
+                      <div className="flex justify-end gap-2">
+                        <Button asChild size="sm">
+                          <Link href={`/dashboard/superadmin/centers/${c.id}`}>
+                            <Eye className="size-4" />
+                            Oversight
+                          </Link>
+                        </Button>
+                        {/* The pricing dialog stays exactly where it was — the
+                            revenue split is edited here and nowhere else. */}
+                        <Button size="sm" variant="outline" onClick={() => setDetailId(c.id)}>
+                          <Home className="size-4" />
+                          Rooms &amp; split
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

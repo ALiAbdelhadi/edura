@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { createSubscriptionCheckout } from "@/lib/services/subscriptions/subscriptions";
+import { initiateSubscriptionIntent } from "@/lib/services/payments/payment-intents";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,12 @@ export const POST = withRateLimit(
   withErrors(async (req) => {
     const user = await requireRole("student");
     const body = await parseJson(req, bodySchema);
-    return ok(await createSubscriptionCheckout(body, user), { status: 201 });
+    // The gateway initiator is passed in: the Paymob machinery (drivers,
+    // HMAC, the C1 env checks) lives here in www, not in the shared kernel.
+    return ok(
+      await createSubscriptionCheckout(body, user, initiateSubscriptionIntent),
+      { status: 201 },
+    );
   }),
   30,
   30,

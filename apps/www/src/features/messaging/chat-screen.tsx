@@ -863,26 +863,47 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(
-    async (term: string) => {
-      setLoading(true);
-      try {
-        setContacts(await chat.searchContacts(term));
-      } catch {
-        setContacts([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [chat],
-  );
+  // `chat` is a fresh object on every render of the screen, so a `[chat]`
+  // dependency here made `load` — and the reset effect below — re-run on every
+  // presence tick, typing indicator and incoming message, wiping whatever the
+  // user had typed and re-showing the unfiltered list. Reading the (stable)
+  // searchContacts through a ref keeps `load` identity-stable, so the reset
+  // fires only when the dialog actually opens.
+  const searchContacts = chat.searchContacts;
+  const searchRef = useRef(searchContacts);
+  useEffect(() => {
+    searchRef.current = searchContacts;
+  }, [searchContacts]);
+  /** Guards against a slow earlier query overwriting a newer one's results. */
+  const requestId = useRef(0);
+
+  const load = useCallback(async (term: string) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    try {
+      const result = await searchRef.current(term);
+      if (requestId.current !== id) return; // superseded by a later keystroke
+      setContacts(result);
+    } catch {
+      if (requestId.current === id) setContacts([]);
+    } finally {
+      if (requestId.current === id) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    void load("");
     setSearch("");
     setRoleFilter(null);
+    void load("");
   }, [open, load]);
+
+  useEffect(
+    () => () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    },
+    [],
+  );
 
   const onSearch = (value: string) => {
     setSearch(value);

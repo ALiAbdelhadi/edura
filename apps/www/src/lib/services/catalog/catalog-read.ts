@@ -1,8 +1,14 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
+import { CATALOG_CACHE_LIFE, CATALOG_CACHE_TAG } from "./catalog-cache";
 import { filterStudentSecondLanguage } from "./second-language";
 
-export function getCatalogTree() {
+// CACHED: no arguments, permanent catalog reference tables only.
+export async function getCatalogTree() {
+  "use cache";
+  cacheTag(CATALOG_CACHE_TAG);
+  cacheLife(CATALOG_CACHE_LIFE);
   return platformDb(async (tx) => {
     const systems = await tx.educationSystem.findMany({
       where: { isActive: true },
@@ -62,6 +68,7 @@ export function getCatalogTree() {
   });
 }
 
+// NOT CACHED: shared inner call of the two per-user paths below (Batch 1b).
 export function getSubjectsForSelection(gradeLevelId: string, trackId?: string | null) {
   return platformDb(async (tx) => {
     const offerings = await tx.subjectOffering.findMany({
@@ -96,7 +103,11 @@ export function getSubjectsForSelection(gradeLevelId: string, trackId?: string |
   });
 }
 
-export function getAllActiveSubjects() {
+// CACHED: no arguments, permanent catalog reference tables only.
+export async function getAllActiveSubjects() {
+  "use cache";
+  cacheTag(CATALOG_CACHE_TAG);
+  cacheLife(CATALOG_CACHE_LIFE);
   return platformDb(async (tx) => {
     const subjects = await tx.subject.findMany({
       where: { isActive: true },
@@ -115,12 +126,7 @@ export function getAllActiveSubjects() {
   });
 }
 
-/**
- * The student's OWN subject list (the "My subjects" default view): the subjects
- * of their grade + track, minus every second foreign language EXCEPT the one
- * they picked at onboarding. A student who skipped the step gets none of them.
- * Resolved from the profile on every call so it always tracks profile changes.
- */
+// NEVER CACHE: takes a userId and reads the student profile (per-user data).
 export async function getStudentOwnSubjects(userId: string) {
   const profile = await platformDb((tx) =>
     tx.studentProfile.findUnique({
@@ -139,8 +145,13 @@ export async function getSecondLanguageOptions(gradeLevelId: string) {
   return subjects.filter((s) => s.isSecondLanguage);
 }
 
-export function getSubjectsForGradeLevels(gradeLevelIds: string[]) {
-  if (gradeLevelIds.length === 0) return Promise.resolve([]);
+// CACHED: argument is a list of grade-level UUIDs (catalog reference ids),
+// never a user/student/center/teacher id.
+export async function getSubjectsForGradeLevels(gradeLevelIds: string[]) {
+  "use cache";
+  cacheTag(CATALOG_CACHE_TAG);
+  cacheLife(CATALOG_CACHE_LIFE);
+  if (gradeLevelIds.length === 0) return [];
   return platformDb(async (tx) => {
     const offerings = await tx.subjectOffering.findMany({
       where: {

@@ -1,11 +1,5 @@
 import { api } from "@/lib/api/client";
 
-/**
- * IndexedDB-backed outbox for attendance marked while offline. Records are
- * queued client-side and replayed through POST /api/v1/teacher/attendance/sync
- * (create-if-absent, server-wins on conflict) — a different, additive endpoint
- * from the online PUT /sessions/:id/attendance (which replaces the whole roster).
- */
 const DB_NAME = "edura-offline";
 const DB_VERSION = 1;
 const STORE_NAME = "attendance-outbox";
@@ -115,17 +109,6 @@ export async function clearAttendanceOutbox(): Promise<void> {
 
 export type SyncOutcome = { synced: number; conflicts: number; errors: number };
 
-/**
- * POSTs every queued record for `teacherId` to the offline sync endpoint and
- * drops them from the outbox once the request completes — every submitted
- * record resolves to synced/conflict/error server-side, never "pending", so
- * a successful response always means the whole batch is safe to clear
- * locally. Returns null if there was nothing queued, or the request itself
- * failed (still offline / server unreachable) — the queue is left intact.
- *
- * Framework-agnostic (no React) so it can run from the auth provider's
- * logout handler as well as the useAttendanceSync hook.
- */
 export async function syncQueuedAttendance(
   teacherId: string,
 ): Promise<SyncOutcome | null> {

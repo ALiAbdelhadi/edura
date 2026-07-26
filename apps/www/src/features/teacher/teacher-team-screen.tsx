@@ -25,7 +25,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { PasswordInput } from "@/components/kit/password-input";
+import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
 import { api } from "@/lib/api/client";
 
 type AssistantRow = {
@@ -138,34 +138,45 @@ function AddAssistantDialog({ onCreated }: { onCreated: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [invite, setInvite] = useState<
+    { claimLink: string; delivery: InviteDelivery; to: string } | null
+  >(null);
 
   const reset = () => {
     setName("");
     setEmail("");
-    setPassword("");
     setTitle("");
     setError(null);
+    setInvite(null);
   };
 
   const submit = async () => {
     setSaving(true);
     setError(null);
     try {
-      await api.post("teacher/assistants", {
-        json: {
-          name,
-          email,
-          password,
-          ...(title.trim() ? { title } : {}),
-        },
-      });
+      const res = await api
+        .post("teacher/assistants", {
+          json: { name, email, ...(title.trim() ? { title } : {}) },
+        })
+        .json<{
+          data?: { invite?: { claimLink: string; delivery: InviteDelivery } | null };
+        }>();
       await onCreated();
-      setOpen(false);
-      reset();
+      // Deliberately NOT closing the dialog: the copyable link is the fallback
+      // when the invite email does not arrive, and closing would throw it away.
+      if (res?.data?.invite) {
+        setInvite({
+          claimLink: res.data.invite.claimLink,
+          delivery: res.data.invite.delivery,
+          to: email,
+        });
+      } else {
+        setOpen(false);
+        reset();
+      }
     } catch (err) {
       if (err instanceof HTTPError) {
         const body = (await err.response.json().catch(() => null)) as {
@@ -218,14 +229,6 @@ function AddAssistantDialog({ onCreated }: { onCreated: () => Promise<void> }) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="assistant-password">{t("team.password")}</Label>
-            <PasswordInput
-              id="assistant-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
             <Label htmlFor="assistant-title">{t("team.roleTitle")}</Label>
             <Input
               id="assistant-title"
@@ -234,17 +237,38 @@ function AddAssistantDialog({ onCreated }: { onCreated: () => Promise<void> }) {
               placeholder={t("team.roleTitlePlaceholder")}
             />
           </div>
+          <p className="text-xs text-muted-foreground">{t("team.inviteNote")}</p>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {invite ? (
+            <InviteLink
+              link={invite.claimLink}
+              delivery={invite.delivery}
+              to={invite.to}
+            />
+          ) : null}
         </div>
         <DialogFooter>
-          <Button
-            type="button"
-            onClick={submit}
-            disabled={saving || !name.trim() || !email.trim() || password.length < 8}
-          >
-            {saving ? <Spinner /> : null}
-            {t("team.create")}
-          </Button>
+          {invite ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+            >
+              {t("invite.done")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={submit}
+              disabled={saving || !name.trim() || !email.trim()}
+            >
+              {saving ? <Spinner /> : null}
+              {t("team.create")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

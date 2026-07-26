@@ -2,9 +2,9 @@ import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { requireRole } from "@/lib/authz/require-role";
-import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { lookupTeacher } from "@repo/server-core/services/center/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -19,23 +19,8 @@ const bodySchema = z.object({
 export const POST = withRateLimit(
   withErrors(async (req) => {
     const user = await requireRole("center_admin");
-    const { email } = await parseJson(req, bodySchema);
-
-    const teacher = await scopedDb(user, (tx) =>
-      tx.user.findFirst({
-        where: { email, role: "teacher", status: { not: "deleted" } },
-        select: { status: true },
-      }),
-    );
-
-    const found = teacher !== null;
-    // An invite/activation can proceed only when no real account exists yet:
-    // no match, or an unclaimed shell. A registered teacher is added via a
-    // collaboration request instead (the invite route rejects non-shell
-    // accounts with exactly that guidance).
-    const inviteSendable = !found || teacher.status === "shell";
-
-    return ok({ found, inviteSendable });
+    const body = await parseJson(req, bodySchema);
+    return ok(await lookupTeacher(user, body));
   }),
   20,
   20,

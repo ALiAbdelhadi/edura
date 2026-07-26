@@ -203,88 +203,9 @@ export async function settleWalletTopUpFromIntentTx(
 // under a center RLS tenant); the center scope is enforced in-code (roster).
 // ---------------------------------------------------------------------------
 
-export async function topUpWalletCash(
-  input: { studentId: string; amount: number },
-  user: SessionUser,
-) {
-  if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
-  const centerId = user.centerId;
-
-  const { balanceAfter, receiptNumber, studentId } = await platformDb(
-    async (tx) => {
-      // The student must be on THIS center's roster — a center can only top up
-      // students it actually serves.
-      const roster = await tx.centerStudentRoster.findFirst({
-        where: { centerId, studentId: input.studentId, leftAt: null },
-        select: { id: true },
-      });
-      if (!roster) throw new BusinessRuleError("Student is not on this center's roster");
-
-      await assertTopupAllowed(tx, input.studentId, input.amount);
-
-      const center = await tx.center.update({
-        where: { id: centerId },
-        data: { receiptSeq: { increment: 1 } },
-      });
-      const receiptNumber = `RCP-${center.shortId}-${new Date().getFullYear()}-${String(
-        center.receiptSeq,
-      ).padStart(5, "0")}`;
-
-      const payment = await tx.payment.create({
-        data: {
-          centerId,
-          studentId: input.studentId,
-          courseId: null,
-          amount: input.amount,
-          note: `Wallet top-up (cash at center)`,
-          receiptNumber,
-          recordedBy: user.id,
-          paidAt: new Date(),
-        },
-      });
-
-      const refNumber = await nextTxnRef(tx);
-      const transaction = await tx.transaction.create({
-        data: {
-          refNumber,
-          type: "payment",
-          amount: input.amount,
-          fromEntityId: input.studentId,
-          toEntityId: null, // platform-held float; centerId records the cash drawer
-          centerId,
-          status: "completed",
-          paymentMethod: "cash",
-          notes: `Wallet top-up (cash at center, receipt ${receiptNumber})`,
-        },
-      });
-
-      const { balanceAfter } = await walletCredit(tx, input.studentId, input.amount, {
-        type: "topup",
-        method: "cash",
-        refNumber,
-        paymentId: payment.id,
-        relatedTxnId: transaction.id,
-        centerId, // crediting center (audit)
-        recordedBy: user.id, // crediting staff (audit)
-        reason: "Cash wallet top-up at center",
-      });
-
-      return { balanceAfter, receiptNumber, studentId: input.studentId };
-    },
-    { actorId: user.id },
-  );
-
-  await notify({
-    recipients: await studentAndParents(studentId),
-    type: "payment_recorded",
-    title: "Wallet topped up",
-    body: `${(input.amount / 100).toFixed(2)} EGP was added to your wallet at the center. Receipt ${receiptNumber}.`,
-    data: { amount: input.amount, balanceAfter, receiptNumber, studentId },
-  });
-
-  return { balanceAfter, receiptNumber };
-}
-
+// The CASH top-up lives in the shared kernel (the back office runs it too);
+// the online path above stays here because it needs the Paymob gateway.
+export { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
 // ---------------------------------------------------------------------------
 // Reads (student's own wallet + history)
 // ---------------------------------------------------------------------------

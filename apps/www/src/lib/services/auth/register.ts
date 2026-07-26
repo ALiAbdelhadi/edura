@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
-import { ConflictError, BusinessRuleError } from "@/lib/errors/classes";
-import { generateFamilyCode, generateCenterShortId } from "@/lib/utils/random";
+import { BusinessRuleError, ConflictError } from "@/lib/errors/classes";
+import { generateCenterShortId, generateFamilyCode } from "@/lib/utils/random";
+import bcrypt from "bcryptjs";
 
 type StudentInput = {
   email: string;
@@ -185,14 +185,6 @@ export async function registerParent(input: ParentInput) {
   };
 }
 
-/**
- * Teacher self-registration. Mirrors registerCenter's approval semantics: the
- * account is created `pending` and can NOT sign in until a super_admin
- * approves it (apps/superadmin `approveTeacher` — it already existed and
- * already required `status === "pending"`; there was simply no door that
- * created one). The TeacherProfile is created up front so the approved teacher
- * lands straight in the existing onboarding wizard.
- */
 export async function registerTeacher(input: TeacherInput) {
   const email = input.email.toLowerCase().trim();
   const phone = input.phone?.trim() || undefined;

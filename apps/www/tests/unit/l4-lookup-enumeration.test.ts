@@ -9,9 +9,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // requireRole is mocked to a center_admin (auth is not what's under test), and
 // scopedDb is mocked to a tiny fixture DB so the route logic runs without Neon.
 // The rate limiter itself is the REAL in-memory limiter (REDIS_URL unset).
+//
+// The lookup logic now lives in @repo/server-core/services/center/roster (both
+// apps run one implementation), and it reaches the database through the
+// KERNEL's own module specifier — not through www's "@/lib/db/scope" alias. A
+// mock on the alias alone therefore no longer intercepts it, so both specifiers
+// are mocked with the SAME fixture below. What is under test is unchanged: the
+// real route, the real service, and the real rate limiter.
 
 // email/phone -> the matching user's status ("" fixture = no such account).
-let FIXTURE: Record<string, string> = {};
+// Held on globalThis because the hoisted vi.mock factory below cannot close
+// over a module-scope binding.
+const G = globalThis as never as { __L4: Record<string, string> };
+G.__L4 = {};
+const setFixture = (f: Record<string, string>) => {
+  G.__L4 = f;
+};
 
 vi.mock("@/lib/authz/require-role", () => ({
   requireRole: vi.fn(async () => ({
@@ -24,20 +37,30 @@ vi.mock("@/lib/authz/require-role", () => ({
 
 // scopedDb(user, cb) -> cb(fakeTx); fakeTx.user.findFirst reads the fixture by
 // the exact email/phone in the where-clause and returns { status } | null.
-vi.mock("@/lib/db/scope", () => ({
-  scopedDb: vi.fn(async (_user: unknown, cb: (tx: unknown) => unknown) => {
-    const tx = {
-      user: {
-        findFirst: async ({ where }: { where: { email?: string; phone?: string } }) => {
-          const keyVal = where.email ?? where.phone;
-          const status = keyVal ? FIXTURE[keyVal] : undefined;
-          return status ? { status } : null;
+// `vi.hoisted` because vi.mock factories are hoisted above ordinary consts —
+// this is what lets BOTH specifiers share one fixture implementation.
+const { scopedDbMock } = vi.hoisted(() => ({
+  scopedDbMock: () => ({
+    scopedDb: async (_user: unknown, cb: (tx: unknown) => unknown) => {
+      const tx = {
+        user: {
+          findFirst: async ({ where }: { where: { email?: string; phone?: string } }) => {
+            const keyVal = where.email ?? where.phone;
+            const status = keyVal ? (globalThis as never as { __L4: Record<string, string> })
+              .__L4[keyVal]
+              : undefined;
+            return status ? { status } : null;
+          },
         },
-      },
-    };
-    return cb(tx);
+      };
+      return cb(tx);
+    },
   }),
 }));
+
+vi.mock("@/lib/db/scope", scopedDbMock);
+// The same fixture behind the kernel's specifier — see the note above.
+vi.mock("@repo/server-core/db/scope", scopedDbMock);
 
 import * as students from "@/app/api/v1/roster/students/lookup/route";
 import * as teachers from "@/app/api/v1/roster/teachers/lookup/route";
@@ -65,7 +88,7 @@ afterEach(() => {
 
 describe("L4 — lookups still work for legitimate use (existence + invite-sendable)", () => {
   it("student: registered account → found, NOT invite-sendable", async () => {
-    FIXTURE = { "reg@x.io": "active" };
+    setFixture({ "reg@x.io": "active" });
     const res = await students.POST(post(STUDENTS, { email: "reg@x.io" }), ctx);
     const body = (await res.json()) as { data: { found: boolean; inviteSendable: boolean } };
     expect(res.status).toBe(200);
@@ -73,14 +96,14 @@ describe("L4 — lookups still work for legitimate use (existence + invite-senda
   });
 
   it("student: shell account → found AND invite-sendable", async () => {
-    FIXTURE = { "shell@x.io": "shell" };
+    setFixture({ "shell@x.io": "shell" });
     const res = await students.POST(post(STUDENTS, { email: "shell@x.io" }), ctx);
     const body = (await res.json()) as { data: { found: boolean; inviteSendable: boolean } };
     expect(body.data).toEqual({ found: true, inviteSendable: true });
   });
 
   it("student: no account (by phone) → not found, invite-sendable", async () => {
-    FIXTURE = {};
+    setFixture({});
     const res = await students.POST(post(STUDENTS, { phone: "+201000000000" }), ctx);
     const body = (await res.json()) as { data: { found: boolean; inviteSendable: boolean } };
     expect(res.status).toBe(200);
@@ -88,14 +111,14 @@ describe("L4 — lookups still work for legitimate use (existence + invite-senda
   });
 
   it("teacher: registered → found, NOT invite-sendable (collab-request path)", async () => {
-    FIXTURE = { "t@x.io": "active" };
+    setFixture({ "t@x.io": "active" });
     const res = await teachers.POST(post(TEACHERS, { email: "t@x.io" }), ctx);
     const body = (await res.json()) as { data: { found: boolean; inviteSendable: boolean } };
     expect(body.data).toEqual({ found: true, inviteSendable: false });
   });
 
   it("teacher: absent → not found, invite-sendable", async () => {
-    FIXTURE = {};
+    setFixture({});
     const res = await teachers.POST(post(TEACHERS, { email: "nobody@x.io" }), ctx);
     const body = (await res.json()) as { data: { found: boolean; inviteSendable: boolean } };
     expect(body.data).toEqual({ found: false, inviteSendable: true });
@@ -104,7 +127,7 @@ describe("L4 — lookups still work for legitimate use (existence + invite-senda
 
 describe("L4 — the response exposes LESS PII (only two booleans)", () => {
   it("student: no id / name / email in the body, even for a real account", async () => {
-    FIXTURE = { "victim@x.io": "active" };
+    setFixture({ "victim@x.io": "active" });
     const res = await students.POST(post(STUDENTS, { email: "victim@x.io" }), ctx);
     const body = (await res.json()) as { data: Record<string, unknown> };
     expect(Object.keys(body.data).sort()).toEqual(["found", "inviteSendable"]);
@@ -115,7 +138,7 @@ describe("L4 — the response exposes LESS PII (only two booleans)", () => {
   });
 
   it("teacher: no id / name / email in the body", async () => {
-    FIXTURE = { "victim@x.io": "shell" };
+    setFixture({ "victim@x.io": "shell" });
     const res = await teachers.POST(post(TEACHERS, { email: "victim@x.io" }), ctx);
     const body = (await res.json()) as { data: Record<string, unknown> };
     expect(Object.keys(body.data).sort()).toEqual(["found", "inviteSendable"]);
@@ -127,7 +150,7 @@ describe("L4 — the response exposes LESS PII (only two booleans)", () => {
 
 describe("L4 — the throttle engages (can no longer sweep the user base)", () => {
   it("student lookup: 20-burst allowed, the 21st is 429 rate_limited", async () => {
-    FIXTURE = { "sweep@x.io": "active" };
+    setFixture({ "sweep@x.io": "active" });
     for (let i = 0; i < 20; i++) {
       const res = await students.POST(post(STUDENTS, { email: "sweep@x.io" }), ctx);
       expect(res.status).toBe(200);
@@ -139,7 +162,7 @@ describe("L4 — the throttle engages (can no longer sweep the user base)", () =
   });
 
   it("teacher lookup: independently throttled (own path key)", async () => {
-    FIXTURE = {};
+    setFixture({});
     for (let i = 0; i < 20; i++) {
       const res = await teachers.POST(post(TEACHERS, { email: `x${i}@x.io` }), ctx);
       expect(res.status).toBe(200);

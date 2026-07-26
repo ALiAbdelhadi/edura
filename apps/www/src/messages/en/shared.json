@@ -17,6 +17,7 @@
   "notifType_material_uploaded": "Material uploaded",
   "notifType_session_postponed": "Session postponed",
   "notifType_attendance_corrected": "Attendance corrected",
+  "notifType_guardian_contact_required": "Guardian email needed",
   "pushTitle": "Push notifications",
   "pushDescEnabled": "You'll get notified even when Edura isn't open.",
   "pushDescDisabled": "Get notified even when Edura isn't open.",
@@ -189,7 +190,15 @@
     "existingResent": "Already registered — code {code} resent",
     "waSent": "WhatsApp sent",
     "waFailed": "WhatsApp delivery failed — see the back-office log",
-    "resendWhatsApp": "Resend WhatsApp"
+    "resendWhatsApp": "Resend WhatsApp",
+    "inviteEmailSent": "Invite emailed to the guardian",
+    "guardianEmailMissing": "No guardian email — hand the link over in person",
+    "guardianEmailMissingTitle": "A guardian email is still needed",
+    "guardianEmailMissingBody": "{name} is under 18 and has no guardian email on file, so we did not email the student. Give the guardian the link below, and add their email when you have it. Messaging with teachers and staff stays off until then — classes and payments are unaffected.",
+    "guardianContactTitle": "Guardian contact (optional)",
+    "guardianEmail": "Guardian email",
+    "guardianPhone": "Guardian phone",
+    "guardianContactHint": "Email is what we send the account link to and what enables messaging with teachers. If the guardian has no email, take their phone — we keep it on record."
   },
   "door": {
     "title": "Door check-in",

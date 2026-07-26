@@ -44,7 +44,8 @@
     "team": "الفريق",
     "whatsapp": "واتساب",
     "roomSettlements": "تسويات القاعات",
-    "messaging": "المراسلات"
+    "messaging": "المراسلات",
+    "auditLog": "سجل التدقيق"
   },
   "roles": {
     "student": "طالب",
@@ -101,6 +102,7 @@
     "sendInvite": "إرسال دعوة",
     "export": "تصدير",
     "review": "مراجعة",
+    "retry": "إعادة المحاولة",
     "previous": "السابق",
     "next": "التالي"
   },

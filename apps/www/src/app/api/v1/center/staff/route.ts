@@ -16,12 +16,15 @@ export const GET = withErrors(async () => {
   return ok(await listStaff(user));
 });
 
+// No `password` field, deliberately: the center owner never chooses their staff
+// member's credential. The staff member sets it themselves via the emailed
+// single-use claim link (see services/center/staff.ts).
 const createSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email(),
-  password: z.string().min(8).max(128),
   role: z.enum(["receptionist", "manager", "center_accountant"]),
   title: z.string().trim().max(120).optional(),
+  locale: z.enum(["ar", "en"]).optional(),
 });
 
 export const POST = withErrors(async (req) => {
@@ -41,6 +44,13 @@ export const POST = withErrors(async (req) => {
         email: result.user.email,
         status: result.user.status,
       },
+      invite: result.invite
+        ? {
+            delivery: result.invite.email.status,
+            claimLink: result.invite.claimLink,
+            expiresAt: result.invite.expiresAt,
+          }
+        : null,
     },
     { status: 201 },
   );

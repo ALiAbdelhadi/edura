@@ -154,31 +154,11 @@ export function getCenterRoomsWithSplit(centerId: string) {
   });
 }
 
-export function updateCenterRoom(
-  centerId: string,
-  roomId: string,
-  patch: {
-    name?: string;
-    capacity?: number | null;
-    price?: number | null;
-    facilities?: string[];
-    photos?: string[];
-    description?: string | null;
-    allowedPricingMethods?: ("whole_room_percent" | "per_attending_student")[];
-  },
-  user: SessionUser,
-) {
-  return platformDb(
-    async (tx) => {
-      const room = await tx.room.findUnique({ where: { id: roomId } });
-      if (!room || room.centerId !== centerId) throw new NotFoundError("Room not found at this center");
-      const updated = await tx.room.update({ where: { id: roomId }, data: patch });
-      await auditLog(tx, user.id, "room.updated", "room", roomId, patch as Record<string, unknown>);
-      return updated;
-    },
-    { actorId: user.id },
-  );
-}
+// Room profile edits now run through the oversight control service, which
+// writes a BEFORE/AFTER audit row scoped to the center (the old audit here
+// recorded the patch only). Kept as a re-export so the existing endpoint and
+// every current caller are unchanged — one implementation, no second path.
+export { updateCenterRoomProfile as updateCenterRoom } from "@/lib/services/admin/center-control";
 
 // ---------------------------------------------------------------------------
 // Global default revenue split (applies to any center/room without an override)

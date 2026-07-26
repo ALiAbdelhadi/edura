@@ -36,6 +36,7 @@
   "notifType_lesson_reminder": "Session reminder",
   "notifType_homework_deadline": "Homework deadline",
   "notifType_invite_code_sent": "Invite code sent",
+  "notifType_guardian_contact_required": "Guardian email needed",
   "notifType_new_chat_message": "New message",
   "notifType_chat_group_message": "New group message",
   "notifType_chat_report_filed": "Conversation reported",

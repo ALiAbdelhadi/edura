@@ -3,7 +3,7 @@
 import React from "react";
 import { useList, useCustomMutation, useInvalidate } from "@refinedev/core";
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
@@ -37,12 +37,13 @@ const TYPE_TONE: Record<string, StatusTone> = {
   payment_recorded: "success",
   payment_refunded: "warning",
   session_cancelled: "warning",
+  guardian_contact_required: "warning",
   admin_broadcast: "primary",
   enrollment_request_approved: "primary",
   classroom_request: "info",
   classroom_request_decided: "info",
   absence_marked: "info",
-  grade_posted: "info",
+  grade_entered: "info",
   default: "neutral",
 };
 
@@ -161,6 +162,26 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
 
   if (query.isLoading && notifications.length === 0) {
     return <PageSpinner label={t("common.loading")} />;
+  }
+
+  // A failed list query used to fall through to the empty state, so a broken
+  // API was indistinguishable from "you have no notifications" — the reason a
+  // hard 404 on this resource looked like a blank page instead of an error.
+  if (query.isError && notifications.length === 0) {
+    return (
+      <div className="flex w-full max-w-[640px] flex-col gap-6">
+        <PageHeader title={t("nav.notifications")} />
+        <EmptyState
+          icon={TriangleAlert}
+          title={t("common.genericError")}
+          action={
+            <Button size="sm" variant="outline" onClick={() => query.refetch()}>
+              {t("actions.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   }
 
   const unread = notifications.filter((n) => !n.read).length;

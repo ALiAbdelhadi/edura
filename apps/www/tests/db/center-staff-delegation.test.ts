@@ -153,7 +153,7 @@ async function main() {
     console.log("\n[3] hard exclusions — withdraw + staff-management + wallet untouched");
     for (const [role, u] of [["receptionist", recU], ["manager", mgrU], ["accountant", accU]] as const) {
       await expectForbidden(() => requestCenterPayout(u, 1000), `${role} DENIED center-wallet withdraw`);
-      await expectForbidden(() => createStaff(u, { name: "x", email: `${tag}-hack@x.io`, password: "password123", role: "receptionist" }), `${role} DENIED creating staff`);
+      await expectForbidden(() => createStaff(u, { name: "x", email: `${tag}-hack@x.io`, role: "receptionist" }), `${role} DENIED creating staff`);
       await expectForbidden(() => listStaff(u), `${role} DENIED listing staff`);
     }
     // settings / co-owner-admin routes gate on requireRole("center_admin"); a
@@ -214,7 +214,7 @@ async function main() {
     console.log("\n[8] staff creation writes no money/ledger rows");
     const txBefore = (await admin.query(`SELECT count(*)::int c FROM transactions`)).rows[0].c as number;
     const payBefore = (await admin.query(`SELECT count(*)::int c FROM payments`)).rows[0].c as number;
-    const created = await createStaff(ownerU, { name: tag + "-new", email: `${tag}-new@x.io`, password: "password123", role: "manager", title: "Ops" });
+    const created = await createStaff(ownerU, { name: tag + "-new", email: `${tag}-new@x.io`, role: "manager", title: "Ops" });
     createdIds.push(created.user.id);
     const txAfter = (await admin.query(`SELECT count(*)::int c FROM transactions`)).rows[0].c as number;
     const payAfter = (await admin.query(`SELECT count(*)::int c FROM payments`)).rows[0].c as number;

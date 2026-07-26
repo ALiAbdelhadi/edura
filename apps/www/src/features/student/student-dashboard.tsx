@@ -5,6 +5,7 @@ import { CheckCircle2, FileText, Trophy, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Progress } from "@repo/ui/components/progress";
 import { StatCard } from "@/components/kit/stat-card";
+import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";
 import { PageHeader } from "@/components/kit/page-header";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge } from "@/components/kit/status-badge";
@@ -47,6 +48,9 @@ export function StudentDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("nav.dashboard")} description={t("studentDashboard.subtitle")} />
+
+      {/* Child safety: explains WHY adult messaging is off, and fixes it. */}
+      <GuardianContactNotice />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

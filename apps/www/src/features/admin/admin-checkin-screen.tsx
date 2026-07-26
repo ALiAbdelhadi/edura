@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
@@ -45,6 +46,15 @@ export function AdminCheckinScreen() {
   const [sessions, setSessions] = useState<{ suggested: SessionOption[]; today: SessionOption[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
+  const [guardianEmail, setGuardianEmail] = useState("");
+  const [guardianPhone, setGuardianPhone] = useState("");
+  const [pendingInvite, setPendingInvite] = useState<{
+    link: string;
+    delivery: InviteDelivery;
+    guardianEmailRequired: boolean;
+    studentId: string;
+    name: string;
+  } | null>(null);
   const [walkName, setWalkName] = useState("");
   const [walkPhone, setWalkPhone] = useState("");
 
@@ -133,7 +143,14 @@ export function AdminCheckinScreen() {
       const res = await post({
         url: "center/walk-in",
         method: "post",
-        values: { fullName: walkName.trim(), phone: walkPhone.trim() },
+        values: {
+          fullName: walkName.trim(),
+          phone: walkPhone.trim(),
+          // Guardian contact: email if the family has one, otherwise the phone.
+          // Both optional — registration is never blocked on this.
+          ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim() } : {}),
+          ...(guardianPhone.trim() ? { guardianPhone: guardianPhone.trim() } : {}),
+        },
       });
       const data = (res as any)?.data?.data ?? (res as any)?.data;
       toast.success(
@@ -141,11 +158,31 @@ export function AdminCheckinScreen() {
           ? t("shared.checkin.existingResent", { code: data.studentCode ?? "" })
           : t("shared.checkin.walkInCreated"),
       );
-      if (data.whatsapp?.status === "sent") toast.success(t("shared.checkin.waSent"));
-      else toast.error(t("shared.checkin.waFailed"));
+
+      const invite = data.invite;
+      if (invite?.email?.status === "sent") {
+        toast.success(t("shared.checkin.inviteEmailSent"));
+      } else if (invite?.guardianEmailRequired) {
+        // The child-safety path: a MINOR with no guardian email. We do NOT mail
+        // the child. Surface the link so the counter hands it to the guardian
+        // who is standing right there, and say plainly what is still owed.
+        toast.warning(t("shared.checkin.guardianEmailMissing"));
+      }
+      if (invite?.claimLink) {
+        setPendingInvite({
+          link: invite.claimLink,
+          delivery: invite.email?.status ?? "no_recipient",
+          guardianEmailRequired: !!invite.guardianEmailRequired,
+          studentId: data.studentId,
+          name: data.fullName ?? "",
+        });
+      }
+
       setWalkInOpen(false);
       setWalkName("");
       setWalkPhone("");
+      setGuardianEmail("");
+      setGuardianPhone("");
       await pickStudent({
         studentId: data.studentId,
         name: data.fullName,
@@ -172,8 +209,29 @@ export function AdminCheckinScreen() {
         values: { studentId: student.studentId },
       });
       const data = (res as any)?.data?.data ?? (res as any)?.data;
-      if (data.whatsapp?.status === "sent") toast.success(t("shared.checkin.waSent"));
-      else toast.error(t("shared.checkin.waFailed"));
+      const invite = data.invite;
+      // Email is the primary channel now, so report THAT. WhatsApp is only
+      // mentioned when the optional channel is actually switched on.
+      if (invite?.email?.status === "sent") {
+        toast.success(t("shared.checkin.inviteEmailSent"));
+      } else if (invite?.guardianEmailRequired) {
+        toast.warning(t("shared.checkin.guardianEmailMissing"));
+      } else if (data.whatsapp?.status === "sent") {
+        toast.success(t("shared.checkin.waSent"));
+      } else if (invite?.email?.status === "failed" || data.whatsapp?.status === "failed") {
+        toast.error(t("shared.checkin.waFailed"));
+      }
+      // The claim link comes back on every resend for a still-claimable
+      // student — surface it so it can be handed over in person.
+      if (invite?.claimLink) {
+        setPendingInvite({
+          link: invite.claimLink,
+          delivery: invite.email?.status ?? "no_recipient",
+          guardianEmailRequired: !!invite.guardianEmailRequired,
+          studentId: data.studentId,
+          name: data.fullName ?? "",
+        });
+      }
     } catch (err: any) {
       toast.error(err?.message || t("shared.checkin.checkinFailed"));
     } finally {
@@ -249,9 +307,52 @@ export function AdminCheckinScreen() {
                 value={walkPhone}
                 onChange={(e) => setWalkPhone(e.target.value)}
               />
+              <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
+                <p className="mb-2 text-xs font-medium text-foreground">
+                  {t("shared.checkin.guardianContactTitle")}
+                </p>
+                <div className="space-y-2">
+                  <Input
+                    placeholder={t("shared.checkin.guardianEmail")}
+                    type="email"
+                    dir="ltr"
+                    value={guardianEmail}
+                    onChange={(e) => setGuardianEmail(e.target.value)}
+                  />
+                  <Input
+                    placeholder={t("shared.checkin.guardianPhone")}
+                    dir="ltr"
+                    value={guardianPhone}
+                    onChange={(e) => setGuardianPhone(e.target.value)}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {t("shared.checkin.guardianContactHint")}
+                </p>
+              </div>
               <Button onClick={createWalkIn} disabled={busy}>
                 {busy ? <Spinner /> : null}
                 {t("shared.checkin.walkInCreate")}
+              </Button>
+            </div>
+          ) : null}
+          {pendingInvite ? (
+            <div className="space-y-2">
+              {pendingInvite.guardianEmailRequired ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                    {t("shared.checkin.guardianEmailMissingTitle")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {t("shared.checkin.guardianEmailMissingBody", {
+                      name: pendingInvite.name,
+                    })}
+                  </p>
+                </div>
+              ) : null}
+              <InviteLink link={pendingInvite.link} delivery={pendingInvite.delivery} />
+              <Button variant="ghost" size="sm" onClick={() => setPendingInvite(null)}>
+                {t("invite.done")}
               </Button>
             </div>
           ) : null}

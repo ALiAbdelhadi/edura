@@ -23,6 +23,7 @@ const navItems = [
   { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp" },
   { href: "/dashboard/superadmin/messaging", icon: "message", label: "Messaging" },
   { href: "/dashboard/superadmin/notifications", icon: "bell", label: "Notifications" },
+  { href: "/dashboard/superadmin/audit", icon: "shield", label: "Audit log" },
 ];
 
 export default function SuperAdminLayout({

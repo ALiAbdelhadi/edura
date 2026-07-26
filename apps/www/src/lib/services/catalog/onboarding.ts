@@ -1,6 +1,6 @@
-import { platformDb } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
-import { NotFoundError, ValidationError, ForbiddenError } from "@/lib/errors/classes";
+import { platformDb } from "@/lib/db/scope";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors/classes";
 import { Prisma } from "@repo/database";
 
 

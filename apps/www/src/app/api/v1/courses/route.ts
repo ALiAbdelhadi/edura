@@ -5,12 +5,10 @@ import { requireRole } from "@/lib/authz/require-role";
 import { getSessionUser } from "@/lib/auth/session";
 import { toActingUser } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
-import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moneySchema, isNotPastDate } from "@/lib/validation/common";
-import { generateSessions } from "@/lib/services/sessions/session-generator";
-import { resolveCoursePricingSnapshot } from "@/lib/services/finance/commission";
+import { createCourse } from "@repo/server-core/services/center/courses";
 
 export const dynamic = "force-dynamic";
 
@@ -172,78 +170,16 @@ const createSchema = z.object({
 export const POST = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const body = await parseJson(req, createSchema);
-
-  if (!user.centerId) throw new ForbiddenError("Admin has no center scope");
-  const centerId = user.centerId;
-
-  const course = await scopedDb(user, async (tx) => {
-    const affiliation = await tx.centerTeacherAffiliation.findFirst({
-      where: { teacherId: body.teacherId, status: "active", centerId },
-    });
-    if (!affiliation) {
-      throw new BusinessRuleError("Teacher does not have an active affiliation with this center");
-    }
-
-    // The room must be the CALLER'S — an arbitrary roomId would freeze another
-    // center's method/rate onto this course (cross-tenant money leak).
-    if (body.defaultRoomId) {
-      const room = await tx.room.findFirst({
-        where: { id: body.defaultRoomId, centerId, isActive: true },
-        select: { id: true },
-      });
-      if (!room) throw new NotFoundError("Hall not found at this center");
-    }
-
-    // Freeze the pricing snapshot onto the course (room-based courses only):
-    // method + 3-way split % (Method 1) or platform % + per-student rate
-    // (Method 2), resolving room > center > global from the superadmin config.
-    // Settlement reads this snapshot, so later config changes never re-rate
-    // this course.
-    const splitSnapshot = await resolveCoursePricingSnapshot(tx, {
-      roomId: body.defaultRoomId ?? null,
-      centerId,
-      requestedMethod: body.pricingMethod ?? null,
-    });
-
-    return tx.course.create({
-      data: {
-        centerId,
-        teacherId: body.teacherId,
-        defaultRoomId: body.defaultRoomId ?? null,
-        title: body.title,
-        subject: body.subject,
-        description: body.description,
-        gradeTag: body.gradeTag,
-        daysOfWeek: body.schedulePattern.daysOfWeek,
-        startTime: body.schedulePattern.startTime,
-        endTime: body.schedulePattern.endTime,
-        startDate: body.schedulePattern.startDate,
-        endDate: body.schedulePattern.endDate,
-        price: body.price,
-        maxStudents: body.maxStudents,
-        status: "active",
-        ...splitSnapshot,
-      },
-    });
-  });
-
-  const sessionIds = await generateSessions(
-    {
-      id: course.id,
-      teacherId: course.teacherId,
-      defaultRoomId: course.defaultRoomId,
-      schedulePattern: body.schedulePattern,
-    },
-    user,
-  );
-
-  const courseOut = withSchedulePattern(course);
+  // The create logic (affiliation check, room ownership, frozen pricing
+  // snapshot, session generation) moved to the shared kernel so the back office
+  // runs the SAME code. Guard, schema and response shape are unchanged.
+  const { course, sessionsGenerated } = await createCourse(user, body);
   return ok(
     {
-      ...courseOut,
-      course: courseOut,
-      sessionsGenerated: sessionIds.length,
-      sessionCount: sessionIds.length,
+      ...course,
+      course,
+      sessionsGenerated,
+      sessionCount: sessionsGenerated,
     },
     { status: 201 },
   );

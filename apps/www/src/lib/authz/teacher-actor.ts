@@ -3,6 +3,7 @@ import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { ForbiddenError } from "@/lib/errors/classes";
+import { resolveActingTeacher } from "@repo/server-core/authz/acting-teacher";
 import type { Role, CenterStaffRole } from "@repo/database";
 import { requireSession, type SessionUser } from "@/lib/auth/session";
 import { runCenterActor, type CenterActorHandler } from "@/lib/authz/center-actor";
@@ -43,20 +44,10 @@ export type TeacherActor = {
  * THE single resolution of assistant -> teacher (live link, revocation-aware).
  * Step 6 door check-in + offline sync route through this too.
  */
-export async function resolveActingTeacher(
-  tx: TenantTx,
-  user: SessionUser,
-): Promise<string> {
-  if (user.role === "teacher") return user.id;
-  if (user.role !== "assistant") throw new ForbiddenError();
-  const link = await tx.teacherAssistant.findFirst({
-    where: { assistantId: user.id, removedAt: null },
-    select: { teacherId: true },
-  });
-  if (!link) throw new ForbiddenError("Assistant is not linked to a teacher");
-  return link.teacherId;
-}
-
+// Lives in the shared kernel (the attendance/check-in services moved there
+// and need it). Imported for local use AND re-exported, so every www import
+// path keeps working.
+export { resolveActingTeacher };
 /** Resolve the current caller into a TeacherActor (403 for anyone else). */
 export async function requireTeacherActor(
   alsoRoles: Role[] = [],

@@ -36,6 +36,7 @@
   "notifType_lesson_reminder": "تذكير بحصة",
   "notifType_homework_deadline": "موعد تسليم واجب",
   "notifType_invite_code_sent": "تم إرسال كود الدعوة",
+  "notifType_guardian_contact_required": "مطلوب بريد ولي الأمر",
   "notifType_new_chat_message": "رسالة جديدة",
   "notifType_chat_group_message": "رسالة جديدة في مجموعة",
   "notifType_chat_report_filed": "تم الإبلاغ عن محادثة",

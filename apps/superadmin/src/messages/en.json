@@ -44,7 +44,8 @@
     "team": "Team",
     "whatsapp": "WhatsApp",
     "roomSettlements": "Room settlements",
-    "messaging": "Messaging"
+    "messaging": "Messaging",
+    "auditLog": "Audit log"
   },
   "roles": {
     "student": "Student",
@@ -101,6 +102,7 @@
     "sendInvite": "Send invite",
     "export": "Export",
     "review": "Review",
+    "retry": "Retry",
     "previous": "Previous",
     "next": "Next"
   },

@@ -58,6 +58,10 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   lesson_reminder: C(true, true, false, false),
   homework_deadline: C(true, true, false, false),
   invite_code_sent: C(false, false, false, true),
+  // Child safety escalation. In-app + push only: the whole point is that we do
+  // NOT yet have a guardian email to write to, and the student's own inbox is
+  // the channel this rule exists to avoid using.
+  guardian_contact_required: C(true, true, false, false),
   new_chat_message: C(true, true, false, false),
   chat_group_message: C(true, true, false, false),
   // Safety escalation — in-app + push to the reviewing staff, never SMS/email

@@ -16,8 +16,6 @@ type HeatmapCalendarProps = {
   emptyText?: string;
 };
 
-/** Attendance heatmaps encode a status (present/late/absent), not a continuous
- * magnitude, so cells use the same status tokens as the legend below them. */
 function cellColor(value: number) {
   if (value >= 80) return "var(--success)";
   if (value >= 40) return "var(--warning)";

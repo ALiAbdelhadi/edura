@@ -17,6 +17,7 @@
   "notifType_material_uploaded": "تم رفع مادة",
   "notifType_session_postponed": "تم تأجيل الحصة",
   "notifType_attendance_corrected": "تم تصحيح الحضور",
+  "notifType_guardian_contact_required": "مطلوب بريد ولي الأمر",
   "pushTitle": "الإشعارات الفورية",
   "pushDescEnabled": "ستصلك الإشعارات حتى عندما لا يكون Edura مفتوحًا.",
   "pushDescDisabled": "فعّلها لتصلك الإشعارات حتى عندما لا يكون Edura مفتوحًا.",
@@ -189,7 +190,15 @@
     "existingResent": "مسجّل بالفعل — أُعيد إرسال الكود {code}",
     "waSent": "تم إرسال رسالة واتساب",
     "waFailed": "فشل إرسال واتساب — راجع سجل الرسائل",
-    "resendWhatsApp": "إعادة إرسال واتساب"
+    "resendWhatsApp": "إعادة إرسال واتساب",
+    "inviteEmailSent": "تم إرسال الدعوة إلى بريد ولي الأمر",
+    "guardianEmailMissing": "لا يوجد بريد لولي الأمر — سلّم الرابط باليد",
+    "guardianEmailMissingTitle": "ما زال مطلوبًا بريد ولي الأمر",
+    "guardianEmailMissingBody": "{name} أقل من ١٨ سنة ولا يوجد بريد مسجّل لولي الأمر، لذلك لم نرسل بريدًا للطالب. سلّم ولي الأمر الرابط بالأسفل، وأضف بريده عندما يتوفّر. تظل المراسلة مع المدرسين والموظفين مغلقة حتى ذلك الحين — الحصص والمدفوعات لا تتأثر.",
+    "guardianContactTitle": "بيانات ولي الأمر (اختياري)",
+    "guardianEmail": "بريد ولي الأمر",
+    "guardianPhone": "هاتف ولي الأمر",
+    "guardianContactHint": "البريد الإلكتروني هو ما نرسل عليه رابط الحساب وما يفتح المراسلة مع المدرسين. إذا لم يكن لدى ولي الأمر بريد، سجّل رقم هاتفه — نحتفظ به."
   },
   "door": {
     "title": "تشيك-إن الباب",

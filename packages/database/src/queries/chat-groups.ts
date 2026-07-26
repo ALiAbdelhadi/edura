@@ -32,6 +32,7 @@ import {
   type ChatActor,
   type ChatLimiter,
 } from "./chat-scope";
+import { GUARDIAN_LOCK_MESSAGE, isGuardianChannelLocked } from "./chat-guardian";
 import { MAX_MESSAGE_LENGTH, PREVIEW_LENGTH, REMOVED_BODY } from "./chat";
 
 const ROSTER_CAP = 5000;
@@ -312,10 +313,20 @@ export async function assertGroupAccess(
   }
 
   const canManage = isOwnerSide;
+  // GATE 3 (child safety) also applies here. Every group is built around the
+  // teaching side — the course teacher, their assistants, the center's admins
+  // and staff — so a group post BY a student is adult-facing by construction.
+  // A minor with no guardian email may still READ (announcements are part of
+  // the class they paid for); they may not WRITE into an adult audience.
+  const guardianLocked =
+    role === "student" && (await isGuardianChannelLocked(db, actor.id));
   const canPost =
-    !group.archivedAt && (isOwnerSide || group.postPolicy === "members");
+    !group.archivedAt &&
+    !guardianLocked &&
+    (isOwnerSide || group.postPolicy === "members");
 
   if (action === "post" && !canPost) {
+    if (guardianLocked) throw new ChatError("guardian_required", GUARDIAN_LOCK_MESSAGE);
     throw new ChatError(
       "policy_denied",
       group.archivedAt

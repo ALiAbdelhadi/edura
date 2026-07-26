@@ -13,7 +13,7 @@ export function InstallPrompt() {
   const isIos = state.kind === "ios";
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-start gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-lg sm:inset-x-auto sm:end-4">
+    <div className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-start gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-lg sm:inset-x-auto sm:inset-e-4">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
         {isIos ? <Share className="size-4" /> : <Download className="size-4" />}
       </div>

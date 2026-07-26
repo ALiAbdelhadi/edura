@@ -1,11 +1,10 @@
 import { z } from "zod";
-import { scopedDb, type TenantTx } from "@/lib/db/scope";
+import { scopedDb } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { uploadBuffer, isCloudinaryConfigured } from "@/lib/cloudinary/cloudinary";
 import { validateImageFile, ImageValidationError } from "@repo/server-core/media/images";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
-import { resolveMethod2Rate } from "@/lib/services/finance/commission";
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_PHOTOS_PER_ROOM = 12;
@@ -41,24 +40,9 @@ export const roomPatchSchema = z.object({
   allowedPricingMethods: pricingMethodsSchema.optional(),
 });
 
-/**
- * Enabling per-student pricing requires a rate that actually resolves for this
- * room/center (room > center > global) — otherwise a Method-2 booking would be
- * rejected at snapshot time anyway. Fail fast here with a clear message.
- */
-export async function assertMethod2Enablable(
-  tx: TenantTx,
-  scope: { roomId?: string | null; centerId?: string | null },
-  methods: readonly string[] | undefined,
-) {
-  if (!methods?.includes("per_attending_student")) return;
-  const rate = await resolveMethod2Rate(tx, scope);
-  if (!rate) {
-    throw new BusinessRuleError(
-      "Per-student pricing is not configured for this hall yet — the platform must set the rate first",
-    );
-  }
-}
+// Lives in the shared kernel (the collaboration service moved there and needs
+// it); re-exported here so every existing www import path keeps working.
+export { assertMethod2Enablable } from "@repo/server-core/services/rooms/method2";
 
 /**
  * Upload a room photo to Cloudinary and append its URL to room.photos.

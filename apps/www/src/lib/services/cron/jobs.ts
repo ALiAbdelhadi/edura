@@ -53,7 +53,7 @@ export async function runMonthEndStatements(now: Date) {
         periodEnd,
       });
       teacherCount++;
-    } catch {}
+    } catch { }
   }
   for (const c of centers) {
     if (done.has(`center_statement:${c.id}`)) continue;
@@ -65,7 +65,7 @@ export async function runMonthEndStatements(now: Date) {
         periodEnd,
       });
       centerCount++;
-    } catch {}
+    } catch { }
   }
   return {
     period: label,

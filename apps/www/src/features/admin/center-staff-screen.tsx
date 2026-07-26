@@ -3,7 +3,7 @@
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { PasswordInput } from "@/components/kit/password-input";
+import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { HTTPError } from "ky";
-import { Lock, Plus, ShieldCheck, Users } from "lucide-react";
+import { Lock, MailPlus, Plus, ShieldCheck, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
@@ -47,6 +47,8 @@ type StaffRow = {
   title: string | null;
   active: boolean;
   createdAt: string;
+  /** Invite issued, password not set yet — the account cannot log in until claimed. */
+  pendingClaim: boolean;
   user: { id: string; name: string; email: string | null; phone: string | null; status: string } | null;
 };
 
@@ -120,6 +122,11 @@ export function CenterStaffScreen() {
                           {row.title}
                         </Badge>
                       ) : null}
+                      {row.pendingClaim ? (
+                        <Badge variant="outline" className="text-[10px] text-amber-600">
+                          {t("centerStaff.pendingInvite")}
+                        </Badge>
+                      ) : null}
                     </div>
                     <p className="truncate text-xs text-muted-foreground" dir="ltr">
                       {row.user?.email ?? row.user?.phone ?? ""}
@@ -149,6 +156,7 @@ export function CenterStaffScreen() {
                   >
                     {row.active ? t("centerStaff.active") : t("centerStaff.inactive")}
                   </Badge>
+                  {row.pendingClaim && row.active ? <ResendInviteButton row={row} /> : null}
                   <ConfirmDialog
                     trigger={
                       <Button type="button" variant={row.active ? "ghost" : "outline"} size="sm">
@@ -230,31 +238,47 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState<StaffRole>("receptionist");
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [invite, setInvite] = useState<
+    { claimLink: string; delivery: InviteDelivery; to: string } | null
+  >(null);
 
   const reset = () => {
     setName("");
     setEmail("");
-    setPassword("");
     setRole("receptionist");
     setTitle("");
     setError(null);
+    setInvite(null);
   };
 
   const submit = async () => {
     setSaving(true);
     setError(null);
     try {
-      await api.post("center/staff", {
-        json: { name, email, password, role, ...(title.trim() ? { title } : {}) },
-      });
+      const res = await api
+        .post("center/staff", {
+          json: { name, email, role, ...(title.trim() ? { title } : {}) },
+        })
+        .json<{
+          data?: { invite?: { claimLink: string; delivery: InviteDelivery } | null };
+        }>();
       await onCreated();
-      setOpen(false);
-      reset();
+      // Keep the dialog open when there is a link to hand over — closing it
+      // would discard the only fallback if the email never arrives.
+      if (res?.data?.invite) {
+        setInvite({
+          claimLink: res.data.invite.claimLink,
+          delivery: res.data.invite.delivery,
+          to: email,
+        });
+      } else {
+        setOpen(false);
+        reset();
+      }
     } catch (err) {
       if (err instanceof HTTPError) {
         const body = (await err.response.json().catch(() => null)) as {
@@ -303,14 +327,6 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="staff-password">{t("centerStaff.password")}</Label>
-            <PasswordInput
-              id="staff-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
             <Label>{t("centerStaff.role")}</Label>
             <Select value={role} onValueChange={(v) => setRole(v as StaffRole)}>
               <SelectTrigger aria-label={t("centerStaff.role")}>
@@ -337,17 +353,120 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
               placeholder={t("centerStaff.roleTitlePlaceholder")}
             />
           </div>
+          <p className="text-xs text-muted-foreground">{t("centerStaff.inviteNote")}</p>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {invite ? (
+            <InviteLink link={invite.claimLink} delivery={invite.delivery} to={invite.to} />
+          ) : null}
         </div>
         <DialogFooter>
-          <Button
-            type="button"
-            onClick={submit}
-            disabled={saving || !name.trim() || !email.trim() || password.length < 8}
-          >
-            {saving ? <Spinner /> : null}
-            {t("centerStaff.create")}
-          </Button>
+          {invite ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+            >
+              {t("invite.done")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={submit}
+              disabled={saving || !name.trim() || !email.trim()}
+            >
+              {saving ? <Spinner /> : null}
+              {t("centerStaff.create")}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Re-send a pending staff invite. Each re-send mints a fresh token and kills
+ * the previous link, and the new link is shown here for in-person handover.
+ */
+function ResendInviteButton({ row }: { row: StaffRow }) {
+  const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [invite, setInvite] = useState<
+    { claimLink: string; delivery: InviteDelivery } | null
+  >(null);
+
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api
+        .post(`center/staff/${row.id}/invite`, { json: {} })
+        .json<{ data?: { claimLink: string; delivery: InviteDelivery } }>();
+      if (res?.data) setInvite(res.data);
+    } catch (err) {
+      if (err instanceof HTTPError) {
+        const body = (await err.response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setError(body?.error?.message ?? t("centerStaff.resendFailed"));
+      } else {
+        setError(t("centerStaff.resendFailed"));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) {
+          setInvite(null);
+          setError(null);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="gap-1">
+          <MailPlus className="size-3.5" />
+          {t("centerStaff.resendInvite")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("centerStaff.resendInvite")}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            {t("centerStaff.resendBody", { name: row.user?.name ?? "" })}
+          </p>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {invite ? (
+            <InviteLink
+              link={invite.claimLink}
+              delivery={invite.delivery}
+              to={row.user?.email}
+            />
+          ) : null}
+        </div>
+        <DialogFooter>
+          {invite ? (
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              {t("invite.done")}
+            </Button>
+          ) : (
+            <Button type="button" onClick={send} disabled={busy}>
+              {busy ? <Spinner /> : null}
+              {t("centerStaff.resendInvite")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

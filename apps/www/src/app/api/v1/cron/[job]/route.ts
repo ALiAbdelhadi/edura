@@ -5,6 +5,7 @@ import { runMonthEndStatements, runLessonReminders } from "@/lib/services/cron/j
 import { expirePaymentIntents } from "@/lib/services/payments/payment-intents";
 import { expireSubscriptions } from "@/lib/services/subscriptions/subscriptions";
 import { expireCollaborationRequests } from "@/lib/services/collaboration/collaboration";
+import { runGuardianContactReminders } from "@/lib/services/invites/guardian-contact";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,10 @@ export const POST = withErrors(async (req, ctx) => {
       return ok(await expireSubscriptions(now));
     case "expire-collaboration-requests":
       return ok(await expireCollaborationRequests(now));
+    // Child safety: escalate (never suspend) when a minor still has no
+    // guardian email. Reminders before the deadline, center notified after.
+    case "guardian-contact-reminders":
+      return ok(await runGuardianContactReminders(now));
     default:
       throw new BusinessRuleError(`Unknown cron job: ${job}`);
   }

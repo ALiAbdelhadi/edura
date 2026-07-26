@@ -338,9 +338,27 @@ export async function platformBlacklistUser(targetId: string, reason: string, ad
   return entry;
 }
 
-export async function centerBlacklistStudent(studentId: string, reason: string, admin: SessionUser) {
+/**
+ * Block a student at ONE center, removing that center's enrollments through the
+ * reversible H-04 journal.
+ *
+ * `centerId` is normally taken from the acting center admin's session (www).
+ * The superadmin oversight surface has no `session.centerId`, so it passes the
+ * center explicitly — and only it can: a non-super_admin naming a center other
+ * than their own is refused here, not merely at the route.
+ */
+export async function centerBlacklistStudent(
+  studentId: string,
+  reason: string,
+  admin: SessionUser,
+  explicitCenterId?: string,
+) {
   if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
-  const centerId = admin.centerId as string;
+  if (explicitCenterId && explicitCenterId !== admin.centerId && admin.role !== "super_admin") {
+    throw new ForbiddenError("Not authorized to blacklist at another center");
+  }
+  const centerId = (explicitCenterId ?? admin.centerId) as string;
+  if (!centerId) throw new BusinessRuleError("A center is required");
   const entry = await platformDb(async (tx) => {
     const roster = await tx.centerStudentRoster.findFirst({
       where: { centerId, studentId, leftAt: null },

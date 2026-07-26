@@ -240,6 +240,13 @@ enum InvitePurpose {
   teacher_activation
   admin_invite
   walk_in_onboarding // Step 7: tokenized walk-in claim link (phone-only shell student)
+  // Email invites for the two staff-shaped roles. Same Step 7 machinery: an
+  // opaque single-use token whose HASH is all that persists. The purpose IS the
+  // authorization gate — the claim provider maps purpose -> the exactly-one
+  // role it may resolve to, so a token minted for an assistant can never open a
+  // staff (or student) account.
+  assistant_invite
+  center_staff_invite
 
   @@map("invite_purpose")
 }
@@ -365,6 +372,10 @@ enum NotificationType {
   lesson_reminder
   homework_deadline
   invite_code_sent
+  // Child safety: a MINOR still has no guardian email, so adult-facing
+  // messaging stays locked. Sent to the student/parent side as a reminder and,
+  // once the deadline passes, to the owning center as an escalation.
+  guardian_contact_required
   new_chat_message
   chat_group_message
   chat_report_filed
@@ -454,6 +465,24 @@ model StudentProfile {
   // no matter what dateOfBirth says.
   dateOfBirthVerifiedAt   DateTime?  @map("date_of_birth_verified_at") @db.Timestamptz(6)
   dateOfBirthVerifiedBy   String?    @map("date_of_birth_verified_by") @db.Uuid
+  // ---- Guardian contact channel (child safety, approved 2026-07-25).
+  // A MINOR must have a reachable GUARDIAN EMAIL before adult-facing messaging
+  // (teacher / assistant / center admin / center staff) opens. See
+  // hasGuardianChannel() in src/queries/chat-guardian.ts — the single rule.
+  //
+  // The phone is captured when the guardian has no email (very common at a
+  // walk-in counter): it is kept for the record and for a future SMS/WhatsApp
+  // channel, but it NEVER satisfies the gate — the gate is email-only by
+  // decision, because that is the channel we can actually deliver on today.
+  guardianEmail           String?    @map("guardian_email")
+  guardianPhone           String?    @map("guardian_phone")
+  guardianEmailAddedAt    DateTime?  @map("guardian_email_added_at") @db.Timestamptz(6)
+  guardianEmailAddedBy    String?    @map("guardian_email_added_by") @db.Uuid
+  // Deadline for supplying the email. Purely an ESCALATION marker: passing it
+  // never suspends the account (the student paid) and never unlocks messaging.
+  // Before it, reminders are periodic; after it, the banner turns persistent
+  // and the owning center is notified.
+  guardianContactDueAt    DateTime?  @map("guardian_contact_due_at") @db.Timestamptz(6)
   pointsBalance           Int        @default(0) @map("points_balance")
   // Student money wallet (piasters). Cached balance — the append-only
   // WalletLedger is the source of truth; reconciles as SUM(delta) == this ==
@@ -486,6 +515,7 @@ model StudentProfile {
   secondLanguageSubject Subject?         @relation("StudentSecondLanguage", fields: [secondLanguageSubjectId], references: [id], onDelete: Restrict)
 
   @@index([gradeLevelId, trackId]) // content-matching hot path
+  @@index([guardianContactDueAt]) // reminder-escalation sweep
   @@map("student_profiles")
 }
 

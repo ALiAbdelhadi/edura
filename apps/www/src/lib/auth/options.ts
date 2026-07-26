@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
 import { canSignIn, resolveLoginCenterId } from "@repo/server-core/auth/login-policy";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
+import { CLAIMABLE, isClaimPurpose } from "@/lib/services/invites/invite-token";
 
 // C-04: the allowlist is NOT declared here. `canSignIn("www", role)` reads the
 // single shared partition in @repo/server-core/auth/login-policy, which this
@@ -87,70 +88,104 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     /**
-     * Step 7 — walk-in claim (passwordless, DELIBERATELY NARROW).
-     * A second login door for exactly one case: a walk-in student opening the
-     * one-time WhatsApp link. Enforced here, all of them:
-     *   1. purpose === walk_in_onboarding only — no other invite purpose;
+     * Step 7 — tokenized claim (passwordless, DELIBERATELY NARROW).
+     *
+     * ONE door for the three invite purposes that end in "set your own
+     * password": a walk-in student, an invited assistant, an invited staff
+     * member. Generalizing the purpose did NOT loosen a single gate — every one
+     * of Step 7's five still holds, and the purpose→role map made #1 and #3
+     * stricter by turning them into a table lookup:
+     *   1. purpose must be one of CLAIMABLE — no other invite purpose, and each
+     *      purpose resolves to EXACTLY ONE role, so an assistant token can
+     *      never open a student or staff account;
      *   2. token unused + unexpired, and consumed ATOMICALLY (single-use);
-     *   3. resolves only to role=student in shell/active status with NO
-     *      passwordHash — a credentialed account can never be entered this way;
+     *   3. the account must be in shell/active status with NO passwordHash — a
+     *      credentialed account can never be entered this way;
      *   4. the status-gate relaxation lives in THIS provider only; the normal
      *      credentials provider above is untouched;
      *   5. rate-limited per IP against brute force (tokens are 256-bit anyway).
+     *
+     * Kept under the id `walkin-token` as well, so every existing caller and
+     * proof keeps working.
      */
-    CredentialsProvider({
-      id: "walkin-token",
-      name: "Walk-in claim",
-      credentials: { token: { label: "Token", type: "text" } },
-      async authorize(credentials, req) {
-        const token = credentials?.token?.trim();
-        if (!token || token.length < 32) return null;
+    ...(["invite-token", "walkin-token"] as const).map((providerId) =>
+      CredentialsProvider({
+        id: providerId,
+        name: "Invite claim",
+        credentials: { token: { label: "Token", type: "text" } },
+        async authorize(credentials, req) {
+          const token = credentials?.token?.trim();
+          if (!token || token.length < 32) return null;
 
-        const ip = clientIp(req);
-        if (!(await checkRateLimit(`walkin-token:${ip}`, 10, 10))) return null;
+          const ip = clientIp(req);
+          if (!(await checkRateLimit(`invite-token:${ip}`, 10, 10))) return null;
 
-        const tokenHash = createHash("sha256").update(token).digest("hex");
+          const tokenHash = createHash("sha256").update(token).digest("hex");
 
-        return withPlatformContext(async (tx) => {
-          const row = await tx.inviteToken.findUnique({ where: { tokenHash } });
-          if (!row) return null;
-          if (row.purpose !== "walk_in_onboarding") return null; // (1)
-          if (row.usedAt) return null; // (2)
-          if (row.expiresAt.getTime() < Date.now()) return null; // (2)
-          if (!row.userId) return null;
+          return withPlatformContext(async (tx) => {
+            const row = await tx.inviteToken.findUnique({ where: { tokenHash } });
+            if (!row) return null;
+            if (!isClaimPurpose(row.purpose)) return null; // (1)
+            const spec = CLAIMABLE[row.purpose];
+            if (row.usedAt) return null; // (2)
+            if (row.expiresAt.getTime() < Date.now()) return null; // (2)
+            if (!row.userId) return null;
 
-          const user = await tx.user.findUnique({ where: { id: row.userId } });
-          if (!user) return null;
-          if (user.role !== "student") return null; // (3)
-          if (user.status !== "shell" && user.status !== "active") return null; // (3)
-          if (user.passwordHash !== null) return null; // (3) no account takeover
+            const user = await tx.user.findUnique({ where: { id: row.userId } });
+            if (!user) return null;
+            if (user.role !== spec.role) return null; // (1)+(3) purpose owns the role
+            if (user.status !== "shell" && user.status !== "active") return null; // (3)
+            if (user.passwordHash !== null) return null; // (3) no account takeover
+            if (user.deletedAt) return null; // (3)
 
-          // (2) atomic single-use: only one concurrent claim can flip usedAt.
-          const consumed = await tx.inviteToken.updateMany({
-            where: { id: row.id, usedAt: null },
-            data: { usedAt: new Date() },
-          });
-          if (consumed.count !== 1) return null;
+            // (3) A staff/assistant claim additionally requires the membership
+            // that justified the invite to still be live — revoking the link
+            // kills an outstanding invite without anyone hunting for the token.
+            if (spec.role === "assistant") {
+              const link = await tx.teacherAssistant.findFirst({
+                where: { assistantId: user.id, removedAt: null },
+                select: { id: true },
+              });
+              if (!link) return null;
+            }
+            if (spec.role === "center_staff") {
+              const link = await tx.centerStaff.findFirst({
+                where: { staffUserId: user.id, removedAt: null },
+                select: { id: true },
+              });
+              if (!link) return null;
+            }
 
-          if (user.status === "shell") {
-            await tx.user.update({
-              where: { id: user.id },
-              data: { status: "active" },
+            // (2) atomic single-use: only one concurrent claim can flip usedAt.
+            const consumed = await tx.inviteToken.updateMany({
+              where: { id: row.id, usedAt: null },
+              data: { usedAt: new Date() },
             });
-          }
+            if (consumed.count !== 1) return null;
 
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            centerId: undefined,
-            locale: user.locale,
-            tokenVersion: user.tokenVersion, // L1: session epoch at issue time
-          };
-        });
-      },
-    }),
+            if (user.status === "shell") {
+              await tx.user.update({
+                where: { id: user.id },
+                data: { status: "active" },
+              });
+            }
+
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              // Resolved by the SAME shared helper the password doors use, so a
+              // claimed staff session carries its center exactly like a normal
+              // login would (C-04). Students/assistants resolve to undefined.
+              centerId: await resolveLoginCenterId(user.role, user.id),
+              locale: user.locale,
+              tokenVersion: user.tokenVersion, // L1: session epoch at issue time
+            };
+          });
+        },
+      }),
+    ),
   ],
   callbacks: {
     async jwt({ token, user }) {

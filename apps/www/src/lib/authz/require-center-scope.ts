@@ -1,12 +1,3 @@
-import type { SessionUser } from "@/lib/auth/session";
-import { ForbiddenError } from "@/lib/errors/classes";
-
-export function requireCenterScope(
-  user: SessionUser,
-  resourceCenterId: string | { toString(): string } | null | undefined,
-): void {
-  if (!resourceCenterId) throw new ForbiddenError("Resource has no center scope");
-  if (!user.centerId || user.centerId !== resourceCenterId.toString()) {
-    throw new ForbiddenError("Resource belongs to a different center");
-  }
-}
+// Moved to the shared kernel so the extracted center services enforce the same
+// scope check from either app. Re-export shim — unchanged API.
+export * from "@repo/server-core/authz/center-scope";

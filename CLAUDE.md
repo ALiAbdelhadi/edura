@@ -216,8 +216,9 @@ shared ChatScreen) — nothing was rebuilt.
    unset = "who can they reach?" (the directory). `assertCanReach` and
    `listContacts` are the two consumers, so the auto-search can never offer
    someone the gate would reject — a drift test asserts set-equality.
-   Gate order: matrix (chat-policy.ts) → relationship (EDGES) → block → rate
-   limit. **Default-deny**: `EDGES[role] ?? []`, and a center-staff sub-role not
+   Gate order: matrix (chat-policy.ts) → relationship (EDGES) → **guardian
+   channel (chat-guardian.ts, added 2026-07-25)** → block → rate limit.
+   **Default-deny**: `EDGES[role] ?? []`, and a center-staff sub-role not
    named on an edge cannot use it. New roles fail closed with no denylist.
 2. **Matrix change (reverses the old assistant-first rule).** Students and
    parents now message their own teachers DIRECTLY (`student/parent → teacher`
@@ -264,6 +265,170 @@ Proofs: `apps/www/tests/db/messaging-scope.test.ts` **87/87**, unit
 11/11, center-staff-delegation 55/55, unit suite 85 pass/1 skip, typecheck 5/5,
 `pnpm build` both apps. Demo data: `prisma/messaging-demo-seed.ts`
 (`--purge` to remove), two centers so isolation is visible in the preview.
+
+## Superadmin center oversight (built 2026-07-25 — awaiting review)
+
+Cross-center read visibility + a CLOSED SET of audited control operations, in
+`apps/superadmin` only. Built on the existing systems; nothing was rebuilt.
+
+1. **Two modules, one boundary.** `center-oversight.ts` READS (no mutation, and
+   it imports nothing that mutates); `center-control.ts` ACTS. "Superadmin sees
+   all money but moves none" is checkable by reading one import list.
+2. **Read visibility** — pick any center, see rooms, teachers, students,
+   courses, sessions, enrollments, subscriptions, attendance, staff, pending
+   items, AND all six money ledgers scoped to it (transactions, payments,
+   payouts, session_settlements, invoices, wallet_ledger) plus the cached
+   wallet balance and the existing `centerStatement`. Rows with a NULL
+   `center_id` are teacher-direct and are never folded into a center's books.
+3. **Six control ops**, each mutating + writing ONE `audit_logs` row (actor,
+   action, target, center, before, after, ip, timestamp) in the SAME
+   transaction — so a write cannot commit without its audit row:
+   `center.activated/deactivated`, `user.activated/deactivated` (scoped to
+   members of that center), `center.student_removed/restored`,
+   `collaboration_request.approved/rejected`, `center.profile_updated`,
+   `center.room_created/updated/activated/deactivated`.
+   `on_behalf_of` is left NULL on purpose — that column means "assistant X for
+   teacher Y" (Step 8); a super admin acts as themselves.
+4. **MONEY IS READ-ONLY, and superadmin is NOT exempt.** Both apps connect as
+   the same `edura_app` role; `platformDb` only sets the `app.bypass_rls` GUC,
+   which RLS policies read and table GRANTs do not. So the existing REVOKEs
+   still bite: UPDATE/DELETE on `transactions`, `points_ledger`,
+   `session_settlements`, `audit_logs` and DELETE on `invoices`/`payouts` all
+   fail with `permission denied` for a super admin (proven). No GRANT, no
+   second DB role, no `$queryRawUnsafe` was added. `wallet_ledger` still has no
+   DB-level REVOKE (deliberate, see migration `20260722000100_student_wallet`)
+   — it is held by `immutableExtension` at runtime; the proof reports this
+   honestly rather than claiming a guarantee that is not there.
+5. **Revenue split / commission % are NOT editable here** (decided 2026-07-25).
+   The center-profile allowlist is `.strict()` and excludes them, plus
+   walletBalance / receiptSeq / status / shortId / entityType / isDemo /
+   ownerUserId. Splits keep their dedicated pricing flow with snapshot-on-create
+   + new-courses-only semantics — one money-sensitive number, one edit path.
+6. **Deactivation reuses C-03**, not a new mechanism: the status write passes
+   through `sessionRevocationExtension`, so `token_version` bumps in the same
+   statement and the next request is unauthenticated. Enrollments are NOT
+   touched by a deactivation.
+7. **The only enrollment-removing op reuses H-04** — it routes through
+   `centerBlacklistStudent`, so `blacklist_cascade_actions` journals each
+   withdrawal and "restore" replays it. `centerBlacklistStudent` gained an
+   optional explicit `centerId` (superadmin has no session centerId); a
+   non-super_admin naming another center is refused in the service.
+8. **Shared-kernel move (pure, with shims).** `collaboration.ts` moved to
+   `@repo/server-core/services/collaboration` — same precedent as
+   `blacklist.ts` — along with `session-generator`, `conflict-detector`,
+   notification `fanout`, and `assertMethod2Enablable`. www re-exports all of
+   them, so every www import path and behaviour is unchanged. The ONE addition
+   is `opts.as = "platform_override"`, default-closed (defaults to `"party"`
+   and re-checks `role === "super_admin"` inside `assertResponder`).
+9. **Audit-log viewer** (roadmap decision #10, never built until now):
+   `/dashboard/superadmin/audit` + an Audit tab on each center. `audit_logs` is
+   REVOKEd UPDATE/DELETE, so the trail cannot be edited from any surface.
+
+**No database migration was required.** Proof: `apps/superadmin/tests/db/
+center-oversight.test.ts` **119/119** (live DB, real services + real NextAuth
+callbacks + real DB role). Regressions green: `pnpm check-types` 5/5, `pnpm
+build` both apps, www unit 111 pass/1 skip, rbac-isolation 11/11, h04 44/44,
+c03 www 26/26 + superadmin 15/15, c04 72/72 + 26/26, messaging-scope 87/87,
+center-staff-delegation 55/55, l1 12/12, refund 13/13, h2 7/7, h3 6/6,
+room-pricing-methods 47/47, center-share-admin 11/11. Demo data:
+`prisma/center-oversight-demo-seed.ts` (`--purge` to remove) — two centers, and
+**zero money rows** (per the Conventions rule), so the Finance tab is
+legitimately empty for demo centers.
+
+## Email invites + guardian channel (built 2026-07-25 — awaiting review)
+
+EMAIL is now the primary invite/credential-delivery channel for everyone.
+WhatsApp is DEMOTED, not deleted (no verified Meta number yet). Built on the
+Step 7 tokenized single-use claim — nothing was rebuilt.
+
+> **NOTE:** the mail layer is `@repo/server-core/mail/send.ts` — provider-agnostic
+> **nodemailer over SMTP** (`MAIL_PROVIDER=console|smtp`), NOT the Resend SDK.
+> It works with Resend's SMTP bridge; that is an env change, never a code one.
+
+1. **ONE claim kernel**: `apps/www/src/lib/services/invites/invite-token.ts`.
+   `CLAIMABLE` maps purpose → the exactly-one role it may resolve to
+   (`walk_in_onboarding`→student, `assistant_invite`→assistant,
+   `center_staff_invite`→center_staff). The NextAuth claim provider reads that
+   table, so a token minted for one role can never open another — a lookup, not
+   a branch someone can forget. Generalizing Step 7's provider LOOSENED NOTHING:
+   all five gates hold, plus two new ones (the account must not be soft-deleted;
+   the assistant/staff link must still be live, so revoking a membership kills
+   an outstanding invite without hunting for the token). Provider id
+   `invite-token`, with `walkin-token` kept as an alias so Step 7 callers and
+   proofs are untouched.
+2. **PART A — student invite is email-first.** Delivery channels are an env set
+   (`INVITE_CHANNELS`, default `email`); the WhatsApp leg is the same
+   `sendWhatsApp` call, just off by default, and returns `skipped` (not
+   `failed`) so "we chose not to" is distinguishable from "it broke".
+3. **Guardian contact, and where the invite goes.** Almost every student here is
+   a MINOR (default-minor), so "email the student" is the wrong default.
+   `resolveStudentInviteRecipient` resolves, strictest-trust first: approved
+   parent link with an email → `student_profiles.guardian_email` → the
+   student's own email **only if they are a VERIFIED adult** → nothing. There
+   is deliberately NO fallback to a minor's own inbox.
+   The walk-in counter captures guardian **email if available, else phone**
+   (kept for the record + a future SMS/WhatsApp channel). **Registration is
+   never blocked on either.**
+4. **Phone-only minor** ⇒ no email is sent at all; the API returns the copyable
+   one-time claim link for in-person handover (the guardian is standing at the
+   counter) plus `guardianEmailRequired`, and the student sees a required
+   "add a guardian email" notice on their dashboard.
+5. **CHILD-SAFETY GATE (binding).** `chat-guardian.ts` is the single rule: a
+   MINOR with no guardian EMAIL has adult-facing messaging LOCKED — teacher,
+   assistant, center_admin, center_staff (`ADULT_ROLES`). A guardian PHONE does
+   NOT satisfy it: email is the only guardian channel we can deliver on today.
+   The gate is enforced in `assertCanReach` AND filtered in `listContacts` from
+   the same predicate, so the directory can never offer what the gate refuses
+   (the drift proof still asserts set-equality), and in `assertGroupAccess` for
+   posting. **Everything else works normally** — paid classes, materials,
+   grades, wallet, login. The account is NEVER suspended by this rule.
+   Existing students with an APPROVED parent link carrying an email are
+   unaffected (that is why messaging-scope stayed 87/87).
+6. **Timeout ESCALATES, never punishes.** `guardian_contact_due_at`
+   (`GUARDIAN_EMAIL_GRACE_DAYS`, default 14) is set when we learn a minor has
+   no guardian email, and is NEVER reset by a re-send. Before it: periodic
+   reminders (cron `guardian-contact-reminders`, idempotent per window) and a
+   dismissable banner. After it: the banner becomes non-dismissable and the
+   owning CENTER is notified. Passing it never suspends the account and never
+   unlocks messaging.
+7. **PART B — assistants and center staff get the same invite/claim.** The
+   creator NO LONGER types a password (`password` removed from both create
+   APIs). The account is created `status: "shell"` + `passwordHash: NULL`,
+   an invite is emailed, and the invitee sets their OWN password via
+   `me/credentials` (still strictly set-once — that one condition is what makes
+   it safe for three roles instead of one; an invitee keeps the address they
+   were invited at, only a phone-only student chooses one). Both create/resend
+   responses return a **copyable fallback link**, because an email in spam must
+   not strand a hire. Invites are audited (`assistant.invited`,
+   `center_staff.invited`); the token itself is never written to any row.
+   Re-inviting an already-claimed account is REFUSED — that would be a
+   creator-controlled password-reset door.
+8. **The staff no-password bug, fixed at the source.** The old invariant
+   ("creator supplies a password") is replaced by: a staff/assistant account
+   has EITHER a password OR a live invite — never neither. `createStaff` /
+   `createAssistant` now accept `shell` as a legitimate existing state
+   (previously they threw "not active" at an unclaimed invitee, which is what
+   could strand one). Asserted, not commented.
+9. **Guardian email is stored, NOT verified.** A student could type a friend's
+   address. What we do enforce: it may not equal the student's own login email,
+   every set writes an audit row, and a self-supplied one notifies the center so
+   a human sees it. **Confirm-by-click verification of the guardian address is
+   the recommended follow-on and was deliberately NOT built.**
+
+Migrations (additive only, applied): `20260725100000_invite_purposes_guardian_notice`
+(enum values, own file — Postgres cannot USE a new enum value in the transaction
+that adds it) and `20260725100100_guardian_contact` (5 nullable columns + index,
+no backfill). Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
+DB, real services + real NextAuth providers + the real me/credentials route).
+Regressions green: `pnpm check-types` 5/5, `pnpm build` both apps, www unit
+111 pass/1 skip, messaging-scope 87/87, c04 72/72, center-staff-delegation
+55/55, rbac-isolation 11/11, l1 12/12, m5 10/10.
+
+### Optional env vars added
+- `INVITE_CHANNELS` — `email` (default) | `email,whatsapp` | `whatsapp`.
+- `INVITE_TOKEN_TTL_HOURS` — default 168 (falls back to `WALKIN_TOKEN_TTL_HOURS`).
+- `GUARDIAN_EMAIL_GRACE_DAYS` — default 14.
+- `GUARDIAN_REMINDER_EVERY_DAYS` — default 3.
 
 ## Stitch MCP design workflow (binding rules, added 2026-07-20)
 

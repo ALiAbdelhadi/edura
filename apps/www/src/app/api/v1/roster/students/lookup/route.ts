@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { centerStaff, RECEPTION } from "@/lib/authz/center-actor";
-import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { lookupStudent } from "@repo/server-core/services/center/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -20,27 +20,9 @@ const bodySchema = z
 // (20 burst, 20/min per IP) stops it being used to sweep the user base.
 export const POST = withRateLimit(
   centerStaff(
-    async (req, _ctx, { acting: user }) => {
-    const body = await parseJson(req, bodySchema);
-
-    const filter: { email?: string; phone?: string } = {};
-    if (body.email) filter.email = body.email;
-    else if (body.phone) filter.phone = body.phone;
-
-    const student = await scopedDb(user, (tx) =>
-      tx.user.findFirst({
-        where: { ...filter, role: "student", status: { not: "deleted" } },
-        select: { status: true },
-      }),
-    );
-
-    const found = student !== null;
-    // An invite/activation can proceed only when no real account exists yet:
-    // no match, or an unclaimed shell. A registered student is linked by other
-    // flows (the invite route itself rejects non-shell accounts).
-    const inviteSendable = !found || student.status === "shell";
-
-    return ok({ found, inviteSendable });
+    async (req, _ctx, { acting }) => {
+      const body = await parseJson(req, bodySchema);
+      return ok(await lookupStudent(acting, body));
     },
     { allow: RECEPTION },
   ),

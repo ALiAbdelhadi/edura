@@ -61,6 +61,20 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   reactStrictMode: true,
 
+  experimental: {
+    // Enables the `"use cache"` directive ONLY. This is deliberately NOT
+    // `cacheComponents` (Next 16's renamed dynamicIO): that flag changes
+    // caching semantics for all 303 route handlers at once, which is the
+    // repo-wide sweep docs/reports/rendering-optimization-plan.md §5 P5 rules
+    // out. `useCache` leaves every existing route's behaviour untouched and
+    // only lets an explicitly-marked function opt in.
+    //
+    // The only functions marked so far read the permanent Egyptian education
+    // catalog (see src/lib/services/catalog/catalog-read.ts). Money, wallet,
+    // attendance, messaging, auth and per-user reads stay dynamic.
+    useCache: true,
+  },
+
   // Mirror the Cloudinary cloud name to the browser so @repo/ui/lib/cloudinary
   // can build delivery/transformation URLs client-side. Only the cloud name is
   // exposed — it appears in every delivery URL anyway; the API key and secret
