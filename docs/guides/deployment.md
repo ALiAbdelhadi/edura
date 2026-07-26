@@ -1,5 +1,19 @@
 # Deployment — Vercel + Neon
 
+> ## ⚠️ PARTIALLY STALE — VERIFY BEFORE ACTING (flagged 2026-07-26)
+>
+> Marked, deliberately not rewritten. The Vercel/Neon material is broadly
+> current; the **Seeding** section below is not, and it contradicts guards that
+> now exist in code (see the warning on that section). Also missing entirely:
+> the production bootstrap order, the cron scheduler (nothing schedules the six
+> jobs — see [../reports/cron-jobs-unscheduled.md](../reports/cron-jobs-unscheduled.md)),
+> and the fact that `.env.production` files are gitignored and never read by
+> Vercel, so every variable must be set in the Vercel dashboard by hand.
+>
+> Ground truth for environment state is the database itself:
+> `packages/database/scripts/verify-db.ts` is read-only and safe against any
+> target.
+
 The app deploys to **Vercel** from this monorepo; the database is **Neon
 Postgres** (serverless), accessed via `@repo/database` (Prisma + Neon driver
 adapter over WebSockets — no raw TCP needed at runtime).
@@ -43,6 +57,26 @@ cd packages/database && node scripts/apply-migrations.mjs
 Both record state in `_prisma_migrations`, so they are interchangeable.
 
 ## Seeding
+
+> **⚠️ STALE — both sentences below are wrong as of 2026-07-26. Do not act on
+> them.** Kept verbatim for history; superseded, not rewritten.
+>
+> - *"Production data was ported from MongoDB via a one-time ETL"* — no. The
+>   production database is an EMPTY SCHEMA SHELL: 68 tables, zero rows, no
+>   catalog, no staff accounts. It has never been seeded.
+> - *"safe to run anywhere"* — no, and this is the dangerous one. `prisma/seed.ts`
+>   now reads the `edura-env:` label from **inside** the target database and
+>   **refuses an unlabelled one outright**; against a `production`-labelled
+>   database it additionally refuses unless `SEED_SUPERADMIN_EMAIL`,
+>   `SEED_SUPERADMIN_PASSWORD`, `SEED_ACCOUNTANT_EMAIL` and
+>   `SEED_ACCOUNTANT_PASSWORD` are all set (they are absent from
+>   `.env.production` today, which is why production is empty). Against a
+>   `dev`-labelled database it writes the full NILE demo world, which is the
+>   opposite of "only baseline accounts".
+> - Correct order for a fresh environment: `label-db` → `bootstrap-app-role` →
+>   `prisma migrate deploy` → `seed` → `verify-db`. Re-running the seed rewrites
+>   the super_admin password — see
+>   [../reports/seed-and-fixture-findings.md](../reports/seed-and-fixture-findings.md).
 
 Production data was ported from MongoDB via a one-time ETL (July 2026).
 `pnpm db:seed` only upserts the demo/baseline accounts — safe to run anywhere,

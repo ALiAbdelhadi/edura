@@ -9,13 +9,28 @@
  *  - a center_admin CAN set profile fields (features/photos/price) on its OWN
  *    room, and cannot even see another center's room under its tenant scope.
  *
- * Run: pnpm --filter edura exec tsx --env-file=.env.local tests/db/room-ownership.test.ts
+ * Run (all suites, guarded):  pnpm --filter edura test:db
+ * Run (this one only):        pnpm --filter edura test:db:only room-ownership
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withTenant, withPlatformContext } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { uploadRoomPhoto } from "@/lib/services/rooms/rooms";
 import type { SessionUser } from "@/lib/auth/session";
+
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+
+// Fixture teardown + the environment guard, wired at the module edge so
+// neither depends on remembering to do it inside a proof.
+//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
+//    in a finally, so an assertion that THROWS still cleans up.
+//  * assertDbEnv runs before the first fixture: running this file directly
+//    with --env-file=.env.local (which skips pretest:db) is now refused here,
+//    not just by the npm script.
+let __sweepTag = "";
+const SUITE_NAME = "room-ownership.test.ts";
 
 let pass = 0;
 let fail = 0;
@@ -44,6 +59,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0
 
 async function main() {
   const tag = "roomown-" + rid();
+  __sweepTag = tag;
   console.log("Room ownership DB tests —", tag);
 
   const fx = await withPlatformContext(async (tx) => {
@@ -96,7 +112,7 @@ async function main() {
   assert(!managed.foreignVisible, "center B's room is INVISIBLE under center A's tenant scope (RLS)");
 
   console.log(`\n${pass} passed, ${fail} failed`);
-  process.exit(fail === 0 ? 0 : 1);
+  process.exitCode = fail === 0 ? 0 : 1;
 }
 
 function expectThrowsSync(fn: () => void, ErrClass: new (...a: never[]) => Error, label: string) {
@@ -108,7 +124,20 @@ function expectThrowsSync(fn: () => void, ErrClass: new (...a: never[]) => Error
   }
 }
 
-main().catch((e) => {
+async function runGuarded() {
+  await assertDbEnv(["test"], { intent: `suite ${SUITE_NAME}` });
+  try {
+    await main();
+  } catch (e) {
+    console.error(e);
+    process.exitCode = 1;
+  } finally {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+runGuarded().catch((e) => {
   console.error(e);
   process.exit(1);
 });

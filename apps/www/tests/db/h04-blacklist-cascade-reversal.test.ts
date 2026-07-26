@@ -14,7 +14,9 @@
  * Everything created is `is_demo` and torn down at the end; the money tables are
  * snapshotted before and after and asserted byte-identical.
  *
- * Run: pnpm --filter edura exec tsx --env-file=.env.local tests/db/h04-blacklist-cascade-reversal.test.ts
+ * Run (all suites, guarded):  pnpm --filter edura test:db
+ * Run (this one only):        pnpm --filter edura test:db:only h04-blacklist-cascade-reversal
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
@@ -28,6 +30,7 @@ import {
 } from "@repo/server-core/services/blacklist/blacklist";
 import type { SessionUser } from "@/lib/auth/session";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -579,7 +582,10 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch(async (e) => {
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite h04-blacklist-cascade-reversal.test.ts" })
+  .then(() => main()).catch(async (e) => {
   console.error(e);
   await admin.end();
   process.exit(1);

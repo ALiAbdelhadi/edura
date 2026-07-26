@@ -26,7 +26,9 @@ async function main() {
   if (!env || !(VALID as readonly string[]).includes(env)) {
     throw new Error(`label-db: usage: label-db.ts <${VALID.join("|")}>`);
   }
-  const url = process.env.ADMIN_URL ?? process.env.DIRECT_URL;
+  // OWNER ONLY, no fallback (2026-07-26, FINDING 0): COMMENT ON DATABASE
+  // requires ownership, and a silent app-role fallback would fail obscurely.
+  const url = process.env.ADMIN_URL;
   if (!url) {
     throw new Error(
       "label-db: ADMIN_URL (or DIRECT_URL) must be the database OWNER string.",

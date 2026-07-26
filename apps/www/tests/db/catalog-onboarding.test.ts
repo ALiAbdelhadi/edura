@@ -1,7 +1,9 @@
 // =============================================================================
 // Education catalog + onboarding acceptance tests (PRD §10) — runs against the
 // live Neon DB like the other tests/db scripts:
-//   pnpm --filter edura exec tsx --env-file=.env.local tests/db/catalog-onboarding.test.ts
+//   pnpm --filter edura test:db                  # all suites, guarded
+//   pnpm --filter edura test:db:only catalog-onboarding
+//   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
 //
 // Covers:
 //   * bacc grade 1 asks for no track; grade 2 offers exactly 4 tracks
@@ -27,6 +29,7 @@ import { getCatalogTree, getSubjectsForSelection, getSubjectsForGradeLevels } fr
 import { createSystem, createStage, createGradeLevel, createSubject, createOffering } from "@repo/server-core/services/catalog/catalog-admin";
 import { searchCourses } from "@/lib/services/discovery/discovery";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -275,7 +278,10 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch(async (e) => {
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite catalog-onboarding.test.ts" })
+  .then(() => main()).catch(async (e) => {
   console.error(e);
   try { await adminPool.end(); } catch { /* already ended */ }
   process.exit(1);

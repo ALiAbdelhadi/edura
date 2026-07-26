@@ -38,7 +38,9 @@
  * Run it alone.
  *
  * Run (dev server must be up):
- *   pnpm --filter edura exec tsx --env-file=.env.local tests/db/h03-seed-uuid-flows.test.ts
+ *   pnpm --filter edura test:db                  # all suites, guarded
+ *   pnpm --filter edura test:db:only h03-seed-uuid-flows
+ *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
  *   WWW_BASE_URL=http://localhost:3021 … to point at another dev port.
  */
 import { encode } from "next-auth/jwt";
@@ -46,6 +48,7 @@ import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { z } from "zod";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
@@ -467,7 +470,10 @@ async function cleanup(
   }
 }
 
-main().catch(async (e) => {
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite h03-seed-uuid-flows.test.ts" })
+  .then(() => main()).catch(async (e) => {
   console.error(e);
   try {
     await pool.end();

@@ -2,7 +2,7 @@
   "name": "@repo/database",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura data layer — Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
+  "description": "Edura data layer \u2014 Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
   "type": "module",
   "exports": {
     ".": {
@@ -65,6 +65,7 @@
     "db:push": "prisma db push",
     "studio": "prisma studio",
     "validate": "prisma validate",
+    "check-types": "tsc --noEmit",
     "format": "prisma format",
     "seed": "tsx prisma/seed.ts",
     "db:label": "tsx scripts/label-db.ts",

@@ -5,6 +5,7 @@ import { completeSession } from "@/lib/services/finance/distribution";
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
 import { refundsReport } from "@/lib/services/finance/finance-reports";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -114,4 +115,7 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite refund.test.ts" })
+  .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

@@ -15,6 +15,7 @@ import { prisma, withPlatformContext } from "@repo/database";
 import { WWW_LOGIN_ROLES, SUPERADMIN_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
 import { authOptions } from "@/lib/auth/options";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -233,7 +234,10 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch((e) => {
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite c04-login-boundary.test.ts" })
+  .then(() => main()).catch((e) => {
   console.error(e);
   process.exit(1);
 });

@@ -477,7 +477,7 @@ async function main() {
             studentId: s.id,
             courseId: COURSE_MATH,
             centerId: HORIZON,
-            status: statuses[(si + ci) % statuses.length],
+            status: statuses[(si + ci) % statuses.length] ?? "present",
             markedBy: RECEPTION_A.id,
             counterAt: daysAgo(28 - ci * 7),
             counterBy: RECEPTION_A.id,
@@ -485,12 +485,15 @@ async function main() {
         });
       }
     }
+    // Non-null asserted once, above the loop, rather than at each use: the
+    // chemistry sessions were created immediately above, so index 0 exists.
+    const chemSession0 = chemSessions[0]!;
     for (const s of STUDENTS_A.slice(2, 5)) {
       await tx.attendanceRecord.upsert({
-        where: { sessionId_studentId: { sessionId: chemSessions[0], studentId: s.id } },
+        where: { sessionId_studentId: { sessionId: chemSession0, studentId: s.id } },
         update: {},
         create: {
-          sessionId: chemSessions[0],
+          sessionId: chemSession0,
           studentId: s.id,
           courseId: COURSE_CHEM,
           centerId: HORIZON,
@@ -537,7 +540,8 @@ async function main() {
   console.log(`  center_admin  ${email(HALA)}      — ${HALA.name} (مركز الأفق)`);
   console.log(`  center_admin  ${email(MOSTAFA)}   — ${MOSTAFA.name} (مركز النيل)`);
   console.log(`  teacher       ${email(SHERIF)}    — ${SHERIF.name}`);
-  console.log(`  student       ${email(STUDENTS_A[0])} — ${STUDENTS_A[0].name}`);
+  const firstStudent = STUDENTS_A[0]!;
+  console.log(`  student       ${email(firstStudent)} — ${firstStudent.name}`);
   console.log(
     `\nOpen the back office → Centers → "مركز الأفق التعليمي" → Oversight.\n` +
       `Finance is legitimately empty for demo centers (no money rows are seeded);\n` +

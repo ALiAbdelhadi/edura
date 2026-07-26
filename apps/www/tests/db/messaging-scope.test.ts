@@ -40,6 +40,15 @@ import * as safety from "@repo/database/chat-safety";
 import * as oversight from "@repo/database/chat-oversight";
 import * as minors from "@repo/database/chat-minors";
 
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+
+// This suite DID have cleanup and still left 105 rows in dev — the delete list
+// had drifted behind the schema. sweepTagQuietly walks the FK graph instead, so
+// it cannot drift. The existing per-table deletes are left in place; the sweep is
+// a backstop, and double-deleting is a no-op.
+let __sweepTag = "";
+
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({
   connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL,
@@ -108,6 +117,7 @@ async function expectAllowed(fn: () => Promise<unknown>, label: string) {
 
 async function main() {
   const tag = "msgtest-" + Math.floor(Math.random() * 1e9).toString(36);
+  __sweepTag = tag;
   console.log("Messaging scope + child-safety DB tests —", tag);
 
   // -------------------------------------------------------------------------
@@ -1147,12 +1157,14 @@ async function main() {
   if (fail > 0) process.exitCode = 1;
 }
 
-main()
+assertDbEnv(["test"], { intent: "suite messaging-scope.test.ts" })
+  .then(() => main())
   .catch((e) => {
     console.error(e);
     process.exitCode = 1;
   })
   .finally(async () => {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
     await prisma.$disconnect();
     await admin.end();
   });

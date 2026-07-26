@@ -8,6 +8,7 @@ import {
   softDeleteExtension,
   immutableExtension,
   auditLogExtension,
+  roleGuardExtension,
 } from "./extensions/index";
 
 // Driver selection: short-lived serverless functions (Next.js) use the Neon
@@ -51,7 +52,12 @@ function createPrisma() {
     .$extends(sessionRevocationExtension)
     .$extends(softDeleteExtension)
     .$extends(immutableExtension)
-    .$extends(auditLogExtension);
+    .$extends(auditLogExtension)
+    // OUTERMOST, so it runs before any other extension touches data: refuse to
+    // serve at all on a connection that can see through RLS (FINDING 0). One
+    // memoised SELECT per process; the three owner-legitimate scripts open
+    // their own pools and never reach this client.
+    .$extends(roleGuardExtension);
 }
 
 export type ExtendedPrismaClient = ReturnType<typeof createPrisma>;

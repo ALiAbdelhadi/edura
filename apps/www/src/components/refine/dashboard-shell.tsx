@@ -168,6 +168,31 @@ function HeaderSidebarToggle() {
   );
 }
 
+/**
+ * Nav link that dismisses the mobile sidebar sheet after a selection — on
+ * mobile the sidebar is an overlay, so it must get out of the way once the
+ * user picks a destination. Desktop keeps its persistent rail.
+ */
+function SidebarNavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <Link
+      href={href}
+      onClick={() => {
+        if (isMobile) setOpenMobile(false);
+      }}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export default function DashboardShell({
   role,
   navItems,
@@ -252,10 +277,10 @@ export default function DashboardShell({
                     isActive={isActive}
                     tooltip={tNav(item.label)}
                   >
-                    <Link href={item.href}>
+                    <SidebarNavLink href={item.href}>
                       <Icon />
                       <span>{tNav(item.label)}</span>
-                    </Link>
+                    </SidebarNavLink>
                   </SidebarMenuButton>
                   {isNotifications && unreadCount > 0 ? (
                     <SidebarMenuBadge className="bg-destructive text-white">

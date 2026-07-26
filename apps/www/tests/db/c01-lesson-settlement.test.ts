@@ -28,13 +28,16 @@
  * Everything it creates is deleted at the end and the table counts are asserted
  * back to the pre-run baseline.
  *
- * Run: pnpm --filter edura exec tsx --env-file=.env.local tests/db/c01-lesson-settlement.test.ts
+ * Run (all suites, guarded):  pnpm --filter edura test:db
+ * Run (this one only):        pnpm --filter edura test:db:only c01-lesson-settlement
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { encode } from "next-auth/jwt";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
@@ -415,4 +418,7 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch(async (e) => { console.error("FATAL", e); await purge(); await pool.end(); process.exit(1); });
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite c01-lesson-settlement.test.ts" })
+  .then(() => main()).catch(async (e) => { console.error("FATAL", e); await purge(); await pool.end(); process.exit(1); });

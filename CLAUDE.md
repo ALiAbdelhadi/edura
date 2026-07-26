@@ -86,11 +86,34 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
    carefully, not a pre-launch task.
 
 ## Conventions
+
+> **STATE CLAIMS MUST NAME THEIR ENVIRONMENT (binding, added 2026-07-26).**
+> There are three databases — `dev`, `test`, `production` — each carrying its
+> environment as a label INSIDE it (`edura-env:<env>`; see
+> `packages/database/scripts/db-guard.ts`). Any sentence in this file asserting
+> that something is *applied, in force, present, seeded, or wiped* MUST say which
+> environment it is true of. An unqualified "applied" reads as "everywhere" and
+> has already misled: the guardian migrations were applied to dev only, while
+> this file said "applied" flatly, and production was two migrations behind
+> without anyone noticing. Behaviour and policy claims ("the gate is
+> default-closed") need no qualifier — only claims about the state of a
+> database, an environment, or a deployment do.
+>
+> Environment state changes without a commit, so this file goes stale silently.
+> `packages/database/scripts/verify-db.ts` is read-only and safe against any
+> target: prefer running it over trusting a sentence written here.
+
 - All demo/seed data is flagged `is_demo = true` so it can be purged later.
   Purgeable `is_demo` demo data is wiped before launch. This NEVER includes the
   permanent reference data — the Egyptian education catalog (systems / stages /
   grades / tracks / subjects / offerings) and my real superadmin/accountant
   accounts — which always stay.
+  **[dev, verified 2026-07-26]** the catalog is present (3 systems / 45 subjects
+  / 27 grade levels) and the real operator account exists. **[production,
+  verified 2026-07-26]** the database is an EMPTY SCHEMA SHELL — 68 tables, zero
+  rows, no catalog, no super_admin, no accountant. It has never been seeded.
+  Bootstrap order for a fresh environment: `label-db` → `bootstrap-app-role` →
+  `prisma migrate deploy` → `seed` → `verify-db`.
 - **Realistic demo data during development:** whenever building a new
   feature/screen/system, also seed enough realistic demo data (flagged
   `is_demo = true`) so I can view and test it as if it were real — populated
@@ -160,9 +183,15 @@ Work stops after each step for review before the next begins.
    inherit by ancestry. The Egyptian education catalog is permanent reference
    data — do NOT flag it. Hardcoded quick-login buttons gated behind
    `NODE_ENV !== "production"`.
-   **Leftover legacy data (decided 2026-07-18):** the ~144 unflagged users /
-   21 centers / 19 courses created by past live-DB test runs (not by the seed,
-   no stable identifiers) stay untouched for now. Before launch, ALL non-seed
+   **Leftover legacy data (decided 2026-07-18; recounted 2026-07-26):**
+   unflagged rows created by past live-DB test runs (not by the seed, no stable
+   identifiers) stay untouched for now. **[dev, measured 2026-07-26]** the count
+   is now **378 unflagged users / 124 centers / 130 courses** — the figures
+   originally recorded here (~144 / 21 / 19) were from 2026-07-18 and had grown
+   2.6–7× by the time anyone looked again. Among those users are **41 non-demo
+   `super_admin` accounts leaked by DB test fixtures** (see
+   docs/reports/seed-and-fixture-findings.md). Treat any count in this file as a
+   snapshot with a date, never as current. **[production]** zero of any of it. Before launch, ALL non-seed
    data gets wiped — this is on the Step 9 (deprecation & hardening) checklist
    in docs/architecture/architecture-review.md; do not attempt to flag it by heuristic.
    **Step 9 wipe note (added in Step 4):** cash payments recorded BEFORE the
@@ -236,8 +265,13 @@ shared ChatScreen) — nothing was rebuilt.
    `adult = dateOfBirth AND dateOfBirthVerifiedAt AND age >= 18`. Missing,
    unverified, or under-18 all mean MINOR with parent oversight ACTIVE. New
    columns `student_profiles.date_of_birth` + `date_of_birth_verified_at/by`;
-   no backfill, so every existing student is a minor by default — intended, not
-   a gap.
+   no backfill, so students default to minor — intended, not a gap.
+   **[dev, measured 2026-07-26]** this is no longer universal: of 230
+   `student_profiles`, **225 have a NULL `date_of_birth` and 3 carry a
+   verification stamp** — so a handful now resolve as ADULTS and sit outside
+   parent oversight. The default is still minor; "every existing student is a
+   minor", as this line previously read, is not. **[production]** the columns
+   exist but there are no student rows at all.
 6. **Parent oversight** = protective transparency, not surveillance:
    strictly read-only (never touches unread counters or read receipts — proven),
    no write path in UI or API, only MINOR children with an APPROVED link, only
@@ -415,10 +449,15 @@ Step 7 tokenized single-use claim — nothing was rebuilt.
    a human sees it. **Confirm-by-click verification of the guardian address is
    the recommended follow-on and was deliberately NOT built.**
 
-Migrations (additive only, applied): `20260725100000_invite_purposes_guardian_notice`
+Migrations (additive only): `20260725100000_invite_purposes_guardian_notice`
 (enum values, own file — Postgres cannot USE a new enum value in the transaction
 that adds it) and `20260725100100_guardian_contact` (5 nullable columns + index,
-no backfill). Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
+no backfill).
+**[dev, verified 2026-07-26] APPLIED — 36 migrations. [production, verified
+2026-07-26] NOT APPLIED — 34 migrations; production is behind by exactly these
+two.** Consequence: `guardian_contact_due_at` does not exist there, so the
+`guardian-contact-reminders` cron job ERRORS on production rather than no-oping.
+Applying them is part of the production bootstrap. Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
 DB, real services + real NextAuth providers + the real me/credentials route).
 Regressions green: `pnpm check-types` 5/5, `pnpm build` both apps, www unit
 111 pass/1 skip, messaging-scope 87/87, c04 72/72, center-staff-delegation
@@ -470,8 +509,15 @@ docs/security/security-audit.md for the full report and severities.
 - **H1** — payout-request TOCTOU: `SELECT … FOR UPDATE` on the beneficiary in
   teacher/center wallet + generatePayouts.
 - **H2** — payout-settlement floor: conditional decrement (updateMany where
-  balance >= net) + DB `CHECK (wallet_balance >= 0)` (centers CHECK is NOT
-  VALID — one legacy -2600 row left for the Step 9 wipe; VALIDATE after).
+  balance >= net) + DB `CHECK (wallet_balance >= 0)`.
+  **[dev, verified 2026-07-26]** DONE — `centers_wallet_balance_nonneg` is
+  `convalidated = true`, zero negative rows, minimum balance 0. The legacy
+  -2600 row is gone (the Step 9 wipe removed it) and the constraint was
+  validated afterwards. **[production, verified 2026-07-26]** the constraint
+  exists but is still `NOT VALID` — validating it there is part of the
+  production bootstrap, not a leftover from the wipe. The note that previously
+  stood here ("NOT VALID — one legacy -2600 row left; VALIDATE after") read as a
+  pending dev TODO and was wrong in both directions.
 - **H3** — refund double-refund TOCTOU: partial unique
   `transactions_one_refund_per_payment` on (reversal_of_id) WHERE type='refund'.
 - **H4** — security headers on both apps (HSTS, nosniff, Referrer-Policy,

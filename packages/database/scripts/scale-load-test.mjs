@@ -1,6 +1,7 @@
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { config } from "dotenv";
+import { assertDbEnv } from "./db-guard.ts";
 config();
 neonConfig.webSocketConstructor = ws;
 
@@ -30,6 +31,12 @@ async function explain(label, sql) {
 }
 
 async function main() {
+  // By DEFAULT this writes one million `transactions` rows and one million
+  // `attendance_records`. `transactions` is append-only (immutableExtension +
+  // a DB-level REVOKE), so on the wrong database this is not merely noisy — it
+  // is UNDOABLE. Dev or test only, proven by the label inside the database.
+  await assertDbEnv(["dev", "test"], { intent: "scale-load-test" });
+
   console.log(`\n=== Scale load test: ${TXN.toLocaleString()} txns, ${ATTN.toLocaleString()} attendance ===`);
   await pool.query(`SELECT set_config('app.bypass_rls','on',false)`);
 

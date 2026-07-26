@@ -2,7 +2,9 @@
 // Second-foreign-language scoping — the student's OWN subjects list must contain
 // ONLY the language they picked at onboarding, never the whole language menu.
 // Runs against the live Neon DB like the other tests/db scripts:
-//   pnpm --filter edura exec tsx --env-file=.env.local tests/db/second-language-scoping.test.ts
+//   pnpm --filter edura test:db                  # all suites, guarded
+//   pnpm --filter edura test:db:only second-language-scoping
+//   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
 //
 // Covers:
 //   * the grade genuinely offers all 4 languages (otherwise the test proves nothing)
@@ -18,6 +20,7 @@ import { prisma, withPlatformContext } from "@repo/database";
 import { getSubjectsForSelection, getStudentOwnSubjects } from "@/lib/services/catalog/catalog-read";
 import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
 
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
@@ -172,7 +175,10 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch(async (e) => {
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite second-language-scoping.test.ts" })
+  .then(() => main()).catch(async (e) => {
   console.error(e);
   try {
     await adminPool.end();

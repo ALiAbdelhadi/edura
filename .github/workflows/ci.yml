@@ -1,0 +1,206 @@
+name: CI
+
+# There was no CI in this repo before 2026-07-26. Every "119/119 green" style
+# claim in CLAUDE.md came from a manual run on one machine, and could not be
+# reproduced by anyone else — the DB suites are launched with
+# `--env-file=.env.test`, and no `.env.test.example` existed to create that file
+# from. This workflow exists so those numbers are produced by a machine nobody
+# owns, on every push.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # One run per ref. The db job writes to a shared test database, so two
+  # concurrent runs would interleave fixtures and fail each other.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Never let a CI process pick a real driver. Each is the inert value.
+  PAYMENTS_MODE: mock
+  WHATSAPP_MODE: mock
+  MAIL_PROVIDER: console
+  SMS_PROVIDER: ""
+  INVITE_CHANNELS: email
+  DATABASE_DRIVER: ws
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Static: no database, no secrets. Runs on forks and every PR.
+  # ---------------------------------------------------------------------------
+  static:
+    name: typecheck + build + unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # `prisma generate`. The client is imported by ~36 suites and by both
+      # apps' build, and packages/database/src/generated is not committed.
+      - name: Generate Prisma client
+        run: pnpm --filter @repo/database generate
+
+      # 6 packages, not 5: packages/database was outside `turbo run check-types`
+      # until 2026-07-26 and had 7 uncaught type errors in its demo seeds.
+      - name: Typecheck
+        run: pnpm check-types
+
+      - name: Unit tests (www)
+        run: pnpm --filter edura test:unit
+
+      # A build needs the public env vars present but not real. These are
+      # placeholders — nothing here reaches a third party.
+      - name: Build both apps
+        env:
+          NEXTAUTH_SECRET: ci-placeholder-secret-not-used-at-runtime-000
+          SUPERADMIN_NEXTAUTH_SECRET: ci-placeholder-secret-DIFFERENT-value-111
+          REALTIME_JWT_SECRET: ci-placeholder-secret-realtime-2222222222222
+          INTERNAL_API_SECRET: ci-placeholder-secret-internal-3333333333333
+          CRON_SECRET: ci-placeholder-secret-cron-44444444444444444444
+          NEXTAUTH_URL: http://localhost:3002
+          APP_BASE_URL: http://localhost:3002
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
+          DIRECT_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
+        run: pnpm build
+
+  # ---------------------------------------------------------------------------
+  # DB suites: 23 in www + 18 in superadmin, via the aggregate runner.
+  #
+  # GATED ON A SECRET, deliberately. A fork PR has no TEST_DATABASE_URL, so this
+  # job SKIPS rather than failing — a contributor should never see a red X for a
+  # credential they cannot have. When the secret is present the job is fully
+  # blocking.
+  #
+  # The runner calls assertDbEnv(["test"]) in-process before spawning anything,
+  # so a secret that accidentally points at the dev or production branch causes a
+  # loud refusal, not silent contamination. That check reads a label stored
+  # INSIDE the database, so a mis-set secret cannot lie about where it landed.
+  # ---------------------------------------------------------------------------
+  db:
+    name: DB suites (test branch)
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # `secrets` is not allowed in a job-level `if`, so gate via a step output.
+    steps:
+      - name: Check for a test database secret
+        id: gate
+        env:
+          HAS_DB: ${{ secrets.TEST_DATABASE_URL != '' && secrets.TEST_ADMIN_URL != '' }}
+        run: echo "ok=$HAS_DB" >> "$GITHUB_OUTPUT"
+
+      - name: Explain skip
+        if: steps.gate.outputs.ok != 'true'
+        run: |
+          echo "::notice title=DB suites skipped::TEST_DATABASE_URL / TEST_ADMIN_URL are not set."
+          echo "To enable, add repo secrets pointing at a Neon branch labelled edura-env:test:"
+          echo "    COMMENT ON DATABASE neondb IS 'edura-env:test';"
+          echo "The runner refuses any database not carrying that label."
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ok == 'true'
+
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        if: steps.gate.outputs.ok == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: steps.gate.outputs.ok == 'true'
+        run: pnpm --filter @repo/database generate
+
+      # The suites read .env.test from disk (`tsx --env-file=.env.test`), so CI
+      # materialises one from the committed template plus secrets. Written with
+      # printf, not heredoc-with-interpolation, to keep values out of the log.
+      - name: Materialise .env.test from the committed template + secrets
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TEST_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+          TEST_ADMIN_URL: ${{ secrets.TEST_ADMIN_URL }}
+        run: |
+          set -euo pipefail
+          for app in apps/www apps/superadmin; do
+            cp "$app/.env.test.example" "$app/.env.test"
+            # Replace the placeholder connection strings with the real ones.
+            python3 - "$app/.env.test" <<'PY'
+          import os, re, sys
+          p = sys.argv[1]
+          vals = {
+              "DATABASE_URL": os.environ["TEST_DATABASE_URL"],
+              "DIRECT_URL":   os.environ.get("TEST_DIRECT_URL") or os.environ["TEST_DATABASE_URL"],
+              "ADMIN_URL":    os.environ["TEST_ADMIN_URL"],
+              # Deterministic per-run secrets. c04 needs the two NextAuth values
+              # to DIFFER and to be identical across the two apps.
+              "NEXTAUTH_SECRET": "ci-www-secret-0000000000000000000000000000",
+              "SUPERADMIN_NEXTAUTH_SECRET": "ci-sa-secret-11111111111111111111111111111",
+              "REALTIME_JWT_SECRET": "ci-realtime-2222222222222222222222222222",
+              "INTERNAL_API_SECRET": "ci-internal-33333333333333333333333333333",
+              "CRON_SECRET": "ci-cron-4444444444444444444444444444444444",
+          }
+          out = []
+          for line in open(p, encoding="utf-8"):
+              m = re.match(r"([A-Z][A-Z0-9_]*)=", line)
+              if m and m.group(1) in vals:
+                  out.append(f"{m.group(1)}={vals[m.group(1)]}\n")
+              else:
+                  out.append(line)
+          open(p, "w", encoding="utf-8").write("".join(out))
+          PY
+          done
+          echo "wrote apps/www/.env.test and apps/superadmin/.env.test (values not echoed)"
+
+      # Fails loudly if the secret points anywhere but a test-labelled database.
+      - name: Assert the target database is labelled 'test'
+        if: steps.gate.outputs.ok == 'true'
+        run: pnpm --filter edura pretest:db
+
+      - name: DB suites — www (23)
+        if: steps.gate.outputs.ok == 'true'
+        run: pnpm --filter edura test:db
+
+      - name: DB suites — superadmin (18)
+        if: steps.gate.outputs.ok == 'true'
+        run: pnpm --filter superadmin test:db
+
+      # Fixture teardown is per-suite and in a `finally`, so this should find
+      # nothing. It runs anyway: a suite killed by the job timeout never reaches
+      # its own cleanup, and residue must not accumulate across runs.
+      - name: Sweep any residue
+        if: steps.gate.outputs.ok == 'true' && always()
+        run: |
+          pnpm --filter edura test:db:sweep -- \
+            wallet- nocap- roomown- share- msgtest- \
+            shadm- commaud- split- m2- wref- wpol- dbtest- || true
+
+      - name: Remove generated env files
+        if: always()
+        run: rm -f apps/www/.env.test apps/superadmin/.env.test

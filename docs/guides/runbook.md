@@ -14,9 +14,15 @@
 > - Setup, deploy, and troubleshooting steps predate the `apps/superadmin`
 >   extraction, the money/ledger engine, and the PWA work.
 >
+> - **Seeding** (added 2026-07-26) — every seeding instruction here predates the
+>   `edura-env:` database-label guard. `prisma/seed.ts` now refuses an unlabelled
+>   database and refuses a production-labelled one without explicit `SEED_*`
+>   credentials. Nothing below reflects that.
+>
 > Kept for historical reference and for the sections that are still
 > stack-independent. For anything current, use
-> [../guides/deployment.md](deployment.md),
+> [../guides/deployment.md](deployment.md) — **except its Seeding section, which
+> is stale too and carries its own warning** —
 > [../architecture/architecture-review.md](../architecture/architecture-review.md),
 > and [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
 > anything in this file.

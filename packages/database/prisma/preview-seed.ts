@@ -34,6 +34,7 @@ import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
+import type { NotificationType } from "../src/generated/client";
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const DAY = 24 * 60 * 60 * 1000;
@@ -49,7 +50,7 @@ function flc(userId: string): string {
 function at(daysFromNow: number, hhmm = "15:00"): Date {
   const d = new Date(Date.now() + daysFromNow * DAY);
   const [h, m] = hhmm.split(":").map(Number);
-  d.setUTCHours(h, m, 0, 0);
+  d.setUTCHours(h ?? 0, m ?? 0, 0, 0);
   return d;
 }
 
@@ -870,7 +871,7 @@ async function seed() {
       const notify = async (
         userId: string,
         key: string,
-        type: string,
+        type: NotificationType,
         title: string,
         body: string,
         read: boolean,

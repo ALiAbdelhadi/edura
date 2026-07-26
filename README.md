@@ -28,7 +28,9 @@ pnpm install
 cp apps/www/.env.example apps/www/.env.local
 
 # Apply migrations to the database (custom runner — see packages/database/README.md)
-node packages/database/scripts/apply-migrations.mjs
+# Run via tsx, not plain node: the script imports the shared environment guard
+# (scripts/db-guard.ts) and refuses an unlabelled database.
+pnpm exec tsx packages/database/scripts/apply-migrations.mjs
 
 # Seed demo data + the Egyptian education catalog
 pnpm --filter @repo/database run seed

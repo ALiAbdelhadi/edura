@@ -1,6 +1,8 @@
 # Scale & Performance Proof (PRD §9.1)
 
-Reproducible via `node packages/database/scripts/scale-load-test.mjs [txnCount] [attnCount]`.
+Reproducible via `pnpm exec tsx packages/database/scripts/scale-load-test.mjs [txnCount] [attnCount]`
+(tsx, not plain node — the script imports the shared guard in `scripts/db-guard.ts` and
+refuses to run against anything but a `dev`- or `test`-labelled database).
 The script seeds synthetic rows server-side (`INSERT … SELECT generate_series`), `ANALYZE`s,
 runs `EXPLAIN (ANALYZE, BUFFERS)` on the heaviest §4 query shapes once **with** and once
 **without** the composite index (drop → measure → recreate), then removes every synthetic

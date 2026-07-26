@@ -12,7 +12,9 @@
  * (Proof 5, refund-returns-to-wallet-once, lives in apps/superadmin where the
  * refund engine is: tests/db/wallet-refund.test.ts.)
  *
- * Run: pnpm --filter edura exec tsx --env-file=.env.local tests/db/wallet.test.ts
+ * Run (all suites, guarded):  pnpm --filter edura test:db
+ * Run (this one only):        pnpm --filter edura test:db:only wallet
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";
 import {
@@ -29,6 +31,19 @@ import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
 import { createSubscriptionCheckout } from "@/lib/services/subscriptions/subscriptions";
 import { initiateSubscriptionIntent } from "@/lib/services/payments/payment-intents";
 import type { SessionUser } from "@/lib/auth/session";
+
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+
+// Fixture teardown + the environment guard, wired at the module edge so
+// neither depends on remembering to do it inside a proof.
+//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
+//    in a finally, so an assertion that THROWS still cleans up.
+//  * assertDbEnv runs before the first fixture: running this file directly
+//    with --env-file=.env.local (which skips pretest:db) is now refused here,
+//    not just by the npm script.
+let __sweepTag = "";
+const SUITE_NAME = "wallet.test.ts";
 
 let pass = 0;
 let fail = 0;
@@ -71,6 +86,7 @@ const balanceOf = (studentId: string) =>
 
 async function main() {
   const tag = "wallet-" + rid();
+  __sweepTag = tag;
   console.log("Student wallet money-safety DB tests —", tag);
 
   // ---------------------------------------------------------------- Proof 1
@@ -238,7 +254,7 @@ async function main() {
   // Center can only credit — there is no center-facing wallet debit path (topUpWalletCash amount is positive-only).
 
   console.log(`\n${pass} passed, ${fail} failed`);
-  process.exit(fail === 0 ? 0 : 1);
+  process.exitCode = fail === 0 ? 0 : 1;
 }
 
 async function mkStudentInline(tx: Parameters<Parameters<typeof withPlatformContext>[0]>[0], tag: string) {
@@ -251,7 +267,20 @@ async function mkStudentInline(tx: Parameters<Parameters<typeof withPlatformCont
   return u.id;
 }
 
-main().catch((e) => {
+async function runGuarded() {
+  await assertDbEnv(["test"], { intent: `suite ${SUITE_NAME}` });
+  try {
+    await main();
+  } catch (e) {
+    console.error(e);
+    process.exitCode = 1;
+  } finally {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+runGuarded().catch((e) => {
   console.error(e);
   process.exit(1);
 });

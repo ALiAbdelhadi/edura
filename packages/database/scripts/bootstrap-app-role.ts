@@ -31,15 +31,26 @@
  */
 import "./load-env";
 import pg from "pg";
+import { assertDbEnv } from "./db-guard";
 
 const ROLE = "edura_app";
 
 async function main() {
-  const adminUrl = process.env.ADMIN_URL ?? process.env.DIRECT_URL;
+  // DELIBERATELY NOT restricted to dev/test: creating `edura_app` on the
+  // production database is precisely this script's job (step 2 of the bootstrap
+  // order above). What it refuses is an UNLABELLED database — creating roles
+  // and issuing blanket GRANTs on a target nobody has claimed is how the wrong
+  // database quietly acquires the wrong privileges.
+  const env = await assertDbEnv(["dev", "test", "production"], {
+    intent: "bootstrap-app-role",
+  });
+  console.log(`bootstrap-app-role: target database is labelled '${env}'.`);
+
+  // OWNER ONLY, no fallback — this issues CREATE ROLE.
+  const adminUrl = process.env.ADMIN_URL;
   if (!adminUrl) {
     throw new Error(
-      "bootstrap-app-role: ADMIN_URL (or DIRECT_URL) must be set to the " +
-        "database OWNER connection string. Did you forget --env-file?",
+      "bootstrap-app-role: ADMIN_URL is required (the database OWNER connection string).\nThe DIRECT_URL fallback was removed on 2026-07-26: it let an app-role URL be\nsilently accepted here, and it created pressure to put an owner string into\nDIRECT_URL — which is how an owner credential reaches a serving environment.\nSee docs/reports/feature-completeness.md \"FINDING 0\".",
     );
   }
   const password = process.env.APP_ROLE_PASSWORD;

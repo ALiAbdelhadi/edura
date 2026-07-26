@@ -10,14 +10,12 @@
     "typecheck": "tsc --noEmit",
     "check-types": "tsc --noEmit",
     "pretest:db": "tsx --env-file=.env.test ../../packages/database/scripts/db-guard.ts test",
-    "test:db": "pnpm pretest:db && tsx --env-file=.env.test tests/db/refund.test.ts",
-    "test:db:oversight": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-oversight.test.ts",
-    "test:db:people": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-people.test.ts",
-    "test:db:academic": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-academic.test.ts",
-    "test:db:operations": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-operations.test.ts",
-    "test:db:money": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-money.test.ts",
-    "test:db:platform": "pnpm pretest:db && tsx --env-file=.env.test tests/db/center-platform.test.ts",
-    "test:db:parity": "pnpm pretest:db && for t in center-people center-academic center-operations center-money center-platform; do tsx --env-file=.env.test tests/db/$t.test.ts || exit 1; done"
+    "test:db": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db",
+    "test:db:parity": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only center-people,center-academic,center-operations,center-money,center-platform",
+    "test:db:list": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --list",
+    "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
+    "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
+    "test:db:sweep": "tsx --env-file=.env.test ../../packages/database/scripts/test-cleanup.ts"
   },
   "dependencies": {
     "@refinedev/core": "^5.0.12",

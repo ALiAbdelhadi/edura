@@ -232,3 +232,106 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
     },
   }),
 );
+
+// =============================================================================
+// ROLE GUARD — refuse to serve on a connection that can see through RLS
+// =============================================================================
+// WHY THIS EXISTS — the failure it prevents, found 2026-07-26:
+//
+// `apps/www/.env.production` and `apps/superadmin/.env.production` set
+// DATABASE_URL to the database OWNER (`neondb_owner`, which carries the
+// BYPASSRLS role attribute). On that connection:
+//
+//   * all 56 RLS policies across 35 tables are INERT — tenant isolation is off;
+//   * every money REVOKE is INERT — `transactions`, `points_ledger`,
+//     `session_settlements` and `audit_logs` become freely UPDATE/DELETE-able.
+//
+// The migrations had already anticipated owner-exemption: all 35 RLS tables
+// carry FORCE ROW LEVEL SECURITY, which exists precisely to subject a table's
+// owner to its own policies. It is defeated only because the BYPASSRLS *role
+// attribute* always wins over FORCE. So the schema was right and the connection
+// string undid it — and nothing reported an error, because every proof runs in
+// dev, where DATABASE_URL is correctly `edura_app`.
+//
+// A checklist cannot prevent that: the failure mode IS a copied or
+// hand-edited connection string. So, in the same spirit as db-guard, the
+// property is asserted against the LIVE CONNECTION rather than trusted from
+// config.
+//
+// THREE DESIGN CHOICES, each load-bearing:
+//
+//  1. It asserts the CAPABILITY, not the role name. `current_user <>
+//     'neondb_owner'` would be defeated by a rename or a second
+//     owner-equivalent role; `rolsuper OR rolbypassrls` is the property that
+//     actually matters — "can this connection see through RLS?".
+//  2. It FAILS CLOSED IN EVERY ENVIRONMENT, not just production. A dev process
+//     silently running as owner disables the isolation the test suite exists to
+//     prove, which is exactly how this survived unnoticed.
+//  3. ONE call site. It is the OUTERMOST extension on the client every app
+//     query funnels through, so it cannot be forgotten by a new route. The
+//     three legitimately-owner entry points (`prisma migrate deploy`,
+//     `bootstrap-app-role.ts`, `test-cleanup.ts`) open their own pg pools on
+//     ADMIN_URL/DIRECT_URL and never touch this client, so they bypass the
+//     guard BY CONSTRUCTION rather than by exception.
+//
+// Cost: one `SELECT` per process, memoised. The rejection is cached too, so a
+// retry cannot slip past a first failure.
+// =============================================================================
+
+type RoleCheck = { usr: string; unsafe: boolean };
+
+let roleCheck: Promise<RoleCheck> | undefined;
+
+/** Reset between tests. Not for application use. */
+export function __resetRoleGuard(): void {
+  roleCheck = undefined;
+}
+
+async function assertSafeRole(client: {
+  $queryRaw: (q: TemplateStringsArray, ...v: unknown[]) => Promise<unknown>;
+}): Promise<RoleCheck> {
+  roleCheck ??= (async () => {
+    const rows = (await client.$queryRaw`
+      SELECT current_user::text AS usr,
+             COALESCE(
+               (SELECT r.rolsuper OR r.rolbypassrls
+                  FROM pg_roles r WHERE r.rolname = current_user),
+               false
+             ) AS unsafe`) as RoleCheck[];
+    const row = rows[0];
+    if (!row) {
+      throw new Error(
+        "role-guard: could not determine the current database role. Refusing to serve.",
+      );
+    }
+    if (row.unsafe) {
+      throw new Error(
+        `role-guard: REFUSING TO SERVE as database role "${row.usr}".\n` +
+          `  This role is SUPERUSER or has BYPASSRLS, so:\n` +
+          `    - every RLS policy is inert (tenant isolation is OFF), and\n` +
+          `    - the append-only REVOKEs on transactions / points_ledger /\n` +
+          `      session_settlements / audit_logs do not apply.\n` +
+          `  Point DATABASE_URL at the unprivileged application role (edura_app,\n` +
+          `  NOBYPASSRLS). Migrations and bootstrap keep using DIRECT_URL /\n` +
+          `  ADMIN_URL — those must never appear in a serving environment.\n` +
+          `  See docs/reports/feature-completeness.md "FINDING 0".`,
+      );
+    }
+    return row;
+  })();
+  return roleCheck;
+}
+
+export const roleGuardExtension = Prisma.defineExtension((client) =>
+  client.$extends({
+    name: "edura-role-guard",
+    query: {
+      async $allOperations({ args, query }) {
+        await assertSafeRole(
+          client as unknown as Parameters<typeof assertSafeRole>[0],
+        );
+        return query(args);
+      },
+    },
+  }),
+);

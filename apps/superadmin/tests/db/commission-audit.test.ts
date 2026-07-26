@@ -11,7 +11,9 @@
  *
  * Restores the original rates at the end (this touches the GLOBAL row).
  *
- * Run: pnpm --filter superadmin exec tsx --env-file=.env.local tests/db/commission-audit.test.ts
+ * Run (all suites, guarded):  pnpm --filter superadmin test:db
+ * Run (this one only):        pnpm --filter superadmin test:db:only commission-audit
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";
 import {
@@ -19,6 +21,19 @@ import {
   updateGlobalCommission,
 } from "@/lib/services/settings/commission-admin";
 import type { SessionUser } from "@/lib/auth/session";
+
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+
+// Fixture teardown + the environment guard, wired at the module edge so
+// neither depends on remembering to do it inside a proof.
+//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
+//    in a finally, so an assertion that THROWS still cleans up.
+//  * assertDbEnv runs before the first fixture: running this file directly
+//    with --env-file=.env.local (which skips pretest:db) is now refused here,
+//    not just by the npm script.
+let __sweepTag = "";
+const SUITE_NAME = "commission-audit.test.ts";
 
 let pass = 0;
 let fail = 0;
@@ -36,6 +51,7 @@ const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
 async function main() {
   const tag = "commaud-" + rid();
+  __sweepTag = tag;
   console.log("Commission audit DB test —", tag);
 
   const su = await withPlatformContext(async (tx) => {
@@ -118,10 +134,23 @@ async function main() {
   );
 
   console.log(`\n${pass} passed, ${fail} failed`);
-  process.exit(fail === 0 ? 0 : 1);
+  process.exitCode = fail === 0 ? 0 : 1;
 }
 
-main().catch((e) => {
+async function runGuarded() {
+  await assertDbEnv(["test"], { intent: `suite ${SUITE_NAME}` });
+  try {
+    await main();
+  } catch (e) {
+    console.error(e);
+    process.exitCode = 1;
+  } finally {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+runGuarded().catch((e) => {
   console.error(e);
   process.exit(1);
 });
