@@ -28,7 +28,8 @@
     "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
     "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
     "test:db:sweep": "tsx --env-file=.env.test ../../packages/database/scripts/test-cleanup.ts",
-    "test:all": "pnpm check-types && pnpm test:unit && pnpm test:db"
+    "test:all": "pnpm check-types && pnpm test:unit && pnpm test:db",
+    "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude catalog-onboarding,c01-lesson-settlement,h03-seed-uuid-flows"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

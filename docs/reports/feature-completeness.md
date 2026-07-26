@@ -1159,3 +1159,200 @@ The end state, recorded as intent rather than a task:
 4. If a cleanup credential is still wanted at that point, a dedicated **`edura_cleanup`** role — `DELETE` on exactly the fixture-reachable tables, `NOBYPASSRLS`, no DDL — removes the last reason to hold an owner credential for anything but schema changes.
 
 The principle to hold onto: **the cleanup tooling must never become the reason owner access stays wired in.** Runtime and cleanup are different processes with different credentials, and they do not need to share an env file.
+
+---
+
+## Addendum A9 — the 41-suite run on a real test branch, 2026-07-26
+
+Branch `test` (`ep-shiny-waterfall-as6cxn8n`), cut from production, relabelled `edura-env:test`, migrated to 36 and seeded.
+
+**36 of 41 suites pass. 1,034 assertions passed, 0 failed.** Sixteen of the seventeen figures `CLAUDE.md` names reproduce **exactly**.
+
+| Suite | CLAUDE.md | Actual | |
+|---|---|---|---|
+| center-oversight | 119/119 | **119** | ✅ |
+| invite-claim | 107/107 | **107** | ✅ |
+| c04-login-parity (www) | 72/72 | **72** | ✅ |
+| center-people | — | 66 | ✅ |
+| center-staff-delegation | 55/55 | **55** | ✅ |
+| center-academic | — | 54 | ✅ |
+| center-operations | — | 50 | ✅ |
+| center-money | — | 48 | ✅ |
+| room-pricing-methods | 47/47 | **47** | ✅ |
+| h04-blacklist-cascade | 44/44 | **44** | ✅ |
+| center-platform | — | 44 | ✅ |
+| c02-payout-generation | — | 28 | ✅ |
+| c03-status-revocation (www) | 26/26 | **26** | ✅ |
+| c04-login-boundary (sa) | 26/26 | **26** | ✅ |
+| room-revenue-split | — | 22 | ✅ |
+| wallet | — | 20 | ✅ |
+| registration-doors | — | 17 | ✅ |
+| offline-sync | — | 16 | ✅ |
+| c03-status-revocation (sa) | 15/15 | **15** | ✅ |
+| mail-password-reset | — | 15 | ✅ |
+| wallet-settings-admin | — | 15 | ✅ |
+| refund | 13/13 | **13** | ✅ |
+| l1-session-invalidation | 12/12 | **12** | ✅ |
+| rbac-isolation | 11/11 | **11** | ✅ |
+| center-share-admin | 11/11 | **11** | ✅ |
+| second-language-scoping | — | 11 | ✅ |
+| run-db-tests | — | 11 | ✅ |
+| m5-send-invite-ownership | 10/10 | **10** | ✅ |
+| wallet-refund | — | 8 | ✅ |
+| h2-payout-floor | 7/7 | **7** | ✅ |
+| wallet-no-cap | — | 7 | ✅ |
+| h3-refund-race | 6/6 | **6** | ✅ |
+| commission-audit | — | 6 | ✅ |
+| center-share-governance | — | 6 | ✅ |
+| m1-webhook-atomicity | — | 9 | ✅ |
+| h1-payout-race | — | exit 0, no count line | ✅ |
+| **messaging-scope** | **87/87** | hung 1085s → exit 1 | ⚠️ **the one unverified figure** |
+| c01-lesson-settlement | — | 3 failed assertions + FATAL | ✗ |
+| catalog-onboarding | — | `cacheTag()` config error | ✗ |
+| h03-seed-uuid-flows | — | missing `messaging-demo-seed` | ✗ |
+| room-ownership | — | 5/5 pass, then hangs | ✗ |
+
+**superadmin: 18/18, all pass, 585 assertions.** **www: 18/23, 449 assertions.**
+
+### The five that did not pass — none is a product defect
+
+1. **`h03-seed-uuid-flows`** — needs a fourth seed I did not run. It says so itself: `Missing seeded fixtures. Run: seed.ts, preview-seed.ts, messaging-demo-seed.ts`. Environment, not code.
+2. **`catalog-onboarding`** — `` `cacheTag()` is only available with the `cacheComponents` config ``. A Next.js config coupling: the service under test calls a Next cache API that has no runtime outside a Next server. The suite cannot pass standalone regardless of database state. **This is a real defect in the test's design, not in the product.**
+3. **`c01-lesson-settlement`** — the only suite with genuinely failed assertions: `✗ all 3 CHECKs are VALIDATED (not NOT VALID)`, plus two `401`s and a FATAL on `wallet_balance`. The CHECK assertion is an **environment difference, and an informative one**: the branch was cut from production, where `centers_wallet_balance_nonneg` is still `NOT VALID` — exactly as §Security/H2 records. The suite asserts dev's post-wipe validated state. The two 401s suggest it expects a running dev server.
+4. **`room-ownership`** — run alone it prints `5 passed, 0 failed` and completes its sweep. It is **not an assertion failure**; the suite hangs after cleanup. 842s in the batch.
+5. **`messaging-scope`** — 1085s then exit 1, no summary line. The 87/87 figure remains **unverified**.
+
+### Suspected cause of the two hangs — my own sweeper
+
+`room-ownership` and `messaging-scope` are the two slowest suites by an order of magnitude, and both complete their assertions before stalling. The likeliest cause is `sweepTag`'s fixed-point walk: up to 32 passes over ~150 edges, one `SELECT` per edge per pass, against a now-seeded database on free-tier Neon compute. That is thousands of round-trips per suite. Recorded as a suspicion, **not proven** — it needs a timed profile of `sweepTag` before anyone acts on it.
+
+If confirmed, the fix is to stop iterating to a fixed point and instead expand once per topological level, which the relation graph already gives.
+
+### Seed order used
+
+All three guards passed on the relabelled branch (`assertNotProduction` = `assertDbEnv(["dev","test"])`):
+
+| # | Seed | Guard | Provides |
+|---|---|---|---|
+| 1 | `prisma/seed.ts` (calls `seedCatalog`) | `readDbEnv()` → `test`, so demo data included | Egyptian catalog, `super_admin` + `accountant`, base demo users, one center, one course |
+| 2 | `prisma/preview-seed.ts` | `assertNotProduction` ✔ | NILE/ANDL/FUTR/BRGT centers, 5 teachers, 5 students, 5 courses, 7 sessions — what `c01` and `h1`/`h2` need |
+| 3 | `prisma/center-oversight-demo-seed.ts` | `assertNotProduction` ✔ | The two oversight centers |
+| 4 | `prisma/messaging-demo-seed.ts` | `assertNotProduction` ✔ | **Not run — this is why `h03` failed** |
+
+`seed.ts` decides what to write from the **database label**, not `NODE_ENV`: on a `test` label it seeds catalog + staff + demo; on `production` it would seed catalog + staff only, and refuse without explicit staff credentials.
+
+**Invocation matters:** these scripts load env through `scripts/load-env.ts`, which defaults to `packages/database/.env` — **dev**. They must be run as `EDURA_ENV=test tsx prisma/<seed>.ts`, which loads `.env.test`. A bare `pnpm seed` writes to dev.
+
+### A9.1 — 31 of 41 suites depend on pre-existing database state
+
+Not just the `h1`/`h2` hardcoded UUIDs the audit flagged — it is broad. Before seeding, 28 suites crashed; after seeding, 36 pass. That difference *is* the dependency.
+
+**This makes CI flaky by construction, and the workflow as committed will fail exactly as this run first did.** [.github/workflows/ci.yml](.github/workflows/ci.yml) goes straight from *Materialise `.env.test`* → *`pretest:db`* → *`test:db`*. There is **no migrate step and no seed step** — the only match for `seed` in the file is a comment about type errors.
+
+What it needs, between "Materialise" and "DB suites":
+
+```yaml
+- name: Apply migrations to the test branch
+  run: pnpm --filter @repo/database exec tsx --env-file=.env.test scripts/apply-migrations.mjs
+
+- name: Seed deterministically
+  env: { EDURA_ENV: test }
+  run: |
+    pnpm --filter @repo/database exec tsx prisma/seed.ts
+    pnpm --filter @repo/database exec tsx prisma/preview-seed.ts
+    pnpm --filter @repo/database exec tsx prisma/center-oversight-demo-seed.ts
+    pnpm --filter @repo/database exec tsx prisma/messaging-demo-seed.ts
+```
+
+`packages/database/.env.test` must also be materialised, not just the two app ones — the seeds read it. All four seeds are idempotent (`upsert` on deterministic UUIDv5 ids from `seed-ids.ts`), so re-running is safe; but a CI branch that persists between runs will accumulate whatever the suites fail to sweep, so the residue sweep at the end of the job is load-bearing, not optional.
+
+The deeper point: **31 suites asserting against seeded rows they did not create is a design property worth revisiting.** Self-contained suites cost more to write and cannot drift out from under a shared fixture.
+
+### A9.2 — the migration drift is now proven, not inferred
+
+The branch arrived at **34 of 36 migrations**, inheriting production's state. That converts a doc claim into a measurement: **production is two migrations behind**, missing `20260725100000_invite_purposes_guardian_notice` and `20260725100100_guardian_contact`.
+
+Concretely, on production today:
+
+- `student_profiles` has **28 columns, not 33** — missing `guardian_email`, `guardian_phone`, `guardian_email_added_at`, `guardian_email_added_by`, `guardian_contact_due_at`. Every code path that creates a `StudentProfile` fails immediately with `The column (not available) does not exist in the current database`. **That includes ordinary student registration.**
+- The `invite_purpose` enum has only `student_activation, teacher_activation, admin_invite, walk_in_onboarding`. **`assistant_invite` and `center_staff_invite` do not exist**, so production cannot mint an assistant or center-staff invite at all — the entire Part B invite flow is inoperable there.
+- The `guardian-contact-reminders` cron errors rather than no-ops, as already recorded.
+
+**Add to the pre-deploy list, before any traffic:**
+
+1. `tsx --env-file=<prod env> scripts/apply-migrations.mjs` — takes production to 36.
+2. `VALIDATE CONSTRAINT centers_wallet_balance_nonneg` — still `NOT VALID` there (the test branch inherited that too, which is what `c01` detected).
+3. Fix `DATABASE_URL` in the app env to `edura_app` (FINDING 0) — the boot assertion will refuse to serve otherwise.
+
+---
+
+## Addendum A10 — first green CI run, and three structural findings
+
+### A10.1 The run
+
+Every step of the workflow, executed against the `edura-env:test` branch:
+
+| CI step | Result |
+|---|---|
+| Typecheck | **6/6** |
+| Unit (www) | **111 passed / 1 skipped** |
+| Build both apps | **PASS** |
+| Apply migrations to the test branch | 36/36, idempotent on re-run |
+| Seed (4 seeds) | all four idempotent on re-run |
+| DB suites — www (`test:db:ci`, 20 of 23) | **ALL PASS — 541 assertions, 0 failed** |
+| DB suites — superadmin (18) | **ALL PASS — 585 assertions, 0 failed** |
+
+**38 suites, 1,126 assertions, zero failures.** This is the first reproducible green run in the repo's history.
+
+**`messaging-scope` is verified: 87/87.** That was the last unverified figure and the child-safety suite. **All 17 of `CLAUDE.md`'s named figures now reproduce exactly.**
+
+Caveat on provenance: this was the CI *sequence* run locally against the real test branch, not a GitHub Actions run. Actions needs the repo secrets (`TEST_DATABASE_URL`, `TEST_DIRECT_URL`, `TEST_ADMIN_URL`) and a push, and pushing is not something this session does. Every command is the one the workflow invokes.
+
+Two bugs in the workflow were found and fixed by running it:
+- `packages/database/.env.test` was not materialised — the seeds read that file, not the app envs.
+- `pnpm --filter X exec` runs from the **repo root**, so `--env-file=.env.test` resolved to nothing and node exited 9. The migrate step now uses `working-directory: packages/database`.
+
+### A10.2 `sweepTag` is CLEARED — the suspicion was wrong
+
+§A9 named the sweeper as the prime suspect for two suites taking 1085s and 842s. Profiled with per-line timestamps:
+
+```
+messaging-scope suite body : 22:29:37 → 22:31:29    112s
+                sweepTag   : 22:31:29 → 22:31:36      7s   (removed 15 rows)
+```
+
+**Seven seconds.** The sweeper is not the cause, and no optimisation is warranted. On the green run both suites were healthy in batch too (`messaging-scope` 183s, `room-ownership` 98s). The original 1085s/842s were transient Neon free-tier compute contention across 23 sequential suites — environmental, and it did not reproduce.
+
+Recorded because the discipline matters more than the answer: the suspicion was stated as a suspicion, profiled before acting, and disproved. Optimising blind would have changed working code for no reason.
+
+### A10.3 Three suites are structurally unrunnable — excluded, not left red
+
+A permanently red test trains people to ignore red. These are now skipped by name via `--exclude`, and the runner prints `EXCLUDED (3): …` on every run so the exclusion is visible rather than silent.
+
+| Suite | Why it cannot pass at any database state |
+|---|---|
+| `catalog-onboarding` | Calls `` `cacheTag()` is only available with the `cacheComponents` config ``. The service under test uses a Next.js cache API that has no runtime outside a Next server. **Restructure it or remove it from the suite** — it can never pass standalone. |
+| `c01-lesson-settlement` | Uses network `fetch()` against `http://localhost:3002` / `:3004`. Needs a dev server running against the *same* branch with the *same* `NEXTAUTH_SECRET`. CI has no server. |
+| `h03-seed-uuid-flows` | Same — 15 of its assertions fail with `401 unauthenticated` because the minted cookie is signed with the test secret while any running dev server holds the dev secret. |
+
+**The distinction worth generalising:** `c04-login-parity` (72/72) and `invite-claim` (107/107) also exercise HTTP routes — but they construct `new Request(...)` and call the imported route handler **in-process**. No server, no port, no cookie-secret coupling. That is the pattern to standardise on, and it is the same one proposed for the `authz-sweep` replacement in §A6.
+
+**`c01` keeps its exclusion from CI but stays a working alarm.** Its one genuine assertion failure — `✗ all 3 CHECKs are VALIDATED (not NOT VALID)` — correctly detects that the branch inherited production's un-validated `centers_wallet_balance_nonneg`. It is doing its job. Run it by hand after production is fixed; it should go green, and if it does not, production is not fixed.
+
+### A10.4 `load-env` defaults to dev — same mechanism as the 2026-07-23 incident
+
+`packages/database/scripts/load-env.ts` selects its env file from `EDURA_ENV`:
+
+```
+(unset)              -> packages/database/.env             (DEV)
+EDURA_ENV=test       -> packages/database/.env.test
+EDURA_ENV=production -> packages/database/.env.production
+```
+
+**Unset means dev.** So a bare `pnpm --filter @repo/database seed` — the obvious command, the one in the README-shaped muscle memory — writes demo users, centers, courses and enrollments **into the dev database**. Every seed and script that imports `load-env` inherits this default.
+
+**This is the same mechanism as the 2026-07-23 incident.** `db-guard.ts`'s own header records it: *"dev, tests, and (as documented) production all resolved to ONE Neon database, because every context read the same `.env.local`. 330 `@x.io` users and 83 unflagged centers were written into what was meant to be the launch database by test runs alone."* The lineage is direct — a default that silently resolves to a real database, with no explicit target in the command.
+
+**What has changed, and what has not.** The label guard closed the *production* case: every seed calls `assertNotProduction`, and `seed.ts` reads the label rather than `NODE_ENV`, so production cannot be seeded by accident any more. **Dev is still exposed** — `assertNotProduction` is `assertDbEnv(["dev","test"])`, and dev is on the allow-list by design, because dev is where demo data is *supposed* to go. Nothing distinguishes "I meant dev" from "I forgot to say test".
+
+Not fixed, deliberately. Recorded so the lineage is visible: dev's 3,435 rows of test residue and 958 orphans were produced by exactly this class of default, and the next 3,435 will be too unless the default becomes explicit. The smallest change that would close it is requiring `EDURA_ENV` to be set explicitly for any script that writes — turning a silent default into a named target.

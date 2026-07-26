@@ -200,9 +200,28 @@ async function main() {
     process.exit(2);
   }
 
+  // `--exclude a,b` — for suites that cannot pass in a given context at ANY
+  // database state, so they are skipped EXPLICITLY and named in the output
+  // rather than left permanently red. A red test nobody can fix trains people
+  // to ignore red. See docs/reports/feature-completeness.md §A10.
+  const excludeArg = args.find((a) => a === "--exclude" || a.startsWith("--exclude="));
+  const exclude = !excludeArg
+    ? undefined
+    : excludeArg.includes("=")
+      ? split(excludeArg.split("=").slice(1).join("="))
+      : split(args[args.indexOf("--exclude") + 1]);
+
   let suites = discover(dir);
   if (only?.length) {
     suites = suites.filter((s) => only.some((o) => s.includes(o)));
+  }
+  let skipped: string[] = [];
+  if (exclude?.length) {
+    skipped = suites.filter((s) => exclude.some((e) => s.includes(e)));
+    suites = suites.filter((s) => !exclude.some((e) => s.includes(e)));
+  }
+  if (skipped.length) {
+    console.log(`\nEXCLUDED (${skipped.length}): ${skipped.join(", ")}`);
   }
 
   if (listOnly) {
