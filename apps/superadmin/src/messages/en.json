@@ -16,7 +16,7 @@
     "commission": "Commission",
     "courses": "Courses",
     "dashboard": "Dashboard",
-    "enrollmentRequests": "Enrollment requests",
+    "enrollmentRequests": "Enrollment Requests",
     "enrollments": "Enrollments",
     "expenses": "Expenses",
     "family": "Family Code",
@@ -49,7 +49,11 @@
     "team": "Team",
     "transactions": "Transactions",
     "walletPolicy": "Wallet policy",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "requests": "Requests",
+    "myClasses": "My Classes",
+    "myCenters": "My Centers",
+    "more": "More"
   },
   "roles": {
     "student": "Student",
@@ -113,7 +117,7 @@
     "selectRow": "Select row",
     "sendInvite": "Send invite",
     "signIn": "Sign in",
-    "sortBy": "Sort by"
+    "sortBy": "Sort by {column}"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -1226,5 +1230,10 @@
     "deniedBody": "Your account is not permitted to view centers.",
     "sharePerStudent": "Share per present student (EGP) — current:",
     "hallPriceCurrent": "Hall price (EGP) — current:"
+  },
+  "navGroup": {
+    "oversight": "Oversight",
+    "money": "Money",
+    "comms": "Comms & oversight"
   }
 }

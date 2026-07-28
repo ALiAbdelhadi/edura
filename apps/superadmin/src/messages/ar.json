@@ -16,7 +16,7 @@
     "commission": "العمولة",
     "courses": "الدورات",
     "dashboard": "لوحة التحكم",
-    "enrollmentRequests": "طلبات الالتحاق",
+    "enrollmentRequests": "طلبات التسجيل",
     "enrollments": "التسجيلات",
     "expenses": "المصروفات",
     "family": "رمز العائلة",
@@ -34,7 +34,7 @@
     "payouts": "مستحقات وصرف",
     "points": "النقاط",
     "progress": "التقدم",
-    "registrations": "طلبات التسجيل",
+    "registrations": "التسجيلات",
     "reports": "التقارير",
     "reviews": "التقييمات",
     "roomSettlements": "تسويات القاعات",
@@ -49,7 +49,11 @@
     "team": "الفريق",
     "transactions": "المعاملات",
     "walletPolicy": "سياسة المحفظة",
-    "whatsapp": "واتساب"
+    "whatsapp": "واتساب",
+    "requests": "الطلبات",
+    "myClasses": "فصولي",
+    "myCenters": "مراكزي",
+    "more": "المزيد"
   },
   "roles": {
     "student": "طالب",
@@ -113,7 +117,7 @@
     "selectRow": "تحديد الصف",
     "sendInvite": "إرسال دعوة",
     "signIn": "تسجيل الدخول",
-    "sortBy": "ترتيب حسب"
+    "sortBy": "ترتيب حسب {column}"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -1240,5 +1244,10 @@
     "deniedBody": "حسابك لا يملك صلاحية الاطلاع على السناتر.",
     "sharePerStudent": "الحصة لكل طالب حاضر (ج.م) — الحالية:",
     "hallPriceCurrent": "سعر القاعة (ج.م) — الحالي:"
+  },
+  "navGroup": {
+    "oversight": "الإشراف",
+    "money": "الأموال",
+    "comms": "التواصل والرقابة"
   }
 }
