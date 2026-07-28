@@ -283,12 +283,20 @@ export default function DashboardShell({
   const bottomNavItems = (bottomNav ?? [])
     .map((href) => flatNav.find((i) => i.href === href))
     .filter((i): i is NavItem => Boolean(i))
-    .map((i) => ({
-      href: i.href,
-      label: tNav(i.label),
-      icon: iconMap[i.icon] || LayoutGrid,
-      badge: i.href.includes("notifications") && unreadCount > 0 ? unreadCount : undefined,
-    }));
+    .map((i) => {
+      const Icon = iconMap[i.icon] || LayoutGrid;
+      const badge =
+        i.href.includes("notifications") && unreadCount > 0 ? unreadCount : undefined;
+      return {
+        key: i.href,
+        href: i.href,
+        label: tNav(i.label),
+        icon: <Icon className="size-5" />,
+        ...(badge !== undefined
+          ? { badge, badgeLabel: `${tNav(i.label)} (${badge})` }
+          : {}),
+      };
+    });
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -440,12 +448,12 @@ export default function DashboardShell({
         {bottomNavItems.length ? (
           <BottomNav
             items={bottomNavItems}
-            activeHref={selectedKey}
-            renderLink={({ href, className, children, ...rest }) => (
-              <Link key={href} href={href} className={className} {...rest}>
-                {children}
-              </Link>
-            )}
+            activeKey={selectedKey}
+            maxVisible={5}
+            linkAs={Link}
+            navLabel={t("nav.dashboard")}
+            moreLabel={t("nav.more")}
+            moreTitle={t("nav.allSections")}
           />
         ) : null}
       </SidebarInset>
