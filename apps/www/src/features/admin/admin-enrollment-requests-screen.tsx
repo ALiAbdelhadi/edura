@@ -1,28 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
+import { PageSpinner } from "@/components/kit/spinner";
 import CopyableText from "@/components/ui/copyable-text";
-import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/dialog";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { Check, Inbox, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import {
+  Badge,
+  ClearanceNotice,
+  DataTable,
+  EmptyState,
+  Eyebrow,
+  Num,
+  PageHead,
+  RowIdentity,
+  Sheet,
+  TwoStepCommit,
+  type Column,
+} from "./ledger";
+
 type PopulatedRef = { _id?: string; id?: string; name?: string; title?: string };
 
 interface EnrollmentRequest {
@@ -45,10 +47,28 @@ function refLabel(v: string | PopulatedRef | undefined | null, field: "name" | "
   return v[field];
 }
 
+function daysWaiting(iso: string): number {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(ms / 86_400_000));
+}
+
+/**
+ * طلبات التسجيل — the enrolment queue.
+ *
+ * The old screen rendered a solid Approve AND a solid destructive Decline in
+ * every row: at ten rows, twenty saturated buttons, with reject at equal weight
+ * to approve. Per the system, a queue has NO per-row action buttons — selecting
+ * a row opens the decision panel, and that is where the action lives.
+ *
+ * Approving writes an enrolment and notifies the student, so it takes the
+ * two-step commit. Declining is a low-weight bordered button that opens the
+ * required-reason field — a rejection with no reason is a bug.
+ */
 export function AdminEnrollmentRequestsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
-  const [declineId, setDeclineId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [declineOpen, setDeclineOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
 
   const { query: requestsQuery, result: requestsResult } = useList<EnrollmentRequest>({
@@ -77,13 +97,23 @@ export function AdminEnrollmentRequestsScreen() {
     return m;
   }, [coursesResult]);
 
-  const { mutateAsync: approveMut, mutation: approveMutation } = useCustomMutation();
+  const { mutateAsync: approveMut } = useCustomMutation();
   const { mutateAsync: declineMut, mutation: declineMutation } = useCustomMutation();
+
+  const selected = requests.find((r) => r._id === selectedId) ?? null;
+
+  const nameOf = (r: EnrollmentRequest) => {
+    const id = refId(r.studentId);
+    return refLabel(r.studentId, "name") ?? studentMap.get(id) ?? id;
+  };
+  const courseOf = (r: EnrollmentRequest) =>
+    refLabel(r.courseId, "title") ?? courseMap.get(refId(r.courseId)) ?? refId(r.courseId);
 
   const handleApprove = async (id: string) => {
     try {
       await approveMut({ url: `enrollment-requests/${id}/approve`, method: "post", values: {} });
       toast.success(t("adminManage.enroll.requestApproved"));
+      setSelectedId(null);
       requestsQuery.refetch();
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.message || t("adminManage.enroll.approveFailed");
@@ -97,15 +127,16 @@ export function AdminEnrollmentRequestsScreen() {
   };
 
   const handleDecline = async () => {
-    if (!declineId || !declineReason.trim()) return;
+    if (!selectedId || !declineReason.trim()) return;
     try {
       await declineMut({
-        url: `enrollment-requests/${declineId}/decline`,
+        url: `enrollment-requests/${selectedId}/decline`,
         method: "post",
         values: { reason: declineReason },
       });
       toast.success(t("adminManage.enroll.requestDeclined"));
-      setDeclineId(null);
+      setSelectedId(null);
+      setDeclineOpen(false);
       setDeclineReason("");
       requestsQuery.refetch();
     } catch {
@@ -117,110 +148,159 @@ export function AdminEnrollmentRequestsScreen() {
     return <PageSpinner label={t("adminManage.enroll.loadingRequests")} />;
   }
 
+  const columns: Column<EnrollmentRequest>[] = [
+    {
+      id: "student",
+      header: t("adminManage.enroll.colStudent"),
+      cell: (r) => <RowIdentity name={nameOf(r)} meta={refId(r.studentId)} />,
+    },
+    {
+      id: "course",
+      header: t("adminManage.enroll.colCourse"),
+      cell: (r) => <span className="text-[13px] text-[var(--ink)]">{courseOf(r)}</span>,
+    },
+    {
+      id: "submitted",
+      header: t("adminManage.enroll.colSubmitted"),
+      cell: (r) => (
+        <Num className="text-xs text-[var(--ink-3)]">
+          {formatDate(r.submittedAt, { day: "numeric", month: "short", year: "numeric" })}
+        </Num>
+      ),
+    },
+    {
+      id: "status",
+      header: t("adminManage.enroll.colStatus"),
+      numeric: true,
+      // A pending badge carries its own age — waiting is the operator's metric.
+      cell: (r) => (
+        <Badge tone="pending" age={t("adminManage.enroll.waitingAge", { n: daysWaiting(r.submittedAt) })}>
+          {t("status.pending")}
+        </Badge>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={
-          <>
-            {t("adminManage.enroll.title")}
-            {requests.length > 0 ? <span dir="ltr"> ({requests.length})</span> : null}
-          </>
-        }
+    <div className="flex flex-col gap-5">
+      <PageHead
+        title={t("adminManage.enroll.title")}
+        subtitle={t("adminManage.enroll.subtitle")}
       />
 
-      <div className="flex flex-col gap-4">
-        {requests.length === 0 ? (
-          <EmptyState icon={Inbox} title={t("adminManage.enroll.noPending")} />
-        ) : (
-          requests.map((r) => {
-            const studentId = refId(r.studentId);
-            const studentName = refLabel(r.studentId, "name") ?? studentMap.get(studentId) ?? studentId;
-            return (
-              <Card key={r._id} className="py-4">
-                <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">
-                      <StudentLink studentId={studentId} name={studentName} />
-                    </div>
-                    <div className="mt-1">
-                      <CopyableText value={studentId} label={t("adminManage.enroll.userId")} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {refLabel(r.courseId, "title") ?? courseMap.get(refId(r.courseId)) ?? refId(r.courseId)}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {t("adminManage.enroll.submitted")}{" "}
-                      {formatDate(r.submittedAt, {
+      {requests.length === 0 ? (
+        <Sheet>
+          <EmptyState icon={<Inbox className="size-6" />} title={t("adminManage.enroll.noPending")} />
+        </Sheet>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[1fr_396px]">
+          <DataTable
+            columns={columns}
+            rows={requests}
+            rowKey={(r) => r._id}
+            onRowClick={(r) => {
+              setSelectedId(r._id);
+              setDeclineOpen(false);
+              setDeclineReason("");
+            }}
+            selectedKey={selectedId}
+            caption={t("adminManage.enroll.title")}
+          />
+
+          <Sheet className="h-fit p-4">
+            {!selected ? (
+              <EmptyState
+                title={t("adminManage.enroll.selectPrompt")}
+                hint={t("adminManage.enroll.selectHint")}
+              />
+            ) : (
+              <div className="flex flex-col gap-3.5">
+                <div>
+                  <Eyebrow>{t("adminManage.enroll.panelEyebrow")}</Eyebrow>
+                  <h2 className="mt-1.5 mb-0 text-[17px] font-bold text-[var(--ink)]">
+                    {nameOf(selected)}
+                  </h2>
+                  <p className="mt-0.5 mb-0 text-[13px] text-[var(--ink-2)]">{courseOf(selected)}</p>
+                </div>
+
+                <div className="lg-field flex flex-col gap-2 p-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs text-[var(--ink-2)]">
+                      {t("adminManage.enroll.requestedOn")}
+                    </span>
+                    <Num className="text-[13px] text-[var(--ink)]">
+                      {formatDate(selected.submittedAt, {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
+                    </Num>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs text-[var(--ink-2)]">
+                      {t("adminManage.enroll.studentIdLabel")}
+                    </span>
+                    <CopyableText
+                      value={refId(selected.studentId)}
+                      label={t("adminManage.enroll.userId")}
+                    />
+                  </div>
+                </div>
+
+                <ClearanceNotice>{t("adminManage.enroll.clearance")}</ClearanceNotice>
+
+                <TwoStepCommit
+                  resetKey={selected._id}
+                  icon={<Check className="size-4" />}
+                  label={t("adminManage.enroll.approveCommit")}
+                  armedLabel={t("adminManage.enroll.approveArmed")}
+                  hint={t("adminManage.enroll.approveHint")}
+                  armedHint={t("adminManage.enroll.approveArmedHint")}
+                  onCommit={() => handleApprove(selected._id)}
+                />
+
+                {/* Decline is bordered, not filled — it must never be the visual
+                    twin of approve, and it always requires a reason. */}
+                {declineOpen ? (
+                  <div className="flex flex-col gap-2">
+                    <Textarea
+                      rows={3}
+                      autoFocus
+                      placeholder={t("adminManage.enroll.declineReasonPlaceholder")}
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 border-[var(--red)] text-[var(--red)]"
+                        disabled={!declineReason.trim() || declineMutation.isPending}
+                        onClick={handleDecline}
+                      >
+                        {t("adminManage.enroll.declineSubmit")}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setDeclineOpen(false)}>
+                        {t("actions.cancel")}
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge tone="warning">{t("status.pending")}</StatusBadge>
-                    <Button
-                      size="sm"
-                      disabled={approveMutation.isPending}
-                      onClick={() => handleApprove(r._id)}
-                    >
-                      {approveMutation.isPending ? <Spinner /> : <Check className="size-4" />}
-                      {t("actions.approve")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setDeclineId(r._id);
-                        setDeclineReason("");
-                      }}
-                    >
-                      <X className="size-4" />
-                      {t("adminManage.enroll.decline")}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      <Dialog
-        open={!!declineId}
-        onOpenChange={(open) => {
-          if (!open) setDeclineId(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("adminManage.enroll.declineRequest")}</DialogTitle>
-            <DialogDescription>
-              {t("adminManage.enroll.declineReasonPrompt")}
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            rows={3}
-            placeholder={t("adminManage.enroll.declineReasonPlaceholder")}
-            value={declineReason}
-            onChange={(e) => setDeclineReason(e.target.value)}
-          />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeclineId(null)}>
-              {t("actions.cancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!declineReason.trim() || declineMutation.isPending}
-              onClick={handleDecline}
-            >
-              {declineMutation.isPending ? <Spinner /> : null}
-              {t("adminManage.enroll.decline")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-[var(--rule)] text-[var(--red)]"
+                    onClick={() => setDeclineOpen(true)}
+                  >
+                    <X className="size-4" />
+                    {t("adminManage.enroll.declineOpen")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </Sheet>
+        </div>
+      )}
     </div>
   );
 }

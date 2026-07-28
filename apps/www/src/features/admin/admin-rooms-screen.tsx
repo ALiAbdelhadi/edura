@@ -2,9 +2,7 @@
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenities";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +36,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Amount, MetricCard, PageHead } from "./ledger";
 
 type Room = {
   id?: string;
@@ -266,9 +265,10 @@ export function AdminRoomsScreen() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("nav.rooms")}
+        subtitle={t("adminManage.rooms.subtitle")}
         actions={
           <Button onClick={handleOpenCreate}>
             <Plus className="size-4" />
@@ -277,8 +277,15 @@ export function AdminRoomsScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard accent label={t("adminManage.rooms.totalRooms")} value={rooms.length} icon={Home} />
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          href="/dashboard/admin/rooms"
+          label={t("adminManage.rooms.totalRooms")}
+          icon={<Home className="size-[15px]" />}
+          tone="indigo"
+          count={rooms.length}
+          fact={t("adminManage.rooms.totalRoomsFact")}
+        />
       </div>
 
       {query.isLoading ? (
@@ -313,15 +320,23 @@ export function AdminRoomsScreen() {
                     </div>
                   )}
                   {(room.photos?.length ?? 0) > 1 ? (
-                    <Badge variant="secondary" className="absolute inset-e-2 top-2 gap-1 bg-black/60 text-white">
+                    <span className="num absolute inset-e-2 top-2 flex items-center gap-1 rounded-[5px] bg-[var(--ink)]/70 px-1.5 py-px text-[11px] font-semibold text-[var(--sheet)]">
                       <ImageIcon className="size-3" />
                       {room.photos!.length}
-                    </Badge>
+                    </span>
                   ) : null}
                   {room.price != null ? (
-                    <Badge className="absolute bottom-2 inset-s-2 bg-primary text-primary-foreground">
-                      {formatEGP(room.price)}
-                    </Badge>
+                    // A price is money, so it is teal and mono — not the indigo
+                    // brand fill, which would read as a primary action.
+                    <span className="absolute bottom-2 inset-s-2 rounded-[5px] bg-[var(--teal-soft)] px-2 py-0.5 text-[var(--teal)]">
+                      <Amount
+                        piasters={room.price}
+                        locale={locale}
+                        decimals={false}
+                        className="text-[13px] font-semibold"
+                        currencyClassName="ms-1 text-[10px] font-medium"
+                      />
+                    </span>
                   ) : null}
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
@@ -369,21 +384,20 @@ export function AdminRoomsScreen() {
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
+                      className="text-[var(--ink-2)]"
                       onClick={() => handleOpenEdit(room)}
-                      aria-label={t("actions.edit")}
                     >
                       <Pencil className="size-4" />
+                      {t("actions.edit")}
                     </Button>
+                    {/* Never a bare icon for a destructive action — an operator
+                        should not have to hover a glyph to learn it deletes. */}
                     <ConfirmDialog
                       trigger={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          aria-label={t("actions.delete")}
-                        >
+                        <Button variant="ghost" size="sm" className="text-[var(--red)]">
                           <Trash2 className="size-4" />
+                          {t("actions.delete")}
                         </Button>
                       }
                       title={t("adminManage.rooms.deleteRoomTitle")}

@@ -1,30 +1,35 @@
 "use client";
 
-import { PageHeader } from "@/components/kit/page-header";
-import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { Badge } from "@repo/ui/components/badge";
-import { Card } from "@repo/ui/components/card";
+import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React, { useEffect, useState } from "react";
+import {
+  Amount,
+  Badge,
+  EmptyState,
+  Num,
+  PageHead,
+  Sheet,
+  SheetHead,
+} from "./ledger";
 
 type NetProfit = { revenue: number; expenses: number; netProfit: number };
 type WalletInfo = { balance: number; available: number };
 type Txn = { id: string; type: string; amount: number; paymentMethod: string | null; createdAt: string };
 
-function Kpi({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <Card className="flex flex-col gap-1 p-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-2xl font-bold text-foreground">{value}</span>
-    </Card>
-  );
-}
-
+/**
+ * The accountant's read-only view of the center's books.
+ *
+ * Full money treatment: mono figures, end-aligned, the P&L closing on the
+ * double rule. Nothing here mutates — this tier is REVOKEd at the DB layer, and
+ * the UI must not imply otherwise, so there is no editable-looking amount and
+ * no action anywhere on the screen.
+ */
 export function CenterStaffFinanceScreen() {
   const t = useTranslations();
-  const { formatEGP } = useFormatters();
+  const { locale, formatDate } = useFormatters();
   const [pnl, setPnl] = useState<NetProfit | null>(null);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [txns, setTxns] = useState<Txn[]>([]);
@@ -44,59 +49,142 @@ export function CenterStaffFinanceScreen() {
 
   if (!ready) {
     return (
-      <div className="flex justify-center p-8">
-        <Spinner />
+      <div className="p-8 text-center text-[13px] text-[var(--ink-3)]">
+        {t("centerStaff.loading")}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("centerStaff.can.finance")}
-        description={t("centerStaff.roleDesc.center_accountant")}
+        subtitle={t("centerStaff.roleDesc.center_accountant")}
         actions={
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge tone="info" icon={<ShieldCheck className="size-3.5" />}>
             {t("centerStaff.roleName.center_accountant")}
           </Badge>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Kpi label={t("common.revenue")} value={formatEGP(pnl?.revenue ?? 0)} />
-        <Kpi label={t("common.expenses")} value={formatEGP(pnl?.expenses ?? 0)} />
-        <Kpi label={t("common.netProfit")} value={formatEGP(pnl?.netProfit ?? 0)} />
-        <Kpi label={t("nav.wallet")} value={formatEGP(wallet?.balance ?? 0)} />
-        <Kpi label={t("centerStaff.can.finance")} value={formatEGP(wallet?.available ?? 0)} />
+      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+        {/* The P&L, as an accountant reads one: each line, then the rule. */}
+        <Sheet>
+          <SheetHead title={t("common.netProfit")} />
+          <div className="flex flex-col p-[18px]">
+            <PnlLine
+              label={t("common.revenue")}
+              piasters={pnl?.revenue ?? 0}
+              locale={locale}
+            />
+            <PnlLine
+              label={t("common.expenses")}
+              piasters={-(pnl?.expenses ?? 0)}
+              locale={locale}
+              tone="out"
+            />
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("common.netProfit")}
+              </span>
+              <Amount
+                piasters={pnl?.netProfit ?? 0}
+                locale={locale}
+                className="text-[22px] font-semibold text-[var(--money)]"
+              />
+            </div>
+          </div>
+        </Sheet>
+
+        <Sheet>
+          <SheetHead title={t("nav.wallet")} />
+          <div className="flex flex-col p-[18px]">
+            <PnlLine
+              label={t("nav.wallet")}
+              piasters={wallet?.balance ?? 0}
+              locale={locale}
+            />
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("centerStaff.availableBalance")}
+              </span>
+              <Amount
+                piasters={wallet?.available ?? 0}
+                locale={locale}
+                className="text-[17px] font-semibold text-[var(--ink)]"
+              />
+            </div>
+          </div>
+        </Sheet>
       </div>
 
-      <Card className="p-0">
-        <div className="border-b border-border px-4 py-3 font-semibold text-foreground">
-          {t("nav.transactions")}
-        </div>
+      <Sheet>
+        <SheetHead title={t("nav.transactions")} />
         {txns.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">—</p>
+          <EmptyState title={t("shared.ledger.empty")} />
         ) : (
-          <ul>
-            {txns.map((tx) => (
-              <li
-                key={tx.id}
-                className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 text-sm last:border-b-0"
-              >
-                <span className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {tx.type}
-                  </Badge>
-                  {tx.paymentMethod ? (
-                    <span className="text-xs text-muted-foreground">{tx.paymentMethod}</span>
-                  ) : null}
-                </span>
-                <span className="font-medium text-foreground">{formatEGP(tx.amount)}</span>
-              </li>
-            ))}
-          </ul>
+          <table className="lg-table">
+            <thead>
+              <tr>
+                <th scope="col">{t("centerStaff.txnType")}</th>
+                <th scope="col">{t("centerStaff.txnDate")}</th>
+                <th scope="col" data-numeric="true">
+                  {t("centerStaff.txnAmount")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {txns.map((tx) => (
+                <tr key={tx.id}>
+                  <td>
+                    <span className="flex items-center gap-2">
+                      <Badge tone="neutral">{tx.type}</Badge>
+                      {tx.paymentMethod ? (
+                        <span className="text-xs text-[var(--ink-3)]">{tx.paymentMethod}</span>
+                      ) : null}
+                    </span>
+                  </td>
+                  <td>
+                    <Num className="text-xs text-[var(--ink-3)]">
+                      {formatDate(tx.createdAt, { day: "numeric", month: "short", year: "numeric" })}
+                    </Num>
+                  </td>
+                  <td data-numeric="true">
+                    <Amount
+                      piasters={tx.amount}
+                      locale={locale}
+                      className="text-[13px] font-semibold text-[var(--ink)]"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </Card>
+      </Sheet>
+    </div>
+  );
+}
+
+function PnlLine({
+  label,
+  piasters,
+  locale,
+  tone,
+}: {
+  label: string;
+  piasters: number;
+  locale: string;
+  tone?: "out";
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5 first:pt-0">
+      <span className="text-[13px] text-[var(--ink-2)]">{label}</span>
+      <Amount
+        piasters={piasters}
+        locale={locale}
+        className={`text-[15px] ${tone === "out" ? "text-[var(--red)]" : "text-[var(--ink)]"}`}
+      />
     </div>
   );
 }

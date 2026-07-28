@@ -4,13 +4,19 @@
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { DescriptionList } from "@/components/kit/description-list";
 import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import CopyableText from "@/components/ui/copyable-text";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import {
+  Amount,
+  Badge,
+  BlacklistCascadePanel,
+  Eyebrow,
+  Num,
+  PageHead,
+  Sheet,
+} from "./ledger";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
@@ -80,7 +86,7 @@ type StudentRosterRecord = {
 
 export function AdminStudentDetailScreen() {
   const t = useTranslations();
-  const { formatEGP, formatDate } = useFormatters();
+  const { formatEGP, formatDate, locale } = useFormatters();
   const params = useParams<{ studentId?: string | string[] }>();
   const router = useRouter();
   const rawStudentId = Array.isArray(params.studentId) ? params.studentId[0] : params.studentId;
@@ -191,9 +197,13 @@ export function AdminStudentDetailScreen() {
       header: t("adminHome.detail_status"),
       cell: ({ row }) => {
         const value = row.original.status;
-        const tone: StatusTone =
-          value === "blacklisted" ? "danger" : value === "active" ? "success" : "neutral";
-        return <StatusBadge tone={tone}>{translateStatus(value)}</StatusBadge>;
+        return (
+          <Badge
+            tone={value === "blacklisted" ? "failed" : value === "active" ? "done" : "neutral"}
+          >
+            {translateStatus(value)}
+          </Badge>
+        );
       },
     },
     {
@@ -231,9 +241,9 @@ export function AdminStudentDetailScreen() {
       cell: ({ row }) => {
         const status = row.original.status || "active";
         return (
-          <StatusBadge tone={status === "active" ? "success" : "neutral"}>
+          <Badge tone={status === "active" ? "done" : "neutral"}>
             {translateStatus(status)}
-          </StatusBadge>
+          </Badge>
         );
       },
     },
@@ -261,12 +271,19 @@ export function AdminStudentDetailScreen() {
       id: "amount",
       header: t("adminHome.detail_amount"),
       cell: ({ row }) => {
-        const amount = row.original.amount;
+        const amount = row.original.amount ?? 0;
+        // The sign belongs to the figure, not to a "-" glued in front of an
+        // already-formatted string — that produced "-1,200 ج.م" with the minus
+        // stranded on the wrong side of the currency word in RTL.
         return (
-          <span className={cn("font-semibold", amount < 0 ? "text-warning" : "text-success")}>
-            {amount < 0 ? "-" : ""}
-            {formatEGP(Math.abs(amount || 0))}
-          </span>
+          <Amount
+            piasters={amount}
+            locale={locale}
+            className={cn(
+              "text-[13px] font-semibold",
+              amount < 0 ? "text-[var(--red)]" : "text-[var(--teal)]",
+            )}
+          />
         );
       },
     },
@@ -336,7 +353,12 @@ export function AdminStudentDetailScreen() {
     });
   }
 
-  const handleBlacklistToggle = async () => {
+  /**
+   * `reason` is passed explicitly by the cascade panel rather than read from
+   * state: the panel owns the required-reason field, and reading state here
+   * would race the same-tick setState the panel's commit triggers.
+   */
+  const handleBlacklistToggle = async (reason?: string) => {
     setActionLoading(true);
     try {
       await patchStudent({
@@ -344,7 +366,7 @@ export function AdminStudentDetailScreen() {
         method: "patch",
         values: {
           blacklisted: !isBlacklisted,
-          blacklistReason: !isBlacklisted ? blacklistReason : undefined,
+          blacklistReason: !isBlacklisted ? (reason ?? blacklistReason) : undefined,
         },
       });
       toast.success(isBlacklisted ? t("adminHome.detail_unblacklistSuccess") : t("adminHome.detail_blacklistSuccess"));
@@ -425,70 +447,80 @@ export function AdminStudentDetailScreen() {
         {t("adminHome.detail_backToStudents")}
       </Button>
 
-      <PageHeader
+      <PageHead
         title={
-          <span className="flex items-center gap-2">
-            <User className="size-5" />
+          <span className="flex flex-wrap items-center gap-2.5">
+            <User className="size-5 text-[var(--ink-3)]" />
             <span>{studentName}</span>
-            {isBlacklisted && (
-              <StatusBadge tone="danger">{t("status.blacklisted")}</StatusBadge>
-            )}
+            {isBlacklisted && <Badge tone="failed">{t("status.blacklisted")}</Badge>}
           </span>
         }
         actions={
           <>
-            <Button variant="outline" onClick={() => setWalletModalOpen(true)}>
+            <Button variant="outline" className="border-[var(--rule)]" onClick={() => setWalletModalOpen(true)}>
               <Wallet className="size-4" />
               {t("adminHome.detail_walletTopup")}
             </Button>
-            <Button variant="outline" onClick={openEditModal}>
+            <Button variant="outline" className="border-[var(--rule)]" onClick={openEditModal}>
               <Pencil className="size-4" />
               {t("actions.edit")}
             </Button>
+            {/* Blacklisting is the most consequential non-money action here, so
+                it is never a filled twin of the safe buttons — it is bordered,
+                red text only, and it opens the cascade preview. Restoring is
+                the reversal and reads as such. */}
             <Button
-              variant={isBlacklisted ? "default" : "destructive"}
+              variant="outline"
+              className={isBlacklisted ? "border-[var(--teal)] text-[var(--teal)]" : "border-[var(--red)] text-[var(--red)]"}
+              disabled={actionLoading}
               onClick={() => {
                 if (isBlacklisted) {
-                  handleBlacklistToggle();
+                  void handleBlacklistToggle();
                 } else {
                   setBlacklistModalOpen(true);
                 }
               }}
             >
-              {isBlacklisted ? (
-                <CheckCircle2 className="size-4" />
-              ) : (
-                <Ban className="size-4" />
-              )}
+              {isBlacklisted ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />}
               {isBlacklisted ? t("adminHome.detail_unblacklist") : t("actions.blacklist")}
             </Button>
           </>
         }
       />
 
-      <Card>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <StatCard
-              label={t("adminHome.detail_colUserId")}
-              value={<CopyableText value={userId} label="User ID" />}
-            />
-            <StatCard
-              label={t("adminHome.detail_activeClasses")}
-              value={activeEnrollments}
-              icon={BookOpen}
-              accent
-            />
-            <StatCard
-              label={t("adminHome.detail_paidTotal")}
-              value={formatEGP(paidTotal)}
-              icon={Wallet}
-            />
+      <Sheet>
+        <div className="flex flex-wrap items-start gap-6 border-b border-[var(--rule)] p-[18px]">
+          <div className="min-w-[160px]">
+            <Eyebrow>{t("adminHome.detail_colUserId")}</Eyebrow>
+            <div className="mt-1.5">
+              <CopyableText value={userId} label="User ID" />
+            </div>
           </div>
-
+          <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
+          <div className="min-w-[140px]">
+            <Eyebrow>{t("adminHome.detail_activeClasses")}</Eyebrow>
+            <p className="mt-1.5 mb-0">
+              <Num className="text-[27px] font-semibold leading-none text-[var(--ink)]">
+                {activeEnrollments}
+              </Num>
+            </p>
+          </div>
+          <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
+          <div className="min-w-[140px]">
+            <Eyebrow>{t("adminHome.detail_paidTotal")}</Eyebrow>
+            <p className="mt-1.5 mb-0">
+              <Amount
+                piasters={paidTotal}
+                locale={locale}
+                className="text-[27px] font-semibold leading-none tracking-[-0.01em] text-[var(--money)]"
+              />
+            </p>
+          </div>
+        </div>
+        <div className="p-[18px]">
           <DescriptionList columns={2} items={detailItems} />
-        </CardContent>
-      </Card>
+        </div>
+      </Sheet>
 
       <Card>
         <CardHeader>
@@ -545,34 +577,26 @@ export function AdminStudentDetailScreen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("adminHome.detail_blacklistStudent")}</DialogTitle>
-            <DialogDescription>
-              {t("adminHome.detail_blacklistConfirmPrefix")}
-              <strong className="text-foreground">{studentName}</strong>
-              {t("adminHome.detail_blacklistConfirmSuffix")}
-            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t("adminHome.detail_blacklistWarning")}</p>
-          <Textarea
-            placeholder={t("adminHome.detail_reasonOptional")}
-            value={blacklistReason}
-            onChange={(e) => setBlacklistReason(e.target.value)}
-            rows={3}
+          {/*
+            The cascade, itemised BEFORE the commit — not a warning sentence
+            after it. Blacklisting withdraws every active enrolment, and each
+            withdrawal is journalled so a restore can replay it. The operator
+            gets to see exactly which classes disappear, count them, and read
+            that it is reversible, before the button will arm.
+
+            Same panel the students list uses, so the two entry points to the
+            most consequential non-money action in the product cannot drift.
+          */}
+          <BlacklistCascadePanel
+            studentId={studentId}
+            studentName={studentName}
+            busy={actionLoading}
+            onCommit={(reason) => {
+              setBlacklistReason(reason);
+              void handleBlacklistToggle(reason);
+            }}
           />
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBlacklistModalOpen(false);
-                setBlacklistReason("");
-              }}
-            >
-              {t("actions.cancel")}
-            </Button>
-            <Button variant="destructive" disabled={actionLoading} onClick={handleBlacklistToggle}>
-              {actionLoading ? <Spinner /> : null}
-              {t("actions.blacklist")}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

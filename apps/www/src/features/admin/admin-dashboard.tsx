@@ -1,16 +1,13 @@
 "use client";
 
 import { BarChart, DonutChart, LineChart } from "@/components/charts";
-import { StatCard } from "@/components/kit/stat-card";
-import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
 import { PageSkeleton } from "@/components/ui/skeletons";
 import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Progress } from "@repo/ui/components/progress";
-import { BookOpen, GraduationCap, Users, Wallet } from "lucide-react";
+import { BookOpen, CalendarCheck, GraduationCap, Inbox, Users, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Amount, Eyebrow, MetricCard, Num, PageHead, Sheet, SheetHead } from "./ledger";
 
 interface DashboardData {
   totals: {
@@ -20,7 +17,7 @@ interface DashboardData {
     revenue: number;
   };
   attendanceRate: number;
-  todaySessions: any[];
+  todaySessions: unknown[];
   feeDefaulters: number;
   pendingEnrollmentRequests: number;
   analytics?: {
@@ -30,9 +27,21 @@ interface DashboardData {
   };
 }
 
+/**
+ * اليوم — the center's decision queue.
+ *
+ * This screen used to be four near-identical stat cards with the pending work
+ * buried in a corner panel that linked nowhere. It knew there were unanswered
+ * enrolment requests and said nothing actionable about them.
+ *
+ * Now the count of open decisions IS the headline, the three cards are ordered
+ * by urgency and each one is a door to its queue, and the record (roster,
+ * revenue) drops below the decisions — because a number you cannot act on is
+ * reference, not a task.
+ */
 export function AdminDashboard() {
   const t = useTranslations();
-  const { formatEGP, formatShortEGP } = useFormatters();
+  const { formatShortEGP, locale } = useFormatters();
   const { query, result } = useCustom<DashboardData>({
     url: "dashboards/admin",
     method: "get",
@@ -46,91 +55,134 @@ export function AdminDashboard() {
 
   const totals = d?.totals ?? { students: 0, teachers: 0, activeCourses: 0, revenue: 0 };
   const attendanceRate = d?.attendanceRate ?? 0;
-  const activeSessions = d?.todaySessions?.length ?? 0;
+  const todaySessions = d?.todaySessions?.length ?? 0;
   const feeDefaulters = d?.feeDefaulters ?? 0;
   const pendingRequests = d?.pendingEnrollmentRequests ?? 0;
 
+  // The headline count is the sum of everything actually awaiting a decision.
+  // Sessions today are work, not a decision, so they are not counted here.
+  const openDecisions = pendingRequests + feeDefaulters;
+
   return (
-    <div className="space-y-6">
-      {/* The center team's shared to-do board (owner + staff). */}
-      <TeamNotesBoard compact />
+    <div className="flex flex-col gap-6">
+      <PageHead
+        title={
+          openDecisions > 0
+            ? t("adminHome.queue_title", { n: openDecisions })
+            : t("adminHome.queue_titleNone")
+        }
+        subtitle={openDecisions > 0 ? t("adminHome.queue_subtitle") : t("adminHome.queue_allClear")}
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t("adminHome.dashboard_totalStudents")}
-          value={totals.students}
-          icon={Users}
+      {/* Ordered by urgency: unanswered requests block a student from attending;
+          unpaid fees block attendance at the counter; today's sessions are the
+          shift itself. */}
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          href="/dashboard/admin/enrollment-requests"
+          label={t("adminHome.queue_requestsLabel")}
+          icon={<Inbox className="size-[15px]" />}
+          tone="amber"
+          count={pendingRequests}
+          fact={t("adminHome.queue_requestsFact")}
         />
-        <StatCard label={t("nav.teachers")} value={totals.teachers} icon={GraduationCap} />
-        <StatCard
-          label={t("adminHome.dashboard_activeClasses")}
-          value={totals.activeCourses}
-          icon={BookOpen}
+        <MetricCard
+          href="/dashboard/admin/fees"
+          label={t("adminHome.queue_defaultersLabel")}
+          icon={<Wallet className="size-[15px]" />}
+          tone="amber"
+          count={feeDefaulters}
+          fact={t("adminHome.queue_defaultersFact")}
+          blocking={feeDefaulters > 0}
+          blockingLabel={t("adminHome.queue_defaultersChip")}
         />
-        <StatCard
-          label={t("adminHome.dashboard_totalRevenue")}
-          value={formatEGP(totals.revenue)}
-          icon={Wallet}
-          accent
+        <MetricCard
+          href="/dashboard/admin/checkin"
+          label={t("adminHome.queue_todayLabel")}
+          icon={<CalendarCheck className="size-[15px]" />}
+          tone="indigo"
+          count={todaySessions}
+          fact={t("adminHome.queue_todayFact")}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <Card className="md:col-span-7">
-          <CardHeader>
-            <CardTitle>{t("adminHome.dashboard_todaysSnapshot")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {t("adminHome.dashboard_attendanceRate")}
-                </p>
-                <p className="text-2xl font-bold tabular-nums text-foreground">
-                  {attendanceRate}
-                  <span className="ms-0.5 text-base font-normal text-muted-foreground">%</span>
-                </p>
-                <Progress
-                  value={attendanceRate}
-                  className="[&_[data-slot=progress-indicator]]:bg-success"
+      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+        {/* The record. Two big mono figures separated by a hairline, then the
+            roster counts — reference, deliberately below the decisions. */}
+        <Sheet>
+          <SheetHead title={t("adminHome.queue_ledgerTitle")} />
+          <div className="flex flex-wrap items-start gap-6 p-[18px]">
+            <div className="min-w-[180px]">
+              <Eyebrow>{t("adminHome.queue_revenueLabel")}</Eyebrow>
+              <p className="mt-1.5 mb-0">
+                <Amount
+                  piasters={totals.revenue}
+                  locale={locale}
+                  className="text-[27px] font-semibold tracking-[-0.01em] text-[var(--money)]"
                 />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {t("adminHome.dashboard_activeSessions")}
-                </p>
-                <p className="text-2xl font-bold tabular-nums text-foreground">{activeSessions}</p>
-              </div>
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
+            <div className="min-w-[180px]">
+              <Eyebrow>{t("adminHome.queue_rosterLabel")}</Eyebrow>
+              <dl className="mt-1.5 flex flex-col gap-1">
+                <RosterLine
+                  icon={<Users className="size-[13px]" />}
+                  value={totals.students}
+                  unit={t("adminHome.queue_studentsUnit")}
+                />
+                <RosterLine
+                  icon={<GraduationCap className="size-[13px]" />}
+                  value={totals.teachers}
+                  unit={t("adminHome.queue_teachersUnit")}
+                />
+                <RosterLine
+                  icon={<BookOpen className="size-[13px]" />}
+                  value={totals.activeCourses}
+                  unit={t("adminHome.queue_coursesUnit")}
+                />
+              </dl>
+            </div>
+          </div>
+        </Sheet>
 
-        <Card className="md:col-span-5">
-          <CardHeader>
-            <CardTitle>{t("adminHome.dashboard_pendingActions")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border">
-              {[
-                { label: t("adminHome.dashboard_feeDefaulters"), count: feeDefaulters },
-                { label: t("adminHome.dashboard_pendingEnrollmentRequests"), count: pendingRequests },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2">
-                  <span className="text-sm">{item.label}</span>
-                  <span className="font-semibold tabular-nums">{item.count}</span>
-                </div>
-              ))}
+        <Sheet>
+          <SheetHead title={t("adminHome.queue_todayTitle")} />
+          <div className="flex flex-col p-[18px]">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5 first:pt-0">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminHome.queue_attendanceLabel")}
+              </span>
+              <Num className="text-[17px] font-semibold text-[var(--ink)]">{attendanceRate}%</Num>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminHome.queue_sessionsLabel")}
+              </span>
+              <Num className="text-[17px] font-semibold text-[var(--ink)]">{todaySessions}</Num>
+            </div>
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("adminHome.queue_openDecisions")}
+              </span>
+              <Num
+                className={`text-[17px] font-semibold ${
+                  openDecisions > 0 ? "text-[var(--amber)]" : "text-[var(--ink)]"
+                }`}
+              >
+                {openDecisions}
+              </Num>
+            </div>
+          </div>
+        </Sheet>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{t("adminHome.dashboard_revenueVsExpensesTrend")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Sheet className="lg:col-span-2">
+          <SheetHead title={t("adminHome.dashboard_revenueVsExpensesTrend")} />
+          {/* Chart wrappers render dir="ltr" internally (recharts axis math)
+              while the card around them stays RTL. */}
+          <div className="p-[18px]">
             <LineChart
               series={revenueVsExpensesLineSeries(
                 (d?.analytics?.revenueVsExpenses ?? []).map((entry) => ({
@@ -145,41 +197,59 @@ export function AdminDashboard() {
               yValueFormatter={(value) => formatShortEGP(value)}
               emptyText={t("adminHome.dashboard_noFinancialTrend")}
             />
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>{t("adminHome.dashboard_sessionStatusMix")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+        </Sheet>
+        <Sheet>
+          <SheetHead title={t("adminHome.dashboard_sessionStatusMix")} />
+          <div className="p-[18px]">
             <DonutChart
               data={sessionStatusDonutData(d?.analytics?.sessionStatusMix ?? [])}
               centerLabel={t("nav.sessions")}
               emptyText={t("adminHome.dashboard_noSessionStatus")}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </Sheet>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("adminHome.dashboard_attendanceByCourse")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Sheet>
+        <SheetHead title={t("adminHome.dashboard_attendanceByCourse")} />
+        <div className="p-[18px]">
           <BarChart
             data={(d?.analytics?.attendanceByCourse ?? []).map((entry) => ({
               label: entry.title,
               rate: entry.attendanceRatePct,
             }))}
             series={[
-              { key: "rate", label: t("adminHome.dashboard_attendancePercent"), color: "var(--success)" },
+              {
+                key: "rate",
+                label: t("adminHome.dashboard_attendancePercent"),
+                color: "var(--teal)",
+              },
             ]}
             horizontal
             yValueFormatter={(value) => `${Math.round(value)}%`}
             emptyText={t("adminHome.dashboard_noCourseAttendance")}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </Sheet>
+    </div>
+  );
+}
+
+function RosterLine({
+  icon,
+  value,
+  unit,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  unit: string;
+}) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[var(--ink-3)]">{icon}</span>
+      <Num className="text-[15px] font-semibold text-[var(--ink)]">{value}</Num>
+      <span className="text-xs text-[var(--ink-2)]">{unit}</span>
     </div>
   );
 }

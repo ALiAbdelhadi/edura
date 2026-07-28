@@ -180,7 +180,12 @@
     "cashCollected": "Cash payment recorded",
     "present": "Checked in — present",
     "counterDone": "Counter check-in done — door check-in still needed",
-    "needsPayment": "No coverage — collect the per-session payment first",
+    "needsPaymentTitle": "This session is unpaid",
+    "needsPaymentBody": "{course} is not covered for this student. Collect the session fee in cash now and attendance is recorded in the same step.",
+    "cashDue": "Cash due",
+    "armCollect": "Collect {price} in cash",
+    "confirmCollect": "Confirm — {price} received",
+    "armedAnnounce": "Waiting for confirmation: take {price} in cash and check the student in. Press Escape to cancel.",
     "checkinFailed": "Check-in failed",
     "newWalkIn": "New walk-in student",
     "walkInName": "Full name",
@@ -217,5 +222,14 @@
     "emptyRoster": "Nobody has passed the counter yet",
     "doorDone": "Present",
     "noCounter": "No counter check-in"
+  },
+  "ledger": {
+    "noRows": "No rows",
+    "loadFailed": "Could not load this data",
+    "loadFailedHint": "Check the connection and try again. Nothing was written.",
+    "twoStepHint": "Two steps: the first press arms the button, the second commits.",
+    "armedHint": "The next press is final — the entry is written in your name and cannot be undone.",
+    "armedAnnounce": "Button armed. The next press is final. Press Escape to cancel.",
+    "empty": "Nothing here yet"
   }
 }

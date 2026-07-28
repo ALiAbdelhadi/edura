@@ -1,15 +1,18 @@
 "use client";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card } from "@repo/ui/components/card";
+import {
+  Badge,
+  EmptyState,
+  Eyebrow,
+  PageHead,
+  RowIdentity,
+  Sheet,
+} from "./ledger";
 import {
   Dialog,
   DialogContent,
@@ -52,10 +55,6 @@ type StaffRow = {
   user: { id: string; name: string; email: string | null; phone: string | null; status: string } | null;
 };
 
-function roleBadgeVariant(role: StaffRole): "default" | "secondary" | "outline" {
-  return role === "manager" ? "default" : role === "center_accountant" ? "outline" : "secondary";
-}
-
 export function CenterStaffScreen() {
   const t = useTranslations();
   const [rows, setRows] = useState<StaffRow[] | null>(null);
@@ -80,57 +79,49 @@ export function CenterStaffScreen() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("centerStaff.title")}
-        description={t("centerStaff.subtitle")}
+        subtitle={t("centerStaff.subtitle")}
         actions={<AddStaffDialog onCreated={load} />}
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card className="order-2 p-0 lg:order-1">
+        <Sheet className="order-2 overflow-hidden lg:order-1">
           {rows === null ? (
             <div className="flex justify-center p-8">
               <Spinner />
             </div>
           ) : rows.length === 0 ? (
-            <div className="p-8">
-              <EmptyState
-                icon={Users}
-                title={t("centerStaff.empty")}
-                description={t("centerStaff.emptyHint")}
-              />
-            </div>
+            <EmptyState
+              icon={<Users className="size-6" />}
+              title={t("centerStaff.empty")}
+              hint={t("centerStaff.emptyHint")}
+            />
           ) : (
-            <ul>
+            <ul className="m-0 list-none p-0">
               {rows.map((row) => (
                 <li
                   key={row.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+                  className="flex flex-wrap items-center gap-3 border-b border-[var(--rule-2)] px-4 py-3 last:border-b-0"
                 >
-                  <Avatar>
-                    <AvatarFallback>
-                      {(row.user?.name ?? "?").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium text-foreground">
-                        {row.user?.name ?? "—"}
-                      </p>
-                      {row.title ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          {row.title}
-                        </Badge>
-                      ) : null}
-                      {row.pendingClaim ? (
-                        <Badge variant="outline" className="text-[10px] text-amber-600">
-                          {t("centerStaff.pendingInvite")}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground" dir="ltr">
-                      {row.user?.email ?? row.user?.phone ?? ""}
-                    </p>
+                    <RowIdentity
+                      name={
+                        <span className="flex items-center gap-2">
+                          <span className="truncate">{row.user?.name ?? "—"}</span>
+                          {row.title ? (
+                            <Badge tone="neutral">{row.title}</Badge>
+                          ) : null}
+                          {/* A pending invite is a WAITING state, so it is amber
+                              and it is the operator's cue to resend. */}
+                          {row.pendingClaim ? (
+                            <Badge tone="pending">{t("centerStaff.pendingInvite")}</Badge>
+                          ) : null}
+                        </span>
+                      }
+                      initialsFrom={row.user?.name ?? "?"}
+                      meta={row.user?.email ?? row.user?.phone ?? ""}
+                    />
                   </div>
 
                   {/* Role selector (changes the preset role) */}
@@ -139,7 +130,10 @@ export function CenterStaffScreen() {
                     onValueChange={(v) => void changeRole(row, v as StaffRole)}
                     disabled={!row.active}
                   >
-                    <SelectTrigger className="w-40" aria-label={t("centerStaff.role")}>
+                    <SelectTrigger
+                      className="w-40 border-[var(--rule)] bg-[var(--field)]"
+                      aria-label={t("centerStaff.role")}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -150,16 +144,24 @@ export function CenterStaffScreen() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Badge
-                    variant={row.active ? "default" : "outline"}
-                    className={row.active ? "bg-emerald-600 hover:bg-emerald-600" : "text-muted-foreground"}
-                  >
+
+                  <Badge tone={row.active ? "done" : "neutral"}>
                     {row.active ? t("centerStaff.active") : t("centerStaff.inactive")}
                   </Badge>
+
                   {row.pendingClaim && row.active ? <ResendInviteButton row={row} /> : null}
+
+                  {/* Deactivation cuts access on the next request — it is
+                      consequential, so it confirms and never sits as a filled
+                      twin of the safe action. */}
                   <ConfirmDialog
                     trigger={
-                      <Button type="button" variant={row.active ? "ghost" : "outline"} size="sm">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={row.active ? "text-[var(--red)]" : "text-[var(--teal)]"}
+                      >
                         {row.active ? t("centerStaff.deactivate") : t("centerStaff.activate")}
                       </Button>
                     }
@@ -178,7 +180,7 @@ export function CenterStaffScreen() {
               ))}
             </ul>
           )}
-        </Card>
+        </Sheet>
         <RolePermissionsPanel />
       </div>
     </div>
@@ -189,47 +191,58 @@ function RolePermissionsPanel() {
   const t = useTranslations();
   const [role, setRole] = useState<StaffRole>("receptionist");
   return (
-    <Card className="order-1 flex flex-col gap-4 p-4 lg:order-2">
+    <Sheet className="order-1 flex flex-col gap-3.5 p-4 lg:order-2">
       <div className="flex items-center gap-2">
-        <ShieldCheck className="size-4 text-primary" />
-        <h3 className="font-semibold text-foreground">{t("centerStaff.permissionsTitle")}</h3>
+        <ShieldCheck className="size-4 text-[var(--indigo)]" />
+        <Eyebrow>{t("centerStaff.permissionsTitle")}</Eyebrow>
       </div>
 
+      {/* Filter-row pills, one per preset role. Selecting one shows what that
+          tier can do — the list is what the account HAS, and everything absent
+          from it is absent from that portal's DOM, not disabled in it. */}
       <div className="flex flex-wrap gap-1.5">
         {ROLES.map((r) => (
-          <Button
+          <button
             key={r}
             type="button"
-            size="sm"
-            variant={r === role ? "default" : "outline"}
             onClick={() => setRole(r)}
+            aria-pressed={r === role}
+            className={`h-8 rounded-lg px-3 text-[13px] font-semibold transition-colors ${
+              r === role
+                ? "bg-[var(--indigo)] text-[var(--indigo-ink)]"
+                : "border border-[var(--rule)] bg-[var(--field)] text-[var(--ink-2)] hover:bg-[var(--rule-2)]"
+            }`}
           >
             {t(`centerStaff.roleName.${r}` as Parameters<typeof t>[0])}
-          </Button>
+          </button>
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="m-0 text-xs leading-relaxed text-[var(--ink-2)]">
         {t(`centerStaff.roleDesc.${role}` as Parameters<typeof t>[0])}
       </p>
 
-      <ul className="flex flex-col gap-1.5">
+      <ul className="m-0 flex list-none flex-col p-0">
         {CAN[role].map((cap) => (
-          <li key={cap} className="flex items-center gap-2 text-sm text-foreground">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
+          <li
+            key={cap}
+            className="border-b border-[var(--rule-2)] py-2 text-[13px] text-[var(--ink)] last:border-b-0"
+          >
             {t(`centerStaff.can.${cap}` as Parameters<typeof t>[0])}
           </li>
         ))}
       </ul>
 
-      <div className="mt-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-          <Lock className="size-3.5" />
-          <span className="text-xs font-medium">{t("centerStaff.excluded")}</span>
-        </div>
+      {/* The hard exclusions are red, not amber: these are not "waiting", they
+          are permanently out of reach for every staff tier. */}
+      <div className="flex items-start gap-2 rounded-lg border border-[var(--red)] bg-[var(--red-soft)] p-3">
+        <Lock className="mt-px size-3.5 shrink-0 text-[var(--red)]" />
+        <span className="text-xs leading-relaxed text-[var(--red)]">
+          {t("centerStaff.excluded")}
+        </span>
       </div>
-      <p className="text-[11px] text-muted-foreground">{t("centerStaff.auditNote")}</p>
-    </Card>
+      <p className="m-0 text-[11px] text-[var(--ink-3)]">{t("centerStaff.auditNote")}</p>
+    </Sheet>
   );
 }
 

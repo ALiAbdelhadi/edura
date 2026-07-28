@@ -52,7 +52,8 @@
     "team": "Team",
     "teamNotes": "Team Notes",
     "transactions": "Transactions",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "assignments": "Assignments"
   },
   "roles": {
     "student": "Student",
@@ -113,7 +114,8 @@
     "selectRow": "Select row",
     "sendInvite": "Send invite",
     "signIn": "Sign in",
-    "sortBy": "Sort by"
+    "sortBy": "Sort by",
+    "retry": "Retry"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -495,7 +497,15 @@
     "pendingInvite": "Invite pending",
     "resendInvite": "Resend invite",
     "resendBody": "Send {name} a fresh invite link. The previous link stops working immediately.",
-    "resendFailed": "Could not resend the invite"
+    "resendFailed": "Could not resend the invite",
+    "noMessagingTitle": "No messaging in this role — by design",
+    "noMessagingBody": "An accountant reads the center's books, not its families, so there is no empty inbox here to begin with. If you need to reach a teacher or a parent, ask your center manager.",
+    "availableBalance": "Available to withdraw",
+    "txnType": "Type",
+    "txnDate": "Date",
+    "txnAmount": "Amount",
+    "fillRate": "Fill rate",
+    "enrolledOfMax": "Enrolled"
   },
   "oversight": {
     "title": "My children's conversations",
