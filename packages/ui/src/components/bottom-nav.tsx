@@ -1,111 +1,352 @@
 "use client";
 
-import { cn } from "@repo/ui/lib/utils";
-import type { LucideIcon } from "lucide-react";
+// Bottom navigation — phone chrome for the student, parent and staff portals.
+//
+// It is the sidebar's logic on a different axis, not a second navigation
+// system: the same destinations, the same grouping, the same active device —
+// the sidebar's 3px `--indigo` bar, ROTATED from the inline-start edge onto the
+// top edge, because the axis the item sits on has turned. Collapsed to at most
+// `maxVisible` destinations with the remainder behind a "more" sheet, so the
+// bar never scrolls sideways and never shrinks a target below thumb size.
+//
+// ── API notes, because three portal sessions build against this ─────────────
+//
+// `packages/ui` has no `next/` import anywhere and must keep it that way, so
+// the link element is INJECTED via `linkAs` rather than imported. Pass
+// `next/link` from an app; the default `"a"` keeps the component usable in
+// isolation (tests, storybook, the superadmin app).
+//
+// Nothing here is translated. Every user-visible string arrives already
+// localized, including the accessible badge text — this package has no i18n
+// and adding one would give it an opinion about routing and locale that the
+// consuming apps already hold.
+//
+// `group` is optional. Portals whose nav is still flat pass no groups and get
+// a flat "more" sheet; portals that have adopted the three-group sidebar pass
+// groups and get a grouped one. Both work without changing this file, which is
+// the bar a shared component has to clear.
+
 import * as React from "react";
+import { MoreHorizontal } from "lucide-react";
 
-/* <BottomNav> — phone chrome for student, parent and staff.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   A sidebar is desktop furniture. On a 390px screen it is a drawer the user must open
-   before they can navigate, which on the three portals whose users are MOSTLY on
-   phones is the wrong default.
-
-   Same three-group logic as the sidebar, collapsed to 4–5 primary destinations with
-   the remainder behind a "more" entry — the groups still exist, they are just not all
-   visible at once.
-
-   The active state is the SIDEBAR'S INDIGO BAR ROTATED ABOVE THE ITEM. Deliberately
-   the same element, not a new one: a user who learns "the indigo bar marks where I am"
-   on desktop should not have to learn a second idiom on their phone. */
+import { cn } from "@repo/ui/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/sheet";
 
 export type BottomNavItem = {
+  /** Stable identity. Also what `activeKey` is compared against. */
+  key: string;
   href: string;
+  /** Already localized. */
   label: string;
-  icon: LucideIcon;
-  /** Count badge. Text, never a bare dot — a dot has no screen-reader equivalent. */
+  icon: React.ReactNode;
+  /**
+   * A count. Rendered as a mono chip with a real accessible name — never a
+   * bare `aria-hidden` dot, which is the defect the audit found on the
+   * pending-registrations indicator.
+   */
   badge?: number;
+  /** Already localized, e.g. "3 unread". Used as the item's accessible name. */
+  badgeLabel?: string;
+  /** Optional group label (already localized) for the overflow sheet. */
+  group?: string;
 };
+
+const BAR_HEIGHT = 60;
+
+/**
+ * Decide which destinations get a slot in the bar and which go behind "more".
+ *
+ * Exported and pure so it can be proven rather than eyeballed — three portals
+ * depend on it, and its one subtle rule is easy to regress: **the active
+ * destination is always reachable in one press.** If it would land in the
+ * overflow, it is promoted into the last visible slot and the item it displaces
+ * moves to the overflow. Otherwise a user on, say, Settings sees a bar that
+ * does not admit the screen they are looking at exists.
+ *
+ * Invariants (asserted in bottom-nav-slots.test.ts):
+ *   · slots ∪ overflow is exactly `items`, with no duplicates and none lost
+ *   · slots.length <= maxVisible, leaving a slot for "more" when overflowing
+ *   · if activeKey names an item, that item is in slots
+ */
+export function computeSlots<T extends { key: string }>(
+  items: T[],
+  maxVisible: number,
+  activeKey?: string,
+): { slots: T[]; overflow: T[] } {
+  if (items.length <= maxVisible) return { slots: items, overflow: [] };
+
+  // One slot is spent on "more", so only maxVisible-1 destinations show.
+  const visible = items.slice(0, maxVisible - 1);
+  const rest = items.slice(maxVisible - 1);
+
+  const promoted = rest.find((i) => i.key === activeKey);
+  // `visible` is empty at maxVisible <= 1: the single slot is spent on "more",
+  // so there is nothing to promote INTO and nothing to displace. Without this
+  // guard `displaced` is undefined and gets pushed into the overflow, which
+  // then throws on render.
+  if (!promoted || visible.length === 0) {
+    return { slots: visible, overflow: rest };
+  }
+
+  const displaced = visible[visible.length - 1]!;
+  return {
+    slots: [...visible.slice(0, -1), promoted],
+    overflow: [...rest.filter((i) => i.key !== promoted.key), displaced],
+  };
+}
 
 export function BottomNav({
   items,
-  activeHref,
+  activeKey,
+  maxVisible = 5,
   moreLabel,
-  onMore,
+  moreTitle,
+  moreDescription,
+  navLabel,
+  linkAs: Link = "a",
   className,
-  renderLink,
 }: {
   items: BottomNavItem[];
-  activeHref?: string;
-  moreLabel?: string;
-  onMore?: () => void;
+  activeKey?: string;
+  /** Total slots in the bar, "more" included. 4–5 is the designed range. */
+  maxVisible?: number;
+  /** Already localized, e.g. «المزيد». */
+  moreLabel: string;
+  moreTitle: string;
+  moreDescription?: string;
+  /** Already localized accessible name for the <nav>. */
+  navLabel: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  linkAs?: React.ElementType<any>;
   className?: string;
-  /** The app supplies its router Link; @repo/ui must not depend on next/link. */
-  renderLink?: (props: {
-    href: string;
-    className: string;
-    children: React.ReactNode;
-    "aria-current"?: "page";
-  }) => React.ReactNode;
 }) {
-  const itemClass = (active: boolean) =>
-    cn(
-      // 48px minimum target: this is a thumb surface, the same floor as `touch` density.
-      "relative flex min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 pt-2 pb-1 text-[11px] font-medium",
-      active ? "text-indigo" : "text-ink-2",
-    );
+  const [open, setOpen] = React.useState(false);
+
+  const { slots, overflow: hidden } = React.useMemo(
+    () => computeSlots(items, maxVisible, activeKey),
+    [items, maxVisible, activeKey],
+  );
+
+  const grouped = React.useMemo(() => {
+    const out = new Map<string, BottomNavItem[]>();
+    for (const item of hidden) {
+      const key = item.group ?? "";
+      const bucket = out.get(key);
+      if (bucket) bucket.push(item);
+      else out.set(key, [item]);
+    }
+    return [...out.entries()];
+  }, [hidden]);
+
+  const moreActive = hidden.some((i) => i.key === activeKey);
+  // A count that is hidden behind "more" is a count nobody sees. Roll the
+  // overflow's badges up onto the entry that conceals them, so an unread
+  // notification is still visible when notifications did not make the bar.
+  const moreBadge = hidden.reduce((sum, i) => sum + (i.badge ?? 0), 0);
 
   return (
-    <nav
-      className={cn(
-        "sticky bottom-0 z-30 flex items-stretch border-t border-rule bg-sheet",
-        "pb-[env(safe-area-inset-bottom)] md:hidden",
-        className,
-      )}
-      aria-label={moreLabel ? undefined : "Primary"}
-    >
-      {items.map((item) => {
-        const active = item.href === activeHref;
-        const inner = (
-          <>
-            {/* The sidebar's 3px indigo bar, rotated to sit above the item. */}
-            {active ? (
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-3 top-0 h-[3px] rounded-b-full bg-indigo"
+    <>
+      {/* Spacer: the bar is fixed, so without this the last row of content
+          sits underneath it. Rendered by the component so a consumer cannot
+          forget it. */}
+      <div
+        aria-hidden
+        className="md:hidden"
+        style={{
+          height: `calc(${BAR_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+        }}
+      />
+      <nav
+        aria-label={navLabel}
+        className={cn(
+          "fixed start-0 end-0 bottom-0 z-40 md:hidden",
+          "border-t border-rule bg-sheet",
+          className,
+        )}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <ul className="flex items-stretch">
+          {slots.map((item) => (
+            <li key={item.key} className="min-w-0 flex-1">
+              <BottomNavLink
+                as={Link}
+                item={item}
+                active={item.key === activeKey}
               />
-            ) : null}
-            <span className="relative">
-              <item.icon className="size-5" aria-hidden="true" />
-              {item.badge ? (
-                <span className="num absolute -end-2 -top-1.5 rounded-[5px] bg-amber-soft px-1 text-[10px] font-semibold text-amber">
-                  {item.badge}
-                </span>
-              ) : null}
-            </span>
-            <span className="max-w-full truncate">{item.label}</span>
-          </>
-        );
-        const props = {
-          href: item.href,
-          className: itemClass(active),
-          children: inner,
-          ...(active ? { "aria-current": "page" as const } : {}),
-        };
-        return (
-          <React.Fragment key={item.href}>
-            {renderLink ? renderLink(props) : <a {...props} />}
-          </React.Fragment>
-        );
-      })}
-      {onMore ? (
-        <button type="button" onClick={onMore} className={itemClass(false)}>
-          <span className="flex size-5 items-center justify-center" aria-hidden="true">
-            ⋯
-          </span>
-          <span className="truncate">{moreLabel}</span>
-        </button>
-      ) : null}
-    </nav>
+            </li>
+          ))}
+
+          {hidden.length > 0 ? (
+            <li className="min-w-0 flex-1">
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    // The rolled-up count is aria-hidden as a visual chip, so
+                    // it has to reach the accessible name here or it is
+                    // invisible to a screen reader. Same shape the header bell
+                    // already uses.
+                    aria-label={
+                      moreBadge > 0 ? `${moreLabel} (${moreBadge})` : undefined
+                    }
+                    className={cn(
+                      "relative flex w-full flex-col items-center justify-center gap-1 px-1 py-2",
+                      "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo",
+                      moreActive ? "text-indigo" : "text-ink-2",
+                    )}
+                    style={{ minHeight: BAR_HEIGHT }}
+                  >
+                    <ActiveBar shown={moreActive} />
+                    <span aria-hidden className="relative">
+                      <MoreHorizontal className="size-5" />
+                      <Badge count={moreBadge} floating />
+                    </span>
+                    <span
+                      className={cn(
+                        "max-w-full truncate text-[11px]",
+                        moreActive && "font-semibold",
+                      )}
+                    >
+                      {moreLabel}
+                    </span>
+                  </button>
+                </SheetTrigger>
+                <SheetContent
+                  side="bottom"
+                  className="max-h-[70svh] overflow-y-auto"
+                >
+                  <SheetHeader>
+                    <SheetTitle>{moreTitle}</SheetTitle>
+                    {moreDescription ? (
+                      <SheetDescription>{moreDescription}</SheetDescription>
+                    ) : null}
+                  </SheetHeader>
+                  <div className="flex flex-col gap-4 px-4 pb-6">
+                    {grouped.map(([group, groupItems]) => (
+                      <div key={group} className="flex flex-col gap-1">
+                        {group ? (
+                          <span className="eyebrow px-2 pt-2">{group}</span>
+                        ) : null}
+                        {groupItems.map((item) => (
+                          <Link
+                            key={item.key}
+                            href={item.href}
+                            onClick={() => setOpen(false)}
+                            aria-current={
+                              item.key === activeKey ? "page" : undefined
+                            }
+                            aria-label={item.badgeLabel}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-2 py-3 text-[14px]",
+                              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo",
+                              item.key === activeKey
+                                ? "bg-indigo-soft font-semibold text-indigo"
+                                : "text-ink-2 hover:bg-rule-2",
+                            )}
+                            style={{ minHeight: 48 }}
+                          >
+                            <span aria-hidden className="shrink-0">
+                              {item.icon}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {item.label}
+                            </span>
+                            <Badge count={item.badge} />
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </li>
+          ) : null}
+        </ul>
+      </nav>
+    </>
+  );
+}
+
+function BottomNavLink({
+  as: Link,
+  item,
+  active,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  as: React.ElementType<any>;
+  item: BottomNavItem;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      aria-label={item.badgeLabel}
+      className={cn(
+        "relative flex flex-col items-center justify-center gap-1 px-1 py-2",
+        "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo",
+        active ? "text-indigo" : "text-ink-2",
+      )}
+      // 48px is the floor for a touch target; 60 gives icon + label room.
+      style={{ minHeight: BAR_HEIGHT }}
+    >
+      <ActiveBar shown={active} />
+      <span aria-hidden className="relative">
+        {item.icon}
+        <Badge count={item.badge} floating />
+      </span>
+      <span
+        className={cn(
+          "max-w-full truncate text-[11px]",
+          active && "font-semibold",
+        )}
+      >
+        {item.label}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * The sidebar's active bar, rotated.
+ *
+ * In the sidebar it is 3px on the inline-start edge. Here the item sits on a
+ * horizontal axis, so the same bar sits across the top. It is the top edge in
+ * both directions — a horizontal rule has no start or end to mirror — so no
+ * RTL flip is needed or wanted.
+ */
+function ActiveBar({ shown }: { shown: boolean }) {
+  if (!shown) return null;
+  return (
+    <span
+      aria-hidden
+      className="absolute start-0 end-0 top-0 h-[3px] bg-indigo"
+    />
+  );
+}
+
+/** Mono count chip. Amber on amber-soft: a count is something WAITING. */
+function Badge({ count, floating }: { count?: number; floating?: boolean }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "num rounded-[5px] bg-amber-soft px-1.5 text-[11px] font-semibold text-amber",
+        // `-end-*` is logical, so the chip hangs off the icon's trailing edge
+        // in both directions without a mirrored rule or a transform.
+        floating && "absolute -top-2 -end-3 leading-tight",
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }

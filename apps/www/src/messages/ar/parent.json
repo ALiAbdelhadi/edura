@@ -20,7 +20,13 @@
     "attendanceTrend": "اتجاه الحضور",
     "noAttendanceTrend": "لا يوجد اتجاه حضور بعد.",
     "gradeTrend": "اتجاه الدرجات",
-    "noGradeTrend": "لا يوجد اتجاه درجات بعد."
+    "noGradeTrend": "لا يوجد اتجاه درجات بعد.",
+    "latestEyebrow": "الأحدث",
+    "trendsEyebrow": "الاتجاهات",
+    "attendanceReason": "من {count} جلسة مسجّلة",
+    "gradeReason": "عبر {count} مادة",
+    "paidReason": "إجمالي ما تم سداده",
+    "dueReason": "عن {count} اشتراك نشط"
   },
   "parentFees": {
     "cumulativePaid": "إجمالي المدفوع التراكمي",
@@ -41,7 +47,16 @@
     "paymentHistory": "سجل المدفوعات",
     "paymentTimeline": "الخط الزمني للمدفوعات",
     "noTimeline": "لا يوجد خط زمني للمدفوعات بعد.",
-    "noPayments": "لا توجد مدفوعات مسجلة."
+    "noPayments": "لا توجد مدفوعات مسجلة.",
+    "payingEyebrow": "الدفع",
+    "payLimit": "الدفع يتم حالياً من حساب الطالب. لا يستطيع ولي الأمر السداد مباشرة بعد.",
+    "periodEyebrow": "الفترة",
+    "rangeStart": "من تاريخ",
+    "rangeEnd": "إلى تاريخ",
+    "paidReason": "من {count} عملية",
+    "refundsReason": "مبالغ أُعيدت",
+    "netReason": "المدفوع ناقص المسترد",
+    "noPaymentsInRange": "لا توجد مدفوعات في هذه الفترة."
   },
   "parentProgress": {
     "noChildren": "لا يوجد أبناء مسجلون.",
@@ -57,7 +72,11 @@
     "subjectComparison": "مقارنة المواد",
     "averagePercent": "المتوسط ٪",
     "noComparison": "لا توجد بيانات مقارنة للمواد بعد.",
-    "noGrades": "لا توجد بيانات درجات متاحة."
+    "noGrades": "لا توجد بيانات درجات متاحة.",
+    "gpaReason": "عبر {count} مادة",
+    "attendanceReason": "لكل الجلسات المسجّلة",
+    "subjectsReason": "بها درجات مسجّلة",
+    "breakdownEyebrow": "بالمادة"
   },
   "parentLinking": {
     "linkedSuccess": "تم الربط بنجاح.",
@@ -91,7 +110,10 @@
     "invalidEmail": "عنوان بريد إلكتروني غير صالح.",
     "sendRequest": "إرسال الطلب",
     "myChildren": "أبنائي",
-    "noLinkedChildren": "لا يوجد أبناء مرتبطون بعد."
+    "noLinkedChildren": "لا يوجد أبناء مرتبطون بعد.",
+    "familyCodeLabel": "رمز العائلة",
+    "linkEyebrow": "إضافة",
+    "childrenEyebrow": "المرتبطون"
   },
   "parentPay": {
     "subtitle": "فعّل وادفع درسًا لابنك — من كارتك أو من محفظتك.",
@@ -159,5 +181,12 @@
     "mockPrompt": "وضع الاختبار: محاكاة دفع {amount}.",
     "mockPay": "محاكاة دفع ناجح",
     "mockFail": "محاكاة رفض"
+  },
+  "parentOversight": {
+    "childrenFailed": "تعذّر تحميل قائمة الأبناء. حاول مرة أخرى.",
+    "threadsFailed": "تعذّر تحميل المحادثات. حاول مرة أخرى.",
+    "messagesFailed": "تعذّر تحميل الرسائل. حاول مرة أخرى.",
+    "retry": "إعادة المحاولة",
+    "privateEyebrow": "خاص"
   }
 }

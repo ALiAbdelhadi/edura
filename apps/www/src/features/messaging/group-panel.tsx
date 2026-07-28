@@ -43,9 +43,9 @@ function GroupList({ ctl }: { ctl: GroupsController }) {
   const { formatDate } = useFormatters();
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-b border-border md:border-b-0 md:border-e">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <span className="font-bold text-foreground">
+    <div className="flex h-full min-h-0 flex-col border-b border-rule md:border-b-0 md:border-e">
+      <div className="flex items-center justify-between border-b border-rule p-4">
+        <span className="font-bold text-ink">
           {t("chat.channels.title")}
         </span>
       </div>
@@ -69,32 +69,32 @@ function GroupList({ ctl }: { ctl: GroupsController }) {
                 key={g.id}
                 onClick={() => void ctl.open(g.id)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 transition-colors",
-                  ctl.activeId === g.id ? "bg-accent" : "hover:bg-muted/50",
+                  "flex cursor-pointer items-center gap-3 border-b border-rule px-4 py-3 transition-colors",
+                  ctl.activeId === g.id ? "bg-indigo-soft" : "hover:bg-rule-2",
                 )}
               >
-                <div className="relative shrink-0 rounded-full bg-muted p-2">
-                  <Megaphone className="size-4 text-muted-foreground" />
+                <div className="relative shrink-0 rounded-full bg-field p-2">
+                  <Megaphone className="size-4 text-ink-2" />
                   {g.unreadCount > 0 ? (
-                    <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
+                    <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
                       {g.unreadCount}
                     </span>
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium text-foreground">
+                    <p className="truncate font-medium text-ink">
                       {g.title}
                     </p>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-ink-2">
                       {formatDate(g.lastMessageAt, {
                         month: "short",
                         day: "numeric",
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px]">
+                  <div className="flex items-center gap-2 text-xs text-ink-2">
+                    <span className="shrink-0 rounded-md bg-field px-1.5 py-px text-[10px]">
                       {t(`chat.channels.kinds.${g.kind}`)}
                     </span>
                     {g.muted ? (
@@ -158,18 +158,18 @@ function GroupThread({
 
   return (
     <div className="flex h-full min-h-0 flex-col md:col-span-2">
-      <div className="flex items-center gap-3 border-b border-border p-4">
-        <div className="shrink-0 rounded-full bg-muted p-2">
-          <Megaphone className="size-4 text-muted-foreground" />
+      <div className="flex items-center gap-3 border-b border-rule p-4">
+        <div className="shrink-0 rounded-full bg-field p-2">
+          <Megaphone className="size-4 text-ink-2" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <strong className="truncate text-foreground">{group.title}</strong>
+            <strong className="truncate text-ink">{group.title}</strong>
             <Badge variant="secondary" className="text-[10px]">
               {t(`chat.channels.kinds.${group.kind}`)}
             </Badge>
           </div>
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1 text-xs text-ink-2">
             <Users className="size-3" />
             {t("chat.channels.members", { count: group.memberCount })}
             <span className="opacity-70">
@@ -196,7 +196,7 @@ function GroupThread({
         ) : null}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 bg-muted/40" viewportRef={viewportRef}>
+      <ScrollArea className="min-h-0 flex-1 bg-rule-2" viewportRef={viewportRef}>
         <div className="flex w-full flex-col gap-3 p-4">
           {ctl.threadLoading && messages.length === 0 ? (
             <div className="flex justify-center p-5">
@@ -212,10 +212,10 @@ function GroupThread({
                 >
                   <div
                     className={cn(
-                      "max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm",
+                      "max-w-[70%] rounded-2xl px-3.5 py-2.5 ",
                       mine
-                        ? "rounded-ee-sm bg-primary text-primary-foreground"
-                        : "rounded-es-sm border border-border bg-card text-card-foreground",
+                        ? "rounded-ee-sm bg-indigo text-indigo-ink"
+                        : "rounded-es-sm border border-rule bg-sheet text-ink",
                     )}
                   >
                     <div
@@ -241,13 +241,13 @@ function GroupThread({
       </ScrollArea>
 
       {ctl.error === "rate_limited" ? (
-        <div className="border-t border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <div className="border-t border-rule bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
           {t("chat.rateLimited")}
         </div>
       ) : null}
 
       {group.canPost ? (
-        <div className="border-t border-border bg-card p-4">
+        <div className="border-t border-rule bg-sheet p-4">
           <div className="flex items-center gap-2">
             <Input
               placeholder={t("chat.inputPlaceholder")}
@@ -276,7 +276,7 @@ function GroupThread({
         </div>
       ) : (
         // Explain WHY, rather than showing a dead disabled input.
-        <div className="border-t border-border bg-muted/40 p-4 text-center text-xs text-muted-foreground">
+        <div className="border-t border-rule bg-rule-2 p-4 text-center text-xs text-ink-2">
           {t("chat.channels.readOnly")}
         </div>
       )}

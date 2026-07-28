@@ -20,7 +20,13 @@
     "attendanceTrend": "Attendance Trend",
     "noAttendanceTrend": "No attendance trend yet.",
     "gradeTrend": "Grade Trend",
-    "noGradeTrend": "No grade trend yet."
+    "noGradeTrend": "No grade trend yet.",
+    "latestEyebrow": "Latest",
+    "trendsEyebrow": "Trends",
+    "attendanceReason": "of {count} recorded sessions",
+    "gradeReason": "across {count} subjects",
+    "paidReason": "Total settled to date",
+    "dueReason": "across {count} active enrolments"
   },
   "parentFees": {
     "cumulativePaid": "Cumulative Paid",
@@ -41,7 +47,16 @@
     "paymentHistory": "Payment History",
     "paymentTimeline": "Payment Timeline",
     "noTimeline": "No payment timeline yet.",
-    "noPayments": "No payments recorded."
+    "noPayments": "No payments recorded.",
+    "payingEyebrow": "Paying",
+    "payLimit": "Payment is made from the student's account today. A parent cannot pay directly yet.",
+    "periodEyebrow": "Period",
+    "rangeStart": "From date",
+    "rangeEnd": "To date",
+    "paidReason": "across {count} entries",
+    "refundsReason": "Amounts returned",
+    "netReason": "Paid minus refunds",
+    "noPaymentsInRange": "No payments in this period."
   },
   "parentProgress": {
     "noChildren": "No children registered.",
@@ -57,7 +72,11 @@
     "subjectComparison": "Subject Comparison",
     "averagePercent": "Average %",
     "noComparison": "No subject comparison data yet.",
-    "noGrades": "No grade data available."
+    "noGrades": "No grade data available.",
+    "gpaReason": "across {count} subjects",
+    "attendanceReason": "across all recorded sessions",
+    "subjectsReason": "with recorded grades",
+    "breakdownEyebrow": "By subject"
   },
   "parentLinking": {
     "linkedSuccess": "Linked successfully.",
@@ -91,7 +110,10 @@
     "invalidEmail": "Invalid email address.",
     "sendRequest": "Send Request",
     "myChildren": "My Children",
-    "noLinkedChildren": "No linked children yet."
+    "noLinkedChildren": "No linked children yet.",
+    "familyCodeLabel": "Family code",
+    "linkEyebrow": "Add",
+    "childrenEyebrow": "Linked"
   },
   "parentPay": {
     "subtitle": "Activate and pay for a lesson for your child — from your card or your wallet.",
@@ -159,5 +181,12 @@
     "mockPrompt": "Test mode: simulate paying {amount}.",
     "mockPay": "Simulate a successful payment",
     "mockFail": "Simulate a decline"
+  },
+  "parentOversight": {
+    "childrenFailed": "Couldn't load your children. Try again.",
+    "threadsFailed": "Couldn't load the conversations. Try again.",
+    "messagesFailed": "Couldn't load the messages. Try again.",
+    "retry": "Try again",
+    "privateEyebrow": "Private"
   }
 }

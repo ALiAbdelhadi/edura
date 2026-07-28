@@ -3,7 +3,7 @@
 import { useCustom } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { SectionHead } from "@repo/ui/components/ledger";
 import { ImageUploadField } from "@repo/ui/components/image-upload-field";
 import { toast } from "@repo/ui/components/sonner";
 
@@ -74,13 +74,13 @@ export function ProfileImageCard({ variant, name }: { variant: Variant; name?: s
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
+    <section className="flex flex-col gap-3">
+      <SectionHead
+        title={<>
           {variant === "teacherPhoto" ? t("shared.profilePhoto") : t("shared.centerLogo")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+        </>}
+      />
+      <div className="rounded-xl border border-rule bg-sheet p-4">
         <ImageUploadField
           value={value}
           name={name}
@@ -99,7 +99,7 @@ export function ProfileImageCard({ variant, name }: { variant: Variant; name?: s
             failed: t("shared.imageUploadFailed"),
           }}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

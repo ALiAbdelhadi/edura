@@ -47,11 +47,12 @@
     "doorCheckin": "تشيك-إن الباب",
     "staff": "الموظفون",
     "childSafety": "سلامة الأبناء",
+    "more": "المزيد",
+    "allSections": "كل الأقسام",
     "requests": "الطلبات",
     "myClasses": "فصولي",
     "myCenters": "مراكزي",
     "payments": "مدفوعات الطلاب",
-    "more": "المزيد",
     "childProgress": "تقدّم الابن",
     "feesPayments": "الرسوم والمدفوعات",
     "parentWallet": "محفظتي",
@@ -113,6 +114,7 @@
     "sendInvite": "إرسال دعوة",
     "export": "تصدير",
     "review": "مراجعة",
+    "dismiss": "إغلاق",
     "previousPage": "الصفحة السابقة",
     "nextPage": "الصفحة التالية",
     "sortBy": "ترتيب حسب",
@@ -520,6 +522,10 @@
     "save": "حفظ",
     "saved": "تم حفظ بريد ولي الأمر — المراسلة متاحة الآن.",
     "saveFailed": "تعذّر حفظ بريد ولي الأمر"
+  },
+  "attendanceView": {
+    "outOf": "من {count} جلسة",
+    "recentEyebrow": "آخر ٢٨ يوماً"
   },
   "navGroup": {
     "oversight": "المتابعة",

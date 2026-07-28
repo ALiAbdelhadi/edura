@@ -7,12 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { User, Phone, Save, CheckCircle2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import {
@@ -36,7 +30,12 @@ import { DescriptionList } from "@/components/kit/description-list";
 import { PageHeader } from "@/components/kit/page-header";
 import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
 import { ProfileImageCard } from "@/features/settings/profile-image-card";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { Spinner } from "@/components/kit/spinner";
+import {
+  Figure,
+  SectionHead,
+  SkeletonRows,
+} from "@repo/ui/components/ledger";
 import { asKey } from "@/lib/i18n/keys";
 import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
 
@@ -65,13 +64,11 @@ function PushNotificationsCard() {
         : t("shared.pushDescDisabled");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("shared.pushTitle")}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <section className="flex flex-col gap-3">
+      <SectionHead title={t("shared.pushTitle")} />
+      <div className="rounded-xl border border-rule bg-sheet p-4">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-[13px] text-ink-2">{description}</p>
           <Button
             type="button"
             variant={state === "subscribed" ? "outline" : "default"}
@@ -84,8 +81,8 @@ function PushNotificationsCard() {
               : t("shared.pushEnable")}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -148,11 +145,11 @@ export function SettingsScreen() {
   };
 
   if (query.isLoading) {
-    return <PageSpinner label={t("common.loading")} />;
+    return <SkeletonRows rows={5} className="max-w-[600px]" />;
   }
 
   return (
-    <div className="flex w-full max-w-[600px] flex-col gap-6">
+    <div className="flex w-full max-w-[600px] flex-col gap-5">
       <PageHeader title={t("nav.settings")} />
       {me?.role === "teacher" || me?.role === "assistant" ? <AttendanceModeCard /> : null}
       {me?.role === "teacher" ? (
@@ -161,16 +158,19 @@ export function SettingsScreen() {
       {me?.role === "center_admin" ? (
         <ProfileImageCard variant="centerLogo" name={me?.name} />
       ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("shared.settingsProfile")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <section className="flex flex-col gap-3">
+        <SectionHead title={t("shared.settingsProfile")} />
+        <div className="rounded-xl border border-rule bg-sheet p-4">
           <DescriptionList
             columns={1}
             className="mb-6"
             items={[
-              { label: t("auth.email"), value: me?.email },
+              {
+                label: t("auth.email"),
+                // An email is Latin inside an Arabic column: mono and
+                // bidi-isolated, or it drags the row's punctuation around.
+                value: me?.email ? <Figure>{me.email}</Figure> : "",
+              },
               {
                 label: t("shared.settingsRole"),
                 value: me?.role
@@ -196,16 +196,18 @@ export function SettingsScreen() {
               className="flex flex-col gap-4"
             >
               {saved && (
-                <Alert className="relative bg-success/12 text-success">
+                <Alert className="relative border-rule bg-teal-soft text-teal">
                   <CheckCircle2 />
-                  <AlertDescription className="text-success">
+                  <AlertDescription className="text-teal">
                     {t("shared.settingsSavedAlert")}
                   </AlertDescription>
                   <button
                     type="button"
                     onClick={() => setSaved(false)}
-                    aria-label="Dismiss"
-                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-success/80 transition-colors hover:text-success"
+                    // Was a hardcoded English "Dismiss" — invisible to the
+                    // Arabic-first audience this product is built for.
+                    aria-label={t("actions.dismiss")}
+                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-teal transition-opacity hover:opacity-70"
                   >
                     <X className="size-4" />
                   </button>
@@ -220,7 +222,7 @@ export function SettingsScreen() {
                     <FormLabel>{t("shared.settingsName")}</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
+                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-ink-3">
                           <User className="size-4" />
                         </span>
                         <Input
@@ -243,7 +245,7 @@ export function SettingsScreen() {
                     <FormLabel>{t("shared.settingsPhone")}</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
+                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-ink-3">
                           <Phone className="size-4" />
                         </span>
                         <Input
@@ -288,8 +290,8 @@ export function SettingsScreen() {
               </div>
             </form>
           </Form>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
       <PushNotificationsCard />
     </div>
   );

@@ -13,8 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait",
     dir: "auto",
     lang: "ar",
-    background_color: "#0b1020",
-    theme_color: "#5b76fe",
+    background_color: "#14161c",
+    theme_color: "#f7f6f2",
     icons: [
       {
         src: "/edura-mark.svg",

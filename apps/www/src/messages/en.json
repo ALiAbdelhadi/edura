@@ -47,11 +47,12 @@
     "doorCheckin": "Door Check-in",
     "staff": "Staff",
     "childSafety": "Child safety",
+    "more": "More",
+    "allSections": "All sections",
     "requests": "Requests",
     "myClasses": "My Classes",
     "myCenters": "My Centers",
     "payments": "Student payments",
-    "more": "More",
     "childProgress": "Child Progress",
     "feesPayments": "Fees & Payments",
     "parentWallet": "My Wallet",
@@ -113,6 +114,7 @@
     "sendInvite": "Send invite",
     "export": "Export",
     "review": "Review",
+    "dismiss": "Dismiss",
     "previousPage": "Previous page",
     "nextPage": "Next page",
     "sortBy": "Sort by",
@@ -520,6 +522,10 @@
     "save": "Save",
     "saved": "Guardian email saved — messaging is now available.",
     "saveFailed": "Could not save the guardian email"
+  },
+  "attendanceView": {
+    "outOf": "of {count} sessions",
+    "recentEyebrow": "Last 28 days"
   },
   "navGroup": {
     "oversight": "Oversight",

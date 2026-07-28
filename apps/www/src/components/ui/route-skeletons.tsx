@@ -41,7 +41,7 @@ function RowsSkeleton({ rows, columns }: { rows: number; columns: number }) {
   return (
     <div className="w-full">
       <div
-        className="mb-2 grid gap-4 rounded-md bg-muted px-4 py-3"
+        className="mb-2 grid gap-4 rounded-md bg-field px-4 py-3"
         style={gridStyle}
       >
         {Array.from({ length: columns }).map((_, c) => (
@@ -51,7 +51,7 @@ function RowsSkeleton({ rows, columns }: { rows: number; columns: number }) {
       {Array.from({ length: rows }).map((_, r) => (
         <div
           key={r}
-          className="grid gap-4 border-b border-border p-4"
+          className="grid gap-4 border-b border-rule p-4"
           style={gridStyle}
         >
           {Array.from({ length: columns }).map((_, c) => (
@@ -127,7 +127,7 @@ export function ChatSkeleton() {
       <PageHeaderSkeleton actions={false} />
       <Card className="overflow-hidden p-0">
         <div className="grid h-[calc(100vh-250px)] min-h-[560px] grid-cols-1 md:grid-cols-3">
-          <div className="flex min-h-0 flex-col gap-4 border-b border-border p-4 md:border-b-0 md:border-e">
+          <div className="flex min-h-0 flex-col gap-4 border-b border-rule p-4 md:border-b-0 md:border-e">
             <Skeleton className="h-9 w-full" />
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export function ChatSkeleton() {
               </div>
             ))}
           </div>
-          <div className="hidden min-h-0 flex-col bg-muted/40 p-4 md:col-span-2 md:flex">
+          <div className="hidden min-h-0 flex-col bg-field/40 p-4 md:col-span-2 md:flex">
             <div className="flex-1 space-y-4">
               {[70, 45, 60, 35].map((w, i) => (
                 <div
