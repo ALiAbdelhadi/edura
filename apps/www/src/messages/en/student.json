@@ -14,7 +14,23 @@
     "noPerformanceData": "No performance data yet",
     "gradeTrend": "Grade Trend",
     "noGradeTrend": "No grade trend yet",
-    "subtitle": "Your attendance, assignments, and performance at a glance."
+    "subtitle": "Your attendance, assignments, and performance at a glance.",
+    "whatsNext": "What's next",
+    "whatsNextSubtitle": "Your upcoming sessions, your balance, and your record — as it has been written.",
+    "upNext": "Up next",
+    "noUpcoming": "No sessions scheduled for this week.",
+    "today": "Today",
+    "thisWeek": "This week",
+    "yourRecord": "Your record",
+    "viewAttendance": "Attendance record",
+    "allGrades": "All grades",
+    "openWallet": "Wallet",
+    "recordEyebrow": "record",
+    "scheduleEyebrow": "schedule",
+    "moneyEyebrow": "money",
+    "attendanceTraceHint": "Derived from your attendance entries.",
+    "gradeTraceHint": "Average across your graded subjects.",
+    "balanceTraceHint": "Closing balance of the latest entry in your wallet."
   },
   "studentBrowse": {
     "enrollmentSent": "Enrollment request sent",
@@ -55,7 +71,8 @@
     },
     "download": "Download",
     "pageTitle": "Materials",
-    "noMaterials": "No materials available"
+    "noMaterials": "No materials available",
+    "subtitle": "Files your teachers have shared in your subjects."
   },
   "studentReviews": {
     "reviewUpdated": "Review updated",
@@ -154,6 +171,19 @@
     "mockFail": "Simulate failure",
     "topupFailed": "Top-up failed",
     "topupSuccess": "Wallet topped up",
-    "topupDeclined": "Payment declined"
+    "topupDeclined": "Payment declined",
+    "balanceUnknown": "Unavailable",
+    "derivedFrom": "Closing balance of the latest entry — {type} · {date}",
+    "noLineageYet": "No entries yet, so this balance has no recorded history behind it.",
+    "reconcileMismatch": "This balance does not match the latest ledger entry. Please check with your center.",
+    "historyCapped": "Showing the latest {count} entries.",
+    "colRef": "Reference",
+    "closingBalance": "Closing balance",
+    "testMode": "Test mode",
+    "topUpAction": "Top up {amount}"
+  },
+  "studentNav": {
+    "more": "More",
+    "navigation": "Navigation"
   }
 }

@@ -18,7 +18,8 @@ import {
 } from "@repo/ui/components/select";
 import { toast } from "@repo/ui/components/sonner";
 import { StatusBadge } from "@/components/kit/status-badge";
-import { PageHeader } from "@/components/kit/page-header";
+import { PageTitle } from "@/features/student/ledger";
+import { newIdempotencyKey } from "@/features/student/idempotency";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -113,7 +114,7 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
           plan,
           ...(sessionId ? { sessionId } : {}),
           method: "card",
-          idempotencyKey: `sub-${course.id}-${plan}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          idempotencyKey: newIdempotencyKey(`sub-${course.id}-${plan}`),
         },
       });
       const intent = (res as any)?.data?.data ?? (res as any)?.data;
@@ -383,7 +384,7 @@ export function StudentSubjectsScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.subjects")} />
+      <PageTitle title={t("nav.subjects")} />
 
       <Tabs value={tab} onValueChange={switchTab}>
         <TabsList>

@@ -8,6 +8,7 @@ import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
+import { LedgerButton, Sheet } from "@/features/student/ledger";
 
 type Status = {
   required: boolean;
@@ -82,49 +83,67 @@ export function GuardianContactNotice({ studentId }: { studentId?: string }) {
   if (!status?.required) return null;
   if (dismissed && status.dismissable) return null;
 
+  const tone = status.overdue ? "red" : "amber";
+
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        status.overdue
-          ? "border-destructive/50 bg-destructive/5"
-          : "border-amber-500/40 bg-amber-500/5"
-      }`}
-    >
+    <Sheet blocking={status.overdue} className="p-5">
       <div className="flex items-start gap-3">
         <ShieldAlert
-          className={`mt-0.5 size-5 shrink-0 ${
-            status.overdue ? "text-destructive" : "text-amber-600 dark:text-amber-400"
-          }`}
+          className="mt-0.5 size-5 shrink-0"
+          style={{ color: status.overdue ? "var(--red)" : "var(--amber)" }}
+          aria-hidden
         />
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="font-medium text-foreground">
+          <p className="text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
             {status.overdue ? t("guardian.overdueTitle") : t("guardian.title")}
           </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+
+          {/* The lock is the fact of the matter, so it is stated plainly and
+              first. It is a sentence, not a status word, so it gets a soft
+              block that wraps — a chip would clip it on a phone. */}
+          {status.messagingLocked ? (
+            <p
+              className="rounded-lg px-3 py-2 text-sm font-semibold"
+              style={{
+                color: `var(--${tone})`,
+                background: `var(--${tone}-soft)`,
+              }}
+            >
+              {t("guardian.locked")}
+            </p>
+          ) : null}
+
+          <p className="max-w-[68ch] text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
             {t("guardian.body")}
           </p>
-          {status.messagingLocked ? (
-            <p className="text-sm font-medium text-foreground">{t("guardian.locked")}</p>
-          ) : null}
+
           {status.guardianPhone && !status.guardianEmail ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs" style={{ color: "var(--ink-3)" }}>
               {t("guardian.phoneOnFile", { phone: status.guardianPhone })}
             </p>
           ) : null}
 
+          {/* The remedy travels with the explanation. A notice that states a
+              lock without carrying the one field that lifts it is a dead end. */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <Input
               type="email"
               dir="ltr"
               className="max-w-xs"
+              aria-label={t("guardian.emailPlaceholder")}
               placeholder={t("guardian.emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <Button type="button" onClick={submit} disabled={saving || !email.trim()}>
+            <LedgerButton
+              type="button"
+              variant="primary"
+              onClick={submit}
+              disabled={saving || !email.trim()}
+            >
               {saving ? <Spinner /> : null}
               {t("guardian.save")}
-            </Button>
+            </LedgerButton>
           </div>
         </div>
 
@@ -136,10 +155,10 @@ export function GuardianContactNotice({ studentId }: { studentId?: string }) {
             aria-label={t("actions.cancel")}
             onClick={() => setDismissed(true)}
           >
-            <X className="size-4" />
+            <X className="size-4" aria-hidden />
           </Button>
         ) : null}
       </div>
-    </div>
+    </Sheet>
   );
 }

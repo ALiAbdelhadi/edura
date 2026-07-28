@@ -2,47 +2,73 @@
 
 import { useMemo } from "react";
 import { useList } from "@refinedev/core";
-import { FileText, Download } from "lucide-react";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
+import { Download, FileText } from "lucide-react";
 import { toast } from "@repo/ui/components/sonner";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { PageHeader } from "@/components/kit/page-header";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
-import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { useTranslations } from "next-intl";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import {
+  Chip,
+  InitialsTile,
+  LedgerButton,
+  LedgerEmpty,
+  Num,
+  PageTitle,
+  Sheet,
+} from "@/features/student/ledger";
 
-const TYPE_TONES: Record<string, StatusTone> = {
-  lecture: "info",
-  homework: "warning",
-  exam: "danger",
+type Material = {
+  id?: string;
+  _id?: string;
+  title: string;
+  courseId?: { toString?: () => string } | string;
+  type?: string;
+  fileSizeBytes?: number | null;
+  createdAt?: string | null;
+};
+
+const TYPE_TONES: Record<string, "indigo" | "amber" | "red" | "neutral"> = {
+  lecture: "indigo",
+  homework: "amber",
+  exam: "red",
   other: "neutral",
 };
 
-function formatBytes(bytes: number | null): string {
+function formatBytes(bytes: number | null | undefined): string {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Materials — a reading surface, not a data table.
+ *
+ * The previous version was a six-column DataTable at table density. Materials
+ * are read rather than scanned, so this lays them out with room: the title
+ * carries the weight, and the file's metadata (size, date) sits under it in
+ * mono as supporting detail rather than as columns to align.
+ */
 export function StudentMaterialsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
-  const { query: enrollmentsQuery, result: enrollmentsResult } = useList({ resource: "enrollments" });
+  const { query: enrollmentsQuery, result: enrollmentsResult } = useList({
+    resource: "enrollments",
+  });
   const { query: materialsQuery, result: materialsResult } = useList({ resource: "materials" });
 
-  const enrollments = (enrollmentsResult?.data ?? []) as any[];
-  const materials = (materialsResult?.data ?? []) as any[];
+  const enrollments = (enrollmentsResult?.data ?? []) as {
+    courseId?: { toString?: () => string } | string;
+    courseName?: string;
+  }[];
+  const materials = (materialsResult?.data ?? []) as Material[];
 
   const courseMap = useMemo(() => {
     const map = new Map<string, string>();
     enrollments.forEach((e) => {
-      const cid = e.courseId?.toString?.() || e.courseId;
+      const cid = typeof e.courseId === "string" ? e.courseId : e.courseId?.toString?.();
       if (cid && e.courseName) map.set(cid, e.courseName);
     });
     return map;
@@ -52,82 +78,76 @@ export function StudentMaterialsScreen() {
     try {
       const response = await api.get(`materials/${id}/download`).json<{ data: { url: string } }>();
       window.open(response.data.url, "_blank");
-    } catch (err: any) {
-      toast.error(err?.message || t("studentMaterials.downloadFailed"));
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || t("studentMaterials.downloadFailed"));
     }
   };
 
-  const columns: ColumnDef<any>[] = [
-    {
-      accessorKey: "title",
-      header: t("studentMaterials.title"),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <FileText className="size-4 text-destructive" />
-          <span>{row.original.title}</span>
-        </div>
-      ),
-    },
-    {
-      id: "course",
-      header: t("studentMaterials.course"),
-      cell: ({ row }) => courseMap.get(row.original.courseId?.toString?.()) || "—",
-    },
-    {
-      accessorKey: "type",
-      header: t("studentMaterials.type"),
-      cell: ({ row }) => {
-        const v = row.original.type as string;
-        return (
-          <StatusBadge tone={TYPE_TONES[v] || "neutral"}>
-            {v ? t(asKey(`studentMaterials.types.${v}`)) : "—"}
-          </StatusBadge>
-        );
-      },
-    },
-    {
-      accessorKey: "fileSizeBytes",
-      header: t("studentMaterials.size"),
-      cell: ({ row }) => formatBytes(row.original.fileSizeBytes),
-    },
-    {
-      accessorKey: "createdAt",
-      header: t("studentMaterials.uploaded"),
-      cell: ({ row }) => (row.original.createdAt ? formatDate(row.original.createdAt) : "—"),
-    },
-    {
-      id: "actions",
-      header: t("studentMaterials.actions"),
-      cell: ({ row }) => {
-        const id = row.original.id || row.original._id;
-        return (
-          <Button size="sm" onClick={() => handleDownload(id)}>
-            <Download className="size-4" />
-            {t("studentMaterials.download")}
-          </Button>
-        );
-      },
-    },
-  ];
+  const loading = materialsQuery.isLoading || enrollmentsQuery.isLoading;
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("studentMaterials.pageTitle")} />
+      <PageTitle
+        title={t("studentMaterials.pageTitle")}
+        subtitle={t("studentMaterials.subtitle")}
+      />
 
-      <Card>
-        <CardContent>
-          {materialsQuery.isLoading || enrollmentsQuery.isLoading ? (
-            <PageSpinner label={t("common.loading")} />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={materials}
-              pageSize={10}
-              emptyState={<EmptyState icon={FileText} title={t("studentMaterials.noMaterials")} />}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {loading ? (
+        <PageSpinner label={t("common.loading")} />
+      ) : materials.length === 0 ? (
+        <Sheet className="p-5">
+          <LedgerEmpty title={t("studentMaterials.noMaterials")} />
+        </Sheet>
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {materials.map((m, i) => {
+            const id = m.id || m._id || String(i);
+            const cid = typeof m.courseId === "string" ? m.courseId : m.courseId?.toString?.();
+            const course = (cid && courseMap.get(cid)) || "—";
+            const type = m.type;
+            return (
+              <li key={id}>
+                <Sheet className="flex h-full flex-col gap-3 p-5">
+                  <div className="flex items-start gap-3">
+                    <InitialsTile name={course === "—" ? "?" : course} size={36} tone="indigo" />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="text-[15px] font-semibold leading-snug"
+                        style={{ color: "var(--ink)" }}
+                      >
+                        {m.title}
+                      </p>
+                      <p className="mt-0.5 truncate text-sm" style={{ color: "var(--ink-2)" }}>
+                        {course}
+                      </p>
+                    </div>
+                    {type ? (
+                      <Chip tone={TYPE_TONES[type] ?? "neutral"}>
+                        {t(asKey(`studentMaterials.types.${type}`))}
+                      </Chip>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between gap-3">
+                    <Num style={{ color: "var(--ink-3)", fontSize: 11 }}>
+                      {formatBytes(m.fileSizeBytes)}
+                      {m.createdAt ? ` · ${formatDate(m.createdAt)}` : ""}
+                    </Num>
+                    <LedgerButton
+                      variant="secondary"
+                      onClick={() => handleDownload(id)}
+                      aria-label={`${t("studentMaterials.download")} — ${m.title}`}
+                    >
+                      <Download className="size-4" aria-hidden />
+                      {t("studentMaterials.download")}
+                    </LedgerButton>
+                  </div>
+                </Sheet>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

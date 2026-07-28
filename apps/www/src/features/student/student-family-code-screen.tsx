@@ -38,7 +38,7 @@ import {
 } from "@repo/ui/components/form";
 import { toast } from "@repo/ui/components/sonner";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { PageHeader } from "@/components/kit/page-header";
+import { PageTitle } from "@/features/student/ledger";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
@@ -266,7 +266,7 @@ export function StudentFamilyCodeScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.family")} />
+      <PageTitle title={t("nav.family")} />
 
       <Card>
         <CardHeader>

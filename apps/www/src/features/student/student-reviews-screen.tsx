@@ -34,8 +34,7 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatCard } from "@/components/kit/stat-card";
-import { PageHeader } from "@/components/kit/page-header";
+import { Eyebrow, Num, PageTitle, Sheet } from "@/features/student/ledger";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 
@@ -281,20 +280,21 @@ export function StudentReviewsScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.reviews")} />
+      <PageTitle title={t("nav.reviews")} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard
-          label={t("studentReviews.myReviews")}
-          value={reviews.length}
-          icon={Star}
-          accent
-        />
-        <StatCard
-          label={t("studentReviews.eligibleTeachers")}
-          value={eligibleTeachers.length}
-          icon={Users}
-        />
+        <Sheet className="p-5">
+          <Eyebrow>{t("studentReviews.myReviews")}</Eyebrow>
+          <Num style={{ fontSize: 30, fontWeight: 600, color: "var(--ink)" }}>
+            {reviews.length}
+          </Num>
+        </Sheet>
+        <Sheet className="p-5">
+          <Eyebrow>{t("studentReviews.eligibleTeachers")}</Eyebrow>
+          <Num style={{ fontSize: 30, fontWeight: 600, color: "var(--ink)" }}>
+            {eligibleTeachers.length}
+          </Num>
+        </Sheet>
       </div>
 
       <Card>
