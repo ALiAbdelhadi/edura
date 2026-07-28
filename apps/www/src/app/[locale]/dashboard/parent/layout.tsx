@@ -31,6 +31,8 @@ const navItems = [
   { href: "/dashboard/parent/attendance", icon: "check", label: "Attendance" },
   { href: "/dashboard/parent/children", icon: "users", label: "Children" },
   { href: "/dashboard/parent/fees", icon: "dollar", label: "Fees" },
+  { href: "/dashboard/parent/pay", icon: "dollar", label: "Pay for a Lesson" },
+  { href: "/dashboard/parent/wallet", icon: "wallet", label: "My Wallet" },
   { href: "/dashboard/parent/messages", icon: "message", label: "Messages" },
   { href: "/dashboard/parent/oversight", icon: "shield", label: "Child Safety" },
   { href: "/dashboard/parent/notifications", icon: "bell", label: "Notifications" },
