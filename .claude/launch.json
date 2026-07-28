@@ -30,6 +30,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "realtime", "dev"],
       "port": 3005
+    },
+    {
+      "name": "superadmin-main-checkout",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/ali/edura/apps/superadmin", "dev"],
+      "port": 3004
     }
   ]
 }
