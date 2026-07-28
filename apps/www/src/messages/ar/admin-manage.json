@@ -136,6 +136,7 @@
   },
   "fees": {
     "dateRange": "النطاق الزمني",
+    "pickDateRange": "اختر نطاقًا زمنيًا",
     "reset": "إعادة تعيين",
     "revenueTotal": "إجمالي الإيرادات",
     "expensesTotal": "إجمالي المصروفات",

@@ -136,6 +136,7 @@
   },
   "fees": {
     "dateRange": "Date range",
+    "pickDateRange": "Pick a date range",
     "reset": "Reset",
     "revenueTotal": "Total Revenue",
     "expensesTotal": "Total Expenses",
