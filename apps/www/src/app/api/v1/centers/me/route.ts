@@ -5,6 +5,7 @@ import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { deleteReplacedImage } from "@repo/server-core/media/images";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,19 @@ export const PATCH = withErrors(async (req) => {
     ? { ...rest, lng: location.coordinates[0], lat: location.coordinates[1] }
     : rest;
 
+  // Pasting a new logo URL here replaces an uploaded one, and the upload path
+  // is the only place that used to clean up after itself — so without this the
+  // old Cloudinary asset was stranded in the account with nothing pointing at
+  // it. Only read the previous value when the field is actually being edited.
+  let previousLogoUrl: string | null = null;
   const center = await scopedDb(user, async (tx) => {
+    if (body.logoUrl !== undefined) {
+      const existing = await tx.center.findUnique({
+        where: { id: user.centerId as string },
+        select: { logoUrl: true },
+      });
+      previousLogoUrl = existing?.logoUrl ?? null;
+    }
     try {
       return await tx.center.update({ where: { id: user.centerId as string }, data });
     } catch (err) {
@@ -53,5 +66,8 @@ export const PATCH = withErrors(async (req) => {
       throw err;
     }
   });
+  // After the commit, and never fatal: a Cloudinary hiccup must not fail an
+  // edit the user already saw succeed.
+  if (body.logoUrl !== undefined) await deleteReplacedImage(previousLogoUrl, center.logoUrl);
   return ok(center);
 });

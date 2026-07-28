@@ -1,7 +1,6 @@
 import {
-  deleteImageByUrl,
+  deleteReplacedImage,
   isCloudinaryConfigured,
-  publicIdFromUrl,
   uploadEntityImage,
   validateImageFile,
   ImageValidationError,
@@ -53,18 +52,6 @@ async function ingest(
   return asset.secure_url;
 }
 
-/**
- * Delete the previously stored asset, but only when the new upload did not
- * already overwrite it (same public_id) and it is actually ours.
- */
-async function cleanupPrevious(previousUrl: string | null, newUrl: string | null) {
-  if (!previousUrl || previousUrl === newUrl) return;
-  const previousId = publicIdFromUrl(previousUrl);
-  const newId = newUrl ? publicIdFromUrl(newUrl) : null;
-  if (previousId && previousId === newId) return; // overwritten in place
-  await deleteImageByUrl(previousUrl);
-}
-
 // ---------------------------------------------------------------------------
 // Center logo
 // ---------------------------------------------------------------------------
@@ -91,7 +78,7 @@ export async function setCenterLogo(file: File, user: SessionUser) {
       select: { id: true, logoUrl: true },
     }),
   );
-  await cleanupPrevious(center.logoUrl, url);
+  await deleteReplacedImage(center.logoUrl, url);
   return { logoUrl: updated.logoUrl };
 }
 
@@ -107,7 +94,7 @@ export async function removeCenterLogo(user: SessionUser) {
   await scopedDb(user, (tx) =>
     tx.center.update({ where: { id: centerId }, data: { logoUrl: null } }),
   );
-  await cleanupPrevious(center.logoUrl, null);
+  await deleteReplacedImage(center.logoUrl, null);
   return { logoUrl: null };
 }
 
@@ -137,7 +124,7 @@ export async function setTeacherPhoto(file: File, user: SessionUser) {
       select: { photoUrl: true },
     }),
   );
-  await cleanupPrevious(profile.photoUrl, url);
+  await deleteReplacedImage(profile.photoUrl, url);
   return { photoUrl: updated.photoUrl };
 }
 
@@ -150,7 +137,7 @@ export async function removeTeacherPhoto(user: SessionUser) {
   await scopedDb(user, (tx) =>
     tx.teacherProfile.update({ where: { userId: user.id }, data: { photoUrl: null } }),
   );
-  await cleanupPrevious(profile.photoUrl, null);
+  await deleteReplacedImage(profile.photoUrl, null);
   return { photoUrl: null };
 }
 

@@ -3,7 +3,11 @@ import { scopedDb } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { uploadBuffer, isCloudinaryConfigured } from "@/lib/cloudinary/cloudinary";
-import { validateImageFile, ImageValidationError } from "@repo/server-core/media/images";
+import {
+  validateImageFile,
+  ImageValidationError,
+  deleteImageByUrl,
+} from "@repo/server-core/media/images";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -58,6 +62,7 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
   if (!isCloudinaryConfigured()) {
     throw new BusinessRuleError(
       "Image uploads are not configured on this server. Add a photo URL instead, or set CLOUDINARY_* env vars.",
+      { reason: "uploads_not_configured" },
     );
   }
 
@@ -65,35 +70,88 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
   try {
     validated = await validateImageFile(file, { maxBytes: MAX_PHOTO_SIZE });
   } catch (err) {
-    if (err instanceof ImageValidationError) throw new BusinessRuleError(err.message);
+    if (err instanceof ImageValidationError) {
+      throw new BusinessRuleError(err.message, { reason: err.reason, ...err.meta });
+    }
     throw err;
   }
   const { buffer, mime: contentType, extension: ext } = validated;
 
-  return scopedDb(user, async (tx) => {
-    const room = await tx.room.findUnique({ where: { id: roomId } });
-    if (!room || !room.isActive) throw new NotFoundError("Room not found");
-    requireCenterScope(user, room.centerId);
-    if (room.photos.length >= MAX_PHOTOS_PER_ROOM) {
-      throw new BusinessRuleError(`A room can have at most ${MAX_PHOTOS_PER_ROOM} photos`);
-    }
-
-    const { secure_url } = await uploadBuffer(buffer, {
-      folder: `edura/rooms/${roomId}`,
-      resource_type: "image",
-      contentType,
-      filename: `room.${ext}`,
-      // Cap what we store: a 12 MP phone photo is pointless as a hall picture,
-      // and every cold-cache fetch pays for the extra pixels. Delivery-time
-      // resizing still happens per-surface via @repo/ui/lib/cloudinary.
-      transformation: "c_limit,w_2048,h_2048,q_auto:good",
-      tags: ["edura", "room"],
-    });
-
-    const updated = await tx.room.update({
+  // Authorize and check the cap first, so a rejected upload never reaches
+  // Cloudinary.
+  const room = await scopedDb(user, (tx) =>
+    tx.room.findUnique({
       where: { id: roomId },
-      data: { photos: { push: secure_url } },
+      select: { centerId: true, isActive: true, photos: true },
+    }),
+  );
+  if (!room || !room.isActive) throw new NotFoundError("Room not found");
+  requireCenterScope(user, room.centerId);
+  if (room.photos.length >= MAX_PHOTOS_PER_ROOM) {
+    throw new BusinessRuleError(`A room can have at most ${MAX_PHOTOS_PER_ROOM} photos`, {
+      reason: "too_many_photos",
+      max: MAX_PHOTOS_PER_ROOM,
     });
-    return { url: secure_url, photos: updated.photos };
+  }
+
+  const { secure_url } = await uploadBuffer(buffer, {
+    folder: `edura/rooms/${roomId}`,
+    resource_type: "image",
+    contentType,
+    filename: `room.${ext}`,
+    // Cap what we store: a 12 MP phone photo is pointless as a hall picture,
+    // and every cold-cache fetch pays for the extra pixels. Delivery-time
+    // resizing still happens per-surface via @repo/ui/lib/cloudinary.
+    transformation: "c_limit,w_2048,h_2048,q_auto:good",
+    tags: ["edura", "room"],
   });
+
+  // The checks above ran before a multi-second network round-trip, so re-run
+  // the ones that could have changed while it was in flight.
+  let updated;
+  try {
+    updated = await scopedDb(user, async (tx) => {
+      const current = await tx.room.findUnique({
+        where: { id: roomId },
+        select: { centerId: true, isActive: true, photos: true },
+      });
+      if (!current || !current.isActive) throw new NotFoundError("Room not found");
+      requireCenterScope(user, current.centerId);
+      if (current.photos.length >= MAX_PHOTOS_PER_ROOM) {
+        throw new BusinessRuleError(`A room can have at most ${MAX_PHOTOS_PER_ROOM} photos`, {
+          reason: "too_many_photos",
+          max: MAX_PHOTOS_PER_ROOM,
+        });
+      }
+      return tx.room.update({
+        where: { id: roomId },
+        data: { photos: { push: secure_url } },
+        select: { photos: true },
+      });
+    });
+  } catch (err) {
+    // Nothing points at the asset now, and its public_id is random, so it would
+    // be unreachable forever. Drop it rather than leak it into the account.
+    await deleteImageByUrl(secure_url);
+    throw err;
+  }
+  return { url: secure_url, photos: updated.photos };
+}
+
+/**
+ * Drop the Cloudinary assets a photo-list edit removed.
+ *
+ * Room photos get a RANDOM public_id (unlike avatars/logos, a room holds many),
+ * so a URL dropped from `room.photos` is the last reference that existed — the
+ * asset would otherwise sit in the account forever, unreachable.
+ *
+ * Runs AFTER the row is committed and never throws: deleting first would leave
+ * the room pointing at a dead URL if the write then failed, and a Cloudinary
+ * hiccup must not fail an edit the user already saw succeed. Non-Cloudinary
+ * entries (externally hosted URLs) are ignored by `deleteImageByUrl`.
+ */
+export async function pruneRemovedRoomPhotos(previous: string[], next: string[]): Promise<void> {
+  const kept = new Set(next);
+  const removed = previous.filter((url) => !kept.has(url));
+  await Promise.all(removed.map((url) => deleteImageByUrl(url)));
 }
