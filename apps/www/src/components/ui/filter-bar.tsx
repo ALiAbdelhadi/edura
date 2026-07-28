@@ -80,7 +80,10 @@ export default function FilterBar({ searchField, facets = [], onFilterChange }: 
   const hasFilters = Object.values(currentValues).some(Boolean);
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
+    // No outer margin: the bar is composed into other layouts (PageHeader
+    // actions, toolbars) that own their own spacing — a mb-4 here offsets it
+    // against its flex siblings instead of spacing anything.
+    <div className="flex flex-wrap items-center gap-2">
       {searchField && (
         <div className="relative w-full sm:w-60">
           <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

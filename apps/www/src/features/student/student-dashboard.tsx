@@ -1,179 +1,270 @@
 "use client";
 
+import Link from "next/link";
 import { useCustom } from "@refinedev/core";
-import { CheckCircle2, FileText, Trophy, MessageSquare } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Progress } from "@repo/ui/components/progress";
-import { StatCard } from "@/components/kit/stat-card";
-import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";
-import { PageHeader } from "@/components/kit/page-header";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { EmptyState } from "@/components/kit/empty-state";
-import { BarChart, LineChart } from "@/components/charts";
-import { assignmentsTrendBarData, studentGradeTrendLineSeries } from "@/lib/analytics/transforms";
 import { useTranslations } from "next-intl";
+import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";
 import { PageSkeleton } from "@/components/ui/skeletons";
+import {
+  Chip,
+  Eyebrow,
+  InitialsTile,
+  LedgerEmpty,
+  Money,
+  Num,
+  PageTitle,
+  SectionHeading,
+  Sheet,
+} from "@/features/student/ledger";
 
+type SessionRow = { id: string; time: string; subject: string; date?: string };
+type SubjectRow = { id: string; subject: string; grade: string; percentage: number };
+
+/**
+ * The student dashboard, answering *what is next* rather than *how much exists*.
+ *
+ * The previous version was four stat cards, a due-soon table and two trend
+ * charts. Three of those figures were not real: `unreadMessages` is hardcoded
+ * `0` in the API, `assignmentsDue`/`dueSoon` were invented from grade rows with
+ * no score, and `todaySchedule` carries `room: ""` and `teacher: ""` — two of
+ * its four columns were structurally always blank.
+ *
+ * This version renders only figures the endpoint actually derives, and every
+ * one of them links to the entries behind it. Where the API returns a
+ * fabricated field it is simply not rendered — see design/REQUESTS.md for the
+ * corrected contract, which is not this session's to change.
+ */
 export function StudentDashboard() {
   const t = useTranslations();
   const { query, result } = useCustom({ url: "dashboards/student", method: "get" });
-  const data = (result?.data as any) ?? {};
+  const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
 
-  if (query.isLoading && !result?.data) {
-    return <PageSkeleton />;
-  }
+  const data = (result?.data ?? {}) as {
+    attendanceRate?: number;
+    averageGrade?: string;
+    todaySchedule?: SessionRow[];
+    upcoming?: SessionRow[];
+    subjectPerformance?: SubjectRow[];
+  };
+  const wallet = walletRes?.data as { balance?: number } | undefined;
 
-  const scheduleColumns: ColumnDef<any>[] = [
-    { accessorKey: "time", header: t("studentDashboard.time") },
-    { accessorKey: "subject", header: t("studentDashboard.subject") },
-    { accessorKey: "room", header: t("studentDashboard.room") },
-    { accessorKey: "teacher", header: t("studentDashboard.teacher") },
-  ];
+  if (query.isLoading && !result?.data) return <PageSkeleton />;
 
-  const dueColumns: ColumnDef<any>[] = [
-    { accessorKey: "title", header: t("studentDashboard.assignment") },
-    { accessorKey: "subject", header: t("studentDashboard.subject") },
-    {
-      id: "due",
-      header: t("studentDashboard.due"),
-      cell: ({ row }) => (
-        <StatusBadge tone={row.original.urgent ? "danger" : "neutral"}>
-          {row.original.due}
-        </StatusBadge>
-      ),
-    },
-  ];
+  const today = data.todaySchedule ?? [];
+  const upcoming = data.upcoming ?? [];
+  const subjects = data.subjectPerformance ?? [];
+  // "What is next" is a single session, not a queue. Today's first if there is
+  // one, otherwise the first of the coming week.
+  const next = today[0] ?? upcoming[0] ?? null;
+  const hasBalance = typeof wallet?.balance === "number";
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("nav.dashboard")} description={t("studentDashboard.subtitle")} />
+      <PageTitle
+        title={t("studentDashboard.whatsNext")}
+        subtitle={t("studentDashboard.whatsNextSubtitle")}
+      />
 
       {/* Child safety: explains WHY adult messaging is off, and fixes it. */}
       <GuardianContactNotice />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t("studentDashboard.attendanceRate")}
-          value={data.attendanceRate ?? 0}
-          unit="%"
-          icon={CheckCircle2}
-          filled
-        />
-        <StatCard
-          label={t("studentDashboard.assignmentsDue")}
-          value={data.assignmentsDue ?? 0}
-          icon={FileText}
-        />
-        <StatCard
-          label={t("studentDashboard.averageGrade")}
-          value={data.averageGrade ?? "—"}
-          icon={Trophy}
-        />
-        <StatCard
-          label={t("studentDashboard.unreadMessages")}
-          value={data.unreadMessages ?? 0}
-          icon={MessageSquare}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-8">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.todaySchedule")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={scheduleColumns}
-              data={data.todaySchedule || []}
-              pageSize={100}
-              emptyState={t("studentDashboard.noClassesToday")}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.dueSoon")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={dueColumns}
-              data={data.dueSoon || []}
-              pageSize={100}
-              emptyState={t("studentDashboard.noUpcomingAssignments")}
-            />
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                {t("studentDashboard.overallCompletion")}
+      {/* ── Up next ───────────────────────────────────────────────────────── */}
+      <Sheet className="p-5">
+        <Eyebrow>{t("studentDashboard.upNext")}</Eyebrow>
+        {next ? (
+          <div className="mt-3 flex items-center gap-4">
+            <InitialsTile name={next.subject || "?"} size={44} tone="indigo" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-semibold" style={{ color: "var(--ink)" }}>
+                {next.subject}
               </p>
-              <Progress value={data.overallCompletion || 0} />
-              <p className="text-xs text-muted-foreground">
-                <span dir="ltr">{data.overallCompletion}%</span>{" "}
-                {t("studentDashboard.thisSemester")}
+              <p className="mt-0.5 text-sm" style={{ color: "var(--ink-2)" }}>
+                <Num>{next.time}</Num>
+                {next.date ? (
+                  <>
+                    {" · "}
+                    <Num>{next.date}</Num>
+                  </>
+                ) : (
+                  <>
+                    {" · "}
+                    {t("studentDashboard.today")}
+                  </>
+                )}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        ) : (
+          <LedgerEmpty title={t("studentDashboard.noUpcoming")} />
+        )}
+      </Sheet>
+
+      {/* ── Schedule: today, then the week ────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Sheet className="p-5">
+          <SectionHeading
+            eyebrow={t("studentDashboard.scheduleEyebrow")}
+            title={t("studentDashboard.today")}
+            action={
+              <Link
+                href="/dashboard/student/schedule"
+                className="text-xs font-semibold"
+                style={{ color: "var(--indigo)" }}
+              >
+                {t("nav.schedule")}
+              </Link>
+            }
+          />
+          <div className="mt-3">
+            {today.length === 0 ? (
+              <LedgerEmpty title={t("studentDashboard.noClassesToday")} />
+            ) : (
+              <ul>
+                {today.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0"
+                    style={{ borderColor: "var(--rule-2)" }}
+                  >
+                    <span className="truncate" style={{ color: "var(--ink)" }}>
+                      {s.subject}
+                    </span>
+                    <Num style={{ color: "var(--ink-2)", fontSize: 13 }}>{s.time}</Num>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Sheet>
+
+        <Sheet className="p-5">
+          <SectionHeading
+            eyebrow={t("studentDashboard.scheduleEyebrow")}
+            title={t("studentDashboard.thisWeek")}
+          />
+          <div className="mt-3">
+            {upcoming.length === 0 ? (
+              <LedgerEmpty title={t("studentDashboard.noUpcoming")} />
+            ) : (
+              <ul>
+                {upcoming.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0"
+                    style={{ borderColor: "var(--rule-2)" }}
+                  >
+                    <span className="truncate" style={{ color: "var(--ink)" }}>
+                      {s.subject}
+                    </span>
+                    <span className="shrink-0">
+                      <Num style={{ color: "var(--ink-2)", fontSize: 13 }}>
+                        {s.date} · {s.time}
+                      </Num>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Sheet>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("studentDashboard.subjectPerformance")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {(data.subjectPerformance || []).length === 0 ? (
-            <EmptyState icon={Trophy} title={t("studentDashboard.noPerformanceData")} />
+      {/* ── Your record — every figure links to the entries behind it ─────── */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Link href="/dashboard/student/attendance" className="block">
+          <Sheet className="h-full p-5">
+            <Eyebrow>{t("studentDashboard.recordEyebrow")}</Eyebrow>
+            <p className="mt-2 text-sm font-medium" style={{ color: "var(--ink-2)" }}>
+              {t("studentDashboard.attendanceRate")}
+            </p>
+            <Num style={{ fontSize: 30, fontWeight: 600, color: "var(--ink)" }}>
+              {data.attendanceRate ?? 0}%
+            </Num>
+            <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+              {t("studentDashboard.attendanceTraceHint")}
+            </p>
+          </Sheet>
+        </Link>
+
+        <Link href="/dashboard/student/grades" className="block">
+          <Sheet className="h-full p-5">
+            <Eyebrow>{t("studentDashboard.recordEyebrow")}</Eyebrow>
+            <p className="mt-2 text-sm font-medium" style={{ color: "var(--ink-2)" }}>
+              {t("studentDashboard.averageGrade")}
+            </p>
+            <Num style={{ fontSize: 30, fontWeight: 600, color: "var(--ink)" }}>
+              {data.averageGrade ?? "—"}
+            </Num>
+            <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+              {t("studentDashboard.gradeTraceHint")}
+            </p>
+          </Sheet>
+        </Link>
+
+        <Link href="/dashboard/student/wallet" className="block">
+          <Sheet className="h-full p-5">
+            <Eyebrow>{t("studentDashboard.moneyEyebrow")}</Eyebrow>
+            <p className="mt-2 text-sm font-medium" style={{ color: "var(--ink-2)" }}>
+              {t("studentWallet.balance")}
+            </p>
+            <div style={{ fontSize: 30 }}>
+              {hasBalance ? (
+                <Money piasters={wallet!.balance} tone="ink" weight={600} />
+              ) : (
+                <Num style={{ color: "var(--ink-3)" }}>—</Num>
+              )}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+              {t("studentDashboard.balanceTraceHint")}
+            </p>
+          </Sheet>
+        </Link>
+      </div>
+
+      {/* ── Subject performance ───────────────────────────────────────────── */}
+      <Sheet className="p-5">
+        <SectionHeading
+          eyebrow={t("studentDashboard.recordEyebrow")}
+          title={t("studentDashboard.subjectPerformance")}
+          action={
+            <Link
+              href="/dashboard/student/grades"
+              className="text-xs font-semibold"
+              style={{ color: "var(--indigo)" }}
+            >
+              {t("studentDashboard.allGrades")}
+            </Link>
+          }
+        />
+        <div className="mt-3">
+          {subjects.length === 0 ? (
+            <LedgerEmpty title={t("studentDashboard.noPerformanceData")} />
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {(data.subjectPerformance || []).map((s: any, i: number) => (
-                <Card key={s.id || i}>
-                  <CardContent className="space-y-1 p-4">
-                    <div className="text-2xl font-bold tabular-nums text-primary">
-                      {s.grade}
-                    </div>
-                    <div className="font-semibold text-foreground">{s.subject}</div>
-                    <Progress value={s.percentage} className="h-1.5" />
-                    <div className="text-xs tabular-nums text-primary">{s.percentage}%</div>
-                  </CardContent>
-                </Card>
+            <ul>
+              {subjects.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 border-b py-3 last:border-b-0"
+                  style={{ borderColor: "var(--rule-2)" }}
+                >
+                  <InitialsTile name={s.subject || "?"} size={30} tone="teal" />
+                  <span className="min-w-0 flex-1 truncate" style={{ color: "var(--ink)" }}>
+                    {s.subject}
+                  </span>
+                  <Chip tone={s.percentage >= 85 ? "teal" : s.percentage >= 60 ? "indigo" : "amber"}>
+                    {s.grade}
+                  </Chip>
+                  <Num
+                    style={{ color: "var(--ink-2)", fontSize: 13, minWidth: 44, textAlign: "end" }}
+                  >
+                    {s.percentage}%
+                  </Num>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-7">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.gradeTrend")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LineChart
-              series={studentGradeTrendLineSeries(data.analytics?.gradeTrend ?? [])}
-              showArea
-              yValueFormatter={(value) => `${Math.round(value)}%`}
-              emptyText={t("studentDashboard.noGradeTrend")}
-            />
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-5">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.assignmentProgressTrend")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart
-              data={assignmentsTrendBarData(data.analytics?.assignmentsTrend ?? [])}
-              series={[
-                { key: "pending", label: t("studentDashboard.pending"), color: "var(--warning)" },
-                { key: "graded", label: t("studentDashboard.graded"), color: "var(--success)" },
-              ]}
-              stacked
-              emptyText={t("studentDashboard.noAssignmentTrend")}
-            />
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      </Sheet>
     </div>
   );
 }

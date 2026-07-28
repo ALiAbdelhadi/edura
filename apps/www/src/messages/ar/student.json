@@ -3,29 +3,32 @@
     "loading": "جارٍ تحميل لوحة التحكم…",
     "time": "الوقت",
     "subject": "المادة",
-    "room": "القاعة",
-    "teacher": "المعلم",
-    "assignment": "الواجب",
-    "due": "موعد التسليم",
     "attendanceRate": "نسبة الحضور",
-    "assignmentsDue": "الواجبات المستحقة",
     "averageGrade": "متوسط الدرجات",
     "unreadMessages": "الرسائل غير المقروءة",
     "todaySchedule": "جدول اليوم",
     "noClassesToday": "لا توجد حصص اليوم",
-    "dueSoon": "قريبة الاستحقاق",
-    "noUpcomingAssignments": "لا توجد واجبات قادمة",
-    "overallCompletion": "نسبة الإنجاز الكلية",
-    "thisSemester": "هذا الفصل الدراسي",
     "subjectPerformance": "الأداء حسب المادة",
     "noPerformanceData": "لا توجد بيانات أداء بعد",
     "gradeTrend": "اتجاه الدرجات",
     "noGradeTrend": "لا يوجد اتجاه للدرجات بعد",
-    "assignmentProgressTrend": "اتجاه تقدم الواجبات",
-    "pending": "قيد الانتظار",
-    "graded": "تم التقييم",
-    "noAssignmentTrend": "لا يوجد اتجاه للواجبات بعد",
-    "subtitle": "حضورك وواجباتك وأداؤك في لمحة."
+    "subtitle": "حضورك وواجباتك وأداؤك في لمحة.",
+    "whatsNext": "ما التالي",
+    "whatsNextSubtitle": "حصصك القادمة، ورصيدك، وسجلك — كما هو مُدوَّن عنك.",
+    "upNext": "الحصة القادمة",
+    "noUpcoming": "لا توجد حصص مجدولة هذا الأسبوع.",
+    "today": "اليوم",
+    "thisWeek": "هذا الأسبوع",
+    "yourRecord": "سجلك",
+    "viewAttendance": "سجل الحضور",
+    "allGrades": "كل الدرجات",
+    "openWallet": "المحفظة",
+    "recordEyebrow": "السجل",
+    "scheduleEyebrow": "الجدول",
+    "moneyEyebrow": "المال",
+    "attendanceTraceHint": "محسوبة من قيود حضورك.",
+    "gradeTraceHint": "متوسط موادك المُقيَّمة.",
+    "balanceTraceHint": "الرصيد الختامي لآخر قيد في محفظتك."
   },
   "studentBrowse": {
     "enrollmentSent": "تم إرسال طلب التسجيل",
@@ -66,7 +69,8 @@
     },
     "download": "تنزيل",
     "pageTitle": "المواد الدراسية",
-    "noMaterials": "لا توجد مواد متاحة"
+    "noMaterials": "لا توجد مواد متاحة",
+    "subtitle": "الملفات التي شاركها معلموك في موادك."
   },
   "studentReviews": {
     "reviewUpdated": "تم تحديث التقييم",
@@ -165,6 +169,19 @@
     "mockFail": "محاكاة الفشل",
     "topupFailed": "فشل الشحن",
     "topupSuccess": "تم شحن المحفظة",
-    "topupDeclined": "تم رفض الدفع"
+    "topupDeclined": "تم رفض الدفع",
+    "balanceUnknown": "غير متاح",
+    "derivedFrom": "الرصيد الختامي لآخر قيد — {type} · {date}",
+    "noLineageYet": "لا توجد قيود بعد، فهذا الرصيد لا يستند إلى أي حركة مسجّلة.",
+    "reconcileMismatch": "الرصيد المعروض لا يطابق آخر قيد في السجل. راجع السنتر.",
+    "historyCapped": "يُعرض أحدث {count} قيد.",
+    "colRef": "المرجع",
+    "closingBalance": "الرصيد الختامي",
+    "testMode": "وضع اختبار",
+    "topUpAction": "شحن {amount}"
+  },
+  "studentNav": {
+    "more": "المزيد",
+    "navigation": "التنقّل"
   }
 }
