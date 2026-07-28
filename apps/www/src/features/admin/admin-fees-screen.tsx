@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { Calendar } from "@/components/kit/calendar";
 import { LineChart } from "@/components/charts";
 import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
@@ -37,11 +38,17 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/components/popover";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
-import dayjs, { type Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import {
   BarChart3,
+  Calendar as CalendarIcon,
   DollarSign,
   FileText,
   Plus,
@@ -52,32 +59,23 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+type DateRange = { from: Date | undefined; to?: Date | undefined };
+
 export function AdminFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate } = useFormatters();
-  const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [startDraft, setStartDraft] = useState("");
-  const [endDraft, setEndDraft] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const dateQuery = useMemo(
     () => ({
-      ...(range?.[0] ? { from: range[0].format("YYYY-MM-DD") } : {}),
-      ...(range?.[1] ? { to: range[1].format("YYYY-MM-DD") } : {}),
+      ...(dateRange?.from
+        ? { from: dayjs(dateRange.from).format("YYYY-MM-DD") }
+        : {}),
+      ...(dateRange?.to ? { to: dayjs(dateRange.to).format("YYYY-MM-DD") } : {}),
     }),
-    [range],
+    [dateRange],
   );
 
-  const applyRange = (start: string, end: string) => {
-    setStartDraft(start);
-    setEndDraft(end);
-    if (start && end) setRange([dayjs(start), dayjs(end)]);
-    else setRange(null);
-  };
-
-  const resetRange = () => {
-    setStartDraft("");
-    setEndDraft("");
-    setRange(null);
-  };
+  const resetRange = () => setDateRange(undefined);
 
   const paymentFilters = useMemo(() => {
     const filters: Array<{ field: string; operator: "eq"; value: string }> = [];
@@ -431,18 +429,39 @@ export function AdminFeesScreen() {
             <span className="text-sm font-semibold text-foreground">
               {t("adminManage.fees.dateRange")}
             </span>
-            <Input
-              type="date"
-              className="w-40"
-              value={startDraft}
-              onChange={(event) => applyRange(event.target.value, endDraft)}
-            />
-            <Input
-              type="date"
-              className="w-40"
-              value={endDraft}
-              onChange={(event) => applyRange(startDraft, event.target.value)}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="min-w-56 justify-start gap-2 font-normal"
+                >
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <span>
+                        {formatDate(dateRange.from)} –{" "}
+                        {formatDate(dateRange.to)}
+                      </span>
+                    ) : (
+                      formatDate(dateRange.from)
+                    )
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("adminManage.fees.pickDateRange")}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  defaultMonth={dateRange?.from}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <Button variant="outline" onClick={resetRange}>
             {t("adminManage.fees.reset")}

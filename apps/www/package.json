@@ -39,6 +39,7 @@
     "@repo/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
     "bcryptjs": "3.0.3",
+    "date-fns": "^4.4.0",
     "dayjs": "^1.11.20",
     "jose": "^6.0.11",
     "ky": "^2.0.2",

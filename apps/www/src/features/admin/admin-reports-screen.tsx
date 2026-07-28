@@ -2,6 +2,7 @@
 "use client";
 
 import { BarChart, DonutChart } from "@/components/charts";
+import { Calendar } from "@/components/kit/calendar";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 import { StatCard } from "@/components/kit/stat-card";
@@ -12,7 +13,6 @@ import {
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Calendar } from "@repo/ui/components/calendar";
 import {
   Card,
   CardContent,

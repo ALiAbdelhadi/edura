@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { Calendar } from "@repo/ui/components/calendar";
+import { Calendar } from "@/components/kit/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import {
   Table,
