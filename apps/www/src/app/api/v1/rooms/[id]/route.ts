@@ -4,7 +4,11 @@ import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
-import { roomPatchSchema, assertMethod2Enablable } from "@/lib/services/rooms/rooms";
+import {
+  roomPatchSchema,
+  assertMethod2Enablable,
+  pruneRemovedRoomPhotos,
+} from "@/lib/services/rooms/rooms";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +19,7 @@ export const PATCH = centerStaff(
     const { id } = await ctx.params;
     const body = await parseJson(req, roomPatchSchema);
 
+    let previousPhotos: string[] = [];
     const updated = await scopedDb(user, async (tx) => {
       const room = await tx.room.findUnique({ where: { id } });
       if (!room) throw new NotFoundError("Room not found");
@@ -24,8 +29,10 @@ export const PATCH = centerStaff(
         { roomId: id, centerId: room.centerId },
         body.allowedPricingMethods,
       );
+      previousPhotos = room.photos;
       return tx.room.update({ where: { id }, data: body });
     });
+    if (body.photos) await pruneRemovedRoomPhotos(previousPhotos, updated.photos);
     return ok(updated);
   },
   { allow: MANAGER },

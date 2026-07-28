@@ -15,6 +15,7 @@ import {
   acceptCollaborationRequest,
   rejectCollaborationRequest,
 } from "@repo/server-core/services/collaboration/collaboration";
+import { deleteReplacedImage } from "@repo/server-core/media/images";
 import type { RoomPricingMethodValue } from "@/lib/services/finance/commission";
 import type { Prisma } from "@repo/database";
 
@@ -452,7 +453,7 @@ export type CenterProfilePatch = Partial<
   Record<(typeof CENTER_PROFILE_FIELDS)[number], string | number | null>
 >;
 
-export function updateCenterProfile(
+export async function updateCenterProfile(
   centerId: string,
   patch: CenterProfilePatch,
   actor: SessionUser,
@@ -468,10 +469,12 @@ export function updateCenterProfile(
   }
   if (!keys.length) throw new BusinessRuleError("Nothing to update");
 
-  return platformDb(
+  let previousLogoUrl: string | null = null;
+  const result = await platformDb(
     async (tx) => {
       const center = await tx.center.findUnique({ where: { id: centerId } });
       if (!center) throw new NotFoundError("Center not found");
+      previousLogoUrl = center.logoUrl;
 
       // Field-level diff: only what actually changes is recorded, so the audit
       // row reads as the edit rather than as a full row dump.
@@ -521,6 +524,14 @@ export function updateCenterProfile(
     },
     { actorId: actor.id },
   );
+
+  // Repointing `logoUrl` here leaves the center's uploaded logo with nothing
+  // referencing it. Cleaned up after the audited write commits, and never
+  // fatal — the edit and its audit row are already durable.
+  if (result.changed.includes("logoUrl")) {
+    await deleteReplacedImage(previousLogoUrl, result.center?.logoUrl ?? null);
+  }
+  return result;
 }
 
 // ===========================================================================

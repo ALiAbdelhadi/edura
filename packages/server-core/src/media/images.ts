@@ -62,7 +62,22 @@ export function extensionFor(mime: ImageMime): string {
   return EXT_BY_MIME[mime];
 }
 
-export class ImageValidationError extends Error {}
+/**
+ * Why an image was refused. The English `message` is for logs; this code is
+ * what a UI translates, so a localized surface never has to string-match.
+ */
+export type ImageRejectionReason = "image_too_large" | "unsupported_image_type";
+
+export class ImageValidationError extends Error {
+  constructor(
+    message: string,
+    readonly reason: ImageRejectionReason,
+    /** Context the UI may interpolate, e.g. the limit that was exceeded. */
+    readonly meta: Record<string, unknown> = {},
+  ) {
+    super(message);
+  }
+}
 
 export type ValidatedImage = { buffer: Buffer; mime: ImageMime; extension: string };
 
@@ -71,15 +86,19 @@ export async function validateImageFile(
   file: File,
   { maxBytes = MAX_IMAGE_BYTES }: { maxBytes?: number } = {},
 ): Promise<ValidatedImage> {
+  const maxMb = Math.round(maxBytes / (1024 * 1024));
   if (file.size > maxBytes) {
-    throw new ImageValidationError(
-      `Image is too large (max ${Math.round(maxBytes / (1024 * 1024))} MB)`,
-    );
+    throw new ImageValidationError(`Image is too large (max ${maxMb} MB)`, "image_too_large", {
+      maxMb,
+    });
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   const mime = detectImageType(buffer);
   if (!mime) {
-    throw new ImageValidationError("Only JPEG, PNG, WebP, GIF, or AVIF images are accepted");
+    throw new ImageValidationError(
+      "Only JPEG, PNG, WebP, GIF, or AVIF images are accepted",
+      "unsupported_image_type",
+    );
   }
   return { buffer, mime, extension: EXT_BY_MIME[mime] };
 }
@@ -143,6 +162,31 @@ export async function deleteImageByUrl(url: string | null | undefined): Promise<
   const publicId = publicIdFromUrl(url);
   if (!publicId) return;
   await deleteResource(publicId, "image").catch(() => {});
+}
+
+/**
+ * Delete the asset an image field used to point at, once it points elsewhere.
+ *
+ * Lives here, not in either app, because BOTH the upload services and the
+ * plain `{ logoUrl }` PATCH endpoints have to apply the identical rule — and
+ * the PATCH endpoints are exactly where it was missing, so a center could
+ * strand its old logo in the account by pasting a new URL.
+ *
+ * Two cases must NOT delete:
+ *  - the URL did not actually change;
+ *  - both URLs resolve to the same public_id (a re-upload overwrote the asset
+ *    in place, or the new URL is just a transformed variant of the same one).
+ *    Deleting there would erase the image the row now points at.
+ */
+export async function deleteReplacedImage(
+  previousUrl: string | null | undefined,
+  nextUrl: string | null | undefined,
+): Promise<void> {
+  if (!previousUrl || previousUrl === nextUrl) return;
+  const previousId = publicIdFromUrl(previousUrl);
+  const nextId = nextUrl ? publicIdFromUrl(nextUrl) : null;
+  if (previousId && previousId === nextId) return;
+  await deleteImageByUrl(previousUrl);
 }
 
 export { isCloudinaryConfigured, publicIdFromUrl };

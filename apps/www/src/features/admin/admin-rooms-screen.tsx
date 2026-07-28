@@ -13,6 +13,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
+import { CldImage } from "@repo/ui/components/cld-image";
 import {
   Dialog,
   DialogContent,
@@ -31,9 +32,9 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
+import { compressImage } from "@repo/ui/lib/image-compress";
 import { Check, ChevronLeft, ChevronRight, Eye, Home, ImageIcon, ImagePlus, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -153,23 +154,54 @@ export function AdminRoomsScreen() {
     });
   };
 
+  /**
+   * The server's `message` is English on purpose — it is written for logs.
+   * `details.reason` is the stable code a localized surface maps instead, so an
+   * unrecognized failure (or a network error) falls back to the translated
+   * generic rather than leaking raw English into an Arabic screen.
+   */
+  const photoErrorMessage = (payload: unknown): string => {
+    const details = (
+      payload as { error?: { details?: { reason?: string; max?: number; maxMb?: number } } } | null
+    )?.error?.details;
+    switch (details?.reason) {
+      case "image_too_large":
+        return t("adminManage.rooms.photoTooLarge", { max: details.maxMb ?? 5 });
+      case "unsupported_image_type":
+        return t("adminManage.rooms.photoUnsupportedType");
+      case "too_many_photos":
+        return t("adminManage.rooms.photoLimitReached", { max: details.max ?? 12 });
+      case "uploads_not_configured":
+        return t("adminManage.rooms.photoUploadsUnavailable");
+      default:
+        return t("adminManage.rooms.photoUploadFailed");
+    }
+  };
+
   const uploadPhoto = async (file: File) => {
     if (!editingId) return;
     setUploading(true);
     try {
+      // Downscale first: a phone photo is several MB, which on the mobile
+      // networks this app targets is a minute-long upload that also trips the
+      // 5 MB server limit. Falls back to the original file on any failure.
+      const compressed = await compressImage(file, { maxEdge: 2048 });
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", compressed);
       const res = await fetch(`/api/v1/rooms/${editingId}/photos`, {
         method: "POST",
         body: fd,
         credentials: "same-origin",
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message || t("adminManage.rooms.photoUploadFailed"));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(photoErrorMessage(json));
+        return;
+      }
       setPhotos(json.data.photos as string[]);
       toast.success(t("adminManage.rooms.photoUploaded"));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("adminManage.rooms.photoUploadFailed"));
+    } catch {
+      toast.error(t("adminManage.rooms.photoUploadFailed"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -267,11 +299,12 @@ export function AdminRoomsScreen() {
               <Card key={id} className="flex flex-col overflow-hidden p-0">
                 <div className="relative aspect-video w-full bg-muted">
                   {cover ? (
-                    <Image
+                    <CldImage
                       src={cover}
                       alt={room.name}
-                      width={800}
-                      height={450}
+                      width={640}
+                      height={360}
+                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -547,7 +580,14 @@ export function AdminRoomsScreen() {
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => (
                       <div key={url} className="group relative aspect-video overflow-hidden rounded-md border">
-                        <Image src={url} alt="" width={800} height={450} className="h-full w-full object-cover" />
+                        <CldImage
+                          src={url}
+                          alt=""
+                          width={320}
+                          height={180}
+                          responsiveWidths={false}
+                          className="h-full w-full object-cover"
+                        />
                         {i === 0 ? (
                           <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                             {t("adminManage.rooms.coverPhoto")}
@@ -590,7 +630,7 @@ export function AdminRoomsScreen() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept="image/jpeg,image/png,image/webp,image/avif"
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
