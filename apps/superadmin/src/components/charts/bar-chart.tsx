@@ -34,7 +34,11 @@ type BarChartProps = {
   emptyText?: string;
 };
 
-const tickStyle = { fontSize: 12, fill: "var(--muted-foreground)" };
+const tickStyle = {
+  fontSize: 10,
+  fill: "var(--ink-3)",
+  fontFamily: "var(--font-mono)",
+};
 
 function truncateLabel(value: string, max = 16) {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
@@ -71,8 +75,8 @@ export function BarChart({
           barCategoryGap={stacked ? "24%" : "30%"}
         >
           <CartesianGrid
-            stroke="var(--border)"
-            strokeDasharray="3 3"
+            stroke="var(--rule)"
+            strokeDasharray="2 4"
             horizontal={!horizontal}
             vertical={horizontal}
           />

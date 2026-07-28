@@ -1,43 +1,4 @@
-import { cn } from "@repo/ui/lib/utils";
-
-export function PageHeader({
-  eyebrow,
-  title,
-  description,
-  actions,
-  className,
-}: {
-  eyebrow?: React.ReactNode;
-  title: React.ReactNode;
-  description?: React.ReactNode;
-  actions?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between",
-        className,
-      )}
-    >
-      <div className="space-y-1.5">
-        {eyebrow ? (
-          <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {title}
-        </h1>
-        {description ? (
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
-    </div>
-  );
-}
+// Migration shim — this component now lives in @repo/ui.
+// Kept as a re-export so no call site changes (design/DECISIONS.md D-01).
+// New code should import from "@repo/ui/components/page-header" directly.
+export * from "@repo/ui/components/page-header";

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import {
-  Plus_Jakarta_Sans,
+  IBM_Plex_Mono,
   Noto_Sans,
   IBM_Plex_Sans_Arabic,
 } from "next/font/google";
@@ -14,10 +14,15 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { baseMessages } from "@/lib/i18n/scope";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+// الدفتر: every figure in the app is monospaced — numbers, currency, dates,
+// IDs, transaction refs, counts. This is the system's highest-signal device and
+// the fix for Latin-inside-Arabic (emails, TRX- codes, account tails). Replaces
+// Plus Jakarta Sans, which was loaded only for `.display` and the Ant-era
+// heading patches — both removed with Ant itself.
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-plus-jakarta-sans",
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
 });
 
 const notoSans = Noto_Sans({
@@ -38,8 +43,9 @@ export function generateStaticParams() {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#5b76fe" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+    // Ledger --paper, light and dark. Was #5b76fe / #0b1020 (Deep Trust).
+    { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#14161c" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -99,10 +105,18 @@ export default async function RootLayout({
   // serialize all 72KB (en) / 94KB (ar) into every page, login included.
   const messages = baseMessages(await getMessages());
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body
-        className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}
-      >
+    // Font variables live on <html>, not <body>: the shared token layer
+    // declares `--font-mono: var(--font-plex-mono), …` at :root, and a var()
+    // chain resolves against the element it is declared on. With the faces
+    // scoped to <body> that chain collapsed to empty and every `.num` fell
+    // back to the sans face — mono figures silently stopped being mono.
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      className={`${notoSans.variable} ${plexMono.variable} ${plexArabic.variable}`}
+    >
+      <body>
         {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
             it as a hoistable resource and never warns about client-rendered
             inline scripts; same-origin + blocking so it runs before paint. */}

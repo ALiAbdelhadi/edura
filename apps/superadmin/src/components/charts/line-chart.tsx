@@ -34,7 +34,11 @@ type LineChartProps = {
   emptyText?: string;
 };
 
-const tickStyle = { fontSize: 12, fill: "var(--muted-foreground)" };
+const tickStyle = {
+  fontSize: 10,
+  fill: "var(--ink-3)",
+  fontFamily: "var(--font-mono)",
+};
 
 function mergeSeries(series: LineSeries[]) {
   const xValues = Array.from(
@@ -76,22 +80,10 @@ export function LineChart({
     <div>
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-          <defs>
-            {series.map((line) => (
-              <linearGradient
-                key={line.id}
-                id={`line-gradient-${line.id}`}
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor={line.color} stopOpacity={0.28} />
-                <stop offset="100%" stopColor={line.color} stopOpacity={0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+          {/* No gradient defs. الدفتر removes gradient-as-decoration: a fade
+              implies the data thins out toward the axis, which it does not.
+              The area is a flat, low-opacity wash of the series colour. */}
+          <CartesianGrid stroke="var(--rule)" strokeDasharray="2 4" vertical={false} />
           <XAxis dataKey="x" tick={tickStyle} tickLine={false} axisLine={false} />
           <YAxis
             tick={tickStyle}
@@ -101,7 +93,7 @@ export function LineChart({
             tickFormatter={valueFormatter}
           />
           <Tooltip
-            cursor={{ stroke: "var(--border)" }}
+            cursor={{ stroke: "var(--rule)" }}
             content={<ChartTooltip valueFormatter={valueFormatter} />}
           />
           {series.map((line) => (
@@ -112,8 +104,9 @@ export function LineChart({
               name={line.label}
               stroke={line.color}
               strokeWidth={2.5}
-              fill={showArea ? `url(#line-gradient-${line.id})` : "transparent"}
-              dot={{ r: 3, fill: "var(--card)", stroke: line.color, strokeWidth: 2 }}
+              fill={showArea ? line.color : "transparent"}
+              fillOpacity={showArea ? 0.1 : 0}
+              dot={{ r: 3, fill: "var(--sheet)", stroke: line.color, strokeWidth: 2 }}
               activeDot={{ r: 5 }}
               connectNulls
             />

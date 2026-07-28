@@ -31,7 +31,7 @@
     "browse": "استعراض",
     "registrations": "التسجيلات",
     "transactions": "المعاملات",
-    "payouts": "المدفوعات",
+    "payouts": "مستحقات وصرف",
     "invoices": "الفواتير",
     "statements": "الكشوف",
     "alerts": "التنبيهات",
@@ -45,7 +45,12 @@
     "whatsapp": "واتساب",
     "roomSettlements": "تسويات القاعات",
     "messaging": "المراسلات",
-    "auditLog": "سجل التدقيق"
+    "auditLog": "سجل التدقيق",
+    "requests": "الطلبات",
+    "myClasses": "فصولي",
+    "myCenters": "مراكزي",
+    "payments": "مدفوعات الطلاب",
+    "more": "المزيد"
   },
   "roles": {
     "student": "طالب",
@@ -104,7 +109,10 @@
     "review": "مراجعة",
     "retry": "إعادة المحاولة",
     "previous": "السابق",
-    "next": "التالي"
+    "next": "التالي",
+    "previousPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
+    "sortBy": "ترتيب حسب {column}"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -499,5 +507,10 @@
     "blocked": "المحظور",
     "reason": "السبب",
     "noBlocks": "لا يوجد حظر مسجّل"
+  },
+  "navGroup": {
+    "oversight": "الإشراف",
+    "money": "الأموال",
+    "comms": "التواصل والرقابة"
   }
 }

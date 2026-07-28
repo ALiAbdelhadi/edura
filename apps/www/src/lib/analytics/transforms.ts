@@ -12,21 +12,24 @@ import type {
   TeacherGradeLoadPoint,
   TeacherScoreDistributionPoint,
 } from "@/lib/analytics/contracts";
+import { CHART_COLOR, seriesColor } from "@repo/ui/lib/chart-tokens";
 
-const DEFAULT_COLORS = ["#0fa5e9", "#8b5cf6", "#177674", "#f97315", "#22c55f", "#ed4899", "#600000"];
+// Series colours come from the token layer, never a literal. The 7-hue palette
+// that used to live here rendered charts in colours that existed nowhere else
+// in the product. See design/DECISIONS.md and @repo/ui/lib/chart-tokens.
 
 export function revenueVsExpensesLineSeries(points: RevenueTimeseriesPoint[]) {
   return [
     {
       id: "revenue",
       label: "Revenue",
-      color: "#0fa5e9",
+      color: CHART_COLOR.money,
       points: points.map((row) => ({ x: row.label, value: row.revenue })),
     },
     {
       id: "expenses",
       label: "Expenses",
-      color: "#f97315",
+      color: CHART_COLOR.neutral,
       points: points.map((row) => ({ x: row.label, value: row.expenses })),
     },
   ];
@@ -37,7 +40,7 @@ export function sessionStatusDonutData(items: SessionStatusPoint[]) {
     id: row.status,
     label: row.status[0].toUpperCase() + row.status.slice(1),
     value: row.count,
-    color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+    color: seriesColor(index),
   }));
 }
 
@@ -67,7 +70,7 @@ export function teacherAttendanceLineSeries(points: TeacherAttendanceTrendPoint[
     {
       id: "attendance",
       label: "Attendance Rate",
-      color: "#22c55f",
+      color: CHART_COLOR.brand,
       points: points.map((row) => ({ x: row.label, value: row.attendanceRatePct })),
     },
   ];
@@ -93,7 +96,7 @@ export function studentGradeTrendLineSeries(points: StudentGradeTrendPoint[]) {
     {
       id: "grades",
       label: "Grade %",
-      color: "#0fa5e9",
+      color: CHART_COLOR.brand,
       points: points.map((row) => ({ x: row.label, value: row.percentage })),
     },
   ];
@@ -112,13 +115,13 @@ export function paymentTrendLineSeries(points: ParentPaymentTrendPoint[]) {
     {
       id: "paid",
       label: "Paid",
-      color: "#22c55f",
+      color: CHART_COLOR.money,
       points: points.map((row) => ({ x: row.label, value: row.paid })),
     },
     {
       id: "net",
       label: "Net",
-      color: "#0fa5e9",
+      color: CHART_COLOR.brand,
       points: points.map((row) => ({ x: row.label, value: row.net })),
     },
   ];

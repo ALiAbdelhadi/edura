@@ -76,8 +76,19 @@ function StaffShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const navItems = navForRole(role);
+
   return (
-    <DashboardShell role="center_staff" navItems={navForRole(role)}>
+    <DashboardShell
+      role="center_staff"
+      navItems={navItems}
+      // Staff work standing at a counter, so the phone chrome is whatever
+      // their sub-role can actually reach — derived from the same filtered
+      // list the sidebar uses, capped at four. A receptionist gets check-in
+      // and students; an accountant gets finance. Nothing is offered that the
+      // API would refuse.
+      bottomNavHrefs={navItems.slice(0, 4).map((i) => i.href)}
+    >
       {children}
     </DashboardShell>
   );

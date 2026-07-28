@@ -31,7 +31,7 @@
     "browse": "Browse",
     "registrations": "Registrations",
     "transactions": "Transactions",
-    "payouts": "Payouts",
+    "payouts": "Payouts & disbursement",
     "invoices": "Invoices",
     "statements": "Statements",
     "alerts": "Alerts",
@@ -46,7 +46,12 @@
     "checkin": "Check-in",
     "doorCheckin": "Door Check-in",
     "staff": "Staff",
-    "childSafety": "Child safety"
+    "childSafety": "Child safety",
+    "requests": "Requests",
+    "myClasses": "My Classes",
+    "myCenters": "My Centers",
+    "payments": "Student payments",
+    "more": "More"
   },
   "roles": {
     "student": "Student",
@@ -102,7 +107,10 @@
     "remove": "Remove",
     "sendInvite": "Send invite",
     "export": "Export",
-    "review": "Review"
+    "review": "Review",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "sortBy": "Sort by {column}"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -493,5 +501,10 @@
     "save": "Save",
     "saved": "Guardian email saved — messaging is now available.",
     "saveFailed": "Could not save the guardian email"
+  },
+  "navGroup": {
+    "oversight": "Oversight",
+    "money": "Money",
+    "comms": "Comms & oversight"
   }
 }

@@ -2,7 +2,7 @@
   "name": "@repo/ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura shared design system — shadcn/ui (Radix, new-york) components, tokens, and the single Tailwind v4 globals.css source of truth.",
+  "description": "Edura shared design system \u2014 shadcn/ui (Radix, new-york) components, tokens, and the single Tailwind v4 globals.css source of truth.",
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

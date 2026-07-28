@@ -40,7 +40,19 @@ export default function StudentLayout({
   return (
     <RoleGuard allowedRole="student">
       <OnboardingGate>
-        <DashboardShell role="student" navItems={navItems}>
+        <DashboardShell
+          role="student"
+          navItems={navItems}
+          // Phone chrome: the four surfaces a student actually opens on a
+          // phone between classes. Everything else is behind "more", which
+          // opens the sidebar sheet.
+          bottomNavHrefs={[
+            "/dashboard/student",
+            "/dashboard/student/schedule",
+            "/dashboard/student/subjects",
+            "/dashboard/student/messages",
+          ]}
+        >
           {children}
         </DashboardShell>
       </OnboardingGate>

@@ -27,7 +27,11 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+// 248px per Handoff I §3.1 (was 16rem/256px). The rail carries three labelled
+// groups whose longest Arabic label is «التواصل والرقابة»; 248 is the width
+// that fits it without wrapping while staying narrower than the content it
+// sits beside.
+const SIDEBAR_WIDTH = "15.5rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";

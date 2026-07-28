@@ -31,7 +31,7 @@
     "browse": "استعراض",
     "registrations": "التسجيلات",
     "transactions": "المعاملات",
-    "payouts": "المدفوعات",
+    "payouts": "مستحقات وصرف",
     "invoices": "الفواتير",
     "statements": "الكشوف",
     "alerts": "التنبيهات",
@@ -46,7 +46,12 @@
     "checkin": "تسجيل الحضور",
     "doorCheckin": "تشيك-إن الباب",
     "staff": "الموظفون",
-    "childSafety": "سلامة الأبناء"
+    "childSafety": "سلامة الأبناء",
+    "requests": "الطلبات",
+    "myClasses": "فصولي",
+    "myCenters": "مراكزي",
+    "payments": "مدفوعات الطلاب",
+    "more": "المزيد"
   },
   "roles": {
     "student": "طالب",
@@ -102,7 +107,10 @@
     "remove": "إزالة",
     "sendInvite": "إرسال دعوة",
     "export": "تصدير",
-    "review": "مراجعة"
+    "review": "مراجعة",
+    "previousPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
+    "sortBy": "ترتيب حسب {column}"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -493,5 +501,10 @@
     "save": "حفظ",
     "saved": "تم حفظ بريد ولي الأمر — المراسلة متاحة الآن.",
     "saveFailed": "تعذّر حفظ بريد ولي الأمر"
+  },
+  "navGroup": {
+    "oversight": "الإشراف",
+    "money": "الأموال",
+    "comms": "التواصل والرقابة"
   }
 }

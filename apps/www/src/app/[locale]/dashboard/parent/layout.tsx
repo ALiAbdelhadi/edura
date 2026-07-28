@@ -24,7 +24,18 @@ export default function ParentLayout({
   return (
     <RoleGuard allowedRole="parent">
       <ChildSelectorProvider>
-        <DashboardShell role="parent" navItems={navItems}>
+        <DashboardShell
+          role="parent"
+          navItems={navItems}
+          // A parent reads a record they do not control, so the phone chrome
+          // is the four read surfaces — not actions.
+          bottomNavHrefs={[
+            "/dashboard/parent",
+            "/dashboard/parent/progress",
+            "/dashboard/parent/attendance",
+            "/dashboard/parent/messages",
+          ]}
+        >
           {children}
         </DashboardShell>
       </ChildSelectorProvider>

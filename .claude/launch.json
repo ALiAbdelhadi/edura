@@ -4,32 +4,70 @@
     {
       "name": "edura-www",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "edura", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "edura",
+        "dev"
+      ],
       "port": 3002
     },
     {
       "name": "edura-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "edura", "exec", "next", "dev", "-p", "3021"],
+      "runtimeArgs": [
+        "--filter",
+        "edura",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3021"
+      ],
       "port": 3021
     },
     {
       "name": "edura-prod",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "edura", "start"],
+      "runtimeArgs": [
+        "--filter",
+        "edura",
+        "start"
+      ],
       "port": 3003
     },
     {
       "name": "edura-superadmin",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "superadmin", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "superadmin",
+        "dev"
+      ],
       "port": 3004
     },
     {
       "name": "edura-realtime",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "realtime", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "realtime",
+        "dev"
+      ],
       "port": 3005
+    },
+    {
+      "name": "edura-superadmin-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "superadmin",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3037"
+      ],
+      "port": 3037
     }
   ]
 }

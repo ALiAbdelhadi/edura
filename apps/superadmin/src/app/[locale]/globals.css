@@ -2,39 +2,36 @@
 @import "tw-animate-css";
 @import "../../../../../packages/ui/src/styles/globals.css";
 
+/* الدفتر / The Ledger — app-level styles. The token layer lives in the shared
+   import above; nothing here may introduce a colour that is not a token.
+
+   Removed 2026-07-28: the `.ant-*` typography patches, `.display`, and the
+   Plus Jakarta Sans face they depended on. Ant Design has no dependency entry,
+   no import and no class usage anywhere in the repo — the migration to shadcn
+   finished, and these blocks were styling components that no longer render.
+   Also removed: `.shadow-card` / `.shadow-ring` (zero consumers) and the
+   hardcoded scrollbar / selection hexes, which bypassed the token layer. */
+
 body {
   font-family: var(--font-plex-arabic), var(--font-noto-sans), sans-serif;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.display {
-  font-family: var(--font-plus-jakarta-sans), sans-serif;
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 8px;
 }
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d0d3db; border-radius: 8px; }
-
-.shadow-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgb(224,226,232); }
-.shadow-ring { box-shadow: 0 0 0 1px rgb(224,226,232); }
-
-h1.ant-typography,
-h2.ant-typography,
-h3.ant-typography,
-.ant-card-head-title,
-.ant-statistic-content-value,
-.ant-statistic-content {
-  font-family: var(--font-plus-jakarta-sans), var(--font-noto-sans), sans-serif;
-  letter-spacing: -0.01em;
-}
-.ant-statistic-content-value { font-weight: 700; }
-
-::selection { background: #bae6fd; color: #0c4a6e; }
-
-[dir="rtl"] .anticon-arrow-left > svg,
-[dir="rtl"] .anticon-arrow-right > svg {
-  transform: scaleX(-1);
+::selection {
+  background: var(--indigo-soft);
+  color: var(--indigo);
 }
 
 @media (prefers-reduced-motion: reduce) {

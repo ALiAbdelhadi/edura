@@ -31,7 +31,7 @@
     "browse": "Browse",
     "registrations": "Registrations",
     "transactions": "Transactions",
-    "payouts": "Payouts",
+    "payouts": "Payouts & disbursement",
     "invoices": "Invoices",
     "statements": "Statements",
     "alerts": "Alerts",
@@ -45,7 +45,12 @@
     "whatsapp": "WhatsApp",
     "roomSettlements": "Room settlements",
     "messaging": "Messaging",
-    "auditLog": "Audit log"
+    "auditLog": "Audit log",
+    "requests": "Requests",
+    "myClasses": "My Classes",
+    "myCenters": "My Centers",
+    "payments": "Student payments",
+    "more": "More"
   },
   "roles": {
     "student": "Student",
@@ -104,7 +109,10 @@
     "review": "Review",
     "retry": "Retry",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "sortBy": "Sort by {column}"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -499,5 +507,10 @@
     "blocked": "Blocked",
     "reason": "Reason",
     "noBlocks": "No blocks recorded"
+  },
+  "navGroup": {
+    "oversight": "Oversight",
+    "money": "Money",
+    "comms": "Comms & oversight"
   }
 }
