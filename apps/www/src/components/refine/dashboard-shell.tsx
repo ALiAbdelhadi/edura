@@ -172,19 +172,26 @@ function HeaderSidebarToggle() {
  * Nav link that dismisses the mobile sidebar sheet after a selection — on
  * mobile the sidebar is an overlay, so it must get out of the way once the
  * user picks a destination. Desktop keeps its persistent rail.
+ *
+ * It is rendered as the `asChild` child of SidebarMenuButton, so Radix's Slot
+ * hands it the button's className, data-slot/data-sidebar/data-active
+ * attributes, the tooltip's event handlers and its ref. Those MUST be spread
+ * onto the <Link> — swallowing them leaves a bare, unstyled <a> (icon and
+ * label stacked, no active state, no tooltip).
  */
 function SidebarNavLink({
   href,
   children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+  onClick,
+  ...props
+}: React.ComponentProps<typeof Link>) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <Link
+      {...props}
       href={href}
-      onClick={() => {
+      onClick={(event) => {
+        onClick?.(event);
         if (isMobile) setOpenMobile(false);
       }}
     >
