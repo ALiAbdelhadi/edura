@@ -88,6 +88,14 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      // Placeholder photos used by the room demo seed (preview-seed.ts) only.
+      { protocol: "https", hostname: "picsum.photos" },
+    ],
+  },
+
   transpilePackages: ["@repo/database", "@repo/ui", "@repo/server-core"],
   serverExternalPackages: [
     "bcryptjs",

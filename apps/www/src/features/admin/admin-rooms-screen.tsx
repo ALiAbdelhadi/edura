@@ -267,7 +267,13 @@ export function AdminRoomsScreen() {
               <Card key={id} className="flex flex-col overflow-hidden p-0">
                 <div className="relative aspect-video w-full bg-muted">
                   {cover ? (
-                    <Image src={cover} alt={room.name} className="h-full w-full object-cover" />
+                    <Image
+                      src={cover}
+                      alt={room.name}
+                      width={800}
+                      height={450}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
                       <Home className="size-10" />
@@ -551,7 +557,7 @@ export function AdminRoomsScreen() {
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => (
                       <div key={url} className="group relative aspect-video overflow-hidden rounded-md border">
-                        <Image src={url} alt="" className="h-full w-full object-cover" />
+                        <Image src={url} alt="" width={800} height={450} className="h-full w-full object-cover" />
                         {i === 0 ? (
                           <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                             {t("adminManage.rooms.coverPhoto")}
