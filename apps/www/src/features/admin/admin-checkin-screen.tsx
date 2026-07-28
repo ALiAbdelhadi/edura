@@ -11,8 +11,9 @@ import { useCustomMutation } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { toast } from "@repo/ui/components/sonner";
-import { Banknote, CheckCircle2, DoorOpen, Search, UserPlus } from "lucide-react";
+import { Banknote, CheckCircle2, DoorOpen, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -275,21 +276,19 @@ export function AdminCheckinScreen() {
 
       <Card>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-12 ps-9 text-base"
-                placeholder={t("shared.checkin.searchPlaceholder")}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
-              />
-            </div>
-            <Button size="lg" onClick={search} disabled={busy}>
-              {busy ? <Spinner /> : t("actions.search")}
-            </Button>
-          </div>
+          {/* The counter's first focusable element. `inputMode="numeric"` because a
+              student code is what is typed nine times out of ten, and a numeric
+              keypad on a phone is the difference between one tap and three. */}
+          <SearchInput
+            autoFocus
+            inputMode="numeric"
+            density="touch"
+            value={q}
+            onValueChange={setQ}
+            placeholder={t("shared.checkin.searchPlaceholder")}
+            onSubmit={search}
+            action={{ label: t("actions.search"), onClick: search, busy }}
+          />
           <Button variant="ghost" size="sm" onClick={() => setWalkInOpen((v) => !v)}>
             <UserPlus className="size-4" />
             {t("shared.checkin.newWalkIn")}

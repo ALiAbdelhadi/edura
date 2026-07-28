@@ -156,13 +156,13 @@ export function StructureTab() {
   const rowShell = (selected: boolean) =>
     cn(
       "w-full rounded-md border p-3 text-start transition-colors",
-      selected ? "border-primary bg-primary/5" : "hover:bg-muted/50",
+      selected ? "border-indigo bg-primary/5" : "hover:bg-field/50",
     );
 
   const nameAndCode = (r: { nameAr: string; code: string; isActive: boolean }) => (
     <div className="flex min-w-0 items-center gap-2">
       <span className="truncate font-medium">{r.nameAr}</span>
-      <code className="shrink-0 text-xs text-muted-foreground" dir="ltr">
+      <code className="shrink-0 text-xs text-ink-2" dir="ltr">
         {r.code}
       </code>
       {!r.isActive ? <StatusBadge tone="warning">{t("status.suspended")}</StatusBadge> : null}
@@ -283,7 +283,7 @@ export function StructureTab() {
                       {editBtn(() => setDialog({ kind: "grade", row: g }))}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-ink-2">
                         {t("catalog.structure.tracksForGrade")}:
                       </span>
                       {g.gradeTracks.map((gt) => (
@@ -293,7 +293,7 @@ export function StructureTab() {
                             type="button"
                             aria-label={t("catalog.structure.unlinkTrack")}
                             onClick={() => void unlinkTrack(gt.id)}
-                            className="hover:text-destructive"
+                            className="hover:text-red"
                           >
                             <X className="size-3" />
                           </button>

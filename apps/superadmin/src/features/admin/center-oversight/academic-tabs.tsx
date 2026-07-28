@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { Info, Lock, Pencil, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -31,8 +32,9 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
@@ -62,7 +64,8 @@ type CourseRow = {
 // ===========================================================================
 
 export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatEGP } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<Paged<CourseRow>>(
     `admin/centers/${centerId}/oversight/courses`,
     { enabled, query: { limit: "100" } },
@@ -84,37 +87,32 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
     <div className="space-y-3">
       <Alert>
         <Lock className="size-4" />
-        <AlertTitle>The pricing snapshot is frozen and not editable</AlertTitle>
+        <AlertTitle>{t("ac_frozenTitle")}</AlertTitle>
         <AlertDescription>
-          A course&apos;s pricing method and revenue split were frozen when it was created, from
-          the platform pricing configuration — settlement reads them, so changing one would
-          re-rate a live course. They are shown here and edited nowhere. The hall cannot be
-          swapped for the same reason: a different hall means a new class.
+          {t("ac_frozenBody")}
         </AlertDescription>
       </Alert>
 
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus className="size-4" />
-          New course
-        </Button>
+          <Plus className="size-4" />{t("ac_newCourse")}</Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No courses at this center.</p>
+        <p className="p-4 text-sm text-ink-2">{t("ac_noCourses")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Course</TableHead>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Hall</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Enrolled</TableHead>
-                <TableHead className="text-end">Monthly</TableHead>
-                <TableHead>Pricing method</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("ac_course")}</TableHead>
+                <TableHead>{t("ac_teacher")}</TableHead>
+                <TableHead>{t("ac_hall")}</TableHead>
+                <TableHead>{t("ac_status")}</TableHead>
+                <TableHead>{t("ac_enrolled")}</TableHead>
+                <TableHead className="text-end">{t("ac_monthly")}</TableHead>
+                <TableHead>{t("ac_pricingMethod")}</TableHead>
+                <TableHead className="text-end">{t("ac_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -132,7 +130,7 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
                     {c.activeEnrollments} / {c.maxStudents}
                   </TableCell>
                   <TableCell className="text-end tabular-nums">
-                    {c.pricePerMonth != null ? formatEGP(c.pricePerMonth) : "—"}
+                    {c.pricePerMonth != null ? <Num.Money piasters={c.pricePerMonth} locale={locale} sign={false} /> : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{c.pricingMethod ?? "—"}</Badge>
@@ -140,19 +138,15 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
                   <TableCell className="text-end">
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => setEditing(c)}>
-                        <Pencil className="size-4" />
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setReassigning(c)}>
-                        Reassign teacher
-                      </Button>
+                        <Pencil className="size-4" />{t("ac_edit")}</Button>
+                      <Button size="sm" variant="outline" onClick={() => setReassigning(c)}>{t("ac_reassignTeacher")}</Button>
                       {c.status !== "cancelled" ? (
                         <ControlAction
-                          label="Cancel course"
-                          title="Cancel this course?"
+                          label={t("ac_cancelCourse")}
+                          title={t("ac_cancelCourseQ")}
                           destructive
                           requireReason
-                          confirmText="Cancel course"
+                          confirmText={t("ac_cancelCourse")}
                           url={`admin/centers/${centerId}/courses/${c.id}/cancel`}
                           values={{}}
                           onDone={req.refetch}
@@ -236,6 +230,7 @@ function CourseCreateDialog({
   teachers: { teacherId: string; teacherName: string | null }[];
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const rooms = useAdminGet<{ rooms: { id: string; name: string }[] }>(
     `admin/centers/${centerId}/rooms`,
@@ -259,7 +254,7 @@ function CourseCreateDialog({
 
   const submit = async () => {
     if (!f.title || !f.subject || !f.teacherId || !days.length || !f.startDate || !f.endDate) {
-      toast.error("Title, subject, teacher, days and dates are required");
+      toast.error(t("ac_needCourseFields"));
       return;
     }
     setBusy(true);
@@ -283,7 +278,7 @@ function CourseCreateDialog({
           },
         },
       });
-      toast.success("Course created — schedule generated, recorded in the audit log");
+      toast.success(t("ac_courseCreated"));
       onOpenChange(false);
       onDone();
     } catch (e) {
@@ -297,24 +292,24 @@ function CourseCreateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New course</DialogTitle>
+          <DialogTitle>{t("ac_newCourse")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             The teacher must already have an active affiliation with this center. Picking a hall
             freezes that hall&apos;s pricing method and rate onto the course — permanently.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Labeled label="Title">
+            <Labeled label={t("ac_title")}>
               <Input value={f.title} onChange={(e) => set("title")(e.target.value)} />
             </Labeled>
-            <Labeled label="Subject">
+            <Labeled label={t("ac_subject")}>
               <Input value={f.subject} onChange={(e) => set("subject")(e.target.value)} />
             </Labeled>
-            <Labeled label="Teacher">
+            <Labeled label={t("ac_teacher")}>
               <Select value={f.teacherId} onValueChange={set("teacherId")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick an affiliated teacher" />
+                  <SelectValue placeholder={t("ac_pickAffiliated")} />
                 </SelectTrigger>
                 <SelectContent>
                   {teachers.map((t) => (
@@ -325,10 +320,10 @@ function CourseCreateDialog({
                 </SelectContent>
               </Select>
             </Labeled>
-            <Labeled label="Hall (optional — frozen once set)">
+            <Labeled label={t("ac_hallOptional")}>
               <Select value={f.defaultRoomId} onValueChange={set("defaultRoomId")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="No hall" />
+                  <SelectValue placeholder={t("ac_noHall")} />
                 </SelectTrigger>
                 <SelectContent>
                   {(rooms.data?.rooms ?? []).map((r) => (
@@ -339,30 +334,30 @@ function CourseCreateDialog({
                 </SelectContent>
               </Select>
             </Labeled>
-            <Labeled label="Price (EGP)">
+            <Labeled label={t("ac_priceEgp")}>
               <Input type="number" value={f.price} onChange={(e) => set("price")(e.target.value)} />
             </Labeled>
-            <Labeled label="Max students">
+            <Labeled label={t("ac_maxStudents")}>
               <Input
                 type="number"
                 value={f.maxStudents}
                 onChange={(e) => set("maxStudents")(e.target.value)}
               />
             </Labeled>
-            <Labeled label="Start time">
+            <Labeled label={t("ac_startTime")}>
               <Input type="time" value={f.startTime} onChange={(e) => set("startTime")(e.target.value)} />
             </Labeled>
-            <Labeled label="End time">
+            <Labeled label={t("ac_endTime")}>
               <Input type="time" value={f.endTime} onChange={(e) => set("endTime")(e.target.value)} />
             </Labeled>
-            <Labeled label="Start date">
+            <Labeled label={t("ac_startDate")}>
               <Input type="date" value={f.startDate} onChange={(e) => set("startDate")(e.target.value)} />
             </Labeled>
-            <Labeled label="End date">
+            <Labeled label={t("ac_endDate")}>
               <Input type="date" value={f.endDate} onChange={(e) => set("endDate")(e.target.value)} />
             </Labeled>
           </div>
-          <Labeled label="Days of week">
+          <Labeled label={t("ac_daysOfWeek")}>
             <DayPicker value={days} onChange={setDays} />
           </Labeled>
         </div>
@@ -388,6 +383,7 @@ function CourseEditDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [title, setTitle] = useState("");
   const [maxStudents, setMaxStudents] = useState("");
@@ -419,7 +415,7 @@ function CourseEditDialog({
     if (pm !== course.pricePerMonth) patch.pricePerMonth = pm;
     if (ps !== course.pricePerSession) patch.pricePerSession = ps;
     if (!Object.keys(patch).length) {
-      toast.info("Nothing changed");
+      toast.info(t("ac_nothingChanged"));
       return;
     }
     setBusy(true);
@@ -429,7 +425,7 @@ function CourseEditDialog({
         method: "patch",
         values: patch,
       });
-      toast.success("Course updated — recorded in the audit log");
+      toast.success(t("ac_courseUpdated"));
       close();
       onDone();
     } catch (e) {
@@ -443,17 +439,17 @@ function CourseEditDialog({
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit course</DialogTitle>
+          <DialogTitle>{t("ac_editCourse")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Plan prices set what a NEW subscription costs. Existing subscriptions keep the price
             they were bought at, and the course&apos;s frozen revenue split never changes.
           </p>
-          <Labeled label="Title">
+          <Labeled label={t("ac_title")}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Labeled>
-          <Labeled label="Max students">
+          <Labeled label={t("ac_maxStudents")}>
             <Input
               type="number"
               value={maxStudents}
@@ -461,10 +457,10 @@ function CourseEditDialog({
             />
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Labeled label="Monthly plan (EGP, empty = disabled)">
+            <Labeled label={t("ac_monthlyPlan")}>
               <Input type="number" value={perMonth} onChange={(e) => setPerMonth(e.target.value)} />
             </Labeled>
-            <Labeled label="Per-session plan (EGP, empty = disabled)">
+            <Labeled label={t("ac_perSessionPlan")}>
               <Input
                 type="number"
                 value={perSession}
@@ -497,13 +493,14 @@ function ReassignDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [teacherId, setTeacherId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!course || !teacherId) {
-      toast.error("Pick a teacher");
+      toast.error(t("ac_needTeacher"));
       return;
     }
     setBusy(true);
@@ -513,7 +510,7 @@ function ReassignDialog({
         method: "post",
         values: { teacherId },
       });
-      toast.success("Teacher reassigned — recorded in the audit log");
+      toast.success(t("ac_teacherReassigned"));
       setTeacherId("");
       onClose();
       onDone();
@@ -528,18 +525,18 @@ function ReassignDialog({
     <Dialog open={!!course} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reassign teacher</DialogTitle>
+          <DialogTitle>{t("ac_reassignTeacher")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Only <strong>future</strong> sessions move to the new teacher. Past sessions keep
             theirs — they record who actually taught, and some may already have been settled to
             that person.
           </p>
-          <Labeled label="New teacher (must be affiliated with this center)">
+          <Labeled label={t("ac_newTeacher")}>
             <Select value={teacherId} onValueChange={setTeacherId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a teacher" />
+                <SelectValue placeholder={t("ac_pickTeacher")} />
               </SelectTrigger>
               <SelectContent>
                 {teachers
@@ -589,7 +586,8 @@ type EnrollmentRow = {
 };
 
 export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<EnrollmentRow[]>(`admin/centers/${centerId}/enrollments`, { enabled });
   const [adding, setAdding] = useState(false);
 
@@ -600,28 +598,25 @@ export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enable
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          Enrolling creates the roster link only — it does <strong>not</strong> create a
-          subscription, so it does not hand out paid coverage. Unenrolling refunds nothing.
+        <p className="text-xs text-ink-2">
+          {t("ac_enrolNote1")} <strong>{t("ac_enrolNote2")}</strong> {t("ac_enrolNote3")}
         </p>
         <Button size="sm" onClick={() => setAdding(true)}>
-          <Plus className="size-4" />
-          Enrol a student
-        </Button>
+          <Plus className="size-4" />{t("ac_enrolStudent")}</Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No enrollments.</p>
+        <p className="p-4 text-sm text-ink-2">{t("ac_noEnrollments")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Enrolled</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("ac_student")}</TableHead>
+                <TableHead>{t("ac_course")}</TableHead>
+                <TableHead>{t("ac_status")}</TableHead>
+                <TableHead>{t("ac_enrolled")}</TableHead>
+                <TableHead className="text-end">{t("ac_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -634,14 +629,14 @@ export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enable
                       {e.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(e.enrolledAt, { dateStyle: "medium" })}</TableCell>
+                  <TableCell><Num.Date value={e.enrolledAt} locale={locale} options={{ dateStyle: "medium" }} className="text-[11px] text-ink-3" /></TableCell>
                   <TableCell className="text-end">
                     {e.status === "active" ? (
                       <ControlAction
-                        label="Unenrol"
-                        title="Unenrol this student?"
+                        label={t("ac_unenrol")}
+                        title={t("ac_unenrolQ")}
                         destructive
-                        confirmText="Unenrol"
+                        confirmText={t("ac_unenrol")}
                         method="delete"
                         url={`admin/centers/${centerId}/enrollments/${e.id}`}
                         values={{}}
@@ -683,6 +678,7 @@ function EnrolDialog({
   centerId: string;
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const students = useAdminGet<{ items: { studentId: string; name?: string | null }[] }>(
     `admin/centers/${centerId}/roster/students`,
@@ -698,7 +694,7 @@ function EnrolDialog({
 
   const submit = async () => {
     if (!studentId || !courseId) {
-      toast.error("Pick a student and a course");
+      toast.error(t("ac_needStudentCourse"));
       return;
     }
     setBusy(true);
@@ -708,7 +704,7 @@ function EnrolDialog({
         method: "post",
         values: { studentId, courseId },
       });
-      toast.success("Student enrolled — recorded in the audit log");
+      toast.success(t("ac_studentEnrolled"));
       setStudentId("");
       setCourseId("");
       onOpenChange(false);
@@ -724,17 +720,17 @@ function EnrolDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Enrol a student</DialogTitle>
+          <DialogTitle>{t("ac_enrolStudent")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Refused if the student is blacklisted at platform, center or teacher level, or if the
             course is not this center&apos;s.
           </p>
-          <Labeled label="Student (from this center's roster)">
+          <Labeled label={t("ac_studentRoster")}>
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a student" />
+                <SelectValue placeholder={t("ac_pickStudent")} />
               </SelectTrigger>
               <SelectContent>
                 {(students.data?.items ?? []).map((s) => (
@@ -745,10 +741,10 @@ function EnrolDialog({
               </SelectContent>
             </Select>
           </Labeled>
-          <Labeled label="Course">
+          <Labeled label={t("ac_course")}>
             <Select value={courseId} onValueChange={setCourseId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a course" />
+                <SelectValue placeholder={t("ac_pickCourse")} />
               </SelectTrigger>
               <SelectContent>
                 {(courses.data?.data ?? [])
@@ -787,7 +783,8 @@ type RequestRow = {
 };
 
 export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<RequestRow[]>(`admin/centers/${centerId}/enrollment-requests`, {
     query: { status: "pending" },
   });
@@ -796,17 +793,17 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Enrollment requests</CardTitle>
+        <CardTitle className="text-base">{t("ac_enrollmentRequests")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-2">
           Approving creates the enrollment and notifies the student. Refused when the course is
           full or the request has expired — the same rules the center is held to.
         </p>
         {req.isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing pending.</p>
+          <p className="text-sm text-ink-2">{t("ac_nothingPending")}</p>
         ) : (
           rows.map((r) => (
             <div
@@ -817,16 +814,18 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
                 <div className="font-medium">
                   {r.studentName ?? "—"} → {r.courseTitle ?? "—"}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  submitted {formatDate(r.submittedAt, { dateStyle: "medium" })} · expires{" "}
-                  {formatDate(r.expiresAt, { dateStyle: "medium" })}
+                <div className="text-xs text-ink-2">
+                  {t("ac_submitted")}{" "}
+                  <Num.Date value={r.submittedAt} locale={locale} options={{ dateStyle: "medium" }} /> ·{" "}
+                  {t("ac_expires")}{" "}
+                  <Num.Date value={r.expiresAt} locale={locale} options={{ dateStyle: "medium" }} />
                 </div>
               </div>
               <div className="flex gap-2">
                 <ControlAction
-                  label="Approve"
-                  title="Approve this enrollment request?"
-                  confirmText="Approve"
+                  label={t("ac_approve")}
+                  title={t("ac_approveQ")}
+                  confirmText={t("ac_approve")}
                   url={`admin/centers/${centerId}/enrollment-requests/${r.id}/decide`}
                   values={{ decision: "approve" }}
                   onDone={req.refetch}
@@ -838,15 +837,15 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
                   }
                 />
                 <ControlAction
-                  label="Decline"
-                  title="Decline this enrollment request?"
+                  label={t("ac_decline")}
+                  title={t("ac_declineQ")}
                   destructive
                   requireReason
-                  confirmText="Decline"
+                  confirmText={t("ac_decline")}
                   url={`admin/centers/${centerId}/enrollment-requests/${r.id}/decide`}
                   values={{ decision: "decline" }}
                   onDone={req.refetch}
-                  description={<p>The student is notified with your reason.</p>}
+                  description={<p>{t("ac_studentNotified")}</p>}
                 />
               </div>
             </div>
@@ -870,7 +869,8 @@ type RoomRow = {
 };
 
 export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatEGP } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<{ rooms: RoomRow[] }>(`admin/centers/${centerId}/rooms`, { enabled });
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<RoomRow | null>(null);
@@ -883,22 +883,19 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
     <div className="space-y-3">
       <Alert>
         <Info className="size-4" />
-        <AlertTitle>Hall price is not a revenue share</AlertTitle>
+        <AlertTitle>{t("ac_hallPriceTitle")}</AlertTitle>
         <AlertDescription>
-          The price here is what the center shows teachers when booking. The revenue split and
-          the per-student rate are platform pricing configuration and live on their own screen.
+          {t("ac_hallPriceBody")}
         </AlertDescription>
       </Alert>
 
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus className="size-4" />
-          Add hall
-        </Button>
+          <Plus className="size-4" />{t("ac_addHall")}</Button>
       </div>
 
       {rooms.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No active halls.</p>
+        <p className="p-4 text-sm text-ink-2">{t("ac_noHalls")}</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {rooms.map((room) => (
@@ -913,21 +910,19 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Hall price</span>
+                  <span className="text-ink-2">{t("ac_hallPrice")}</span>
                   <span className="tabular-nums">
-                    {room.price != null ? formatEGP(room.price) : "—"}
+                    {room.price != null ? <Num.Money piasters={room.price} locale={locale} sign={false} /> : "—"}
                   </span>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(room)}>
-                    <Pencil className="size-4" />
-                    Edit
-                  </Button>
+                    <Pencil className="size-4" />{t("ac_edit")}</Button>
                   <ControlAction
-                    label="Deactivate"
-                    title="Deactivate this hall?"
+                    label={t("ac_deactivate")}
+                    title={t("ac_deactivateHallQ")}
                     destructive
-                    confirmText="Deactivate"
+                    confirmText={t("ac_deactivate")}
                     url={`admin/centers/${centerId}/rooms/${room.id}/status`}
                     values={{ isActive: false }}
                     onDone={req.refetch}
@@ -972,6 +967,7 @@ function RoomDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState("");
@@ -994,7 +990,7 @@ function RoomDialog({
 
   const submit = async () => {
     if (!name.trim()) {
-      toast.error("Name is required");
+      toast.error(t("ac_needName"));
       return;
     }
     const values: Record<string, unknown> = {
@@ -1034,13 +1030,13 @@ function RoomDialog({
           <DialogTitle>{room ? "Edit hall" : "Add hall"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <Labeled label="Name">
+          <Labeled label={t("ac_name")}>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Labeled>
-          <Labeled label="Capacity">
+          <Labeled label={t("ac_capacity")}>
             <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
           </Labeled>
-          <Labeled label="Hall price (EGP)">
+          <Labeled label={t("ac_hallPriceEgp")}>
             <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
           </Labeled>
         </div>

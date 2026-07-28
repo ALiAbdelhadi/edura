@@ -10,7 +10,6 @@ import type {
   ParentSubjectComparisonPoint,
   RevenueTimeseriesPoint,
   SessionStatusPoint,
-  StudentAssignmentsTrendPoint,
   StudentGradeTrendPoint,
   TeacherAttendanceTrendPoint,
   TeacherGradeLoadPoint,
@@ -551,52 +550,6 @@ export async function getStudentGradeTrend(user: SessionUser, from?: string, to?
   });
 }
 
-export async function getStudentAssignmentsTrend(
-  user: SessionUser,
-  from?: string,
-  to?: string,
-  granularity: AnalyticsGranularity = "week",
-) {
-  const studentId = user.id;
-  const { fromDate, toDate } = parseRange(from, to, granularity);
-  const periodKeys = buildPeriodKeys(fromDate, toDate, granularity);
-
-  return scopedDb(user, async (tx) => {
-    const enrollments = await tx.enrollment.findMany({
-      where: { studentId, status: "active" },
-      select: { courseId: true },
-    });
-    const courseIds = enrollments.map((row) => row.courseId);
-    if (courseIds.length === 0) {
-      return { from, to, granularity, series: [] as StudentAssignmentsTrendPoint[] };
-    }
-    const grades = await tx.grade.findMany({
-      where: { courseId: { in: courseIds }, date: { gte: fromDate, lte: toDate } },
-      select: { date: true, scores: { where: { studentId }, select: { id: true } } },
-    });
-
-    const counts = new Map<string, { pending: number; graded: number }>(
-      periodKeys.map((period) => [period, { pending: 0, graded: 0 }]),
-    );
-    for (const grade of grades) {
-      const period = getPeriodKey(new Date(grade.date), granularity);
-      const bucket = counts.get(period);
-      if (!bucket) continue;
-      const isGraded = grade.scores.length > 0;
-      if (isGraded) bucket.graded += 1;
-      else bucket.pending += 1;
-    }
-
-    const series: StudentAssignmentsTrendPoint[] = periodKeys.map((period) => ({
-      period,
-      label: formatPeriodLabel(period, granularity),
-      pending: counts.get(period)?.pending ?? 0,
-      graded: counts.get(period)?.graded ?? 0,
-    }));
-
-    return { from, to, granularity, series };
-  });
-}
 
 export async function getParentPaymentTrend(
   studentId: string,

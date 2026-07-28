@@ -50,3 +50,6 @@ yarn-error.log*
 .claude/settings.local.json
 
 *.tsbuildinfo
+
+# generated knowledge-graph artifacts (graphify tool output)
+graphify-out/

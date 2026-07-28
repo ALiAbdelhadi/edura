@@ -1,19 +1,29 @@
 "use client";
 
+/* المدرّسون / Teachers — a record screen with one in-place control.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   The attendance-mode select is a genuine setting, not a money write: it is a global
+   per-teacher preference that can be changed again at any time, so it saves on ONE
+   interaction (D-022). It stays in the row rather than moving to a panel because it is
+   the only action here and it is reversible — the "no per-row buttons" rule (D-038)
+   exists to stop DESTRUCTIVE twins competing in a decision queue, which this is not.
+
+   A teacher with no profile row gets a plain statement, NOT a disabled select: the
+   capability does not exist for that record, and a greyed control would teach that it
+   does and is being withheld (D-027). */
+
 import { useState } from "react";
-import { useList, useCustomMutation } from "@refinedev/core";
-import { Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useCustomMutation, useList } from "@refinedev/core";
+import { useLocale, useTranslations } from "next-intl";
+import { RefreshCcw, TriangleAlert, UserRound } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
+import { Num } from "@repo/ui/components/num";
+import { SearchInput } from "@repo/ui/components/search-input";
+import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
 import {
   Table,
   TableBody,
@@ -23,10 +33,12 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import type { Locale } from "@repo/ui/lib/format";
+
+import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { PageSpinner } from "@/components/kit/spinner";
+import { asKey } from "@/lib/i18n/keys";
 
 type TeacherRow = {
   id: string;
@@ -41,10 +53,15 @@ type TeacherRow = {
 const ANY = "__any__";
 const MODES = ["counter_only", "counter_and_door"] as const;
 
-/** Superadmin Teachers list — search/filter/paginate + attendance-mode management (Step 6). */
+const TONE: Record<string, StatusTone> = {
+  active: "paid",
+  pending: "pending",
+  suspended: "rejected",
+};
+
 export function TeachersScreen() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [mode, setMode] = useState<string | null>(null);
@@ -74,186 +91,157 @@ export function TeachersScreen() {
         values: { mode: next },
       });
       toast.success(t("teachers.modeSaved"));
-      query.refetch();
-    } catch (err: any) {
-      toast.error(err?.message || t("teachers.modeFailed"));
+      void query.refetch();
+    } catch {
+      toast.error(t("teachers.modeFailed"));
     }
   };
 
+  const select = (
+    anyLabel: string,
+    value: string | null,
+    set: (v: string | null) => void,
+    options: readonly string[],
+    render: (o: string) => string,
+  ) => (
+    <select
+      value={value ?? ANY}
+      aria-label={anyLabel}
+      onChange={(e) => {
+        set(e.target.value === ANY ? null : e.target.value);
+        setPage(1);
+      }}
+      className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
+    >
+      <option value={ANY}>{anyLabel}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {render(o)}
+        </option>
+      ))}
+    </select>
+  );
+
+  const COLS = ["colName", "colContact", "colStatus", "colMode", "colJoined"] as const;
+
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("teachers.title")} description={t("teachers.description")} />
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader title={t("teachers.title")} description={t("teachers.description")} rule />
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("teachers.searchPlaceholder")}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              className="ps-9 pe-9"
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
+        <SearchInput
+          className="min-w-64 flex-1"
+          placeholder={t("teachers.searchPlaceholder")}
+          value={q}
+          onValueChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          onClear={() => setQ("")}
+          clearLabel={t("teachers.clearSearch")}
+        />
+        {select(t("teachers.anyStatus"), status, setStatus, ["active", "pending", "suspended"], (s) =>
+          t(asKey(`status.${s}`)),
+        )}
+        {select(t("teachers.anyMode"), mode, setMode, MODES, (m) => t(asKey(`teachers.mode_${m}`)))}
+      </div>
+
+      {query.isLoading ? (
+        <PageSpinner label={t("common.loading")} />
+      ) : query.isError ? (
+        (() => {
+          const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={t(denied ? "teachers.deniedTitle" : "teachers.loadError")}
+              description={t(denied ? "teachers.deniedBody" : "teachers.loadErrorBody")}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {t("teachers.retry")}
+                  </Button>
+                )
+              }
             />
-            {q && (
-              <button
-                type="button"
-                aria-label={t("teachers.clearSearch")}
-                onClick={() => setQ("")}
-                className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
-          <Select
-            value={status ?? undefined}
-            onValueChange={(v) => {
-              setStatus(v === ANY ? null : v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder={t("teachers.statusFilter")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY}>{t("teachers.any")}</SelectItem>
-              {["active", "pending", "suspended"].map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={mode ?? undefined}
-            onValueChange={(v) => {
-              setMode(v === ANY ? null : v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder={t("teachers.modeFilter")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY}>{t("teachers.any")}</SelectItem>
-              {MODES.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {t(`teachers.mode_${m}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-0">
-          {query.isLoading ? (
-            <div className="p-6">
-              <Spinner />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead>{t("teachers.colName")}</TableHead>
-                  <TableHead>{t("teachers.colContact")}</TableHead>
-                  <TableHead className="text-center">{t("teachers.colStatus")}</TableHead>
-                  <TableHead>{t("teachers.colMode")}</TableHead>
-                  <TableHead>{t("teachers.colJoined")}</TableHead>
+          );
+        })()
+      ) : rows.length === 0 ? (
+        <EmptyState
+          tone="empty"
+          icon={UserRound}
+          title={t("teachers.empty")}
+          description={t("teachers.emptyBody")}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-rule bg-field hover:bg-field">
+                {COLS.map((c) => (
+                  <TableHead key={c} className="h-[34px] px-3">
+                    <Eyebrow locale={locale} marker={false}>
+                      {t(asKey(`teachers.${c}`))}
+                    </Eyebrow>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id} className="border-rule-2">
+                  <TableCell className="px-3 py-[7px]">
+                    <IdentityCell initials={initialsOf(r.name ?? "—")} name={r.name ?? "—"} />
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    {r.email ? <Num.Code className="block">{r.email}</Num.Code> : <span className="text-[13px]">—</span>}
+                    {r.phone ? <Num.Code className="block">{r.phone}</Num.Code> : null}
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <StatusBadge tone={TONE[r.status] ?? "neutral"}>
+                      {t(asKey(`status.${r.status}`))}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    {r.attendanceMode === null ? (
+                      // Absence, not a disabled control (D-027).
+                      <span className="text-[11px] text-ink-3">{t("teachers.noProfile")}</span>
+                    ) : (
+                      <select
+                        value={r.attendanceMode}
+                        aria-label={t("teachers.modeAria")}
+                        onChange={(e) => void setTeacherMode(r, e.target.value)}
+                        className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink"
+                      >
+                        {MODES.map((m) => (
+                          <option key={m} value={m}>
+                            {t(asKey(`teachers.mode_${m}`))}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                      {t("teachers.empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-3">
-                          <span
-                            aria-hidden
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
-                          >
-                            {r.name ? r.name.trim().charAt(0) : "—"}
-                          </span>
-                          <span>{r.name ?? "—"}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="block text-sm">{r.email ?? "—"}</span>
-                        <span className="block text-xs text-muted-foreground" dir="ltr">
-                          {r.phone ?? ""}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <StatusBadge
-                          tone={
-                            r.status === "active"
-                              ? "success"
-                              : r.status === "pending"
-                                ? "warning"
-                                : "danger"
-                          }
-                        >
-                          {r.status}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell>
-                        {r.attendanceMode === null ? (
-                          <span className="text-xs text-muted-foreground">
-                            {t("teachers.noProfile")}
-                          </span>
-                        ) : (
-                          <Select
-                            value={r.attendanceMode}
-                            onValueChange={(v) => setTeacherMode(r, v)}
-                          >
-                            <SelectTrigger className="w-44">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MODES.map((m) => (
-                                <SelectItem key={m} value={m}>
-                                  {t(`teachers.mode_${m}`)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(r.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4">
-            <span className="text-sm text-muted-foreground">
-              {t("teachers.total", { count: total })}
-            </span>
+              ))}
+            </TableBody>
+          </Table>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-field px-[18px] py-3">
+            <Num className="text-[11px] text-ink-3">
+              {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} / {total}
+            </Num>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 {t("teachers.prev")}
               </Button>
-              <span className="self-center text-sm">
+              <Num className="text-[11px] text-ink-3">
                 {page} / {pageCount}
-              </span>
+              </Num>
               <Button
                 variant="outline"
                 size="sm"
@@ -264,8 +252,8 @@ export function TeachersScreen() {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

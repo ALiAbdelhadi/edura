@@ -46,7 +46,9 @@ import {
   Wallet as WalletIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { BottomNav } from "@repo/ui/components/bottom-nav";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
@@ -58,6 +60,19 @@ const NAV_KEY: Record<string, string> = {
   Payouts: "nav.payouts",
   Statements: "nav.statements",
   Alerts: "nav.alerts",
+  "@learn": "navGroup.learn",
+  "@money": "navGroup.money",
+  "@comms": "navGroup.comms",
+  "@oversight": "navGroup.oversight",
+  "@manage": "navGroup.manage",
+  "@counter": "navGroup.counter",
+  "Requests": "nav.enrollmentRequests",
+  "My Children": "nav.children",
+  "Family": "nav.family",
+  "My Classes": "nav.myClasses",
+  "My Centers": "nav.myCenters",
+  "Child Progress": "nav.childProgress",
+  "Fees & Payments": "nav.feesPayments",
   Dashboard: "nav.dashboard",
   Students: "nav.students",
   Teachers: "nav.teachers",
@@ -76,12 +91,12 @@ const NAV_KEY: Record<string, string> = {
   Children: "nav.children",
   Attendance: "nav.attendance",
   Team: "nav.team",
+  "Team Notes": "nav.teamNotes",
   Messages: "nav.messages",
   Notifications: "nav.notifications",
   Settings: "nav.settings",
   Materials: "nav.materials",
   Reviews: "nav.reviews",
-  Assignments: "nav.assignments",
   "Family Code": "nav.family",
   Progress: "nav.progress",
   Affiliations: "nav.affiliations",
@@ -95,6 +110,8 @@ const NAV_KEY: Record<string, string> = {
   Finance: "nav.finance",
   Catalog: "nav.catalog",
   "Child Safety": "nav.childSafety",
+  "Pay for a Lesson": "nav.payForChild",
+  "My Wallet": "nav.parentWallet",
 };
 
 const PORTAL_BASE: Record<string, string> = {
@@ -175,16 +192,27 @@ function HeaderSidebarToggle() {
  */
 function SidebarNavLink({
   href,
+  onClick,
   children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+  ...props
+}: React.ComponentProps<typeof Link>) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
+    // `...props` is load-bearing, not tidiness. This sits inside two nested Radix
+    // Slots — <TooltipTrigger asChild> wrapping <SidebarMenuButton asChild> — and a
+    // Slot passes the parent's props DOWN to its child rather than rendering an
+    // element of its own. Everything the nav item is comes in through here:
+    // className (the entire menu-button style), data-active / data-slot /
+    // data-sidebar / data-size, the tooltip's aria wiring, and the ref.
+    // Without the spread they were all silently dropped and every nav item in every
+    // portal rendered as a bare inline <a> — unstyled, with no active state and no
+    // tooltip, and with its icon stacked above its label instead of beside it.
     <Link
+      {...props}
       href={href}
-      onClick={() => {
+      onClick={(event) => {
+        // Chain rather than replace: the Slot may have merged a handler in.
+        onClick?.(event);
         if (isMobile) setOpenMobile(false);
       }}
     >
@@ -193,17 +221,35 @@ function SidebarNavLink({
   );
 }
 
+/* Nav is GROUPED (Handoff I §3.1): sixteen flat items is a list, not a structure, and
+   the five money screens sitting as siblings among sixteen is why "Payments" and
+   "Payouts" could both read «المدفوعات» without anyone noticing.
+
+   `navGroups` and `navItems` are BOTH accepted so the six portal layouts can convert
+   one at a time — a portal session changes its own layout.tsx and nothing else. When
+   the last flat caller is gone, drop `navItems`. */
+export type NavGroup = { label: string; items: NavItem[] };
+
 export default function DashboardShell({
   role,
   navItems,
+  navGroups,
+  bottomNav,
   children,
 }: {
   role: string;
-  navItems: NavItem[];
+  navItems?: NavItem[];
+  navGroups?: NavGroup[];
+  /** Phone chrome. Student, parent and staff are mostly on phones; a sidebar there is
+      a drawer you must open before you can navigate. 4–5 hrefs, drawn from navItems. */
+  bottomNav?: string[];
   children: React.ReactNode;
 }) {
+  const groups: NavGroup[] = navGroups ?? [{ label: "", items: navItems ?? [] }];
+  const flatNav: NavItem[] = groups.flatMap((g) => g.items);
   const pathname = usePathname();
   const t = useTranslations();
+  const locale = useLocale() as "ar" | "en";
   const { dir } = useFormatters();
   const tNav = (label: string) =>
     NAV_KEY[label] ? t(NAV_KEY[label] as Parameters<typeof t>[0]) : label;
@@ -222,14 +268,27 @@ export default function DashboardShell({
 
   const path = (pathname ?? "").replace(/^\/(ar|en)(?=\/|$)/, "") || "/";
   const selectedKey =
-    navItems.find((item) => path === item.href)?.href ||
-    [...navItems]
+    flatNav.find((item) => path === item.href)?.href ||
+    [...flatNav]
       .filter((item) => path === item.href || path.startsWith(item.href + "/"))
       .sort((a, b) => b.href.length - a.href.length)[0]?.href ||
-    navItems[0]?.href;
+    flatNav[0]?.href;
 
   const screenLabel =
-    navItems.find((item) => item.href === selectedKey)?.label || "Dashboard";
+    flatNav.find((item) => item.href === selectedKey)?.label || "Dashboard";
+
+  // Bottom nav is a SUBSET of the same nav, never a second information architecture —
+  // a destination that exists only on the phone is a destination desktop users cannot
+  // find. `bottomNav` names hrefs already present in the sidebar.
+  const bottomNavItems = (bottomNav ?? [])
+    .map((href) => flatNav.find((i) => i.href === href))
+    .filter((i): i is NavItem => Boolean(i))
+    .map((i) => ({
+      href: i.href,
+      label: tNav(i.label),
+      icon: iconMap[i.icon] || LayoutGrid,
+      badge: i.href.includes("notifications") && unreadCount > 0 ? unreadCount : undefined,
+    }));
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -265,32 +324,46 @@ export default function DashboardShell({
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarMenu className="px-2 py-2">
-            {navItems.map((item) => {
-              const Icon = iconMap[item.icon] || LayoutGrid;
-              const isActive = item.href === selectedKey;
-              const isNotifications = item.href.includes("notifications");
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={tNav(item.label)}
-                  >
-                    <SidebarNavLink href={item.href}>
-                      <Icon />
-                      <span>{tNav(item.label)}</span>
-                    </SidebarNavLink>
-                  </SidebarMenuButton>
-                  {isNotifications && unreadCount > 0 ? (
-                    <SidebarMenuBadge className="bg-destructive text-white">
-                      {unreadCount}
-                    </SidebarMenuBadge>
-                  ) : null}
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
+          {groups.map((group, gi) => (
+            <SidebarMenu key={group.label || gi} className="px-2 py-2">
+              {group.label ? (
+                <Eyebrow
+                  locale={locale}
+                  className="mb-1.5 px-2 group-data-[collapsible=icon]:hidden"
+                >
+                  {tNav(group.label)}
+                </Eyebrow>
+              ) : null}
+              {group.items.map((item) => {
+                const Icon = iconMap[item.icon] || LayoutGrid;
+                const isActive = item.href === selectedKey;
+                const isNotifications = item.href.includes("notifications");
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={tNav(item.label)}
+                    >
+                      <SidebarNavLink href={item.href}>
+                        <Icon />
+                        <span>{tNav(item.label)}</span>
+                      </SidebarNavLink>
+                    </SidebarMenuButton>
+                    {isNotifications && unreadCount > 0 ? (
+                      // Amber on amber-soft: a count is WAITING, not an error. It was
+                      // red, which is reserved for irreversible or blocking. It also
+                      // carries its number as TEXT — the old red dot was aria-hidden
+                      // and had no screen-reader equivalent at all.
+                      <SidebarMenuBadge className="num bg-amber-soft font-semibold text-amber">
+                        {unreadCount}
+                      </SidebarMenuBadge>
+                    ) : null}
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          ))}
         </SidebarContent>
 
         <SidebarFooter>
@@ -361,6 +434,20 @@ export default function DashboardShell({
         >
           {children}
         </div>
+
+        {/* Phone chrome. Hidden at md+ by the component itself, so the sidebar remains
+            the only navigation on desktop and the two never coexist. */}
+        {bottomNavItems.length ? (
+          <BottomNav
+            items={bottomNavItems}
+            activeHref={selectedKey}
+            renderLink={({ href, className, children, ...rest }) => (
+              <Link key={href} href={href} className={className} {...rest}>
+                {children}
+              </Link>
+            )}
+          />
+        ) : null}
       </SidebarInset>
     </SidebarProvider>
   );

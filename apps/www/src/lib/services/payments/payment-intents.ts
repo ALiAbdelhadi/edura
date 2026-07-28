@@ -117,25 +117,35 @@ export async function initiateSubscriptionIntent(
   user: SessionUser,
 ) {
   const driver = resolveDriver();
+  // A parent checking out for their child pays as themselves; the student stays
+  // the beneficiary. NULL for a student, which is what every pre-existing
+  // subscription intent means.
+  const payerUserId = user.role === "parent" ? user.id : null;
 
-  const { intent, student } = await platformDb(
+  const { intent, payer } = await platformDb(
     async (tx) => {
       const existing = await tx.paymentIntent.findUnique({
         where: { idempotencyKey },
       });
       if (existing) {
-        if (existing.studentId !== user.id) {
+        // The key's owner is whoever is PAYING — the payer when someone else is
+        // funding it, otherwise the student. For a student both are `user.id`,
+        // so this check is unchanged for them.
+        const principal = existing.payerUserId ?? existing.studentId;
+        if (principal !== user.id) {
           throw new ForbiddenError("Idempotency key belongs to another user");
         }
-        return { intent: existing, student: null };
+        return { intent: existing, payer: null };
       }
-      const student = await tx.user.findUnique({
+      // Billing contact at the gateway is the ACTOR — it is their card.
+      const payer = await tx.user.findUnique({
         where: { id: user.id },
         select: { id: true, name: true, email: true, phone: true },
       });
       const intent = await tx.paymentIntent.create({
         data: {
           studentId: sub.studentId,
+          payerUserId,
           courseId: sub.courseId,
           subscriptionId: sub.id,
           centerId: sub.centerId,
@@ -150,18 +160,18 @@ export async function initiateSubscriptionIntent(
         where: { id: sub.id },
         data: { paymentIntentId: intent.id },
       });
-      return { intent, student };
+      return { intent, payer };
     },
     { actorId: user.id },
   );
 
-  if (!student) return toClientIntent(intent, null);
+  if (!payer) return toClientIntent(intent, null);
 
   const { gatewayOrderId, checkout } = await driver.createCheckout(intent, {
-    id: student.id,
-    name: student.name,
-    email: student.email,
-    phone: student.phone,
+    id: payer.id,
+    name: payer.name,
+    email: payer.email,
+    phone: payer.phone,
   });
   const updated = await platformDb((tx) =>
     tx.paymentIntent.update({ where: { id: intent.id }, data: { gatewayOrderId } }),
@@ -173,14 +183,26 @@ export async function initiateSubscriptionIntent(
 // Read (owner polling)
 // ---------------------------------------------------------------------------
 
+/**
+ * Poll an intent you own. "Own" means you are the one PAYING for it: a student
+ * for their own intents, a parent for the ones they funded. A parent is
+ * deliberately NOT given access to intents their child created — that is the
+ * child's checkout, not theirs, and parent oversight is a separate read surface
+ * with its own rules.
+ */
 export async function getIntentForStudent(intentId: string, user: SessionUser) {
   const intent = await platformDb((tx) =>
     tx.paymentIntent.findUnique({ where: { id: intentId } }),
   );
   if (!intent) throw new NotFoundError("Payment intent not found");
-  if (user.role !== "student" || intent.studentId !== user.id) {
-    throw new ForbiddenError();
-  }
+
+  const owns =
+    (user.role === "student" &&
+      intent.payerUserId === null &&
+      intent.studentId === user.id) ||
+    (user.role === "parent" && intent.payerUserId === user.id);
+  if (!owns) throw new ForbiddenError();
+
   return toClientIntent(intent, null);
 }
 
@@ -239,13 +261,20 @@ export async function processWebhookEvent(
   // takes a row lock, so a concurrent second delivery blocks then sees 0
   // pending rows and no-ops.
   // Resolve the settler by the intent's target/purpose (before the tx):
-  //  wallet_topup -> credit the wallet; subscription -> activate the sub;
-  //  else -> the bare-course Payment path. Each runs INSIDE the claim tx below.
+  //  wallet_topup -> credit the student wallet; parent_wallet_topup -> credit
+  //  the parent wallet; subscription -> activate the sub; else -> the
+  //  bare-course Payment path. Each runs INSIDE the claim tx below.
   let settle: (tx: TenantTx) => Promise<SettleNotification | null>;
   if (intent.purpose === "wallet_topup") {
     const { settleWalletTopUpFromIntentTx } = await import("@/lib/services/wallet/wallet");
     settle = (tx) =>
       settleWalletTopUpFromIntentTx(tx, intent.id, { gatewayRef: event.gatewayRef });
+  } else if (intent.purpose === "parent_wallet_topup") {
+    const { settleParentWalletTopUpFromIntentTx } = await import(
+      "@/lib/services/wallet/parent-wallet"
+    );
+    settle = (tx) =>
+      settleParentWalletTopUpFromIntentTx(tx, intent.id, { gatewayRef: event.gatewayRef });
   } else if (intent.subscriptionId) {
     const { settleSubscriptionFromIntentTx } = await import(
       "@/lib/services/subscriptions/subscriptions"
@@ -254,6 +283,8 @@ export async function processWebhookEvent(
       settleSubscriptionFromIntentTx(tx, intent.subscriptionId!, {
         id: intent.id,
         gatewayRef: event.gatewayRef,
+        // Who paid at the gateway — a parent, or NULL for the student themselves.
+        payerUserId: intent.payerUserId,
       });
   } else {
     settle = (tx) => settleIntentTx(tx, intent.id);
@@ -306,7 +337,9 @@ export async function processWebhookEvent(
   // Notifications AFTER commit — a notify failure cannot un-settle the money.
   if (toNotify) {
     await notify({
-      recipients: await studentAndParents(toNotify.studentId),
+      // `recipients` overrides the default student+parents fan-out — set only by
+      // the parent top-up, where there is no child to notify.
+      recipients: toNotify.recipients ?? (await studentAndParents(toNotify.studentId)),
       type: toNotify.type,
       title: toNotify.title,
       body: toNotify.body,
@@ -331,6 +364,14 @@ async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNot
     // the Step 4 teacher-direct future from silently mis-settling.
     throw new BusinessRuleError("Intent has no center to settle against");
   }
+  // studentId is nullable ONLY for a parent wallet top-up, which is routed to
+  // its own settler and never reaches here. Asserted rather than `!`-silenced,
+  // so a future purpose that forgets its own settler fails loudly instead of
+  // writing a Payment row with an empty student.
+  const studentId = intent.studentId;
+  if (!studentId) {
+    throw new BusinessRuleError("Course intent has no student to settle for");
+  }
 
   const center = await tx.center.update({
     where: { id: intent.centerId },
@@ -341,12 +382,12 @@ async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNot
   const payment = await tx.payment.create({
     data: {
       centerId: intent.centerId,
-      studentId: intent.studentId,
+      studentId,
       courseId: intent.courseId,
       amount: intent.amount,
       note: `Online payment (${intent.gateway}/${intent.method})`,
       receiptNumber,
-      recordedBy: intent.studentId, // self-service online payment
+      recordedBy: studentId, // self-service online payment
       paidAt: new Date(),
     },
   });
@@ -357,7 +398,7 @@ async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNot
       refNumber,
       type: "payment",
       amount: intent.amount,
-      fromEntityId: intent.studentId,
+      fromEntityId: studentId,
       toEntityId: intent.centerId,
       centerId: intent.centerId,
       status: "completed",
@@ -372,16 +413,16 @@ async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNot
     data: { paymentId: payment.id, transactionId: transaction.id },
   });
 
-  await awardPoints(tx, intent.studentId, "online_payment", {
+  await awardPoints(tx, studentId, "online_payment", {
     reason: "Online payment",
   });
 
   return {
-    studentId: intent.studentId,
+    studentId,
     type: "payment_recorded",
     title: "Payment received",
     body: `Receipt ${receiptNumber} has been issued.`,
-    data: { paymentId: payment.id, receiptNumber, amount: intent.amount, studentId: intent.studentId },
+    data: { paymentId: payment.id, receiptNumber, amount: intent.amount, studentId },
   };
 }
 

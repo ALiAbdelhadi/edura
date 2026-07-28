@@ -29,7 +29,7 @@ export const POST = withErrors(async (req, ctx) => {
     throw new BusinessRuleError("mock-complete is only available when PAYMENTS_MODE=mock");
   }
 
-  const user = await requireRole("student");
+  const user = await requireRole("student", "parent");
   const { id } = await ctx.params;
   const { outcome } = await parseJson(req, bodySchema);
 
@@ -37,7 +37,14 @@ export const POST = withErrors(async (req, ctx) => {
     tx.paymentIntent.findUnique({ where: { id } }),
   );
   if (!intent) throw new NotFoundError("Payment intent not found");
-  if (intent.studentId !== user.id) throw new ForbiddenError();
+  // Same ownership rule as the polling endpoint: you may only complete an
+  // intent you are PAYING for — a student their own, a parent theirs.
+  const owns =
+    (user.role === "student" &&
+      intent.payerUserId === null &&
+      intent.studentId === user.id) ||
+    (user.role === "parent" && intent.payerUserId === user.id);
+  if (!owns) throw new ForbiddenError();
   if (!intent.gatewayOrderId) {
     throw new BusinessRuleError("Intent has no gateway order yet");
   }

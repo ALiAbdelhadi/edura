@@ -13,35 +13,66 @@ type StaffRole = "receptionist" | "manager" | "center_accountant";
 // security gate (default-closed center-actor); this filtering is UX only.
 function navForRole(role: StaffRole) {
   const base = "/dashboard/staff";
-  const items: { href: string; icon: string; label: string }[] = [
+  const counter: { href: string; icon: string; label: string }[] = [
     { href: base, icon: "grid", label: "Overview" },
   ];
+  const manage: { href: string; icon: string; label: string }[] = [];
+  const comms: { href: string; icon: string; label: string }[] = [
+    // Every sub-role is on the team board — center_accountant included
+    // (read-only: the center-actor gate rejects their mutations).
+    { href: `${base}/notes`, icon: "clipboard", label: "Team Notes" },
+  ];
+
   if (role === "receptionist" || role === "manager") {
-    items.push(
+    counter.push(
       { href: `${base}/checkin`, icon: "check", label: "Check-in" },
       { href: `${base}/students`, icon: "users", label: "Students" },
     );
   }
   if (role === "manager") {
-    items.push(
+    manage.push(
       { href: `${base}/rooms`, icon: "home", label: "Rooms" },
       { href: `${base}/reports`, icon: "report", label: "Reports" },
     );
   }
   if (role === "center_accountant") {
-    items.push({ href: `${base}/finance`, icon: "dollar", label: "Finance" });
+    manage.push({ href: `${base}/finance`, icon: "dollar", label: "Finance" });
   }
   // Messaging follows the same sub-role split as the scope table in
   // chat-scope.ts: reception + manager get an inbox, center_accountant gets
   // NONE (that tier reaches nobody, so the screen would always be empty).
   if (role === "receptionist" || role === "manager") {
-    items.push({ href: `${base}/messages`, icon: "message", label: "Messages" });
+    comms.push({ href: `${base}/messages`, icon: "message", label: "Messages" });
   }
-  items.push(
+  comms.push(
     { href: `${base}/notifications`, icon: "bell", label: "Notifications" },
     { href: `${base}/settings`, icon: "settings", label: "Settings" },
   );
-  return items;
+
+  // A group with no items is OMITTED, not rendered empty: a sub-role difference is an
+  // ABSENCE, never a disabled control. A disabled item teaches a receptionist that the
+  // capability exists and is being withheld from them.
+  return [
+    { label: "@counter", items: counter },
+    { label: "@manage", items: manage },
+    { label: "@comms", items: comms },
+  ].filter((g) => g.items.length > 0);
+}
+
+/** Phone chrome, sub-role aware for the same reason the sidebar is. */
+function bottomNavForRole(role: StaffRole) {
+  const base = "/dashboard/staff";
+  if (role === "center_accountant") {
+    return [base, `${base}/finance`, `${base}/notes`, `${base}/notifications`];
+  }
+  // Check-in is FIRST for reception: it is the whole job, and it is done standing up.
+  return [
+    `${base}/checkin`,
+    base,
+    `${base}/students`,
+    `${base}/notes`,
+    `${base}/messages`,
+  ];
 }
 
 function StaffShell({ children }: { children: React.ReactNode }) {
@@ -77,7 +108,11 @@ function StaffShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <DashboardShell role="center_staff" navItems={navForRole(role)}>
+    <DashboardShell
+      role="center_staff"
+      navGroups={navForRole(role)}
+      bottomNav={bottomNavForRole(role)}
+    >
       {children}
     </DashboardShell>
   );

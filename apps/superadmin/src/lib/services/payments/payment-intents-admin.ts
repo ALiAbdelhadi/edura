@@ -71,26 +71,39 @@ export async function listPaymentIntents(filters: IntentListFilters) {
       tx.paymentIntent.count({ where }),
     ]);
 
-    const studentIds = [...new Set(rows.map((r) => r.studentId))];
+    // studentId is nullable (a parent wallet top-up has no beneficiary student)
+    // and payerUserId is set whenever someone other than the student paid, so
+    // both are resolved and both can legitimately be absent on a given row.
+    const studentIds = [...new Set(rows.map((r) => r.studentId).filter(Boolean) as string[])];
+    const payerIds = [...new Set(rows.map((r) => r.payerUserId).filter(Boolean) as string[])];
     const courseIds = [...new Set(rows.map((r) => r.courseId).filter(Boolean) as string[])];
     const centerIds = [...new Set(rows.map((r) => r.centerId).filter(Boolean) as string[])];
-    const [students, courses, centers] = await Promise.all([
+    const [students, payers, courses, centers] = await Promise.all([
       tx.user.findMany({
         where: { id: { in: studentIds } },
         select: { id: true, name: true, email: true },
       }),
+      payerIds.length
+        ? tx.user.findMany({
+            where: { id: { in: payerIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : [],
       tx.course.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true } }),
       tx.center.findMany({ where: { id: { in: centerIds } }, select: { id: true, name: true } }),
     ]);
     const studentMap = new Map(students.map((s) => [s.id, s]));
+    const payerMap = new Map(payers.map((p) => [p.id, p]));
     const courseMap = new Map(courses.map((c) => [c.id, c]));
     const centerMap = new Map(centers.map((c) => [c.id, c]));
 
     const data = rows.map((r) => ({
       ...r,
       webhookPayload: undefined, // detail-only (can be large)
-      studentName: studentMap.get(r.studentId)?.name ?? null,
-      studentEmail: studentMap.get(r.studentId)?.email ?? null,
+      studentName: r.studentId ? (studentMap.get(r.studentId)?.name ?? null) : null,
+      studentEmail: r.studentId ? (studentMap.get(r.studentId)?.email ?? null) : null,
+      payerName: r.payerUserId ? (payerMap.get(r.payerUserId)?.name ?? null) : null,
+      payerEmail: r.payerUserId ? (payerMap.get(r.payerUserId)?.email ?? null) : null,
       courseTitle: r.courseId ? (courseMap.get(r.courseId)?.title ?? null) : null,
       centerName: r.centerId ? (centerMap.get(r.centerId)?.name ?? null) : null,
     }));
@@ -104,11 +117,21 @@ export async function getPaymentIntent(id: string) {
     const intent = await tx.paymentIntent.findUnique({ where: { id } });
     if (!intent) throw new NotFoundError("Payment intent not found");
 
-    const [student, course, center, payment, transaction] = await Promise.all([
-      tx.user.findUnique({
-        where: { id: intent.studentId },
-        select: { id: true, name: true, email: true, phone: true },
-      }),
+    const [student, payer, course, center, payment, transaction] = await Promise.all([
+      // Absent on a parent wallet top-up, which has no beneficiary student.
+      intent.studentId
+        ? tx.user.findUnique({
+            where: { id: intent.studentId },
+            select: { id: true, name: true, email: true, phone: true },
+          })
+        : null,
+      // Set whenever someone other than the student paid (a parent).
+      intent.payerUserId
+        ? tx.user.findUnique({
+            where: { id: intent.payerUserId },
+            select: { id: true, name: true, email: true, phone: true },
+          })
+        : null,
       intent.courseId
         ? tx.course.findUnique({ where: { id: intent.courseId }, select: { id: true, title: true } })
         : null,
@@ -129,6 +152,6 @@ export async function getPaymentIntent(id: string) {
         : null,
     ]);
 
-    return { ...intent, student, course, center, payment, transaction };
+    return { ...intent, student, payer, course, center, payment, transaction };
   });
 }

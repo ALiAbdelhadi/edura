@@ -1,24 +1,32 @@
 "use client";
 
+/* طلبات التعاون / Collaboration requests — a record of a two-sided agreement.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Accepting a request creates the course, the schedule and the affiliation in ONE
+   transaction, and it carries `proposedCenterShare` so the money engine keeps
+   working. The super admin does not act here — the two parties do — so this screen is
+   read-only oversight, and the honest form is to show WHAT AN ACCEPTANCE PRODUCED:
+   the course and the affiliation with its share, both linked from the detail.
+
+   The share is a money figure, so it is mono and end-aligned like every other. */
+
 import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
-import { Search, X, Handshake } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Handshake, RefreshCcw, TriangleAlert } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { Num } from "@repo/ui/components/num";
+import { SearchInput } from "@repo/ui/components/search-input";
+import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import {
   Table,
   TableBody,
@@ -27,20 +35,20 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import type { Locale } from "@repo/ui/lib/format";
+
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { useTranslations } from "next-intl";
+import { asKey } from "@/lib/i18n/keys";
 
 const ANY = "__any__";
 
-const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
-  accepted: "success",
-  rejected: "danger",
-  cancelled: "danger",
-  pending: "warning",
+const STATUS_TONE: Record<string, StatusTone> = {
+  accepted: "paid",
+  rejected: "rejected",
+  cancelled: "rejected",
+  pending: "pending",
   expired: "neutral",
 };
 
@@ -60,8 +68,8 @@ type CollabRow = {
 };
 
 export function CollaborationRequestsScreen() {
-  const { formatEGP, formatDate } = useFormatters();
   const t = useTranslations();
+  const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [initiator, setInitiator] = useState<string | null>(null);
@@ -90,133 +98,176 @@ export function CollaborationRequestsScreen() {
   });
   const d = ((detail as any)?.data ?? detail) as any;
 
-  const filterSelect = (
-    label: string,
+  const initiatorLabel = (v: string) =>
+    v === "teacher" ? t("collabRequests.initiatorTeacher") : t("collabRequests.initiatorCenter");
+
+  const filter = (
+    anyLabel: string,
     value: string | null,
     set: (v: string | null) => void,
     options: string[],
+    render: (o: string) => string,
   ) => (
-    <Select
-      value={value ?? undefined}
-      onValueChange={(v) => {
-        set(v === ANY ? null : v);
+    <select
+      value={value ?? ANY}
+      aria-label={anyLabel}
+      onChange={(e) => {
+        set(e.target.value === ANY ? null : e.target.value);
         setPage(1);
       }}
+      className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
     >
-      <SelectTrigger className="w-40">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ANY}>{label}: {t("collabRequests.any")}</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      <option value={ANY}>{anyLabel}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {render(o)}
+        </option>
+      ))}
+    </select>
   );
 
+  const COLS = [
+    "teacher",
+    "center",
+    "subject",
+    "schedule",
+    "share",
+    "initiator",
+    "status",
+    "created",
+  ] as const;
+
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("collabRequests.title")} />
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader
+        title={t("collabRequests.title")}
+        description={t("collabRequests.subtitle")}
+        rule
+      />
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("collabRequests.searchPlaceholder")}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              className="ps-9 pe-9"
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
+        <SearchInput
+          className="min-w-64 flex-1"
+          placeholder={t("collabRequests.searchPlaceholder")}
+          value={q}
+          onValueChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          onClear={() => setQ("")}
+          clearLabel={t("collabRequests.clearSearch")}
+        />
+        {filter(
+          t("collabRequests.anyStatus"),
+          status,
+          setStatus,
+          ["pending", "accepted", "rejected", "cancelled", "expired"],
+          (o) => t(asKey(`status.${o}`)),
+        )}
+        {filter(t("collabRequests.anyInitiator"), initiator, setInitiator, ["teacher", "center"], initiatorLabel)}
+      </div>
+
+      {query.isLoading ? (
+        <PageSpinner label={t("collabRequests.loading")} />
+      ) : query.isError ? (
+        (() => {
+          const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={t(denied ? "collabRequests.deniedTitle" : "collabRequests.loadError")}
+              description={t(denied ? "collabRequests.deniedBody" : "collabRequests.loadErrorBody")}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {t("collabRequests.retry")}
+                  </Button>
+                )
+              }
             />
-            {q && (
-              <button
-                type="button"
-                aria-label={t("collabRequests.clearSearch")}
-                onClick={() => setQ("")}
-                className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
-          {filterSelect(t("collabRequests.status"), status, setStatus, [
-            "pending",
-            "accepted",
-            "rejected",
-            "cancelled",
-            "expired",
-          ])}
-          {filterSelect(t("collabRequests.initiator"), initiator, setInitiator, [
-            "teacher",
-            "center",
-          ])}
-        </CardContent>
-      </Card>
-
-      {query.isLoading && <PageSpinner label={t("collabRequests.loading")} />}
-
-      {!query.isLoading && rows.length === 0 && (
-        <EmptyState icon={Handshake} title={t("collabRequests.notFound")} />
-      )}
-
-      {rows.length > 0 && (
-        <Card className="overflow-hidden py-0">
+          );
+        })()
+      ) : rows.length === 0 ? (
+        <EmptyState
+          tone="empty"
+          icon={Handshake}
+          title={t("collabRequests.notFound")}
+          description={t("collabRequests.emptyBody")}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>{t("collabRequests.teacher")}</TableHead>
-                <TableHead>{t("collabRequests.center")}</TableHead>
-                <TableHead>{t("collabRequests.subject")}</TableHead>
-                <TableHead>{t("collabRequests.schedule")}</TableHead>
-                <TableHead>{t("collabRequests.share")}</TableHead>
-                <TableHead>{t("collabRequests.initiator")}</TableHead>
-                <TableHead>{t("collabRequests.status")}</TableHead>
-                <TableHead>{t("collabRequests.created")}</TableHead>
+              <TableRow className="border-rule bg-field hover:bg-field">
+                {COLS.map((c) => (
+                  <TableHead key={c} className={c === "share" ? "h-[34px] px-3 text-end" : "h-[34px] px-3"}>
+                    <Eyebrow locale={locale} marker={false}>
+                      {t(asKey(`collabRequests.${c}`))}
+                    </Eyebrow>
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => setDetailId(r.id)}>
-                  <TableCell className="font-medium">{r.teacherName ?? "—"}</TableCell>
-                  <TableCell>{r.centerName ?? "—"}</TableCell>
-                  <TableCell>{r.subjectName ?? "—"}</TableCell>
-                  <TableCell className="text-xs" dir="ltr">
-                    {r.startTime}–{r.endTime}
+                <TableRow
+                  key={r.id}
+                  className="cursor-pointer border-rule-2"
+                  onClick={() => setDetailId(r.id)}
+                >
+                  <TableCell className="px-3 py-[7px] text-[13px] font-medium text-ink">
+                    {r.teacherName ?? "—"}
                   </TableCell>
-                  <TableCell className="font-semibold">{formatEGP(r.proposedCenterShare)}</TableCell>
-                  <TableCell>{r.initiator}</TableCell>
-                  <TableCell>
-                    <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</StatusBadge>
+                  <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">{r.subjectName ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    {/* Times are data: one isolated mono run, so the en-dash cannot
+                        migrate to the wrong side inside an RTL row. */}
+                    <Num className="text-[11px] text-ink-2">
+                      {r.startTime}–{r.endTime}
+                    </Num>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(r.createdAt)}
+                  <TableCell className="px-3 py-[7px]">
+                    <Num.Money
+                      piasters={r.proposedCenterShare}
+                      locale={locale}
+                      tone="net"
+                      sign={false}
+                    />
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">
+                    {initiatorLabel(r.initiator)}
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
+                      {t(asKey(`status.${r.status}`))}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </Card>
-      )}
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {t("collabRequests.pageOf", { page, pageCount, total })}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              {t("actions.previous")}
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
-              {t("actions.next")}
-            </Button>
-          </div>
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between gap-3 border-t border-rule bg-field px-[18px] py-3">
+              <Num className="text-[11px] text-ink-3">
+                {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} / {total}
+              </Num>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                  {t("actions.previous")}
+                </Button>
+                <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
+                  {t("actions.next")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -226,45 +277,73 @@ export function CollaborationRequestsScreen() {
             <DialogTitle>{t("collabRequests.detailTitle")}</DialogTitle>
           </DialogHeader>
           {d ? (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">{t("collabRequests.teacher")}</dt>
-              <dd>
-                {d.teacher?.name}{" "}
-                <span className="text-muted-foreground">({d.teacher?.email})</span>
-              </dd>
-              <dt className="text-muted-foreground">{t("collabRequests.center")}</dt>
-              <dd>{d.center?.name ?? "—"}</dd>
-              <dt className="text-muted-foreground">{t("collabRequests.subject")}</dt>
-              <dd>
-                {d.subject?.nameEn ?? d.subject?.nameAr} · {d.grade?.nameEn ?? d.grade?.nameAr}
-              </dd>
-              <dt className="text-muted-foreground">{t("collabRequests.schedule")}</dt>
-              <dd dir="ltr">
-                {d.startTime}–{d.endTime} · {formatDate(d.startDate)}
-              </dd>
-              <dt className="text-muted-foreground">{t("collabRequests.share")}</dt>
-              <dd className="font-semibold">{formatEGP(d.proposedCenterShare)}</dd>
-              <dt className="text-muted-foreground">{t("collabRequests.expected")}</dt>
-              <dd>{d.expectedStudents ?? "—"}</dd>
-              <dt className="text-muted-foreground">{t("collabRequests.initiator")}</dt>
-              <dd>{d.initiator}</dd>
-              <dt className="text-muted-foreground">{t("collabRequests.status")}</dt>
-              <dd>
-                <StatusBadge tone={STATUS_TONE[d.status] ?? "neutral"}>{d.status}</StatusBadge>
-                {d.responseNote ? (
-                  <span className="ms-2 text-destructive">{d.responseNote}</span>
-                ) : null}
-              </dd>
-              <dt className="text-muted-foreground">{t("collabRequests.createdCourse")}</dt>
-              <dd>{d.course ? `${d.course.title} (${d.course.status})` : "—"}</dd>
-              <dt className="text-muted-foreground">{t("collabRequests.affiliation")}</dt>
-              <dd>
-                {d.affiliation
-                  ? `${d.affiliation.status} · ${formatEGP(d.affiliation.centerShare ?? 0)}`
-                  : "—"}
-              </dd>
-              <dt className="text-muted-foreground">{t("collabRequests.message")}</dt>
-              <dd>{d.message ?? "—"}</dd>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
+              <Row label={t("collabRequests.teacher")}>
+                {d.teacher?.name} {d.teacher?.email ? <Num.Code>{d.teacher.email}</Num.Code> : null}
+              </Row>
+              <Row label={t("collabRequests.center")}>{d.center?.name ?? "—"}</Row>
+              <Row label={t("collabRequests.subject")}>
+                {d.subject?.nameEn ?? d.subject?.nameAr} — {d.grade?.nameEn ?? d.grade?.nameAr}
+              </Row>
+              <Row label={t("collabRequests.schedule")}>
+                <Num>
+                  {d.startTime}–{d.endTime}
+                </Num>
+                <span aria-hidden="true" className="mx-1 text-ink-3">
+                  ·
+                </span>
+                <Num.Date value={d.startDate} locale={locale} />
+              </Row>
+              <Row label={t("collabRequests.share")}>
+                <Num.Money piasters={d.proposedCenterShare} locale={locale} tone="net" sign={false} />
+              </Row>
+              <Row label={t("collabRequests.expected")}>
+                {d.expectedStudents != null ? (
+                  <Num.Figure value={d.expectedStudents} locale={locale} />
+                ) : (
+                  "—"
+                )}
+              </Row>
+              <Row label={t("collabRequests.initiator")}>{initiatorLabel(d.initiator)}</Row>
+              <Row label={t("collabRequests.status")}>
+                <StatusBadge
+                  tone={STATUS_TONE[d.status] ?? "neutral"}
+                  reason={d.responseNote ?? undefined}
+                >
+                  {t(asKey(`status.${d.status}`))}
+                </StatusBadge>
+              </Row>
+              {/* What the acceptance actually produced. */}
+              <Row label={t("collabRequests.createdCourse")}>
+                {d.course ? (
+                  <span className="inline-flex items-baseline gap-1.5">
+                    {d.course.title}
+                    <StatusBadge tone={STATUS_TONE[d.course.status] ?? "neutral"}>
+                      {t(asKey(`status.${d.course.status}`))}
+                    </StatusBadge>
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Row>
+              <Row label={t("collabRequests.affiliation")}>
+                {d.affiliation ? (
+                  <span className="inline-flex items-baseline gap-1.5">
+                    <StatusBadge tone={STATUS_TONE[d.affiliation.status] ?? "neutral"}>
+                      {t(asKey(`status.${d.affiliation.status}`))}
+                    </StatusBadge>
+                    <Num.Money
+                      piasters={d.affiliation.centerShare ?? 0}
+                      locale={locale}
+                      tone="muted"
+                      sign={false}
+                    />
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Row>
+              <Row label={t("collabRequests.message")}>{d.message ?? "—"}</Row>
             </dl>
           ) : (
             <PageSpinner label={t("collabRequests.loading")} />
@@ -272,5 +351,14 @@ export function CollaborationRequestsScreen() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-ink-2">{label}</dt>
+      <dd>{children}</dd>
+    </>
   );
 }

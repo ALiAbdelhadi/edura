@@ -1,22 +1,36 @@
 "use client";
 
+/* سياسة المحفظة / Student wallet policy.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   The balance cap is GONE (2026-07-23) — a student may hold any balance — so the only
+   knobs left are the per-transaction top-up bounds, which the money engine enforces
+   before taking any money.
+
+   ── Why an editable amount input is correct HERE and nowhere else ─────────────
+
+   The constitution says never to render an amount as an editable input, because
+   amounts are append-only and the UI must not imply otherwise. These two fields are
+   NOT amounts — they are POLICY BOUNDS, configuration that governs future writes and
+   changes nothing already in the ledger. That is also why saving is ONE press: the
+   value is editable again tomorrow, so claiming permanence with a two-step commit
+   would be dishonest (D-022). The figures *reporting* current policy are still <Num>,
+   because those are values the system computed. */
+
 import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Wallet, Infinity as InfinityIcon } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { useLocale, useTranslations } from "next-intl";
+import { Infinity as InfinityIcon, Wallet } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { Input } from "@repo/ui/components/input";
+import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
+import type { Locale } from "@repo/ui/lib/format";
+
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 
 type WalletPolicy = {
   minTopup: number;
@@ -24,13 +38,9 @@ type WalletPolicy = {
   updatedAt: string | null;
 };
 
-/**
- * Student-wallet policy. The balance cap is GONE (2026-07-23) — a student may
- * hold any balance — so the only knobs left are the per-transaction top-up
- * bounds, which the money engine enforces before taking any money.
- */
 export function WalletSettingsScreen() {
-  const { formatEGP, formatDate } = useFormatters();
+  const t = useTranslations("walletPolicy");
+  const locale = useLocale() as Locale;
 
   const { query, result } = useCustom({ url: "admin/wallet-settings", method: "get" });
   const { mutateAsync: save } = useCustomMutation();
@@ -52,11 +62,11 @@ export function WalletSettingsScreen() {
     const min = Number(minEgp);
     const max = Number(maxEgp);
     if (!Number.isFinite(min) || min <= 0 || !Number.isFinite(max) || max <= 0) {
-      toast.error("Both bounds must be positive EGP amounts");
+      toast.error(t("positiveError"));
       return;
     }
     if (max < min) {
-      toast.error("Maximum top-up cannot be lower than the minimum");
+      toast.error(t("orderError"));
       return;
     }
     setSaving(true);
@@ -66,101 +76,97 @@ export function WalletSettingsScreen() {
         method: "put",
         values: { minTopup: Math.round(min * 100), maxTopup: Math.round(max * 100) },
       });
-      toast.success("Wallet policy saved — the next top-up uses the new bounds");
-      query.refetch();
-    } catch (err: any) {
-      toast.error(err?.message || "Save failed");
+      toast.success(t("savedOk"));
+      void query.refetch();
+    } catch {
+      toast.error(t("saveFail"));
     } finally {
       setSaving(false);
     }
   };
 
-  if (query.isLoading || !data) return <PageSpinner label="Loading wallet policy…" />;
+  if (query.isLoading || !data) return <PageSpinner label={t("loading")} />;
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <PageHeader
-        title="Student wallet policy"
-        description="Bounds on a SINGLE top-up, checked server-side before any money is taken — online (Paymob) and center cash alike."
-      />
+    <div className="flex w-full max-w-2xl flex-col gap-5">
+      <PageHeader title={t("title")} description={t("subtitle")} rule />
 
-      <Alert>
-        <InfinityIcon className="size-4" />
-        <AlertTitle>No balance cap</AlertTitle>
-        <AlertDescription>
-          A student can hold any wallet balance. The old 500 EGP ceiling was
-          removed on 2026-07-23; these bounds are per-transaction only, so a
-          student blocked by the maximum can simply top up again.
-        </AlertDescription>
-      </Alert>
+      <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+        <InfinityIcon className="mt-px size-4 shrink-0" aria-hidden="true" />
+        <span>
+          <span className="font-semibold text-ink">{t("noCapTitle")}</span> — {t("noCapBody")}
+        </span>
+      </p>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-            >
-              <Wallet className="size-5" />
-            </span>
-            <div className="space-y-0.5">
-              <CardTitle>Top-up bounds</CardTitle>
-              <CardDescription>
-                Applied to every student on every top-up channel.
-              </CardDescription>
-            </div>
+      <section className="rounded-xl border border-rule bg-sheet p-5 shadow-[var(--lift)]">
+        <header className="mb-4 flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-soft text-indigo"
+          >
+            <Wallet className="size-4" />
+          </span>
+          <div>
+            <Eyebrow locale={locale}>{t("boundsTitle")}</Eyebrow>
+            <p className="mt-0.5 text-[13px] text-ink-2">{t("boundsSubtitle")}</p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="min-topup" className="mb-1 block text-sm font-medium">
-                Minimum top-up (EGP)
-              </label>
-              <Input
-                id="min-topup"
-                type="number"
-                min="0"
-                step="0.01"
-                value={minEgp}
-                onChange={(e) => setMinEgp(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Keeps dust amounts off the payment gateway. Currently{" "}
-                {formatEGP(data.minTopup)}.
-              </p>
-            </div>
-            <div>
-              <label htmlFor="max-topup" className="mb-1 block text-sm font-medium">
-                Maximum top-up (EGP)
-              </label>
-              <Input
-                id="max-topup"
-                type="number"
-                min="0"
-                step="0.01"
-                value={maxEgp}
-                onChange={(e) => setMaxEgp(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                A typo guard on a single charge — not a limit on total balance.
-                Currently {formatEGP(data.maxTopup)}.
-              </p>
-            </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="min-topup" className="mb-1 block text-[13px] font-medium text-ink">
+              {t("min")}
+            </label>
+            <Input
+              id="min-topup"
+              type="number"
+              min="0"
+              step="0.01"
+              value={minEgp}
+              onChange={(e) => setMinEgp(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-ink-3">
+              {t("minHint")}{" "}
+              <Num.Money piasters={data.minTopup} locale={locale} sign={false} />
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Changes apply to the next top-up; intents already created keep the
-            amount they were validated at.
-            {data.updatedAt ? ` Last changed ${formatDate(data.updatedAt)}.` : ""}
-          </p>
-          <div className="flex justify-end pt-2">
-            <Button onClick={submit} disabled={saving}>
-              {saving ? <Spinner /> : null}
-              Save settings
-            </Button>
+
+          <div>
+            <label htmlFor="max-topup" className="mb-1 block text-[13px] font-medium text-ink">
+              {t("max")}
+            </label>
+            <Input
+              id="max-topup"
+              type="number"
+              min="0"
+              step="0.01"
+              value={maxEgp}
+              onChange={(e) => setMaxEgp(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-ink-3">
+              {t("maxHint")}{" "}
+              <Num.Money piasters={data.maxTopup} locale={locale} sign={false} />
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="mt-4 text-xs text-ink-3">
+          {t("applyNote")}
+          {data.updatedAt ? (
+            <>
+              {" "}
+              {t("lastChanged")} <Num.Date value={data.updatedAt} locale={locale} />
+            </>
+          ) : null}
+        </p>
+
+        <div className="mt-4 flex justify-end">
+          <Button onClick={submit} disabled={saving}>
+            {saving ? <Spinner /> : null}
+            {t("save")}
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

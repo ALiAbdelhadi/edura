@@ -4,10 +4,12 @@ import React from "react";
 import { useList, useCustomMutation, useInvalidate } from "@refinedev/core";
 import { useRouter } from "next/navigation";
 import { Bell, Check, TriangleAlert } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { toast } from "@repo/ui/components/sonner";
+import { ProseCount } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
@@ -87,23 +89,44 @@ const PORTAL_ROUTES: Record<StaffPortal, ReadonlySet<string>> = {
   finance: new Set(["payments", "subscriptions", "payouts", "commission"]),
 };
 
-function timeAgo(
-  dateStr: string,
-  t: ReturnType<typeof useTranslations<never>>,
-  formatNumber: (n: number | null | undefined) => string,
-): string {
+/* Relative time is PROSE, not data: Arabic-Indic digits, body face, and correct
+   agreement — `منذ يومين`, never `منذ ٢ يوم`. The previous helper interpolated
+   `formatNumber` (Latin digits) into a single fixed noun, which is the most visible
+   possible tell that a product was translated rather than written in Arabic (D-005). */
+function TimeAgo({ dateStr, locale }: { dateStr: string; locale: Locale }) {
+  const t = useTranslations("shared");
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return t("shared.timeJustNow");
-  if (m < 60) return t("shared.timeMinutesAgo", { n: formatNumber(m) });
-  const h = Math.floor(m / 60);
-  if (h < 24) return t("shared.timeHoursAgo", { n: formatNumber(h) });
-  return t("shared.timeDaysAgo", { n: formatNumber(Math.floor(h / 24)) });
+  if (m < 1) return <>{t("timeJustNow")}</>;
+
+  const [count, stem] =
+    m < 60
+      ? [m, "timeMin"]
+      : Math.floor(m / 60) < 24
+        ? [Math.floor(m / 60), "timeHour"]
+        : [Math.floor(m / 1440), "timeDay"];
+
+  return (
+    <>
+      {t("timeAgoPrefix")}{" "}
+      <ProseCount
+        count={count}
+        locale={locale}
+        forms={{
+          one: t(asKey(`${stem}_one`)),
+          two: t.has(asKey(`${stem}_two`)) ? t(asKey(`${stem}_two`)) : undefined,
+          few: t.has(asKey(`${stem}_few`)) ? t(asKey(`${stem}_few`)) : undefined,
+          many: t(asKey(`${stem}_many`)),
+        }}
+      />
+    </>
+  );
 }
 
 export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
   const t = useTranslations();
   const { formatNumber } = useFormatters();
+  const locale = useLocale() as Locale;
   const router = useRouter();
   const invalidate = useInvalidate();
   const basePath = `/dashboard/${portal}`;
@@ -229,7 +252,7 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
               }
               className={cn(
                 "border-s-2 py-0 transition-colors",
-                clickable && "cursor-pointer hover:border-primary/40 hover:bg-accent",
+                clickable && "cursor-pointer hover:border-indigo/40 hover:bg-accent",
                 n.read ? "border-s-transparent opacity-65" : "border-s-primary",
               )}
             >
@@ -246,17 +269,19 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
                         {n.title}
                       </span>
                       {!n.read && (
-                        <span className="size-2 shrink-0 rounded-full bg-info" />
+                        <span className="size-2 shrink-0 rounded-full bg-amber" role="status">
+                          <span className="sr-only">{t("shared.notifUnread")}</span>
+                        </span>
                       )}
                     </div>
-                    <p className="m-0 text-[13px] text-muted-foreground">
+                    <p className="m-0 text-[13px] text-ink-2">
                       {n.body}
                     </p>
                   </div>
                   <div className="shrink-0 text-end">
                     <StatusBadge tone={tone}>{typeText}</StatusBadge>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {timeAgo(n.createdAt, t, formatNumber)}
+                    <div className="mt-1 text-[11px] text-ink-2">
+                      <TimeAgo dateStr={n.createdAt} locale={locale} />
                     </div>
                   </div>
                 </div>

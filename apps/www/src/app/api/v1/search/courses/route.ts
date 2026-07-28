@@ -7,6 +7,7 @@ import {
   searchCourses,
   type StudentCatalogScope,
 } from "@/lib/services/discovery/discovery";
+import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,27 @@ export const GET = withRateLimit(
 
     let studentScope: StudentCatalogScope | null = null;
     const user = await getSessionUser();
+
+    // WHOSE grade/track narrows the default list. A student's own; for a PARENT
+    // shopping for a child, that child's — but only an APPROVED one. An
+    // unapproved or absent studentId resolves no scope at all, which lands the
+    // caller on the same unnarrowed list any anonymous browser already sees;
+    // it never widens what a course row exposes.
+    let scopeUserId: string | null = null;
     if (!browseAll && user?.role === "student") {
+      scopeUserId = user.id;
+    } else if (!browseAll && user?.role === "parent") {
+      const childId = url.searchParams.get("studentId");
+      if (childId) {
+        await platformDb((tx) => assertApprovedChild(tx, user.id, childId));
+        scopeUserId = childId;
+      }
+    }
+
+    if (scopeUserId) {
       const profile = await platformDb((tx) =>
         tx.studentProfile.findUnique({
-          where: { userId: user.id },
+          where: { userId: scopeUserId },
           select: {
             onboardingCompleted: true,
             gradeLevelId: true,

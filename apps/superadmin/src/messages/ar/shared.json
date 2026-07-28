@@ -100,5 +100,19 @@
   "tourSkip": "تخطي",
   "expandSidebar": "توسيع الشريط الجانبي",
   "collapseSidebar": "طيّ الشريط الجانبي",
-  "quickSettings": "اللغة والمظهر"
+  "quickSettings": "اللغة والمظهر",
+  "timeAgoPrefix": "منذ",
+  "timeMin_one": "دقيقة",
+  "timeMin_two": "دقيقتين",
+  "timeMin_few": "دقائق",
+  "timeMin_many": "دقيقة",
+  "timeHour_one": "ساعة",
+  "timeHour_two": "ساعتين",
+  "timeHour_few": "ساعات",
+  "timeHour_many": "ساعة",
+  "timeDay_one": "يوم",
+  "timeDay_two": "يومين",
+  "timeDay_few": "أيام",
+  "timeDay_many": "يوماً",
+  "notifUnread": "غير مقروء"
 }

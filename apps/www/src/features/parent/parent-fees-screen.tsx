@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useList } from "@refinedev/core";
-import { DollarSign, Undo2, BarChart3, Users } from "lucide-react";
+import { DollarSign, Undo2, BarChart3, Users, Plus } from "lucide-react";
 import { useChildSelector, ChildSelectorBar } from "@/components/ui/child-selector";
 import { LineChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
@@ -145,7 +146,19 @@ export function ParentFeesScreen() {
       <PageHeader
         eyebrow={t("roles.parent")}
         title={t("nav.fees")}
-        actions={<ChildSelectorBar />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ChildSelectorBar />
+            {/* This screen stays the read-only payment HISTORY it has always
+                been; paying happens on its own screen. */}
+            <Button asChild size="sm">
+              <Link href="/dashboard/parent/pay">
+                <Plus className="size-4" />
+                {t("nav.payForChild")}
+              </Link>
+            </Button>
+          </div>
+        }
       />
 
       {isLoading && childPayments.length === 0 ? (

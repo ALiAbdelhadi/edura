@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { AlertTriangle, Megaphone, ShieldAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -32,8 +33,9 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useAdminGet, useOversight, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
@@ -58,7 +60,8 @@ type SessionRow = {
 };
 
 export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useOversight<Paged<SessionRow>>(centerId, "sessions", {
     enabled,
     query: { limit: "100" },
@@ -74,28 +77,26 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
     <div className="space-y-3">
       <Alert>
         <AlertTriangle className="size-4" />
-        <AlertTitle>Settled sessions are locked</AlertTitle>
+        <AlertTitle>{t("op_settledLocked")}</AlertTitle>
         <AlertDescription>
-          Once a session has been settled its revenue is already distributed, so it can no longer
-          be cancelled, moved, or completed again. Completing a session is the one action on this
-          screen that writes to the ledger — it always shows a preview first.
+          {t("op_settledLockedBody")}
         </AlertDescription>
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No sessions.</p>
+        <p className="p-4 text-sm text-ink-2">{t("op_noSessions")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Course</TableHead>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Settled</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("op_course")}</TableHead>
+                <TableHead>{t("op_teacher")}</TableHead>
+                <TableHead>{t("op_date")}</TableHead>
+                <TableHead>{t("op_time")}</TableHead>
+                <TableHead>{t("op_status")}</TableHead>
+                <TableHead>{t("op_settled")}</TableHead>
+                <TableHead className="text-end">{t("op_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -105,7 +106,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.courseTitle ?? "—"}</TableCell>
                     <TableCell>{s.teacherName ?? "—"}</TableCell>
-                    <TableCell>{formatDate(s.date, { dateStyle: "medium" })}</TableCell>
+                    <TableCell><Num.Date value={s.date} locale={locale} options={{ dateStyle: "medium" }} className="text-[11px] text-ink-3" /></TableCell>
                     <TableCell>
                       {s.startTime}–{s.endTime}
                     </TableCell>
@@ -115,7 +116,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                     <TableCell>
                       {settled ? (
                         <Badge variant="outline">
-                          {formatDate(s.distributedAt as string, { dateStyle: "short" })}
+                          <Num.Date value={s.distributedAt as string} locale={locale} options={{ dateStyle: "short" }} />
                         </Badge>
                       ) : (
                         "—"
@@ -123,21 +124,19 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                     </TableCell>
                     <TableCell className="text-end">
                       {settled ? (
-                        <span className="text-xs text-muted-foreground">locked — settled</span>
+                        <span className="text-xs text-ink-2">locked — settled</span>
                       ) : (
                         <div className="flex flex-wrap justify-end gap-2">
                           <Button size="sm" onClick={() => setCompleting(s)}>
                             Complete &amp; settle
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setPostponing(s)}>
-                            Postpone
-                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setPostponing(s)}>{t("op_postpone")}</Button>
                           <ControlAction
-                            label="Cancel"
-                            title="Cancel this session?"
+                            label={t("op_cancel")}
+                            title={t("op_cancelSessionQ")}
                             destructive
                             requireReason
-                            confirmText="Cancel session"
+                            confirmText={t("op_cancelSession")}
                             url={`admin/centers/${centerId}/sessions/${s.id}/cancel`}
                             values={{}}
                             onDone={req.refetch}
@@ -203,7 +202,8 @@ function CompleteSessionDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { formatEGP } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const { mutateAsync } = useCustomMutation();
   const [busy, setBusy] = useState(false);
   const preview = useAdminGet<Preview>(
@@ -223,7 +223,7 @@ function CompleteSessionDialog({
         method: "post",
         values: {},
       });
-      toast.success("Session completed — revenue distributed and recorded in the audit log");
+      toast.success(t("op_sessionCompleted"));
       onClose();
       onDone();
     } catch (e) {
@@ -238,9 +238,7 @@ function CompleteSessionDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-4 text-warning" />
-            Complete and settle this session?
-          </DialogTitle>
+            <AlertTriangle className="size-4 text-amber" />{t("op_completeQ")}</DialogTitle>
         </DialogHeader>
 
         {preview.isLoading || !p ? (
@@ -248,33 +246,33 @@ function CompleteSessionDialog({
         ) : (
           <div className="space-y-3 text-sm">
             <Alert>
-              <AlertTitle>This writes to the ledger</AlertTitle>
+              <AlertTitle>{t("op_writesToLedger")}</AlertTitle>
               <AlertDescription>
-                It runs the same settlement the teacher&apos;s own &ldquo;complete&rdquo; runs, at
-                the rates frozen onto this course when it was created. It happens exactly once —
-                a settled session cannot be settled again.
+                {t("op_writesToLedgerBody")}
               </AlertDescription>
             </Alert>
 
             <div className="rounded-md border p-3">
               <p className="font-medium">{p.courseTitle}</p>
               <dl className="mt-2 grid grid-cols-2 gap-1 text-xs">
-                <dt className="text-muted-foreground">Students present</dt>
-                <dd className="text-end font-semibold tabular-nums">{p.presentCount}</dd>
-                <dt className="text-muted-foreground">Per-session price</dt>
-                <dd className="text-end tabular-nums">{formatEGP(p.perSessionPrice)}</dd>
-                <dt className="text-muted-foreground">Pricing method</dt>
-                <dd className="text-end">{p.frozenPricing?.pricingMethod ?? "commission model"}</dd>
-                <dt className="text-muted-foreground">Platform / teacher / center</dt>
-                <dd className="text-end tabular-nums">
-                  {bp(p.frozenPricing?.splitPlatformBp)} / {bp(p.frozenPricing?.splitTeacherBp)} /{" "}
-                  {bp(p.frozenPricing?.splitCenterBp)}
+                <dt className="text-ink-2">{t("op_studentsPresent")}</dt>
+                <dd className="text-end"><Num.Figure value={p.presentCount} locale={locale} className="font-semibold" /></dd>
+                <dt className="text-ink-2">{t("op_perSessionPrice")}</dt>
+                <dd className="text-end"><Num.Money piasters={p.perSessionPrice} locale={locale} sign={false} /></dd>
+                <dt className="text-ink-2">{t("op_pricingMethod")}</dt>
+                <dd className="text-end">{p.frozenPricing?.pricingMethod ?? t("op_commissionModel")}</dd>
+                <dt className="text-ink-2">{t("op_splitLabel")}</dt>
+                <dd className="text-end">
+                  <Num>
+                    {bp(p.frozenPricing?.splitPlatformBp)} / {bp(p.frozenPricing?.splitTeacherBp)} /{" "}
+                    {bp(p.frozenPricing?.splitCenterBp)}
+                  </Num>
                 </dd>
               </dl>
             </div>
 
             {p.presentCount === 0 ? (
-              <p className="text-xs text-destructive">
+              <p className="text-xs text-red">
                 No students are marked present — settling now distributes nothing. Check the
                 attendance first.
               </p>
@@ -283,9 +281,7 @@ function CompleteSessionDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{t("op_cancel")}</Button>
           <Button onClick={run} disabled={busy || preview.isLoading || p?.alreadySettled}>
             {busy ? <Spinner /> : null}
             Complete &amp; distribute
@@ -307,6 +303,7 @@ function PostponeDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [f, setF] = useState({ newDate: "", newStartTime: "", newEndTime: "", reason: "" });
   const [busy, setBusy] = useState(false);
@@ -314,7 +311,7 @@ function PostponeDialog({
 
   const submit = async () => {
     if (!session || !f.newDate || !f.newStartTime || !f.newEndTime || !f.reason.trim()) {
-      toast.error("Date, times and a reason are required");
+      toast.error(t("op_needDateTimesReason"));
       return;
     }
     setBusy(true);
@@ -324,7 +321,7 @@ function PostponeDialog({
         method: "post",
         values: f,
       });
-      toast.success("Session postponed — students notified, recorded in the audit log");
+      toast.success(t("op_sessionPostponed"));
       setF({ newDate: "", newStartTime: "", newEndTime: "", reason: "" });
       onClose();
       onDone();
@@ -339,20 +336,20 @@ function PostponeDialog({
     <Dialog open={!!session} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Postpone session</DialogTitle>
+          <DialogTitle>{t("op_postponeSession")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Checked against the teacher&apos;s and the hall&apos;s other bookings. Refused if the
             session has already been settled.
           </p>
           <label className="space-y-1 text-sm">
-            <span className="block font-medium">New date</span>
+            <span className="block font-medium">{t("op_newDate")}</span>
             <Input type="date" value={f.newDate} onChange={(e) => set("newDate")(e.target.value)} />
           </label>
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Start</span>
+              <span className="block font-medium">{t("op_start")}</span>
               <Input
                 type="time"
                 value={f.newStartTime}
@@ -360,7 +357,7 @@ function PostponeDialog({
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">End</span>
+              <span className="block font-medium">{t("op_end")}</span>
               <Input
                 type="time"
                 value={f.newEndTime}
@@ -369,8 +366,7 @@ function PostponeDialog({
             </label>
           </div>
           <label className="space-y-1 text-sm">
-            <span className="block font-medium">
-              Reason <span className="text-destructive">*</span>
+            <span className="block font-medium">{t("op_reason")}<span className="text-red">*</span>
             </span>
             <Textarea rows={2} value={f.reason} onChange={(e) => set("reason")(e.target.value)} />
           </label>
@@ -399,7 +395,8 @@ type AttendanceRow = {
 };
 
 export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useOversight<Paged<AttendanceRow> & { summary: { status: string; count: number }[] }>(
     centerId,
     "attendance",
@@ -425,7 +422,7 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
           "Corrected — but this session was already settled, so the attendance no longer matches the settled headcount. The settlement was NOT recomputed; the divergence is in the audit log.",
         );
       } else {
-        toast.success("Attendance corrected — recorded in the audit log");
+        toast.success(t("op_attendanceCorrected"));
       }
       req.refetch();
     } catch (e) {
@@ -439,27 +436,24 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
     <div className="space-y-3">
       <Alert>
         <AlertTriangle className="size-4" />
-        <AlertTitle>Correcting a settled session does not move money</AlertTitle>
+        <AlertTitle>{t("op_correctNoMoney")}</AlertTitle>
         <AlertDescription>
-          The attendance record is the truth about a student, so it can always be corrected. But
-          if the session has already settled, the settlement is <strong>not</strong> recomputed —
-          that would re-rate a distributed lesson. The divergence from the settled headcount is
-          written into the audit log instead of being discovered later.
+          {t("op_correctNoMoneyBody")}
         </AlertDescription>
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No attendance records.</p>
+        <p className="p-4 text-sm text-ink-2">{t("op_noAttendance")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Session</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-end">Correct to</TableHead>
+                <TableHead>{t("op_student")}</TableHead>
+                <TableHead>{t("op_course")}</TableHead>
+                <TableHead>{t("op_session")}</TableHead>
+                <TableHead>{t("op_status")}</TableHead>
+                <TableHead className="text-end">{t("op_correctTo")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -468,7 +462,7 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
                   <TableCell className="font-medium">{a.studentName ?? "—"}</TableCell>
                   <TableCell>{a.courseTitle ?? "—"}</TableCell>
                   <TableCell>
-                    {a.sessionDate ? formatDate(a.sessionDate, { dateStyle: "medium" }) : "—"}
+                    {a.sessionDate ? <Num.Date value={a.sessionDate} locale={locale} options={{ dateStyle: "medium" }} /> : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{a.status}</Badge>
@@ -518,7 +512,8 @@ export function DeletionRequestsTab({
   centerId: string;
   enabled: boolean;
 }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<DeletionRow[]>(`admin/centers/${centerId}/deletion-requests`, {
     enabled,
     query: { status: "pending" },
@@ -532,16 +527,14 @@ export function DeletionRequestsTab({
     <div className="space-y-3">
       <Alert>
         <ShieldAlert className="size-4" />
-        <AlertTitle>Approving is a soft delete</AlertTitle>
+        <AlertTitle>{t("op_softDelete")}</AlertTitle>
         <AlertDescription>
-          The account is marked deleted and its live session is cut on the next request, but the
-          row survives — so payments, settlements and every ledger reference to that person stay
-          resolvable. Nothing financial is erased.
+          {t("op_softDeleteBody")}
         </AlertDescription>
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No pending deletion requests.</p>
+        <p className="p-4 text-sm text-ink-2">{t("op_noDeletions")}</p>
       ) : (
         rows.map((r) => {
           const u = typeof r.userId === "string" ? null : r.userId;
@@ -559,42 +552,41 @@ export function DeletionRequestsTab({
                     </Badge>
                   ) : null}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-ink-2">
                   {u?.email ? `${u.email} · ` : ""}
-                  requested {formatDate(r.requestedAt, { dateStyle: "medium" })}
+                  {t("op_requested")} <Num.Date value={r.requestedAt} locale={locale} options={{ dateStyle: "medium" }} />
                 </div>
                 <div className="mt-1 text-xs">Reason: {r.reason}</div>
               </div>
               <div className="flex gap-2">
                 <ControlAction
-                  label="Approve"
-                  title="Approve this deletion request?"
+                  label={t("op_approve")}
+                  title={t("op_approveDeletionQ")}
                   destructive
                   requireReason
-                  confirmText="Approve deletion"
+                  confirmText={t("op_approveDeletion")}
                   url={`admin/centers/${centerId}/deletion-requests/${r.id}/decide`}
                   values={{ decision: "approve" }}
                   onDone={req.refetch}
                   description={
                     <>
                       <p>
-                        The account is soft-deleted and loses access on its very next request.
+                        {t("op_accountSoftDeleted")}
                       </p>
                       <p>
-                        Financial history is <strong>preserved</strong> — nothing in the ledger is
-                        removed or rewritten.
+                        {t("op_financialPreserved1")} <strong>{t("op_financialPreserved2")}</strong> {t("op_financialPreserved3")}
                       </p>
                     </>
                   }
                 />
                 <ControlAction
-                  label="Reject"
-                  title="Reject this deletion request?"
-                  confirmText="Reject"
+                  label={t("op_reject")}
+                  title={t("op_rejectDeletionQ")}
+                  confirmText={t("op_reject")}
                   url={`admin/centers/${centerId}/deletion-requests/${r.id}/decide`}
                   values={{ decision: "reject" }}
                   onDone={req.refetch}
-                  description={<p>The account keeps working. Your note is recorded.</p>}
+                  description={<p>{t("op_accountKeepsWorking")}</p>}
                 />
               </div>
             </div>
@@ -610,6 +602,7 @@ export function DeletionRequestsTab({
 // ===========================================================================
 
 export function BroadcastCard({ centerId }: { centerId: string }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<"center" | "course">("center");
@@ -624,7 +617,7 @@ export function BroadcastCard({ centerId }: { centerId: string }) {
 
   const send = async () => {
     if (!title.trim() || !body.trim() || (scope === "course" && !courseId)) {
-      toast.error("Title, message and (for a course broadcast) a course are required");
+      toast.error(t("op_needBroadcast"));
       return;
     }
     setBusy(true);
@@ -648,37 +641,35 @@ export function BroadcastCard({ centerId }: { centerId: string }) {
   return (
     <>
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        <Megaphone className="size-4" />
-        Broadcast
-      </Button>
+        <Megaphone className="size-4" />{t("op_broadcast")}</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Broadcast a notification</DialogTitle>
+            <DialogTitle>{t("op_broadcastTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink-2">
               Goes to this center&apos;s enrolled students (and their parents for a course
               broadcast). It is sent as the platform, not as the center.
             </p>
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Scope</span>
+              <span className="block font-medium">{t("op_scope")}</span>
               <Select value={scope} onValueChange={(v) => setScope(v as "center" | "course")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="center">Whole center</SelectItem>
-                  <SelectItem value="course">One course</SelectItem>
+                  <SelectItem value="center">{t("op_wholeCenter")}</SelectItem>
+                  <SelectItem value="course">{t("op_oneCourse")}</SelectItem>
                 </SelectContent>
               </Select>
             </label>
             {scope === "course" ? (
               <label className="space-y-1 text-sm">
-                <span className="block font-medium">Course</span>
+                <span className="block font-medium">{t("op_course")}</span>
                 <Select value={courseId} onValueChange={setCourseId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Pick a course" />
+                    <SelectValue placeholder={t("op_pickCourse")} />
                   </SelectTrigger>
                   <SelectContent>
                     {(courses.data?.data ?? []).map((c) => (
@@ -691,11 +682,11 @@ export function BroadcastCard({ centerId }: { centerId: string }) {
               </label>
             ) : null}
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Title</span>
+              <span className="block font-medium">{t("op_title")}</span>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Message</span>
+              <span className="block font-medium">{t("op_message")}</span>
               <Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
             </label>
           </div>
@@ -719,37 +710,38 @@ type BlacklistEntry = {
 };
 
 export function CenterBlacklistCard({ centerId }: { centerId: string }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<BlacklistEntry[]>(`admin/centers/${centerId}/blacklist`);
   const rows = req.data ?? [];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Center blacklist</CardTitle>
+        <CardTitle className="text-base">{t("op_centerBlacklist")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-2">
           A center-level block withdraws that student&apos;s enrollments <em>at this center only</em>,
           through the reversible cascade journal — lifting it restores exactly those rows.
         </p>
         {req.isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nobody is blocked at this center.</p>
+          <p className="text-sm text-ink-2">{t("op_nobodyBlocked")}</p>
         ) : (
           rows.map((b) => (
             <div key={b.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
               <div className="min-w-0">
                 <div className="font-medium">{b.targetId}</div>
-                <div className="text-xs text-muted-foreground">
-                  {b.reason} · {formatDate(b.createdAt, { dateStyle: "medium" })}
+                <div className="text-xs text-ink-2">
+                  {b.reason} · <Num.Date value={b.createdAt} locale={locale} options={{ dateStyle: "medium" }} />
                 </div>
               </div>
               <ControlAction
-                label="Lift"
-                title="Lift this block?"
-                confirmText="Lift"
+                label={t("op_lift")}
+                title={t("op_liftQ")}
+                confirmText={t("op_lift")}
                 requireReason
                 method="delete"
                 url={`admin/centers/${centerId}/blacklist/${b.id}`}

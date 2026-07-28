@@ -39,7 +39,8 @@ client is generated automatically during install — no extra build step needed.
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` | Session JWT signing |
 | `NEXTAUTH_URL` | `https://<your-domain>` | Production URL |
 | `APP_BASE_URL` | `https://<your-domain>` | Links in emails |
-| `MAIL_PROVIDER` | `console` / `mailgun` / `sendgrid` | + provider keys if not console |
+| `MAIL_PROVIDER` | `console` / `smtp` | **Set `smtp` in production.** These are the only two accepted values ([`packages/server-core/src/mail/send.ts`](../../packages/server-core/src/mail/send.ts)) — anything else (`mailgun`, `sendgrid`, `resend`, a typo) silently falls back to `console` and **delivers no mail**, logging only a warning. Invites and password resets fail silently. |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` | provider SMTP credentials | Required when `MAIL_PROVIDER=smtp`. Provider-agnostic nodemailer over SMTP — Brevo, Zoho, Gmail, Resend's SMTP bridge, or a self-hosted relay all work as an env change. Verify with `pnpm --filter www mail:check`. |
 | `MAIL_FROM` | `no-reply@<your-domain>` | |
 
 ## Database migrations

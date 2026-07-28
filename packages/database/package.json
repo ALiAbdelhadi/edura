@@ -2,7 +2,7 @@
   "name": "@repo/database",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura data layer \u2014 Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
+  "description": "Edura data layer — Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
   "type": "module",
   "exports": {
     ".": {
@@ -73,25 +73,27 @@
     "db:bootstrap-role": "tsx scripts/bootstrap-app-role.ts",
     "db:verify": "tsx scripts/verify-db.ts",
     "postinstall": "prisma generate",
-    "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts"
+    "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts",
+    "seed:teamnotes-demo": "tsx --env-file=.env prisma/team-notes-demo-seed.ts",
+    "seed:parentpay-demo": "tsx --env-file=.env prisma/parent-pay-demo-seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.8.0",
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
-    "@prisma/client-runtime-utils": "^7.8.0",
+    "@prisma/adapter-neon": "^7.9.0",
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/client": "^7.9.0",
+    "@prisma/client-runtime-utils": "^7.9.0",
     "bcryptjs": "3.0.3",
     "pg": "^8.22.0",
-    "ws": "^8.18.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",
     "@types/pg": "^8.20.0",
-    "@types/ws": "^8.5.13",
+    "@types/ws": "^8.18.1",
     "dotenv": "17.4.2",
-    "prisma": "^7.8.0",
+    "prisma": "^7.9.0",
     "tsx": "4.23.0",
     "typescript": "5.9.3"
   }

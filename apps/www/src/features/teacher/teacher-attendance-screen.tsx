@@ -242,7 +242,7 @@ export function TeacherAttendanceScreen() {
     },
     {
       id: "action",
-      header: "",
+      header: t("common.colActions"),
       cell: ({ row }) => (
         <Button size="sm" onClick={() => setSelectedSession(row.original)}>
           {t("teacher.markAttendance")}

@@ -3,7 +3,6 @@ import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { scopedDb } from "@/lib/db/scope";
 import {
-  getStudentAssignmentsTrend,
   getStudentGradeTrend,
 } from "@/lib/services/reports/reports";
 
@@ -106,16 +105,10 @@ export const GET = withErrors(async () => {
       : 0;
   const averageGrade = percentageToGrade(avgPct);
 
-  const pendingGrades = grades.filter((g) => g.scores.length === 0);
-
-  const [gradeTrend, assignmentsTrend] = await Promise.all([
-    getStudentGradeTrend(user),
-    getStudentAssignmentsTrend(user),
-  ]);
+  const gradeTrend = await getStudentGradeTrend(user);
 
   return ok({
     attendanceRate,
-    assignmentsDue: pendingGrades.length,
     averageGrade,
     gpa,
     unreadMessages: 0,
@@ -126,27 +119,15 @@ export const GET = withErrors(async () => {
       room: "",
       teacher: "",
     })),
-    dueSoon: pendingGrades.slice(0, 3).map((g) => ({
-      id: g.id,
-      title: g.name,
-      subject: courseNameMap.get(g.courseId) ?? "",
-      due: new Date(g.date).toLocaleDateString("en", { month: "short", day: "numeric" }),
-      urgent: false,
-    })),
     upcoming: upcomingSessions.map((s) => ({
       id: s.id,
       time: s.startTime,
       subject: courseNameMap.get(s.courseId) ?? "",
       date: new Date(s.date).toLocaleDateString("en", { month: "short", day: "numeric" }),
     })),
-    overallCompletion:
-      grades.length > 0
-        ? Math.round((grades.filter((g) => g.scores.length > 0).length / grades.length) * 100)
-        : 0,
     subjectPerformance,
     analytics: {
       gradeTrend: gradeTrend.items,
-      assignmentsTrend: assignmentsTrend.series,
     },
   });
 });

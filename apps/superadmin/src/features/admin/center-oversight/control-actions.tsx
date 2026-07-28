@@ -14,6 +14,8 @@ import {
 } from "@repo/ui/components/dialog";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/components/sonner";
+import { useTranslations } from "next-intl";
+
 import { Spinner } from "@/components/kit/spinner";
 
 // ---------------------------------------------------------------------------
@@ -50,6 +52,7 @@ export function ControlAction({
   size?: "sm" | "default";
   onDone?: () => void;
 }) {
+  const t = useTranslations("oversight");
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,7 +62,7 @@ export function ControlAction({
 
   const run = async () => {
     if (!canSubmit) {
-      toast.error("A reason is required for this action");
+      toast.error(t("reasonRequiredToast"));
       return;
     }
     setBusy(true);
@@ -69,12 +72,12 @@ export function ControlAction({
         method,
         values: { ...values, ...(reason.trim() ? { reason: reason.trim() } : {}) },
       });
-      toast.success("Done — the action was recorded in the audit log");
+      toast.success(t("actionDone"));
       setOpen(false);
       setReason("");
       onDone?.();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Action failed");
+    } catch {
+      toast.error(t("actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -94,7 +97,7 @@ export function ControlAction({
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {destructive ? <ShieldAlert className="size-4 text-destructive" /> : null}
+              {destructive ? <ShieldAlert className="size-4 text-red" /> : null}
               {title}
             </DialogTitle>
             <DialogDescription asChild>
@@ -104,19 +107,26 @@ export function ControlAction({
 
           <label className="space-y-1 text-sm">
             <span className="font-medium">
-              Reason {requireReason ? <span className="text-destructive">*</span> : "(optional)"}
+              {t("reason")}{" "}
+              {requireReason ? (
+                <span className="text-red" aria-hidden="true">
+                  *
+                </span>
+              ) : (
+                t("reasonOptional")
+              )}
             </span>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Recorded in the audit log alongside who, what and when."
+              placeholder={t("reasonPlaceholder")}
               rows={3}
             />
           </label>
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               variant={destructive ? "destructive" : "default"}
@@ -124,7 +134,7 @@ export function ControlAction({
               disabled={busy || !canSubmit}
             >
               {busy ? <Spinner /> : null}
-              {confirmText ?? "Confirm"}
+              {confirmText ?? t("confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

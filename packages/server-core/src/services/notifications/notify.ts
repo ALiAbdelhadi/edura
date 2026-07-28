@@ -67,6 +67,10 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   // Safety escalation — in-app + push to the reviewing staff, never SMS/email
   // (report details can contain a minor's own words; keep them in-platform).
   chat_report_filed: C(true, true, false, false),
+  // Team notes: internal team coordination (center staff / teacher's
+  // assistants). In-app + push only — never email/SMS noise.
+  team_note_created: C(true, true, false, false),
+  team_note_status_changed: C(true, true, false, false),
 };
 
 export async function notify(

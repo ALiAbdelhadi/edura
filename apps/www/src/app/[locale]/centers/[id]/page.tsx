@@ -135,7 +135,7 @@ export default function CenterDetailPage() {
     },
     {
       id: "action",
-      header: "",
+      header: t("common.colActions"),
       cell: ({ row }) => (
         <Button asChild variant="link" size="sm">
           <Link href={`/courses/${row.original.id}`}>{t("common.view")}</Link>

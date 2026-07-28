@@ -6,27 +6,22 @@ import type {
   ParentSubjectComparisonPoint,
   RevenueTimeseriesPoint,
   SessionStatusPoint,
-  StudentAssignmentsTrendPoint,
   StudentGradeTrendPoint,
   TeacherAttendanceTrendPoint,
   TeacherGradeLoadPoint,
   TeacherScoreDistributionPoint,
 } from "@/lib/analytics/contracts";
 
-const DEFAULT_COLORS = ["#0fa5e9", "#8b5cf6", "#177674", "#f97315", "#22c55f", "#ed4899", "#600000"];
-
 export function revenueVsExpensesLineSeries(points: RevenueTimeseriesPoint[]) {
   return [
     {
       id: "revenue",
       label: "Revenue",
-      color: "#0fa5e9",
       points: points.map((row) => ({ x: row.label, value: row.revenue })),
     },
     {
       id: "expenses",
       label: "Expenses",
-      color: "#f97315",
       points: points.map((row) => ({ x: row.label, value: row.expenses })),
     },
   ];
@@ -37,7 +32,6 @@ export function sessionStatusDonutData(items: SessionStatusPoint[]) {
     id: row.status,
     label: row.status[0].toUpperCase() + row.status.slice(1),
     value: row.count,
-    color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
   }));
 }
 
@@ -67,7 +61,6 @@ export function teacherAttendanceLineSeries(points: TeacherAttendanceTrendPoint[
     {
       id: "attendance",
       label: "Attendance Rate",
-      color: "#22c55f",
       points: points.map((row) => ({ x: row.label, value: row.attendanceRatePct })),
     },
   ];
@@ -93,32 +86,22 @@ export function studentGradeTrendLineSeries(points: StudentGradeTrendPoint[]) {
     {
       id: "grades",
       label: "Grade %",
-      color: "#0fa5e9",
       points: points.map((row) => ({ x: row.label, value: row.percentage })),
     },
   ];
 }
 
-export function assignmentsTrendBarData(points: StudentAssignmentsTrendPoint[]) {
-  return points.map((row) => ({
-    label: row.label,
-    pending: row.pending,
-    graded: row.graded,
-  }));
-}
 
 export function paymentTrendLineSeries(points: ParentPaymentTrendPoint[]) {
   return [
     {
       id: "paid",
       label: "Paid",
-      color: "#22c55f",
       points: points.map((row) => ({ x: row.label, value: row.paid })),
     },
     {
       id: "net",
       label: "Net",
-      color: "#0fa5e9",
       points: points.map((row) => ({ x: row.label, value: row.net })),
     },
   ];

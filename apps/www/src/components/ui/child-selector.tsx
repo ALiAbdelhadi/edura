@@ -77,7 +77,7 @@ export function ChildSelectorBar() {
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
                   active
-                    ? "gradient-primary text-primary-foreground"
+                    ? "bg-indigo text-indigo-ink"
                     : "bg-background text-muted-foreground",
                 )}
               >

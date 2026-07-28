@@ -88,6 +88,17 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
+  images: {
+    // `as const` is load-bearing: `remotePatterns` is typed `(RemotePattern | URL)[]`,
+    // and RemotePattern.protocol is the union "http" | "https". Without it the literal
+    // widens to `string`, matches neither member, and the whole config fails to typecheck.
+    remotePatterns: [
+      { protocol: "https" as const, hostname: "res.cloudinary.com" },
+      // Placeholder photos used by the room demo seed (preview-seed.ts) only.
+      { protocol: "https" as const, hostname: "picsum.photos" },
+    ],
+  },
+
   transpilePackages: ["@repo/database", "@repo/ui", "@repo/server-core"],
   serverExternalPackages: [
     "bcryptjs",

@@ -281,7 +281,7 @@ export function ParentLinkingScreen() {
       <Card className="border-primary/15">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl gradient-primary text-primary-foreground shadow-sm">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo text-indigo-ink">
               <Link2 className="size-5" />
             </div>
             <CardTitle>{t("parentLinking.linkChild")}</CardTitle>

@@ -27,7 +27,7 @@ export function TableSkeleton({ rows = 6, columns = 4 }: { rows?: number; column
   return (
     <div role="status" aria-busy aria-label={t("common.loading")} className="w-full">
       <div
-        className="mb-2 grid gap-4 rounded-md bg-muted px-4 py-3"
+        className="mb-2 grid gap-4 rounded-md bg-field px-4 py-3"
         style={gridStyle}
       >
         {Array.from({ length: columns }).map((_, c) => (

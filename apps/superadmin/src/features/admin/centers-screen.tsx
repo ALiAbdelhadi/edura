@@ -2,9 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { Eye, Home, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Label } from "@repo/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
 import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -24,9 +34,10 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { amenityLabel } from "@/lib/rooms/amenities";
 
 type Split = { platformShareBp: number; teacherShareBp: number; centerShareBp: number };
@@ -56,6 +67,7 @@ function M2RateEditor({
   onClear: () => Promise<void>;
   allowClear?: boolean;
 }) {
+  const t = useTranslations("centersAdmin");
   const seed = override ?? inherited;
   const [form, setForm] = useState<"fee" | "bp">(seed?.bp != null ? "bp" : "fee");
   const [value, setValue] = useState(
@@ -88,7 +100,7 @@ function M2RateEditor({
           ? { fee: Math.round(num * 100), bp: null }
           : { fee: null, bp: Math.round(num * 100) },
       );
-      toast.success("Per-student rate saved");
+      toast.success(t("rateSaved"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to save rate");
     } finally {
@@ -100,7 +112,7 @@ function M2RateEditor({
     setBusy(true);
     try {
       await onClear();
-      toast.success("Per-student rate cleared");
+      toast.success(t("rateCleared"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to clear");
     } finally {
@@ -122,21 +134,22 @@ function M2RateEditor({
             Inheriting{inherited.source ? ` (${inherited.source})` : ""}: {describe(inherited)}
           </Badge>
         ) : (
-          <Badge variant="outline">Not configured — Method 2 unavailable</Badge>
+          <Badge variant="outline">{t("notConfigured")}</Badge>
         )}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs">
-          Rate form
-          <select
-            className="border-input bg-transparent flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
-            value={form}
-            onChange={(e) => setForm(e.target.value as "fee" | "bp")}
-          >
-            <option value="fee">EGP per attending student</option>
-            <option value="bp">% of lesson price per student</option>
-          </select>
-        </label>
+        <div className="text-xs">
+          <Label htmlFor="rate-form" className="text-xs font-normal">{t("rateForm")}</Label>
+          <Select value={form} onValueChange={(v) => setForm(v as "fee" | "bp")}>
+            <SelectTrigger id="rate-form" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fee">{t("egpPerStudent")}</SelectItem>
+              <SelectItem value="bp">% of lesson price per student</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <label className="text-xs">
           {form === "fee" ? "EGP / student" : "% / student"}
           <Input
@@ -155,9 +168,7 @@ function M2RateEditor({
           Save rate
         </Button>
         {allowClear && override ? (
-          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>
-            Clear override
-          </Button>
+          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
         ) : null}
       </div>
     </div>
@@ -177,6 +188,7 @@ function RoomMethodsRow({
   methods: PricingMethod[];
   onSave: (m: PricingMethod[]) => Promise<void>;
 }) {
+  const t = useTranslations("centersAdmin");
   const [sel, setSel] = useState<PricingMethod[]>(methods);
   const [busy, setBusy] = useState(false);
   useEffect(() => setSel(methods), [methods]);
@@ -186,13 +198,13 @@ function RoomMethodsRow({
 
   const save = async () => {
     if (sel.length === 0) {
-      toast.error("A room must offer at least one pricing method");
+      toast.error(t("needOneMethod"));
       return;
     }
     setBusy(true);
     try {
       await onSave(sel);
-      toast.success("Allowed methods saved");
+      toast.success(t("methodsSaved"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to save methods");
     } finally {
@@ -204,10 +216,16 @@ function RoomMethodsRow({
     <div className="flex flex-wrap items-center gap-3">
       <span className="text-xs font-medium">Allowed pricing methods:</span>
       {(Object.keys(METHOD_LABELS) as PricingMethod[]).map((m) => (
-        <label key={m} className="flex items-center gap-1 text-xs">
-          <input type="checkbox" checked={sel.includes(m)} onChange={() => toggle(m)} />
-          {METHOD_LABELS[m]}
-        </label>
+        <div key={m} className="flex items-center gap-1.5 text-xs">
+          <Checkbox
+            id={`pricing-method-${m}`}
+            checked={sel.includes(m)}
+            onCheckedChange={() => toggle(m)}
+          />
+          <Label htmlFor={`pricing-method-${m}`} className="text-xs font-normal">
+            {METHOD_LABELS[m]}
+          </Label>
+        </div>
       ))}
       <Button size="sm" variant="outline" onClick={save} disabled={busy || sel.length === 0}>
         {busy ? <Spinner /> : null}
@@ -233,6 +251,7 @@ function SplitEditor({
   onClear: () => Promise<void>;
   allowClear?: boolean;
 }) {
+  const t = useTranslations("centersAdmin");
   const seed = override ?? inherited;
   const [platform, setPlatform] = useState(seed ? bpToPct(seed.platformShareBp) : "");
   const [teacher, setTeacher] = useState(seed ? bpToPct(seed.teacherShareBp) : "");
@@ -254,7 +273,7 @@ function SplitEditor({
 
   const save = async () => {
     if (!valid) {
-      toast.error("The three shares must each be 0–100 and sum to exactly 100%");
+      toast.error(t("splitError"));
       return;
     }
     setBusy(true);
@@ -264,7 +283,7 @@ function SplitEditor({
         teacherShareBp: Math.round(nums[1] * 100),
         centerShareBp: Math.round(nums[2] * 100),
       });
-      toast.success("Revenue split saved");
+      toast.success(t("splitSaved"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to save split");
     } finally {
@@ -276,7 +295,7 @@ function SplitEditor({
     setBusy(true);
     try {
       await onClear();
-      toast.success("Override cleared — now inherits");
+      toast.success(t("overrideCleared"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to clear");
     } finally {
@@ -295,20 +314,14 @@ function SplitEditor({
         ) : null}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <label className="text-xs">
-          Platform %
-          <Input type="number" min={0} max={100} step="0.01" value={platform} onChange={(e) => setPlatform(e.target.value)} />
+        <label className="text-xs">{t("platformPct")}<Input type="number" min={0} max={100} step="0.01" value={platform} onChange={(e) => setPlatform(e.target.value)} />
         </label>
-        <label className="text-xs">
-          Teacher %
-          <Input type="number" min={0} max={100} step="0.01" value={teacher} onChange={(e) => setTeacher(e.target.value)} />
+        <label className="text-xs">{t("teacherPct")}<Input type="number" min={0} max={100} step="0.01" value={teacher} onChange={(e) => setTeacher(e.target.value)} />
         </label>
-        <label className="text-xs">
-          Center %
-          <Input type="number" min={0} max={100} step="0.01" value={center} onChange={(e) => setCenter(e.target.value)} />
+        <label className="text-xs">{t("centerPct")}<Input type="number" min={0} max={100} step="0.01" value={center} onChange={(e) => setCenter(e.target.value)} />
         </label>
       </div>
-      <div className={`text-xs ${valid ? "text-muted-foreground" : "text-destructive"}`}>
+      <div className={`text-xs ${valid ? "text-ink-2" : "text-red"}`}>
         Sum: {Number.isFinite(sum) ? sum : "—"}% {valid ? "" : "(must equal 100)"}
       </div>
       <div className="flex gap-2">
@@ -317,9 +330,7 @@ function SplitEditor({
           Save
         </Button>
         {allowClear && override ? (
-          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>
-            Clear override
-          </Button>
+          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
         ) : null}
       </div>
     </div>
@@ -327,7 +338,8 @@ function SplitEditor({
 }
 
 function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { formatEGP } = useFormatters();
+  const t = useTranslations("centersAdmin");
+  const locale = useLocale() as Locale;
   const { mutateAsync: mutate } = useCustomMutation();
 
   const splitReq = useCustom({
@@ -370,7 +382,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
   const saveAffiliationShare = async (affiliationId: string, egp: string) => {
     const centerShare = egp.trim() === "" ? 0 : Math.round(Number(egp) * 100);
     if (!Number.isFinite(centerShare) || centerShare < 0) {
-      toast.error("Enter a valid amount");
+      toast.error(t("invalidAmount"));
       return;
     }
     try {
@@ -379,7 +391,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
         method: "put",
         values: { centerShare },
       });
-      toast.success("Center share updated");
+      toast.success(t("shareUpdated"));
       refetchAll();
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to update share");
@@ -437,12 +449,12 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
   const saveRoomPrice = async (roomId: string, priceEgp: string) => {
     const price = priceEgp.trim() === "" ? null : Math.round(Number(priceEgp) * 100);
     if (price !== null && (!Number.isFinite(price) || price < 0)) {
-      toast.error("Enter a valid price");
+      toast.error(t("invalidPrice"));
       return;
     }
     try {
       await mutate({ url: `admin/centers/${centerId}/rooms/${roomId}`, method: "patch", values: { price } });
-      toast.success("Room price updated");
+      toast.success(t("priceUpdated"));
       refetchAll();
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to update price");
@@ -464,7 +476,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
           <div className="space-y-6">
             <Alert>
               <Info className="size-4" />
-              <AlertTitle>Revenue split (room-based courses)</AlertTitle>
+              <AlertTitle>{t("revenueSplit")}</AlertTitle>
               <AlertDescription>
                 Resolution: per-room override → per-center override → global default. Editing here only
                 affects courses created AFTER the change — existing courses keep the split they were
@@ -474,9 +486,9 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
 
             {/* Center-level split */}
             <div>
-              <div className="mb-2 text-sm font-semibold">Center default split</div>
+              <div className="mb-2 text-sm font-semibold">{t("centerSplit")}</div>
               <SplitEditor
-                label="Applies to every room without its own override"
+                label={t("centerSplitHint")}
                 override={splitData?.override ?? null}
                 inherited={
                   splitData?.override
@@ -492,11 +504,9 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
 
             {/* Center-level Method-2 rate */}
             <div>
-              <div className="mb-2 text-sm font-semibold">
-                Per-student rate (Method 2) — center default
-              </div>
+              <div className="mb-2 text-sm font-semibold">{t("perStudentRate")}</div>
               <M2RateEditor
-                label="What the center earns per ATTENDING student on per-student halls"
+                label={t("perStudentHint")}
                 override={splitData?.m2Rate?.override ?? null}
                 inherited={
                   splitData?.m2Rate?.override
@@ -512,10 +522,8 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
 
             {/* Teacher arrangements — the flat share for NO-ROOM courses */}
             <div className="space-y-2">
-              <div className="text-sm font-semibold">
-                Teacher arrangements — flat share for courses with no hall
-              </div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-sm font-semibold">{t("teacherArrangements")}</div>
+              <p className="text-xs text-ink-2">
                 Piasters per PRESENT student for a teacher&apos;s courses that book no hall.
                 Neither the teacher nor the center can propose this — it is set here only.
                 Unlike the hall split, it is read live at settlement, so a change affects
@@ -523,9 +531,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                 change).
               </p>
               {(affData?.affiliations ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  This center has no teacher arrangements yet.
-                </p>
+                <p className="text-sm text-ink-2">{t("noArrangements")}</p>
               ) : (
                 (affData?.affiliations ?? []).map((a) => (
                   <AffiliationShareRow
@@ -534,7 +540,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                     status={a.status}
                     noRoomCourses={a.noRoomCourses}
                     initial={a.centerShare ? String(a.centerShare / 100) : ""}
-                    formatted={formatEGP(a.centerShare ?? 0)}
+                    formatted={<Num.Money piasters={a.centerShare ?? 0} locale={locale} sign={false} />}
                     onSave={(v) => saveAffiliationShare(a.id, v)}
                   />
                 ))
@@ -543,9 +549,9 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
 
             {/* Rooms */}
             <div className="space-y-3">
-              <div className="text-sm font-semibold">Rooms</div>
+              <div className="text-sm font-semibold">{t("colRooms")}</div>
               {(roomsData?.rooms ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">This center has no active rooms.</p>
+                <p className="text-sm text-ink-2">{t("noRooms")}</p>
               ) : (
                 (roomsData?.rooms ?? []).map((room) => (
                   <Card key={room.id}>
@@ -582,13 +588,13 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                       {/* Price override */}
                       <RoomPriceRow
                         initial={room.price != null ? String(room.price / 100) : ""}
-                        formatted={room.price != null ? formatEGP(room.price) : "—"}
+                        formatted={room.price != null ? <Num.Money piasters={room.price} locale={locale} sign={false} /> : "—"}
                         onSave={(v) => saveRoomPrice(room.id, v)}
                       />
 
                       {/* Per-room split override */}
                       <SplitEditor
-                        label="Per-room split override"
+                        label={t("roomSplitOverride")}
                         override={room.roomSplitOverride ?? null}
                         inherited={room.effectiveSplit ?? roomsData?.centerSplit ?? null}
                         onSave={(s) => saveRoomSplit(room.id, s)}
@@ -597,7 +603,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
 
                       {/* Per-room Method-2 rate override */}
                       <M2RateEditor
-                        label="Per-room per-student rate override (Method 2)"
+                        label={t("roomPerStudentOverride")}
                         override={room.roomM2Override ?? null}
                         inherited={
                           room.roomM2Override
@@ -631,9 +637,10 @@ function AffiliationShareRow({
   status: string;
   noRoomCourses: number;
   initial: string;
-  formatted: string;
+  formatted: React.ReactNode;
   onSave: (v: string) => Promise<void> | void;
 }) {
+  const t = useTranslations("centersAdmin");
   const [val, setVal] = useState(initial);
   const [busy, setBusy] = useState(false);
   useEffect(() => setVal(initial), [initial]);
@@ -650,7 +657,7 @@ function AffiliationShareRow({
           )}
         </div>
         <label className="text-xs">
-          Share per present student (EGP) — current: {formatted}
+          {t("sharePerStudent")} {formatted}
           <Input
             type="number"
             min={0}
@@ -686,25 +693,25 @@ function RoomPriceRow({
   onSave,
 }: {
   initial: string;
-  formatted: string;
+  formatted: React.ReactNode;
   onSave: (v: string) => Promise<void> | void;
 }) {
+  const t = useTranslations("centersAdmin");
   const [val, setVal] = useState(initial);
   useEffect(() => setVal(initial), [initial]);
   return (
     <div className="flex items-end gap-2">
       <label className="text-xs">
-        Hall price (EGP) — current: {formatted}
+        {t("hallPriceCurrent")} {formatted}
         <Input type="number" min={0} step="0.01" value={val} onChange={(e) => setVal(e.target.value)} />
       </label>
-      <Button size="sm" variant="outline" onClick={() => onSave(val)}>
-        Save price
-      </Button>
+      <Button size="sm" variant="outline" onClick={() => onSave(val)}>{t("savePrice")}</Button>
     </div>
   );
 }
 
 function GlobalSplitCard() {
+  const t = useTranslations("centersAdmin");
   const { mutateAsync: mutate } = useCustomMutation();
   const req = useCustom({ url: "admin/revenue-split", method: "get" });
   const data = req.result?.data as { split: Split | null; m2Rate?: M2Rate | null } | undefined;
@@ -725,7 +732,7 @@ function GlobalSplitCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Global default revenue split</CardTitle>
+        <CardTitle className="text-base">{t("globalSplit")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {req.query.isLoading ? (
@@ -733,7 +740,7 @@ function GlobalSplitCard() {
         ) : (
           <>
             <SplitEditor
-              label="Applies to any center/room with no override"
+              label={t("globalSplitHint")}
               override={data?.split ?? null}
               inherited={null}
               onSave={save}
@@ -741,7 +748,7 @@ function GlobalSplitCard() {
               allowClear={false}
             />
             <M2RateEditor
-              label="Global per-student rate (Method 2) — no override anywhere"
+              label={t("globalPerStudent")}
               override={data?.m2Rate ?? null}
               inherited={null}
               onSave={saveM2}
@@ -755,13 +762,14 @@ function GlobalSplitCard() {
 }
 
 export function CentersScreen() {
+  const t = useTranslations("centersAdmin");
   const [detailId, setDetailId] = useState<string | null>(null);
   const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });
   const centers = useMemo(() => (result?.data as any[]) ?? [], [result]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Centers" />
+      <PageHeader title={t("title")} />
 
       <GlobalSplitCard />
       <Card>
@@ -769,15 +777,15 @@ export function CentersScreen() {
           {query.isLoading ? (
             <PageSpinner />
           ) : centers.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No centers yet.</p>
+            <p className="p-4 text-sm text-ink-2">{t("noCenters")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Short ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-end">Actions</TableHead>
+                  <TableHead>{t("colName")}</TableHead>
+                  <TableHead>{t("colShortId")}</TableHead>
+                  <TableHead>{t("colStatus")}</TableHead>
+                  <TableHead className="text-end">{t("colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -792,9 +800,7 @@ export function CentersScreen() {
                       <div className="flex justify-end gap-2">
                         <Button asChild size="sm">
                           <Link href={`/dashboard/superadmin/centers/${c.id}`}>
-                            <Eye className="size-4" />
-                            Oversight
-                          </Link>
+                            <Eye className="size-4" />{t("oversight")}</Link>
                         </Button>
                         {/* The pricing dialog stays exactly where it was — the
                             revenue split is edited here and nowhere else. */}

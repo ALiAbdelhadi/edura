@@ -14,6 +14,15 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreate, useCustom, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Label } from "@repo/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
 import {
   Card,
   CardAction,
@@ -658,29 +667,36 @@ export function AdminFeesScreen() {
             {subPlan === "per_session" ? (
               <div className="space-y-2">
                 <div className="mb-1 text-sm font-medium">{t("adminManage.fees.session")}</div>
-                <select
-                  aria-label={t("adminManage.fees.session")}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                  value={subSessionId}
-                  onChange={(e) => setSubSessionId(e.target.value)}
+                <Select
+                  value={subSessionId || undefined}
+                  onValueChange={setSubSessionId}
                 >
-                  <option value="">{t("adminManage.fees.selectSession")}</option>
-                  {((subSessionsResult?.data ?? []) as any[])
-                    .filter((s) => s.status === "scheduled")
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {formatDate(s.date)} {s.startTime}–{s.endTime}
-                      </option>
-                    ))}
-                </select>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={t("adminManage.fees.session")}
+                  >
+                    <SelectValue placeholder={t("adminManage.fees.selectSession")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {((subSessionsResult?.data ?? []) as any[])
+                      .filter((s) => s.status === "scheduled")
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {new Date(s.date).toLocaleDateString()} {s.startTime}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sub-mark-attendance"
                     checked={subMarkAttendance}
-                    onChange={(e) => setSubMarkAttendance(e.target.checked)}
+                    onCheckedChange={(v) => setSubMarkAttendance(v === true)}
                   />
-                  {t("adminManage.fees.markAttendanceNow")}
-                </label>
+                  <Label htmlFor="sub-mark-attendance" className="text-sm font-normal">
+                    {t("adminManage.fees.markAttendanceNow")}
+                  </Label>
+                </div>
               </div>
             ) : null}
             <p className="text-xs text-muted-foreground">

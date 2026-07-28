@@ -7,6 +7,7 @@ import RoleGuard from "@/components/refine/role-guard";
 // communication, so Messages IS their main workspace.
 const navItems = [
   { href: "/dashboard/assistant", icon: "message", label: "Messages" },
+  { href: "/dashboard/assistant/notes", icon: "clipboard", label: "Team Notes" },
   { href: "/dashboard/assistant/classes", icon: "book", label: "My Classes" },
   { href: "/dashboard/assistant/attendance", icon: "check", label: "Attendance" },
   { href: "/dashboard/assistant/grades", icon: "chart", label: "Gradebook" },

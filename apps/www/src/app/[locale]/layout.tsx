@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import {
-  Plus_Jakarta_Sans,
   Noto_Sans,
   IBM_Plex_Sans_Arabic,
+  IBM_Plex_Mono,
 } from "next/font/google";
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
@@ -14,12 +14,6 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { baseMessages } from "@/lib/i18n/scope";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-plus-jakarta-sans",
-});
-
 const notoSans = Noto_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
@@ -30,6 +24,17 @@ const plexArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-plex-arabic",
+});
+
+// Every FIGURE in the product is set in this face — money, IDs, dates, transaction
+// refs, codes, counts. It is what separates "the system computed this" from "a human
+// wrote this", and it is what makes Latin-inside-Arabic systematic rather than
+// incidental. It carries no Arabic glyphs, which is deliberate: Arabic-Indic digits
+// in prose must NOT resolve here (see the `num-prose` utility).
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
 });
 
 export function generateStaticParams() {
@@ -99,10 +104,18 @@ export default async function RootLayout({
   // serialize all 72KB (en) / 94KB (ar) into every page, login included.
   const messages = baseMessages(await getMessages());
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body
-        className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}
-      >
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      // next/font declares the --font-* custom properties on whichever element
+      // carries these classes. They belong on <html> (= :root) because the
+      // Tailwind @theme block resolves --font-sans / --font-mono there; on
+      // <body> the var() is invalid at computed-value time and `font-mono`
+      // silently falls back to the sans face.
+      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable}`}
+    >
+      <body>
         {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
             it as a hoistable resource and never warns about client-rendered
             inline scripts; same-origin + blocking so it runs before paint. */}

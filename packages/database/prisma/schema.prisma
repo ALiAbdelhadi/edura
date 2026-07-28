@@ -259,7 +259,6 @@ enum DevicePlatform {
   @@map("device_platform")
 }
 
-
 // ---- Finance (PRD §3.3) ----
 
 enum TransactionType {
@@ -379,6 +378,10 @@ enum NotificationType {
   new_chat_message
   chat_group_message
   chat_report_filed
+  // Team notes: a new note tells the rest of the team; a status flip
+  // (done/declined) tells the note's author.
+  team_note_created
+  team_note_status_changed
 
   @@map("notification_type")
 }
@@ -522,6 +525,7 @@ model StudentProfile {
 model ParentProfile {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @unique @map("user_id") @db.Uuid
+  walletBalance Int      @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0), H2
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -816,6 +820,60 @@ model CenterStaff {
   @@map("center_staff")
 }
 
+enum TeamNoteStatus {
+  open
+  done
+  declined
+
+  @@map("team_note_status")
+}
+
+// Team notes — a lightweight internal TO-DO board for exactly ONE team:
+// a center's team (centerId set: owner/center_admins + active center_staff)
+// XOR a teacher's team (teacherId set: teacher + active assistants). Raw-SQL
+// CHECK team_notes_exactly_one_scope enforces the XOR. Deliberately NOT
+// messaging: the chat matrix has no staff↔staff / assistant↔assistant edge
+// and stays untouched — a note is non-conversational (status + read receipts).
+// Center rows are RLS tenant-isolated like center_staff; teacher rows have a
+// NULL center_id and are app-guarded like teacher_assistants.
+model TeamNote {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId          String?        @map("center_id") @db.Uuid // centers.id (center team board)
+  teacherId         String?        @map("teacher_id") @db.Uuid // users.id role=teacher (teacher team board)
+  authorUserId      String         @map("author_user_id") @db.Uuid // author writes as THEMSELVES (no impersonation)
+  body              String
+  pinned            Boolean        @default(false)
+  status            TeamNoteStatus @default(open)
+  statusChangedById String?        @map("status_changed_by_id") @db.Uuid
+  statusChangedAt   DateTime?      @map("status_changed_at") @db.Timestamptz(6)
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz(6) // soft-delete (convention)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reads TeamNoteRead[]
+
+  @@index([centerId, createdAt(sort: Desc)])
+  @@index([teacherId, createdAt(sort: Desc)])
+  @@map("team_notes")
+}
+
+// Read receipts: one row per team member who has SEEN a note (upserted when
+// the board is opened). Powers the "who read this" line on each note. No
+// center_id — a receipt is only ever reached through its already-authorized
+// note, so like teacher_assistants it is app-guarded, not DB-tenant-isolated.
+model TeamNoteRead {
+  id     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId String   @map("note_id") @db.Uuid
+  userId String   @map("user_id") @db.Uuid
+  readAt DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  note TeamNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+  @@index([userId])
+  @@map("team_note_reads")
+}
+
 model ParentStudentLink {
   id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parentId    String           @map("parent_id") @db.Uuid
@@ -1106,6 +1164,10 @@ model Payment {
   id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId      String?       @map("center_id") @db.Uuid // NULL for teacher-direct receipts (platform_receipt_seq)
   studentId     String        @map("student_id") @db.Uuid
+  // Who actually PAID, when that is not the student themselves (a parent paying
+  // for their child). NULL = the student paid for themselves, which is what
+  // every row predating the parent wallet means.
+  payerUserId   String?       @map("payer_user_id") @db.Uuid
   courseId      String?       @map("course_id") @db.Uuid
   status        PaymentStatus @default(paid)
   amount        Int // piasters, SIGNED (positive=payment, negative=refund)
@@ -1119,6 +1181,7 @@ model Payment {
 
   @@index([centerId, paidAt(sort: Desc)])
   @@index([studentId, paidAt(sort: Desc)])
+  @@index([payerUserId])
   @@map("payments")
 }
 
@@ -1966,13 +2029,20 @@ enum PaymentIntentStatus {
 enum PaymentIntentPurpose {
   subscription
   wallet_topup
+  parent_wallet_topup // money into a PARENT's wallet — no beneficiary student
 
   @@map("payment_intent_purpose")
 }
 
 model PaymentIntent {
   id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId      String               @map("student_id") @db.Uuid
+  // The student the money is FOR. NULL only for purpose=parent_wallet_topup,
+  // which has no beneficiary (it is platform float until the parent spends it);
+  // a DB CHECK (payment_intents_student_required) holds that to the one purpose.
+  studentId      String?              @map("student_id") @db.Uuid
+  // Who is PAYING. NULL = the student themselves — what every pre-parent-wallet
+  // row means. Set to the parent's user id when a guardian pays.
+  payerUserId    String?              @map("payer_user_id") @db.Uuid
   purpose        PaymentIntentPurpose @default(subscription)
   courseId       String?              @map("course_id") @db.Uuid
   subscriptionId String?              @map("subscription_id") @db.Uuid // Step 4: intent pays for a subscription
@@ -1997,6 +2067,7 @@ model PaymentIntent {
   @@index([studentId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([centerId, createdAt(sort: Desc)])
+  @@index([payerUserId])
   @@map("payment_intents")
 }
 
@@ -2056,6 +2127,46 @@ model WalletSettings {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("wallet_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Parent Wallet — the same real-money prepaid balance, owned by a PARENT, so a
+// guardian can pay for their own child's lesson out of their own money.
+//
+// Deliberately a SIBLING of WalletLedger rather than a nullable-owner column on
+// it: wallet_ledger.student_id is NOT NULL and the student wallet is proven
+// money code, so widening it would change the meaning of every query built on
+// it. Same invariants as the student wallet — append-only source of truth
+// (IMMUTABLE_MODELS), ParentProfile.walletBalance as the reconciled cache
+// (SUM(delta) == walletBalance == last balanceAfter), DB CHECK (>= 0) floor,
+// one ledger row + one cache update per movement in the SAME tx.
+//
+// Money direction is UNCHANGED by this table: a parent-funded subscription
+// still moves student -> center/teacher in the Transaction ledger. This records
+// only the FUNDING leg, plus which child it was spent on.
+// ---------------------------------------------------------------------------
+
+model ParentWalletLedger {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId             String          @map("parent_id") @db.Uuid
+  beneficiaryStudentId String?         @map("beneficiary_student_id") @db.Uuid // which child a spend was for; NULL on top-ups
+  type                 WalletEntryType
+  delta                Int // signed piasters: +topup/refund, -payment
+  balanceAfter         Int             @map("balance_after") // running balance snapshot
+  method               PaymentMethod? // online_paymob for top-ups; wallet for spends
+  refNumber            String?         @map("ref_number") // links the mirrored Transaction ref
+  paymentId            String?         @map("payment_id") @db.Uuid
+  paymentIntentId      String?         @map("payment_intent_id") @db.Uuid
+  subscriptionId       String?         @map("subscription_id") @db.Uuid
+  relatedTxnId         String?         @map("related_txn_id") @db.Uuid // the Transaction this mirrors
+  reason               String?
+  recordedBy           String?         @map("recorded_by") @db.Uuid // actor who moved it (audit)
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([parentId])
+  @@index([parentId, createdAt(sort: Desc)])
+  @@index([beneficiaryStudentId])
+  @@map("parent_wallet_ledger")
 }
 
 // ---------------------------------------------------------------------------

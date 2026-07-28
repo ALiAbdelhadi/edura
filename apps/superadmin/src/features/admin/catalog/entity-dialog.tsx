@@ -104,7 +104,7 @@ export function EntityDialog({
                     set(f.name, f.type === "number" ? Number(e.target.value) : e.target.value)
                   }
                 />
-                {f.hint ? <p className="text-xs text-muted-foreground">{f.hint}</p> : null}
+                {f.hint ? <p className="text-xs text-ink-2">{f.hint}</p> : null}
               </div>
             ),
           )}

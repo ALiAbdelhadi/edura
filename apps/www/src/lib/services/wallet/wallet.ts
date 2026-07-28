@@ -135,17 +135,25 @@ export async function settleWalletTopUpFromIntentTx(
 ): Promise<SettleNotification> {
   const intent = await tx.paymentIntent.findUnique({ where: { id: intentId } });
   if (!intent) throw new NotFoundError("Intent vanished during settlement");
+  // studentId is nullable ONLY for purpose=parent_wallet_topup, which routes to
+  // its own settler and never arrives here. Asserted rather than `!`-silenced,
+  // so a future purpose that forgets its own settler fails loudly instead of
+  // crediting nobody.
+  const studentId = intent.studentId;
+  if (!studentId) {
+    throw new NotFoundError("Student top-up intent has no student to credit");
+  }
 
   const receiptNumber = await nextPlatformReceipt(tx);
   const payment = await tx.payment.create({
     data: {
       centerId: null,
-      studentId: intent.studentId,
+      studentId,
       courseId: null,
       amount: intent.amount,
       note: `Wallet top-up (${intent.gateway}/${intent.method})`,
       receiptNumber,
-      recordedBy: intent.studentId, // self-service online top-up
+      recordedBy: studentId, // self-service online top-up
       paidAt: new Date(),
     },
   });
@@ -156,7 +164,7 @@ export async function settleWalletTopUpFromIntentTx(
       refNumber,
       type: "payment",
       amount: intent.amount,
-      fromEntityId: intent.studentId,
+      fromEntityId: studentId,
       toEntityId: null, // platform-held float — NOT center/teacher revenue
       centerId: null,
       status: "completed",
@@ -166,7 +174,7 @@ export async function settleWalletTopUpFromIntentTx(
     },
   });
 
-  const { balanceAfter } = await walletCredit(tx, intent.studentId, intent.amount, {
+  const { balanceAfter } = await walletCredit(tx, studentId, intent.amount, {
     type: "topup",
     method: "online_paymob",
     refNumber,
@@ -182,7 +190,7 @@ export async function settleWalletTopUpFromIntentTx(
   });
 
   return {
-    studentId: intent.studentId,
+    studentId,
     type: "payment_recorded",
     title: "Wallet topped up",
     body: `${(intent.amount / 100).toFixed(2)} EGP was added to your wallet. Receipt ${receiptNumber}.`,
@@ -191,7 +199,7 @@ export async function settleWalletTopUpFromIntentTx(
       receiptNumber,
       amount: intent.amount,
       balanceAfter,
-      studentId: intent.studentId,
+      studentId,
     },
   };
 }

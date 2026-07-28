@@ -6,20 +6,21 @@ test.describe("Student Dashboard & Grades", () => {
     await login(page, "student");
   });
 
+  // Three stat cards, not four. "Assignments Due" was removed with the assignments
+  // feature (DECISIONS.md D-029) — there is no Assignment model behind it.
   test("dashboard loads with KPI cards", async ({ page }) => {
     await navigateTo(page, "/dashboard/student");
 
     await expect(page.getByText("Attendance Rate")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("Assignments Due")).toBeVisible();
     await expect(page.getByText("Average Grade")).toBeVisible();
     await expect(page.getByText("Unread Messages")).toBeVisible();
   });
 
-  test("schedule and due-soon tables render", async ({ page }) => {
+  // "Due Soon" went with the same removal — it was a grade's date relabelled a due date.
+  test("schedule table renders", async ({ page }) => {
     await navigateTo(page, "/dashboard/student");
 
     await expect(page.getByText("Today's Schedule")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("Due Soon")).toBeVisible();
   });
 
   test("grades page shows GPA and subject table", async ({ page }) => {
@@ -36,8 +37,12 @@ test.describe("Student Dashboard & Grades", () => {
     await navigateTo(page, "/dashboard/student/grades");
     await waitForTableLoad(page);
 
-    const tags = page.locator(".ant-tag");
+    // Was `.ant-tag`. Ant Design is gone from this repo, so that selector matched zero
+    // elements and the loop below asserted nothing — a test that could never fail.
+    // Grade letters render inside <StatusBadge>, which carries data-slot="status-badge".
+    const tags = page.locator('[data-slot="status-badge"]');
     const count = await tags.count();
+    expect(count).toBeGreaterThan(0);
 
     const validGrades = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"];
     for (let i = 0; i < count; i++) {

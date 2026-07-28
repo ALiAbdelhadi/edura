@@ -14,19 +14,24 @@ export const dynamic = "force-dynamic";
 const bodySchema = z
   .object({
     courseId: z.string().uuid(),
+    // WHO the subscription is for. Required when a parent checks out for a
+    // child; a student may send their own id or omit it. The approved-link gate
+    // lives in the service, not here — one implementation, not a route copy.
+    studentId: z.string().uuid().optional(),
     plan: z.enum(["monthly", "per_session"]),
     sessionId: z.string().uuid().optional(),
     // Paymob sub-method (gateway path only): card iframe vs mobile wallets.
     method: z.enum(["card", "wallet"]).default("card"),
-    // Funding source: the gateway, or the student's own wallet balance.
-    payFrom: z.enum(["gateway", "wallet"]).default("gateway"),
+    // Funding source: the gateway, the STUDENT's own balance, or the PARENT's.
+    // Which wallet each role may reach is enforced in the service.
+    payFrom: z.enum(["gateway", "wallet", "parent_wallet"]).default("gateway"),
     idempotencyKey: z.string().min(8).max(128),
   })
   .strict();
 
 export const POST = withRateLimit(
   withErrors(async (req) => {
-    const user = await requireRole("student");
+    const user = await requireRole("student", "parent");
     const body = await parseJson(req, bodySchema);
     // The gateway initiator is passed in: the Paymob machinery (drivers,
     // HMAC, the C1 env checks) lives here in www, not in the shared kernel.

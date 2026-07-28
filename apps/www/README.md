@@ -15,9 +15,12 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | Framework    | Next.js 16 (App Router, TypeScript)           |
 | Database     | Neon Postgres (serverless) via Prisma — `@repo/database` |
 | Auth         | next-auth 4.x — Credentials provider, JWT     |
-| Validation   | Zod 3.x                                      |
-| Frontend     | React 18, Ant Design 5, Tailwind CSS 4        |
-| Tests        | Playwright (browser) + `pnpm smoke:api` (API)  |
+| Validation   | Zod 4.x                                      |
+| Frontend     | React 19, shadcn/ui (Radix + Tailwind CSS 4) via `@repo/ui`, `@refinedev/core` |
+| Charts       | Recharts 3.x                                  |
+| i18n         | next-intl 4.x (ar default + RTL, en)          |
+| PWA          | Serwist + native VAPID web-push               |
+| Tests        | Vitest (unit) + live-DB suites + Playwright (browser) + `pnpm smoke:api` |
 
 ---
 
@@ -61,7 +64,7 @@ Open `.env.local` and fill in:
 | `DATABASE_URL`     | ✅       | Neon Postgres pooled URL — **NOBYPASSRLS role** (see the repo-root `docs/guides/deployment.md`) |
 | `NEXTAUTH_SECRET`  | ✅       | Random secret — generate with `openssl rand -base64 32`         |
 | `NEXTAUTH_URL`     | ✅       | App URL (default: `http://localhost:3002`)                       |
-| `MAIL_PROVIDER`    | —        | `console` (default, logs to stdout) · `mailgun` · `sendgrid`   |
+| `MAIL_PROVIDER`    | —        | `console` (default, logs to stdout) · `smtp` (nodemailer; needs `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`). Any other value silently falls back to `console` and delivers nothing. |
 | `MAIL_FROM`        | —        | Sender email address                                            |
 | `APP_BASE_URL`     | —        | Used for links in emails (default: `http://localhost:3002`)      |
 | `SEED_PASSWORD`    | —        | Password for dev fixture accounts (default: `Passw0rd!`)         |
@@ -69,7 +72,7 @@ Open `.env.local` and fill in:
 ### 4. Seed the database (optional)
 
 ```bash
-pnpm seed
+pnpm db:seed
 ```
 
 This creates subject data and dev fixture accounts.
@@ -165,37 +168,45 @@ npm install -g pnpm@9
 
 | Command                      | Description                                          |
 |------------------------------|------------------------------------------------------|
-| `pnpm dev`                   | Start dev server on `:3000`                          |
+| `pnpm dev`                   | Start dev server on `:3002`                          |
+| `pnpm dev:pwa`               | Dev server with the Serwist service worker enabled   |
 | `pnpm build`                 | Production build                                     |
-| `pnpm start`                 | Start production server on `:3000`                   |
+| `pnpm start`                 | Start production server on `:3003`                   |
 | `pnpm lint`                  | Run ESLint                                           |
 | `pnpm typecheck`             | Run TypeScript type checking (`tsc --noEmit`)        |
-| `pnpm seed`                  | Seed subjects + dev fixtures                         |
-| `pnpm seed:deploy`           | Seed for production (deploy mode)                    |
-| `pnpm test:e2e`              | Run E2E tests via Newman                             |
-| `pnpm test:e2e:bail`         | Run E2E tests, stop on first failure                 |
-| `pnpm test:e2e:preflight`    | Run preflight E2E checks only                        |
+| `pnpm db:seed`               | Seed subjects + dev fixtures                         |
+| `pnpm test:unit`             | Unit tests (Vitest)                                  |
+| `pnpm test:db`               | Live-DB suites against `.env.test` (guarded)         |
+| `pnpm test:pw`               | Browser tests (Playwright)                           |
+| `pnpm test:all`              | `check-types` + unit + live-DB suites                |
+| `pnpm smoke:api`             | Role-based API smoke test (`scripts/api-smoke.sh`)   |
+| `pnpm gen:bruno`             | Regenerate the Bruno API collection                  |
+| `pnpm mail:check`            | Verify SMTP delivery config                          |
 
 ---
 
 ## Project Structure
 
+This app is one workspace in the monorepo — paths below are relative to `apps/www/`.
+Shared code lives in `packages/` (`@repo/database`, `@repo/server-core`, `@repo/ui`),
+and operational docs live in `docs/` at the **repo root**, not here.
+
 ```
-edura/
+apps/www/
 ├── src/
 │   ├── app/
 │   │   ├── api/v1/          # REST API route handlers
-│   │   ├── layout.tsx       # Root layout
-│   │   ├── page.tsx         # Frontend entry
+│   │   ├── [locale]/        # Locale-prefixed routes (role portals)
 │   │   └── globals.css      # Design tokens (Tailwind v4)
 │   ├── proxy.ts             # Locale-prefix proxy (Next.js proxy convention)
 │   ├── features/            # Feature modules (role/domain screens)
-│   │   ├── admin/  finance/  teacher/  student/  parent/
-│   │   └── attendance/  messaging/  notifications/  settings/
-│   ├── components/          # Shared component library
-│   │   ├── charts/          # D3 chart components (+ barrel)
-│   │   ├── ui/              # Reusable UI primitives
+│   │   ├── admin/  teacher/  student/  parent/  onboarding/
+│   │   └── attendance/  collaboration/  messaging/  notifications/  settings/
+│   ├── components/          # App-local components (shared primitives are in @repo/ui)
+│   │   ├── charts/          # Recharts wrappers (+ barrel)
+│   │   ├── kit/  ui/        # Local composites & primitives
 │   │   ├── providers/       # App/i18n/theme providers
+│   │   ├── pwa/             # Install prompt, offline surfaces
 │   │   └── refine/          # Refine framework adapters
 │   ├── lib/
 │   │   ├── auth/            # next-auth config & session helpers
@@ -206,15 +217,21 @@ edura/
 │   │   ├── http/            # Response envelope helpers
 │   │   ├── services/        # Business logic layer (by domain)
 │   │   ├── validation/      # Zod schemas & parse helpers
+│   │   ├── rate-limit/      # Token-bucket limiter
+│   │   ├── cloudinary/      # Media upload helpers
+│   │   ├── pwa/             # Service-worker & push helpers
 │   │   ├── constants/       # Subject list, seed data
 │   │   ├── utils/           # Random generators, helpers
-│   │   └── mail/            # Email sender (console/mailgun/sendgrid)
+│   │   └── mail/            # Email sender (console/smtp)
+│   ├── i18n/                # Routing + request config (next-intl)
 │   ├── messages/            # i18n dictionaries (ar/en)
 │   └── types/               # TypeScript type definitions
-├── scripts/
-│   └── api-smoke.sh         # Role-based API smoke test (pnpm smoke:api)
-├── tests/                   # Test files
-├── docs/                    # Operational docs: deployment, runbook, fee-points-engine, test-credentials
+├── scripts/                 # api-smoke.sh, gen-bruno.mjs, mail-check.ts, analyze-components.mjs
+├── tests/
+│   ├── unit/                # Vitest
+│   ├── db/                  # Live-DB suites (run against .env.test)
+│   └── playwright/          # Browser tests
+├── bruno/                   # Generated Bruno API collection
 └── public/                  # Static assets
 ```
 
@@ -228,7 +245,7 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 DATABASE_URL=postgresql://edura_app:<password>@ep-...-pooler.<region>.aws.neon.tech/neondb?sslmode=require
 NEXTAUTH_SECRET=<your-secret-here>
 NEXTAUTH_URL=http://localhost:3002
-MAIL_PROVIDER=console
+MAIL_PROVIDER=console   # or 'smtp' — any other value silently falls back to console
 APP_BASE_URL=http://localhost:3002
 ```
 
@@ -246,16 +263,16 @@ context is set. A missing tenant context returns zero rows, not an error.
 </details>
 
 <details>
-<summary><strong>Port 3000 already in use</strong></summary>
+<summary><strong>Port 3002 already in use</strong></summary>
 
-Kill the process using port 3000:
+Kill the process using port 3002 (the dev port; `pnpm start` uses 3003):
 
 ```bash
 # macOS / Linux
-lsof -ti:3000 | xargs kill -9
+lsof -ti:3002 | xargs kill -9
 
 # Windows (PowerShell)
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process -Force
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess | Stop-Process -Force
 ```
 
 </details>

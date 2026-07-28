@@ -1,0 +1,28 @@
+import { cn } from "@repo/ui/lib/utils";
+import * as React from "react";
+
+export function DescriptionList({
+  items,
+  columns = 2,
+  className,
+}: {
+  items: { label: React.ReactNode; value: React.ReactNode }[];
+  columns?: 1 | 2 | 3;
+  className?: string;
+}) {
+  const cols =
+    columns === 1 ? "sm:grid-cols-1" : columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
+  return (
+    <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-4", cols, className)}>
+      {items.map((it, i) => (
+        <div key={i} className="flex flex-col gap-1">
+          {/* The label is a field name, not prose. It takes the eyebrow's colour and
+              weight but NOT its uppercase/tracking — those are Latin-only, and a `dt`
+              here is as often Arabic as English. See <Eyebrow>. */}
+          <dt className="text-xs font-semibold text-ink-3">{it.label}</dt>
+          <dd className="text-sm text-ink">{it.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}

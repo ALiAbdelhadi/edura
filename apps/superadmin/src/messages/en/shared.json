@@ -100,5 +100,13 @@
   "tourSkip": "Skip",
   "expandSidebar": "Expand sidebar",
   "collapseSidebar": "Collapse sidebar",
-  "quickSettings": "Language & theme"
+  "quickSettings": "Language & theme",
+  "timeAgoPrefix": "",
+  "timeMin_one": "minute ago",
+  "timeMin_many": "minutes ago",
+  "timeHour_one": "hour ago",
+  "timeHour_many": "hours ago",
+  "timeDay_one": "day ago",
+  "timeDay_many": "days ago",
+  "notifUnread": "Unread"
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useCustomMutation } from "@refinedev/core";
 import { ArrowLeft, Info, Save } from "lucide-react";
@@ -22,8 +23,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ta
 import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { MetricCard } from "@repo/ui/components/metric-card";
+import { Num } from "@repo/ui/components/num";
+import { StatusBadge } from "@repo/ui/components/status-badge";
+import type { Locale } from "@repo/ui/lib/format";
+import { asKey } from "@/lib/i18n/keys";
 import { useOversight, type Paged } from "./use-oversight";
 import { FinanceTab } from "./finance-tab";
 import { ControlAction } from "./control-actions";
@@ -97,12 +101,13 @@ const TABS = [
 
 export function CenterOversightScreen({ centerId }: { centerId: string }) {
   const [tab, setTab] = useState<string>("overview");
-  const { formatEGP, formatDate, formatNumber } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const overview = useOversight<Overview>(centerId, "overview");
   const center = overview.data?.center;
 
   if (overview.isLoading) return <PageSpinner />;
-  if (!center) return <p className="p-4 text-sm text-muted-foreground">Center not found.</p>;
+  if (!center) return <p className="p-4 text-sm text-ink-2">{t("notFound")}</p>;
 
   const isActive = center.status === "active";
   const canToggle = ["active", "suspended"].includes(center.status);
@@ -110,53 +115,53 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Center oversight"
+        eyebrow={t("eyebrow")}
         title={
           <span className="flex flex-wrap items-center gap-2">
             {center.name}
             <Badge variant="secondary">{center.status}</Badge>
             <Badge variant="outline">{center.shortId}</Badge>
-            {center.isDemo ? <Badge variant="outline">demo</Badge> : null}
+            {center.isDemo ? <StatusBadge tone="neutral">{t("demo")}</StatusBadge> : null}
           </span>
         }
-        description="Full read visibility across this center, plus a fixed set of audited control actions. Financial records are visible but never editable here."
+        description={t("headerDesc")}
         actions={
           <>
             <BroadcastCard centerId={centerId} />
             <Button asChild variant="ghost" size="sm">
               <Link href="/dashboard/superadmin/centers">
                 <ArrowLeft className="size-4" />
-                All centers
+                {t("allCenters")}
               </Link>
             </Button>
             {canToggle ? (
               <ControlAction
-                label={isActive ? "Deactivate center" : "Activate center"}
-                title={isActive ? "Deactivate this center?" : "Activate this center?"}
+                label={isActive ? t("deactivate") : t("activate")}
+                title={isActive ? t("deactivateQ") : t("activateQ")}
                 destructive={isActive}
                 requireReason={isActive}
-                confirmText={isActive ? "Deactivate" : "Activate"}
+                confirmText={isActive ? t("deactivateBtn") : t("activateBtn")}
                 url={`admin/centers/${centerId}/status`}
                 values={{ action: isActive ? "deactivate" : "activate" }}
                 onDone={overview.refetch}
                 description={
                   <>
                     <p>
-                      <strong>{center.name}</strong> moves from{" "}
-                      <code>{center.status}</code> to{" "}
-                      <code>{isActive ? "suspended" : "active"}</code>.
+                      <strong>{center.name}</strong> {t("movesFrom")}{" "}
+                      <Num.Code>{center.status}</Num.Code> {t("to")}{" "}
+                      <Num.Code>{isActive ? "suspended" : "active"}</Num.Code>.
                     </p>
                     <p>
                       {isActive
-                        ? "Its center-admin accounts are suspended with it, and every live session is cut on the next request. Courses, enrollments, rosters and all financial history are left untouched — reactivating restores access exactly."
-                        : "Its center-admin accounts are reactivated with it and can sign in again."}
+                        ? t("deactivateBody")
+                        : t("activateBody")}
                     </p>
                   </>
                 }
               />
             ) : (
               <Badge variant="outline">
-                status &lsquo;{center.status}&rsquo; — use the registration / blacklist flow
+                <Num.Code>{center.status}</Num.Code> — {t("statusUseFlow")}
               </Badge>
             )}
           </>
@@ -165,9 +170,9 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
-          {TABS.map((t) => (
-            <TabsTrigger key={t} value={t} className="capitalize">
-              {t}
+          {TABS.map((x) => (
+            <TabsTrigger key={x} value={x}>
+              {t(asKey(`tab_${x}`))}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -175,20 +180,14 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
         {/* ---------------- Overview ---------------- */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Teachers" value={formatNumber(overview.data?.counts.teachers ?? 0)} />
-            <StatCard label="Students" value={formatNumber(overview.data?.counts.students ?? 0)} />
-            <StatCard label="Courses" value={formatNumber(overview.data?.counts.courses ?? 0)} />
-            <StatCard label="Rooms" value={formatNumber(overview.data?.counts.rooms ?? 0)} />
-            <StatCard label="Staff accounts" value={formatNumber(overview.data?.counts.staff ?? 0)} />
-            <StatCard
-              label="Active subscriptions"
-              value={formatNumber(overview.data?.counts.activeSubscriptions ?? 0)}
-            />
-            <StatCard label="Sessions" value={formatNumber(overview.data?.counts.sessions ?? 0)} />
-            <StatCard
-              label="Pending collaborations"
-              value={formatNumber(overview.data?.counts.pendingCollaborations ?? 0)}
-            />
+            <MetricCard label={t("cntTeachers")} value={<Num.Figure value={overview.data?.counts.teachers ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntStudents")} value={<Num.Figure value={overview.data?.counts.students ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntCourses")} value={<Num.Figure value={overview.data?.counts.courses ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntRooms")} value={<Num.Figure value={overview.data?.counts.rooms ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntStaff")} value={<Num.Figure value={overview.data?.counts.staff ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntActiveSubs")} value={<Num.Figure value={overview.data?.counts.activeSubscriptions ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntSessions")} value={<Num.Figure value={overview.data?.counts.sessions ?? 0} locale={locale} />} />
+            <MetricCard label={t("cntPendingCollabs")} value={<Num.Figure value={overview.data?.counts.pendingCollaborations ?? 0} locale={locale} />} />
           </div>
 
           <CenterProfileCard center={center} onSaved={overview.refetch} />
@@ -236,13 +235,13 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
             tab="subscriptions"
             enabled={tab === "subscriptions"}
             columns={[
-              { key: "studentName", label: "Student" },
-              { key: "courseTitle", label: "Course" },
-              { key: "plan", label: "Plan" },
-              { key: "price", label: "Price", money: true },
-              { key: "status", label: "Status" },
-              { key: "paymentMethod", label: "Method" },
-              { key: "periodEnd", label: "Covers until", date: true },
+              { key: "studentName", label: t("colStudent") },
+              { key: "courseTitle", label: t("colCourse") },
+              { key: "plan", label: t("colPlan") },
+              { key: "price", label: t("colPrice"), money: true },
+              { key: "status", label: t("colStatus") },
+              { key: "paymentMethod", label: t("colMethod") },
+              { key: "periodEnd", label: t("colCoversUntil"), date: true },
             ]}
           />
         </TabsContent>
@@ -282,18 +281,18 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
         <TabsContent value="audit">
           <Alert className="mb-3">
             <Info className="size-4" />
-            <AlertTitle>Every control action on this center</AlertTitle>
+            <AlertTitle>{t("auditTitle")}</AlertTitle>
             <AlertDescription>
-              Who did it, what changed (before and after), and when. The audit table itself is
-              append-only at the database level — it cannot be edited or erased from here.
+              {t("auditBody")}
             </AlertDescription>
           </Alert>
           {tab === "audit" ? <AuditLogTable fixedCenterId={centerId} /> : null}
         </TabsContent>
       </Tabs>
-      <p className="text-xs text-muted-foreground">
-        Center wallet balance: {formatEGP(center.walletBalance)} · registered{" "}
-        {formatDate(center.createdAt, { dateStyle: "medium" })}
+      <p className="text-xs text-ink-2">
+        {t("walletLine")}: <Num.Money piasters={center.walletBalance} locale={locale} sign={false} />{" "}
+        · {t("registered")}{" "}
+        <Num.Date value={center.createdAt} locale={locale} options={{ dateStyle: "medium" }} />
       </p>
     </div>
   );
@@ -305,19 +304,19 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
 
 type ProfileField = {
   key: "name" | "phone" | "whatsapp" | "email" | "governorate" | "area" | "address" | "logoUrl";
-  label: string;
+  labelKey: string;
   required?: boolean;
 };
 
 const PROFILE_FIELDS: ProfileField[] = [
-  { key: "name", label: "Name", required: true },
-  { key: "phone", label: "Phone" },
-  { key: "whatsapp", label: "WhatsApp" },
-  { key: "email", label: "Email" },
-  { key: "governorate", label: "Governorate" },
-  { key: "area", label: "Area" },
-  { key: "address", label: "Address" },
-  { key: "logoUrl", label: "Logo URL" },
+  { key: "name", labelKey: "fName", required: true },
+  { key: "phone", labelKey: "fPhone" },
+  { key: "whatsapp", labelKey: "fWhatsapp" },
+  { key: "email", labelKey: "fEmail" },
+  { key: "governorate", labelKey: "fGovernorate" },
+  { key: "area", labelKey: "fArea" },
+  { key: "address", labelKey: "fAddress" },
+  { key: "logoUrl", labelKey: "fLogoUrl" },
 ];
 
 function CenterProfileCard({
@@ -327,6 +326,7 @@ function CenterProfileCard({
   center: Overview["center"];
   onSaved: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [form, setForm] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -344,7 +344,7 @@ function CenterProfileCard({
       const current = ((center[f.key] as string | null) ?? "").trim();
       if (next === current) continue;
       if (f.required && !next) {
-        toast.error(`${f.label} cannot be empty`);
+        toast.error(`${t(asKey(f.labelKey))} ${t("cannotBeEmpty")}`);
         return;
       }
       patch[f.key] = next === "" ? (f.required ? undefined : null) : next;
@@ -356,13 +356,13 @@ function CenterProfileCard({
     if (Number.isFinite(cc) && cc !== center.classroomCount) patch.classroomCount = Math.round(cc);
 
     if (!Object.keys(patch).length) {
-      toast.info("Nothing changed");
+      toast.info(t("nothingChanged"));
       return;
     }
     setBusy(true);
     try {
       await mutateAsync({ url: `admin/centers/${center.id}`, method: "patch", values: patch });
-      toast.success("Profile updated — recorded in the audit log");
+      toast.success(t("profileSaved"));
       onSaved();
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to update profile");
@@ -374,17 +374,14 @@ function CenterProfileCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Center profile</CardTitle>
+        <CardTitle className="text-base">{t("profileTitle")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <Alert>
           <Info className="size-4" />
-          <AlertTitle>What is editable here</AlertTitle>
+          <AlertTitle>{t("editableTitle")}</AlertTitle>
           <AlertDescription>
-            Identity and contact details only. The wallet balance, receipt sequence, short ID
-            and account status are not editable from this form — and neither are the revenue
-            split or commission percentages, which keep their own pricing screen so a
-            money-sensitive number never has two edit paths.
+            {t("editableBody")}
           </AlertDescription>
         </Alert>
 
@@ -392,8 +389,8 @@ function CenterProfileCard({
           {PROFILE_FIELDS.map((f) => (
             <label key={f.key} className="space-y-1 text-sm">
               <span className="font-medium">
-                {f.label}
-                {f.required ? <span className="text-destructive"> *</span> : null}
+                {t(asKey(f.labelKey))}
+                {f.required ? <span className="text-red"> *</span> : null}
               </span>
               <Input
                 value={form[f.key]}
@@ -402,7 +399,7 @@ function CenterProfileCard({
             </label>
           ))}
           <label className="space-y-1 text-sm">
-            <span className="font-medium">Classroom count</span>
+            <span className="font-medium">{t("fClassroomCount")}</span>
             <Input
               type="number"
               min={0}
@@ -412,13 +409,13 @@ function CenterProfileCard({
           </label>
         </div>
         <label className="space-y-1 text-sm">
-          <span className="font-medium">Description</span>
+          <span className="font-medium">{t("fDescription")}</span>
           <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
 
         <Button onClick={save} disabled={busy}>
           {busy ? <Spinner /> : <Save className="size-4" />}
-          Save profile
+          {t("saveProfile")}
         </Button>
       </CardContent>
     </Card>
@@ -444,7 +441,8 @@ function SimpleTable({
   columns: Col[];
   note?: string;
 }) {
-  const { formatEGP, formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useOversight<Paged<Record<string, unknown>>>(centerId, tab, {
     enabled,
     query: { limit: "100" },
@@ -454,13 +452,14 @@ function SimpleTable({
   const rows = req.data?.data ?? [];
   return (
     <div className="space-y-2">
-      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+      {note ? <p className="text-xs text-ink-2">{note}</p> : null}
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">Nothing here yet.</p>
+        <p className="p-4 text-sm text-ink-2">{t("nothingHere")}</p>
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">
-            Showing {rows.length} of {req.data?.total ?? rows.length}
+          <p className="text-xs text-ink-2">
+            {t("showing")} <Num.Figure value={rows.length} locale={locale} /> {t("of")}{" "}
+            <Num.Figure value={req.data?.total ?? rows.length} locale={locale} />
           </p>
           <div className="overflow-x-auto rounded-md border">
             <Table>
@@ -483,13 +482,20 @@ function SimpleTable({
                           key={c.key}
                           className={c.money ? "text-end tabular-nums" : undefined}
                         >
-                          {v == null
-                            ? "—"
-                            : c.money
-                              ? formatEGP(v as number)
-                              : c.date
-                                ? formatDate(v as string, { dateStyle: "medium" })
-                                : String(v)}
+                          {v == null ? (
+                            "—"
+                          ) : c.money ? (
+                            <Num.Money piasters={v as number} locale={locale} tone="muted" sign={false} />
+                          ) : c.date ? (
+                            <Num.Date
+                              value={v as string}
+                              locale={locale}
+                              options={{ dateStyle: "medium" }}
+                              className="text-[11px] text-ink-3"
+                            />
+                          ) : (
+                            String(v)
+                          )}
                         </TableCell>
                       );
                     })}
@@ -509,7 +515,8 @@ function SimpleTable({
 // ---------------------------------------------------------------------------
 
 function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useOversight<{
     collaborationRequests: {
       id: string;
@@ -539,17 +546,17 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Collaboration requests</CardTitle>
+          <CardTitle className="text-base">{t("collabRequests")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Deciding here runs the same transaction the teacher or center would run — affiliation,
             course, schedule and the frozen pricing snapshot, all or nothing. No rate is entered:
             approving a hall that offers both pricing methods only picks which
             superadmin-configured rate applies.
           </p>
           {collabs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing pending.</p>
+            <p className="text-sm text-ink-2">{t("nothingPending")}</p>
           ) : (
             collabs.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
@@ -557,17 +564,22 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
                   <div className="font-medium">
                     {c.subjectName ?? "—"} · {c.teacherName ?? "—"}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    initiated by {c.initiator} · starts {formatDate(c.startDate, { dateStyle: "medium" })} ·
-                    expires {formatDate(c.expiresAt, { dateStyle: "medium" })}
-                    {c.roomId ? ` · hall booked${c.proposedPricingMethod ? ` (${c.proposedPricingMethod})` : " (method not chosen yet)"}` : " · no hall"}
+                  <div className="text-xs text-ink-2">
+                    {t("initiatedBy")} {c.initiator} · {t("starts")}{" "}
+                    <Num.Date value={c.startDate} locale={locale} options={{ dateStyle: "medium" }} /> ·{" "}
+                    {t("expires")}{" "}
+                    <Num.Date value={c.expiresAt} locale={locale} options={{ dateStyle: "medium" }} />
+                    {" · "}
+                    {c.roomId
+                      ? `${t("hallBooked")}${c.proposedPricingMethod ? "" : ` (${t("methodNotChosen")})`}`
+                      : t("noHall")}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <ControlAction
-                    label="Approve"
-                    title="Approve on behalf of the platform?"
-                    confirmText="Approve"
+                    label={t("approve")}
+                    title={t("approveQ")}
+                    confirmText={t("approve")}
                     url={`admin/collaboration-requests/${c.id}/decide`}
                     values={{
                       decision: "approve",
@@ -579,32 +591,28 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
                     description={
                       <>
                         <p>
-                          Creates the affiliation, the course, its sessions and the frozen pricing
-                          snapshot in one transaction. Both the teacher and the center are notified
-                          that the platform decided.
+                          {t("approveBody")}
                         </p>
                         {c.roomId && !c.proposedPricingMethod ? (
                           <p>
-                            This hall offers both pricing methods and the teacher never chose one.
-                            Approving here applies <code>whole_room_percent</code>.
+                            {t("approveMethodNote")}
                           </p>
                         ) : null}
                       </>
                     }
                   />
                   <ControlAction
-                    label="Reject"
-                    title="Reject on behalf of the platform?"
+                    label={t("reject")}
+                    title={t("rejectQ")}
                     destructive
                     requireReason
-                    confirmText="Reject"
+                    confirmText={t("reject")}
                     url={`admin/collaboration-requests/${c.id}/decide`}
                     values={{ decision: "reject" }}
                     onDone={req.refetch}
                     description={
                       <p>
-                        The request is closed and both sides are notified with the reason. No
-                        course or schedule is created.
+                        {t("rejectBody")}
                       </p>
                     }
                   />
@@ -617,19 +625,19 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Other pending items</CardTitle>
+          <CardTitle className="text-base">{t("otherPending")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div>
-            <p className="font-medium">Pending teacher affiliations ({affs.length})</p>
+            <p className="font-medium">{t("pendingAffiliations")} (<Num.Figure value={affs.length} locale={locale} />)</p>
             {affs.length === 0 ? (
-              <p className="text-muted-foreground">None.</p>
+              <p className="text-ink-2">{t("none")}</p>
             ) : (
-              <ul className="text-muted-foreground">
+              <ul className="text-ink-2">
                 {affs.map((a) => (
                   <li key={a.id}>
-                    {a.teacherName ?? "—"} · invited{" "}
-                    {formatDate(a.invitedAt, { dateStyle: "medium" })}
+                    {a.teacherName ?? "—"} · {t("invited")}{" "}
+                    <Num.Date value={a.invitedAt} locale={locale} options={{ dateStyle: "medium" }} />
                   </li>
                 ))}
               </ul>

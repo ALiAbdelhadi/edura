@@ -128,7 +128,7 @@ export function OfferingsTab() {
         row.original.track ? (
           <Badge variant="outline">{row.original.track.nameAr}</Badge>
         ) : (
-          <span className="text-muted-foreground">{t("catalog.offerings.allTracks")}</span>
+          <span className="text-ink-2">{t("catalog.offerings.allTracks")}</span>
         ),
     },
     {
@@ -146,11 +146,11 @@ export function OfferingsTab() {
     },
     {
       id: "actions",
-      header: "",
+      header: t("common.colActions"),
       cell: ({ row }) => (
         <ConfirmDialog
           trigger={
-            <Button variant="ghost" size="icon" className="size-7 text-destructive">
+            <Button variant="ghost" size="icon" className="size-7 text-red">
               <Trash2 className="size-3.5" />
             </Button>
           }

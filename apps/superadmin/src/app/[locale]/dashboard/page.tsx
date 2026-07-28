@@ -27,7 +27,7 @@ export default function DashboardRouter() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+      <div className="text-sm text-ink-2">{t("common.loading")}</div>
     </div>
   );
 }

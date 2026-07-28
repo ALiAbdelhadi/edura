@@ -2,6 +2,8 @@ import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
 import { ok } from "@/lib/http/envelope";
 import { ValidationError } from "@/lib/errors/classes";
+import { platformDb } from "@/lib/db/scope";
+import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
 import {
   getSubjectsForSelection,
   getSubjectsForGradeLevels,
@@ -26,8 +28,22 @@ export const GET = withErrors(async (req) => {
   // ?mine=1 — the session student's own track subjects (their picked second
   // language only), resolved server-side from their profile so the default list
   // always tracks profile changes.
+  //
+  // A PARENT asks the same question about a child by adding ?studentId=. The
+  // subject list itself is catalog reference data, so this widens WHOSE profile
+  // is read, nothing more — and only for an APPROVED child.
   if (params.get("mine") === "1") {
-    if (user.role !== "student") throw new ValidationError("mine=1 is student-only");
+    if (user.role === "parent") {
+      const studentId = params.get("studentId");
+      if (!studentId || !UUID_RE.test(studentId)) {
+        throw new ValidationError("studentId is required for a parent");
+      }
+      await platformDb((tx) => assertApprovedChild(tx, user.id, studentId));
+      return ok(await getStudentOwnSubjects(studentId));
+    }
+    if (user.role !== "student") {
+      throw new ValidationError("mine=1 is for students and parents");
+    }
     return ok(await getStudentOwnSubjects(user.id));
   }
 

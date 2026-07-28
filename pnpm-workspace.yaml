@@ -1,3 +1,23 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+
+allowBuilds:
+  "@parcel/watcher": true
+  "@prisma/engines": true
+  "@swc/core": true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+
+overrides:
+  "minimatch@3": "^3.1.5"
+  "flatted": "^3.4.2"
+  "brace-expansion@1": "^1.1.16"
+  "picomatch@2": "^2.3.2"
+  "picomatch@4": "^4.0.5"
+  "@hono/node-server": "^1.19.14"
+  "postcss@8": "^8.5.20"
+  "uuid@8": "^11.1.1"

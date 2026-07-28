@@ -76,13 +76,6 @@ export type StudentGradeTrendPoint = {
   percentage: number;
 };
 
-export type StudentAssignmentsTrendPoint = {
-  period: string;
-  label: string;
-  pending: number;
-  graded: number;
-};
-
 export type ParentPaymentTrendPoint = {
   period: string;
   label: string;

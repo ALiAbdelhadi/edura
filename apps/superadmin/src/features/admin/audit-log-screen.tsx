@@ -1,13 +1,34 @@
 "use client";
 
+/* سجل التدقيق / Audit log — the most literal ledger in the product.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   `audit_logs` is REVOKEd UPDATE and DELETE for the application role, so this record
+   cannot be edited or erased — not by a center admin, not by a super admin, not by
+   this app. Everything about the screen's form follows from that one guarantee:
+
+   - THE ACTOR IS NEVER BLANK. An unattributed action in an audited system is a gap
+     the interface should not create, so an automated write reads «النظام» rather than
+     an empty cell (constitution §1). It previously fell through to a raw actorId, or
+     the untranslated literal "system".
+   - STICKY DAY HEADERS. The log is read as a sequence of days, so the day a row
+     belongs to must stay visible while scrolling through it.
+   - EVERY REF IS MONO AND ISOLATED. Action names, target ids and timestamps are all
+     Latin codes sitting beside Arabic prose — the single most common source of a bidi
+     break in the product.
+   - BEFORE AND AFTER, SIDE BY SIDE. What makes an oversight operation checkable is
+     not that it was logged but that the change itself is legible. */
+
 import { Fragment, useState } from "react";
 import { useCustom } from "@refinedev/core";
-import { ChevronDown, ChevronRight, Lock } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
-import { Badge } from "@repo/ui/components/badge";
+import { useLocale, useTranslations } from "next-intl";
+import { ChevronDown, ChevronRight, Lock, RefreshCcw, ScrollText, TriangleAlert } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { Input } from "@repo/ui/components/input";
+import { Num } from "@repo/ui/components/num";
+import { StatusBadge } from "@repo/ui/components/status-badge";
 import {
   Table,
   TableBody,
@@ -16,19 +37,12 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { formatDate, type Locale } from "@repo/ui/lib/format";
+
+import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-
-// ---------------------------------------------------------------------------
-// The audit log viewer promised in the Step 2 follow-on (roadmap decision #10),
-// and the thing that makes the oversight control operations checkable: who did
-// what to which target, when, and what the value was before and after.
-//
-// `audit_logs` is REVOKEd UPDATE and DELETE for the application role, so this
-// record cannot be edited or erased — not by a center admin, not by a super
-// admin, not by this app.
-// ---------------------------------------------------------------------------
+import { asKey } from "@/lib/i18n/keys";
 
 type Row = {
   id: string;
@@ -46,8 +60,11 @@ type Row = {
   createdAt: string;
 };
 
+const dayKey = (iso: string) => iso.slice(0, 10);
+
 export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("auditLog");
+  const locale = useLocale() as Locale;
   const [action, setAction] = useState("");
   const [targetId, setTargetId] = useState("");
   const [page, setPage] = useState(1);
@@ -63,15 +80,33 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   const rows = result?.data ?? [];
   const total = result?.total ?? 0;
 
+  // Group into days so each day can carry a sticky header.
+  const days: { day: string; rows: Row[] }[] = [];
+  for (const r of rows) {
+    const k = dayKey(r.createdAt);
+    const last = days[days.length - 1];
+    if (last && last.day === k) last.rows.push(r);
+    else days.push({ day: k, rows: [r] });
+  }
+
+  const dayLabel = (day: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    if (day === today) return t("today");
+    if (day === yesterday) return t("yesterday");
+    return formatDate(day, locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  };
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
         <label className="text-xs">
-          <span className="mb-1 block font-medium">Action (prefix)</span>
+          <span className="mb-1 block text-ink-2">{t("filterAction")}</span>
           <Input
             value={action}
-            placeholder="center. / user. / collaboration_request."
-            className="w-64"
+            placeholder={t("filterActionPlaceholder")}
+            className="num w-64"
+            dir="ltr"
             onChange={(e) => {
               setAction(e.target.value);
               setPage(1);
@@ -79,116 +114,171 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
           />
         </label>
         <label className="text-xs">
-          <span className="mb-1 block font-medium">Target id</span>
+          <span className="mb-1 block text-ink-2">{t("filterTarget")}</span>
           <Input
             value={targetId}
-            placeholder="uuid"
-            className="w-72"
+            placeholder={t("filterTargetPlaceholder")}
+            className="num w-72"
+            dir="ltr"
             onChange={(e) => {
               setTargetId(e.target.value);
               setPage(1);
             }}
           />
         </label>
-        <span className="ms-auto text-xs text-muted-foreground">{total} entr(ies)</span>
+        <span className="ms-auto flex items-baseline gap-1.5 text-[13px] text-ink-2">
+          <Num.Figure value={total} locale={locale} />
+          {t("entries")}
+        </span>
       </div>
 
       {req.query.isLoading ? (
         <PageSpinner />
+      ) : req.query.isError ? (
+        (() => {
+          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={t(denied ? "deniedTitle" : "loadError")}
+              description={t(denied ? "deniedBody" : "loadErrorBody")}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => req.query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {t("retry")}
+                  </Button>
+                )
+              }
+            />
+          );
+        })()
       ) : rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No audit entries match.</p>
+        <EmptyState tone="empty" icon={ScrollText} title={t("empty")} description={t("emptyBody")} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border">
+          <div className="overflow-x-auto rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>When</TableHead>
-                  <TableHead>Who</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Target</TableHead>
+                <TableRow className="border-rule bg-field hover:bg-field">
+                  <TableHead className="h-[34px] w-8 px-3">
+                    <span className="sr-only">{t("expand")}</span>
+                  </TableHead>
+                  {(["colWhen", "colWho", "colAction", "colTarget"] as const).map((c) => (
+                    <TableHead key={c} className="h-[34px] px-3">
+                      <Eyebrow locale={locale} marker={false}>
+                        {t(c)}
+                      </Eyebrow>
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
-                  const open = expanded === r.id;
-                  return (
-                    <Fragment key={r.id}>
-                      <TableRow>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setExpanded(open ? null : r.id)}
-                          >
-                            {open ? (
-                              <ChevronDown className="size-4" />
-                            ) : (
-                              <ChevronRight className="size-4" />
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {formatDate(r.createdAt, { dateStyle: "medium", timeStyle: "short" })}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">{r.actorName ?? r.actorId ?? "system"}</span>
-                          {r.actorRole ? (
-                            <Badge variant="outline" className="ms-1">
-                              {r.actorRole}
-                            </Badge>
+                {days.map(({ day, rows: dayRows }) => (
+                  <Fragment key={day}>
+                    <TableRow className="border-rule-2 hover:bg-transparent">
+                      <TableCell
+                        colSpan={5}
+                        className="sticky top-0 z-10 bg-field px-3 py-1.5"
+                      >
+                        <Eyebrow locale={locale}>{dayLabel(day)}</Eyebrow>
+                      </TableCell>
+                    </TableRow>
+
+                    {dayRows.map((r) => {
+                      const open = expanded === r.id;
+                      return (
+                        <Fragment key={r.id}>
+                          <TableRow className="border-rule-2">
+                            <TableCell className="px-3 py-[7px]">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-expanded={open}
+                                aria-label={open ? t("collapse") : t("expand")}
+                                onClick={() => setExpanded(open ? null : r.id)}
+                              >
+                                {open ? (
+                                  <ChevronDown className="size-4" aria-hidden="true" />
+                                ) : (
+                                  <ChevronRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+                                )}
+                              </Button>
+                            </TableCell>
+
+                            <TableCell className="px-3 py-[7px] whitespace-nowrap">
+                              <Num.Date
+                                value={r.createdAt}
+                                locale={locale}
+                                options={{ hour: "2-digit", minute: "2-digit" }}
+                                className="text-[11px] text-ink-2"
+                              />
+                            </TableCell>
+
+                            <TableCell className="px-3 py-[7px]">
+                              {/* The actor is never absent. */}
+                              <span className="text-[13px] font-medium text-ink">
+                                {r.actorName ?? (r.actorId ? null : t("system"))}
+                                {!r.actorName && r.actorId ? <Num.Code>{r.actorId.slice(0, 8)}</Num.Code> : null}
+                              </span>
+                              {r.actorRole ? (
+                                <StatusBadge tone="neutral" className="ms-1.5">
+                                  {t(asKey(`roles.${r.actorRole}`))}
+                                </StatusBadge>
+                              ) : null}
+                              {r.onBehalfOf ? (
+                                <span className="block text-[11px] text-ink-3">
+                                  {t("onBehalfOf")} {r.onBehalfOfName ?? <Num.Code>{r.onBehalfOf.slice(0, 8)}</Num.Code>}
+                                </span>
+                              ) : null}
+                            </TableCell>
+
+                            <TableCell className="px-3 py-[7px]">
+                              <Num.Code className="text-[11px] text-ink">{r.action}</Num.Code>
+                            </TableCell>
+
+                            <TableCell className="px-3 py-[7px]">
+                              <span className="text-[13px] text-ink-2">{r.targetType ?? "—"}</span>
+                              {r.targetId ? (
+                                <Num.Code className="block text-[11px]">{r.targetId}</Num.Code>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+
+                          {open ? (
+                            <TableRow className="border-rule-2">
+                              <TableCell colSpan={5} className="bg-field px-3 py-3">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <StateBlock label={t("before")} value={r.beforeState} empty={t("noState")} locale={locale} />
+                                  <StateBlock label={t("after")} value={r.afterState} empty={t("noState")} locale={locale} />
+                                </div>
+                              </TableCell>
+                            </TableRow>
                           ) : null}
-                          {r.onBehalfOf ? (
-                            <span className="block text-xs text-muted-foreground">
-                              on behalf of {r.onBehalfOfName ?? r.onBehalfOf}
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{r.action}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {r.targetType ?? "—"}
-                          {r.targetId ? (
-                            <span className="block text-muted-foreground">{r.targetId}</span>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                      {open ? (
-                        <TableRow>
-                          <TableCell colSpan={5}>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <StateBlock label="Before" value={r.beforeState} />
-                              <StateBlock label="After" value={r.afterState} />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
+                        </Fragment>
+                      );
+                    })}
+                  </Fragment>
+                ))}
               </TableBody>
             </Table>
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Previous
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              {t("prev")}
             </Button>
-            <span className="text-xs text-muted-foreground">page {page}</span>
+            <span className="flex items-baseline gap-1 text-[11px] text-ink-3">
+              {t("page")} <Num.Figure value={page} locale={locale} />
+            </span>
             <Button
               size="sm"
               variant="outline"
               disabled={page * 50 >= total}
               onClick={() => setPage((p) => p + 1)}
             >
-              Next
+              {t("next")}
             </Button>
           </div>
         </>
@@ -197,14 +287,26 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   );
 }
 
-function StateBlock({ label, value }: { label: string; value: unknown }) {
+function StateBlock({
+  label,
+  value,
+  empty,
+  locale,
+}: {
+  label: string;
+  value: unknown;
+  empty: string;
+  locale: Locale;
+}) {
   return (
-    <div className="rounded-md border bg-muted/30 p-2">
-      <p className="mb-1 text-xs font-semibold">{label}</p>
+    <div className="rounded-lg border border-rule bg-sheet p-2">
+      <Eyebrow locale={locale} className="mb-1">
+        {label}
+      </Eyebrow>
       {value == null ? (
-        <p className="text-xs text-muted-foreground">—</p>
+        <p className="text-[11px] text-ink-3">{empty}</p>
       ) : (
-        <pre className="overflow-x-auto text-xs whitespace-pre-wrap">
+        <pre className="num overflow-x-auto text-[11px] whitespace-pre-wrap text-ink-2" dir="ltr">
           {JSON.stringify(value, null, 2)}
         </pre>
       )}
@@ -213,25 +315,19 @@ function StateBlock({ label, value }: { label: string; value: unknown }) {
 }
 
 export function AuditLogScreen() {
+  const t = useTranslations("auditLog");
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Audit log"
-        description="Every back-office action, in order, with before and after state."
-      />
-      <Alert>
-        <Lock className="size-4" />
-        <AlertTitle>Append-only</AlertTitle>
-        <AlertDescription>
-          The database revokes UPDATE and DELETE on this table for the application role, so an
-          entry cannot be edited or removed from any app surface — including by a super admin.
-        </AlertDescription>
-      </Alert>
-      <Card>
-        <CardContent>
-          <AuditLogTable />
-        </CardContent>
-      </Card>
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader title={t("title")} description={t("subtitle")} rule />
+
+      <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+        <Lock className="mt-px size-4 shrink-0" aria-hidden="true" />
+        <span>
+          <span className="font-semibold text-ink">{t("appendOnlyTitle")}</span> — {t("appendOnlyBody")}
+        </span>
+      </p>
+
+      <AuditLogTable />
     </div>
   );
 }

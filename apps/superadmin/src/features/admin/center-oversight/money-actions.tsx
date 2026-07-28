@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { Banknote, Plus, Receipt, Wallet } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -31,8 +32,9 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
@@ -55,6 +57,7 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
 }
 
 function useMoneyMutation() {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   return async (
     url: string,
@@ -67,46 +70,41 @@ function useMoneyMutation() {
       toast.success(successMsg);
       return true;
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Action failed");
+      toast.error(t("ma_actionFailed"));
       return false;
     }
   };
 }
 
 export function MoneyActions({ centerId }: { centerId: string }) {
+  const t = useTranslations("oversight");
   const [open, setOpen] = useState<null | "payment" | "topup" | "subscription" | "payout">(null);
 
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Counter actions</CardTitle>
+          <CardTitle className="text-base">{t("ma_counterActions")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Alert>
             <Banknote className="size-4" />
-            <AlertTitle>These are the real flows, not ledger edits</AlertTitle>
+            <AlertTitle>{t("ma_realFlows")}</AlertTitle>
             <AlertDescription>
-              Each one writes through the money engine with a receipt or reference number, exactly
-              as the center&apos;s own counter does. None of them edits a ledger row or sets a
-              balance — those stay impossible, for a super admin too.
+              {t("ma_realFlowsBody")}
             </AlertDescription>
           </Alert>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => setOpen("payment")}>
-              <Receipt className="size-4" />
-              Record cash payment
-            </Button>
+              <Receipt className="size-4" />{t("ma_recordCash")}</Button>
             <Button size="sm" variant="outline" onClick={() => setOpen("topup")}>
-              <Wallet className="size-4" />
-              Top up a wallet
-            </Button>
+              <Wallet className="size-4" />{t("ma_topUp")}</Button>
             <Button size="sm" variant="outline" onClick={() => setOpen("subscription")}>
               <Plus className="size-4" />
-              Walk-in subscription
+              {t("ma_walkIn")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setOpen("payout")}>
-              Request payout
+              {t("ma_requestPayout")}
             </Button>
           </div>
         </CardContent>
@@ -147,12 +145,13 @@ function StudentPicker({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useTranslations("oversight");
   const students = useRosterStudents(centerId, enabled);
   return (
-    <Labeled label="Student (this center's roster)">
+    <Labeled label={t("ma_student")}>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger>
-          <SelectValue placeholder="Pick a student" />
+          <SelectValue placeholder={t("ma_pickStudent")} />
         </SelectTrigger>
         <SelectContent>
           {students.map((s) => (
@@ -175,6 +174,7 @@ function RecordPaymentDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
   const run = useMoneyMutation();
   const [studentId, setStudentId] = useState("");
   const [amount, setAmount] = useState("");
@@ -184,14 +184,14 @@ function RecordPaymentDialog({
   const submit = async () => {
     const piasters = Math.round(Number(amount) * 100);
     if (!studentId || !Number.isFinite(piasters) || piasters <= 0) {
-      toast.error("Pick a student and enter a positive amount");
+      toast.error(t("ma_needStudentAmount"));
       return;
     }
     setBusy(true);
     const okDone = await run(
       `admin/centers/${centerId}/money/payments`,
       { studentId, amount: piasters, ...(note.trim() ? { note: note.trim() } : {}) },
-      "Payment recorded — receipt issued and mirrored to the ledger",
+      t("ma_paymentOk"),
     );
     setBusy(false);
     if (okDone) {
@@ -205,10 +205,10 @@ function RecordPaymentDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record a cash payment</DialogTitle>
+          <DialogTitle>{t("ma_recordCashTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             Writes a Payment with a center receipt number and a mirrored ledger entry, in one
             transaction. Positive amounts only — returning money is the refund flow.
           </p>
@@ -218,10 +218,10 @@ function RecordPaymentDialog({
             value={studentId}
             onChange={setStudentId}
           />
-          <Labeled label="Amount (EGP)">
+          <Labeled label={t("ma_amountEgp")}>
             <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Labeled>
-          <Labeled label="Note (optional)">
+          <Labeled label={t("ma_noteOptional")}>
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </Labeled>
         </div>
@@ -245,6 +245,7 @@ function TopUpDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
   const run = useMoneyMutation();
   const [studentId, setStudentId] = useState("");
   const [amount, setAmount] = useState("");
@@ -253,14 +254,14 @@ function TopUpDialog({
   const submit = async () => {
     const piasters = Math.round(Number(amount) * 100);
     if (!studentId || !Number.isFinite(piasters) || piasters <= 0) {
-      toast.error("Pick a student and enter a positive amount");
+      toast.error(t("ma_needStudentAmount"));
       return;
     }
     setBusy(true);
     const okDone = await run(
       `admin/centers/${centerId}/money/wallet-topup`,
       { studentId, amount: piasters },
-      "Wallet topped up — receipt issued and mirrored to the ledger",
+      t("ma_topUpOk"),
     );
     setBusy(false);
     if (okDone) {
@@ -273,13 +274,11 @@ function TopUpDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Top up a student wallet (cash)</DialogTitle>
+          <DialogTitle>{t("ma_topUpTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            <strong>Credit only.</strong> There is no counter-side withdrawal anywhere in the
-            product — money goes in here, and only the student&apos;s own spending or a refund
-            takes it out.
+          <p className="text-xs text-ink-2">
+            <strong>{t("ma_creditOnly")}</strong> {t("ma_creditOnlyBody")}
           </p>
           <StudentPicker
             centerId={centerId}
@@ -287,7 +286,7 @@ function TopUpDialog({
             value={studentId}
             onChange={setStudentId}
           />
-          <Labeled label="Amount (EGP)">
+          <Labeled label={t("ma_amountEgp")}>
             <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Labeled>
         </div>
@@ -311,12 +310,13 @@ function WalkInSubscriptionDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const run = useMoneyMutation();
   const courses = useAdminGet<Paged<{ id: string; title: string; pricePerMonth: number | null; pricePerSession: number | null }>>(
     `admin/centers/${centerId}/oversight/courses`,
     { enabled: open, query: { limit: "100" } },
   );
-  const { formatEGP } = useFormatters();
   const [studentId, setStudentId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [plan, setPlan] = useState<"monthly" | "per_session">("monthly");
@@ -327,7 +327,7 @@ function WalkInSubscriptionDialog({
 
   const submit = async () => {
     if (!studentId || !courseId) {
-      toast.error("Pick a student and a course");
+      toast.error(t("ma_needStudentCourse"));
       return;
     }
     setBusy(true);
@@ -344,12 +344,11 @@ function WalkInSubscriptionDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Walk-in subscription (cash)</DialogTitle>
+          <DialogTitle>{t("ma_walkInTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            The charge is the course&apos;s configured plan price — there is no amount field, so
-            no number can be entered here.
+          <p className="text-xs text-ink-2">
+            {t("ma_walkInNote")}
           </p>
           <StudentPicker
             centerId={centerId}
@@ -357,10 +356,10 @@ function WalkInSubscriptionDialog({
             value={studentId}
             onChange={setStudentId}
           />
-          <Labeled label="Course">
+          <Labeled label={t("ma_course")}>
             <Select value={courseId} onValueChange={setCourseId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a course" />
+                <SelectValue placeholder={t("ma_pickCourse")} />
               </SelectTrigger>
               <SelectContent>
                 {(courses.data?.data ?? []).map((c) => (
@@ -371,14 +370,14 @@ function WalkInSubscriptionDialog({
               </SelectContent>
             </Select>
           </Labeled>
-          <Labeled label="Plan">
+          <Labeled label={t("ma_plan")}>
             <Select value={plan} onValueChange={(v) => setPlan(v as "monthly" | "per_session")}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="per_session">Per session</SelectItem>
+                <SelectItem value="monthly">{t("ma_monthly")}</SelectItem>
+                <SelectItem value="per_session">{t("ma_perSession")}</SelectItem>
               </SelectContent>
             </Select>
           </Labeled>
@@ -386,7 +385,7 @@ function WalkInSubscriptionDialog({
             <p className="text-sm">
               Charge:{" "}
               <strong className="tabular-nums">
-                {price != null ? formatEGP(price) : "plan not priced"}
+                {price != null ? <Num.Money piasters={price} locale={locale} sign={false} /> : t("ma_notPriced")}
               </strong>
             </p>
           ) : null}
@@ -411,7 +410,8 @@ function PayoutDialog({
   onClose: () => void;
   centerId: string;
 }) {
-  const { formatEGP } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const run = useMoneyMutation();
   const req = useAdminGet<{ wallet: { balance?: number }; payouts: unknown[] }>(
     `admin/centers/${centerId}/money/payout-request`,
@@ -426,7 +426,7 @@ function PayoutDialog({
     const okDone = await run(
       `admin/centers/${centerId}/money/payout-request`,
       piasters ? { amount: piasters } : {},
-      "Payout requested — pending the accountant's approval",
+      t("ma_payoutOk"),
     );
     setBusy(false);
     if (okDone) {
@@ -439,18 +439,18 @@ function PayoutDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Request a payout</DialogTitle>
+          <DialogTitle>{t("ma_requestPayoutTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             This <strong>pays nothing</strong>. It raises a pending payout; approval and
             settlement stay with the accountant, where the balance floor is enforced.
           </p>
           <p className="text-sm">
             Center wallet:{" "}
-            <strong className="tabular-nums">{formatEGP(req.data?.wallet?.balance ?? 0)}</strong>
+            <Num.Money piasters={req.data?.wallet?.balance ?? 0} locale={locale} tone="net" sign={false} />
           </p>
-          <Labeled label="Amount (EGP — blank means the full balance)">
+          <Labeled label={t("ma_amountFull")}>
             <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Labeled>
         </div>
@@ -480,7 +480,8 @@ type ExpenseRow = {
 };
 
 export function ExpensesCard({ centerId }: { centerId: string }) {
-  const { formatEGP, formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<ExpenseRow[] | { items: ExpenseRow[] }>(
     `admin/centers/${centerId}/money/expenses`,
   );
@@ -495,7 +496,7 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
   const submit = async () => {
     const piasters = Math.round(Number(f.amount) * 100);
     if (!Number.isFinite(piasters) || piasters <= 0 || !f.expenseDate) {
-      toast.error("A positive amount and a date are required");
+      toast.error(t("ma_needAmountDate"));
       return;
     }
     setBusy(true);
@@ -507,7 +508,7 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
         expenseDate: f.expenseDate,
         ...(f.description.trim() ? { description: f.description.trim() } : {}),
       },
-      "Expense recorded",
+      t("ma_expenseOk"),
     );
     setBusy(false);
     if (okDone) {
@@ -521,49 +522,47 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
-          <span>Expenses</span>
+          <span>{t("ma_expenses")}</span>
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-            <Plus className="size-4" />
-            Add expense
-          </Button>
+            <Plus className="size-4" />{t("ma_addExpense")}</Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-2 text-xs text-muted-foreground">
+        <p className="mb-2 text-xs text-ink-2">
           The center&apos;s own bookkeeping — not the append-only ledger. Deleting one reverses
           nothing in the transaction ledger.
         </p>
         {req.isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No expenses recorded.</p>
+          <p className="text-sm text-ink-2">{t("ma_noExpenses")}</p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-end">Amount</TableHead>
-                  <TableHead className="text-end">Actions</TableHead>
+                  <TableHead>{t("ma_date")}</TableHead>
+                  <TableHead>{t("ma_category")}</TableHead>
+                  <TableHead>{t("ma_description")}</TableHead>
+                  <TableHead className="text-end">{t("ma_amount")}</TableHead>
+                  <TableHead className="text-end">{t("ma_actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell>{formatDate(e.expenseDate, { dateStyle: "medium" })}</TableCell>
+                    <TableCell><Num.Date value={e.expenseDate} locale={locale} options={{ dateStyle: "medium" }} className="text-[11px] text-ink-3" /></TableCell>
                     <TableCell>
                       <Badge variant="secondary">{e.category}</Badge>
                     </TableCell>
                     <TableCell>{e.description ?? "—"}</TableCell>
-                    <TableCell className="text-end tabular-nums">{formatEGP(e.amount)}</TableCell>
+                    <TableCell className="text-end"><Num.Money piasters={e.amount} locale={locale} tone="muted" sign={false} /></TableCell>
                     <TableCell className="text-end">
                       <ControlAction
-                        label="Delete"
-                        title="Delete this expense?"
+                        label={t("ma_delete")}
+                        title={t("ma_deleteExpenseQ")}
                         destructive
-                        confirmText="Delete"
+                        confirmText={t("ma_delete")}
                         method="delete"
                         url={`admin/centers/${centerId}/money/expenses/${e.id}`}
                         values={{}}
@@ -587,10 +586,10 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add an expense</DialogTitle>
+            <DialogTitle>{t("ma_addExpenseTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Labeled label="Amount (EGP)">
+            <Labeled label={t("ma_amountEgp")}>
               <Input
                 type="number"
                 min="0"
@@ -599,7 +598,7 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
                 onChange={(e) => setF((s) => ({ ...s, amount: e.target.value }))}
               />
             </Labeled>
-            <Labeled label="Category">
+            <Labeled label={t("ma_category")}>
               <Select
                 value={f.category}
                 onValueChange={(v) => setF((s) => ({ ...s, category: v }))}
@@ -616,14 +615,14 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
                 </SelectContent>
               </Select>
             </Labeled>
-            <Labeled label="Date">
+            <Labeled label={t("ma_date")}>
               <Input
                 type="date"
                 value={f.expenseDate}
                 onChange={(e) => setF((s) => ({ ...s, expenseDate: e.target.value }))}
               />
             </Labeled>
-            <Labeled label="Description (optional)">
+            <Labeled label={t("ma_descOptional")}>
               <Input
                 value={f.description}
                 onChange={(e) => setF((s) => ({ ...s, description: e.target.value }))}

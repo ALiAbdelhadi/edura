@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { LogOut, ShieldAlert, ArrowRightLeft, BarChart3 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -30,8 +31,10 @@ import {
 } from "@repo/ui/components/tabs";
 import { toast } from "@repo/ui/components/sonner";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { MetricCard } from "@repo/ui/components/metric-card";
+import { Num, ProseCount } from "@repo/ui/components/num";
+import { formatPercent, type Locale } from "@repo/ui/lib/format";
+import { asKey } from "@/lib/i18n/keys";
 import { useAdminGet } from "./use-oversight";
 
 // ---------------------------------------------------------------------------
@@ -49,7 +52,8 @@ const REPORTS = [
 ] as const;
 
 export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
-  const { formatEGP, formatNumber } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const [report, setReport] = useState<string>("revenue");
   const dash = useAdminGet<Record<string, unknown>>(`admin/centers/${centerId}/dashboard`, {
     enabled,
@@ -78,12 +82,12 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
         <PageSpinner />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Students" value={formatNumber(num(d.totalStudents))} />
-          <StatCard label="Active classes" value={formatNumber(num(d.activeClasses))} />
-          <StatCard label="Revenue" value={formatEGP(num(d.totalRevenue))} />
-          <StatCard
-            label="Attendance rate"
-            value={`${Math.round(num(d.attendanceRate))}%`}
+          <MetricCard label={t("rp_students")} value={<Num.Figure value={num(d.totalStudents)} locale={locale} />} />
+          <MetricCard label={t("rp_activeClasses")} value={<Num.Figure value={num(d.activeClasses)} locale={locale} />} />
+          <MetricCard label={t("rp_revenue")} value={<Num.Money piasters={num(d.totalRevenue)} locale={locale} sign={false} short align="start" />} />
+          <MetricCard
+            label={t("rp_attendanceRate")}
+            value={<Num>{formatPercent(Math.round(num(d.attendanceRate)), locale)}</Num>}
           />
         </div>
       )}
@@ -106,7 +110,7 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
                 {data.isLoading ? (
                   <Spinner />
                 ) : (
-                  <pre className="overflow-x-auto rounded-md bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                  <pre className="overflow-x-auto rounded-md bg-field p-3 text-xs whitespace-pre-wrap">
                     {JSON.stringify(data.data ?? {}, null, 2)}
                   </pre>
                 )}
@@ -124,35 +128,34 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
 // ===========================================================================
 
 export function PlatformActionsCard({ centerId }: { centerId: string }) {
+  const t = useTranslations("oversight");
   const [open, setOpen] = useState<null | "move" | "logout" | "dob">(null);
 
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Platform actions</CardTitle>
+          <CardTitle className="text-base">{t("pf_title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Alert>
             <ShieldAlert className="size-4" />
-            <AlertTitle>No center can do these</AlertTitle>
+            <AlertTitle>{t("pf_noCenterCan")}</AlertTitle>
             <AlertDescription>
-              They exist for platform support, so each one is narrow and says what it will not
-              do. Moving a course between centers is deliberately not offered — its pricing was
-              frozen from this center and its sessions have settled here.
+              {t("pf_noCenterCanBody")}
             </AlertDescription>
           </Alert>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setOpen("move")}>
               <ArrowRightLeft className="size-4" />
-              Move a student to another center
+              {t("pf_moveStudent")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setOpen("logout")}>
               <LogOut className="size-4" />
-              Force logout
+              {t("pf_forceLogout")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setOpen("dob")}>
-              Verify a date of birth
+              {t("pf_verifyDob")}
             </Button>
           </div>
         </CardContent>
@@ -182,6 +185,14 @@ function MoveStudentDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
+  const forms = (stem: string) => ({
+    one: t(asKey(`${stem}_one`)),
+    two: t.has(asKey(`${stem}_two`)) ? t(asKey(`${stem}_two`)) : undefined,
+    few: t.has(asKey(`${stem}_few`)) ? t(asKey(`${stem}_few`)) : undefined,
+    many: t(asKey(`${stem}_many`)),
+  });
   const { mutateAsync } = useCustomMutation();
   const students = useRoster(centerId, open);
   const centers = useAdminGet<{ id: string; name: string; status: string }[]>("admin/centers", {
@@ -198,7 +209,7 @@ function MoveStudentDialog({
 
   const submit = async () => {
     if (!studentId || !toCenterId || !reason.trim()) {
-      toast.error("Student, destination and a reason are required");
+      toast.error(t("pf_moveNeeds"));
       return;
     }
     setBusy(true);
@@ -215,7 +226,7 @@ function MoveStudentDialog({
           payments: 0,
         },
       });
-      toast.success("Student moved — roster only");
+      toast.success(t("pf_movedOk"));
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to move the student");
     } finally {
@@ -233,18 +244,18 @@ function MoveStudentDialog({
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Move a student to another center</DialogTitle>
+          <DialogTitle>{t("pf_moveStudent")}</DialogTitle>
         </DialogHeader>
         {result ? (
           <div className="space-y-3 text-sm">
-            <p>The student is now on the destination center&apos;s roster.</p>
+            <p>{t("pf_onRoster")}</p>
             <Alert>
-              <AlertTitle>What stayed at this center</AlertTitle>
+              <AlertTitle>{t("pf_stayed")}</AlertTitle>
               <AlertDescription>
                 <ul className="list-inside list-disc">
-                  <li>{result.leftBehind.activeEnrollments} active enrollment(s)</li>
-                  <li>{result.leftBehind.activeSubscriptions} active subscription(s)</li>
-                  <li>{result.leftBehind.payments} payment record(s)</li>
+                  <li><ProseCount count={result.leftBehind.activeEnrollments} locale={locale} forms={forms("pf_enroll")} /></li>
+                  <li><ProseCount count={result.leftBehind.activeSubscriptions} locale={locale} forms={forms("pf_sub")} /></li>
+                  <li><ProseCount count={result.leftBehind.payments} locale={locale} forms={forms("pf_pay")} /></li>
                 </ul>
                 These are facts about what happened here, and some have already settled — they
                 are never moved. Enrol the student at the new center as a new arrival.
@@ -253,15 +264,14 @@ function MoveStudentDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              <strong>Roster only.</strong> Enrollments, subscriptions, payments and wallet
-              history stay at this center.
+            <p className="text-xs text-ink-2">
+              <strong>{t("pf_rosterOnly")}</strong> {t("pf_rosterOnlyBody")}
             </p>
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Student</span>
+              <span className="block font-medium">{t("pf_student")}</span>
               <Select value={studentId} onValueChange={setStudentId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick a student" />
+                  <SelectValue placeholder={t("pf_pickStudent")} />
                 </SelectTrigger>
                 <SelectContent>
                   {students.map((s) => (
@@ -273,10 +283,10 @@ function MoveStudentDialog({
               </Select>
             </label>
             <label className="space-y-1 text-sm">
-              <span className="block font-medium">Destination center</span>
+              <span className="block font-medium">{t("pf_destination")}</span>
               <Select value={toCenterId} onValueChange={setToCenterId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick a center" />
+                  <SelectValue placeholder={t("pf_pickCenter")} />
                 </SelectTrigger>
                 <SelectContent>
                   {(centers.data ?? [])
@@ -291,7 +301,7 @@ function MoveStudentDialog({
             </label>
             <label className="space-y-1 text-sm">
               <span className="block font-medium">
-                Reason <span className="text-destructive">*</span>
+                {t("pf_reason")} <span className="text-red" aria-hidden="true">*</span>
               </span>
               <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
             </label>
@@ -299,11 +309,11 @@ function MoveStudentDialog({
         )}
         <DialogFooter>
           {result ? (
-            <Button onClick={close}>Done</Button>
+            <Button onClick={close}>{t("pf_done")}</Button>
           ) : (
             <Button onClick={submit} disabled={busy}>
               {busy ? <Spinner /> : null}
-              Move student
+              {t("pf_moveBtn")}
             </Button>
           )}
         </DialogFooter>
@@ -321,6 +331,7 @@ function ForceLogoutDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [userId, setUserId] = useState("");
   const [reason, setReason] = useState("");
@@ -328,7 +339,7 @@ function ForceLogoutDialog({
 
   const submit = async () => {
     if (!userId.trim() || !reason.trim()) {
-      toast.error("A user id and a reason are required");
+      toast.error(t("pf_logoutNeeds"));
       return;
     }
     setBusy(true);
@@ -338,7 +349,7 @@ function ForceLogoutDialog({
         method: "post",
         values: { reason: reason.trim(), centerId },
       });
-      toast.success("Every live session for that account is now dead");
+      toast.success(t("pf_logoutOk"));
       setUserId("");
       setReason("");
       onClose();
@@ -353,21 +364,19 @@ function ForceLogoutDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Force logout</DialogTitle>
+          <DialogTitle>{t("pf_logoutTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Kills every live session on the account&apos;s next request. It changes no status and
-            deletes nothing — <strong>the person can sign straight back in</strong>. If you mean
-            to stop them using the platform, deactivate the account instead.
+          <p className="text-xs text-ink-2">
+            {t("pf_logoutBody")}
           </p>
           <label className="space-y-1 text-sm">
-            <span className="block font-medium">User id</span>
+            <span className="block font-medium">{t("pf_userId")}</span>
             <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid" />
           </label>
           <label className="space-y-1 text-sm">
             <span className="block font-medium">
-              Reason <span className="text-destructive">*</span>
+              {t("pf_reason")} <span className="text-red" aria-hidden="true">*</span>
             </span>
             <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
@@ -392,6 +401,8 @@ function VerifyDobDialog({
   onClose: () => void;
   centerId: string;
 }) {
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const { mutateAsync } = useCustomMutation();
   const students = useRoster(centerId, open);
   const [studentId, setStudentId] = useState("");
@@ -410,7 +421,7 @@ function VerifyDobDialog({
 
   const submit = async () => {
     if (!studentId || !dateOfBirth || !reason.trim()) {
-      toast.error("Student, date of birth and a reason are required");
+      toast.error(t("pf_dobNeeds"));
       return;
     }
     setBusy(true);
@@ -420,13 +431,13 @@ function VerifyDobDialog({
         method: "post",
         values: { dateOfBirth, reason: reason.trim(), centerId },
       });
-      toast.success("Date of birth verified — recorded in the audit log");
+      toast.success(t("pf_dobOk"));
       setDateOfBirth("");
       setAge(null);
       setReason("");
       onClose();
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to verify");
+      toast.error(t("pf_verifyFail"));
     } finally {
       setBusy(false);
     }
@@ -437,20 +448,19 @@ function VerifyDobDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="size-4 text-warning" />
-            Verify a date of birth
+            <ShieldAlert className="size-4 text-amber" />
+            {t("pf_dobTitle")}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            A student counts as a <strong>minor</strong> unless a verified date of birth shows
-            18 or over, and parent oversight of their conversations is active for every minor.
+          <p className="text-xs text-ink-2">
+            {t("pf_dobBody1")} <strong>{t("pf_dobMinor")}</strong> {t("pf_dobBody2")}
           </p>
           <label className="space-y-1 text-sm">
-            <span className="block font-medium">Student</span>
+            <span className="block font-medium">{t("pf_student")}</span>
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a student" />
+                <SelectValue placeholder={t("pf_pickStudent")} />
               </SelectTrigger>
               <SelectContent>
                 {students.map((s) => (
@@ -462,7 +472,7 @@ function VerifyDobDialog({
             </Select>
           </label>
           <label className="space-y-1 text-sm">
-            <span className="block font-medium">Date of birth</span>
+            <span className="block font-medium">{t("pf_dob")}</span>
             <Input
               type="date"
               value={dateOfBirth}
@@ -472,20 +482,19 @@ function VerifyDobDialog({
           {wouldBeAdult ? (
             <Alert>
               <ShieldAlert className="size-4" />
-              <AlertTitle>This turns parent oversight OFF</AlertTitle>
+              <AlertTitle>{t("pf_oversightOff")}</AlertTitle>
               <AlertDescription>
-                {age} years old — verifying this makes them an adult, and their parent will no
-                longer be able to see their conversations with staff and teachers.
+                <Num.Figure value={age} locale={locale} /> {t("pf_yearsOldAdult")}
               </AlertDescription>
             </Alert>
           ) : age !== null ? (
-            <p className="text-xs text-muted-foreground">
-              {age} years old — still a minor, so parent oversight stays on.
+            <p className="text-xs text-ink-2">
+              <Num.Figure value={age} locale={locale} /> {t("pf_yearsOldMinor")}
             </p>
           ) : null}
           <label className="space-y-1 text-sm">
             <span className="block font-medium">
-              Reason — what evidence was seen? <span className="text-destructive">*</span>
+              {t("pf_dobReason")} <span className="text-red" aria-hidden="true">*</span>
             </span>
             <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
@@ -497,7 +506,7 @@ function VerifyDobDialog({
             disabled={busy}
           >
             {busy ? <Spinner /> : null}
-            Verify
+            {t("pf_verifyBtn")}
           </Button>
         </DialogFooter>
       </DialogContent>

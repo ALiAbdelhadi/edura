@@ -1,61 +1,31 @@
 "use client";
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@repo/ui/components/alert-dialog";
-import { buttonVariants } from "@repo/ui/components/button";
-import { cn } from "@repo/ui/lib/utils";
+  ConfirmDialog as UIConfirmDialog,
+  TwoStepCommit,
+  type CommitLabels,
+} from "@repo/ui/components/confirm-dialog";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
-export function ConfirmDialog({
-  trigger,
-  title,
-  description,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
-  destructive = false,
-  onConfirm,
-}: {
-  trigger: React.ReactNode;
-  title: React.ReactNode;
-  description?: React.ReactNode;
-  confirmText?: React.ReactNode;
-  cancelText?: React.ReactNode;
-  destructive?: boolean;
-  onConfirm: () => void;
-}) {
+export { TwoStepCommit, type CommitLabels };
+
+/* Shim → @repo/ui/components/confirm-dialog.
+   Injects the default confirm/cancel copy so the 12 existing call sites that omit it
+   stop rendering English in an Arabic page.
+
+   NOTE for portal sessions: this dialog is the ONE-press confirmation, for REVERSIBLE
+   actions. If the action writes to the ledger, use <TwoStepCommit> instead — see the
+   reasoning at the top of the source file. */
+export function ConfirmDialog(
+  props: React.ComponentProps<typeof UIConfirmDialog>,
+) {
+  const t = useTranslations("actions");
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description ? (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
-          ) : null}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
-          <AlertDialogAction
-            className={
-              destructive
-                ? cn(buttonVariants({ variant: "destructive" }))
-                : undefined
-            }
-            onClick={onConfirm}
-          >
-            {confirmText}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <UIConfirmDialog
+      confirmText={props.confirmText ?? t("confirm")}
+      cancelText={props.cancelText ?? t("cancel")}
+      {...props}
+    />
   );
 }

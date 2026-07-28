@@ -1,8 +1,26 @@
-/* Shared EduConnect "Deep Trust" TOKEN layer — single source of truth.
+/* الدفتر / The Ledger — shared TOKEN layer, single source of truth.
    `@import "tailwindcss"` and `@import "tw-animate-css"` live in the CONSUMING app's
    globals.css: bare npm specifiers resolve from the app's node_modules, and Turbopack
    resolves nested @imports file-relative — so they can't live here. This file is
-   imported AFTER those two. */
+   imported AFTER those two.
+
+   ── How to read this file ─────────────────────────────────────────────────────
+   LAYER 1  the ledger palette. The real names. New work uses these.
+   LAYER 2  the shadcn/legacy contract, DERIVED from layer 1. It exists so the ~110
+            screens already written against `bg-background` / `text-muted-foreground`
+            / `border-border` keep rendering while the palette underneath them
+            changes. Nothing here is a second palette — every value is a `var()`
+            pointing back into layer 1. Deleting a name here breaks call sites;
+            re-pointing one changes the product everywhere at once, which is the
+            whole reason the indirection is worth having.
+   LAYER 3  @theme inline — exposes BOTH name sets as Tailwind utilities.
+
+   ── The concept ──────────────────────────────────────────────────────────────
+   Approving a payout debits a wallet, writes an immutable ledger row, and marks the
+   request paid, in one irreversible click. The interface is therefore built as a
+   ledger an operator signs, not a dashboard they browse. Paper not glass; every
+   figure monospaced; irreversible actions carry their own amount and cost two
+   presses. Each token below is downstream of that. */
 
 /* Scan this package's own components for Tailwind classes (v4 needs an explicit
    @source for workspace packages; the app auto-detects its own src). */
@@ -13,132 +31,293 @@
    next-themes. The attribute is the single source of truth. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   LAYER 1 — the ledger palette
+   ══════════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --radius: 0.875rem;
+  /* Surfaces. Warm paper canvas, white sheet on top of it. `--field` is the
+     recessed surface: table headers, inputs, footers, computation boxes. */
+  --paper: #f7f6f2;
+  --sheet: #ffffff;
+  --field: #fbfaf7;
 
-  /* Slightly cooler, less-saturated canvas than pure white so cards (pure white)
-     pop off the page instead of blending into it — the "elevated surface" feel. */
-  --background: #f6f7fb;
-  --foreground: #0c1524;
-  --card: #ffffff;
-  --card-foreground: #0c1524;
-  --popover: #ffffff;
-  --popover-foreground: #0c1524;
+  /* Ink. Three levels, and only three.
+     NOTE --ink-3 is #707686, NOT the #8b91a1 in the design handoff. #8b91a1 scores
+     2.91–3.15:1 against the three surfaces it sits on — below the 4.5:1 AA floor for
+     text under 18.66px. --ink-3 is not decorative: it is the eyebrow, the mono meta
+     line, table headers, and the email/code line of every row-identity cell. #707686
+     clears 4.5:1 on all three surfaces and still reads as the third level down. */
+  --ink: #1c2230;
+  --ink-2: #5b6273;
+  --ink-3: #707686;
 
-  /* Deeper, richer indigo (was flat navy #1e3a8a) — more premium/SaaS, still
-     "Deep Trust". Paired with --primary-glow for icon chips / accent washes. */
-  --primary: #1a2f73;
-  --primary-glow: #3856e0;
-  --primary-foreground: #ffffff;
-  --secondary: #edf1ff;
-  --secondary-foreground: #1a2f73;
-  --muted: #f1f3f9;
-  --muted-foreground: #5c6272;
-  --accent: #e3e9ff;
-  --accent-foreground: #1a2f73;
-  --destructive: #ba1a1a;
-  --destructive-foreground: #ffffff;
+  /* Hairlines. The system's structural element — `--rule` for card borders and
+     section rules, `--rule-2` for in-table row dividers and hover fill. */
+  --rule: #e4e1d8;
+  --rule-2: #efece4;
 
-  --border: #e5e8f0;
-  --input: #cbd0dd;
-  --ring: #3856e0;
+  /* Four colours, each with one meaning. Enforced in review:
+     indigo = brand + primary action · teal = money out / confirmed
+     amber  = waiting, and nothing else · red = irreversible or blocking, and nothing else
+     A figure is never coloured for decoration. Never two saturated colours in one row. */
+  --indigo: #1a2f73;
+  --indigo-soft: #eaecf6;
+  --indigo-ink: #ffffff;
 
-  /* Semantic + brand extensions (DESIGN.md: teal CTA, status chips, trends).
-     shadcn has no native secondary-brand/success/warning/info slots. */
-  --brand-teal: #0d9488;
-  --brand-teal-foreground: #ffffff;
-  --success: #15803d;
-  --success-foreground: #ffffff;
-  --warning: #b45309;
-  --warning-foreground: #ffffff;
-  --info: #0284c7;
-  --info-foreground: #ffffff;
+  /* #0a7a6f, not the handoff's #0d7d72. A 12/600 badge sits below the 18.66px
+     large-text threshold, so `--teal` on `--teal-soft` needs 4.5:1 and scored 4.34:1.
+     Darkening the INK rather than lightening the FILL was the right correction: it
+     also lifts every teal money figure (on --sheet 5.01 -> 5.22, on --paper 4.63 ->
+     4.82, both previously marginal), and it keeps the soft fill's distinctness from
+     --sheet at 1.15:1, in line with amber-soft (1.13) and red-soft (1.17). Lightening
+     the fill instead would have made "paid / verified" the faintest badge of the
+     three, which is backwards for a confirmed state. */
+  --teal: #0a7a6f;
+  --teal-soft: #e2f2f0;
 
-  --chart-1: #3856e0;
-  --chart-2: #0d9488;
-  --chart-3: #0ea5e9;
-  --chart-4: #f59e0b;
-  --chart-5: #ec4899;
+  --amber: #a35a06;
+  --amber-soft: #fbf0dd;
 
-  --sidebar: #0c1524;
-  --sidebar-foreground: #eef1fb;
-  --sidebar-primary: #6d84ff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #172037;
-  --sidebar-accent-foreground: #eef1fb;
-  --sidebar-border: #1b2438;
-  --sidebar-ring: #6d84ff;
+  --red: #a81d1d;
+  --red-soft: #fbe9e7;
 
-  /* Layered elevation scale — soft ambient + tight contact shadow per level,
-     replaces flat shadow-sm everywhere so cards read as physically raised. */
-  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
-  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05);
-  --shadow-lg: 0 12px 24px -6px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.06);
-  --shadow-glow: 0 0 0 1px rgb(56 86 224 / 0.08), 0 8px 24px -8px rgb(56 86 224 / 0.25);
+  /* The seal — the `TRX-` stamp on a row that has been written to the ledger.
+     Derived from --red rather than given its own hue: a seal marks permanence, which
+     is the same thing red means everywhere else in this system. Mixing toward the
+     canvas keeps it a stamp rather than an alarm. */
+  --seal: color-mix(in oklab, var(--red) 64%, var(--paper));
+
+  /* Elevation. Two levels exist. There is no third. */
+  --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
+  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22); /* overlays/popovers only */
+
+  /* ── Geometry ──────────────────────────────────────────────────────────────
+     Set as the four scale steps rather than offsets from one --radius, because the
+     handoff's targets aren't a single arithmetic progression: buttons want 8 and
+     cards want 12, which `calc(--radius ± n)` cannot produce at once. */
+  --radius: 0.75rem; /* 12px — kept for the ~8 call sites reading var(--radius) */
+  --radius-step-sm: 6px; /* small chips, menu items */
+  --radius-step-md: 8px; /* buttons, inputs, badges */
+  --radius-step-lg: 12px; /* dialogs, panels */
+  --radius-step-xl: 12px; /* cards, table containers */
+  --radius-badge: 5px; /* count badges */
+  --radius-tile: 7px; /* initials tiles */
+
+  /* ── The eyebrow ───────────────────────────────────────────────────────────
+     The system's primary hierarchy marker: every section label, nav group label and
+     table header.
+
+     Latin can carry uppercase + letter-spacing + monospace. Arabic can carry NONE of
+     them: it has no case, it is a connected script so tracking breaks the joins, and
+     IBM Plex Mono ships no Arabic glyphs so `font-mono` silently falls back and the
+     mono guarantee is lost without an error. Applying the Latin recipe to Arabic
+     therefore degrades it to plain small text — leaving the hierarchy STRONGER in the
+     secondary language than in the primary one, which for an Arabic-first product is
+     backwards.
+
+     Resolution: the MARKER is the shared invariant, present in both scripts. Case,
+     tracking and mono become the Latin-only variant; weight, size and word-spacing
+     are the Arabic one. word-spacing is safe where letter-spacing is not — it widens
+     the space character only and never touches the joins. See <Eyebrow>. */
+  --eyebrow-marker-w: 2px;
+  --eyebrow-marker-h: 9px;
+  --eyebrow-marker-gap: 7px;
+  --eyebrow-color: var(--ink-3);
+
+  --eyebrow-lat-size: 10px;
+  --eyebrow-lat-weight: 600;
+  --eyebrow-lat-track: 0.12em;
+
+  /* 12px, not 10px: 10px Latin caps have a ~7px cap band, and Arabic needs more size
+     to match that optically. 11 reads under-weight beside the Latin form, 13 out-ranks
+     the items below it, and 600 is the body-emphasis weight so it fails to read as a
+     label at all. */
+  --eyebrow-ar-size: 12px;
+  --eyebrow-ar-weight: 700;
+  --eyebrow-ar-word: 0.1em;
 }
 
 [data-theme="dark"] {
-  --background: #0a0f1c;
-  --foreground: #eaf0ff;
-  --card: #121a2c;
-  --card-foreground: #eaf0ff;
-  --popover: #121a2c;
-  --popover-foreground: #eaf0ff;
+  /* Dark mode is the same record under different light — not a different product.
+     The four devices most likely to vanish on a swap, and which carry meaning, are
+     re-checked here: the hairlines, the double rule on totals, the semantic weights,
+     and the seal. */
+  --paper: #14161c;
+  --sheet: #1b1e26;
+  --field: #1f232b;
 
-  --primary: #8ba0ff;
-  --primary-glow: #6d84ff;
-  --primary-foreground: #071033;
-  --secondary: #182238;
-  --secondary-foreground: #eaf0ff;
-  --muted: #182238;
-  --muted-foreground: #97a1b8;
-  --accent: #212d49;
-  --accent-foreground: #eaf0ff;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
+  --ink: #eceadf;
+  --ink-2: #a3a49c;
+  /* #888a84, not the handoff's #7c7e78 — same AA correction as light. #7c7e78 scores
+     3.83–4.40:1 against the three dark surfaces; #888a84 clears 4.5:1 on all three. */
+  --ink-3: #888a84;
 
-  --border: #212c45;
-  --input: #2c3a58;
-  --ring: #8ba0ff;
+  --rule: #2a2d35;
+  --rule-2: #22252c;
 
-  --brand-teal: #2dd4bf;
-  --brand-teal-foreground: #003733;
-  --success: #34d377;
-  --success-foreground: #052e16;
-  --warning: #f59e0b;
-  --warning-foreground: #3a2408;
-  --info: #38bdf8;
-  --info-foreground: #08283a;
+  --indigo: #93a4e6;
+  --indigo-soft: #232840;
+  --indigo-ink: #0d1330;
 
-  --chart-1: #8ba0ff;
-  --chart-2: #2dd4bf;
-  --chart-3: #38bdf8;
-  --chart-4: #fbbf24;
-  --chart-5: #f472b6;
+  --teal: #54c9bb;
+  --teal-soft: #12302e;
 
-  --sidebar: #070b15;
-  --sidebar-foreground: #eaf0ff;
-  --sidebar-primary: #8ba0ff;
-  --sidebar-primary-foreground: #071033;
-  --sidebar-accent: #141d33;
-  --sidebar-accent-foreground: #eaf0ff;
-  --sidebar-border: #182238;
-  --sidebar-ring: #8ba0ff;
+  --amber: #e0a44a;
+  --amber-soft: #33260f;
 
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.20);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.28), 0 1px 2px -1px rgb(0 0 0 / 0.24);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.36), 0 2px 4px -2px rgb(0 0 0 / 0.24);
-  --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.44), 0 4px 8px -4px rgb(0 0 0 / 0.28);
-  --shadow-glow: 0 0 0 1px rgb(139 160 255 / 0.14), 0 8px 24px -8px rgb(139 160 255 / 0.30);
+  --red: #ef6a6a;
+  --red-soft: #361b1b;
+
+  /* Mixed toward the dark canvas so the stamp stays a stamp; --red at full strength
+     on --sheet reads as an error state rather than a mark of permanence. */
+  --seal: color-mix(in oklab, var(--red) 70%, var(--paper));
+
+  --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
+  --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+/* ══════════════════════════════════════════════════════════════════════════════
+   LAYER 2 — MIGRATION SHIM. Temporary. Shrinking to nothing.
+   ══════════════════════════════════════════════════════════════════════════════
 
+   Every name below is an ALIAS for a layer-1 token. Nothing here is a second palette
+   — each value is a `var()` pointing back into layer 1.
+
+   Why it exists: re-pointing rather than renaming was the only safe way to change the
+   palette under ~110 already-written screens (143 call sites on the semantic colours
+   alone, 58 on the sidebar group). Renaming would have broken the chrome of both apps
+   in a single commit.
+
+   Why it must not become permanent: two vocabularies for one value is a token-level
+   version of exactly the two-system drift the original audit opened with. A reader
+   seeing `bg-card` and `bg-sheet` in the same file cannot tell whether they differ.
+
+   ── The rule ─────────────────────────────────────────────────────────────────
+   NEW CODE USES LEDGER NAMES ONLY. No new call site may reference a name in this
+   block. Each portal session deletes the aliases its own screens used as it converts
+   them; when a row's count reaches zero, delete the row. When the block is empty,
+   delete the block. That is the exit path — there is no other.
+
+   ── The map ──────────────────────────────────────────────────────────────────
+     --background ......... --paper          --foreground ......... --ink
+     --card, --popover .... --sheet          --card-foreground .... --ink
+     --muted .............. --field          --muted-foreground ... --ink-2
+     --primary ............ --indigo         --primary-foreground . --indigo-ink
+     --secondary, --accent  --indigo-soft    --*-foreground ....... --indigo
+     --destructive ........ --red            --border, --input .... --rule
+     --ring ............... --indigo
+     --success, --brand-teal --teal          --warning ............ --amber
+     --info ............... --indigo         (was a FIFTH hue; the system has four)
+     --chart-1..5 ......... teal, indigo, amber, ink-3, red   (see charts/chart-frame)
+     --sidebar* ........... the sheet/ink scale (the near-black slab is gone)
+     --shadow-xs..lg ...... --lift / --lift-2
+
+   Declared once, not per theme: [data-theme="dark"] matches the same <html> element
+   as :root, so each var() below resolves against whichever layer-1 value won. */
+
+:root {
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--indigo);
+  --primary-foreground: var(--indigo-ink);
+  --secondary: var(--indigo-soft);
+  --secondary-foreground: var(--indigo);
+  --muted: var(--field);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--indigo-soft);
+  --accent-foreground: var(--indigo);
+  --destructive: var(--red);
+  --destructive-foreground: var(--indigo-ink);
+
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--indigo);
+
+  /* Colour discipline, enforced at the token layer rather than at 143 call sites.
+     The system has four colours; `success`/`warning`/`info`/`brand-teal` are the
+     older five-colour vocabulary still used across the app. Re-pointing them here
+     collapses the palette everywhere at once — in particular `info`, which was a
+     fifth hue (sky blue), now resolves to the brand indigo. */
+  --brand-teal: var(--teal);
+  --brand-teal-foreground: var(--indigo-ink);
+  --success: var(--teal);
+  --success-foreground: var(--indigo-ink);
+  --warning: var(--amber);
+  --warning-foreground: var(--indigo-ink);
+  --info: var(--indigo);
+  --info-foreground: var(--indigo-ink);
+
+  /* Charts. Series colour is meaning, not decoration: the money series is teal over a
+     neutral rule-grey for "of total". The remaining slots are held by the two other
+     semantic colours and a muted ink, so a five-series chart cannot introduce a hue
+     the rest of the system does not have. */
+  --chart-1: var(--teal);
+  --chart-2: var(--indigo);
+  --chart-3: var(--amber);
+  --chart-4: var(--ink-3);
+  --chart-5: var(--red);
+
+  /* The near-black sidebar slab is gone: it read as a second application beside the
+     light canvas, and it was the loudest element on screen while carrying the least
+     information. The token NAMES are kept and re-pointed at the sheet/ink scale —
+     `packages/ui/components/sidebar.tsx` and both dashboard shells consume them in 58
+     places, so renaming would break the chrome of both apps in the same commit. They
+     retire when the shells are rewritten. */
+  --sidebar: var(--sheet);
+  --sidebar-foreground: var(--ink-2);
+  --sidebar-primary: var(--indigo);
+  --sidebar-primary-foreground: var(--indigo-ink);
+  --sidebar-accent: var(--indigo-soft);
+  --sidebar-accent-foreground: var(--indigo);
+  --sidebar-border: var(--rule);
+  --sidebar-ring: var(--indigo);
+
+  /* Elevation compatibility. The scale is two levels now; the old five-step names map
+     onto them so existing `shadow-md` / `shadow-lg` call sites flatten to the system's
+     actual vocabulary instead of dangling. */
+  --shadow-xs: var(--lift);
+  --shadow-sm: var(--lift);
+  --shadow-md: var(--lift);
+  --shadow-lg: var(--lift-2);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LAYER 3 — Tailwind theme
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --radius-sm: var(--radius-step-sm);
+  --radius-md: var(--radius-step-md);
+  --radius-lg: var(--radius-step-lg);
+  --radius-xl: var(--radius-step-xl);
+
+  /* ledger names */
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-2: var(--rule-2);
+  --color-indigo: var(--indigo);
+  --color-indigo-soft: var(--indigo-soft);
+  --color-indigo-ink: var(--indigo-ink);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-seal: var(--seal);
+
+  /* shadcn contract */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -146,7 +325,6 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
-  --color-primary-glow: var(--primary-glow);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -184,46 +362,115 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* IBM Plex Sans Arabic is the single system face (Arabic + Latin), already wired
-     in the app layout as --font-plex-arabic. */
+  /* IBM Plex Sans Arabic is the single system face for prose (Arabic + Latin).
+     IBM Plex Mono is mandatory for every FIGURE — see <Num>. The two are siblings by
+     design, which is why the pairing works at small sizes. */
   --font-sans: var(--font-plex-arabic), var(--font-noto-sans), ui-sans-serif,
     system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Elevation has exactly TWO levels. The scale must live HERE, in the theme, not
+     only as :root variables — Tailwind resolves `shadow-sm` / `shadow-md` / `shadow-lg`
+     from this namespace, so a `--shadow-*` declared only in :root is read by nothing
+     except an explicit `var(--shadow-*)` call site. Before this, every one of the 35
+     shadow utilities in the two apps rendered Tailwind's stock black shadows while the
+     token file claimed to define a layered scale; the scale was aspirational.
+
+     Collapsing five steps onto two is the point, not a shortcut: an interface that
+     wants to read as paper has a sheet resting on a canvas, and an overlay above it.
+     There is no third thing for a third shadow to mean. */
+  --shadow-2xs: var(--lift);
+  --shadow-xs: var(--lift);
+  --shadow-sm: var(--lift);
+  --shadow-md: var(--lift);
+  --shadow-lg: var(--lift-2);
+  --shadow-xl: var(--lift-2);
+  --shadow-2xl: var(--lift-2);
 }
 
 @layer base {
-  /* Default border + focus-ring color for shadcn primitives. We deliberately do NOT
-     set `body { bg-background }` here: Ant Design screens still own <body> during the
-     migration, and the app's own body rule stays authoritative. */
   * {
     @apply border-border outline-ring/50;
   }
 }
 
-@utility gradient-primary {
-  background-image: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+/* ── Figures ────────────────────────────────────────────────────────────────────
+   The single highest-signal rule in the system, and the reason is not typographic
+   taste: mono separates what the SYSTEM COMPUTED from what a HUMAN WROTE. A figure in
+   a proportional face reads as prose and invites doubt about whether it is
+   authoritative. It also fixes Latin-inside-Arabic, which is why it earns its place
+   in an Arabic-first product specifically.
+
+   `.num` is the raw utility. Prefer the <Num> component — it also handles direction
+   isolation, which a class cannot. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
-@utility gradient-primary-wash {
-  background-image: linear-gradient(180deg, color-mix(in oklch, var(--primary) 6%, transparent) 0%, transparent 60%);
+/* Arabic-Indic digits inside Arabic prose (`٣ أيام`) are a WORD IN A SENTENCE, not a
+   value the system computed — the opposite of `.num`. IBM Plex Mono carries no
+   Arabic-Indic glyphs, so applying mono here would silently fall back and
+   `tabular-nums` would not apply. This utility exists to make that path explicit
+   rather than implicit. */
+@utility num-prose {
+  font-family: var(--font-sans);
+  font-variant-numeric: normal;
 }
 
-/* Interactive card lift: opt-in via `card-interactive` on Card, used for clickable
-   rows/tiles (nav cards, list items) — not applied globally, plain data cards stay
-   static so the UI doesn't feel like everything is a button. */
-@utility card-interactive {
-  transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
-  &:hover {
-    box-shadow: var(--shadow-lg);
-    border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
-    transform: translateY(-1px);
+/* Direction isolation for a Latin run inside an Arabic one (or the reverse).
+   `·`, `-`, `—`, `:` and `()` are bidi-NEUTRAL: between an LTR run and an RTL run
+   their placement is resolved by the paragraph direction, not by authorial intent, so
+   `TRX-98421 · مدرّس فيزياء` renders differently in an RTL context than it was
+   written. Isolating each run fixes it structurally. Never fix a bidi break by
+   reordering the source string — the next translation reintroduces it. */
+@utility ltr-island {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+@utility rtl-island {
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+
+/* ── Totals ─────────────────────────────────────────────────────────────────────
+   The accountant's double rule: this line is a CONCLUSION, not another row. It belongs
+   anywhere a number is a sum the user is expected to act on, and nowhere else.
+   It is also the element most likely to disappear in dark mode — a 2px double border
+   resolves to two hairlines with a gap — so it is drawn from --ink, the highest
+   contrast ink available, in both themes rather than from --rule. */
+@utility rule-total {
+  border-top: 2px double var(--ink);
+}
+
+/* ── The seal ───────────────────────────────────────────────────────────────────
+   Motion budget for the entire product: ONE animation, spent on the one moment
+   something became permanent. Motion is a scarce signal here; spending it on
+   transitions is spending it on nothing. */
+@keyframes seal-in {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(1.3);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-6deg) scale(1);
   }
 }
 
-/* One focal accent per screen (KPI hero, upsell/CTA panel) — a ring + soft primary
-   bloom instead of a generic drop shadow. Deliberately not applied to ordinary
-   cards; overuse would flatten the hierarchy it's meant to create. */
-@utility shadow-glow {
-  box-shadow: var(--shadow-glow);
+@utility seal-in {
+  animation: seal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* ── Focus ──────────────────────────────────────────────────────────────────────
+   2px --indigo at 2px offset, verified against --paper and --sheet in both themes. */
+@utility focus-ledger {
+  &:focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
 }
 
 /* Sonner status surfaces (see components/sonner.tsx).
@@ -238,30 +485,30 @@
    data-theme, so ONE recipe covers light and dark. --normal-text is left alone
    so body copy stays --popover-foreground and keeps its contrast ratio. */
 @utility toast-success {
-  --normal-bg: color-mix(in oklab, var(--success) 8%, var(--popover));
-  --normal-border: color-mix(in oklab, var(--success) 30%, var(--border));
+  --normal-bg: color-mix(in oklab, var(--teal) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--teal) 30%, var(--rule));
 }
 
 @utility toast-error {
-  --normal-bg: color-mix(in oklab, var(--destructive) 8%, var(--popover));
-  --normal-border: color-mix(in oklab, var(--destructive) 30%, var(--border));
+  --normal-bg: color-mix(in oklab, var(--red) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--red) 30%, var(--rule));
 }
 
 @utility toast-warning {
-  --normal-bg: color-mix(in oklab, var(--warning) 9%, var(--popover));
-  --normal-border: color-mix(in oklab, var(--warning) 32%, var(--border));
+  --normal-bg: color-mix(in oklab, var(--amber) 9%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--amber) 32%, var(--rule));
 }
 
 @utility toast-info {
-  --normal-bg: color-mix(in oklab, var(--info) 8%, var(--popover));
-  --normal-border: color-mix(in oklab, var(--info) 30%, var(--border));
+  --normal-bg: color-mix(in oklab, var(--indigo) 8%, var(--popover));
+  --normal-border: color-mix(in oklab, var(--indigo) 30%, var(--rule));
 }
 
 /* Loading stays neutral on purpose — an in-flight action has no outcome yet, so
    colouring it would pre-announce one. */
 @utility toast-loading {
   --normal-bg: var(--popover);
-  --normal-border: var(--border);
+  --normal-border: var(--rule);
 }
 
 /* Draw-in for the success mark (components/icons/success-icon.tsx). Both shapes
@@ -292,5 +539,12 @@
   .success-draw-check {
     animation: none;
     stroke-dashoffset: 0;
+  }
+  /* The seal marks permanence; without motion it must still be PRESENT, just not
+     animated. It never simply disappears. */
+  .seal-in {
+    animation: none;
+    opacity: 1;
+    transform: rotate(-6deg) scale(1);
   }
 }

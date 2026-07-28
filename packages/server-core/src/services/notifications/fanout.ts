@@ -34,6 +34,48 @@ export async function resolveCenterAdmins(centerId: string): Promise<string[]> {
   return admins.map((a) => a.userId);
 }
 
+/**
+ * A CENTER's internal team: every co-owner (center_admin profile) plus every
+ * ACTIVE center_staff member. Used by team notes — pass `excludeUserId` to
+ * leave out the acting user (an author is never notified about their own note).
+ */
+export async function resolveCenterTeamPeers(
+  centerId: string,
+  excludeUserId?: string,
+): Promise<string[]> {
+  const [admins, staff] = await Promise.all([
+    resolveCenterAdmins(centerId),
+    platformDb((tx) =>
+      tx.centerStaff.findMany({
+        where: { centerId, removedAt: null },
+        select: { staffUserId: true },
+      }),
+    ),
+  ]);
+  const ids = new Set([...admins, ...staff.map((s) => s.staffUserId)]);
+  if (excludeUserId) ids.delete(excludeUserId);
+  return [...ids];
+}
+
+/**
+ * A TEACHER's internal team: the teacher plus every ACTIVE assistant
+ * (revocation-aware — a soft-removed assistant is out immediately).
+ */
+export async function resolveTeacherTeamPeers(
+  teacherId: string,
+  excludeUserId?: string,
+): Promise<string[]> {
+  const assistants = await platformDb((tx) =>
+    tx.teacherAssistant.findMany({
+      where: { teacherId, removedAt: null },
+      select: { assistantId: true },
+    }),
+  );
+  const ids = new Set([teacherId, ...assistants.map((a) => a.assistantId)]);
+  if (excludeUserId) ids.delete(excludeUserId);
+  return [...ids];
+}
+
 export async function withParentFallback(studentId: string): Promise<string[]> {
   return resolvedParentOrStudent(studentId);
 }

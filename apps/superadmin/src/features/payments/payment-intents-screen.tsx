@@ -1,27 +1,35 @@
 "use client";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+/* مدفوعات الطلاب / Student payments — a money RECORD screen.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Read-only by design: a payment intent is settled by the gateway webhook, never by
+   an operator, so there is no action here and no two-step commit — applying the
+   ceremony to a screen that writes nothing would devalue it where permanence is real
+   (D-022).
+
+   What it owes the reader instead is LINEAGE. A successful intent produced a receipt
+   and a ledger entry, and both refs are shown so the row can be traced to the
+   append-only record it created. A failed one carries its reason, because a failure
+   with no reason cannot be explained to a parent at a counter (D-026). */
+
+import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
+import { useLocale, useTranslations } from "next-intl";
+import { CreditCard, RefreshCcw, TriangleAlert } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
+import { Num } from "@repo/ui/components/num";
+import { SearchInput } from "@repo/ui/components/search-input";
+import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import {
   Table,
   TableBody,
@@ -30,16 +38,19 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { CreditCard, Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useState } from "react";
+import type { Locale } from "@repo/ui/lib/format";
+
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { PageSpinner } from "@/components/kit/spinner";
+import { asKey } from "@/lib/i18n/keys";
 
 const ANY = "__any__";
 
-const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
-  paid: "success",
-  failed: "danger",
-  pending: "warning",
+const STATUS_TONE: Record<string, StatusTone> = {
+  paid: "paid",
+  failed: "rejected",
+  pending: "pending",
   expired: "neutral",
 };
 
@@ -62,8 +73,8 @@ type IntentRow = {
 };
 
 export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance" }) {
-  const { formatEGP, formatDate } = useFormatters();
   const t = useTranslations();
+  const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [gateway, setGateway] = useState<string | null>(null);
@@ -95,128 +106,165 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
   // Data-provider getOne unwraps the envelope; be tolerant of either shape.
   const d = ((detail as any)?.data ?? detail) as any;
 
-  const filterSelect = (
-    label: string,
+  const filter = (
+    anyLabel: string,
     value: string | null,
     set: (v: string | null) => void,
     options: string[],
+    render: (o: string) => string,
   ) => (
-    <Select
-      value={value ?? undefined}
-      onValueChange={(v) => {
-        set(v === ANY ? null : v);
+    <select
+      value={value ?? ANY}
+      aria-label={anyLabel}
+      onChange={(e) => {
+        set(e.target.value === ANY ? null : e.target.value);
         setPage(1);
       }}
+      className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
     >
-      <SelectTrigger className="w-36">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ANY}>{label}: any</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      <option value={ANY}>{anyLabel}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {render(o)}
+        </option>
+      ))}
+    </select>
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("paymentIntents.title")} />
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader
+        title={t("paymentIntents.title")}
+        description={t("paymentIntents.subtitle")}
+        rule
+      />
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("paymentIntents.searchPlaceholder")}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              className="ps-9 pe-9"
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
+        <SearchInput
+          className="min-w-64 flex-1"
+          placeholder={t("paymentIntents.searchPlaceholder")}
+          value={q}
+          onValueChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          onClear={() => setQ("")}
+          clearLabel={t("paymentIntents.clearSearch")}
+        />
+        {filter(t("paymentIntents.anyStatus"), status, setStatus, ["pending", "paid", "failed", "expired"], (o) =>
+          t(asKey(`status.${o}`)),
+        )}
+        {filter(t("paymentIntents.anyGateway"), gateway, setGateway, ["mock", "paymob"], (o) =>
+          t(asKey(`gateways.${o}`)),
+        )}
+        {filter(t("paymentIntents.anyMethod"), method, setMethod, ["card", "wallet"], (o) =>
+          t(asKey(`methods.${o}`)),
+        )}
+      </div>
+
+      {query.isLoading ? (
+        <PageSpinner label={t("paymentIntents.loading")} />
+      ) : query.isError ? (
+        (() => {
+          const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={t(denied ? "paymentIntents.deniedTitle" : "paymentIntents.loadError")}
+              description={t(denied ? "paymentIntents.deniedBody" : "paymentIntents.loadErrorBody")}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {t("paymentIntents.retry")}
+                  </Button>
+                )
+              }
             />
-            {q && (
-              <button
-                type="button"
-                aria-label={t("paymentIntents.clearSearch")}
-                onClick={() => setQ("")}
-                className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
-          {filterSelect(t("paymentIntents.status"), status, setStatus, ["pending", "paid", "failed", "expired"])}
-          {filterSelect(t("paymentIntents.gateway"), gateway, setGateway, ["mock", "paymob"])}
-          {filterSelect(t("paymentIntents.method"), method, setMethod, ["card", "wallet"])}
-        </CardContent>
-      </Card>
-      {query.isLoading && <PageSpinner label={t("paymentIntents.loading")} />}
-      {!query.isLoading && rows.length === 0 && (
-        <EmptyState icon={CreditCard} title={t("paymentIntents.notFound")} />
-      )}
-      {rows.length > 0 && (
-        <Card className="overflow-hidden py-0">
+          );
+        })()
+      ) : rows.length === 0 ? (
+        <EmptyState
+          tone="empty"
+          icon={CreditCard}
+          title={t("paymentIntents.notFound")}
+          description={t("paymentIntents.emptyBody")}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
-                <TableHead>{t("paymentIntents.student")}</TableHead>
-                <TableHead>{t("paymentIntents.course")}</TableHead>
-                <TableHead>{t("paymentIntents.center")}</TableHead>
-                <TableHead>{t("paymentIntents.amount")}</TableHead>
-                <TableHead>{t("paymentIntents.method")}</TableHead>
-                <TableHead>{t("paymentIntents.gateway")}</TableHead>
-                <TableHead>{t("paymentIntents.status")}</TableHead>
-                <TableHead>{t("paymentIntents.created")}</TableHead>
+              <TableRow className="border-rule bg-field hover:bg-field">
+                {[
+                  "student",
+                  "course",
+                  "center",
+                  "amount",
+                  "method",
+                  "gateway",
+                  "status",
+                  "created",
+                ].map((h) => (
+                  <TableHead key={h} className="h-[34px] px-3">
+                    <Eyebrow locale={locale} marker={false}>
+                      {t(asKey(`paymentIntents.${h}`))}
+                    </Eyebrow>
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
                 <TableRow
                   key={r.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer border-rule-2"
                   onClick={() => setDetailId(r.id)}
                 >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <span
-                        aria-hidden
-                        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
-                      >
-                        {r.studentName ? r.studentName.trim().charAt(0) : "—"}
-                      </span>
-                      <div>
-                        <div className="font-medium">{r.studentName ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground">{r.studentEmail}</div>
-                      </div>
-                    </div>
+                  <TableCell className="px-3 py-[7px]">
+                    <IdentityCell
+                      initials={initialsOf(r.studentName ?? "—")}
+                      name={r.studentName ?? "—"}
+                      meta={r.studentEmail ? <Num.Code>{r.studentEmail}</Num.Code> : undefined}
+                    />
                   </TableCell>
-                  <TableCell>{r.courseTitle ?? "—"}</TableCell>
-                  <TableCell>{r.centerName ?? "—"}</TableCell>
-                  <TableCell className="font-semibold tabular-nums">{formatEGP(r.amount)}</TableCell>
-                  <TableCell>{r.method}</TableCell>
-                  <TableCell>{r.gateway}</TableCell>
-                  <TableCell>
-                    <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
-                      {r.status}
+                  <TableCell className="px-3 py-[7px] text-[13px]">{r.courseTitle ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <Num.Money
+                      piasters={r.amount}
+                      locale={locale}
+                      tone={r.status === "paid" ? "net" : "muted"}
+                      sign={false}
+                    />
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">
+                    {t(asKey(`methods.${r.method}`))}
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">
+                    {t(asKey(`gateways.${r.gateway}`))}
+                  </TableCell>
+                  <TableCell className="px-3 py-[7px]">
+                    <StatusBadge
+                      tone={STATUS_TONE[r.status] ?? "neutral"}
+                      reason={r.status === "failed" ? r.failureReason : undefined}
+                    >
+                      {t(asKey(`status.${r.status}`))}
                     </StatusBadge>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(r.createdAt)}
+                  <TableCell className="px-3 py-[7px]">
+                    <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
           {pageCount > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4 text-sm">
-              <span className="text-muted-foreground">
-                {t("paymentIntents.pageInfo", { page, pageCount, total })}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-field px-[18px] py-3">
+              <Num className="text-[11px] text-ink-3">
+                {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} / {total}
+              </Num>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -237,69 +285,87 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
               </div>
             </div>
           )}
-        </Card>
+        </div>
       )}
+
       <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("paymentIntents.intentDetail")}</DialogTitle>
           </DialogHeader>
           {d ? (
-            <div className="space-y-4 text-sm">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                <dt className="text-muted-foreground">{t("paymentIntents.intentId")}</dt>
-                <dd className="font-mono text-xs">{d.id}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.student")}</dt>
-                <dd>
-                  {d.student?.name} <span className="text-muted-foreground">({d.student?.email})</span>
-                </dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.course")}</dt>
-                <dd>{d.course?.title ?? "—"}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.center")}</dt>
-                <dd>{d.center?.name ?? "—"}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.amount")}</dt>
-                <dd className="font-semibold">{formatEGP(d.amount)}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.methodGateway")}</dt>
-                <dd>
-                  {d.method} / {d.gateway}
-                </dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.status")}</dt>
-                <dd>
-                  <StatusBadge tone={STATUS_TONE[d.status] ?? "neutral"}>
-                    {d.status}
-                  </StatusBadge>
-                  {d.failureReason ? (
-                    <span className="ms-2 text-destructive">{d.failureReason}</span>
-                  ) : null}
-                </dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.gatewayOrderRef")}</dt>
-                <dd className="font-mono text-xs">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
+              <Row label={t("paymentIntents.intentId")}>
+                <Num.Code>{d.id}</Num.Code>
+              </Row>
+              <Row label={t("paymentIntents.student")}>
+                {d.student?.name}{" "}
+                {d.student?.email ? <Num.Code>{d.student.email}</Num.Code> : null}
+              </Row>
+              <Row label={t("paymentIntents.course")}>{d.course?.title ?? "—"}</Row>
+              <Row label={t("paymentIntents.center")}>{d.center?.name ?? "—"}</Row>
+              <Row label={t("paymentIntents.amount")}>
+                <Num.Money piasters={d.amount} locale={locale} tone="net" sign={false} />
+              </Row>
+              <Row label={t("paymentIntents.methodGateway")}>
+                {t(asKey(`methods.${d.method}`))} / {t(asKey(`gateways.${d.gateway}`))}
+              </Row>
+              <Row label={t("paymentIntents.status")}>
+                <StatusBadge
+                  tone={STATUS_TONE[d.status] ?? "neutral"}
+                  reason={d.failureReason ?? undefined}
+                >
+                  {t(asKey(`status.${d.status}`))}
+                </StatusBadge>
+              </Row>
+              <Row label={t("paymentIntents.gatewayOrderRef")}>
+                <Num.Code>
                   {d.gatewayOrderId ?? "—"} / {d.gatewayRef ?? "—"}
-                </dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.receipt")}</dt>
-                <dd>{d.payment?.receiptNumber ?? "—"}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.ledgerTxn")}</dt>
-                <dd>{d.transaction?.refNumber ?? "—"}</dd>
-                <dt className="text-muted-foreground">{t("paymentIntents.createdPaid")}</dt>
-                <dd>
-                  {formatDate(d.createdAt)}
-                  {d.paidAt ? ` → ${formatDate(d.paidAt)}` : ""}
-                </dd>
-              </dl>
-              {d.webhookPayload ? (
-                <div>
-                  <div className="mb-1 text-muted-foreground">{t("paymentIntents.rawWebhook")}</div>
-                  <pre className="max-h-56 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
-                    {JSON.stringify(d.webhookPayload, null, 2)}
-                  </pre>
-                </div>
-              ) : null}
-            </div>
+                </Num.Code>
+              </Row>
+              {/* The lineage: what this payment actually wrote. */}
+              <Row label={t("paymentIntents.receipt")}>
+                {d.payment?.receiptNumber ? <Num.Code>{d.payment.receiptNumber}</Num.Code> : "—"}
+              </Row>
+              <Row label={t("paymentIntents.ledgerTxn")}>
+                {d.transaction?.refNumber ? <Num.Code>{d.transaction.refNumber}</Num.Code> : "—"}
+              </Row>
+              <Row label={t("paymentIntents.createdPaid")}>
+                <Num.Date value={d.createdAt} locale={locale} />
+                {d.paidAt ? (
+                  <>
+                    <span aria-hidden="true" className="mx-1 text-ink-3">
+                      →
+                    </span>
+                    <Num.Date value={d.paidAt} locale={locale} />
+                  </>
+                ) : null}
+              </Row>
+            </dl>
           ) : (
             <PageSpinner label={t("common.loading")} />
           )}
+          {d?.webhookPayload ? (
+            <div className="mt-3">
+              <Eyebrow locale={locale} className="mb-1">
+                {t("paymentIntents.rawWebhook")}
+              </Eyebrow>
+              <pre className="num max-h-56 overflow-auto rounded-lg bg-field p-3 text-[11px]" dir="ltr">
+                {JSON.stringify(d.webhookPayload, null, 2)}
+              </pre>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <dt className="text-ink-2">{label}</dt>
+      <dd>{children}</dd>
+    </>
   );
 }

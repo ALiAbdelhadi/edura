@@ -7,6 +7,7 @@ const IMMUTABLE_MODELS = new Set<string>([
   "Transaction",
   "PointsLedger",
   "WalletLedger",
+  "ParentWalletLedger",
   "SessionSettlement",
 ]);
 

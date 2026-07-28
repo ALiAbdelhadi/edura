@@ -1,17 +1,16 @@
 "use client";
 
 import { useCustom } from "@refinedev/core";
-import { CheckCircle2, FileText, Trophy, MessageSquare } from "lucide-react";
+import { CheckCircle2, Trophy, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Progress } from "@repo/ui/components/progress";
 import { StatCard } from "@/components/kit/stat-card";
 import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";
 import { PageHeader } from "@/components/kit/page-header";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
-import { BarChart, LineChart } from "@/components/charts";
-import { assignmentsTrendBarData, studentGradeTrendLineSeries } from "@/lib/analytics/transforms";
+import { LineChart } from "@/components/charts";
+import { studentGradeTrendLineSeries } from "@/lib/analytics/transforms";
 import { useTranslations } from "next-intl";
 import { PageSkeleton } from "@/components/ui/skeletons";
 
@@ -31,19 +30,6 @@ export function StudentDashboard() {
     { accessorKey: "teacher", header: t("studentDashboard.teacher") },
   ];
 
-  const dueColumns: ColumnDef<any>[] = [
-    { accessorKey: "title", header: t("studentDashboard.assignment") },
-    { accessorKey: "subject", header: t("studentDashboard.subject") },
-    {
-      id: "due",
-      header: t("studentDashboard.due"),
-      cell: ({ row }) => (
-        <StatusBadge tone={row.original.urgent ? "danger" : "neutral"}>
-          {row.original.due}
-        </StatusBadge>
-      ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -52,18 +38,13 @@ export function StudentDashboard() {
       {/* Child safety: explains WHY adult messaging is off, and fixes it. */}
       <GuardianContactNotice />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label={t("studentDashboard.attendanceRate")}
           value={data.attendanceRate ?? 0}
           unit="%"
           icon={CheckCircle2}
           filled
-        />
-        <StatCard
-          label={t("studentDashboard.assignmentsDue")}
-          value={data.assignmentsDue ?? 0}
-          icon={FileText}
         />
         <StatCard
           label={t("studentDashboard.averageGrade")}
@@ -78,7 +59,7 @@ export function StudentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-8">
+        <Card className="lg:col-span-12">
           <CardHeader>
             <CardTitle>{t("studentDashboard.todaySchedule")}</CardTitle>
           </CardHeader>
@@ -92,29 +73,6 @@ export function StudentDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.dueSoon")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={dueColumns}
-              data={data.dueSoon || []}
-              pageSize={100}
-              emptyState={t("studentDashboard.noUpcomingAssignments")}
-            />
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                {t("studentDashboard.overallCompletion")}
-              </p>
-              <Progress value={data.overallCompletion || 0} />
-              <p className="text-xs text-muted-foreground">
-                <span dir="ltr">{data.overallCompletion}%</span>{" "}
-                {t("studentDashboard.thisSemester")}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -144,7 +102,7 @@ export function StudentDashboard() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-7">
+        <Card className="lg:col-span-12">
           <CardHeader>
             <CardTitle>{t("studentDashboard.gradeTrend")}</CardTitle>
           </CardHeader>
@@ -154,22 +112,6 @@ export function StudentDashboard() {
               showArea
               yValueFormatter={(value) => `${Math.round(value)}%`}
               emptyText={t("studentDashboard.noGradeTrend")}
-            />
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-5">
-          <CardHeader>
-            <CardTitle>{t("studentDashboard.assignmentProgressTrend")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart
-              data={assignmentsTrendBarData(data.analytics?.assignmentsTrend ?? [])}
-              series={[
-                { key: "pending", label: t("studentDashboard.pending"), color: "var(--warning)" },
-                { key: "graded", label: t("studentDashboard.graded"), color: "var(--success)" },
-              ]}
-              stacked
-              emptyText={t("studentDashboard.noAssignmentTrend")}
             />
           </CardContent>
         </Card>

@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -9,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { Search, X } from "lucide-react";
+import { SearchInput } from "@repo/ui/components/search-input";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
@@ -80,27 +80,22 @@ export default function FilterBar({ searchField, facets = [], onFilterChange }: 
   const hasFilters = Object.values(currentValues).some(Boolean);
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
+    /* No external margin on the root. It previously carried `mb-4`, and because its
+       only consumer renders it inside <PageHeader actions> — a flex row with
+       `items-center` — that 16px bottom margin was included in the centring, pushing
+       the search field and the status filter ~8px ABOVE the button beside them. A
+       component cannot know what it will sit next to, so spacing belongs to the layout
+       that places it, never to the component itself. */
+    <div className="flex flex-wrap items-center gap-2">
       {searchField && (
-        <div className="relative w-full sm:w-60">
-          <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={searchField.placeholder || t("shared.filterSearchPlaceholder")}
-            value={currentValues[searchField.key]}
-            onChange={(e) => updateParams(searchField.key, e.target.value)}
-            className="ps-9 pe-9"
-          />
-          {currentValues[searchField.key] && (
-            <button
-              type="button"
-              aria-label={t("shared.filterClearAll")}
-              onClick={() => updateParams(searchField.key, "")}
-              className="absolute inset-inline-end-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-4" />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          className="w-full sm:w-60"
+          placeholder={searchField.placeholder || t("shared.filterSearchPlaceholder")}
+          value={currentValues[searchField.key] ?? ""}
+          onValueChange={(v) => updateParams(searchField.key, v)}
+          onClear={() => updateParams(searchField.key, "")}
+          clearLabel={t("shared.filterClearAll")}
+        />
       )}
       {facets.map((facet) => (
         <Select

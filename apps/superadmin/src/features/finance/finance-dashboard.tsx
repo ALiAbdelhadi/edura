@@ -1,22 +1,42 @@
 "use client";
 
+/* الشؤون المالية / Finance overview — the accountant's decision queue.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Same archetype as اليوم (D-037), scoped to the accountant's six nav items: the
+   decision leads, the totals support it. The screen it replaces was five equal-weight
+   StatCards — one of them gradient-filled for emphasis it had not earned — so the one
+   number an accountant can ACT on (pending payouts) sat beside four they can only
+   read.
+
+   The alert strip stays, but amber now means waiting and red means blocking, per the
+   colour discipline. It previously used `--info`, a fifth hue the system removed
+   (D-010). */
+
 import React from "react";
 import { useCustom } from "@refinedev/core";
-import { DollarSign, TrendingUp, TrendingDown, Wallet, FileCheck, AlertTriangle, Info, LineChart as LineChartIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
-import { Alert, AlertTitle } from "@repo/ui/components/alert";
-import { StatCard } from "@/components/kit/stat-card";
+  AlertTriangle,
+  BanknoteArrowDown,
+  FileCheck,
+  Info,
+  LineChart as LineChartIcon,
+  RefreshCcw,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
+
+import { Button } from "@repo/ui/components/button";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { MetricCard } from "@repo/ui/components/metric-card";
+import { Num } from "@repo/ui/components/num";
+import { LineChart } from "@repo/ui/components/charts";
+import { cn } from "@repo/ui/lib/utils";
+import type { Locale } from "@repo/ui/lib/format";
+
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
-import { LineChart } from "@/components/charts";
-import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { StatCardsSkeleton } from "@/components/ui/skeletons";
 
 type FinanceKpis = {
@@ -26,88 +46,201 @@ type FinanceKpis = {
   pendingPayouts: { count: number; amount: number };
   totalExpenses: number;
 };
-type AlertsResp = { alerts: { level: "info" | "warning"; code: string; message: string; value?: number }[] };
-type RevenueResp = { period: string; series: { period: string; grossRevenue: number; platformCommission: number; payouts: number; refunds: number }[] };
+type AlertsResp = {
+  alerts: { level: "info" | "warning"; code: string; message: string; value?: number }[];
+};
+type RevenueResp = {
+  period: string;
+  series: {
+    period: string;
+    grossRevenue: number;
+    platformCommission: number;
+    payouts: number;
+    refunds: number;
+  }[];
+};
 
 export function FinanceDashboard() {
   const t = useTranslations();
-  const { formatShortEGP, formatNumber } = useFormatters();
+  const locale = useLocale() as Locale;
 
-  const { query: kq, result: kpis } = useCustom<FinanceKpis>({ url: "finance/dashboard", method: "get" });
+  const { query: kq, result: kpis } = useCustom<FinanceKpis>({
+    url: "finance/dashboard",
+    method: "get",
+  });
   const { result: alertsRes } = useCustom<AlertsResp>({ url: "finance/alerts", method: "get" });
-  const { result: rev } = useCustom<RevenueResp>({ url: "finance/reports/revenue", method: "get", config: { query: { period: "monthly" } } });
+  const { result: rev } = useCustom<RevenueResp>({
+    url: "finance/reports/revenue",
+    method: "get",
+    config: { query: { period: "monthly" } },
+  });
 
   const k = kpis?.data;
   const alerts = alertsRes?.data?.alerts ?? [];
   const series = rev?.data?.series ?? [];
 
+  const head = (title: string) => (
+    <PageHeader
+      eyebrow={t("nav.finance")}
+      title={title}
+      description={t("financeHome.description")}
+      rule
+    />
+  );
+
   if (kq.isLoading) {
     return (
       <div className="flex w-full flex-col gap-6">
-        <PageHeader eyebrow={t("nav.finance")} title={t("financeHome.title")} description={t("financeHome.description")} />
-        <StatCardsSkeleton count={5} />
+        {head(t("financeHome.loading"))}
+        <StatCardsSkeleton count={4} />
       </div>
     );
   }
 
+  if (kq.isError) {
+    // Denied and error are different truths; a 403 gets no Retry (D-027).
+    const denied = (kq.error as { statusCode?: number } | null)?.statusCode === 403;
+    return (
+      <div className="flex w-full flex-col gap-6">
+        {head(t(denied ? "financeHome.deniedTitle" : "financeHome.loadError"))}
+        <EmptyState
+          tone={denied ? "denied" : "error"}
+          icon={AlertTriangle}
+          title={t(denied ? "financeHome.deniedTitle" : "financeHome.loadError")}
+          description={t(denied ? "financeHome.deniedBody" : "financeHome.loadErrorBody")}
+          action={
+            denied ? undefined : (
+              <Button variant="outline" onClick={() => kq.refetch()}>
+                <RefreshCcw className="size-4" aria-hidden="true" />
+                {t("financeHome.retry")}
+              </Button>
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  const net = (k?.platformCommission ?? 0) - (k?.totalRefunds ?? 0);
+
   return (
     <div className="flex w-full flex-col gap-6">
-      <PageHeader eyebrow={t("nav.finance")} title={t("financeHome.title")} description={t("financeHome.description")} />
+      {head(t("financeHome.title"))}
 
       {alerts.length > 0 && (
         <div className="flex w-full flex-col gap-2">
           {alerts.map((a) => (
-            <Alert
+            <p
               key={a.code}
               role="status"
-              className={
+              className={cn(
+                "flex items-center gap-2 rounded-lg border p-3 text-[13px]",
                 a.level === "warning"
-                  ? "border-warning/40 bg-warning/10 text-warning"
-                  : "border-info/40 bg-info/10 text-info"
-              }
+                  ? "border-amber bg-amber-soft text-amber"
+                  : "border-rule bg-field text-ink-2",
+              )}
             >
-              {a.level === "warning" ? <AlertTriangle /> : <Info />}
-              <AlertTitle>{a.message}</AlertTitle>
-            </Alert>
+              {a.level === "warning" ? (
+                <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <Info className="size-4 shrink-0" aria-hidden="true" />
+              )}
+              {a.message}
+            </p>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        <StatCard label={t("financeHome.platformCommission")} value={formatShortEGP(k?.platformCommission)} icon={DollarSign} filled />
-        <StatCard label={t("financeHome.grossRevenue")} value={formatShortEGP(k?.grossLessonRevenue)} icon={TrendingUp} />
-        <StatCard label={t("financeHome.refunds")} value={formatShortEGP(k?.totalRefunds)} icon={TrendingDown} />
-        <StatCard
+      {/* The decision first — the only figure here an accountant can act on. */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          href="/dashboard/finance/payouts"
+          icon={BanknoteArrowDown}
+          tone="pending"
           label={t("nav.payouts")}
-          value={formatShortEGP(k?.pendingPayouts.amount)}
-          icon={Wallet}
-          hint={`${formatNumber(k?.pendingPayouts.count)} ${t("status.pending")}`}
+          value={<Num.Figure value={k?.pendingPayouts.count ?? 0} locale={locale} />}
+          secondary={
+            <Num.Money
+              piasters={k?.pendingPayouts.amount}
+              locale={locale}
+              tone="in"
+              sign={false}
+            />
+          }
+          fact={t("financeHome.pendingFact")}
         />
-        <StatCard label={t("nav.expenses")} value={formatShortEGP(k?.totalExpenses)} icon={FileCheck} />
+
+        <MetricCard
+          icon={TrendingUp}
+          label={t("financeHome.grossRevenue")}
+          value={
+            <Num.Money
+              piasters={k?.grossLessonRevenue}
+              locale={locale}
+              sign={false}
+              short
+              align="start"
+            />
+          }
+        />
+
+        <MetricCard
+          icon={TrendingDown}
+          label={t("financeHome.refunds")}
+          value={
+            <Num.Money piasters={k?.totalRefunds} locale={locale} tone="out" short align="start" />
+          }
+        />
+
+        <MetricCard
+          icon={FileCheck}
+          label={t("financeHome.netToPlatform")}
+          value={<Num.Money piasters={net} locale={locale} tone="in" sign={false} short align="start" />}
+          fact={t("financeHome.netFact")}
+        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("financeHome.revenueChartTitle")}</CardTitle>
-          <CardDescription>
-            {t("financeHome.revenueChartSubtitle")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {series.length > 0 ? (
-            <LineChart
-              series={[
-                { id: "gross", label: t("financeHome.grossRevenue"), color: "var(--primary)", points: series.map((p) => ({ x: p.period.slice(5), value: Math.round(p.grossRevenue / 100) })) },
-                { id: "commission", label: t("common.commission"), color: "var(--success)", points: series.map((p) => ({ x: p.period.slice(5), value: Math.round(p.platformCommission / 100) })) },
-              ]}
-              height={280}
-              yValueFormatter={(v) => formatShortEGP(v * 100)}
-            />
-          ) : (
-            <EmptyState icon={LineChartIcon} title={t("common.noRevenueYet")} />
-          )}
-        </CardContent>
-      </Card>
+      <section className="rounded-xl border border-rule bg-sheet p-5 shadow-[var(--lift)]">
+        <header className="mb-4">
+          <Eyebrow locale={locale}>{t("financeHome.revenueChartTitle")}</Eyebrow>
+          <p className="mt-1 text-[13px] text-ink-2">{t("financeHome.revenueChartSubtitle")}</p>
+        </header>
+
+        {series.length > 0 ? (
+          <LineChart
+            series={[
+              {
+                id: "gross",
+                label: t("financeHome.grossRevenue"),
+                // Colour omitted → the series takes its semantic slot (D-011).
+                points: series.map((p) => ({
+                  x: p.period.slice(5),
+                  value: Math.round(p.grossRevenue / 100),
+                })),
+              },
+              {
+                id: "commission",
+                label: t("common.commission"),
+                points: series.map((p) => ({
+                  x: p.period.slice(5),
+                  value: Math.round(p.platformCommission / 100),
+                })),
+              },
+            ]}
+            height={280}
+            yValueFormatter={(v) => formatAxis(v * 100, locale)}
+          />
+        ) : (
+          <EmptyState tone="empty" icon={LineChartIcon} title={t("common.noRevenueYet")} />
+        )}
+      </section>
     </div>
   );
+}
+
+function formatAxis(piasters: number, locale: Locale) {
+  return new Intl.NumberFormat(locale === "ar" ? "ar-EG-u-nu-latn" : "en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Math.round(piasters / 100));
 }

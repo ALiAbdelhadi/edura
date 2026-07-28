@@ -267,7 +267,13 @@ export function AdminRoomsScreen() {
               <Card key={id} className="flex flex-col overflow-hidden p-0">
                 <div className="relative aspect-video w-full bg-muted">
                   {cover ? (
-                    <Image src={cover} alt={room.name} className="h-full w-full object-cover" />
+                    <Image
+                      src={cover}
+                      alt={room.name}
+                      width={800}
+                      height={450}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
                       <Home className="size-10" />
@@ -308,7 +314,6 @@ export function AdminRoomsScreen() {
                       </Badge>
                     ))}
                   </div>
-
                   {feats.length ? (
                     <div className="flex flex-wrap gap-1">
                       {feats.slice(0, 3).map((x) => (
@@ -319,7 +324,6 @@ export function AdminRoomsScreen() {
                       {feats.length > 3 ? <Badge variant="outline">+{feats.length - 3}</Badge> : null}
                     </div>
                   ) : null}
-
                   <div className="mt-auto flex items-center gap-1 pt-1">
                     <Button
                       variant="outline"
@@ -363,8 +367,6 @@ export function AdminRoomsScreen() {
           })}
         </div>
       )}
-
-      {/* Room details */}
       <RoomDetailsDialog
         room={viewingRoom}
         onOpenChange={(open) => !open && setViewingRoom(null)}
@@ -373,7 +375,6 @@ export function AdminRoomsScreen() {
           handleOpenEdit(room);
         }}
       />
-
       <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -394,7 +395,6 @@ export function AdminRoomsScreen() {
                   </FormItem>
                 )}
               />
-
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -421,7 +421,6 @@ export function AdminRoomsScreen() {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="price"
@@ -476,7 +475,6 @@ export function AdminRoomsScreen() {
                   {t("adminManage.rooms.methodsHint")}
                 </p>
               </div>
-
               <FormField
                 control={form.control}
                 name="description"
@@ -495,7 +493,6 @@ export function AdminRoomsScreen() {
                   </FormItem>
                 )}
               />
-
               <div className="space-y-2">
                 <FormLabel>{t("adminManage.rooms.features")}</FormLabel>
                 <div className="flex flex-wrap gap-1.5">
@@ -544,14 +541,13 @@ export function AdminRoomsScreen() {
                   </div>
                 )}
               </div>
-
               <div className="space-y-2">
                 <FormLabel>{t("adminManage.rooms.photos")}</FormLabel>
                 {photos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => (
                       <div key={url} className="group relative aspect-video overflow-hidden rounded-md border">
-                        <Image src={url} alt="" className="h-full w-full object-cover" />
+                        <Image src={url} alt="" width={800} height={450} className="h-full w-full object-cover" />
                         {i === 0 ? (
                           <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                             {t("adminManage.rooms.coverPhoto")}
@@ -560,7 +556,7 @@ export function AdminRoomsScreen() {
                         <button
                           type="button"
                           onClick={() => removePhoto(url)}
-                          className="absolute end-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                          className="absolute inset-e-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
                           aria-label={t("adminManage.rooms.removePhoto")}
                         >
                           <X className="size-3" />
@@ -657,9 +653,7 @@ function RoomDetailsDialog({
             <DialogHeader>
               <DialogTitle>{room.name}</DialogTitle>
             </DialogHeader>
-
             <div className="space-y-4">
-              {/* Photo gallery */}
               {photos.length ? (
                 <div className="grid grid-cols-2 gap-2">
                   {photos.map((url, i) => (
@@ -670,7 +664,7 @@ function RoomDetailsDialog({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url} alt="" className="h-full w-full object-cover" />
                       {i === 0 ? (
-                        <span className="absolute start-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
+                        <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                           {t("adminManage.rooms.coverPhoto")}
                         </span>
                       ) : null}
@@ -683,8 +677,6 @@ function RoomDetailsDialog({
                   {t("adminManage.rooms.noPhotos")}
                 </div>
               )}
-
-              {/* Facts */}
               <div className="grid grid-cols-2 gap-3">
                 <DetailRow label={t("adminManage.rooms.capacity")}>
                   {room.capacity != null ? `${room.capacity} ${t("adminManage.rooms.seats")}` : "—"}
@@ -698,8 +690,6 @@ function RoomDetailsDialog({
                   </DetailRow>
                 ) : null}
               </div>
-
-              {/* Features */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground">
                   {t("adminManage.rooms.features")}
@@ -716,8 +706,6 @@ function RoomDetailsDialog({
                   <p className="text-sm text-muted-foreground">—</p>
                 )}
               </div>
-
-              {/* Description */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground">
                   {t("adminManage.rooms.description")}
@@ -727,7 +715,6 @@ function RoomDetailsDialog({
                 </p>
               </div>
             </div>
-
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 {t("actions.cancel")}

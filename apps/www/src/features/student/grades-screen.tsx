@@ -14,19 +14,9 @@ import { PageHeader } from "@/components/kit/page-header";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { PageSpinner } from "@/components/kit/spinner";
-import { BarChart } from "@/components/charts";
+import { BarChart, seriesColor } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-const CHART_COLORS = [
-  "#0fa5e9",
-  "#8b5cf6",
-  "#177674",
-  "#f97315",
-  "#22c55f",
-  "#ed4899",
-  "#600000",
-];
-
 function percentageToGrade(pct: number): string {
   if (pct >= 97) return "A+";
   if (pct >= 93) return "A";
@@ -106,7 +96,6 @@ export function GradesScreen() {
       pct,
       grade: percentageToGrade(pct),
       entries: data.scores.length,
-      color: CHART_COLORS[i % CHART_COLORS.length],
     };
   });
 
@@ -133,7 +122,7 @@ export function GradesScreen() {
         <div className="flex items-center gap-2">
           <span
             className="inline-block size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: row.original.color }}
+            style={{ backgroundColor: seriesColor(row.index) }}
           />
           <span className="font-semibold text-foreground">
             {row.original.subject || row.original.name}

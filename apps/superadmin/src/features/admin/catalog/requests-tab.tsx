@@ -5,7 +5,6 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
@@ -29,8 +28,10 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { Check, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useState } from "react";
 import type { SubjectRequestRow, SubjectRow } from "./types";
 import { useCatalogMutation } from "./use-catalog-mutation";
@@ -51,7 +52,7 @@ type ApproveDraft = {
 
 export function RequestsTab() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const { mutate, busy } = useCatalogMutation();
   const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
   const [approveTarget, setApproveTarget] = useState<SubjectRequestRow | null>(null);
@@ -133,7 +134,7 @@ export function RequestsTab() {
       cell: ({ row }) => (
         <div className="grid">
           <span>{row.original.requestedBy?.name ?? "—"}</span>
-          <span className="text-xs text-muted-foreground" dir="ltr">
+          <span className="text-xs text-ink-2" dir="ltr">
             {row.original.requestedBy?.email ?? ""}
           </span>
         </div>
@@ -142,22 +143,27 @@ export function RequestsTab() {
     {
       accessorKey: "notes",
       header: t("catalog.requests.notes"),
-      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.notes ?? "—"}</span>,
+      cell: ({ row }) => <span className="text-sm text-ink-2">{row.original.notes ?? "—"}</span>,
     },
     {
       accessorKey: "createdAt",
       header: t("catalog.requests.reviewedAt"),
-      cell: ({ row }) =>
-        row.original.reviewedAt ? formatDate(row.original.reviewedAt) : formatDate(row.original.createdAt),
+      cell: ({ row }) => (
+        <Num.Date
+          value={row.original.reviewedAt ?? row.original.createdAt}
+          locale={locale}
+          className="text-[11px] text-ink-3"
+        />
+      ),
     },
     {
       accessorKey: "status",
-      header: "",
+      header: t("common.colStatus"),
       cell: ({ row }) => statusBadge(row.original.status),
     },
     {
       id: "actions",
-      header: "",
+      header: t("common.colActions"),
       cell: ({ row }) =>
         row.original.status === "pending" ? (
           <div className="flex items-center gap-2">
@@ -223,7 +229,7 @@ export function RequestsTab() {
                     onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
                     placeholder="new-subject-code"
                   />
-                  <p className="text-xs text-muted-foreground">{t("catalog.fields.codeHint")}</p>
+                  <p className="text-xs text-ink-2">{t("catalog.fields.codeHint")}</p>
                 </div>
                 <div className="grid gap-1.5">
                   <Label>{t("catalog.fields.nameAr")}</Label>

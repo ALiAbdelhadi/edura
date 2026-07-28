@@ -22,7 +22,7 @@
     "@types/node": "26.1.1",
     "@types/nodemailer": "^8.0.1",
     "@types/web-push": "^3.6.4",
-    "next": "16.2.10",
+    "next": "16.2.12",
     "typescript": "5.9.3"
   },
   "peerDependencies": {

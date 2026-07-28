@@ -10,9 +10,10 @@
 //     oversight power is itself observed.
 import { useCallback, useEffect, useState } from "react";
 import { useList } from "@refinedev/core";
-import { Eye, MessageSquare, Search, ShieldAlert, Ban } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { Eye, ShieldAlert, Ban } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { Badge } from "@repo/ui/components/badge";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
@@ -38,10 +39,11 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { api } from "@/lib/api/client";
 
 const ANY = "__any__";
@@ -110,8 +112,8 @@ export function MessagingScreen() {
             className={cn(
               "-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors",
               tab === x
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "border-indigo text-ink"
+                : "border-transparent text-ink-2 hover:text-ink",
             )}
           >
             {t(`adminMessaging.tabs.${x}`)}
@@ -126,7 +128,7 @@ export function MessagingScreen() {
 // ---------------------------------------------------------------------------
 function LogTab() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [role, setRole] = useState<string | null>(null);
   const [minorsOnly, setMinorsOnly] = useState(false);
@@ -153,18 +155,15 @@ function LogTab() {
     <>
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("adminMessaging.searchPlaceholder")}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
+          <SearchInput
+            className="min-w-64 flex-1"
+            placeholder={t("adminMessaging.searchPlaceholder")}
+            value={q}
+            onValueChange={(v) => {
+                setQ(v);
                 setPage(1);
               }}
-              className="ps-9"
-            />
-          </div>
+          />
           <Select
             value={role ?? ANY}
             onValueChange={(v) => {
@@ -234,7 +233,7 @@ function LogTab() {
                       </div>
                     </TableCell>
                     <TableCell>{r.messageCount}</TableCell>
-                    <TableCell>{formatDate(r.lastMessageAt)}</TableCell>
+                    <TableCell><Num.Date value={r.lastMessageAt} locale={locale} className="text-[11px] text-ink-3" /></TableCell>
                     <TableCell className="text-end">
                       <Button
                         type="button"
@@ -250,7 +249,7 @@ function LogTab() {
                 ))}
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={4} className="py-8 text-center text-ink-2">
                       {t("adminMessaging.noResults")}
                     </TableCell>
                   </TableRow>
@@ -272,8 +271,8 @@ function LogTab() {
           >
             ‹
           </Button>
-          <span className="text-sm text-muted-foreground">
-            {page} / {pageCount}
+          <span className="text-sm text-ink-2">
+            <Num>{page} / {pageCount}</Num>
           </span>
           <Button
             type="button"
@@ -300,7 +299,7 @@ function ThreadDialog({
   onClose: () => void;
 }) {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [messages, setMessages] = useState<ThreadMessage[] | null>(null);
 
   const load = useCallback(async (id: string) => {
@@ -326,7 +325,7 @@ function ThreadDialog({
           <DialogTitle>{t("adminMessaging.threadTitle")}</DialogTitle>
         </DialogHeader>
         {/* The watchers get watched — say so where the reading happens. */}
-        <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-md bg-field px-3 py-2 text-xs text-ink-2">
           {t("adminMessaging.auditNotice")}
         </p>
         <ScrollArea className="max-h-[60vh]">
@@ -340,12 +339,12 @@ function ThreadDialog({
                 const sender = row?.participants.find((p) => p.id === m.senderId);
                 return (
                   <div key={m.id} className="rounded-md border border-border p-3">
-                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">
+                    <div className="flex items-center justify-between gap-2 text-xs text-ink-2">
+                      <span className="font-medium text-ink">
                         {sender?.name ?? m.senderId.slice(0, 8)}
                         {sender?.role ? ` · ${sender.role}` : ""}
                       </span>
-                      <span>{formatDate(m.createdAt)}</span>
+                      <Num.Date value={m.createdAt} locale={locale} className="text-[11px] text-ink-3" />
                     </div>
                     <p className="mt-1 break-words whitespace-pre-wrap text-sm">
                       {m.originalBody}
@@ -369,7 +368,7 @@ function ThreadDialog({
 // ---------------------------------------------------------------------------
 function ReportsTab() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [status, setStatus] = useState<string | null>("open");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
@@ -450,7 +449,7 @@ function ReportsTab() {
                         ) : null}
                       </div>
                       {r.details ? (
-                        <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                        <p className="mt-1 max-w-md text-xs text-ink-2">
                           {r.details}
                         </p>
                       ) : null}
@@ -461,7 +460,7 @@ function ReportsTab() {
                     <TableCell className="text-xs">
                       {r.reported?.name} · {r.reported?.role}
                     </TableCell>
-                    <TableCell className="text-xs">{formatDate(r.createdAt)}</TableCell>
+                    <TableCell><Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" /></TableCell>
                     <TableCell className="text-end">
                       {r.status === "open" || r.status === "reviewing" ? (
                         <div className="flex justify-end gap-1">
@@ -494,7 +493,7 @@ function ReportsTab() {
                 ))}
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-ink-2">
                       {t("adminMessaging.noReports")}
                     </TableCell>
                   </TableRow>
@@ -511,7 +510,7 @@ function ReportsTab() {
 // ---------------------------------------------------------------------------
 function BlocksTab() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [page, setPage] = useState(1);
 
   const { query, result } = useList({
@@ -542,15 +541,15 @@ function BlocksTab() {
                 <TableRow key={r.id}>
                   <TableCell>{r.blocker}</TableCell>
                   <TableCell>{r.blocked}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-xs text-ink-2">
                     {r.reason ?? "—"}
                   </TableCell>
-                  <TableCell className="text-xs">{formatDate(r.createdAt)}</TableCell>
+                  <TableCell><Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" /></TableCell>
                 </TableRow>
               ))}
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="py-8 text-center text-ink-2">
                     <div className="flex flex-col items-center gap-2">
                       <Ban className="size-5 opacity-50" />
                       {t("adminMessaging.noBlocks")}

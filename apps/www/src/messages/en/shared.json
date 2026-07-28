@@ -7,6 +7,8 @@
   "notifEmpty": "No notifications yet",
   "notifUnreadCount": "{n} unread",
   "notifMarkAllRead": "Mark all read",
+  "notifType_team_note_created": "Team note",
+  "notifType_team_note_status_changed": "Note status",
   "notifType_absence_marked": "Absence marked",
   "notifType_session_cancelled": "Session cancelled",
   "notifType_payment_recorded": "Payment recorded",

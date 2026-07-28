@@ -55,6 +55,11 @@ const NAV_KEY: Record<string, string> = {
   Registrations: "nav.registrations",
   Transactions: "nav.transactions",
   Payouts: "nav.payouts",
+  Payments: "nav.payments",
+  Messaging: "nav.messaging",
+  Commission: "nav.commission",
+  Collaborations: "nav.collaborations",
+  Subscriptions: "nav.subscriptions",
   "Room settlements": "nav.roomSettlements",
   Statements: "nav.statements",
   Alerts: "nav.alerts",
@@ -167,16 +172,27 @@ function HeaderSidebarToggle() {
  */
 function SidebarNavLink({
   href,
+  onClick,
   children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+  ...props
+}: React.ComponentProps<typeof Link>) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
+    // `...props` is load-bearing, not tidiness. This sits inside two nested Radix
+    // Slots — <TooltipTrigger asChild> wrapping <SidebarMenuButton asChild> — and a
+    // Slot passes the parent's props DOWN to its child rather than rendering an
+    // element of its own. Everything the nav item is comes in through here:
+    // className (the entire menu-button style), data-active / data-slot /
+    // data-sidebar / data-size, the tooltip's aria wiring, and the ref.
+    // Without the spread they were all silently dropped and every nav item in every
+    // portal rendered as a bare inline <a> — unstyled, with no active state and no
+    // tooltip, and with its icon stacked above its label instead of beside it.
     <Link
+      {...props}
       href={href}
-      onClick={() => {
+      onClick={(event) => {
+        // Chain rather than replace: the Slot may have merged a handler in.
+        onClick?.(event);
         if (isMobile) setOpenMobile(false);
       }}
     >
@@ -239,7 +255,7 @@ export default function DashboardShell({
           </div>
           <div className="flex items-center gap-2 px-1 pb-2">
             <Avatar>
-              <AvatarFallback className="bg-primary font-bold text-primary-foreground">
+              <AvatarFallback className="bg-indigo font-bold text-indigo-ink">
                 {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
@@ -289,7 +305,7 @@ export default function DashboardShell({
               <SidebarMenuButton
                 onClick={() => logout()}
                 tooltip={t("actions.logout")}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive active:bg-destructive/10 active:text-destructive"
+                className="text-red hover:bg-red-soft hover:text-red active:bg-red-soft active:text-red"
               >
                 <LogOut />
                 <span>{t("actions.logout")}</span>
@@ -304,7 +320,7 @@ export default function DashboardShell({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <HeaderSidebarToggle />
             <div className="h-5 w-px shrink-0 bg-border" />
-            <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="truncate text-lg font-semibold tracking-tight text-ink">
               {tNav(screenLabel)}
             </h1>
           </div>
@@ -336,7 +352,7 @@ export default function DashboardShell({
               ) : null}
             </div>
             <Avatar>
-              <AvatarFallback className="bg-primary font-bold text-primary-foreground">
+              <AvatarFallback className="bg-indigo font-bold text-indigo-ink">
                 {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>

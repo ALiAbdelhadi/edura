@@ -2,6 +2,7 @@
 
 import { BarChart, DonutChart, LineChart } from "@/components/charts";
 import { StatCard } from "@/components/kit/stat-card";
+import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
 import { PageSkeleton } from "@/components/ui/skeletons";
 import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -51,6 +52,9 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* The center team's shared to-do board (owner + staff). */}
+      <TeamNotesBoard compact />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label={t("adminHome.dashboard_totalStudents")}

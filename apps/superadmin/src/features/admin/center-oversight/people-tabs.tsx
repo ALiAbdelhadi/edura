@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { Info, Mail, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
@@ -31,8 +32,9 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useAdminGet } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
@@ -105,6 +107,7 @@ type StudentRow = {
 };
 
 export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
+  const t = useTranslations("oversight");
   const req = useAdminGet<{ items: StudentRow[] }>(
     `admin/centers/${centerId}/roster/students`,
     { enabled },
@@ -121,34 +124,30 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-2">
           The same roster the center manages. Removing from the roster keeps every enrollment —
           withdrawing enrollments is the separate, reversible action below.
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-            <Plus className="size-4" />
-            Add existing
-          </Button>
+            <Plus className="size-4" />{t("pp_addExisting")}</Button>
           <Button size="sm" onClick={() => setInviting(true)}>
-            <UserPlus className="size-4" />
-            Invite student
-          </Button>
+            <UserPlus className="size-4" />{t("pp_inviteStudent")}</Button>
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No students on this roster.</p>
+        <p className="p-4 text-sm text-ink-2">{t("pp_noStudents")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("pp_student")}</TableHead>
+                <TableHead>{t("pp_email")}</TableHead>
+                <TableHead>{t("pp_phone")}</TableHead>
+                <TableHead>{t("pp_account")}</TableHead>
+                <TableHead className="text-end">{t("pp_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -168,27 +167,25 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
                   <TableCell className="text-end">
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => setEditing(s)}>
-                        <Pencil className="size-4" />
-                        Edit
-                      </Button>
+                        <Pencil className="size-4" />{t("pp_edit")}</Button>
                       <ControlAction
-                        label="Deactivate"
-                        title="Deactivate this student's account?"
+                        label={t("pp_deactivate")}
+                        title={t("pp_deactivateStudentQ")}
                         destructive
                         requireReason
-                        confirmText="Deactivate"
+                        confirmText={t("pp_deactivate")}
                         url={`admin/centers/${centerId}/members/${s.studentId}/status`}
                         values={{ kind: "student", action: "deactivate" }}
                         onDone={req.refetch}
                         description={
-                          <p>Access is cut on their next request. Enrollments are kept.</p>
+                          <p>{t("pp_accessCut")}</p>
                         }
                       />
                       <ControlAction
-                        label="Remove from roster"
-                        title="Remove this student from the roster?"
+                        label={t("pp_removeFromRoster")}
+                        title={t("pp_removeFromRosterQ")}
                         destructive
-                        confirmText="Remove"
+                        confirmText={t("pp_remove")}
                         url={`admin/centers/${centerId}/roster/students/${s.studentId}`}
                         method="delete"
                         values={{}}
@@ -220,7 +217,7 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit student</DialogTitle>
+            <DialogTitle>{t("pp_editStudent")}</DialogTitle>
           </DialogHeader>
           {editing ? (
             <StudentEditForm
@@ -239,7 +236,7 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
       <SimpleFormDialog
         open={inviting}
         onOpenChange={setInviting}
-        title="Invite a student"
+        title={t("pp_inviteStudentTitle")}
         note="Creates a shell account on this center's roster and emails an activation link. An already-registered email is refused."
         fields={[
           { key: "email", label: "Email", type: "email", required: true },
@@ -260,7 +257,7 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
       <SimpleFormDialog
         open={adding}
         onOpenChange={setAdding}
-        title="Add an existing student"
+        title={t("pp_addExistingStudent")}
         note="Adds an already-registered student account to this center's roster by their user id."
         fields={[{ key: "studentId", label: "Student user id (UUID)", required: true }]}
         submitLabel="Add to roster"
@@ -286,6 +283,7 @@ function StudentEditForm({
   row: StudentRow;
   onSaved: () => void;
 }) {
+  const t = useTranslations("oversight");
   const { mutateAsync } = useCustomMutation();
   const [name, setName] = useState(row.name ?? "");
   const [email, setEmail] = useState(row.email ?? "");
@@ -298,7 +296,7 @@ function StudentEditForm({
     if (email.trim() !== (row.email ?? "")) patch.email = email.trim();
     if (phone.trim() !== (row.phone ?? "")) patch.phone = phone.trim();
     if (!Object.keys(patch).length) {
-      toast.info("Nothing changed");
+      toast.info(t("pp_nothingChanged"));
       return;
     }
     setBusy(true);
@@ -308,7 +306,7 @@ function StudentEditForm({
         method: "patch",
         values: patch,
       });
-      toast.success("Student updated — recorded in the audit log");
+      toast.success(t("pp_studentUpdated"));
       onSaved();
     } catch (e) {
       toast.error((e as { message?: string })?.message || "Failed to update");
@@ -319,9 +317,9 @@ function StudentEditForm({
 
   return (
     <div className="space-y-3">
-      <Field label="Name" value={name} onChange={setName} />
-      <Field label="Email" value={email} onChange={setEmail} type="email" />
-      <Field label="Phone" value={phone} onChange={setPhone} />
+      <Field label={t("pp_name")} value={name} onChange={setName} />
+      <Field label={t("pp_email")} value={email} onChange={setEmail} type="email" />
+      <Field label={t("pp_phone")} value={phone} onChange={setPhone} />
       <DialogFooter>
         <Button onClick={save} disabled={busy}>
           {busy ? <Spinner /> : null}
@@ -347,6 +345,7 @@ type TeacherRow = {
 };
 
 export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
+  const t = useTranslations("oversight");
   const req = useAdminGet<TeacherRow[]>(`admin/centers/${centerId}/roster/teachers`, { enabled });
   const run = useMutate(req.refetch);
   const [inviting, setInviting] = useState(false);
@@ -358,79 +357,75 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-ink-2">
           Removing a teacher is refused while they still have active courses here — the same rule
           the center is held to.
         </p>
         <Button size="sm" onClick={() => setInviting(true)}>
-          <UserPlus className="size-4" />
-          Invite teacher
-        </Button>
+          <UserPlus className="size-4" />{t("pp_inviteTeacher")}</Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No teachers at this center.</p>
+        <p className="p-4 text-sm text-ink-2">{t("pp_noTeachers")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Affiliation</TableHead>
-                <TableHead>Active courses</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("pp_teacher")}</TableHead>
+                <TableHead>{t("pp_email")}</TableHead>
+                <TableHead>{t("pp_affiliation")}</TableHead>
+                <TableHead>{t("pp_activeCourses")}</TableHead>
+                <TableHead className="text-end">{t("pp_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((t) => (
-                <TableRow key={t.teacherId}>
-                  <TableCell className="font-medium">{t.name ?? t.teacherId}</TableCell>
-                  <TableCell>{t.email ?? "—"}</TableCell>
+              {rows.map((row) => (
+                <TableRow key={row.teacherId}>
+                  <TableCell className="font-medium">{row.name ?? row.teacherId}</TableCell>
+                  <TableCell>{row.email ?? "—"}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{t.affiliation.status}</Badge>
+                    <Badge variant="secondary">{row.affiliation.status}</Badge>
                   </TableCell>
-                  <TableCell>{t.coursesCount}</TableCell>
+                  <TableCell>{row.coursesCount}</TableCell>
                   <TableCell className="text-end">
                     <div className="flex flex-wrap justify-end gap-2">
                       <ControlAction
-                        label="Deactivate"
-                        title="Deactivate this teacher?"
+                        label={t("pp_deactivate")}
+                        title={t("pp_deactivateTeacherQ")}
                         destructive
                         requireReason
-                        confirmText="Deactivate"
-                        url={`admin/centers/${centerId}/members/${t.teacherId}/status`}
+                        confirmText={t("pp_deactivate")}
+                        url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
                         values={{ kind: "teacher", action: "deactivate" }}
                         onDone={req.refetch}
                         description={
                           <p>
-                            They lose access on their next request. Courses, schedules and all
-                            financial history are untouched.
+                            {t("pp_teacherLosesAccess")}
                           </p>
                         }
                       />
                       <ControlAction
-                        label="Activate"
-                        title="Reactivate this teacher?"
-                        confirmText="Activate"
-                        url={`admin/centers/${centerId}/members/${t.teacherId}/status`}
+                        label={t("pp_activate")}
+                        title={t("pp_reactivateTeacherQ")}
+                        confirmText={t("pp_activate")}
+                        url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
                         values={{ kind: "teacher", action: "activate" }}
                         onDone={req.refetch}
-                        description={<p>The account can sign in again immediately.</p>}
+                        description={<p>{t("pp_canSignInAgain")}</p>}
                       />
                       <ControlAction
-                        label="Remove from center"
-                        title="End this teacher's affiliation?"
+                        label={t("pp_removeFromCenter")}
+                        title={t("pp_endAffiliationQ")}
                         destructive
-                        confirmText="Remove"
+                        confirmText={t("pp_remove")}
                         method="delete"
-                        url={`admin/centers/${centerId}/roster/teachers/${t.teacherId}`}
+                        url={`admin/centers/${centerId}/roster/teachers/${row.teacherId}`}
                         values={{}}
                         onDone={req.refetch}
                         description={
                           <p>
-                            Their affiliation ends. Refused while they have active courses here —
-                            cancel or reassign those first.
+                            {t("pp_affiliationEnds")}
                           </p>
                         }
                       />
@@ -446,7 +441,7 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
       <SimpleFormDialog
         open={inviting}
         onOpenChange={setInviting}
-        title="Invite a teacher"
+        title={t("pp_inviteTeacherTitle")}
         note="Shell-account onboarding only. A teacher who already has an account is refused here — send them a collaboration request instead."
         fields={[
           { key: "email", label: "Email", type: "email", required: true },
@@ -484,6 +479,7 @@ type StaffRow = {
 const STAFF_ROLES = ["receptionist", "manager", "center_accountant"] as const;
 
 export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
+  const t = useTranslations("oversight");
   const req = useAdminGet<StaffRow[] | { items: StaffRow[] }>(
     `admin/centers/${centerId}/staff`,
     { enabled },
@@ -500,32 +496,29 @@ export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boo
     <div className="space-y-3">
       <Alert>
         <Info className="size-4" />
-        <AlertTitle>Staff never receive a password from anyone</AlertTitle>
+        <AlertTitle>{t("pp_staffNoPassword")}</AlertTitle>
         <AlertDescription>
-          A new staff account is created as a shell and emailed a single-use claim link — the
-          person sets their own credential. Re-sending is refused once they have.
+          {t("pp_staffNoPasswordBody")}
         </AlertDescription>
       </Alert>
 
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus className="size-4" />
-          Add staff
-        </Button>
+          <Plus className="size-4" />{t("pp_addStaff")}</Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">No staff accounts.</p>
+        <p className="p-4 text-sm text-ink-2">{t("pp_noStaff")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Sub-role</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
+                <TableHead>{t("pp_name")}</TableHead>
+                <TableHead>{t("pp_email")}</TableHead>
+                <TableHead>{t("pp_subRole")}</TableHead>
+                <TableHead>{t("pp_title")}</TableHead>
+                <TableHead className="text-end">{t("pp_actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -554,12 +547,10 @@ export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boo
                       <ControlAction
                         label={
                           <>
-                            <Mail className="size-4" />
-                            Resend invite
-                          </>
+                            <Mail className="size-4" />{t("pp_resendInvite")}</>
                         }
-                        title="Re-send the claim link?"
-                        confirmText="Re-send"
+                        title={t("pp_resendQ")}
+                        confirmText={t("pp_resend")}
                         url={`admin/centers/${centerId}/staff/${s.id}/invite`}
                         values={{}}
                         onDone={req.refetch}
@@ -573,13 +564,11 @@ export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boo
                       <ControlAction
                         label={
                           <>
-                            <Trash2 className="size-4" />
-                            Remove
-                          </>
+                            <Trash2 className="size-4" />{t("pp_remove")}</>
                         }
-                        title="Remove this staff member?"
+                        title={t("pp_removeStaffQ")}
                         destructive
-                        confirmText="Remove"
+                        confirmText={t("pp_remove")}
                         method="delete"
                         url={`admin/centers/${centerId}/staff/${s.id}`}
                         values={{}}
@@ -642,6 +631,7 @@ function StaffCreateDialog({
   onOpenChange: (o: boolean) => void;
   onSubmit: (v: { name: string; email: string; role: string; title?: string }) => Promise<boolean>;
 }) {
+  const t = useTranslations("oversight");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("receptionist");
@@ -650,7 +640,7 @@ function StaffCreateDialog({
 
   const submit = async () => {
     if (name.trim().length < 2 || !email.trim()) {
-      toast.error("Name and email are required");
+      toast.error(t("pp_needNameEmail"));
       return;
     }
     setBusy(true);
@@ -673,17 +663,17 @@ function StaffCreateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a staff member</DialogTitle>
+          <DialogTitle>{t("pp_addStaffTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <Field label="Name" value={name} onChange={setName} />
-          <Field label="Email" value={email} onChange={setEmail} type="email" />
+          <Field label={t("pp_name")} value={name} onChange={setName} />
+          <Field label={t("pp_email")} value={email} onChange={setEmail} type="email" />
           <label className="space-y-1 text-sm">
-            <span className="font-medium">Sub-role</span>
+            <span className="font-medium">{t("pp_subRole")}</span>
             <RoleSelect value={role} onChange={setRole} />
           </label>
-          <Field label="Title (optional)" value={title} onChange={setTitle} />
-          <p className="text-xs text-muted-foreground">
+          <Field label={t("pp_titleOptional")} value={title} onChange={setTitle} />
+          <p className="text-xs text-ink-2">
             <strong>center_accountant</strong> is read-only — it can view this center&apos;s
             financial reports and nothing else.
           </p>
@@ -704,7 +694,8 @@ function StaffCreateDialog({
 // ===========================================================================
 
 export function CenterAdminsCard({ centerId }: { centerId: string }) {
-  const { formatDate } = useFormatters();
+  const t = useTranslations("oversight");
+  const locale = useLocale() as Locale;
   const req = useAdminGet<{ id: string; name: string; email: string | null; status: string }[]>(
     `admin/centers/${centerId}/admins`,
   );
@@ -716,18 +707,16 @@ export function CenterAdminsCard({ centerId }: { centerId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
-          <span>Center admins</span>
+          <span>{t("pp_centerAdmins")}</span>
           <Button size="sm" variant="outline" onClick={() => setInviting(true)}>
-            <UserPlus className="size-4" />
-            Invite admin
-          </Button>
+            <UserPlus className="size-4" />{t("pp_inviteAdmin")}</Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {req.isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No center admin accounts.</p>
+          <p className="text-sm text-ink-2">{t("pp_noCenterAdmins")}</p>
         ) : (
           <ul className="space-y-2 text-sm">
             {rows.map((a) => (
@@ -735,16 +724,16 @@ export function CenterAdminsCard({ centerId }: { centerId: string }) {
                 <span className="min-w-0">
                   <span className="font-medium">{a.name}</span>
                   {a.email ? (
-                    <span className="text-muted-foreground"> · {a.email}</span>
+                    <span className="text-ink-2"> · {a.email}</span>
                   ) : null}
                 </span>
                 <span className="flex items-center gap-2">
                   <Badge variant="secondary">{a.status}</Badge>
                   <ControlAction
-                    label="Remove"
-                    title="Remove this center admin?"
+                    label={t("pp_remove")}
+                    title={t("pp_removeAdminQ")}
                     destructive
-                    confirmText="Remove"
+                    confirmText={t("pp_remove")}
                     method="delete"
                     url={`admin/centers/${centerId}/admins/${a.id}`}
                     values={{}}
@@ -761,15 +750,15 @@ export function CenterAdminsCard({ centerId }: { centerId: string }) {
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Loaded {formatDate(new Date(), { timeStyle: "short" })}
+        <p className="mt-3 text-xs text-ink-2">
+          {t("pp_loaded")} <Num.Date value={new Date()} locale={locale} options={{ timeStyle: "short" }} />
         </p>
       </CardContent>
 
       <SimpleFormDialog
         open={inviting}
         onOpenChange={setInviting}
-        title="Invite a center admin"
+        title={t("pp_inviteAdminTitle")}
         note="Emails an invite to become a co-owner of this center."
         fields={[{ key: "email", label: "Email", type: "email", required: true }]}
         submitLabel="Send invite"
@@ -828,7 +817,7 @@ function SimpleFormDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+          {note ? <p className="text-xs text-ink-2">{note}</p> : null}
           {fields.map((f) => (
             <Field
               key={f.key}

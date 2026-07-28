@@ -132,7 +132,7 @@ export function DoorCheckinScreen() {
                 onChange={(e) => setCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && code.trim() && confirm({ studentCode: code.trim() })}
               />
-              <Button size="lg" disabled={busy || !code.trim()} onClick={() => confirm({ studentCode: code.trim() })}>
+              <Button size="touch" disabled={busy || !code.trim()} onClick={() => confirm({ studentCode: code.trim() })}>
                 {busy ? <Spinner /> : <CheckCircle2 className="size-4" />}
                 {t("shared.door.confirm")}
               </Button>

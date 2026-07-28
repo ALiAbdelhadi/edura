@@ -222,6 +222,24 @@ export async function generatePayouts(user: SessionUser) {
   return { generated: created.length, payouts: created };
 }
 
+/* Counts for the filter pills. A pill reading «بانتظار الصرف 12» must be the real
+   number of pending requests — deriving it from the (capped) list page would make the
+   pill agree with what is on screen while disagreeing with the database, which is the
+   kind of quiet lie the ledger discipline exists to prevent. */
+export function payoutStatusCounts() {
+  return platformDb(async (tx) => {
+    const grouped = await tx.payout.groupBy({ by: ["status"], _count: { _all: true } });
+    const counts: Record<string, number> = {
+      pending: 0,
+      approved: 0,
+      paid: 0,
+      rejected: 0,
+    };
+    for (const g of grouped) counts[g.status] = g._count._all;
+    return counts;
+  });
+}
+
 export function listPayouts(filters: { status?: string; beneficiaryType?: string }) {
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
@@ -235,20 +253,47 @@ export function listPayouts(filters: { status?: string; beneficiaryType?: string
 
     const teacherIds = rows.filter((r) => r.beneficiaryType === "teacher").map((r) => r.beneficiaryId);
     const centerIds = rows.filter((r) => r.beneficiaryType === "center").map((r) => r.beneficiaryId);
-    const [teachers, centers] = await Promise.all([
+    const [teachers, centers, teacherWallets] = await Promise.all([
       tx.user.findMany({ where: { id: { in: teacherIds } }, select: { id: true, name: true, email: true } }),
-      tx.center.findMany({ where: { id: { in: centerIds } }, select: { id: true, name: true } }),
+      tx.center.findMany({
+        where: { id: { in: centerIds } },
+        select: { id: true, name: true, walletBalance: true },
+      }),
+      /* The beneficiary's CURRENT wallet balance, so the decision panel can state
+         clearance before the operator arms the commit rather than surfacing a failure
+         after it. settlePayout uses an H2 conditional decrement (`updateMany where
+         balance >= net`), so a payout the wallet cannot cover does not silently pass —
+         it throws and rolls back. Reading that same comparison forward is what lets the
+         panel say "this will fail" instead of the operator discovering it. */
+      tx.teacherProfile.findMany({
+        where: { userId: { in: teacherIds } },
+        select: { userId: true, walletBalance: true },
+      }),
     ]);
     const tMap = new Map(teachers.map((u) => [u.id, u]));
     const cMap = new Map(centers.map((c) => [c.id, c]));
-    return rows.map((r) => ({
-      ...r,
-      beneficiaryName:
+    const wMap = new Map(teacherWallets.map((w) => [w.userId, w.walletBalance]));
+    return rows.map((r) => {
+      const walletBalance =
         r.beneficiaryType === "teacher"
-          ? (tMap.get(r.beneficiaryId)?.name ?? null)
-          : (cMap.get(r.beneficiaryId)?.name ?? null),
-      beneficiaryEmail: r.beneficiaryType === "teacher" ? (tMap.get(r.beneficiaryId)?.email ?? null) : null,
-    }));
+          ? (wMap.get(r.beneficiaryId) ?? null)
+          : (cMap.get(r.beneficiaryId)?.walletBalance ?? null);
+      return {
+        ...r,
+        beneficiaryName:
+          r.beneficiaryType === "teacher"
+            ? (tMap.get(r.beneficiaryId)?.name ?? null)
+            : (cMap.get(r.beneficiaryId)?.name ?? null),
+        beneficiaryEmail:
+          r.beneficiaryType === "teacher" ? (tMap.get(r.beneficiaryId)?.email ?? null) : null,
+        walletBalance,
+        // null balance = unknown, NOT "covered". Absence of evidence is not clearance.
+        covered:
+          walletBalance === null || r.netPayable === null
+            ? null
+            : walletBalance >= r.netPayable,
+      };
+    });
   });
 }
 

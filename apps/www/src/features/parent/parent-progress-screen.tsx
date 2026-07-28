@@ -18,18 +18,10 @@ import {
   useChildSelector,
   ChildSelectorBar,
 } from "@/components/ui/child-selector";
-import { BarChart } from "@/components/charts";
+import { BarChart, seriesColor } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSkeleton } from "@/components/ui/skeletons";
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
-
 function percentageToGrade(pct: number): string {
   if (pct >= 97) return "A+";
   if (pct >= 93) return "A";
@@ -121,7 +113,6 @@ export function ParentProgressScreen() {
       pct,
       grade: percentageToGrade(pct),
       entries: data.scores.length,
-      color: CHART_COLORS[i % CHART_COLORS.length],
     };
   });
 
@@ -145,7 +136,7 @@ export function ParentProgressScreen() {
         <div className="flex items-center gap-2">
           <span
             className="inline-block size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: row.original.color }}
+            style={{ backgroundColor: seriesColor(row.index) }}
           />
           <span className="font-semibold text-foreground">
             {row.original.subject || row.original.name}

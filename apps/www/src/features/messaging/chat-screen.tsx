@@ -13,26 +13,10 @@ import React, {
   useState,
 } from "react";
 import { useGetIdentity } from "@refinedev/core";
-import {
-  AlertCircle,
-  Ban,
-  Check,
-  CheckCheck,
-  ChevronUp,
-  Clock3,
-  Eye,
-  Flag,
-  MessageSquare,
-  MoreVertical,
-  Plus,
-  Search,
-  Send,
-  ShieldAlert,
-  User,
-  WifiOff,
-} from "lucide-react";
+import { AlertCircle, Ban, Check, CheckCheck, ChevronUp, Clock3, Eye, Flag, MessageSquare, MoreVertical, Plus, Send, ShieldAlert, User, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card } from "@repo/ui/components/card";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { Input } from "@repo/ui/components/input";
 import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
@@ -950,15 +934,11 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
         <DialogHeader>
           <DialogTitle>{t("chat.newConversation")}</DialogTitle>
         </DialogHeader>
-        <div className="relative">
-          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
+        <SearchInput
             placeholder={t("chat.searchContacts")}
-            className="ps-9"
+            value={search}
+            onValueChange={(v) => onSearch(v)}
           />
-        </div>
         {availableRoles.length > 1 ? (
           <div
             className="flex flex-wrap gap-1.5"

@@ -550,7 +550,7 @@ function CreateCollabDialog({
     method: "get",
     queryOptions: { enabled: open && role === "teacher" && !!targetId },
   });
-  const centerRooms = (((centerRoomsRes as any)?.data?.rooms ?? []) as any[]) ?? [];
+  const centerRooms = ((centerRoomsRes as any)?.data?.rooms ?? []) as any[];
 
   // Subject auto-fill: a teacher's picker is scoped to their specialization
   // (TeacherSubject). Falls back to the full catalog if none are recorded.

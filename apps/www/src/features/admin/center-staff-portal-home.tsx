@@ -2,10 +2,11 @@
 
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
+import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
 import { api } from "@/lib/api/client";
 import { Badge } from "@repo/ui/components/badge";
 import { Card } from "@repo/ui/components/card";
-import { BarChart3, CheckCircle2, DollarSign, Handshake, Home, ShieldCheck, Users } from "lucide-react";
+import { BarChart3, CheckCircle2, ClipboardList, DollarSign, Handshake, Home, ShieldCheck, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -20,6 +21,7 @@ const CARDS: Record<StaffRole, { key: string; href: string | null; icon: React.E
     { key: "walkin", href: "/dashboard/staff/checkin", icon: Users },
     { key: "topup", href: "/dashboard/staff/checkin", icon: DollarSign },
     { key: "students", href: "/dashboard/staff/students", icon: Users },
+    { key: "notes", href: "/dashboard/staff/notes", icon: ClipboardList },
   ],
   manager: [
     { key: "checkin", href: "/dashboard/staff/checkin", icon: CheckCircle2 },
@@ -27,9 +29,11 @@ const CARDS: Record<StaffRole, { key: string; href: string | null; icon: React.E
     { key: "rooms", href: "/dashboard/staff/rooms", icon: Home },
     { key: "collaboration", href: null, icon: Handshake },
     { key: "opsReports", href: "/dashboard/staff/reports", icon: BarChart3 },
+    { key: "notes", href: "/dashboard/staff/notes", icon: ClipboardList },
   ],
   center_accountant: [
     { key: "finance", href: "/dashboard/staff/finance", icon: DollarSign },
+    { key: "notes", href: "/dashboard/staff/notes", icon: ClipboardList },
   ],
 };
 
@@ -63,6 +67,9 @@ export function CenterStaffPortalHome() {
           </Badge>
         }
       />
+
+      {/* Team notes first — the shared to-do board is the working surface. */}
+      <TeamNotesBoard compact />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => {

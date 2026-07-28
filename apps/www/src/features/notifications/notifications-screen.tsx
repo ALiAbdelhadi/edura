@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useList, useCustomMutation } from "@refinedev/core";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { Bell, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -29,6 +29,8 @@ const TYPE_TONE: Record<string, StatusTone> = {
   payment_recorded: "success",
   enrollment_request_approved: "primary",
   grade_posted: "info",
+  team_note_created: "primary",
+  team_note_status_changed: "info",
   default: "neutral",
 };
 
@@ -51,7 +53,13 @@ export function NotificationsScreen() {
   const { formatNumber } = useFormatters();
   const router = useRouter();
   const params = useParams();
-  const role = (params?.role as string) || "student";
+  const pathname = usePathname();
+  // The portal segment comes from the ACTUAL path (/dashboard/<portal>/…):
+  // these routes are fixed folders, so there is no `role` route param — the
+  // old params-based read always fell back to "student" and mislinked every
+  // deep link on the staff/assistant/admin portals.
+  const portalFromPath = pathname?.split("/dashboard/")[1]?.split("/")[0];
+  const role = portalFromPath || (params?.role as string) || "student";
   const basePath = `/dashboard/${role === "center_admin" ? "admin" : role}`;
 
   const { query, result } = useList<Notification>({
@@ -82,6 +90,9 @@ export function NotificationsScreen() {
       case "absence_marked":
       case "attendance_corrected":
         return `${basePath}/attendance`;
+      case "team_note_created":
+      case "team_note_status_changed":
+        return `${basePath}/notes`;
       default:
         return null;
     }

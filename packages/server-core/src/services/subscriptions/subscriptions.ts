@@ -15,6 +15,10 @@ import { computeTeacherDirectSplit } from "../../services/finance/fees";
 import { resolveCommission } from "../../services/finance/commission";
 import { assertNotBlacklisted } from "../../services/blacklist/blacklist";
 import { walletDebit } from "../../services/wallet/wallet";
+import {
+  parentWalletDebit,
+  assertApprovedChild,
+} from "../../services/wallet/parent-wallet";
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // monthly coverage window
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000; // stale pending_payment sweep
@@ -174,6 +178,12 @@ async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
  *   remainder straight to the teacher wallet.
  *   distributeSessionRevenue skips these courses ("teacher_direct_settled_at_
  *   payment"), which is the double-pay guard.
+ *
+ * `payerUserId` names a PARENT paying for their own child. It changes exactly
+ * two things — which wallet the funding leg debits, and the payer stamped on the
+ * Payment row. It does NOT change where the money lands: a parent-funded
+ * subscription still moves student -> center/teacher below, so every split,
+ * statement, payout and distribution behaves identically to a self-funded one.
  */
 async function settleSubscriptionMoney(
   tx: TenantTx,
@@ -181,21 +191,34 @@ async function settleSubscriptionMoney(
   method: "cash" | "online_paymob" | "wallet",
   gatewayRef: string | null,
   recordedBy: string,
+  payerUserId: string | null = null,
 ): Promise<{ paymentId: string; receiptNumber: string }> {
-  // WALLET funding source: debit the student's balance ALL-OR-NOTHING before any
-  // Payment row exists. walletDebit uses the H2 conditional decrement — an
-  // insufficient balance throws here, rolling back the whole enclosing tx
-  // (nothing charged, no receipt, no partial debit). Money still LANDS where it
-  // does for cash/online below (student->center or student->teacher); the wallet
-  // is only the funding leg, recorded on the Transaction as paymentMethod=wallet.
+  // WALLET funding source: debit the payer's balance ALL-OR-NOTHING before any
+  // Payment row exists. Both walletDebit and parentWalletDebit use the H2
+  // conditional decrement — an insufficient balance throws here, rolling back
+  // the whole enclosing tx (nothing charged, no receipt, no partial debit).
+  // Money still LANDS where it does for cash/online below (student->center or
+  // student->teacher); the wallet is only the funding leg, recorded on the
+  // Transaction as paymentMethod=wallet.
   if (method === "wallet") {
-    await walletDebit(tx, sub.studentId, sub.price, {
-      type: "payment",
-      method: "wallet",
-      subscriptionId: sub.id,
-      reason: `Subscription payment (${sub.plan})`,
-      recordedBy,
-    });
+    if (payerUserId) {
+      await parentWalletDebit(tx, payerUserId, sub.price, {
+        type: "payment",
+        beneficiaryStudentId: sub.studentId,
+        method: "wallet",
+        subscriptionId: sub.id,
+        reason: `Subscription paid for child (${sub.plan})`,
+        recordedBy,
+      });
+    } else {
+      await walletDebit(tx, sub.studentId, sub.price, {
+        type: "payment",
+        method: "wallet",
+        subscriptionId: sub.id,
+        reason: `Subscription payment (${sub.plan})`,
+        recordedBy,
+      });
+    }
   }
 
   let receiptNumber: string;
@@ -213,9 +236,14 @@ async function settleSubscriptionMoney(
     data: {
       centerId: sub.centerId,
       studentId: sub.studentId,
+      // NULL = the student paid for themselves. Set to the parent when a
+      // guardian paid, so a receipt always names who actually handed over money.
+      payerUserId,
       courseId: sub.courseId,
       amount: sub.price,
-      note: `Subscription (${sub.plan}, ${method === "cash" ? "cash" : "online"})`,
+      note: `Subscription (${sub.plan}, ${method === "cash" ? "cash" : "online"}${
+        payerUserId ? ", paid by parent" : ""
+      })`,
       receiptNumber,
       recordedBy,
       paidAt: new Date(),
@@ -301,23 +329,70 @@ export type InitiateSubscriptionIntent = (
   user: SessionUser,
 ) => Promise<unknown>;
 
+/**
+ * WHO is this subscription for, and WHO is paying.
+ *
+ * A student acts for themselves and pays for themselves — the original and
+ * still the only shape the student paths produce. A PARENT acts for an
+ * APPROVED child (approved-link gate, no exceptions) and pays as themselves.
+ * Any other role is refused here, so the surface below never has to ask again.
+ */
+async function resolveCheckoutActor(
+  studentIdInput: string | undefined,
+  user: SessionUser,
+): Promise<{ studentId: string; payerUserId: string | null }> {
+  if (user.role === "student") {
+    // A student may name themselves explicitly (the parent-shaped client sends
+    // studentId either way), but never anybody else.
+    if (studentIdInput && studentIdInput !== user.id) {
+      throw new ForbiddenError("A student can only subscribe for themselves");
+    }
+    return { studentId: user.id, payerUserId: null };
+  }
+
+  if (user.role === "parent") {
+    if (!studentIdInput) {
+      throw new BusinessRuleError("studentId is required — choose which child");
+    }
+    await platformDb((tx) => assertApprovedChild(tx, user.id, studentIdInput));
+    return { studentId: studentIdInput, payerUserId: user.id };
+  }
+
+  throw new ForbiddenError("Students and parents only");
+}
+
 export async function createSubscriptionCheckout(
   input: {
     courseId: string;
+    /** The child this is for. Required for a parent; a student's own id or absent. */
+    studentId?: string;
     plan: "monthly" | "per_session";
     sessionId?: string;
     method: "card" | "wallet"; // Paymob sub-method (card iframe vs mobile wallets) — gateway path only
-    payFrom?: "gateway" | "wallet"; // funding source: gateway OR the student's own wallet balance
+    // Funding source: the gateway, the STUDENT's own balance, or the PARENT's.
+    payFrom?: "gateway" | "wallet" | "parent_wallet";
     idempotencyKey: string;
   },
   user: SessionUser,
   initiateIntent: InitiateSubscriptionIntent,
 ) {
-  if (user.role !== "student") throw new ForbiddenError("Students only");
+  const { studentId, payerUserId } = await resolveCheckoutActor(input.studentId, user);
   const choice: PlanChoice = { plan: input.plan, sessionId: input.sessionId ?? null };
+  const payFrom = input.payFrom ?? "gateway";
 
-  // ---- Pay from the student's own WALLET: settle synchronously, no gateway ----
-  if ((input.payFrom ?? "gateway") === "wallet") {
+  // Each wallet belongs to exactly one role, and neither may reach across.
+  // A parent spending their CHILD's balance is not "paying for their child" —
+  // it is spending the child's money — so it is refused, not silently accepted.
+  if (payFrom === "wallet" && user.role !== "student") {
+    throw new ForbiddenError("Only a student can pay from their own wallet balance");
+  }
+  if (payFrom === "parent_wallet" && user.role !== "parent") {
+    throw new ForbiddenError("Only a parent can pay from a parent wallet");
+  }
+
+  // ---- Pay from a WALLET (the student's own, or the parent's): settle
+  // ---- synchronously, no gateway.
+  if (payFrom === "wallet" || payFrom === "parent_wallet") {
     const course0 = await platformDb((tx) =>
       tx.course.findFirst({
         where: { id: input.courseId, status: "active" },
@@ -325,31 +400,50 @@ export async function createSubscriptionCheckout(
       }),
     );
     if (!course0) throw new NotFoundError("Course not found or not active");
-    await assertNotBlacklisted(user.id, course0.centerId, course0.teacherId);
+    // The blacklist is a property of the STUDENT, not of whoever is paying —
+    // a parent's money cannot buy a blacklisted child back into a course.
+    await assertNotBlacklisted(studentId, course0.centerId, course0.teacherId);
 
     const settled = await platformDb(
       async (tx) => {
-        // Serialize concurrent wallet checkouts for this student so two submits
-        // can't both create-and-settle (double-charge). The FOR UPDATE lock +
-        // assertNoDuplicateActive make the loser see the winner's active sub.
-        await tx.$queryRaw`SELECT 1 FROM student_profiles WHERE user_id = ${user.id}::uuid FOR UPDATE`;
+        // Serialize concurrent wallet checkouts so two submits can't both
+        // create-and-settle (double-charge). Lock the row that OWNS the money
+        // being spent — the student's profile, or the parent's. The FOR UPDATE
+        // lock + assertNoDuplicateActive make the loser see the winner's
+        // active sub.
+        if (payerUserId) {
+          await tx.$queryRaw`SELECT 1 FROM parent_profiles WHERE user_id = ${payerUserId}::uuid FOR UPDATE`;
+        } else {
+          await tx.$queryRaw`SELECT 1 FROM student_profiles WHERE user_id = ${studentId}::uuid FOR UPDATE`;
+        }
         const course = await tx.course.findFirst({
           where: { id: input.courseId, status: "active" },
         });
         if (!course) throw new NotFoundError("Course not found or not active");
         const { price } = await resolvePlan(tx, course, choice);
-        await assertNoDuplicateActive(tx, user.id, course.id, choice);
+        await assertNoDuplicateActive(tx, studentId, course.id, choice);
 
         const sub = await tx.subscription.create({
-          data: subscriptionShell(course, user.id, choice, price, "online"),
+          data: subscriptionShell(
+            course,
+            studentId,
+            choice,
+            price,
+            "online",
+            // createdBy attributes the ACTION; a student acting for themselves
+            // leaves it NULL exactly as before.
+            payerUserId ?? undefined,
+          ),
         });
-        // Debits the wallet ALL-OR-NOTHING (throws + rolls back on insufficient).
+        // Debits the payer's wallet ALL-OR-NOTHING (throws + rolls back on
+        // insufficient — no subscription, no receipt, no partial debit).
         const { paymentId, receiptNumber } = await settleSubscriptionMoney(
           tx,
           sub,
           "wallet",
           null,
           user.id,
+          payerUserId,
         );
         const active = await activateSubscription(tx, sub.id, {
           paymentMethod: "wallet",
@@ -362,16 +456,20 @@ export async function createSubscriptionCheckout(
     );
 
     await notify({
-      recipients: await studentAndParents(user.id),
+      // The child and their parents — so the student always learns their lesson
+      // was activated, whoever paid for it.
+      recipients: await studentAndParents(studentId),
       type: "payment_recorded",
       title: "Subscription active",
-      body: `Your subscription is active (paid from wallet). Receipt ${settled.receiptNumber}.`,
+      body: payerUserId
+        ? `A parent paid for this subscription from their wallet. Receipt ${settled.receiptNumber}.`
+        : `Your subscription is active (paid from wallet). Receipt ${settled.receiptNumber}.`,
       data: { subscriptionId: settled.subscriptionId, receiptNumber: settled.receiptNumber },
     });
     return { walletPaid: true, ...settled };
   }
 
-  // ---- Gateway path (Paymob / mock) — unchanged ----
+  // ---- Gateway path (Paymob / mock) ----
   const { sub, course } = await platformDb(
     async (tx) => {
       const course = await tx.course.findFirst({
@@ -380,17 +478,24 @@ export async function createSubscriptionCheckout(
       if (!course) throw new NotFoundError("Course not found or not active");
 
       const { price } = await resolvePlan(tx, course, choice);
-      await assertNoDuplicateActive(tx, user.id, course.id, choice);
+      await assertNoDuplicateActive(tx, studentId, course.id, choice);
 
       const sub = await tx.subscription.create({
-        data: subscriptionShell(course, user.id, choice, price, "online"),
+        data: subscriptionShell(
+          course,
+          studentId,
+          choice,
+          price,
+          "online",
+          payerUserId ?? undefined,
+        ),
       });
       return { sub, course };
     },
     { actorId: user.id },
   );
 
-  await assertNotBlacklisted(user.id, course.centerId, course.teacherId);
+  await assertNotBlacklisted(studentId, course.centerId, course.teacherId);
 
   // Reuse the Step 3 payment machinery: the intent's amount is the
   // subscription's server-side price snapshot.
@@ -413,18 +518,25 @@ export async function createSubscriptionCheckout(
 export async function settleSubscriptionFromIntentTx(
   tx: TenantTx,
   subscriptionId: string,
-  intent: { id: string; gatewayRef: string | null },
+  intent: { id: string; gatewayRef: string | null; payerUserId?: string | null },
 ): Promise<SettleNotification | null> {
   const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
   if (!sub) throw new NotFoundError("Subscription vanished during settlement");
   if (sub.status !== "pending_payment") return null; // replay no-op
+
+  // The INTENT is the authority on who paid — not sub.createdBy, which also
+  // carries center staff on the walk-in path. NULL keeps the pre-existing
+  // "the student paid for themselves" attribution byte-for-byte.
+  const payerUserId = intent.payerUserId ?? null;
+  const actor = payerUserId ?? sub.studentId;
 
   const { paymentId, receiptNumber } = await settleSubscriptionMoney(
     tx,
     sub,
     "online_paymob",
     intent.gatewayRef,
-    sub.studentId,
+    actor,
+    payerUserId,
   );
   await tx.subscription.update({
     where: { id: sub.id },
@@ -433,13 +545,15 @@ export async function settleSubscriptionFromIntentTx(
   await activateSubscription(tx, sub.id, {
     paymentMethod: "online_paymob",
     paymentId,
-    enrolledBy: sub.studentId,
+    enrolledBy: actor,
   });
   return {
     studentId: sub.studentId,
     type: "payment_recorded",
     title: "Subscription active",
-    body: `Your subscription is active. Receipt ${receiptNumber}.`,
+    body: payerUserId
+      ? `A parent paid for this subscription. Receipt ${receiptNumber}.`
+      : `Your subscription is active. Receipt ${receiptNumber}.`,
     data: { subscriptionId: sub.id, receiptNumber },
   };
 }
@@ -553,10 +667,31 @@ export { coveredStudentIds } from "../../services/subscriptions/coverage";
 // Student reads + cancel
 // ---------------------------------------------------------------------------
 
-export async function listMySubscriptions(user: SessionUser) {
+/**
+ * A student's own subscriptions, or — for a parent naming an APPROVED child —
+ * that child's. The parent branch is what stops the pay screen offering a
+ * course the child is already covered for; without it the only feedback would
+ * be assertNoDuplicateActive throwing after the parent had already committed.
+ */
+export async function listMySubscriptions(
+  user: SessionUser,
+  opts?: { studentId?: string },
+) {
+  let studentId = user.id;
+  if (user.role === "parent") {
+    if (!opts?.studentId) {
+      throw new BusinessRuleError("studentId is required — choose which child");
+    }
+    const childId = opts.studentId;
+    await platformDb((tx) => assertApprovedChild(tx, user.id, childId));
+    studentId = childId;
+  } else if (opts?.studentId && opts.studentId !== user.id) {
+    throw new ForbiddenError("A student can only list their own subscriptions");
+  }
+
   return platformDb(async (tx) => {
     const subs = await tx.subscription.findMany({
-      where: { studentId: user.id },
+      where: { studentId },
       orderBy: { createdAt: "desc" },
       take: 100,
     });
@@ -575,7 +710,12 @@ export async function cancelPendingSubscription(subscriptionId: string, user: Se
     async (tx) => {
       const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
       if (!sub) throw new NotFoundError("Subscription not found");
-      if (sub.studentId !== user.id) throw new ForbiddenError();
+      // The student it belongs to, or the parent who STARTED it — a parent may
+      // abandon their own unpaid checkout, but not one the child began.
+      const owns =
+        sub.studentId === user.id ||
+        (user.role === "parent" && sub.createdBy === user.id);
+      if (!owns) throw new ForbiddenError();
       if (sub.status !== "pending_payment") {
         throw new BusinessRuleError("Only unpaid subscriptions can be cancelled here");
       }

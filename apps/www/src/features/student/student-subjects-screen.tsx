@@ -2,20 +2,20 @@
 
 import { useState } from "react";
 import { useList, useCustomMutation } from "@refinedev/core";
-import {
-  Search,
-  BookOpen,
-  ChevronDown,
-  Clock,
-  MapPin,
-  Archive,
-  X,
-} from "lucide-react";
+import { BookOpen, ChevronDown, Clock, MapPin, Archive } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { Input } from "@repo/ui/components/input";
 import { Button } from "@repo/ui/components/button";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
 import { toast } from "@repo/ui/components/sonner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { PageHeader } from "@/components/kit/page-header";
@@ -225,21 +225,27 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               ) : null}
               {c.pricePerSession ? (
                 <div className="flex items-center gap-2">
-                  <select
-                    aria-label={t("studentSubjects.pickSession")}
-                    className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                    value={sessionChoice[c.id] ?? ""}
-                    onChange={(e) =>
-                      setSessionChoice((m) => ({ ...m, [c.id]: e.target.value }))
+                  <Select
+                    value={sessionChoice[c.id] || undefined}
+                    onValueChange={(v) =>
+                      setSessionChoice((m) => ({ ...m, [c.id]: v }))
                     }
                   >
-                    <option value="">{t("studentSubjects.pickSession")}</option>
-                    {c.upcomingSessions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {new Date(s.date).toLocaleDateString()} {s.startTime}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      size="sm"
+                      className="text-xs"
+                      aria-label={t("studentSubjects.pickSession")}
+                    >
+                      <SelectValue placeholder={t("studentSubjects.pickSession")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {c.upcomingSessions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {new Date(s.date).toLocaleDateString()} {s.startTime}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     variant="outline"
@@ -387,25 +393,14 @@ export function StudentSubjectsScreen() {
       </Tabs>
 
       {browseAll && (
-        <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+        <SearchInput
+            className="max-w-md"
             placeholder={t("studentSubjects.searchPlaceholder")}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-11 ps-9 pe-9"
+            onValueChange={(v) => setSearch(v)}
+            onClear={() => setSearch("")}
+            clearLabel={t("studentSubjects.searchPlaceholder")}
           />
-          {search && (
-            <button
-              type="button"
-              aria-label={t("studentSubjects.searchPlaceholder")}
-              onClick={() => setSearch("")}
-              className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-4" />
-            </button>
-          )}
-        </div>
       )}
 
       {!browseAll && (

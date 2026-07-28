@@ -1,48 +1,64 @@
 "use client";
 
-import { useState } from "react";
+/* مستحقات وصرف / Payouts — the system's signature screen.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   WHAT THE SYSTEM GUARANTEES HERE: approving a payout debits a wallet, writes an
+   immutable `transactions` row (REVOKE UPDATE/DELETE) and marks the request paid, in
+   ONE irreversible step. It settles through an H2 conditional decrement, so a payout
+   the wallet cannot cover fails and rolls back rather than pushing a balance negative.
+
+   WHAT THE INTERFACE MUST DO TO BE HONEST ABOUT IT:
+
+   1. SHOW THE WHOLE COMPUTATION BEFORE THE COMMIT. Gross and commission are both
+      printed; the net is not pre-summed. Append-only means the operator cannot
+      correct the figure afterwards, so they must be able to derive it beforehand.
+   2. THE BUTTON CARRIES ITS OWN AMOUNT. «اعتماد وصرف 38,235.00 ج.م», never "Approve".
+   3. NO PER-ROW ACTION BUTTONS. The screen this replaces rendered a solid Approve and
+      a solid destructive Reject in EVERY row — twenty saturated buttons at ten rows,
+      with reject at equal visual weight to approve. Selecting a row opens the panel;
+      that is where the action lives, once, with the full computation beside it.
+   4. STATE CLEARANCE BEFORE ARMING. The panel reads the same wallet comparison
+      settlePayout will make, so "this will fail" is said before the press, not after.
+
+   ── Two departures from the design brief, both forced by the schema ──────────
+
+   Handoff §5.3 specifies a «رسوم التحويل البنكي −15.00» line and a «بيانات التحويل»
+   block (bank name, masked account `**** 4432`). NEITHER EXISTS: there is no transfer
+   fee and no bank/IBAN/account column anywhere in schema.prisma. Rendering them would
+   imply a capability the system does not have, so the computation is gross →
+   commission → net (all three real columns on `payouts`), and the bank block is
+   replaced by the period and session count the payout actually covers —
+   `periodStart`/`periodEnd`/`lessonCount`, which is what the operator needs to know
+   the figure is for. */
+
+import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { BanknoteArrowDown, RefreshCcw, FileDown } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  BanknoteArrowDown,
+  FileDown,
+  RefreshCcw,
+  ShieldCheck,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/dialog";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
+import { Num, ProseCount } from "@repo/ui/components/num";
+import { StatusBadge } from "@repo/ui/components/status-badge";
+import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
+import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/components/sonner";
-import { PageHeader } from "@/components/kit/page-header";
+import { cn } from "@repo/ui/lib/utils";
+import type { Locale } from "@repo/ui/lib/format";
+
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-
-const ANY = "__any__";
-
-const TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
-  paid: "success",
-  rejected: "danger",
-  pending: "warning",
-  approved: "neutral",
-};
+import { PageHeader } from "@/components/kit/page-header";
+import { asKey } from "@/lib/i18n/keys";
 
 type PayoutRow = {
   id: string;
@@ -53,252 +69,586 @@ type PayoutRow = {
   netPayable: number | null;
   grossAmount: number | null;
   commission: number | null;
-  status: string;
+  lessonCount: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  walletBalance: number | null;
+  covered: boolean | null;
+  status: "pending" | "approved" | "paid" | "rejected";
   rejectionReason: string | null;
   createdAt: string;
   paidAt: string | null;
 };
 
-export function PayoutsScreen() {
-  const { formatEGP, formatDate } = useFormatters();
-  const [status, setStatus] = useState<string | null>(null);
-  const [type, setType] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState<PayoutRow | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
+const STATUS_TONE = {
+  pending: "pending",
+  approved: "active",
+  paid: "paid",
+  rejected: "rejected",
+} as const;
 
-  const { query, result } = useCustom({
+const STATUSES = ["pending", "paid", "rejected"] as const;
+
+export function PayoutsScreen() {
+  const t = useTranslations("payouts");
+  const locale = useLocale() as Locale;
+
+  const [status, setStatus] = useState<string>("pending");
+  const [type, setType] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<PayoutRow[]>([]);
+
+  const { query, result } = useCustom<PayoutRow[]>({
     url: "finance/payouts",
     method: "get",
-    config: {
-      query: {
-        ...(status ? { status } : {}),
-        ...(type ? { type } : {}),
+    config: { query: { status, ...(type ? { type } : {}) } },
+  });
+  const { result: countsResult, query: countsQuery } = useCustom<Record<string, number>>({
+    url: "finance/payouts/counts",
+    method: "get",
+  });
+
+  const rows = result?.data ?? [];
+  const counts = countsResult?.data ?? {};
+  const open = rows.find((r) => r.id === openId) ?? null;
+
+  // The panel must never outlive its subject: a filter change that removes the open
+  // row leaves a panel describing something no longer on screen.
+  useEffect(() => {
+    if (openId && !rows.some((r) => r.id === openId)) setOpenId(null);
+  }, [rows, openId]);
+
+  const refresh = () => {
+    void query.refetch();
+    void countsQuery.refetch();
+  };
+
+  const columns: ColumnDef<PayoutRow, unknown>[] = [
+    {
+      id: "beneficiary",
+      header: t("colBeneficiary"),
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <IdentityCell
+            kind={p.beneficiaryType === "center" ? "center" : "person"}
+            initials={initialsOf(p.beneficiaryName ?? "—")}
+            name={p.beneficiaryName ?? <Num.Code>{p.beneficiaryId.slice(0, 8)}</Num.Code>}
+            meta={p.beneficiaryEmail ? <Num.Code>{p.beneficiaryEmail}</Num.Code> : undefined}
+          />
+        );
       },
     },
-  });
-  const { mutateAsync: act } = useCustomMutation();
+    {
+      id: "gross",
+      header: t("colGross"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.grossAmount} locale={locale} tone="muted" sign={false} />
+      ),
+    },
+    {
+      id: "commission",
+      header: t("colCommission"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.commission} locale={locale} tone="muted" sign={false} />
+      ),
+    },
+    {
+      // Only the net is --ink/600 — the operator's eye lands on the number they are
+      // actually authorising, not on the two figures that produced it.
+      id: "net",
+      header: t("colNet"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.netPayable} locale={locale} tone="net" sign={false} />
+      ),
+    },
+    {
+      id: "status",
+      header: t("colStatus"),
+      cell: ({ row }) => {
+        const p = row.original;
+        return (
+          <StatusBadge
+            tone={STATUS_TONE[p.status]}
+            age={
+              p.status === "pending" ? (
+                <Num.Date value={p.createdAt} locale={locale} />
+              ) : undefined
+            }
+            reason={p.status === "rejected" ? p.rejectionReason : undefined}
+          >
+            {t(asKey(`status${p.status[0]!.toUpperCase()}${p.status.slice(1)}`))}
+          </StatusBadge>
+        );
+      },
+    },
+    {
+      id: "requested",
+      header: t("colRequested"),
+      cell: ({ row }) => <Num.Date value={row.original.createdAt} locale={locale} />,
+    },
+  ];
 
-  const rows = ((result?.data ?? []) as PayoutRow[]) || [];
+  const selectedTotal = selected.reduce((s, r) => s + (r.netPayable ?? 0), 0);
 
-  const refresh = () => query.refetch();
+  return (
+    <div className="flex w-full flex-col gap-5">
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        rule
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <a href="/api/v1/finance/reports/revenue" target="_blank" rel="noreferrer">
+                <FileDown className="size-4" aria-hidden="true" />
+                {t("cycleStatement")}
+              </a>
+            </Button>
+            <GenerateButton onDone={refresh} label={t("generate")} okMsg={t("generateOk")} failMsg={t("generateFail")} />
+          </div>
+        }
+      />
 
-  const approve = async (p: PayoutRow) => {
-    setBusyId(p.id);
+      {/* Filter row — each pill carries its own count, and the selection's total is
+          visible before any bulk action rather than after it. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
+        {STATUSES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => {
+              setStatus(s);
+              setOpenId(null);
+            }}
+            aria-pressed={status === s}
+            className={cn(
+              "focus-ledger inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] transition-colors",
+              status === s
+                ? "border-indigo bg-indigo-soft font-semibold text-indigo"
+                : "border-rule text-ink-2 hover:bg-rule-2",
+            )}
+          >
+            {t(asKey(`status${s[0]!.toUpperCase()}${s.slice(1)}`))}
+            <Num.Figure value={counts[s] ?? 0} locale={locale} className="text-[11px]" />
+          </button>
+        ))}
+
+        <div aria-hidden="true" className="mx-1 h-5 w-px bg-rule" />
+
+        <select
+          value={type ?? ""}
+          onChange={(e) => setType(e.target.value || null)}
+          aria-label={t("beneficiaryAll")}
+          className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
+        >
+          <option value="">{t("beneficiaryAll")}</option>
+          <option value="teacher">{t("beneficiaryTeacher")}</option>
+          <option value="center">{t("beneficiaryCenter")}</option>
+        </select>
+
+        {selected.length > 0 ? (
+          <span className="ms-auto flex items-baseline gap-2 text-[13px] text-ink-2">
+            {t("selectedTotal")}
+            <Num.Money piasters={selectedTotal} locale={locale} tone="net" sign={false} />
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1">
+          <DataTable<PayoutRow, unknown>
+            columns={columns}
+            data={rows}
+            density="compact"
+            selectable
+            onSelectionChange={setSelected}
+            onRowClick={(r) => setOpenId(r.id)}
+            isLoading={query.isLoading}
+            error={
+              query.isError ? (
+                (() => {
+                  // Denied is not an error: retrying cannot change a permission, so
+                  // the Retry affordance is absent rather than disabled (D-027).
+                  const denied =
+                    (query.error as { statusCode?: number } | null)?.statusCode === 403;
+                  return (
+                    <EmptyState
+                      tone={denied ? "denied" : "error"}
+                      icon={TriangleAlert}
+                      title={t(denied ? "deniedTitle" : "loadError")}
+                      description={t(denied ? "deniedBody" : "loadErrorBody")}
+                      action={
+                        denied ? undefined : (
+                          <Button variant="outline" onClick={refresh}>
+                            <RefreshCcw className="size-4" aria-hidden="true" />
+                            {t("retry")}
+                          </Button>
+                        )
+                      }
+                    />
+                  );
+                })()
+              ) : undefined
+            }
+            emptyState={
+              <EmptyState
+                tone="empty"
+                icon={BanknoteArrowDown}
+                title={t("empty")}
+                description={t("emptyBody")}
+              />
+            }
+            // Pagination/sort chrome copy comes from the kit shim's `actions`
+            // namespace — overriding it here would undo the localised aria-labels.
+            labels={{ selectRow: t("rowSelect") }}
+          />
+        </div>
+
+        <DecisionPanel
+          payout={open}
+          locale={locale}
+          t={t}
+          onClose={() => setOpenId(null)}
+          onDone={refresh}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GenerateButton({
+  onDone,
+  label,
+  okMsg,
+  failMsg,
+}: {
+  onDone: () => void;
+  label: string;
+  okMsg: string;
+  failMsg: string;
+}) {
+  const { mutateAsync } = useCustomMutation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await mutateAsync({ url: "finance/payouts", method: "post", values: {} });
+          toast.success(okMsg);
+          onDone();
+        } catch {
+          toast.error(failMsg);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <RefreshCcw className="size-4" aria-hidden="true" />
+      {label}
+    </Button>
+  );
+}
+
+/* ── The decision panel ────────────────────────────────────────────────────────
+   396px, border on the start edge. Because the write is irreversible, the panel
+   shows the WHOLE computation before the commit, and the commit states its own
+   amount. */
+function DecisionPanel({
+  payout,
+  locale,
+  t,
+  onClose,
+  onDone,
+}: {
+  payout: PayoutRow | null;
+  locale: Locale;
+  t: ReturnType<typeof useTranslations<"payouts">>;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { mutateAsync } = useCustomMutation();
+  const [busy, setBusy] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  // Reject state is per-subject, exactly like the armed state.
+  useEffect(() => {
+    setRejecting(false);
+    setReason("");
+  }, [payout?.id]);
+
+  if (!payout) {
+    return (
+      <aside className="hidden w-[396px] shrink-0 self-stretch border-rule ps-5 lg:block lg:border-s">
+        <EmptyState
+          tone="empty"
+          icon={BanknoteArrowDown}
+          title={t("panelEmpty")}
+          description={t("panelEmptyBody")}
+        />
+      </aside>
+    );
+  }
+
+  const net = payout.netPayable ?? 0;
+  const blocked = payout.covered === false;
+  const actionable = payout.status === "pending";
+
+  const approve = async () => {
+    setBusy(true);
     try {
-      await act({ url: `finance/payouts/${p.id}/approve`, method: "post", values: {} });
-      toast.success("Payout approved and settled (marked paid)");
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.message || "Approve failed");
+      await mutateAsync({
+        url: `finance/payouts/${payout.id}/approve`,
+        method: "post",
+        values: {},
+      });
+      toast.success(t("approveOk"));
+      onClose();
+      onDone();
+    } catch {
+      toast.error(t("approveFail"));
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
   const reject = async () => {
-    if (!rejecting) return;
-    if (!rejectReason.trim()) {
-      toast.error("A rejection reason is required");
+    if (!reason.trim()) {
+      toast.error(t("rejectRequired"));
       return;
     }
-    setBusyId(rejecting.id);
+    setBusy(true);
     try {
-      await act({
-        url: `finance/payouts/${rejecting.id}/reject`,
+      await mutateAsync({
+        url: `finance/payouts/${payout.id}/reject`,
         method: "post",
-        values: { reason: rejectReason.trim() },
+        values: { reason: reason.trim() },
       });
-      toast.success("Payout rejected — reserved funds released");
-      setRejecting(null);
-      setRejectReason("");
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.message || "Reject failed");
+      toast.success(t("rejectOk"));
+      onClose();
+      onDone();
+    } catch {
+      toast.error(t("rejectFail"));
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
-
-  const generate = async () => {
-    try {
-      const res = await act({ url: "finance/payouts", method: "post", values: {} });
-      const created = (res as any)?.data?.data?.created ?? (res as any)?.data?.created;
-      toast.success(`Month-end payout generation done${created !== undefined ? ` (${created} created)` : ""}`);
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.message || "Generation failed");
-    }
-  };
-
-  const filterSelect = (
-    label: string,
-    value: string | null,
-    set: (v: string | null) => void,
-    options: string[],
-  ) => (
-    <Select value={value ?? undefined} onValueChange={(v) => set(v === ANY ? null : v)}>
-      <SelectTrigger className="w-40">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ANY}>{label}: any</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Payouts"
-        description="Withdraw requests from teachers and centers. Approving settles immediately: wallet is debited, the ledger transaction is written, and the payout is marked paid."
-        actions={
-          <Button variant="outline" onClick={generate}>
-            <RefreshCcw className="size-4" />
-            Generate month-end payouts
-          </Button>
-        }
-      />
+    <aside className="w-[396px] shrink-0 self-stretch border-rule ps-5 lg:border-s">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Eyebrow locale={locale}>{t("panelEyebrow")}</Eyebrow>
+          <h2 className="mt-1 truncate text-[17px] font-bold text-ink">
+            {payout.beneficiaryName ?? "—"}
+          </h2>
+          {/* The separator is rendered here, not typed into the copy — `·` is
+              bidi-neutral and would migrate to the wrong side of the code. */}
+          <Num.Code className="mt-0.5 block text-[11px]">
+            {payout.id.slice(0, 8).toUpperCase()}
+          </Num.Code>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("panelClose")}>
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      </header>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          {filterSelect("Status", status, setStatus, ["pending", "approved", "paid", "rejected"])}
-          {filterSelect("Beneficiary", type, setType, ["teacher", "center"])}
-        </CardContent>
-      </Card>
+      {/* تفصيل الحساب — every intermediate figure shown, nothing pre-summed. */}
+      <section className="mt-4 rounded-[10px] border border-rule bg-field p-4">
+        <Eyebrow locale={locale} className="mb-3">
+          {t("breakdown")}
+        </Eyebrow>
 
-      {query.isLoading && <PageSpinner label="Loading payouts…" />}
+        <dl className="flex flex-col gap-2">
+          <Line
+            label={
+              <>
+                {t("breakdownGross")}
+                {payout.lessonCount ? (
+                  <>
+                    {" ("}
+                    <ProseCount
+                      count={payout.lessonCount}
+                      locale={locale}
+                      forms={{
+                        one: t("session_one"),
+                        two: t.has(asKey("session_two")) ? t(asKey("session_two")) : undefined,
+                        few: t.has(asKey("session_few")) ? t(asKey("session_few")) : undefined,
+                        many: t("session_many"),
+                      }}
+                    />
+                    {")"}
+                  </>
+                ) : null}
+              </>
+            }
+          >
+            <Num.Money piasters={payout.grossAmount} locale={locale} tone="muted" sign={false} />
+          </Line>
 
-      {!query.isLoading && rows.length === 0 && (
-        <EmptyState icon={BanknoteArrowDown} title="No payouts found" />
-      )}
+          <Line label={t("breakdownCommission")}>
+            <Num.Money piasters={payout.commission} locale={locale} tone="out" />
+          </Line>
+        </dl>
 
-      {rows.length > 0 && (
-        <Card className="overflow-hidden py-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40">
-                <TableHead>Beneficiary</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Net payable</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Requested</TableHead>
-                <TableHead>Paid</TableHead>
-                <TableHead className="text-end">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <span
-                        aria-hidden
-                        className={`flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${
-                          p.beneficiaryType === "center"
-                            ? "bg-brand-teal/10 text-brand-teal"
-                            : "bg-primary/10 text-primary"
-                        }`}
-                      >
-                        {(p.beneficiaryName ?? p.beneficiaryId).charAt(0).toUpperCase()}
-                      </span>
-                      <div>
-                        <div className="font-medium">{p.beneficiaryName ?? p.beneficiaryId.slice(0, 8)}</div>
-                        {p.beneficiaryEmail ? (
-                          <div className="text-xs text-muted-foreground">{p.beneficiaryEmail}</div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge tone={p.beneficiaryType === "center" ? "info" : "primary"}>
-                      {p.beneficiaryType}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="font-semibold text-brand-teal">{formatEGP(p.netPayable ?? 0)}</TableCell>
-                  <TableCell>
-                    <StatusBadge tone={TONE[p.status] ?? "neutral"}>{p.status}</StatusBadge>
-                    {p.rejectionReason ? (
-                      <div className="text-xs text-destructive">{p.rejectionReason}</div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatDate(p.createdAt)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {p.paidAt ? formatDate(p.paidAt) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      {p.status === "pending" ? (
-                        <>
-                          <Button size="sm" disabled={busyId === p.id} onClick={() => approve(p)}>
-                            {busyId === p.id ? <Spinner /> : null}
-                            Approve &amp; pay
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={busyId === p.id}
-                            onClick={() => setRejecting(p)}
-                          >
-                            Reject
-                          </Button>
-                        </>
-                      ) : null}
-                      {p.status === "paid" ? (
-                        <Button asChild size="sm" variant="outline">
-                          <a
-                            href={`/api/v1/finance/payouts/${p.id}/receipt`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <FileDown className="size-4" />
-                            Receipt
-                          </a>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex items-center justify-between border-t px-6 py-4">
-            <span className="text-sm text-muted-foreground">
-              Showing {rows.length} payout{rows.length === 1 ? "" : "s"}
-            </span>
-          </div>
-        </Card>
-      )}
+        <div className="mt-3 flex items-baseline justify-between gap-3">
+          <span className="text-[13px] font-semibold text-ink">{t("breakdownNet")}</span>
+          <Num.Total
+            piasters={net}
+            locale={locale}
+            tone="in"
+            sign={false}
+            className="text-[22px] text-teal"
+          />
+        </div>
+      </section>
 
-      <Dialog open={!!rejecting} onOpenChange={(open) => !open && setRejecting(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject payout</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Rejecting releases the reserved funds back to{" "}
-              <strong>{rejecting?.beneficiaryName}</strong>&apos;s available balance.
-            </p>
-            <Input
-              placeholder="Reason (required)"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+      {payout.periodStart && payout.periodEnd ? (
+        <section className="mt-4">
+          <Eyebrow locale={locale} className="mb-2">
+            {t("period")}
+          </Eyebrow>
+          <Num.Date value={payout.periodStart} locale={locale} className="text-[13px]" />
+          <span className="mx-2 text-ink-3" aria-hidden="true">
+            —
+          </span>
+          <Num.Date value={payout.periodEnd} locale={locale} className="text-[13px]" />
+        </section>
+      ) : null}
+
+      {actionable ? (
+        <>
+          {/* Two advisories, both required: what is clear, and what is permanent. */}
+          <p
+            className={cn(
+              "mt-4 flex gap-2 rounded-lg p-3 text-xs",
+              blocked ? "bg-red-soft text-red" : "bg-teal-soft text-teal",
+            )}
+          >
+            {blocked ? (
+              <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden="true" />
+            )}
+            {blocked ? t("clearanceBlocked") : t("clearanceOk")}
+          </p>
+
+          <p className="mt-2 flex gap-2 rounded-lg border border-red bg-red-soft p-3 text-xs text-red">
+            <BanknoteArrowDown className="mt-px size-4 shrink-0" aria-hidden="true" />
+            {t("lockNotice")}
+          </p>
+
+          <div className="mt-4">
+            <TwoStepCommit
+              resetKey={payout.id}
+              disabled={blocked}
+              busy={busy}
+              icon={BanknoteArrowDown}
+              onCommit={approve}
+              labels={{
+                // The button carries its own amount — an operator authorises a
+                // specific number, not a category of action.
+                action: (
+                  <span className="inline-flex items-baseline gap-2">
+                    {t("commitAction")}
+                    <Num.Money piasters={net} locale={locale} sign={false} />
+                  </span>
+                ),
+                confirm: t("commitConfirm"),
+                hint: t("commitHint"),
+                armedHint: t("commitArmedHint"),
+                armedAnnouncement: t("commitAnnounce"),
+              }}
             />
           </div>
-          <DialogFooter>
-            <Button variant="destructive" onClick={reject} disabled={busyId === rejecting?.id}>
-              {busyId === rejecting?.id ? <Spinner /> : null}
-              Reject payout
+
+          {/* Low-weight, bordered — never a filled destructive twin of the approve. */}
+          <div className="mt-3 flex flex-col gap-2">
+            {rejecting ? (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-ink-2" htmlFor="reject-reason">
+                  {t("rejectTitle")}
+                </label>
+                <Textarea
+                  id="reject-reason"
+                  rows={3}
+                  value={reason}
+                  placeholder={t("rejectPlaceholder")}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+                <p className="text-xs text-ink-3">{t("rejectHint")}</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setRejecting(false)}>
+                    {t("rejectCancel")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || !reason.trim()}
+                    className="border-red text-red hover:bg-red-soft"
+                    onClick={reject}
+                  >
+                    {t("rejectSubmit")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button variant="outline" className="text-ink-2" disabled>
+                  {t("defer")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-rule text-red hover:bg-red-soft"
+                  onClick={() => setRejecting(true)}
+                >
+                  {t("rejectWithReason")}
+                </Button>
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        <section className="mt-4 flex flex-col gap-2">
+          <StatusBadge
+            tone={STATUS_TONE[payout.status]}
+            reason={payout.status === "rejected" ? payout.rejectionReason : undefined}
+          >
+            {t(asKey(`status${payout.status[0]!.toUpperCase()}${payout.status.slice(1)}`))}
+          </StatusBadge>
+
+          {payout.paidAt ? (
+            <p className="text-xs text-ink-2">
+              {t("paidOn")} <Num.Date value={payout.paidAt} locale={locale} />
+            </p>
+          ) : null}
+
+          {payout.status === "paid" ? (
+            <Button variant="outline" size="sm" asChild>
+              <a
+                href={`/api/v1/finance/payouts/${payout.id}/receipt`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileDown className="size-4" aria-hidden="true" />
+                {t("receipt")}
+              </a>
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          ) : null}
+        </section>
+      )}
+    </aside>
+  );
+}
+
+function Line({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-[13px] text-ink-2">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }

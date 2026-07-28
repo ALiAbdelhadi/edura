@@ -250,7 +250,7 @@ export function AdminExpensesScreen() {
     },
     {
       id: "actions",
-      header: "",
+      header: t("common.colActions"),
       enableSorting: false,
       cell: ({ row }) => {
         const record = row.original;

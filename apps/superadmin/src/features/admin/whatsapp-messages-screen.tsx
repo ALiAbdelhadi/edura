@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useList } from "@refinedev/core";
-import { Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
+import { Num } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +34,6 @@ import {
 import { PageHeader } from "@/components/kit/page-header";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 
 type MessageRow = {
   id: string;
@@ -52,7 +54,7 @@ const ANY = "__any__";
 /** Step 7: WhatsApp delivery log (every attempt, mock included). */
 export function WhatsAppMessagesScreen() {
   const t = useTranslations();
-  const { formatDate } = useFormatters();
+  const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -77,28 +79,17 @@ export function WhatsAppMessagesScreen() {
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("whatsapp.searchPlaceholder")}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
+          <SearchInput
+            className="min-w-64 flex-1"
+            placeholder={t("whatsapp.searchPlaceholder")}
+            value={q}
+            onValueChange={(v) => {
+                setQ(v);
                 setPage(1);
               }}
-              className="ps-9 pe-9"
-            />
-            {q && (
-              <button
-                type="button"
-                aria-label={t("whatsapp.clearSearch")}
-                onClick={() => setQ("")}
-                className="absolute inset-inline-end-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
+            onClear={() => setQ("")}
+            clearLabel={t("whatsapp.clearSearch")}
+          />
           <Select
             value={status ?? undefined}
             onValueChange={(v) => {
@@ -141,7 +132,7 @@ export function WhatsAppMessagesScreen() {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-ink-2">
                       {t("whatsapp.empty")}
                     </TableCell>
                   </TableRow>
@@ -170,8 +161,8 @@ export function WhatsAppMessagesScreen() {
                         </StatusBadge>
                       </TableCell>
                       <TableCell>{r.provider}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(r.createdAt)}
+                      <TableCell className="text-sm text-ink-2">
+                        <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
                       </TableCell>
                     </TableRow>
                   ))
@@ -183,7 +174,7 @@ export function WhatsAppMessagesScreen() {
       </Card>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-ink-2">
           {t("whatsapp.total", { count: total })}
         </span>
         <div className="flex gap-2">
@@ -196,7 +187,7 @@ export function WhatsAppMessagesScreen() {
             {t("whatsapp.prev")}
           </Button>
           <span className="self-center text-sm">
-            {page} / {pageCount}
+            <Num>{page} / {pageCount}</Num>
           </span>
           <Button
             variant="outline"
@@ -219,16 +210,16 @@ export function WhatsAppMessagesScreen() {
               <div dir="ltr" className="font-mono">{detail.recipientPhone}</div>
               <div>
                 <span className="font-medium">{t("whatsapp.detailParams")}: </span>
-                <pre className="mt-1 overflow-x-auto rounded bg-muted p-2 text-xs" dir="ltr">
+                <pre className="mt-1 overflow-x-auto rounded bg-field p-2 text-xs" dir="ltr">
                   {JSON.stringify(detail.params, null, 2)}
                 </pre>
               </div>
               {detail.error ? (
-                <p className="text-destructive">{detail.error}</p>
+                <p className="text-red">{detail.error}</p>
               ) : null}
               <div>
                 <span className="font-medium">{t("whatsapp.detailResponse")}: </span>
-                <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted p-2 text-xs" dir="ltr">
+                <pre className="mt-1 max-h-48 overflow-auto rounded bg-field p-2 text-xs" dir="ltr">
                   {JSON.stringify(detail.providerResponse, null, 2)}
                 </pre>
               </div>

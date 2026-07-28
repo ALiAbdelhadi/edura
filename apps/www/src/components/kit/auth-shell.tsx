@@ -29,7 +29,7 @@ export function AuthShell({
         isSignup && "lg:flex-row-reverse",
       )}
     >
-      <aside className="gradient-primary relative hidden w-[45%] shrink-0 flex-col justify-between overflow-hidden p-12 text-primary-foreground lg:flex xl:p-16">
+      <aside className="bg-indigo relative hidden w-[45%] shrink-0 flex-col justify-between overflow-hidden p-12 text-primary-foreground lg:flex xl:p-16">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.15]"
@@ -54,7 +54,7 @@ export function AuthShell({
             <span className="flex size-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur-md">
               <GraduationCap aria-hidden="true" className="size-6" />
             </span>
-            <span className="display text-2xl font-bold tracking-tight">
+            <span className="text-2xl font-bold tracking-tight">
               Edura
             </span>
           </div>
@@ -66,7 +66,7 @@ export function AuthShell({
               <Sparkles aria-hidden="true" className="size-3.5" />
               {t("auth.heroSignupBadge")}
             </span>
-            <h2 className="display mt-4 text-3xl font-bold leading-tight xl:text-4xl">
+            <h2 className="mt-4 text-3xl font-bold leading-tight xl:text-4xl">
               {t("auth.heroTaglineSignup")}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-primary-foreground/80">
@@ -98,7 +98,7 @@ export function AuthShell({
           </div>
         ) : (
           <div className="relative max-w-md">
-            <h2 className="display text-3xl font-bold leading-tight xl:text-4xl">
+            <h2 className="text-3xl font-bold leading-tight xl:text-4xl">
               {t("auth.heroTagline")}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-primary-foreground/80">

@@ -93,7 +93,7 @@ export function SubjectsTab() {
       accessorKey: "code",
       header: t("catalog.fields.code"),
       cell: ({ row }) => (
-        <code className="text-xs text-muted-foreground" dir="ltr">
+        <code className="text-xs text-ink-2" dir="ltr">
           {row.original.code}
         </code>
       ),
@@ -120,7 +120,7 @@ export function SubjectsTab() {
     },
     {
       id: "actions",
-      header: "",
+      header: t("common.colActions"),
       cell: ({ row }) => (
         <Button variant="ghost" size="icon" className="size-7" onClick={() => setDialog({ row: row.original })}>
           <Pencil className="size-3.5" />

@@ -1,22 +1,39 @@
 "use client";
 
+/* العمولة / Platform commission.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   `readOnly` is the accountant view: they see the rates the numbers they reconcile
+   are built from, but editing is super_admin only (enforced at the API — the finance
+   route has no PUT).
+
+   ── The fix this conversion carries ──────────────────────────────────────────
+
+   The screen previously rendered the accountant's view as `<Input disabled>`. That is
+   exactly the pattern D-027 forbids: a disabled control TEACHES that the capability
+   exists and is being withheld, and it teaches it to the one role that must never
+   believe it can move money. The read-only view now renders the rates as <Num>
+   FIGURES — the control is absent, not greyed out — which is also the more honest
+   form, because to an accountant these values are data, not settings.
+
+   Saving is ONE press: a rate is editable again tomorrow and the change is
+   forward-only (already-settled payments keep the rate they were charged at), so
+   there is no permanence here to claim (D-022). */
+
 import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Percent, Info } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { useLocale, useTranslations } from "next-intl";
+import { Info, Percent } from "lucide-react";
+
 import { Button } from "@repo/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { Input } from "@repo/ui/components/input";
+import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
+import { formatPercent, type Locale } from "@repo/ui/lib/format";
+
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
 
 type CommissionData = {
   teacherDirectCommissionBp: number;
@@ -25,13 +42,9 @@ type CommissionData = {
   updatedAt: string | null;
 };
 
-/**
- * readOnly=true renders the accountant view: the accountant sees the current
- * commission/fees to understand the numbers they reconcile, but editing is
- * super_admin only (enforced at the API — the finance route has no PUT).
- */
 export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
-  const { formatEGP, formatDate } = useFormatters();
+  const t = useTranslations("commissionSettings");
+  const locale = useLocale() as Locale;
   const apiUrl = readOnly ? "finance/commission-settings" : "admin/commission-settings";
 
   const { query, result } = useCustom({ url: apiUrl, method: "get" });
@@ -57,11 +70,11 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
     const tFee = Number(teacherFeeEgp);
     const cFee = Number(centerFeeEgp);
     if (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100) {
-      toast.error("Commission must be between 0% and 100%");
+      toast.error(t("pctError"));
       return;
     }
     if (!Number.isFinite(tFee) || tFee < 0 || !Number.isFinite(cFee) || cFee < 0) {
-      toast.error("Fees must be non-negative EGP amounts");
+      toast.error(t("feeError"));
       return;
     }
     setSaving(true);
@@ -75,127 +88,142 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
           platformCenterFee: Math.round(cFee * 100),
         },
       });
-      toast.success("Commission settings saved — new charges use the new rates immediately");
-      query.refetch();
-    } catch (err: any) {
-      toast.error(err?.message || "Save failed");
+      toast.success(t("savedOk"));
+      void query.refetch();
+    } catch {
+      toast.error(t("saveFail"));
     } finally {
       setSaving(false);
     }
   };
 
-  if (query.isLoading || !data) return <PageSpinner label="Loading commission settings…" />;
+  if (query.isLoading || !data) return <PageSpinner label={t("loading")} />;
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <PageHeader
-        title="Platform commission"
-        description="Global defaults applied by the money engine. Per-center and per-teacher overrides are a future addition — the resolution order is already teacher > center > global."
-      />
+    <div className="flex w-full max-w-2xl flex-col gap-5">
+      <PageHeader title={t("title")} description={t("subtitle")} rule />
 
       {readOnly ? (
-        <Alert>
-          <Info className="size-4" />
-          <AlertTitle>Read-only</AlertTitle>
-          <AlertDescription>
-            These are the rates the ledger numbers are built from. Changing them
-            is a super-admin action.
-          </AlertDescription>
-        </Alert>
+        <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+          <Info className="mt-px size-4 shrink-0" aria-hidden="true" />
+          {t("readOnlyNote")}
+        </p>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-            >
-              <Percent className="size-5" />
-            </span>
-            <div className="space-y-0.5">
-              <CardTitle>Global defaults</CardTitle>
-              <CardDescription>
-                Applied to every teacher and center without a specific override.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="rounded-xl border border-rule bg-sheet p-5 shadow-[var(--lift)]">
+        <header className="mb-4 flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-soft text-indigo"
+          >
+            <Percent className="size-4" />
+          </span>
           <div>
-            <label
-              htmlFor="commission-pct"
-              className="mb-1 block text-sm font-medium"
-            >
-              Teacher-direct commission (%)
-            </label>
-            <Input
-              id="commission-pct"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={pct}
-              disabled={readOnly}
-              onChange={(e) => setPct(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Platform share of every teacher-direct subscription payment (no
-              center involved). Applied at charge time; already-settled payments
-              keep the rate they were charged at.
-            </p>
+            <Eyebrow locale={locale}>
+              {readOnly ? t("effective") : t("globalTitle")}
+            </Eyebrow>
+            <p className="mt-0.5 text-[13px] text-ink-2">{t("globalSubtitle")}</p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        </header>
+
+        {readOnly ? (
+          /* ABSENCE, not disablement — these are figures to an accountant. */
+          <dl className="flex flex-col gap-3">
+            <Figure label={t("pct")}>
+              {/* Basis points → percent is /100 (1500bp = 15%), and formatPercent
+                  takes a whole percent, not a fraction. */}
+              <Num>{formatPercent(data.teacherDirectCommissionBp / 100, locale)}</Num>
+            </Figure>
+            <Figure label={t("teacherFee")}>
+              <Num.Money piasters={data.platformTeacherFee} locale={locale} sign={false} />
+            </Figure>
+            <Figure label={t("centerFee")}>
+              <Num.Money piasters={data.platformCenterFee} locale={locale} sign={false} />
+            </Figure>
+          </dl>
+        ) : (
+          <div className="flex flex-col gap-4">
             <div>
-              <label
-                htmlFor="platform-fee-teacher"
-                className="mb-1 block text-sm font-medium"
-              >
-                Platform fee — teacher side (EGP)
+              <label htmlFor="commission-pct" className="mb-1 block text-[13px] font-medium text-ink">
+                {t("pct")}
               </label>
               <Input
-                id="platform-fee-teacher"
+                id="commission-pct"
                 type="number"
                 min="0"
+                max="100"
                 step="0.01"
-                value={teacherFeeEgp}
-                disabled={readOnly}
-                onChange={(e) => setTeacherFeeEgp(e.target.value)}
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
               />
+              <p className="mt-1 text-xs text-ink-3">{t("pctHint")}</p>
             </div>
-            <div>
-              <label
-                htmlFor="platform-fee-center"
-                className="mb-1 block text-sm font-medium"
-              >
-                Platform fee — center side (EGP)
-              </label>
-              <Input
-                id="platform-fee-center"
-                type="number"
-                min="0"
-                step="0.01"
-                value={centerFeeEgp}
-                disabled={readOnly}
-                onChange={(e) => setCenterFeeEgp(e.target.value)}
-              />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="platform-fee-teacher"
+                  className="mb-1 block text-[13px] font-medium text-ink"
+                >
+                  {t("teacherFee")}
+                </label>
+                <Input
+                  id="platform-fee-teacher"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={teacherFeeEgp}
+                  onChange={(e) => setTeacherFeeEgp(e.target.value)}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="platform-fee-center"
+                  className="mb-1 block text-[13px] font-medium text-ink"
+                >
+                  {t("centerFee")}
+                </label>
+                <Input
+                  id="platform-fee-center"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={centerFeeEgp}
+                  onChange={(e) => setCenterFeeEgp(e.target.value)}
+                />
+              </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Flat per-present-student fees on the center-course session split
-            (PRD §5.1 default: {formatEGP(200)} + {formatEGP(200)}).
-            {data.updatedAt ? ` Last changed ${formatDate(data.updatedAt)}.` : ""}
-          </p>
-          {!readOnly ? (
-            <div className="flex justify-end pt-2">
-              <Button onClick={submit} disabled={saving}>
-                {saving ? <Spinner /> : null}
-                Save settings
-              </Button>
-            </div>
+        )}
+
+        <p className="mt-4 text-xs text-ink-3">
+          {t("feesHint")} {t("forwardOnly")}
+          {data.updatedAt ? (
+            <>
+              {" "}
+              {t("lastChanged")} <Num.Date value={data.updatedAt} locale={locale} />
+            </>
           ) : null}
-        </CardContent>
-      </Card>
+        </p>
+
+        {!readOnly ? (
+          <div className="mt-4 flex justify-end">
+            <Button onClick={submit} disabled={saving}>
+              {saving ? <Spinner /> : null}
+              {t("save")}
+            </Button>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function Figure({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-rule-2 pb-3 last:border-b-0 last:pb-0">
+      <dt className="text-[13px] text-ink-2">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }

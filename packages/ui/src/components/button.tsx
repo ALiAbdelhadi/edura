@@ -25,6 +25,12 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        // The `touch` density (Handoff II §4): center-staff check-in, where a
+        // receptionist is standing, one-handed, with a queue waiting. 48px minimum
+        // target, 16px minimum type. Deliberation is the wrong virtue on that
+        // surface; certainty is. It also matches the 48px `h-12` inputs those
+        // screens already use, which `size="lg"` (40px) did not.
+        touch: "h-12 rounded-md px-6 text-base has-[>svg]:px-5",
         icon: "size-9",
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",

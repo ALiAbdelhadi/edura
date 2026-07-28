@@ -38,16 +38,6 @@ import { useTranslations } from "next-intl";
 import React from "react";
 type DateRange = { from: Date | undefined; to?: Date | undefined };
 
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--brand-teal)",
-  "var(--primary)",
-];
-
 export function AdminReportsScreen() {
   const t = useTranslations();
   const { formatShortEGP, formatDate } = useFormatters();
@@ -135,7 +125,6 @@ export function AdminReportsScreen() {
     id: entry._id,
     label: entry._id,
     value: entry.subtotal ?? 0,
-    color: CHART_COLORS[index % CHART_COLORS.length],
   }));
 
   return (

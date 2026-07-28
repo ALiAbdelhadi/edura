@@ -2,39 +2,28 @@
 @import "tw-animate-css";
 @import "../../../../../packages/ui/src/styles/globals.css";
 
+/* Paper, not glass. A record is consulted and signed; a dashboard is browsed. The
+   austerity below is a claim about which of the two this is. */
 body {
   font-family: var(--font-plex-arabic), var(--font-noto-sans), sans-serif;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.display {
-  font-family: var(--font-plus-jakarta-sans), sans-serif;
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 8px;
 }
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d0d3db; border-radius: 8px; }
-
-.shadow-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgb(224,226,232); }
-.shadow-ring { box-shadow: 0 0 0 1px rgb(224,226,232); }
-
-h1.ant-typography,
-h2.ant-typography,
-h3.ant-typography,
-.ant-card-head-title,
-.ant-statistic-content-value,
-.ant-statistic-content {
-  font-family: var(--font-plus-jakarta-sans), var(--font-noto-sans), sans-serif;
-  letter-spacing: -0.01em;
-}
-.ant-statistic-content-value { font-weight: 700; }
-
-::selection { background: #bae6fd; color: #0c4a6e; }
-
-[dir="rtl"] .anticon-arrow-left > svg,
-[dir="rtl"] .anticon-arrow-right > svg {
-  transform: scaleX(-1);
+::selection {
+  background: var(--indigo-soft);
+  color: var(--indigo);
 }
 
 @media (prefers-reduced-motion: reduce) {

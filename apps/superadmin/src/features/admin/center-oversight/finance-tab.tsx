@@ -1,10 +1,24 @@
 "use client";
 
+/* The full financial picture for one center — six ledgers plus the wallet balance.
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Every value here is READ-ONLY: no input, no mutation hook, and no endpoint behind
+   it that writes. "Superadmin sees all money but moves none" is checkable by reading
+   this file's imports — the only mutating thing on the page is <MoneyActions>, which
+   goes through the real flows and adds rows rather than rewriting them.
+
+   The banner says that to the operator; the API says it to the client; the DB REVOKEs
+   say it to both. Three statements of the same guarantee, which is the point. */
+
 import { useState } from "react";
 import { Lock } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
-import { Badge } from "@repo/ui/components/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { useLocale, useTranslations } from "next-intl";
+
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { MetricCard } from "@repo/ui/components/metric-card";
+import { Num, ProseCount } from "@repo/ui/components/num";
+import { StatusBadge } from "@repo/ui/components/status-badge";
 import {
   Table,
   TableBody,
@@ -14,18 +28,12 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
-import { StatCard } from "@/components/kit/stat-card";
+import type { Locale } from "@repo/ui/lib/format";
+
 import { PageSpinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asKey } from "@/lib/i18n/keys";
 import { useOversight, type Paged } from "./use-oversight";
 import { MoneyActions, ExpensesCard } from "./money-actions";
-
-// ---------------------------------------------------------------------------
-// The full financial picture for one center — six ledgers plus the wallet
-// balance. Every value on this screen is READ-ONLY: there is no input, no
-// mutation hook, and no endpoint behind it that writes. The banner says so to
-// the operator, and the API says so to the client.
-// ---------------------------------------------------------------------------
 
 type Summary = {
   walletBalance: number;
@@ -38,12 +46,21 @@ type Summary = {
 };
 
 export function FinanceTab({ centerId }: { centerId: string }) {
-  const { formatEGP, formatDate, formatNumber } = useFormatters();
+  const t = useTranslations("oversight");
+  const tt = useTranslations();
+  const locale = useLocale() as Locale;
   const [sub, setSub] = useState("transactions");
 
+  const forms = (stem: string) => ({
+    one: t(asKey(`${stem}_one`)),
+    two: t.has(asKey(`${stem}_two`)) ? t(asKey(`${stem}_two`)) : undefined,
+    few: t.has(asKey(`${stem}_few`)) ? t(asKey(`${stem}_few`)) : undefined,
+    many: t(asKey(`${stem}_many`)),
+  });
+
   const summary = useOversight<Summary>(centerId, "finance");
-  // The ledger list reuses the accountant's own service, whose envelope calls
-  // the rows `items` rather than `data`.
+  // The ledger list reuses the accountant's own service, whose envelope calls the
+  // rows `items` rather than `data`.
   const txns = useOversight<{ items: Record<string, unknown>[]; total: number }>(
     centerId,
     "transactions",
@@ -74,249 +91,279 @@ export function FinanceTab({ centerId }: { centerId: string }) {
   const s = summary.data;
 
   return (
-    <div className="space-y-4">
-      <Alert>
-        <Lock className="size-4" />
-        <AlertTitle>The record below is append-only</AlertTitle>
-        <AlertDescription>
-          Every ledger on this page is history and cannot be edited or deleted — the database
-          revokes UPDATE and DELETE on the transaction and points ledgers for the application
-          role, super admins included. The counter actions below <em>add</em> to it through the
-          real flows (recorded payment, wallet top-up, walk-in subscription, payout request);
-          nothing anywhere rewrites a past row or sets a balance directly.
-        </AlertDescription>
-      </Alert>
+    <div className="flex flex-col gap-4">
+      <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+        <Lock className="mt-px size-4 shrink-0" aria-hidden="true" />
+        <span>
+          <span className="font-semibold text-ink">{t("appendOnlyTitle")}</span> —{" "}
+          {t("appendOnlyBody")}
+        </span>
+      </p>
 
       {summary.isLoading || !s ? (
         <PageSpinner />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Center wallet balance" value={formatEGP(s.walletBalance)} hint="read-only" />
-            <StatCard
-              label="Payments received"
-              value={formatEGP(s.payments.amount)}
-              hint={`${formatNumber(s.payments.count)} payment(s)`}
+            <MetricCard
+              label={t("walletBalance")}
+              value={<Num.Money piasters={s.walletBalance} locale={locale} sign={false} short align="start" />}
+              meta={
+                <Eyebrow locale={locale} marker={false}>
+                  {t("readOnly")}
+                </Eyebrow>
+              }
             />
-            <StatCard
-              label="Refunds"
-              value={formatEGP(Math.abs(s.payments.refundAmount))}
-              hint={`${formatNumber(s.payments.refundCount)} refund(s)`}
+            <MetricCard
+              label={t("paymentsReceived")}
+              value={<Num.Money piasters={s.payments.amount} locale={locale} tone="in" sign={false} short align="start" />}
+              fact={<ProseCount count={s.payments.count} locale={locale} forms={forms("payment")} />}
             />
-            <StatCard
-              label="Center share settled"
-              value={formatEGP(s.settlements.centerTotal)}
-              hint={`${formatNumber(s.settlements.count)} session settlement(s)`}
+            <MetricCard
+              label={t("refunds")}
+              value={
+                <Num.Money
+                  piasters={Math.abs(s.payments.refundAmount)}
+                  locale={locale}
+                  tone="out"
+                  short
+                  align="start"
+                />
+              }
+              fact={<ProseCount count={s.payments.refundCount} locale={locale} forms={forms("refund")} />}
+            />
+            <MetricCard
+              label={t("centerSettled")}
+              value={<Num.Money piasters={s.settlements.centerTotal} locale={locale} sign={false} short align="start" />}
+              fact={<ProseCount count={s.settlements.count} locale={locale} forms={forms("settlement")} />}
             />
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Ledger by type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {s.transactions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No ledger rows for this center.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-end">Count</TableHead>
-                        <TableHead className="text-end">Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {s.transactions.map((t) => (
-                        <TableRow key={`${t.type}-${t.status}`}>
-                          <TableCell className="font-medium">{t.type}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{t.status}</Badge>
-                          </TableCell>
-                          <TableCell className="text-end tabular-nums">{formatNumber(t.count)}</TableCell>
-                          <TableCell className="text-end tabular-nums">{formatEGP(t.amount)}</TableCell>
-                        </TableRow>
+            <section className="rounded-xl border border-rule bg-sheet p-4 shadow-[var(--lift)]">
+              <Eyebrow locale={locale} className="mb-3">
+                {t("ledgerByType")}
+              </Eyebrow>
+              {s.transactions.length === 0 ? (
+                <p className="text-[13px] text-ink-3">{t("noLedgerRows")}</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-rule bg-field hover:bg-field">
+                      {(["colType", "colStatus", "colCount", "colAmount"] as const).map((c) => (
+                        <TableHead
+                          key={c}
+                          className={
+                            c === "colCount" || c === "colAmount"
+                              ? "h-[34px] px-3 text-end"
+                              : "h-[34px] px-3"
+                          }
+                        >
+                          <Eyebrow locale={locale} marker={false}>
+                            {t(c)}
+                          </Eyebrow>
+                        </TableHead>
                       ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Settlement split &amp; payouts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Platform</p>
-                    <p className="font-semibold tabular-nums">{formatEGP(s.settlements.platformTotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Center</p>
-                    <p className="font-semibold tabular-nums">{formatEGP(s.settlements.centerTotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Teacher</p>
-                    <p className="font-semibold tabular-nums">{formatEGP(s.settlements.teacherTotal)}</p>
-                  </div>
-                </div>
-                {s.payouts.length === 0 ? (
-                  <p className="text-muted-foreground">No payouts for this center.</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {s.payouts.map((p) => (
-                      <li key={p.status} className="flex items-center justify-between">
-                        <Badge variant="secondary">{p.status}</Badge>
-                        <span className="tabular-nums">
-                          {formatNumber(p.count)} · {formatEGP(p.netPayable)}
-                        </span>
-                      </li>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {s.transactions.map((r) => (
+                      <TableRow key={`${r.type}-${r.status}`} className="border-rule-2">
+                        <TableCell className="px-3 py-[7px] text-[13px] font-medium text-ink">
+                          {tt(asKey(`adminHome.today_txType_${r.type}`))}
+                        </TableCell>
+                        <TableCell className="px-3 py-[7px]">
+                          <StatusBadge tone="neutral">{tt(asKey(`status.${r.status}`))}</StatusBadge>
+                        </TableCell>
+                        <TableCell className="px-3 py-[7px] text-end">
+                          <Num.Figure value={r.count} locale={locale} />
+                        </TableCell>
+                        <TableCell className="px-3 py-[7px] text-end">
+                          <Num.Money piasters={r.amount} locale={locale} tone="muted" sign={false} />
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </ul>
-                )}
-                <div className="flex items-center justify-between border-t pt-2">
-                  <span className="text-xs text-muted-foreground">Student wallet movements here</span>
-                  <span className="tabular-nums">
-                    {formatNumber(s.walletMovements.count)} · {formatEGP(s.walletMovements.netDelta)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                  </TableBody>
+                </Table>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-rule bg-sheet p-4 shadow-[var(--lift)]">
+              <Eyebrow locale={locale} className="mb-3">
+                {t("splitAndPayouts")}
+              </Eyebrow>
+
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["platform", s.settlements.platformTotal],
+                    ["center", s.settlements.centerTotal],
+                    ["teacher", s.settlements.teacherTotal],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k}>
+                    <p className="text-[11px] text-ink-3">{t(k)}</p>
+                    <Num.Money piasters={v} locale={locale} sign={false} align="start" className="font-semibold" />
+                  </div>
+                ))}
+              </div>
+
+              {s.payouts.length === 0 ? (
+                <p className="mt-3 text-[13px] text-ink-3">{t("noPayouts")}</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-1">
+                  {s.payouts.map((p) => (
+                    <li key={p.status} className="flex items-center justify-between gap-2">
+                      <StatusBadge tone="neutral">{tt(asKey(`status.${p.status}`))}</StatusBadge>
+                      <span className="flex items-baseline gap-1.5">
+                        <Num.Figure value={p.count} locale={locale} className="text-[11px] text-ink-3" />
+                        <Num.Money piasters={p.netPayable} locale={locale} tone="muted" sign={false} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-rule pt-2">
+                <span className="text-[11px] text-ink-3">{t("walletMovementsHere")}</span>
+                <span className="flex items-baseline gap-1.5">
+                  <Num.Figure value={s.walletMovements.count} locale={locale} className="text-[11px] text-ink-3" />
+                  <Num.Money piasters={s.walletMovements.netDelta} locale={locale} tone="muted" sign={false} />
+                </span>
+              </div>
+            </section>
           </div>
 
           <MoneyActions centerId={centerId} />
 
           <Tabs value={sub} onValueChange={setSub}>
             <TabsList className="flex-wrap">
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-              <TabsTrigger value="payouts">Payouts</TabsTrigger>
-              <TabsTrigger value="settlements">Settlements</TabsTrigger>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger value="wallet">Wallet movements</TabsTrigger>
+              {(
+                [
+                  ["transactions", "tabTransactions"],
+                  ["payments", "tabPayments"],
+                  ["payouts", "tabPayouts"],
+                  ["settlements", "tabSettlements"],
+                  ["invoices", "tabInvoices"],
+                  ["expenses", "tabExpenses"],
+                  ["wallet", "tabWallet"],
+                ] as const
+              ).map(([v, k]) => (
+                <TabsTrigger key={v} value={v}>
+                  {t(k)}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <TabsContent value="transactions">
               <LedgerTable
+                locale={locale}
                 loading={txns.isLoading}
                 rows={txns.data?.items ?? []}
                 total={txns.data?.total ?? 0}
                 columns={[
-                  { key: "refNumber", label: "Ref" },
-                  { key: "type", label: "Type" },
-                  { key: "status", label: "Status" },
-                  { key: "paymentMethod", label: "Method" },
-                  { key: "amount", label: "Amount", money: true },
-                  { key: "createdAt", label: "Date", date: true },
+                  { key: "refNumber", label: t("colRef"), code: true },
+                  { key: "type", label: t("colType") },
+                  { key: "status", label: t("colStatus") },
+                  { key: "paymentMethod", label: t("colMethod") },
+                  { key: "amount", label: t("colAmount"), money: true },
+                  { key: "createdAt", label: t("colDate"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
+
             <TabsContent value="payments">
-              <p className="mb-2 text-xs text-muted-foreground">
-                &ldquo;Mark refunded&rdquo; on a payment is a <strong>status flag</strong> — it
-                writes no ledger reversal and returns no money. Use the finance refund flow to
-                actually return money; it is limited to one refund per payment.
-              </p>
+              <p className="mb-2 text-xs text-ink-3">{t("refundFlagNote")}</p>
               <LedgerTable
+                locale={locale}
                 loading={payments.isLoading}
                 rows={payments.data?.data ?? []}
                 total={payments.data?.total ?? 0}
                 columns={[
-                  { key: "receiptNumber", label: "Receipt" },
-                  { key: "studentName", label: "Student" },
-                  { key: "status", label: "Status" },
-                  { key: "amount", label: "Amount", money: true },
-                  { key: "recordedByName", label: "Recorded by" },
-                  { key: "paidAt", label: "Paid at", date: true },
+                  { key: "receiptNumber", label: t("colReceipt"), code: true },
+                  { key: "studentName", label: t("colStudent") },
+                  { key: "status", label: t("colStatus") },
+                  { key: "amount", label: t("colAmount"), money: true },
+                  { key: "recordedByName", label: t("colRecordedBy") },
+                  { key: "paidAt", label: t("colPaidAt"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
+
             <TabsContent value="payouts">
               <LedgerTable
+                locale={locale}
                 loading={payouts.isLoading}
                 rows={payouts.data?.data ?? []}
                 total={payouts.data?.total ?? 0}
                 columns={[
-                  { key: "beneficiaryName", label: "Beneficiary" },
-                  { key: "beneficiaryType", label: "Type" },
-                  { key: "status", label: "Status" },
-                  { key: "grossAmount", label: "Gross", money: true },
-                  { key: "commission", label: "Commission", money: true },
-                  { key: "netPayable", label: "Net", money: true },
-                  { key: "createdAt", label: "Created", date: true },
+                  { key: "beneficiaryName", label: t("colBeneficiary") },
+                  { key: "beneficiaryType", label: t("colType") },
+                  { key: "status", label: t("colStatus") },
+                  { key: "grossAmount", label: t("colGross"), money: true },
+                  { key: "commission", label: t("colCommission"), money: true },
+                  { key: "netPayable", label: t("colNet"), money: true },
+                  { key: "createdAt", label: t("colCreated"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
+
             <TabsContent value="settlements">
               <LedgerTable
+                locale={locale}
                 loading={settlements.isLoading}
                 rows={settlements.data?.data ?? []}
                 total={settlements.data?.total ?? 0}
                 columns={[
-                  { key: "courseTitle", label: "Course" },
-                  { key: "teacherName", label: "Teacher" },
-                  { key: "pricingMethod", label: "Method" },
-                  { key: "presentCount", label: "Present" },
-                  { key: "platformTotal", label: "Platform", money: true },
-                  { key: "centerTotal", label: "Center", money: true },
-                  { key: "teacherTotal", label: "Teacher", money: true },
-                  { key: "createdAt", label: "Settled", date: true },
+                  { key: "courseTitle", label: t("colCourse") },
+                  { key: "teacherName", label: t("colTeacher") },
+                  { key: "pricingMethod", label: t("colMethod") },
+                  { key: "presentCount", label: t("colPresent"), figure: true },
+                  { key: "platformTotal", label: t("platform"), money: true },
+                  { key: "centerTotal", label: t("center"), money: true },
+                  { key: "teacherTotal", label: t("teacher"), money: true },
+                  { key: "createdAt", label: t("colSettled"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
+
             <TabsContent value="invoices">
               <LedgerTable
+                locale={locale}
                 loading={invoices.isLoading}
                 rows={invoices.data?.data ?? []}
                 total={invoices.data?.total ?? 0}
                 columns={[
-                  { key: "invoiceNumber", label: "Number" },
-                  { key: "type", label: "Type" },
-                  { key: "status", label: "Status" },
-                  { key: "subtotal", label: "Subtotal", money: true },
-                  { key: "commission", label: "Commission", money: true },
-                  { key: "netAmount", label: "Net", money: true },
-                  { key: "createdAt", label: "Issued", date: true },
+                  { key: "invoiceNumber", label: t("colNumber"), code: true },
+                  { key: "type", label: t("colType") },
+                  { key: "status", label: t("colStatus") },
+                  { key: "subtotal", label: t("colSubtotal"), money: true },
+                  { key: "commission", label: t("colCommission"), money: true },
+                  { key: "netAmount", label: t("colNet"), money: true },
+                  { key: "createdAt", label: t("colIssued"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
+
             <TabsContent value="expenses">
               <ExpensesCard centerId={centerId} />
             </TabsContent>
+
             <TabsContent value="wallet">
-              <p className="mb-2 text-xs text-muted-foreground">
-                Student wallet movements credited at this center (cash top-ups taken at its
-                counter). Spending elsewhere belongs to that other center&apos;s books.
-              </p>
+              <p className="mb-2 text-xs text-ink-3">{t("walletScopeNote")}</p>
               <LedgerTable
+                locale={locale}
                 loading={wallet.isLoading}
                 rows={wallet.data?.data ?? []}
                 total={wallet.data?.total ?? 0}
                 columns={[
-                  { key: "studentName", label: "Student" },
-                  { key: "type", label: "Type" },
-                  { key: "method", label: "Method" },
-                  { key: "delta", label: "Delta", money: true },
-                  { key: "balanceAfter", label: "Balance after", money: true },
-                  { key: "createdAt", label: "Date", date: true },
+                  { key: "studentName", label: t("colStudent") },
+                  { key: "type", label: t("colType") },
+                  { key: "method", label: t("colMethod") },
+                  { key: "delta", label: t("colDelta"), money: true },
+                  { key: "balanceAfter", label: t("colBalanceAfter"), money: true },
+                  { key: "createdAt", label: t("colDate"), date: true },
                 ]}
-                formatEGP={formatEGP}
-                formatDate={formatDate}
               />
             </TabsContent>
           </Tabs>
@@ -326,57 +373,87 @@ export function FinanceTab({ centerId }: { centerId: string }) {
   );
 }
 
-type Col = { key: string; label: string; money?: boolean; date?: boolean };
+type Col = {
+  key: string;
+  label: string;
+  money?: boolean;
+  date?: boolean;
+  code?: boolean;
+  figure?: boolean;
+};
 
 function LedgerTable({
+  locale,
   loading,
   rows,
   total,
   columns,
-  formatEGP,
-  formatDate,
 }: {
+  locale: Locale;
   loading: boolean;
   rows: Record<string, unknown>[];
   total: number;
   columns: Col[];
-  formatEGP: (v: number | null | undefined) => string;
-  formatDate: (v: string | Date | null | undefined, o?: Intl.DateTimeFormatOptions) => string;
 }) {
+  const t = useTranslations("oversight");
   if (loading) return <PageSpinner />;
-  if (!rows.length) {
-    return <p className="p-4 text-sm text-muted-foreground">No rows.</p>;
-  }
+  if (!rows.length) return <p className="p-4 text-[13px] text-ink-3">{t("noRows")}</p>;
+
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Showing {rows.length} of {total}
+    <div className="flex flex-col gap-2">
+      <p className="flex items-baseline gap-1.5 text-[11px] text-ink-3">
+        {t("showing")}
+        <Num.Figure value={rows.length} locale={locale} />
+        {t("of")}
+        <Num.Figure value={total} locale={locale} />
       </p>
-      <div className="overflow-x-auto rounded-md border">
+
+      <div className="overflow-x-auto rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="border-rule bg-field hover:bg-field">
               {columns.map((c) => (
-                <TableHead key={c.key} className={c.money ? "text-end" : undefined}>
-                  {c.label}
+                <TableHead
+                  key={c.key}
+                  className={c.money || c.figure ? "h-[34px] px-3 text-end" : "h-[34px] px-3"}
+                >
+                  <Eyebrow locale={locale} marker={false}>
+                    {c.label}
+                  </Eyebrow>
                 </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((r, i) => (
-              <TableRow key={(r.id as string) ?? i}>
+              <TableRow key={(r.id as string) ?? i} className="border-rule-2">
                 {columns.map((c) => {
                   const v = r[c.key];
                   return (
-                    <TableCell key={c.key} className={c.money ? "text-end tabular-nums" : undefined}>
-                      {v == null
-                        ? "—"
-                        : c.money
-                          ? formatEGP(v as number)
-                          : c.date
-                            ? formatDate(v as string, { dateStyle: "medium", timeStyle: "short" })
-                            : String(v)}
+                    <TableCell
+                      key={c.key}
+                      className={
+                        c.money || c.figure ? "px-3 py-[7px] text-end" : "px-3 py-[7px] text-[13px]"
+                      }
+                    >
+                      {v == null ? (
+                        "—"
+                      ) : c.money ? (
+                        <Num.Money piasters={v as number} locale={locale} tone="muted" sign={false} />
+                      ) : c.figure ? (
+                        <Num.Figure value={v as number} locale={locale} />
+                      ) : c.date ? (
+                        <Num.Date
+                          value={v as string}
+                          locale={locale}
+                          options={{ dateStyle: "medium", timeStyle: "short" }}
+                          className="text-[11px] text-ink-3"
+                        />
+                      ) : c.code ? (
+                        <Num.Code>{String(v)}</Num.Code>
+                      ) : (
+                        String(v)
+                      )}
                     </TableCell>
                   );
                 })}

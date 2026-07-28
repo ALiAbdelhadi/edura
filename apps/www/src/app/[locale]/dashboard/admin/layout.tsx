@@ -16,6 +16,7 @@ const navItems = [
   { href: "/dashboard/admin/expenses", icon: "report", label: "Expenses" },
   { href: "/dashboard/admin/reports", icon: "report", label: "Reports" },
   { href: "/dashboard/admin/staff", icon: "users", label: "Staff" },
+  { href: "/dashboard/admin/notes", icon: "clipboard", label: "Team Notes" },
   { href: "/dashboard/admin/messages", icon: "message", label: "Messages" },
   { href: "/dashboard/admin/notifications", icon: "bell", label: "Notifications" },
   { href: "/dashboard/admin/settings", icon: "settings", label: "Settings" },
