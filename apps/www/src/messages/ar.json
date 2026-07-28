@@ -46,7 +46,9 @@
     "checkin": "تسجيل الحضور",
     "doorCheckin": "تشيك-إن الباب",
     "staff": "الموظفون",
-    "childSafety": "سلامة الأبناء"
+    "childSafety": "سلامة الأبناء",
+    "more": "المزيد",
+    "allSections": "كل الأقسام"
   },
   "roles": {
     "student": "طالب",
@@ -102,7 +104,8 @@
     "remove": "إزالة",
     "sendInvite": "إرسال دعوة",
     "export": "تصدير",
-    "review": "مراجعة"
+    "review": "مراجعة",
+    "dismiss": "إغلاق"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -493,5 +496,9 @@
     "save": "حفظ",
     "saved": "تم حفظ بريد ولي الأمر — المراسلة متاحة الآن.",
     "saveFailed": "تعذّر حفظ بريد ولي الأمر"
+  },
+  "attendanceView": {
+    "outOf": "من {count} جلسة",
+    "recentEyebrow": "آخر ٢٨ يوماً"
   }
 }

@@ -5,7 +5,7 @@ import { useCustom, useCustomMutation } from "@refinedev/core";
 import { DoorOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { SectionHead } from "@repo/ui/components/ledger";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 
@@ -40,14 +40,16 @@ export function AttendanceModeCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <DoorOpen className="size-4" />
-          {t("teacher.attendanceModeTitle")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <section className="flex flex-col gap-3">
+      <SectionHead
+        title={
+          <span className="flex items-center gap-2">
+            <DoorOpen className="size-4" aria-hidden />
+            {t("teacher.attendanceModeTitle")}
+          </span>
+        }
+      />
+      <div className="rounded-xl border border-rule bg-sheet p-4">
         <div className="flex flex-col gap-2">
           <Button
             type="button"
@@ -59,7 +61,7 @@ export function AttendanceModeCard() {
             {saving && mode === "counter_only" ? <Spinner /> : null}
             {t("teacher.modeCounterOnly")}
           </Button>
-          <p className="text-xs text-muted-foreground">{t("teacher.modeCounterOnlyDesc")}</p>
+          <p className="text-xs text-ink-2">{t("teacher.modeCounterOnlyDesc")}</p>
           <Button
             type="button"
             variant={mode === "counter_and_door" ? "default" : "outline"}
@@ -70,9 +72,9 @@ export function AttendanceModeCard() {
             {saving && mode === "counter_and_door" ? <Spinner /> : null}
             {t("teacher.modeCounterAndDoor")}
           </Button>
-          <p className="text-xs text-muted-foreground">{t("teacher.modeCounterAndDoorDesc")}</p>
+          <p className="text-xs text-ink-2">{t("teacher.modeCounterAndDoorDesc")}</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

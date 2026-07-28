@@ -3,32 +3,35 @@
 // Parent oversight — read-only view of a MINOR child's conversations with
 // adults (teachers, assistants, center admins/staff).
 //
-// The UI states the boundaries plainly rather than hiding them: it says the
-// view is read-only, that opening a thread marks nothing as read for the child,
-// and that the child knows the parent can see these. A monitoring feature that
-// explains itself to everyone involved is a safeguard; one that doesn't is
-// surveillance.
+// This is the portal's signature surface, and the place the product is most
+// explicitly principled. Four of the five boundaries the API enforces are
+// limits on the PARENT, not on the child:
+//
+//   approved links only · minors only · adult threads only · read-only ·
+//   never touches the child's unread counters or read receipts
+//
+// Those are not caveats to bury. They are the feature. The rule this screen
+// follows throughout: no affordance may imply a write the API will refuse —
+// so where a parent cannot act there is nothing to click, and a plain line
+// says why. Not a disabled button, not a greyed card, not a dead composer.
+//
+// Pattern spec: design/DECISIONS-proposed-parent-oversight.md
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Eye,
-  MessageSquare,
-  ShieldCheck,
-  User,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, Eye, MessageSquare, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Card } from "@repo/ui/components/card";
-import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { ScrollArea } from "@repo/ui/components/scroll-area";
-import { cn } from "@repo/ui/lib/utils";
 import { api } from "@/lib/api/client";
 import { EmptyState } from "@/components/kit/empty-state";
-import { Spinner } from "@/components/kit/spinner";
+import { PageHeader } from "@/components/kit/page-header";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { Envelope } from "@/features/messaging/chat-types";
+import { cn } from "@repo/ui/lib/utils";
+import {
+  Figure,
+  LimitNote,
+  LoadError,
+  SectionHead,
+  SkeletonRows,
+} from "./ledger-kit";
 
 type Child = {
   studentId: string;
@@ -57,111 +60,149 @@ type ThreadMessage = {
   deleted: boolean;
 };
 
+/**
+ * Three-state async: loading / failed / loaded.
+ *
+ * Deliberately NOT `T[] | null`. The screen this replaces collapsed every
+ * `catch` into an empty array, so a failed request rendered as "no children"
+ * and "no conversations" — a child-safety surface reporting *nothing to see*
+ * when the truth was *we could not check*. Making failure unrepresentable as
+ * emptiness is the fix, at the type level rather than by remembering.
+ */
+type Async<T> = { status: "loading" } | { status: "error" } | { status: "ok"; data: T };
+
+const LOADING = { status: "loading" } as const;
+const FAILED = { status: "error" } as const;
+
+/**
+ * The disclosure strip.
+ *
+ * A rule-bounded strip, never a toast and never a tooltip: it holds for the
+ * life of the surface. Not dismissable — a disclosure you can switch off is
+ * not a disclosure. Neutral ink on sheet, because oversight is lawful and
+ * ordinary: colouring it amber would frame a safeguard as a fault, and the
+ * child reading its twin on their side would learn they had done something
+ * wrong.
+ *
+ * The child's half of this renders in features/messaging/chat-screen.tsx and
+ * is built by the student session. Same slot, same anatomy, same persistence —
+ * only the string differs. Keep them in step.
+ */
+function DisclosureStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 border-b border-rule bg-sheet px-4 py-2.5">
+      {/* Non-directional icon: does not flip in RTL. */}
+      <Eye className="mt-px size-3.5 shrink-0 text-ink-3" aria-hidden />
+      <p className="text-xs leading-relaxed text-ink-2">{children}</p>
+    </div>
+  );
+}
+
 export function OversightScreen() {
   const t = useTranslations();
-  const [children, setChildren] = useState<Child[] | null>(null);
+  const [children, setChildren] = useState<Async<Child[]>>(LOADING);
   const [child, setChild] = useState<Child | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await api
-          .get("parent/oversight/children")
-          .json<Envelope<Child[]>>();
-        setChildren(res.data);
-      } catch {
-        setChildren([]);
-      }
-    })();
+  const load = useCallback(async () => {
+    setChildren(LOADING);
+    try {
+      const res = await api
+        .get("parent/oversight/children")
+        .json<Envelope<Child[]>>();
+      setChildren({ status: "ok", data: res.data });
+    } catch {
+      setChildren(FAILED);
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="border-sky-500/30 bg-sky-500/5 p-4">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
-          <div>
-            <h2 className="font-bold text-foreground">{t("oversight.title")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("oversight.subtitle")}
-            </p>
-          </div>
-        </div>
-      </Card>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        eyebrow={t("roles.parent")}
+        title={t("oversight.title")}
+        description={t("oversight.subtitle")}
+      />
 
       {child ? (
         <ChildConversations child={child} onBack={() => setChild(null)} />
       ) : (
-        <ChildrenList children={children} onPick={setChild} />
+        <ChildrenList state={children} onPick={setChild} onRetry={load} />
       )}
     </div>
   );
 }
 
 function ChildrenList({
-  children,
+  state,
   onPick,
+  onRetry,
 }: {
-  children: Child[] | null;
+  state: Async<Child[]>;
   onPick: (c: Child) => void;
+  onRetry: () => void;
 }) {
   const t = useTranslations();
 
-  if (!children) {
+  if (state.status === "loading") return <SkeletonRows rows={2} />;
+  if (state.status === "error") {
     return (
-      <Card className="flex min-h-40 items-center justify-center">
-        <Spinner />
-      </Card>
+      <LoadError
+        message={t("parentOversight.childrenFailed")}
+        onRetry={onRetry}
+        retryLabel={t("parentOversight.retry")}
+      />
     );
   }
-  if (children.length === 0) {
+  if (state.data.length === 0) {
     return (
-      <Card className="p-6">
-        <EmptyState icon={Users} title={t("oversight.noChildren")} />
-      </Card>
+      <EmptyState icon={Users} title={t("oversight.noChildren")} />
     );
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {children.map((c) => (
-        <Card
-          key={c.studentId}
-          className={cn(
-            "p-4 transition-colors",
-            c.isMinor ? "cursor-pointer hover:bg-muted/50" : "opacity-75",
-          )}
-          onClick={() => c.isMinor && onPick(c)}
-        >
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarFallback>
-                <User className="size-4" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate font-medium text-foreground">{c.name}</p>
-                {c.isMinor ? (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {t("oversight.minorBadge")}
-                  </Badge>
-                ) : null}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {c.isMinor
-                  ? t("oversight.conversationsCount", {
-                      count: c.conversationCount,
-                    })
-                  : /* A verified adult keeps their privacy — the only way out
-                       of the default-minor rule. */
-                    t("oversight.adultChild")}
-              </p>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {state.data.map((c) =>
+        c.isMinor ? (
+          // Oversight is available: the whole row is the control.
+          <li key={c.studentId}>
+            <button
+              type="button"
+              onClick={() => onPick(c)}
+              className="flex w-full flex-col items-start gap-1 rounded-xl border border-rule bg-sheet p-4 text-start transition-colors hover:bg-rule-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo"
+              style={{ boxShadow: "var(--lift)" }}
+            >
+              <span className="eyebrow">{t("oversight.minorBadge")}</span>
+              <span className="text-[15px] font-semibold text-ink">
+                {c.name}
+              </span>
+              <span className="text-xs text-ink-2">
+                {t("oversight.conversationsCount", {
+                  count: c.conversationCount,
+                })}
+              </span>
+            </button>
+          </li>
+        ) : (
+          // A verified adult keeps their privacy — the only way out of the
+          // default-minor rule. There is NOTHING to click here: not a disabled
+          // card, not a greyed one. Just the name and the reason. A greyed
+          // affordance would imply a door that opens with the right permission,
+          // and no permission opens this one.
+          <li
+            key={c.studentId}
+            className="flex flex-col items-start gap-1 rounded-xl border border-dashed border-rule bg-paper p-4"
+          >
+            <span className="eyebrow">{t("parentOversight.privateEyebrow")}</span>
+            <span className="text-[15px] font-semibold text-ink">{c.name}</span>
+            <LimitNote>{t("oversight.adultChild")}</LimitNote>
+          </li>
+        ),
+      )}
+    </ul>
   );
 }
 
@@ -174,63 +215,77 @@ function ChildConversations({
 }) {
   const t = useTranslations();
   const { formatDate } = useFormatters();
-  const [items, setItems] = useState<OversightConversation[] | null>(null);
+  const [items, setItems] = useState<Async<OversightConversation[]>>(LOADING);
   const [active, setActive] = useState<OversightConversation | null>(null);
-  const [messages, setMessages] = useState<ThreadMessage[] | null>(null);
+  const [messages, setMessages] = useState<Async<ThreadMessage[]>>(LOADING);
+
+  const loadThreads = useCallback(async () => {
+    setItems(LOADING);
+    try {
+      const res = await api
+        .get(`parent/oversight/children/${child.studentId}/conversations`)
+        .json<Envelope<OversightConversation[]>>();
+      setItems({ status: "ok", data: res.data });
+    } catch {
+      setItems(FAILED);
+    }
+  }, [child.studentId]);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const res = await api
-          .get(`parent/oversight/children/${child.studentId}/conversations`)
-          .json<Envelope<OversightConversation[]>>();
-        setItems(res.data);
-      } catch {
-        setItems([]);
-      }
-    })();
-  }, [child.studentId]);
+    void loadThreads();
+  }, [loadThreads]);
 
   const openThread = useCallback(
     async (c: OversightConversation) => {
       setActive(c);
-      setMessages(null);
+      setMessages(LOADING);
       try {
         const res = await api
           .get(
             `parent/oversight/children/${child.studentId}/conversations/${c.id}`,
           )
           .json<Envelope<{ messages: ThreadMessage[] }>>();
-        setMessages(res.data.messages);
+        setMessages({ status: "ok", data: res.data.messages });
       } catch {
-        setMessages([]);
+        setMessages(FAILED);
       }
     },
     [child.studentId],
   );
 
   return (
-    <Card className="gap-0 overflow-hidden p-0">
-      <div className="flex items-center gap-2 border-b border-border p-4">
-        <Button type="button" variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="size-4 rtl:-scale-x-100" />
+    <div
+      className="overflow-hidden rounded-xl border border-rule bg-sheet"
+      style={{ boxShadow: "var(--lift)" }}
+    >
+      <div className="flex items-center gap-3 border-b border-rule px-4 py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo"
+        >
+          {/* Directional icon: flips in RTL. */}
+          <ArrowLeft className="size-4 rtl:-scale-x-100" aria-hidden />
           {t("oversight.backToChildren")}
-        </Button>
-        <span className="font-medium text-foreground">{child.name}</span>
+        </button>
+        <span className="text-[15px] font-semibold text-ink">{child.name}</span>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border bg-sky-500/10 px-4 py-2 text-xs text-sky-800 dark:text-sky-300">
-        <Eye className="size-3.5 shrink-0" />
-        {t("oversight.readOnlyNotice")}
-      </div>
+      <DisclosureStrip>{t("oversight.readOnlyNotice")}</DisclosureStrip>
 
       <div className="grid min-h-[420px] grid-cols-1 md:grid-cols-3">
-        <div className="border-b border-border md:border-b-0 md:border-e">
-          {!items ? (
-            <div className="flex justify-center p-5">
-              <Spinner />
+        <div className="border-b border-rule md:border-b-0 md:border-e">
+          {items.status === "loading" ? (
+            <SkeletonRows rows={4} className="p-4" />
+          ) : items.status === "error" ? (
+            <div className="p-4">
+              <LoadError
+                message={t("parentOversight.threadsFailed")}
+                onRetry={loadThreads}
+                retryLabel={t("parentOversight.retry")}
+              />
             </div>
-          ) : items.length === 0 ? (
+          ) : items.data.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={MessageSquare}
@@ -238,42 +293,46 @@ function ChildConversations({
               />
             </div>
           ) : (
-            <ScrollArea className="max-h-[480px]">
-              <ul>
-                {items.map((c) => (
-                  <li
-                    key={c.id}
+            <ul className="max-h-[480px] overflow-y-auto">
+              {items.data.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
                     onClick={() => void openThread(c)}
                     className={cn(
-                      "cursor-pointer border-b border-border px-4 py-3 transition-colors",
-                      active?.id === c.id ? "bg-accent" : "hover:bg-muted/50",
+                      "flex w-full flex-col gap-1 border-b border-rule-2 px-4 py-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo",
+                      active?.id === c.id
+                        ? "row-selected"
+                        : "hover:bg-rule-2",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-medium text-foreground">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[13px] font-semibold text-ink">
                         {c.partner.name}
-                      </p>
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      </span>
+                      <Figure className="shrink-0 text-[11px] text-ink-3">
                         {formatDate(c.lastMessageAt, {
                           month: "short",
                           day: "numeric",
                         })}
-                      </span>
+                      </Figure>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
                       {c.partner.role ? (
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px]">
+                        <span className="rounded-md bg-indigo-soft px-1.5 py-px text-[10px] font-medium text-indigo">
                           {t(`roles.${c.partner.role}`)}
                         </span>
                       ) : null}
-                      <span className="truncate">
-                        {t("oversight.messagesCount", { count: c.messageCount })}
+                      <span className="truncate text-[11px] text-ink-3">
+                        {t("oversight.messagesCount", {
+                          count: c.messageCount,
+                        })}
                       </span>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
@@ -286,14 +345,20 @@ function ChildConversations({
                 description={t("oversight.readOnlyNotice")}
               />
             </div>
-          ) : !messages ? (
-            <div className="flex justify-center p-5">
-              <Spinner />
+          ) : messages.status === "loading" ? (
+            <SkeletonRows rows={5} className="p-4" />
+          ) : messages.status === "error" ? (
+            <div className="p-4">
+              <LoadError
+                message={t("parentOversight.messagesFailed")}
+                onRetry={() => void openThread(active)}
+                retryLabel={t("parentOversight.retry")}
+              />
             </div>
           ) : (
-            <ScrollArea className="max-h-[480px] bg-muted/40">
+            <div className="max-h-[480px] overflow-y-auto bg-paper">
               <div className="flex flex-col gap-3 p-4">
-                {messages.map((m) => {
+                {messages.data.map((m) => {
                   const fromChild = m.senderId === child.studentId;
                   return (
                     <div
@@ -305,37 +370,42 @@ function ChildConversations({
                     >
                       <div
                         className={cn(
-                          "max-w-[75%] rounded-2xl px-3.5 py-2.5 shadow-sm",
+                          "max-w-[75%] rounded-xl border px-3.5 py-2.5",
                           fromChild
-                            ? "rounded-ee-sm bg-primary/90 text-primary-foreground"
-                            : "rounded-es-sm border border-border bg-card text-card-foreground",
+                            ? "border-indigo-soft bg-indigo-soft"
+                            : "border-rule bg-sheet",
                         )}
                       >
                         <div
                           className={cn(
-                            "break-words whitespace-pre-wrap",
-                            m.deleted && "italic opacity-60",
+                            "text-[13px] leading-relaxed break-words whitespace-pre-wrap",
+                            m.deleted ? "text-ink-3 italic" : "text-ink",
                           )}
                         >
+                          {/* Oversight follows the PARTICIPANT rule, not the
+                              admin one: a soft-deleted body stays hidden here.
+                              A parent is watching, not moderating. */}
                           {m.deleted ? t("chat.removedMessage") : m.body}
                         </div>
-                        <div className="mt-1 text-end text-[10px] opacity-70">
+                        <Figure className="mt-1 block text-end text-[10px] text-ink-3">
                           {formatDate(m.createdAt, {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
-                        </div>
+                        </Figure>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           )}
-          {/* No composer, deliberately: there is no write path for a parent
-              into their child's conversation, in the UI or on the server. */}
+          {/* No composer, and no disabled placeholder for one, deliberately:
+              there is no write path for a parent into their child's
+              conversation, in the UI or on the server. The area simply ends —
+              absence is the honest signal. */}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

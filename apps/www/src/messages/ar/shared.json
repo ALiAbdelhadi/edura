@@ -214,6 +214,16 @@
     "loadFailed": "تعذّر تحميل قائمة الحصة",
     "emptyRoster": "لم يمر أحد بالكاونتر بعد",
     "doorDone": "حاضر",
-    "noCounter": "لا يوجد تشيك-إن كاونتر"
-  }
+    "noCounter": "لا يوجد تشيك-إن كاونتر",
+    "committing": "جارٍ التأكيد…",
+    "committed": "تم التأكيد",
+    "commitFailed": "لم يُسجَّل",
+    "retry": "إعادة المحاولة",
+    "sessionsFailed": "تعذّر تحميل حصص اليوم.",
+    "noCounterHint": "لا يمكن تأكيده عند الباب قبل المرور بالكاونتر.",
+    "rosterEyebrow": "القائمة",
+    "scanEyebrow": "المسح",
+    "waiting": "في الانتظار"
+  },
+  "notifUnreadLabel": "غير مقروء"
 }

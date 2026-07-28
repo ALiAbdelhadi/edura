@@ -4,8 +4,27 @@ import React, { createContext, useContext, useState, useMemo } from "react";
 import { useList } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import { cn } from "@repo/ui/lib/utils";
+/**
+ * `/api/v1/me/children` selects `{ id, name, email, phone }` straight off the
+ * user table — so the identifier is `id`.
+ *
+ * This used to read `c._id`, which is always undefined on that payload, so
+ * `childId` never resolved and EVERY parent screen fell through to its "no
+ * children registered" empty state even when children were linked. The bug was
+ * invisible for as long as no demo parent had an approved link. `_id` is kept
+ * as a fallback because other screens in this app still receive Refine-shaped
+ * records that carry it.
+ */
+type ChildRecord = {
+  id?: string;
+  _id?: string;
+  name?: string | null;
+};
+
+const childKey = (c: ChildRecord): string | null => c.id ?? c._id ?? null;
+
 type ChildSelectorContextValue = {
-  children: any[];
+  children: ChildRecord[];
   childId: string | null;
   setChildId: (id: string | null) => void;
   isLoading: boolean;
@@ -21,8 +40,9 @@ const ChildSelectorContext = createContext<ChildSelectorContextValue>({
 export function ChildSelectorProvider({ children: renderChildren }: { children: React.ReactNode }) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const { query, result } = useList({ resource: "me-children" });
-  const children = (result?.data ?? []) as any[];
-  const childId = selectedChildId || (children[0]?._id ?? null);
+  const children = (result?.data ?? []) as ChildRecord[];
+  const childId =
+    selectedChildId || (children[0] ? childKey(children[0]) : null);
 
   const value = useMemo(
     () => ({
@@ -51,34 +71,43 @@ export function ChildSelectorBar() {
 
   if (isLoading || children.length <= 1) return null;
 
+  // Which child is being shown scopes every figure on the page, so the control
+  // is a labelled radiogroup rather than a row of loose buttons — a parent
+  // reading a fee total needs the answer to "whose?" announced, not implied.
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-muted-foreground">
-        {t("shared.childSelectorLabel")}
-      </span>
-      <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-muted p-1">
-        {children.map((c: any) => {
-          const active = c._id === childId;
+      <span className="eyebrow">{t("shared.childSelectorLabel")}</span>
+      <div
+        role="radiogroup"
+        aria-label={t("shared.childSelectorLabel")}
+        className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-rule bg-field p-1"
+      >
+        {children.map((c) => {
+          const key = childKey(c);
+          const active = key !== null && key === childId;
           const initial = (c.name || "?").charAt(0).toUpperCase();
           return (
             <button
-              key={c._id}
+              key={key}
               type="button"
-              onClick={() => setChildId(c._id)}
-              aria-pressed={active}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setChildId(key)}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all",
+                "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo",
                 active
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-indigo-soft font-semibold text-indigo"
+                  : "text-ink-2 hover:bg-rule-2",
               )}
             >
               <span
+                aria-hidden
                 className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                  "flex size-5 shrink-0 items-center justify-center rounded-sm text-[10px] font-semibold",
                   active
-                    ? "gradient-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground",
+                    ? "bg-indigo text-indigo-ink"
+                    : "bg-rule-2 text-ink-3",
                 )}
               >
                 {initial}

@@ -1,19 +1,35 @@
 "use client";
 
+// Notifications — rendered by all six portals.
+//
+// Two things were fixed here alongside the Ledger conversion, both of them
+// accessibility defects rather than styling:
+//
+// 1. The row was a <div> with an onClick and `cursor-pointer`. It had no role,
+//    no tabIndex and no key handler, so notifications could not be opened by
+//    keyboard at all. It is a <button> now.
+// 2. Unread was signalled by a bare coloured dot with no text equivalent —
+//    the same defect the audit found on the pending-registrations indicator.
+//    The dot is now decorative (aria-hidden) and the state is carried by real
+//    text for assistive tech.
+//
+// Colour discipline: the type chip is a CATEGORY, not a state, so it is
+// neutral — except money, which is the one category where this system's colour
+// already means something. Emphasis belongs to unread vs read, and that is the
+// indigo bar. A rainbow of type chips would spend every semantic at once.
 import React from "react";
 import { useList, useCustomMutation } from "@refinedev/core";
 import { useRouter, useParams } from "next/navigation";
 import { Bell, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
+import { Figure, SkeletonRows } from "@repo/ui/components/ledger";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+
 interface Notification {
   id: string;
   type: string;
@@ -23,14 +39,8 @@ interface Notification {
   createdAt: string;
 }
 
-const TYPE_TONE: Record<string, StatusTone> = {
-  absence_marked: "info",
-  session_cancelled: "warning",
-  payment_recorded: "success",
-  enrollment_request_approved: "primary",
-  grade_posted: "info",
-  default: "neutral",
-};
+/** Money is the one category whose colour already carries meaning here. */
+const MONEY_TYPES = new Set(["payment_recorded", "payout_settled", "refund_issued"]);
 
 function timeAgo(
   dateStr: string,
@@ -64,7 +74,6 @@ export function NotificationsScreen() {
   const { mutateAsync: markAllReadMut } = useCustomMutation();
 
   const getNotificationLink = (n: Notification): string | null => {
-    const d = (n as any).data || {};
     switch (n.type) {
       case "payment_recorded":
         return `${basePath}/fees`;
@@ -116,14 +125,14 @@ export function NotificationsScreen() {
   };
 
   if (query.isLoading && notifications.length === 0) {
-    return <PageSpinner label={t("common.loading")} />;
+    return <SkeletonRows rows={5} className="max-w-[640px]" />;
   }
 
   const unread = notifications.filter((n) => !n.read).length;
 
   if (notifications.length === 0) {
     return (
-      <div className="flex w-full max-w-[640px] flex-col gap-6">
+      <div className="flex w-full max-w-[640px] flex-col gap-5">
         <PageHeader title={t("nav.notifications")} />
         <EmptyState icon={Bell} title={t("shared.notifEmpty")} />
       </div>
@@ -131,7 +140,7 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div className="flex w-full max-w-[640px] flex-col gap-6">
+    <div className="flex w-full max-w-[640px] flex-col gap-5">
       <PageHeader
         title={t("nav.notifications")}
         description={
@@ -149,53 +158,71 @@ export function NotificationsScreen() {
         }
       />
 
-      <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
         {notifications.map((n) => {
-          const tone = TYPE_TONE[n.type] ?? TYPE_TONE.default;
           const typeKey = `shared.notifType_${n.type}`;
           const typeLabel = t.has(asKey(typeKey)) ? t(asKey(typeKey)) : null;
           const typeText = typeLabel ?? n.type.replace(/_/g, " ");
+          const isMoney = MONEY_TYPES.has(n.type);
           return (
-            <Card
-              key={n.id}
-              onClick={() => handleNotificationClick(n)}
-              className={cn(
-                "cursor-pointer border-s-2 py-0 transition-colors hover:border-primary/40 hover:bg-accent",
-                n.read ? "border-s-transparent opacity-65" : "border-s-primary",
-              )}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "text-sm",
-                          n.read ? "font-normal" : "font-semibold",
-                        )}
-                      >
-                        {n.title}
-                      </span>
-                      {!n.read && (
-                        <span className="size-2 shrink-0 rounded-full bg-info" />
+            <li key={n.id}>
+              <button
+                type="button"
+                onClick={() => void handleNotificationClick(n)}
+                className={cn(
+                  "flex w-full items-start justify-between gap-3 rounded-xl border border-rule bg-sheet p-3 text-start transition-colors",
+                  "border-s-[3px] hover:bg-rule-2",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo",
+                  n.read ? "border-s-rule" : "border-s-indigo",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "text-[13px] text-ink",
+                        n.read ? "font-normal" : "font-semibold",
                       )}
-                    </div>
-                    <p className="m-0 text-[13px] text-muted-foreground">
-                      {n.body}
-                    </p>
+                    >
+                      {n.title}
+                    </span>
+                    {!n.read ? (
+                      <>
+                        {/* Decorative twin of the text below it. */}
+                        <span
+                          aria-hidden
+                          className="size-1.5 shrink-0 rounded-full bg-indigo"
+                        />
+                        <span className="sr-only">
+                          {t("shared.notifUnreadLabel")}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
-                  <div className="shrink-0 text-end">
-                    <StatusBadge tone={tone}>{typeText}</StatusBadge>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {timeAgo(n.createdAt, t, formatNumber)}
-                    </div>
-                  </div>
+                  <p className="m-0 text-[12px] leading-relaxed text-ink-2">
+                    {n.body}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                      isMoney
+                        ? "bg-teal-soft text-teal"
+                        : "bg-rule-2 text-ink-2",
+                    )}
+                  >
+                    {typeText}
+                  </span>
+                  <Figure className="text-[10px] text-ink-3">
+                    {timeAgo(n.createdAt, t, formatNumber)}
+                  </Figure>
+                </div>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import {
-  Plus_Jakarta_Sans,
+  IBM_Plex_Mono,
   Noto_Sans,
   IBM_Plex_Sans_Arabic,
 } from "next/font/google";
@@ -13,10 +13,14 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { baseMessages } from "@/lib/i18n/scope";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+// The Ledger's second face. Every figure in the product is monospaced — money,
+// dates, IDs, transaction refs, counts — so this is loaded on every page, not
+// lazily. It replaces Plus Jakarta Sans, which was an Ant-era display face the
+// Ledger retires.
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-plus-jakarta-sans",
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
 });
 
 const notoSans = Noto_Sans({
@@ -75,7 +79,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
       <body
-        className={`${notoSans.variable} ${plusJakartaSans.variable} ${plexArabic.variable}`}
+        className={`${notoSans.variable} ${plexMono.variable} ${plexArabic.variable}`}
       >
         {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
             it as a hoistable resource and never warns about client-rendered

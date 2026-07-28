@@ -13,20 +13,32 @@ import type {
   TeacherScoreDistributionPoint,
 } from "@/lib/analytics/contracts";
 
-const DEFAULT_COLORS = ["#0fa5e9", "#8b5cf6", "#177674", "#f97315", "#22c55f", "#ed4899", "#600000"];
+// Series colours come from the token layer, never from literals. The old
+// 7-hue list here (plus six more hardcoded hexes below) bypassed the palette
+// entirely, so charts were the one surface the theme could not reach — and
+// they did not flip with dark mode. --red is deliberately absent: it means
+// irreversible or blocking, and spending it on a decorative series costs the
+// meaning everywhere else.
+const DEFAULT_COLORS = [
+  "var(--series-1)",
+  "var(--series-2)",
+  "var(--series-3)",
+  "var(--series-4)",
+  "var(--series-5)",
+];
 
 export function revenueVsExpensesLineSeries(points: RevenueTimeseriesPoint[]) {
   return [
     {
       id: "revenue",
       label: "Revenue",
-      color: "#0fa5e9",
+      color: "var(--series-1)",
       points: points.map((row) => ({ x: row.label, value: row.revenue })),
     },
     {
       id: "expenses",
       label: "Expenses",
-      color: "#f97315",
+      color: "var(--series-3)",
       points: points.map((row) => ({ x: row.label, value: row.expenses })),
     },
   ];
@@ -67,7 +79,7 @@ export function teacherAttendanceLineSeries(points: TeacherAttendanceTrendPoint[
     {
       id: "attendance",
       label: "Attendance Rate",
-      color: "#22c55f",
+      color: "var(--series-2)",
       points: points.map((row) => ({ x: row.label, value: row.attendanceRatePct })),
     },
   ];
@@ -93,7 +105,7 @@ export function studentGradeTrendLineSeries(points: StudentGradeTrendPoint[]) {
     {
       id: "grades",
       label: "Grade %",
-      color: "#0fa5e9",
+      color: "var(--series-1)",
       points: points.map((row) => ({ x: row.label, value: row.percentage })),
     },
   ];
@@ -112,13 +124,13 @@ export function paymentTrendLineSeries(points: ParentPaymentTrendPoint[]) {
     {
       id: "paid",
       label: "Paid",
-      color: "#22c55f",
+      color: "var(--series-2)",
       points: points.map((row) => ({ x: row.label, value: row.paid })),
     },
     {
       id: "net",
       label: "Net",
-      color: "#0fa5e9",
+      color: "var(--series-1)",
       points: points.map((row) => ({ x: row.label, value: row.net })),
     },
   ];

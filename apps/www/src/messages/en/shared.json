@@ -214,6 +214,16 @@
     "loadFailed": "Could not load the session roster",
     "emptyRoster": "Nobody has passed the counter yet",
     "doorDone": "Present",
-    "noCounter": "No counter check-in"
-  }
+    "noCounter": "No counter check-in",
+    "committing": "Confirming…",
+    "committed": "Confirmed",
+    "commitFailed": "Not recorded",
+    "retry": "Try again",
+    "sessionsFailed": "Couldn't load today's sessions.",
+    "noCounterHint": "Cannot be confirmed at the door before passing the counter.",
+    "rosterEyebrow": "Roster",
+    "scanEyebrow": "Scan",
+    "waiting": "Waiting"
+  },
+  "notifUnreadLabel": "Unread"
 }

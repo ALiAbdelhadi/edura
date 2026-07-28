@@ -86,7 +86,7 @@ function ChatScreenInner({ meId }: { meId: string }) {
   return (
     <Card className="gap-0 overflow-hidden p-0">
       {chat.status === "offline" ? (
-        <div className="flex items-center gap-2 border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2 border-b border-rule bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
           <WifiOff className="size-3.5 shrink-0" />
           {t("chat.connectionLost")}
         </div>
@@ -95,7 +95,7 @@ function ChatScreenInner({ meId }: { meId: string }) {
       {/* Direct threads and derived-membership channels are two views of the
           same inbox; keeping them as tabs (not separate screens) means one
           unread story and one nav entry per role. */}
-      <div className="flex items-center gap-1 border-b border-border px-3 pt-3">
+      <div className="flex items-center gap-1 border-b border-rule px-3 pt-3">
         <TabButton
           active={tab === "direct"}
           onClick={() => setTab("direct")}
@@ -141,13 +141,13 @@ function TabButton({
       className={cn(
         "-mb-px flex items-center gap-2 rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors",
         active
-          ? "border-primary text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+          ? "border-primary text-ink"
+          : "border-transparent text-ink-2 hover:text-ink",
       )}
     >
       {label}
       {badge ? (
-        <span className="flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
+        <span className="flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
           {badge}
         </span>
       ) : null}
@@ -169,9 +169,9 @@ function ConversationList({
   const { formatDate } = useFormatters();
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-b border-border md:border-b-0 md:border-e">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <span className="font-bold text-foreground">{t("nav.messages")}</span>
+    <div className="flex h-full min-h-0 flex-col border-b border-rule md:border-b-0 md:border-e">
+      <div className="flex items-center justify-between border-b border-rule p-4">
+        <span className="font-bold text-ink">{t("nav.messages")}</span>
         <NewConversationDialog chat={chat} />
       </div>
       <ScrollArea className="min-h-0 flex-1">
@@ -230,8 +230,8 @@ function ConversationListItem({
     <li
       onClick={onClick}
       className={cn(
-        "flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 transition-colors",
-        selected ? "bg-accent" : "hover:bg-muted/50",
+        "flex cursor-pointer items-center gap-3 border-b border-rule px-4 py-3 transition-colors",
+        selected ? "bg-indigo-soft" : "hover:bg-rule-2",
       )}
     >
       <div className="relative shrink-0">
@@ -244,31 +244,31 @@ function ConversationListItem({
           <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-card bg-emerald-500" />
         ) : null}
         {c.unreadCount > 0 ? (
-          <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
+          <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
             {c.unreadCount}
           </span>
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate font-medium text-foreground">
+          <p className="truncate font-medium text-ink">
             {c.partner.name || t("chat.unknownUser")}
           </p>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-ink-2">
             {formatDate(c.lastMessageAt, { month: "short", day: "numeric" })}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-ink-2">
           {c.partner.role ? (
-            <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px]">
+            <span className="shrink-0 rounded-md bg-field px-1.5 py-px text-[10px]">
               {t(`roles.${c.partner.role}`)}
             </span>
           ) : null}
           <span
             className={cn(
               "truncate",
-              typing && "text-primary",
-              !typing && c.unreadCount > 0 && "font-bold text-foreground",
+              typing && "text-indigo",
+              !typing && c.unreadCount > 0 && "font-bold text-ink",
             )}
           >
             {typing
@@ -291,8 +291,8 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
 
   if (!chat.activeId || !chat.activeConversation) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-muted/40 text-center text-muted-foreground md:col-span-2">
-        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 bg-rule-2 text-center text-ink-2 md:col-span-2">
+        <div className="flex size-12 items-center justify-center rounded-full bg-indigo-soft text-indigo">
           <MessageSquare className="size-6" />
         </div>
         <p className="text-sm">{t("chat.selectConversation")}</p>
@@ -306,7 +306,7 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col md:col-span-2">
-      <div className="flex items-center gap-3 border-b border-border p-4">
+      <div className="flex items-center gap-3 border-b border-rule p-4">
         <div className="relative shrink-0">
           <Avatar>
             <AvatarFallback>
@@ -319,7 +319,7 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <strong className="truncate text-foreground">
+            <strong className="truncate text-ink">
               {partner.name || t("chat.unknownUser")}
             </strong>
             {partner.role ? (
@@ -328,7 +328,7 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
               </Badge>
             ) : null}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-2">
             {typing
               ? t("chat.typing")
               : online
@@ -346,13 +346,26 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
       </div>
 
       {/* DISCLOSURE, not surveillance: when a parent can see this thread BOTH
-          participants are told so, on every visit. The adult sees it too. */}
+          participants are told so, on every visit. The adult sees it too — a
+          professional writes differently into a monitored thread, and is
+          entitled to know it is one.
+          
+          This is the CHILD-SIDE (and adult-side) half of the parent portal's
+          signature surface. Its anatomy is fixed by
+          design/DECISIONS-proposed-parent-oversight.md §3 and must stay
+          identical to the parent's DisclosureStrip: --sheet ground, hairline
+          rule beneath, neutral ink, non-directional eye icon, never
+          dismissable. Deliberately NOT amber — oversight is lawful and
+          ordinary, and colouring a safeguard as a fault would teach the child
+          they had done something wrong. If you change one side, change both. */}
       {chat.oversight?.monitored ? (
-        <div className="flex items-center gap-2 border-b border-border bg-sky-500/10 px-4 py-2 text-xs text-sky-800 dark:text-sky-300">
-          <Eye className="size-3.5 shrink-0" />
-          {chat.oversight.minorParticipantId === meId
-            ? t("chat.oversightBannerStudent")
-            : t("chat.oversightBanner")}
+        <div className="flex items-start gap-2 border-b border-rule bg-sheet px-4 py-2.5">
+          <Eye className="mt-px size-3.5 shrink-0 text-ink-3" aria-hidden />
+          <p className="text-xs leading-relaxed text-ink-2">
+            {chat.oversight.minorParticipantId === meId
+              ? t("chat.oversightBannerStudent")
+              : t("chat.oversightBanner")}
+          </p>
         </div>
       ) : null}
 
@@ -483,12 +496,12 @@ function ReportDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="size-4 text-destructive" />
+            <ShieldAlert className="size-4 text-red" />
             {t("chat.reportTitle")}
           </DialogTitle>
         </DialogHeader>
         {sent ? (
-          <p className="py-4 text-sm text-muted-foreground">
+          <p className="py-4 text-sm text-ink-2">
             {t("chat.reportSent")}
           </p>
         ) : (
@@ -506,8 +519,8 @@ function ReportDialog({
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs transition-colors",
                       category === c
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:bg-muted",
+                        ? "border-primary bg-indigo text-indigo-ink"
+                        : "border-rule hover:bg-field",
                     )}
                   >
                     {t(`chat.reportCategories.${c}`)}
@@ -594,7 +607,7 @@ function MessageThread({ chat, meId }: { chat: ChatController; meId: string }) {
 
   return (
     <ScrollArea
-      className="min-h-0 flex-1 bg-muted/40"
+      className="min-h-0 flex-1 bg-rule-2"
       viewportRef={viewportRef}
       onViewportScroll={onScroll}
     >
@@ -611,7 +624,7 @@ function MessageThread({ chat, meId }: { chat: ChatController; meId: string }) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground"
+                  className="text-xs text-ink-2"
                   onClick={handleLoadOlder}
                   disabled={loadingOlder}
                 >
@@ -658,10 +671,10 @@ function MessageBubble({
     <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm",
+          "max-w-[70%] rounded-xl border px-3.5 py-2.5",
           mine
-            ? "rounded-ee-sm bg-primary text-primary-foreground"
-            : "rounded-es-sm border border-border bg-card text-card-foreground",
+            ? "border-indigo-soft bg-indigo-soft text-ink"
+            : "border-rule bg-sheet text-ink",
           msg.failed && "opacity-70",
         )}
       >
@@ -697,10 +710,14 @@ function MessageBubble({
 }
 
 function DeliveryTicks({ message: msg }: { message: UiMessage }) {
-  if (msg.failed) return <AlertCircle className="size-3" />;
-  if (msg.pending) return <Clock3 className="size-3" />;
+  // Delivery is a commit state, so it reads on the money scale: red for a send
+  // that failed, amber while it is still in flight, teal once the other side
+  // has actually read it. The old sky-300 tick was outside the palette
+  // entirely and did not flip with the theme.
+  if (msg.failed) return <AlertCircle className="size-3 text-red" />;
+  if (msg.pending) return <Clock3 className="size-3 text-amber" />;
   if (msg.status === "read")
-    return <CheckCheck className="size-3.5 text-sky-300 dark:text-sky-300" />;
+    return <CheckCheck className="size-3.5 text-teal" />;
   if (msg.status === "delivered") return <CheckCheck className="size-3.5" />;
   return <Check className="size-3.5" />;
 }
@@ -753,14 +770,14 @@ function Composer({ chat }: { chat: ChatController }) {
   };
 
   return (
-    <div className="border-t border-border bg-card p-4">
+    <div className="border-t border-rule bg-sheet p-4">
       {chat.sendBlock ? (
         <p
           className={cn(
             "mb-2 rounded-md px-3 py-2 text-xs",
             chat.sendBlock === "rate_limited"
               ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-              : "bg-destructive/10 text-destructive",
+              : "bg-red/10 text-red",
           )}
         >
           {chat.sendBlock === "rate_limited"
@@ -844,8 +861,8 @@ function FilterChip({
       className={cn(
         "rounded-full border px-3 py-1 text-xs transition-colors",
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border text-muted-foreground hover:bg-muted",
+          ? "border-primary bg-indigo text-indigo-ink"
+          : "border-rule text-ink-2 hover:bg-field",
       )}
     >
       {label}
@@ -951,7 +968,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
           <DialogTitle>{t("chat.newConversation")}</DialogTitle>
         </DialogHeader>
         <div className="relative">
-          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-ink-2" />
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
@@ -986,14 +1003,14 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
               <Spinner />
             </div>
           ) : groups.length === 0 ? (
-            <p className="p-4 text-center text-sm text-muted-foreground">
+            <p className="p-4 text-center text-sm text-ink-2">
               {t("chat.noContacts")}
             </p>
           ) : (
             <div className="flex flex-col gap-3 pe-2">
               {groups.map(({ group, items }) => (
                 <div key={group}>
-                  <p className="px-1 pb-1 text-xs font-semibold text-muted-foreground uppercase">
+                  <p className="px-1 pb-1 text-xs font-semibold text-ink-2 uppercase">
                     {t(`chat.groups.${group}`)}
                   </p>
                   <ul className="flex flex-col">
@@ -1003,7 +1020,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
                           type="button"
                           disabled={starting === contact.id}
                           onClick={() => void start(contact)}
-                          className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-start transition-colors hover:bg-muted/60 disabled:opacity-60"
+                          className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-start transition-colors hover:bg-field/60 disabled:opacity-60"
                         >
                           <Avatar className="size-8">
                             <AvatarFallback>
@@ -1011,10 +1028,10 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
                             </AvatarFallback>
                           </Avatar>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-foreground">
+                            <span className="block truncate text-sm font-medium text-ink">
                               {contact.name}
                             </span>
-                            <span className="block truncate text-xs text-muted-foreground">
+                            <span className="block truncate text-xs text-ink-2">
                               {t(`roles.${contact.role}`)}
                               {contact.subtitle ? ` · ${contact.subtitle}` : ""}
                             </span>

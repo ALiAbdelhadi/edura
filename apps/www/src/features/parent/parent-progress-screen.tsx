@@ -1,17 +1,19 @@
 "use client";
 
+// Child progress — read-only.
+//
+// A parent reads this record; they do not write it. Nothing here is editable
+// and nothing pretends to be.
+//
+// Grades are rendered as plain mono ink, NOT as coloured status badges. In this
+// system colour carries a fixed meaning — teal money confirmed, amber waiting,
+// red irreversible — and a child's B− is none of those. Tinting it would spend
+// a semantic on decoration, and would quietly editorialise about the child on
+// their parent's screen. The percentage bar carries the at-a-glance signal.
 import { useList, useCustom } from "@refinedev/core";
-import { Star, Trophy, CheckCircle2, BarChart3, Users } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
+import { Users } from "lucide-react";
 import { Progress } from "@repo/ui/components/progress";
-import { StatCard } from "@/components/kit/stat-card";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import {
@@ -21,13 +23,14 @@ import {
 import { BarChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { PageSkeleton } from "@/components/ui/skeletons";
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
+
+const SERIES = [
+  "var(--series-1)",
+  "var(--series-2)",
+  "var(--series-3)",
+  "var(--series-4)",
+  "var(--series-5)",
 ];
 
 function percentageToGrade(pct: number): string {
@@ -121,15 +124,13 @@ export function ParentProgressScreen() {
       pct,
       grade: percentageToGrade(pct),
       entries: data.scores.length,
-      color: CHART_COLORS[i % CHART_COLORS.length],
+      color: SERIES[i % SERIES.length],
     };
   });
 
   const gpa =
     rows.length > 0
-      ? (
-          rows.reduce((a, b) => a + letterToGPA(b.grade), 0) / rows.length
-        ).toFixed(1)
+      ? (rows.reduce((a, b) => a + letterToGPA(b.grade), 0) / rows.length).toFixed(1)
       : "—";
   const best = rows.reduce<(typeof rows)[0] | null>(
     (best, r) => (!best || r.pct > best.pct ? r : best),
@@ -144,10 +145,11 @@ export function ParentProgressScreen() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <span
-            className="inline-block size-2.5 shrink-0 rounded-full"
+            aria-hidden
+            className="inline-block size-2 shrink-0 rounded-sm"
             style={{ backgroundColor: row.original.color }}
           />
-          <span className="font-semibold text-foreground">
+          <span className="text-[13px] font-medium text-ink">
             {row.original.subject || row.original.name}
           </span>
         </div>
@@ -155,9 +157,13 @@ export function ParentProgressScreen() {
     },
     {
       accessorKey: "entries",
-      header: t("parentProgress.entries"),
+      header: () => (
+        <span className="block text-end">{t("parentProgress.entries")}</span>
+      ),
       cell: ({ row }) => (
-        <span className="tabular-nums">{row.original.entries}</span>
+        <span className="block text-end">
+          <Figure className="text-ink-2">{row.original.entries}</Figure>
+        </span>
       ),
     },
     {
@@ -165,34 +171,30 @@ export function ParentProgressScreen() {
       header: t("parentProgress.overall"),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Progress value={row.original.pct} className="h-1.5 w-24" />
-          <span className="tabular-nums text-muted-foreground">
+          <Progress value={row.original.pct} className="h-1 w-24" />
+          <Figure className="text-[12px] text-ink-2">
             {formatPercent(row.original.pct)}
-          </span>
+          </Figure>
         </div>
       ),
     },
     {
       id: "grade",
-      header: t("parentProgress.grade"),
+      header: () => (
+        <span className="block text-end">{t("parentProgress.grade")}</span>
+      ),
       cell: ({ row }) => (
-        <StatusBadge
-          tone={
-            row.original.pct >= 90
-              ? "success"
-              : row.original.pct >= 75
-                ? "info"
-                : "warning"
-          }
-        >
-          {row.original.grade}
-        </StatusBadge>
+        <span className="block text-end">
+          <Figure className="text-[13px] font-semibold text-ink">
+            {row.original.grade}
+          </Figure>
+        </span>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
         eyebrow={t("roles.parent")}
         title={t("nav.progress")}
@@ -200,45 +202,45 @@ export function ParentProgressScreen() {
       />
 
       {isLoading && childGrades.length === 0 ? (
-        <PageSkeleton />
+        <SkeletonRows rows={4} />
       ) : !childId ? (
         <EmptyState icon={Users} title={t("parentProgress.noChildren")} />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
               label={t("parentProgress.overallGpa")}
-              value={String(gpa)}
-              icon={Star}
+              value={<Figure>{String(gpa)}</Figure>}
+              reason={t("parentProgress.gpaReason", { count: rows.length })}
             />
-            <StatCard
+            <Metric
               label={t("parentProgress.topSubject")}
-              value={best ? best.grade : "—"}
-              icon={Trophy}
+              value={<Figure>{best ? best.grade : "—"}</Figure>}
+              reason={best ? best.subject || best.name : undefined}
             />
-            <StatCard
+            <Metric
               label={t("parentProgress.attendanceRate")}
-              value={formatPercent(attendanceRate)}
-              icon={CheckCircle2}
+              value={<Figure>{formatPercent(attendanceRate)}</Figure>}
+              reason={t("parentProgress.attendanceReason")}
             />
-            <StatCard
+            <Metric
               label={t("parentProgress.subjects")}
-              value={rows.length}
-              icon={BarChart3}
+              value={<Figure>{rows.length}</Figure>}
+              reason={t("parentProgress.subjectsReason")}
             />
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">
-              {t("parentProgress.subjectBreakdown")}
-            </h2>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {t("parentProgress.subjectComparison")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          <section className="flex flex-col gap-3">
+            <SectionHead
+              eyebrow={t("parentProgress.breakdownEyebrow")}
+              title={t("parentProgress.subjectBreakdown")}
+            />
+
+            <div className="rounded-xl border border-rule bg-sheet p-4">
+              <span className="eyebrow">
+                {t("parentProgress.subjectComparison")}
+              </span>
+              <div className="mt-3" dir="ltr">
                 <BarChart
                   data={rows.map((row) => ({
                     label: row.subject || row.name,
@@ -248,22 +250,23 @@ export function ParentProgressScreen() {
                     {
                       key: "average",
                       label: t("parentProgress.averagePercent"),
-                      color: "var(--info)",
+                      color: "var(--series-1)",
                     },
                   ]}
                   horizontal
                   yValueFormatter={(value) => formatPercent(value)}
                   emptyText={t("parentProgress.noComparison")}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
             <DataTable
               columns={columns}
               data={rows}
               pageSize={100}
               emptyState={t("parentProgress.noGrades")}
             />
-          </div>
+          </section>
         </>
       )}
     </div>

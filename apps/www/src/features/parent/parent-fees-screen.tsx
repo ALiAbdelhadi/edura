@@ -1,27 +1,45 @@
 "use client";
 
+// Parent fees — the money surface.
+//
+// Two rules govern this screen and they pull in the same direction.
+//
+// 1. FULL LEDGER TREATMENT, NO WARMTH. Parents are the users holding the
+//    money. Softening the figures they are asked to act on would be the exact
+//    dishonesty this system exists to prevent. Every amount is mono, tabular,
+//    bidi-isolated and end-aligned; the total closes with a double rule.
+//
+// 2. NO PAY AFFORDANCE, TODAY. Both payment entry points are
+//    `requireRole("student")` — `/api/v1/payments/initiate` and
+//    `/api/v1/subscriptions/checkout`. A parent cannot pay for their child, and
+//    the payer-vs-beneficiary model is a separate planned effort that has not
+//    landed. So there is no Pay button, and no disabled one either: this portal
+//    does not ship an affordance the API would refuse. There is a plain line
+//    saying who can pay instead.
+//
+//    When the model lands, the button goes where <PaymentRoute/> is documented
+//    below — not scattered through the table.
 import React, { useState } from "react";
 import { useList } from "@refinedev/core";
-import { DollarSign, Undo2, BarChart3, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useChildSelector, ChildSelectorBar } from "@/components/ui/child-selector";
 import { LineChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
-import { cn } from "@repo/ui/lib/utils";
+import {
+  Figure,
+  LimitNote,
+  Metric,
+  Money,
+  SectionHead,
+  SkeletonRows,
+  TotalLine,
+} from "./ledger-kit";
 
 type PaymentRow = {
   _id?: string;
@@ -35,34 +53,51 @@ export function ParentFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate } = useFormatters();
   const { childId, isLoading: childrenLoading } = useChildSelector();
-  const [range, setRange] = useState<[string, string] | null>(null);
+  const [range, setRange] = useState<{ start: string; end: string }>({
+    start: "",
+    end: "",
+  });
 
   const { query, result } = useList({
     resource: "payments",
-    filters: childId ? [{ field: "studentId", operator: "eq", value: childId }] : undefined,
+    filters: childId
+      ? [{ field: "studentId", operator: "eq", value: childId }]
+      : undefined,
     queryOptions: { enabled: !!childId },
   });
 
-  const childPayments = (result?.data ?? []) as PaymentRow[];
+  const all = (result?.data ?? []) as PaymentRow[];
   const isLoading = childrenLoading || query.isLoading;
 
-  const paid = childPayments.filter((p) => p.amount > 0).reduce((a, b) => a + b.amount, 0);
-  const refunds = childPayments.filter((p) => p.amount < 0).reduce((a, b) => a + Math.abs(b.amount), 0);
-  const net = paid - refunds;
+  // Filtering happens here rather than server-side because the range is a
+  // read-only lens on an already-fetched ledger; nothing is recomputed on the
+  // server and no figure below can drift from the rows shown.
+  const rows = React.useMemo(() => {
+    if (!range.start && !range.end) return all;
+    return all.filter((p) => {
+      if (!p.paidAt) return false;
+      const d = p.paidAt.slice(0, 10);
+      if (range.start && d < range.start) return false;
+      if (range.end && d > range.end) return false;
+      return true;
+    });
+  }, [all, range]);
 
-  const startDate = range?.[0] ?? "";
-  const endDate = range?.[1] ?? "";
-  const handleStart = (value: string) => {
-    setRange(value || endDate ? [value, endDate] : null);
-  };
-  const handleEnd = (value: string) => {
-    setRange(startDate || value ? [startDate, value] : null);
-  };
+  const paid = rows
+    .filter((p) => p.amount > 0)
+    .reduce((a, b) => a + b.amount, 0);
+  const refunds = rows
+    .filter((p) => p.amount < 0)
+    .reduce((a, b) => a + Math.abs(b.amount), 0);
+  const net = paid - refunds;
+  const filtered = rows.length !== all.length;
 
   const paymentSeries = React.useMemo(() => {
-    const sorted = [...childPayments]
-      .filter((payment) => payment.paidAt)
-      .sort((a, b) => new Date(a.paidAt!).getTime() - new Date(b.paidAt!).getTime());
+    const sorted = [...rows]
+      .filter((p) => p.paidAt)
+      .sort(
+        (a, b) => new Date(a.paidAt!).getTime() - new Date(b.paidAt!).getTime(),
+      );
     let cumulativePaid = 0;
     let cumulativeNet = 0;
     const points = sorted.map((payment) => {
@@ -79,52 +114,49 @@ export function ParentFeesScreen() {
       {
         id: "paid",
         label: t("parentFees.cumulativePaid"),
-        color: "var(--success)",
-        points: points.map((point) => ({ x: point.x, value: point.paid })),
+        color: "var(--series-2)",
+        points: points.map((p) => ({ x: p.x, value: p.paid })),
       },
       {
         id: "net",
         label: t("parentFees.cumulativeNet"),
-        color: "var(--info)",
-        points: points.map((point) => ({ x: point.x, value: point.net })),
+        color: "var(--series-1)",
+        points: points.map((p) => ({ x: p.x, value: p.net })),
       },
     ];
-  }, [childPayments, t, formatDate]);
+  }, [rows, t, formatDate]);
 
   const columns: ColumnDef<PaymentRow>[] = [
     {
       id: "courseName",
       header: t("parentFees.course"),
-      cell: ({ row }) => row.original.courseName || "—",
-    },
-    {
-      id: "amount",
-      header: t("parentFees.amount"),
-      cell: ({ row }) => {
-        const isRefund = row.original.amount < 0;
-        return (
-          <span
-            dir="ltr"
-            className={cn(
-              "font-semibold tabular-nums",
-              isRefund ? "text-warning" : "text-success",
-            )}
-          >
-            {isRefund ? "−" : ""}
-            {formatEGP(Math.abs(row.original.amount))}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="text-ink">{row.original.courseName || "—"}</span>
+      ),
     },
     {
       id: "date",
       header: t("parentFees.date"),
-      cell: ({ row }) => (row.original.paidAt ? formatDate(row.original.paidAt) : "—"),
+      cell: ({ row }) =>
+        row.original.paidAt ? (
+          <Figure className="text-[12px] text-ink-2">
+            {formatDate(row.original.paidAt)}
+          </Figure>
+        ) : (
+          <span className="text-ink-3">—</span>
+        ),
     },
     {
       id: "receiptNumber",
       header: t("parentFees.receipt"),
-      cell: ({ row }) => row.original.receiptNumber || "—",
+      cell: ({ row }) =>
+        row.original.receiptNumber ? (
+          <Figure className="text-[12px] text-ink-2">
+            {row.original.receiptNumber}
+          </Figure>
+        ) : (
+          <span className="text-ink-3">—</span>
+        ),
     },
     {
       id: "status",
@@ -132,86 +164,160 @@ export function ParentFeesScreen() {
       cell: ({ row }) => {
         const isRefund = row.original.amount < 0;
         return (
-          <StatusBadge tone={isRefund ? "warning" : "success"}>
+          <span
+            className={
+              isRefund
+                ? "rounded-md bg-rule-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2"
+                : "rounded-md bg-teal-soft px-1.5 py-0.5 text-[11px] font-medium text-teal"
+            }
+          >
             {isRefund ? t("parentFees.refund") : t("status.paid")}
-          </StatusBadge>
+          </span>
         );
       },
+    },
+    {
+      id: "amount",
+      // Numeric columns are end-aligned. Always.
+      header: () => (
+        <span className="block text-end">{t("parentFees.amount")}</span>
+      ),
+      cell: ({ row }) => (
+        <span className="block text-end">
+          <Money
+            amount={row.original.amount}
+            format={formatEGP}
+          />
+        </span>
+      ),
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
         eyebrow={t("roles.parent")}
         title={t("nav.fees")}
         actions={<ChildSelectorBar />}
       />
 
-      {isLoading && childPayments.length === 0 ? (
-        <PageSpinner label={t("parentFees.loadingPayments")} />
+      {isLoading && all.length === 0 ? (
+        <SkeletonRows rows={4} />
       ) : !childId ? (
         <EmptyState icon={Users} title={t("parentFees.noChildren")} />
       ) : (
         <>
-          <Card>
-            <CardContent className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-foreground">
-                  {t("parentFees.dateRange")}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => handleStart(e.target.value)}
-                    className="w-auto"
-                  />
-                  <span className="text-muted-foreground">–</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => handleEnd(e.target.value)}
-                    className="w-auto"
-                  />
-                </div>
-              </div>
-              <Button variant="outline" onClick={() => setRange(null)}>
-                {t("parentFees.reset")}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard label={t("parentFees.paidTotal")} value={formatEGP(paid)} icon={DollarSign} />
-            <StatCard label={t("parentFees.refunds")} value={formatEGP(refunds)} icon={Undo2} />
-            <StatCard label={t("parentFees.netPaid")} value={formatEGP(net)} icon={BarChart3} />
+          {/* Who can pay. This is the honest replacement for a Pay button the
+              API would reject — see the header comment. */}
+          <div className="rounded-xl border border-rule bg-field p-4">
+            <span className="eyebrow">{t("parentFees.payingEyebrow")}</span>
+            <LimitNote className="mt-1.5">
+              {t("parentFees.payLimit")}
+            </LimitNote>
           </div>
+          {/* <PaymentRoute/> — when the payer-vs-beneficiary model lands, the
+              pay affordance belongs HERE, replacing the note above, as a single
+              two-step commit carrying its own amount. Not a per-row button. */}
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">
-              {t("parentFees.paymentHistory")}
-            </h2>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("parentFees.paymentTimeline")}</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <section className="flex flex-col gap-3">
+            <SectionHead
+              eyebrow={t("parentFees.periodEyebrow")}
+              title={t("parentFees.paymentHistory")}
+              action={
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="date"
+                    aria-label={t("parentFees.rangeStart")}
+                    value={range.start}
+                    onChange={(e) =>
+                      setRange((r) => ({ ...r, start: e.target.value }))
+                    }
+                    className="num w-auto"
+                  />
+                  <span aria-hidden className="text-ink-3">
+                    –
+                  </span>
+                  <Input
+                    type="date"
+                    aria-label={t("parentFees.rangeEnd")}
+                    value={range.end}
+                    onChange={(e) =>
+                      setRange((r) => ({ ...r, end: e.target.value }))
+                    }
+                    className="num w-auto"
+                  />
+                  {filtered ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRange({ start: "", end: "" })}
+                    >
+                      {t("parentFees.reset")}
+                    </Button>
+                  ) : null}
+                </div>
+              }
+            />
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Metric
+                label={t("parentFees.paidTotal")}
+                value={<Money amount={paid} format={formatEGP} tone="paid" />}
+                reason={t("parentFees.paidReason", { count: rows.length })}
+              />
+              <Metric
+                label={t("parentFees.refunds")}
+                value={
+                  <Money amount={refunds} format={formatEGP} tone="plain" />
+                }
+                reason={t("parentFees.refundsReason")}
+              />
+              <Metric
+                label={t("parentFees.netPaid")}
+                value={<Money amount={net} format={formatEGP} tone="plain" />}
+                reason={t("parentFees.netReason")}
+              />
+            </div>
+
+            {/* Cumulative timeline. Kept from the previous screen — the
+                redesign is additive; series colours now come from the token
+                layer instead of --success/--info. */}
+            <div className="rounded-xl border border-rule bg-sheet p-4">
+              <span className="eyebrow">
+                {t("parentFees.paymentTimeline")}
+              </span>
+              <div className="mt-3" dir="ltr">
                 <LineChart
                   series={paymentSeries}
                   showArea
                   yValueFormatter={(value) => formatShortEGP(value)}
                   emptyText={t("parentFees.noTimeline")}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
             <DataTable
               columns={columns}
-              data={childPayments}
+              data={rows}
               pageSize={10}
-              emptyState={t("parentFees.noPayments")}
+              emptyState={
+                filtered
+                  ? t("parentFees.noPaymentsInRange")
+                  : t("parentFees.noPayments")
+              }
             />
-          </div>
+
+            {rows.length > 0 ? (
+              <div className="rounded-xl border border-rule bg-sheet px-4 py-3">
+                <TotalLine
+                  label={t("parentFees.netPaid")}
+                  value={
+                    <Money amount={net} format={formatEGP} tone="plain" />
+                  }
+                />
+              </div>
+            ) : null}
+          </section>
         </>
       )}
     </div>
