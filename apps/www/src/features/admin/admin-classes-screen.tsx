@@ -4,10 +4,9 @@
 import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Amount, Badge, Num, PageHead } from "./ledger";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useCreate,
@@ -66,7 +65,7 @@ import { z } from "zod";
 
 export function AdminClassesScreen() {
   const t = useTranslations();
-  const { formatEGP } = useFormatters();
+  const { formatEGP, locale } = useFormatters();
   const { query, result } = useList({ resource: "courses" });
   const { result: teachersResult } = useList({
     resource: "teachers",
@@ -393,16 +392,37 @@ export function AdminClassesScreen() {
         const c = row.original;
         const unpriced = !c.pricePerMonth && !c.pricePerSession;
         return (
-          <div>
+          <div className="flex flex-col items-end gap-0.5">
             {c.pricePerMonth ? (
-              <div className="text-xs">{formatEGP(c.pricePerMonth)}/{t("adminManage.classes.perMonthShort")}</div>
+              <span className="flex items-baseline gap-1">
+                <Amount
+                  piasters={c.pricePerMonth}
+                  locale={locale}
+                  decimals={false}
+                  className="text-[13px] text-[var(--ink)]"
+                />
+                <span className="text-[11px] text-[var(--ink-3)]">
+                  /{t("adminManage.classes.perMonthShort")}
+                </span>
+              </span>
             ) : null}
             {c.pricePerSession ? (
-              <div className="text-xs">{formatEGP(c.pricePerSession)}/{t("adminManage.classes.perSessionShort")}</div>
+              <span className="flex items-baseline gap-1">
+                <Amount
+                  piasters={c.pricePerSession}
+                  locale={locale}
+                  decimals={false}
+                  className="text-[13px] text-[var(--ink)]"
+                />
+                <span className="text-[11px] text-[var(--ink-3)]">
+                  /{t("adminManage.classes.perSessionShort")}
+                </span>
+              </span>
             ) : null}
-            {unpriced ? (
-              <StatusBadge tone="danger">{t("adminManage.classes.unpriced")}</StatusBadge>
-            ) : null}
+            {/* An unpriced class is BLOCKING, not merely failed: students cannot
+                subscribe to it at all, so it is the one thing on this row an
+                operator must act on. */}
+            {unpriced ? <Badge tone="failed">{t("adminManage.classes.unpriced")}</Badge> : null}
           </div>
         );
       },
@@ -414,12 +434,22 @@ export function AdminClassesScreen() {
         const enrolled = row.original.enrolledStudentsCount || 0;
         const max = row.original.maxStudents || 1;
         const pct = Math.min(100, (enrolled / max) * 100);
+        const full = enrolled >= max;
         return (
           <div className="flex w-30 flex-col gap-1">
-            <span className="text-xs">
+            <Num
+              className={`text-xs ${full ? "text-[var(--amber)]" : "text-[var(--ink-2)]"}`}
+            >
               {enrolled}/{max}
-            </span>
-            <Progress value={Math.round(pct)} className="h-1.5" />
+            </Num>
+            {/* The fill bar is the one measured against a total, so it is the
+                "of total" case: teal on --rule grey, never a decorative hue. */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--rule)]">
+              <div
+                className="h-full rounded-full bg-[var(--money)]"
+                style={{ width: `${Math.round(pct)}%` }}
+              />
+            </div>
           </div>
         );
       },
@@ -430,9 +460,7 @@ export function AdminClassesScreen() {
       cell: ({ row }) => {
         const status = row.original.status || "active";
         return (
-          <StatusBadge tone={status === "active" ? "success" : "neutral"}>
-            {statusLabel(status)}
-          </StatusBadge>
+          <Badge tone={status === "active" ? "done" : "neutral"}>{statusLabel(status)}</Badge>
         );
       },
     },
@@ -486,18 +514,19 @@ export function AdminClassesScreen() {
   }));
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("adminManage.classes.title")}
+        subtitle={t("adminManage.classes.subtitle")}
         actions={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-56">
-              <Search className="pointer-events-none absolute inset-s-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute inset-s-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
               <Input
                 placeholder={t("adminManage.classes.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="ps-9 pe-9"
+                className="border-[var(--rule)] bg-[var(--field)] ps-9 pe-9"
               />
               {search ? (
                 <button

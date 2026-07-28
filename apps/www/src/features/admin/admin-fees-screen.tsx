@@ -6,8 +6,6 @@ import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge } from "@/components/kit/status-badge";
 import CopyableText from "@/components/ui/copyable-text";
 import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -51,10 +49,22 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import {
+  Amount,
+  Badge,
+  Computation,
+  Eyebrow,
+  FinalityNotice,
+  Num,
+  PageHead,
+  Sheet,
+  SheetHead,
+  TwoStepCommit,
+} from "./ledger";
 
 export function AdminFeesScreen() {
   const t = useTranslations();
-  const { formatEGP, formatShortEGP, formatDate } = useFormatters();
+  const { formatEGP, formatShortEGP, formatDate, locale } = useFormatters();
   const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [startDraft, setStartDraft] = useState("");
   const [endDraft, setEndDraft] = useState("");
@@ -122,6 +132,18 @@ export function AdminFeesScreen() {
     | { balance: number; available: number; pendingPayouts?: { count: number; amount: number } }
     | undefined;
   const centerPayouts = (centerPayoutsRes?.data ?? []) as any[];
+
+  /**
+   * What the armed button will actually request, in piasters. An empty field
+   * means "everything available" — so the button says that figure rather than
+   * leaving the operator to infer it.
+   */
+  const withdrawPiasters = useMemo(() => {
+    const raw = withdrawEgp.trim();
+    if (raw === "") return centerWallet?.available ?? 0;
+    const egp = Number(raw);
+    return Number.isFinite(egp) && egp > 0 ? Math.round(egp * 100) : 0;
+  }, [withdrawEgp, centerWallet?.available]);
 
   const handleWithdraw = () => {
     const egp = withdrawEgp.trim() === "" ? null : Number(withdrawEgp);
@@ -367,16 +389,18 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.amount"),
       cell: ({ row }) => {
         const record = row.original;
+        // A refund is money leaving the center — red, signed. A receipt is money
+        // arriving — teal. The sign comes from the figure itself, not a prefix
+        // glued onto a formatted string.
         return (
-          <span
+          <Amount
+            piasters={record.type === "refund" ? -(record.amount ?? 0) : (record.amount ?? 0)}
+            locale={locale}
             className={cn(
-              "font-semibold tabular-nums",
-              record.type === "refund" ? "text-warning" : "text-success",
+              "text-[13px] font-semibold",
+              record.type === "refund" ? "text-[var(--red)]" : "text-[var(--teal)]",
             )}
-          >
-            {record.type === "refund" ? "-" : ""}
-            {formatEGP(record.amount)}
-          </span>
+          />
         );
       },
     },
@@ -385,11 +409,16 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.date"),
       cell: ({ row }) => {
         const record = row.original;
-        if (!record.paidAt) return t("adminManage.fees.notAvailable");
+        if (!record.paidAt)
+          return <span className="text-[var(--ink-3)]">{t("adminManage.fees.notAvailable")}</span>;
         try {
-          return formatDate(record.paidAt, { month: "short", day: "numeric", year: "numeric" });
+          return (
+            <Num className="text-xs text-[var(--ink-3)]">
+              {formatDate(record.paidAt, { month: "short", day: "numeric", year: "numeric" })}
+            </Num>
+          );
         } catch {
-          return t("adminManage.fees.notAvailable");
+          return <span className="text-[var(--ink-3)]">{t("adminManage.fees.notAvailable")}</span>;
         }
       },
     },
@@ -414,103 +443,164 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.type"),
       enableSorting: false,
       cell: ({ row }) => (
-        <StatusBadge tone={row.original.type === "refund" ? "warning" : "success"}>
+        <Badge tone={row.original.type === "refund" ? "failed" : "done"}>
           {row.original.type === "refund"
             ? t("adminManage.fees.refund")
             : t("adminManage.fees.receipt")}
-        </StatusBadge>
+        </Badge>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-col gap-5">
+      <PageHead
+        title={t("nav.fees")}
+        subtitle={t("adminManage.fees.subtitle")}
+        actions={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              {t("adminManage.fees.dateRange")}
-            </span>
             <Input
               type="date"
-              className="w-40"
+              dir="ltr"
+              aria-label={t("adminManage.fees.dateFrom")}
+              className="num w-40 border-[var(--rule)] bg-[var(--field)]"
               value={startDraft}
               onChange={(event) => applyRange(event.target.value, endDraft)}
             />
             <Input
               type="date"
-              className="w-40"
+              dir="ltr"
+              aria-label={t("adminManage.fees.dateTo")}
+              className="num w-40 border-[var(--rule)] bg-[var(--field)]"
               value={endDraft}
               onChange={(event) => applyRange(startDraft, event.target.value)}
             />
-          </div>
-          <Button variant="outline" onClick={resetRange}>
-            {t("adminManage.fees.reset")}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          label={t("adminManage.fees.revenueTotal")}
-          value={<span className="text-success">{formatEGP(revenue)}</span>}
-          icon={DollarSign}
-          accent
-        />
-        <StatCard
-          label={t("adminManage.fees.expensesTotal")}
-          value={<span className="text-warning">{formatEGP(expenses)}</span>}
-          icon={FileText}
-        />
-        <StatCard
-          label={t("adminManage.fees.netProfit")}
-          value={<span className="text-info">{formatEGP(netProfit)}</span>}
-          icon={BarChart3}
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("adminManage.fees.walletTitle")}</CardTitle>
-          <CardAction>
-            <Button
-              variant="outline"
-              onClick={() => setIsWithdrawOpen(true)}
-              disabled={(centerWallet?.available ?? 0) <= 0}
-            >
-              <DollarSign className="size-4" />
-              {t("adminManage.fees.walletWithdraw")}
+            <Button variant="ghost" className="text-[13px] text-[var(--ink-2)]" onClick={resetRange}>
+              {t("adminManage.fees.reset")}
             </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard label={t("adminManage.fees.walletBalance")} value={formatEGP(centerWallet?.balance ?? 0)} icon={DollarSign} accent />
-            <StatCard label={t("adminManage.fees.walletAvailable")} value={formatEGP(centerWallet?.available ?? 0)} icon={DollarSign} />
-            <StatCard
-              label={t("adminManage.fees.walletReserved")}
-              value={`${formatEGP(centerWallet?.pendingPayouts?.amount ?? 0)} (${centerWallet?.pendingPayouts?.count ?? 0})`}
-              icon={Receipt}
-            />
           </div>
+        }
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+        {/* The P&L reads as one statement closing on the accountant's rule.
+            Three disconnected stat cards made the operator do the subtraction. */}
+        <Sheet>
+          <SheetHead title={t("adminManage.fees.netProfit")} />
+          <div className="flex flex-col p-[18px]">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] pb-3.5">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminManage.fees.revenueTotal")}
+              </span>
+              <Amount piasters={revenue} locale={locale} className="text-[15px] text-[var(--ink)]" />
+            </div>
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminManage.fees.expensesTotal")}
+              </span>
+              <Amount
+                piasters={-expenses}
+                locale={locale}
+                className="text-[15px] text-[var(--red)]"
+              />
+            </div>
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("adminManage.fees.netProfit")}
+              </span>
+              <Amount
+                piasters={netProfit}
+                locale={locale}
+                className="text-[22px] font-semibold text-[var(--money)]"
+              />
+            </div>
+          </div>
+        </Sheet>
+
+        {/* أموال محتجزة — a real reconciliation, not three tiles. Balance minus
+            what is already committed to pending payouts equals what can move. */}
+        <Sheet>
+          <SheetHead
+            title={t("adminManage.fees.walletTitle")}
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-[var(--rule)]"
+                onClick={() => setIsWithdrawOpen(true)}
+                disabled={(centerWallet?.available ?? 0) <= 0}
+              >
+                {t("adminManage.fees.walletWithdraw")}
+              </Button>
+            }
+          />
+          <div className="flex flex-col p-[18px]">
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] pb-3.5">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminManage.fees.walletBalance")}
+              </span>
+              <Amount
+                piasters={centerWallet?.balance ?? 0}
+                locale={locale}
+                className="text-[15px] text-[var(--ink)]"
+              />
+            </div>
+            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5">
+              <span className="flex items-baseline gap-1.5 text-[13px] text-[var(--ink-2)]">
+                {t("adminManage.fees.walletReserved")}
+                <Num className="text-[11px] text-[var(--ink-3)]">
+                  ({centerWallet?.pendingPayouts?.count ?? 0})
+                </Num>
+              </span>
+              <Amount
+                piasters={-(centerWallet?.pendingPayouts?.amount ?? 0)}
+                locale={locale}
+                className="text-[15px] text-[var(--red)]"
+              />
+            </div>
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("adminManage.fees.walletAvailable")}
+              </span>
+              <Amount
+                piasters={centerWallet?.available ?? 0}
+                locale={locale}
+                className="text-[17px] font-semibold text-[var(--money)]"
+              />
+            </div>
+          </div>
+
           {centerPayouts.length > 0 ? (
-            <div className="space-y-1">
-              <div className="text-sm font-medium">{t("adminManage.fees.walletPayoutHistory")}</div>
+            <div className="border-t border-[var(--rule)]">
+              <div className="border-b border-[var(--rule)] bg-[var(--field)] px-4 py-2.5">
+                <Eyebrow>{t("adminManage.fees.walletPayoutHistory")}</Eyebrow>
+              </div>
               {centerPayouts.slice(0, 5).map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-                  <span className="font-semibold">{formatEGP(p.netPayable ?? 0)}</span>
-                  <StatusBadge
-                    tone={p.status === "paid" ? "success" : p.status === "rejected" ? "danger" : "warning"}
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 border-b border-[var(--rule-2)] px-4 py-2.5 last:border-b-0"
+                >
+                  <Amount
+                    piasters={p.netPayable ?? 0}
+                    locale={locale}
+                    className="text-[13px] font-semibold text-[var(--ink)]"
+                  />
+                  {/* Status was rendered raw from the API — an untranslated
+                      English enum in an Arabic-first screen. */}
+                  <Badge
+                    tone={
+                      p.status === "paid" ? "done" : p.status === "rejected" ? "failed" : "pending"
+                    }
                   >
-                    {p.status}
-                  </StatusBadge>
-                  <span className="text-xs text-muted-foreground">{formatDate(p.createdAt)}</span>
+                    {t(`status.${p.status}` as Parameters<typeof t>[0])}
+                  </Badge>
+                  <Num className="text-[11px] text-[var(--ink-3)]">{formatDate(p.createdAt)}</Num>
                 </div>
               ))}
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </Sheet>
+      </div>
 
       <Dialog
         open={isWithdrawOpen}
@@ -523,28 +613,70 @@ export function AdminFeesScreen() {
           <DialogHeader>
             <DialogTitle>{t("adminManage.fees.walletWithdraw")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("adminManage.fees.walletAvailable")}: <strong>{formatEGP(centerWallet?.available ?? 0)}</strong>
-            </p>
+
+          {/* This is the decision panel: the whole computation before the
+              commit, then a commit that names its own amount. It was a single
+              click on a button labelled only "confirm" — an irreversible payout
+              request against the center's wallet with no figure on the control
+              and no statement of consequence. */}
+          <div className="flex flex-col gap-3">
             <div>
-              <div className="mb-1 text-sm font-medium">{t("adminManage.fees.walletAmountEgp")}</div>
+              <label
+                htmlFor="withdraw-amount"
+                className="mb-1 block text-[13px] font-medium text-[var(--ink)]"
+              >
+                {t("adminManage.fees.walletAmountEgp")}
+              </label>
               <Input
+                id="withdraw-amount"
                 type="number"
                 min="0"
                 step="0.01"
+                dir="ltr"
+                className="num"
                 placeholder={t("adminManage.fees.walletEmptyMeansAll")}
                 value={withdrawEgp}
                 onChange={(e) => setWithdrawEgp(e.target.value)}
               />
             </div>
+
+            <Computation
+              lines={[
+                {
+                  label: t("adminManage.fees.walletBalance"),
+                  value: <Amount piasters={centerWallet?.balance ?? 0} locale={locale} />,
+                },
+                {
+                  label: t("adminManage.fees.walletReserved"),
+                  value: (
+                    <Amount
+                      piasters={-(centerWallet?.pendingPayouts?.amount ?? 0)}
+                      locale={locale}
+                    />
+                  ),
+                  tone: "out",
+                },
+              ]}
+              totalLabel={t("adminManage.fees.walletRequested")}
+              totalValue={<Amount piasters={withdrawPiasters} locale={locale} />}
+            />
+
+            <FinalityNotice>{t("adminManage.fees.walletFinality")}</FinalityNotice>
+
+            <TwoStepCommit
+              // Disarms if the operator edits the amount after arming — the
+              // armed button must never carry a figure that is no longer true.
+              resetKey={withdrawEgp}
+              icon={<DollarSign className="size-4" />}
+              label={t("adminManage.fees.walletArm", {
+                amount: formatEGP(withdrawPiasters),
+              })}
+              armedLabel={t("adminManage.fees.walletConfirmFinal")}
+              busy={payoutMutation.isPending}
+              disabled={withdrawPiasters <= 0}
+              onCommit={handleWithdraw}
+            />
           </div>
-          <DialogFooter>
-            <Button onClick={handleWithdraw} disabled={payoutMutation.isPending}>
-              {payoutMutation.isPending ? <Spinner /> : null}
-              {t("adminManage.fees.walletConfirm")}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

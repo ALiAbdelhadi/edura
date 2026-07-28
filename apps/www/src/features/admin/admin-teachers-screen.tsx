@@ -1,18 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 import { asKey } from "@/lib/i18n/keys";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useDelete, useList } from "@refinedev/core";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +30,16 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import {
+  Badge,
+  DataTable,
+  EmptyState,
+  Num,
+  PageHead,
+  RowIdentity,
+  type BadgeTone,
+  type Column,
+} from "./ledger";
 
 type Teacher = Record<string, any>;
 
@@ -91,112 +96,105 @@ export function AdminTeachersScreen() {
     );
   };
 
-  const columns: ColumnDef<Teacher>[] = [
+  const columns: Column<Teacher>[] = [
     {
       id: "teacher",
       header: t("roles.teacher"),
-      cell: ({ row }) => {
-        const record = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            <Avatar className="size-8">
-              <AvatarFallback className="bg-info/15 text-info">
-                {record.name?.charAt(0)?.toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span>{record.name}</span>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "email",
-      header: t("auth.email"),
+      // Row identity: initials tile + name + the email as a mono ltr second line.
+      cell: (r) => <RowIdentity name={r.name ?? "—"} meta={r.email} />,
     },
     {
       id: "subjects",
       header: t("adminHome.teachers_subjects"),
-      cell: ({ row }) => (row.original.subjects as string[])?.join(", ") || "—",
+      cell: (r) => (
+        <span className="text-[13px] text-[var(--ink-2)]">
+          {(r.subjects as string[])?.join(", ") || "—"}
+        </span>
+      ),
     },
     {
       id: "coursesCount",
       header: t("nav.courses"),
-      cell: ({ row }) => row.original.coursesCount || 0,
+      numeric: true,
+      cell: (r) => <Num className="text-[13px] text-[var(--ink)]">{r.coursesCount || 0}</Num>,
     },
     {
       id: "rating",
       header: t("adminHome.teachers_rating"),
-      cell: ({ row }) => {
-        const record = row.original;
-        return record.rating && record.rating > 0
-          ? `${record.rating.toFixed(1)} (${record.reviewsCount || 0})`
-          : t("adminHome.teachers_noReviews");
-      },
+      numeric: true,
+      cell: (r) =>
+        r.rating && r.rating > 0 ? (
+          <Num className="text-[13px] text-[var(--ink)]">
+            {r.rating.toFixed(1)} ({r.reviewsCount || 0})
+          </Num>
+        ) : (
+          <span className="text-xs text-[var(--ink-3)]">{t("adminHome.teachers_noReviews")}</span>
+        ),
     },
     {
       id: "status",
       header: t("adminHome.teachers_status"),
-      cell: ({ row }) => {
-        const record = row.original;
-        const affiliationStatus = record.affiliation?.status;
-        const status = affiliationStatus || record.status || "active";
-        const tone: StatusTone =
-          status === "active"
-            ? "success"
-            : status === "pending" || record.status === "shell"
-              ? "warning"
-              : "neutral";
-        const label =
-          status === "pending" || record.status === "shell"
-            ? t("adminHome.teachers_pendingInvite")
-            : t(asKey(`status.${status}`));
-        return <StatusBadge tone={tone}>{label}</StatusBadge>;
+      cell: (r) => {
+        const affiliationStatus = r.affiliation?.status;
+        const status = affiliationStatus || r.status || "active";
+        const pending = status === "pending" || r.status === "shell";
+        const tone: BadgeTone = status === "active" ? "done" : pending ? "pending" : "neutral";
+        const label = pending
+          ? t("adminHome.teachers_pendingInvite")
+          : t(asKey(`status.${status}`));
+        return <Badge tone={tone}>{label}</Badge>;
       },
     },
     {
       id: "actions",
       header: t("adminHome.teachers_actions"),
-      cell: ({ row }) => {
-        const record = row.original;
+      // Header text is kept for assistive tech even though the column reads as
+      // a bare action strip — a column with no accessible name is a defect.
+      srOnly: true,
+      numeric: true,
+      cell: (r) => {
         const canRemove =
-          record.affiliation?.status === "active" ||
-          record.affiliation?.status === "pending" ||
-          record.status === "active" ||
-          record.status === "shell";
-        const canReinvite = record.affiliation?.status === "pending" || record.status === "shell";
+          r.affiliation?.status === "active" ||
+          r.affiliation?.status === "pending" ||
+          r.status === "active" ||
+          r.status === "shell";
+        const canReinvite = r.affiliation?.status === "pending" || r.status === "shell";
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1">
+            {canReinvite && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[var(--indigo)]"
+                onClick={() => {
+                  inviteForm.reset({ email: r.email, name: r.name });
+                  setIsInviteOpen(true);
+                }}
+              >
+                {t("adminHome.teachers_reinvite")}
+              </Button>
+            )}
             {canRemove && (
+              // Removal is destructive, so it is never a filled twin of a safe
+              // action — a bordered, text-weight control that still confirms.
               <ConfirmDialog
                 trigger={
                   <Button
-                    variant="link"
+                    variant="ghost"
                     size="sm"
-                    className="text-destructive hover:text-destructive"
+                    className="text-[var(--red)]"
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="size-4" />
                     {t("actions.remove")}
                   </Button>
                 }
-                title={`${t("actions.remove")} ${record.name}?`}
+                title={`${t("actions.remove")} ${r.name}?`}
                 confirmText={t("actions.remove")}
                 cancelText={t("actions.cancel")}
                 destructive
-                onConfirm={() => handleRemove(record.id || record._id)}
+                onConfirm={() => handleRemove(r.id || r._id)}
               />
-            )}
-            {canReinvite && (
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => {
-                  inviteForm.reset({ email: record.email, name: record.name });
-                  setIsInviteOpen(true);
-                }}
-              >
-                {t("adminHome.teachers_reinvite")}
-              </Button>
             )}
           </div>
         );
@@ -205,8 +203,8 @@ export function AdminTeachersScreen() {
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("nav.teachers")}
         actions={
           <Button onClick={() => setIsInviteOpen(true)}>
@@ -218,22 +216,22 @@ export function AdminTeachersScreen() {
 
       <CollaborationPanel role="center" />
 
-      <Card>
-        <CardContent>
-          {query.isLoading ? (
-            <PageSpinner />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={teachers}
-              pageSize={10}
-              emptyState={
-                <EmptyState icon={GraduationCap} title={t("adminHome.teachers_emptyText")} />
-              }
+      {query.isLoading ? (
+        <PageSpinner />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={teachers}
+          rowKey={(r) => String(r.id ?? r._id)}
+          caption={t("nav.teachers")}
+          empty={
+            <EmptyState
+              icon={<GraduationCap className="size-6" />}
+              title={t("adminHome.teachers_emptyText")}
             />
-          )}
-        </CardContent>
-      </Card>
+          }
+        />
+      )}
 
       <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
         <DialogContent>
@@ -241,10 +239,7 @@ export function AdminTeachersScreen() {
             <DialogTitle>{t("adminHome.teachers_inviteTeacher")}</DialogTitle>
           </DialogHeader>
           <Form {...inviteForm}>
-            <form
-              onSubmit={inviteForm.handleSubmit(handleInvite)}
-              className="flex flex-col gap-4"
-            >
+            <form onSubmit={inviteForm.handleSubmit(handleInvite)} className="flex flex-col gap-4">
               <FormField
                 control={inviteForm.control}
                 name="email"
@@ -252,7 +247,7 @@ export function AdminTeachersScreen() {
                   <FormItem>
                     <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="teacher@example.com" {...field} />
+                      <Input dir="ltr" className="num" placeholder="teacher@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -265,21 +260,14 @@ export function AdminTeachersScreen() {
                   <FormItem>
                     <FormLabel>{t("adminHome.teachers_nameOptional")}</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder={t("adminHome.teachers_teacherNamePlaceholder")}
-                        {...field}
-                      />
+                      <Input placeholder={t("adminHome.teachers_teacherNamePlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsInviteOpen(false)}
-                >
+                <Button type="button" variant="outline" onClick={() => setIsInviteOpen(false)}>
                   {t("actions.cancel")}
                 </Button>
                 <Button type="submit" disabled={inviteMutation.isPending}>

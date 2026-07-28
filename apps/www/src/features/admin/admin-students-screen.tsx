@@ -1,35 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import CopyableText from "@/components/ui/copyable-text";
 import FilterBar from "@/components/ui/filter-bar";
 import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  useCustomMutation,
-  useInvalidate,
-  useList,
-  useUpdate,
-} from "@refinedev/core";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@repo/ui/components/alert-dialog";
-import { Button, buttonVariants } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
+import { useCustomMutation, useInvalidate, useList, useUpdate } from "@refinedev/core";
+import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -48,88 +28,24 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
-import { cn } from "@repo/ui/lib/utils";
-import { Ban, Bell, UserPlus, UserRound, Users } from "lucide-react";
+import { Ban, Bell, UserPlus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
-function StudentRowActions({
-  record,
-  onBlacklist,
-  onUnblacklist,
-  pending,
-}: {
-  record: any;
-  onBlacklist: (id: string, reason: string) => void;
-  onUnblacklist: (id: string) => void;
-  pending: boolean;
-}) {
-  const t = useTranslations();
-  const [reason, setReason] = useState("");
-  const [open, setOpen] = useState(false);
-  const id = record.id || record._id;
-  const name = record.name || record.user?.name;
-
-  if (record.blacklisted) {
-    return (
-      <ConfirmDialog
-        trigger={
-          <Button variant="link" size="sm" className="h-auto p-0 text-success">
-            {t("adminHome.students_unblacklist")}
-          </Button>
-        }
-        title={`${t("adminHome.students_unblacklist")} ${name}?`}
-        confirmText={t("adminHome.students_unblacklist")}
-        cancelText={t("actions.cancel")}
-        onConfirm={() => onUnblacklist(id)}
-      />
-    );
-  }
-
-  return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setReason("");
-      }}
-    >
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0 text-destructive"
-        >
-          {t("actions.blacklist")}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{`${t("actions.blacklist")} ${name}?`}</AlertDialogTitle>
-        </AlertDialogHeader>
-        <Input
-          placeholder={t("adminHome.students_reasonRequired")}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-2"
-        />
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            className={cn(buttonVariants({ variant: "destructive" }))}
-            disabled={!reason || pending}
-            onClick={() => onBlacklist(id, reason)}
-          >
-            {pending ? <Spinner /> : null}
-            {t("actions.blacklist")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
+import {
+  Badge,
+  BlacklistCascadePanel,
+  DataTable,
+  EmptyState,
+  MetricCard,
+  Num,
+  PageHead,
+  RowIdentity,
+  Sheet,
+  type BadgeTone,
+  type Column,
+} from "./ledger";
 
 export function AdminStudentsScreen() {
   const t = useTranslations();
@@ -146,6 +62,9 @@ export function AdminStudentsScreen() {
 
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  // The student whose blacklist decision panel is open. Selecting a row does not
+  // open it — only the explicit action does; blacklisting is not a browse action.
+  const [cascadeFor, setCascadeFor] = useState<{ id: string; name: string } | null>(null);
 
   const inviteSchema = z.object({
     email: z
@@ -167,8 +86,7 @@ export function AdminStudentsScreen() {
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       const matchesSearch =
-        (s.name || "").toLowerCase().includes(q) ||
-        (s.email || "").toLowerCase().includes(q);
+        (s.name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q);
       if (!matchesSearch) return false;
     }
     if (statusFilter) {
@@ -182,30 +100,23 @@ export function AdminStudentsScreen() {
     updateStudent(
       { resource: "students", id, values: { blacklisted: false } },
       {
-        onSuccess: () =>
-          toast.success(t("adminHome.students_unblacklistSuccess")),
+        onSuccess: () => toast.success(t("adminHome.students_unblacklistSuccess")),
         onError: (err) =>
-          toast.error(
-            (err as any)?.message || t("adminHome.students_unblacklistFailed"),
-          ),
+          toast.error((err as any)?.message || t("adminHome.students_unblacklistFailed")),
       },
     );
   };
 
   const handleBlacklist = (id: string, reason: string) => {
     updateStudent(
+      { resource: "students", id, values: { blacklisted: true, blacklistReason: reason } },
       {
-        resource: "students",
-        id,
-        values: { blacklisted: true, blacklistReason: reason },
-      },
-      {
-        onSuccess: () =>
-          toast.success(t("adminHome.students_blacklistSuccess")),
+        onSuccess: () => {
+          toast.success(t("adminHome.students_blacklistSuccess"));
+          setCascadeFor(null);
+        },
         onError: (err) =>
-          toast.error(
-            (err as any)?.message || t("adminHome.students_blacklistFailed"),
-          ),
+          toast.error((err as any)?.message || t("adminHome.students_blacklistFailed")),
       },
     );
   };
@@ -215,18 +126,13 @@ export function AdminStudentsScreen() {
       { url: "roster/students/invite", method: "post", values },
       {
         onSuccess: () => {
-          toast.success(
-            `${t("adminHome.students_inviteSent")} ${values.email}`,
-          );
+          toast.success(`${t("adminHome.students_inviteSent")} ${values.email}`);
           inviteForm.reset();
           setIsInviteOpen(false);
           invalidate({ resource: "students", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error(
-            (err as { message?: string })?.message ||
-              t("adminHome.students_inviteFailed"),
-          );
+          toast.error((err as { message?: string })?.message || t("adminHome.students_inviteFailed"));
         },
       },
     );
@@ -237,59 +143,43 @@ export function AdminStudentsScreen() {
   const pendingRequestsCount =
     pendingRequestsResult?.total ?? pendingRequestsResult?.data?.length ?? 0;
 
-  const columns: ColumnDef<any>[] = [
+  const columns: Column<any>[] = [
     {
       id: "name",
       header: t("adminHome.students_colStudent"),
-      cell: ({ row }) => {
-        const record = row.original;
-        const id = String(record.studentId || record.id || record._id || "");
+      cell: (r) => {
+        const id = String(r.studentId || r.id || r._id || "");
+        const name = r.name || r.user?.name || "—";
         return (
-          <div className="flex items-center gap-2">
-            <UserRound className="size-4 text-muted-foreground" />
-            <StudentLink
-              studentId={id}
-              name={record.name || record.user?.name}
-            />
-          </div>
+          <RowIdentity
+            name={<StudentLink studentId={id} name={name} />}
+            initialsFrom={name}
+            meta={r.email || r.user?.email}
+          />
         );
       },
     },
     {
       id: "userId",
       header: t("adminHome.students_colUserId"),
-      cell: ({ row }) => (
-        <CopyableText
-          value={row.original.studentId || row.original.id || row.original._id}
-          label="User ID"
-        />
-      ),
-    },
-    {
-      id: "email",
-      header: t("auth.email"),
-      cell: ({ row }) => row.original.email || row.original.user?.email,
+      cell: (r) => <CopyableText value={r.studentId || r.id || r._id} label="User ID" />,
     },
     {
       id: "coursesCount",
       header: t("nav.courses"),
-      cell: ({ row }) => row.original.coursesCount || 0,
+      numeric: true,
+      cell: (r) => <Num className="text-[13px] text-[var(--ink)]">{r.coursesCount || 0}</Num>,
     },
     {
       id: "status",
       header: t("adminHome.students_status"),
-      cell: ({ row }) => {
-        const record = row.original;
-        if (record.blacklisted) {
-          return (
-            <StatusBadge tone="danger">{t("status.blacklisted")}</StatusBadge>
-          );
-        }
-        const status = record.status || "active";
-        const toneMap: Record<string, StatusTone> = {
-          active: "success",
+      cell: (r) => {
+        if (r.blacklisted) return <Badge tone="failed">{t("status.blacklisted")}</Badge>;
+        const status = r.status || "active";
+        const toneMap: Record<string, BadgeTone> = {
+          active: "done",
           shell: "neutral",
-          suspended: "warning",
+          suspended: "pending",
         };
         const labelMap: Record<string, string> = {
           active: t("status.active"),
@@ -297,63 +187,83 @@ export function AdminStudentsScreen() {
           suspended: t("status.suspended"),
         };
         return (
-          <StatusBadge tone={toneMap[status] || "neutral"}>
-            {labelMap[status] ||
-              status.charAt(0).toUpperCase() + status.slice(1)}
-          </StatusBadge>
+          <Badge tone={toneMap[status] || "neutral"}>
+            {labelMap[status] || status.charAt(0).toUpperCase() + status.slice(1)}
+          </Badge>
         );
       },
     },
     {
       id: "joined",
       header: t("adminHome.students_colJoined"),
-      cell: ({ row }) => {
-        const record = row.original;
-        const dateStr = record.createdAt || record.addedAt;
-        if (!dateStr) return t("adminHome.students_notAvailable");
+      cell: (r) => {
+        const dateStr = r.createdAt || r.addedAt;
+        if (!dateStr)
+          return <span className="text-xs text-[var(--ink-3)]">{t("adminHome.students_notAvailable")}</span>;
         try {
-          return formatDate(dateStr, { month: "short", year: "numeric" });
+          return (
+            <Num className="text-xs text-[var(--ink-3)]">
+              {formatDate(dateStr, { month: "short", year: "numeric" })}
+            </Num>
+          );
         } catch {
-          return t("adminHome.students_notAvailable");
+          return <span className="text-xs text-[var(--ink-3)]">{t("adminHome.students_notAvailable")}</span>;
         }
       },
     },
     {
       id: "actions",
       header: t("adminHome.students_colActions"),
-      cell: ({ row }) => (
-        <StudentRowActions
-          record={row.original}
-          onBlacklist={handleBlacklist}
-          onUnblacklist={handleUnblacklist}
-          pending={updateMutation.isPending}
-        />
-      ),
+      srOnly: true,
+      numeric: true,
+      cell: (r) => {
+        const id = r.id || r._id;
+        const name = r.name || r.user?.name || "—";
+        if (r.blacklisted) {
+          return (
+            <ConfirmDialog
+              trigger={
+                <Button variant="ghost" size="sm" className="text-[var(--teal)]">
+                  {t("adminHome.students_unblacklist")}
+                </Button>
+              }
+              title={`${t("adminHome.students_unblacklist")} ${name}?`}
+              confirmText={t("adminHome.students_unblacklist")}
+              cancelText={t("actions.cancel")}
+              onConfirm={() => handleUnblacklist(id)}
+            />
+          );
+        }
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-[var(--red)]"
+            onClick={() => setCascadeFor({ id, name })}
+          >
+            {t("actions.blacklist")}
+          </Button>
+        );
+      },
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("nav.students")}
         actions={
           <>
             <Suspense fallback={null}>
               <FilterBar
-                searchField={{
-                  key: "q",
-                  placeholder: t("adminHome.students_searchPlaceholder"),
-                }}
+                searchField={{ key: "q", placeholder: t("adminHome.students_searchPlaceholder") }}
                 facets={[
                   {
                     key: "status",
                     placeholder: t("adminHome.students_status"),
                     options: [
                       { label: t("status.active"), value: "active" },
-                      {
-                        label: t("adminHome.students_statusShell"),
-                        value: "shell",
-                      },
+                      { label: t("adminHome.students_statusShell"), value: "shell" },
                       { label: t("status.blacklisted"), value: "blacklisted" },
                     ],
                   },
@@ -369,43 +279,64 @@ export function AdminStudentsScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          href="/dashboard/admin/students"
           label={t("adminHome.students_totalStudents")}
-          value={totalStudents}
-          icon={Users}
-          accent
+          icon={<Users className="size-[15px]" />}
+          tone="indigo"
+          count={totalStudents}
         />
-        <StatCard
+        <MetricCard
+          href="/dashboard/admin/enrollment-requests"
           label={t("adminHome.students_pendingRequests")}
-          value={pendingRequestsCount}
-          icon={Bell}
+          icon={<Bell className="size-[15px]" />}
+          tone="amber"
+          count={pendingRequestsCount}
         />
-        <StatCard
+        <MetricCard
+          href="/dashboard/admin/students"
           label={t("status.blacklisted")}
-          value={<span className="text-destructive">{blacklistedCount}</span>}
-          icon={Ban}
+          icon={<Ban className="size-[15px]" />}
+          tone="red"
+          count={blacklistedCount}
         />
       </div>
 
-      <Card>
-        <CardContent>
-          {query.isLoading ? (
-            <PageSpinner />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={filtered}
-              emptyState={
-                <EmptyState
-                  icon={Users}
-                  title={t("adminHome.students_noStudents")}
-                />
-              }
+      <div className={cascadeFor ? "grid gap-4 xl:grid-cols-[1fr_396px]" : undefined}>
+        {query.isLoading ? (
+          <PageSpinner />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            rowKey={(r) => String(r.id ?? r._id ?? r.studentId)}
+            selectedKey={cascadeFor?.id ?? null}
+            caption={t("nav.students")}
+            empty={
+              <EmptyState icon={<Users className="size-6" />} title={t("adminHome.students_noStudents")} />
+            }
+          />
+        )}
+
+        {cascadeFor ? (
+          <Sheet className="h-fit p-4">
+            <BlacklistCascadePanel
+              studentId={cascadeFor.id}
+              studentName={cascadeFor.name}
+              busy={updateMutation.isPending}
+              onCommit={(reason) => handleBlacklist(cascadeFor.id, reason)}
             />
-          )}
-        </CardContent>
-      </Card>
+            <Button
+              variant="ghost"
+              className="mt-2 w-full text-[13px] text-[var(--ink-2)]"
+              onClick={() => setCascadeFor(null)}
+            >
+              {t("actions.cancel")}
+            </Button>
+          </Sheet>
+        ) : null}
+      </div>
 
       <Dialog
         open={isInviteOpen}
@@ -417,15 +348,13 @@ export function AdminStudentsScreen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("adminHome.students_inviteStudent")}</DialogTitle>
-            <DialogDescription>
-              {t("adminHome.students_inviteHint")}
-            </DialogDescription>
+            <DialogDescription>{t("adminHome.students_inviteHint")}</DialogDescription>
           </DialogHeader>
           <Form {...inviteForm}>
             <form
               id="invite-student-form"
               onSubmit={inviteForm.handleSubmit(handleInvite)}
-              className="space-y-4"
+              className="flex flex-col gap-4"
             >
               <FormField
                 control={inviteForm.control}
@@ -434,11 +363,7 @@ export function AdminStudentsScreen() {
                   <FormItem>
                     <FormLabel>{t("auth.email")}</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="student@example.com"
-                        autoFocus
-                        {...field}
-                      />
+                      <Input dir="ltr" className="num" placeholder="student@example.com" autoFocus {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -449,14 +374,9 @@ export function AdminStudentsScreen() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t("adminHome.students_nameOptional")}
-                    </FormLabel>
+                    <FormLabel>{t("adminHome.students_nameOptional")}</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder={t("adminHome.students_fullName")}
-                        {...field}
-                      />
+                      <Input placeholder={t("adminHome.students_fullName")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -465,11 +385,7 @@ export function AdminStudentsScreen() {
             </form>
           </Form>
           <DialogFooter>
-            <Button
-              type="submit"
-              form="invite-student-form"
-              disabled={inviteMutation.isPending}
-            >
+            <Button type="submit" form="invite-student-form" disabled={inviteMutation.isPending}>
               {inviteMutation.isPending ? <Spinner /> : null}
               {t("actions.sendInvite")}
             </Button>

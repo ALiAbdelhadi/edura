@@ -1,0 +1,339 @@
+/*
+ * الدفتر / The Ledger — token layer, scoped to the center admin + staff portals.
+ *
+ * WHY THIS FILE EXISTS AND WHEN IT DIES
+ * -------------------------------------
+ * The Ledger tokens belong in packages/ui/src/styles/globals.css, replacing the
+ * "Deep Trust" palette. That file is the foundation session's to change, and
+ * four other portal sessions read it. So this session defines the same tokens
+ * under a `.led` scope that only wraps /dashboard/admin/** and
+ * /dashboard/staff/**. Nothing outside those routes sees a changed value.
+ *
+ * When the foundation session lands the global layer: delete this file, drop the
+ * `.led` wrapper from the two layouts, and the component classes below re-point
+ * to the global names unchanged — they already use the ledger vocabulary.
+ *
+ * Values are verbatim from "00 - PROMPT for Claude Code.md" §2 and the hi-fi
+ * reference. Do not tune them here; they are final and shared across six portals.
+ */
+
+.led {
+  --paper: #f7f6f2;
+  --sheet: #ffffff;
+  --field: #fbfaf7;
+  --ink: #1c2230;
+  --ink-2: #5b6273;
+  --ink-3: #8b91a1;
+  --rule: #e4e1d8;
+  --rule-2: #efece4;
+  --indigo: #1a2f73;
+  --indigo-soft: #eaecf6;
+  --indigo-ink: #ffffff;
+  --teal: #0d7d72;
+  --teal-soft: #e2f2f0;
+  --amber: #a35a06;
+  --amber-soft: #fbf0dd;
+  --red: #a81d1d;
+  --red-soft: #fbe9e7;
+  --seal: #0d7d72;
+  --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
+  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22);
+
+  /* Money accent. Teal is "value actually moving"; the spec allows an indigo
+     variant per surface via data-money. Center portals move real cash, so teal. */
+  --money: var(--teal);
+  --money-soft: var(--teal-soft);
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .led {
+  --paper: #14161c;
+  --sheet: #1b1e26;
+  --field: #1f232b;
+  --ink: #eceadf;
+  --ink-2: #a3a49c;
+  --ink-3: #7c7e78;
+  --rule: #2a2d35;
+  --rule-2: #22252c;
+  --indigo: #93a4e6;
+  --indigo-soft: #232840;
+  --indigo-ink: #0d1330;
+  --teal: #54c9bb;
+  --teal-soft: #12302e;
+  --amber: #e0a44a;
+  --amber-soft: #33260f;
+  --red: #ef6a6a;
+  --red-soft: #361b1b;
+  --seal: #54c9bb;
+  --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
+  --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+.led[data-money="indigo"] {
+  --money: var(--indigo);
+  --money-soft: var(--indigo-soft);
+}
+
+/* ------------------------------------------------------- migration shim ----
+ * The legacy "Deep Trust" token names, RE-POINTED to ledger values inside this
+ * scope only.
+ *
+ * Every screen in this portal is built from shadcn utilities bound to these
+ * names (`text-muted-foreground` → --muted-foreground, `border-border` →
+ * --border, and so on). Without this block a screen reads the ledger palette
+ * only where it has been hand-converted, and Deep Trust everywhere else — two
+ * palettes on one page, which is the exact drift the redesign exists to end.
+ *
+ * Re-pointing rather than renaming is deliberate: renaming would touch every
+ * call site across four portal sessions. This is the same shim strategy the
+ * foundation brief prescribes, scoped to two routes instead of the whole app.
+ *
+ * EXIT PATH: as each screen converts to the ledger names, its aliases stop being
+ * read. When the last one converts, delete this block. New code in this folder
+ * uses the ledger names ONLY — never add a new usage of a name below.
+ *
+ * Values are raw channels because the shadcn utilities wrap them in color-mix()
+ * and oklch() calls that require a bare color, not a var() indirection.
+ */
+.led {
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: var(--indigo-ink);
+  --secondary: var(--field);
+  --secondary-foreground: var(--ink);
+  --muted: var(--rule-2);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--indigo-soft);
+  --accent-foreground: var(--indigo);
+  --destructive: var(--red);
+  --destructive-foreground: #ffffff;
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--indigo);
+
+  /* Semantic extensions the screens use directly. */
+  --success: var(--teal);
+  --warning: var(--amber);
+  --info: var(--indigo);
+  --brand-teal: var(--teal);
+
+  /* Charts. The 7-hue decorative palette collapses to the meaning-bearing set;
+     see chart-palette.ts for which series gets which. */
+  --chart-1: var(--indigo);
+  --chart-2: var(--teal);
+  --chart-3: var(--amber);
+  --chart-4: var(--ink-3);
+  --chart-5: var(--red);
+
+  /* Elevation: only two levels exist now. The old xs…lg scale collapses. */
+  --shadow-xs: var(--lift);
+  --shadow-sm: var(--lift);
+  --shadow-md: var(--lift);
+  --shadow-lg: var(--lift-2);
+  --shadow-glow: none;
+
+  /* Cards were 18px; the ledger is 12px. */
+  --radius: 0.75rem;
+}
+
+/* Gradients are gone from the system — the old gradient stat card is replaced
+   by hierarchy, not shine. Neutralise the utilities rather than hunting call
+   sites in four portals. */
+.led .gradient-primary {
+  background: var(--sheet) !important;
+  color: var(--ink) !important;
+}
+.led .shadow-glow {
+  box-shadow: var(--lift) !important;
+}
+
+/* ---------------------------------------------------------------- figures --
+ * "Every figure is monospaced" is the system's highest-signal device, and it
+ * doubles as the fix for unsystematised Latin-inside-Arabic (emails, STU- codes,
+ * TRX- refs, phone numbers).
+ */
+.led .num {
+  font-family: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mono eyebrow. `text-transform: uppercase` is applied ONLY here and only ever
+   reaches Latin strings — Arabic has no case and must never be transformed. */
+.led .lg-eyebrow {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+.led .lg-eyebrow[data-latin="true"] {
+  text-transform: uppercase;
+}
+
+/* ----------------------------------------------------------------- sheets -- */
+.led .lg-card {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: var(--lift);
+}
+.led .lg-card[data-blocking="true"] {
+  border-color: var(--red);
+}
+.led .lg-field {
+  background: var(--field);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+
+/* The accountant's rule. Every "الإجمالي / net" line closes on this.
+ *
+ * The spec says `2px double`, but CSS cannot draw a double border under 3px —
+ * the two lines and the gap need one pixel each, so at 2px every browser
+ * silently falls back to a solid line and the device disappears. 3px is the
+ * minimum that actually renders as two rules, which is the point of it. */
+.led .lg-total {
+  border-top: 3px double var(--ink);
+}
+
+/* ----------------------------------------------------------------- tables --
+ * Three densities. `compact` is the admin default (desktop, dense record work).
+ * `touch` is this session's definition for the counter — see DECISIONS entry:
+ * 48px minimum target, 16px minimum type, 12px minimum gap, nothing actionable
+ * at 12px. A receptionist is standing, one-handed, with a queue behind them.
+ */
+.led .lg-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.led .lg-table thead th {
+  background: var(--field);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  text-align: start;
+  white-space: nowrap;
+}
+.led .lg-table thead th[data-latin="true"] {
+  text-transform: uppercase;
+}
+.led .lg-table tbody tr {
+  border-bottom: 1px solid var(--rule-2);
+}
+.led .lg-table tbody tr:last-child {
+  border-bottom: 0;
+}
+.led .lg-table tbody tr[data-clickable="true"]:hover {
+  background: var(--rule-2);
+  cursor: pointer;
+}
+.led .lg-table tbody tr[data-selected="true"] {
+  background: var(--indigo-soft);
+  box-shadow: inset 3px 0 0 var(--indigo);
+}
+.led .lg-table td[data-numeric="true"],
+.led .lg-table th[data-numeric="true"] {
+  text-align: end;
+}
+
+.led[data-density="compact"] .lg-table th {
+  height: 34px;
+  padding: 0 12px;
+}
+.led[data-density="compact"] .lg-table td {
+  padding: 7px 12px;
+}
+.led[data-density="comfortable"] .lg-table th {
+  height: 42px;
+  padding: 0 14px;
+}
+.led[data-density="comfortable"] .lg-table td {
+  padding: 13px 14px;
+}
+.led[data-density="touch"] .lg-table th {
+  height: 48px;
+  padding: 0 16px;
+  font-size: 11px;
+}
+.led[data-density="touch"] .lg-table td {
+  padding: 16px;
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------- the seal ----
+ * The entire app's motion budget is this one animation: the stamp on a row that
+ * just became permanent. Everything else is instant or a <=120ms tint.
+ */
+@keyframes lg-seal-in {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(1.3);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-6deg) scale(1);
+  }
+}
+.led .lg-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--seal);
+  border: 1px solid var(--seal);
+  border-radius: 4px;
+  padding: 1px 5px;
+  transform: rotate(-6deg);
+  animation: lg-seal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* In RTL the stamp mirrors, or it reads as leaning the wrong way against the
+   text flow. The rotation is directional, unlike the lock/shield icon set. */
+[dir="rtl"] .led .lg-seal {
+  transform: rotate(6deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .led .lg-seal {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ focus --
+ * Visible focus ring on every interactive element — the current app ships
+ * shadcn defaults only.
+ */
+.led a:focus-visible,
+.led button:focus-visible,
+.led [tabindex]:focus-visible,
+.led input:focus-visible,
+.led select:focus-visible,
+.led textarea:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Scrollbars, so a dense table does not carry a chrome-grey slab down its side. */
+.led ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.led ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.led ::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 8px;
+}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -9,13 +10,6 @@ import { Plus, Pencil, Trash2, DollarSign } from "lucide-react";
 import dayjs from "dayjs";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardAction,
-  CardContent,
-} from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
@@ -42,11 +36,19 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { toast } from "@repo/ui/components/sonner";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import {
+  Amount,
+  Badge,
+  DataTable,
+  EmptyState,
+  Num,
+  PageHead,
+  Sheet,
+  type BadgeTone,
+  type Column,
+} from "./ledger";
 
 const CATEGORIES = [
   "rent",
@@ -59,13 +61,19 @@ const CATEGORIES = [
 ] as const;
 type Category = (typeof CATEGORIES)[number];
 
-const categoryTone: Record<Category, StatusTone> = {
-  rent: "info",
-  utilities: "info",
-  salaries: "primary",
-  supplies: "info",
-  marketing: "primary",
-  maintenance: "warning",
+/**
+ * Category is a label, not a state — so it is NOT coloured semantically. Amber
+ * would mean "waiting" and teal would mean "money confirmed"; neither is true of
+ * "rent". Everything stays neutral except maintenance, which is the one category
+ * an operator scans for as an exception.
+ */
+const categoryTone: Record<Category, BadgeTone> = {
+  rent: "neutral",
+  utilities: "neutral",
+  salaries: "neutral",
+  supplies: "neutral",
+  marketing: "neutral",
+  maintenance: "pending",
   other: "neutral",
 };
 
@@ -80,9 +88,8 @@ type Expense = {
 
 export function AdminExpensesScreen() {
   const t = useTranslations();
-  const { formatEGP, formatDate } = useFormatters();
-  const categoryLabel = (c: Category) =>
-    t(`adminManage.expenses.categories.${c}`);
+  const { formatDate, locale } = useFormatters();
+  const categoryLabel = (c: Category) => t(`adminManage.expenses.categories.${c}`);
   const { query, result } = useList<Expense>({
     resource: "expenses",
     pagination: { mode: "off" },
@@ -91,7 +98,7 @@ export function AdminExpensesScreen() {
   const { mutate: updateExpense, mutation: updateMutation } = useUpdate();
   const { mutate: deleteExpense } = useDelete();
 
-  const expenses = (result?.data ?? []) as Expense[];
+  const expenses = useMemo(() => (result?.data ?? []) as Expense[], [result]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Expense | null>(null);
@@ -101,8 +108,7 @@ export function AdminExpensesScreen() {
   const sortedExpenses = useMemo(
     () =>
       [...expenses].sort(
-        (a, b) =>
-          dayjs(b.expenseDate).valueOf() - dayjs(a.expenseDate).valueOf(),
+        (a, b) => dayjs(b.expenseDate).valueOf() - dayjs(a.expenseDate).valueOf(),
       ),
     [expenses],
   );
@@ -136,9 +142,7 @@ export function AdminExpensesScreen() {
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) {
-      form.reset(defaultValues);
-    }
+    if (!open) form.reset(defaultValues);
   };
 
   const openCreate = () => {
@@ -176,15 +180,10 @@ export function AdminExpensesScreen() {
     };
     if (editTarget) {
       updateExpense(
-        {
-          resource: "expenses",
-          id: editTarget.id || editTarget._id || "",
-          values: payload,
-        },
+        { resource: "expenses", id: editTarget.id || editTarget._id || "", values: payload },
         {
           onSuccess: onDone,
-          onError: (err: any) =>
-            toast.error(err?.message || t("adminManage.expenses.failed")),
+          onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.failed")),
         },
       );
     } else {
@@ -192,8 +191,7 @@ export function AdminExpensesScreen() {
         { resource: "expenses", values: payload },
         {
           onSuccess: onDone,
-          onError: (err: any) =>
-            toast.error(err?.message || t("adminManage.expenses.failed")),
+          onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.failed")),
         },
       );
     }
@@ -203,77 +201,74 @@ export function AdminExpensesScreen() {
     deleteExpense(
       { resource: "expenses", id },
       {
-        onSuccess: () =>
-          toast.success(t("adminManage.expenses.expenseDeleted")),
-        onError: (err: any) =>
-          toast.error(err?.message || t("adminManage.expenses.deleteFailed")),
+        onSuccess: () => toast.success(t("adminManage.expenses.expenseDeleted")),
+        onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.deleteFailed")),
       },
     );
   };
 
-  const columns: ColumnDef<Expense>[] = [
+  const columns: Column<Expense>[] = [
     {
-      accessorKey: "expenseDate",
+      id: "expenseDate",
       header: t("adminManage.expenses.date"),
-      cell: ({ row }) => formatDate(row.original.expenseDate),
-      sortingFn: (a, b) =>
-        dayjs(a.original.expenseDate).valueOf() -
-        dayjs(b.original.expenseDate).valueOf(),
-    },
-    {
-      accessorKey: "category",
-      header: t("adminManage.expenses.category"),
-      enableSorting: false,
-      cell: ({ row }) => (
-        <StatusBadge tone={categoryTone[row.original.category]}>
-          {categoryLabel(row.original.category)}
-        </StatusBadge>
+      cell: (r) => (
+        <Num className="text-xs text-[var(--ink-3)]">{formatDate(r.expenseDate)}</Num>
       ),
     },
     {
-      accessorKey: "description",
+      id: "category",
+      header: t("adminManage.expenses.category"),
+      cell: (r) => <Badge tone={categoryTone[r.category]}>{categoryLabel(r.category)}</Badge>,
+    },
+    {
+      id: "description",
       header: t("adminManage.expenses.description"),
-      enableSorting: false,
-      cell: ({ row }) =>
-        row.original.description || (
-          <span className="text-muted-foreground">—</span>
+      cell: (r) =>
+        r.description ? (
+          <span className="text-[13px] text-[var(--ink)]">{r.description}</span>
+        ) : (
+          <span className="text-[var(--ink-3)]">—</span>
         ),
     },
     {
-      accessorKey: "amount",
+      id: "amount",
       header: t("adminManage.expenses.amount"),
-      cell: ({ row }) => (
-        <span className="block text-end font-semibold tabular-nums">
-          {formatEGP(row.original.amount)}
-        </span>
+      numeric: true,
+      // Money leaving the center — red, with its sign, end-aligned.
+      cell: (r) => (
+        <Amount
+          piasters={-(r.amount ?? 0)}
+          locale={locale}
+          className="text-[13px] font-semibold text-[var(--red)]"
+        />
       ),
     },
     {
       id: "actions",
-      header: "",
-      enableSorting: false,
-      cell: ({ row }) => {
-        const record = row.original;
-        const id = record.id || record._id || "";
+      // Was `header: ""` — the column had no accessible name at all.
+      header: t("adminHome.students_colActions"),
+      srOnly: true,
+      numeric: true,
+      cell: (r) => {
+        const id = r.id || r._id || "";
         return (
           <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
-              size="icon-sm"
-              aria-label={t("actions.edit")}
-              onClick={() => openEdit(record)}
+              size="sm"
+              className="text-[var(--ink-2)]"
+              onClick={() => openEdit(r)}
             >
               <Pencil className="size-4" />
+              {t("actions.edit")}
             </Button>
+            {/* Never a bare icon for a destructive action — it carries its label
+                and still confirms. */}
             <ConfirmDialog
               trigger={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("actions.delete")}
-                  className="text-destructive hover:text-destructive"
-                >
+                <Button variant="ghost" size="sm" className="text-[var(--red)]">
                   <Trash2 className="size-4" />
+                  {t("actions.delete")}
                 </Button>
               }
               title={t("adminManage.expenses.deleteConfirm")}
@@ -291,41 +286,53 @@ export function AdminExpensesScreen() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex flex-wrap items-center gap-2">
-            <DollarSign className="size-4" />
-            <span>{t("common.expenses")}</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              · {t("common.total")}: {formatEGP(total)}
-            </span>
-          </CardTitle>
-          <CardAction>
-            <Button onClick={openCreate}>
-              <Plus className="size-4" />
-              {t("adminManage.expenses.recordExpense")}
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          {query.isLoading ? (
-            <PageSpinner />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={sortedExpenses}
-              pageSize={10}
-              emptyState={
-                <EmptyState
-                  icon={DollarSign}
-                  title={t("adminManage.expenses.noExpenses")}
+    <div className="flex flex-col gap-5">
+      <PageHead
+        title={t("common.expenses")}
+        subtitle={t("adminManage.expenses.subtitle")}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            {t("adminManage.expenses.recordExpense")}
+          </Button>
+        }
+      />
+
+      {query.isLoading ? (
+        <PageSpinner />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={sortedExpenses}
+            rowKey={(r) => String(r.id ?? r._id)}
+            caption={t("common.expenses")}
+            empty={
+              <EmptyState
+                icon={<DollarSign className="size-6" />}
+                title={t("adminManage.expenses.noExpenses")}
+              />
+            }
+          />
+
+          {/* The total closes on the accountant's double rule, outside the table
+              so it is never mistaken for a row. */}
+          {sortedExpenses.length > 0 ? (
+            <Sheet className="px-[18px] py-3">
+              <div className="lg-total flex items-baseline justify-between gap-3 pt-2.5">
+                <span className="text-[13px] font-semibold text-[var(--ink)]">
+                  {t("common.total")}
+                </span>
+                <Amount
+                  piasters={-total}
+                  locale={locale}
+                  className="text-[17px] font-semibold text-[var(--red)]"
                 />
-              }
-            />
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            </Sheet>
+          ) : null}
+        </>
+      )}
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent>
@@ -340,7 +347,7 @@ export function AdminExpensesScreen() {
             <form
               onSubmit={form.handleSubmit(handleSubmit)}
               autoComplete="off"
-              className="space-y-4"
+              className="flex flex-col gap-4"
             >
               <FormField
                 control={form.control}
@@ -350,7 +357,7 @@ export function AdminExpensesScreen() {
                     <FormLabel>{t("adminManage.expenses.amountEgp")}</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-sm text-muted-foreground">
+                        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-sm text-[var(--ink-3)]">
                           EGP
                         </span>
                         <Input
@@ -358,7 +365,8 @@ export function AdminExpensesScreen() {
                           min={0.01}
                           step={1}
                           inputMode="decimal"
-                          className="ps-12"
+                          dir="ltr"
+                          className="num ps-12"
                           name={field.name}
                           ref={field.ref}
                           onBlur={field.onBlur}
@@ -366,9 +374,7 @@ export function AdminExpensesScreen() {
                           onChange={(e) => {
                             const v = e.target.valueAsNumber;
                             field.onChange(
-                              e.target.value === "" || Number.isNaN(v)
-                                ? undefined
-                                : v,
+                              e.target.value === "" || Number.isNaN(v) ? undefined : v,
                             );
                           }}
                         />
@@ -409,9 +415,7 @@ export function AdminExpensesScreen() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t("adminManage.expenses.description")}
-                    </FormLabel>
+                    <FormLabel>{t("adminManage.expenses.description")}</FormLabel>
                     <FormControl>
                       <Textarea
                         rows={2}
@@ -433,7 +437,7 @@ export function AdminExpensesScreen() {
                   <FormItem>
                     <FormLabel>{t("adminManage.expenses.date")}</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date" dir="ltr" className="num" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -441,18 +445,12 @@ export function AdminExpensesScreen() {
               />
 
               <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                >
+                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                   {t("actions.cancel")}
                 </Button>
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? <Spinner /> : null}
-                  {editTarget
-                    ? t("actions.save")
-                    : t("adminManage.expenses.record")}
+                  {editTarget ? t("actions.save") : t("adminManage.expenses.record")}
                 </Button>
               </DialogFooter>
             </form>

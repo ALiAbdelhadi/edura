@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 import { api } from "@/lib/api/client";
+import { plexMono } from "@/features/admin/ledger";
+import "@/features/admin/ledger/ledger.css";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 
@@ -78,7 +80,12 @@ function StaffShell({ children }: { children: React.ReactNode }) {
 
   return (
     <DashboardShell role="center_staff" navItems={navForRole(role)}>
-      {children}
+      {/* `touch` — staff work standing, one-handed, on a phone, with a parent in
+          front of them and a queue behind. 48px targets, 16px type, 12px gaps;
+          nothing actionable at 12px. Same components as admin, one prop apart. */}
+      <div className={`led ${plexMono.variable}`} data-density="touch">
+        {children}
+      </div>
     </DashboardShell>
   );
 }

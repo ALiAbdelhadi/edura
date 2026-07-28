@@ -2,9 +2,7 @@
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenities";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,10 +31,10 @@ import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { Check, ChevronLeft, ChevronRight, Eye, Home, ImageIcon, ImagePlus, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Amount, MetricCard, PageHead } from "./ledger";
 
 type Room = {
   id?: string;
@@ -234,9 +232,10 @@ export function AdminRoomsScreen() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="flex flex-col gap-5">
+      <PageHead
         title={t("nav.rooms")}
+        subtitle={t("adminManage.rooms.subtitle")}
         actions={
           <Button onClick={handleOpenCreate}>
             <Plus className="size-4" />
@@ -245,8 +244,15 @@ export function AdminRoomsScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard accent label={t("adminManage.rooms.totalRooms")} value={rooms.length} icon={Home} />
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          href="/dashboard/admin/rooms"
+          label={t("adminManage.rooms.totalRooms")}
+          icon={<Home className="size-[15px]" />}
+          tone="indigo"
+          count={rooms.length}
+          fact={t("adminManage.rooms.totalRoomsFact")}
+        />
       </div>
 
       {query.isLoading ? (
@@ -267,22 +273,52 @@ export function AdminRoomsScreen() {
               <Card key={id} className="flex flex-col overflow-hidden p-0">
                 <div className="relative aspect-video w-full bg-muted">
                   {cover ? (
-                    <Image src={cover} alt={room.name} className="h-full w-full object-cover" />
+                    /*
+                     * Deliberately a plain <img>, not next/image.
+                     *
+                     * This screen CRASHED on load for any room with a cover
+                     * photo: next/image throws for a remote src with no
+                     * intrinsic dimensions, and then throws again because the
+                     * host is not in `images.remotePatterns`. Room covers are
+                     * arbitrary remote URLs — Cloudinary in production, other
+                     * hosts in demo data — so no fixed allowlist makes
+                     * next/image safe here, and next.config.ts is app-level,
+                     * not this session's to change.
+                     *
+                     * The trade is losing optimisation on a decorative
+                     * thumbnail. A screen that renders is worth more.
+                     */
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={cover}
+                      alt={room.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
                       <Home className="size-10" />
                     </div>
                   )}
                   {(room.photos?.length ?? 0) > 1 ? (
-                    <Badge variant="secondary" className="absolute inset-e-2 top-2 gap-1 bg-black/60 text-white">
+                    <span className="num absolute inset-e-2 top-2 flex items-center gap-1 rounded-[5px] bg-[var(--ink)]/70 px-1.5 py-px text-[11px] font-semibold text-[var(--sheet)]">
                       <ImageIcon className="size-3" />
                       {room.photos!.length}
-                    </Badge>
+                    </span>
                   ) : null}
                   {room.price != null ? (
-                    <Badge className="absolute bottom-2 inset-s-2 bg-primary text-primary-foreground">
-                      {formatEGP(room.price)}
-                    </Badge>
+                    // A price is money, so it is teal and mono — not the indigo
+                    // brand fill, which would read as a primary action.
+                    <span className="absolute bottom-2 inset-s-2 rounded-[5px] bg-[var(--teal-soft)] px-2 py-0.5 text-[var(--teal)]">
+                      <Amount
+                        piasters={room.price}
+                        locale={locale}
+                        decimals={false}
+                        className="text-[13px] font-semibold"
+                        currencyClassName="ms-1 text-[10px] font-medium"
+                      />
+                    </span>
                   ) : null}
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
@@ -332,21 +368,20 @@ export function AdminRoomsScreen() {
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
+                      className="text-[var(--ink-2)]"
                       onClick={() => handleOpenEdit(room)}
-                      aria-label={t("actions.edit")}
                     >
                       <Pencil className="size-4" />
+                      {t("actions.edit")}
                     </Button>
+                    {/* Never a bare icon for a destructive action — an operator
+                        should not have to hover a glyph to learn it deletes. */}
                     <ConfirmDialog
                       trigger={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          aria-label={t("actions.delete")}
-                        >
+                        <Button variant="ghost" size="sm" className="text-[var(--red)]">
                           <Trash2 className="size-4" />
+                          {t("actions.delete")}
                         </Button>
                       }
                       title={t("adminManage.rooms.deleteRoomTitle")}
@@ -551,7 +586,16 @@ export function AdminRoomsScreen() {
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((url, i) => (
                       <div key={url} className="group relative aspect-video overflow-hidden rounded-md border">
-                        <Image src={url} alt="" className="h-full w-full object-cover" />
+                        {/* Same reason as the card cover above — arbitrary
+                            remote host, and next/image throws on both counts. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
                         {i === 0 ? (
                           <span className="absolute inset-s-1 top-1 rounded bg-primary px-1 text-[10px] text-primary-foreground">
                             {t("adminManage.rooms.coverPhoto")}

@@ -2,19 +2,28 @@
 "use client";
 
 import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
-import { PageHeader } from "@/components/kit/page-header";
-import { Spinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { Banknote, CheckCircle2, DoorOpen, Search, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import {
+  Amount,
+  Badge,
+  Computation,
+  EmptyState,
+  Eyebrow,
+  Num,
+  PageHead,
+  RowIdentity,
+  Sheet,
+  SheetHead,
+  TwoStepCommit,
+} from "./ledger";
 
 type Match = {
   studentId: string;
@@ -35,9 +44,53 @@ type SessionOption = {
   pricePerSession: number | null;
 };
 
+type ApiError = {
+  status: number;
+  code?: string;
+  message?: string;
+  details?: Record<string, unknown>;
+};
+
+/**
+ * ky throws an HTTPError carrying the raw fetch Response; the envelope
+ * (`{ error: { code, message, details } }`) is only readable by consuming it.
+ * Refine's data provider maps errors down to `{ message, statusCode }` and drops
+ * `code` and `details`, so the counter could never see the price the server had
+ * already computed — every uncovered student surfaced as ky's generic English
+ * "Request failed with status code 402". Read the envelope directly instead.
+ */
+async function readApiError(err: unknown): Promise<ApiError> {
+  const res = (err as { response?: Response })?.response;
+  if (!res || typeof res.clone !== "function") return { status: 0 };
+  try {
+    const body = (await res.clone().json()) as {
+      error?: { code?: string; message?: string; details?: Record<string, unknown> };
+    };
+    return {
+      status: res.status,
+      code: body.error?.code,
+      message: body.error?.message,
+      details: body.error?.details,
+    };
+  } catch {
+    return { status: res.status };
+  }
+}
+
+/**
+ * تشيك-إن الكاونتر — the counter.
+ *
+ * The surface furthest from a ledger and the one where the underlying principle
+ * is strongest. A receptionist is standing, one-handed, with a parent in front
+ * of them and a queue behind. Deliberation is the wrong virtue; certainty is the
+ * right one, and the screen answers one question instantly: did this commit?
+ *
+ * Rendered at `touch` density under /dashboard/staff and `compact` under
+ * /dashboard/admin — one prop, set on the `.led` wrapper in each layout.
+ */
 export function AdminCheckinScreen() {
   const t = useTranslations();
-  const { formatEGP } = useFormatters();
+  const { formatEGP, locale } = useFormatters();
   const { mutateAsync: post } = useCustomMutation();
 
   const [q, setQ] = useState("");
@@ -57,12 +110,22 @@ export function AdminCheckinScreen() {
   } | null>(null);
   const [walkName, setWalkName] = useState("");
   const [walkPhone, setWalkPhone] = useState("");
+  // The payment step is part of the check-in flow, not a separate screen: it
+  // attaches to the one session row it belongs to and carries the server's price.
+  const [payment, setPayment] = useState<{
+    sessionId: string;
+    courseTitle: string;
+    pricePerSession: number | null;
+  } | null>(null);
+
+  const clearPayment = () => setPayment(null);
 
   const search = async () => {
     if (q.trim().length < 2) return;
     setBusy(true);
     setStudent(null);
     setSessions(null);
+    clearPayment();
     try {
       const res = await api.get(`center/checkin/lookup?q=${encodeURIComponent(q.trim())}`).json<{ data: Match[] }>();
       setMatches(res.data);
@@ -76,6 +139,7 @@ export function AdminCheckinScreen() {
   const pickStudent = async (m: Match) => {
     setStudent(m);
     setMatches(null);
+    clearPayment();
     setBusy(true);
     try {
       const res = await api
@@ -89,43 +153,78 @@ export function AdminCheckinScreen() {
     }
   };
 
-  const checkin = async (s: SessionOption, payFirst: boolean) => {
+  /** Posts the check-in and reports the resulting stage. Shared by both entries
+   *  into the flow — the direct one and the one that follows cash collection. */
+  const commitCheckin = async (s: SessionOption) => {
+    if (!student) return;
+    const res = await api
+      .post("center/checkin", { json: { studentId: student.studentId, sessionId: s.sessionId } })
+      .json<{ data: { status?: string } }>();
+    toast.success(
+      res.data?.status === "present"
+        ? t("shared.checkin.present")
+        : t("shared.checkin.counterDone"),
+    );
+    clearPayment();
+    await pickStudent(student); // refresh coverage states
+  };
+
+  /**
+   * Entry to the flow. An uncovered student is not an error — it is the next
+   * step, so it never surfaces as a red toast. Where the suggest response
+   * already says the session is uncovered we go straight to collection instead
+   * of firing a request we know will 402; where that answer is stale, the
+   * server's `needs_payment` lands on the same step. One flow, two doors.
+   */
+  const startCheckin = async (s: SessionOption) => {
+    if (!student) return;
+    if (!s.covered) {
+      setPayment({
+        sessionId: s.sessionId,
+        courseTitle: s.courseTitle,
+        pricePerSession: s.pricePerSession,
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      await commitCheckin(s);
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.code === "needs_payment") {
+        const dt = e.details ?? {};
+        setPayment({
+          sessionId: s.sessionId,
+          courseTitle: (dt.courseTitle as string | undefined) ?? s.courseTitle,
+          pricePerSession: (dt.pricePerSession as number | null | undefined) ?? s.pricePerSession,
+        });
+      } else {
+        toast.error(e.message || t("shared.checkin.checkinFailed"));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** The armed commit: take the cash, then check in, without leaving the row. */
+  const collectAndCheckin = async (s: SessionOption) => {
     if (!student) return;
     setBusy(true);
     try {
-      if (payFirst) {
-        await post({
-          url: "center/subscriptions",
-          method: "post",
-          values: {
-            studentId: student.studentId,
-            courseId: sessionCourse(s),
-            plan: "per_session",
-            sessionId: s.sessionId,
-            markAttendance: false,
-          },
-        });
-        toast.success(t("shared.checkin.cashCollected"));
-      }
-      const res = await post({
-        url: "center/checkin",
-        method: "post",
-        values: { studentId: student.studentId, sessionId: s.sessionId },
+      await api.post("center/subscriptions", {
+        json: {
+          studentId: student.studentId,
+          courseId: sessionCourse(s),
+          plan: "per_session",
+          sessionId: s.sessionId,
+          markAttendance: false,
+        },
       });
-      const data = (res as any)?.data?.data ?? (res as any)?.data;
-      if (data?.status === "present") {
-        toast.success(t("shared.checkin.present"));
-      } else {
-        toast.success(t("shared.checkin.counterDone"));
-      }
-      await pickStudent(student); // refresh coverage states
-    } catch (err: any) {
-      const detail = err?.response;
-      if (err?.message?.includes("no coverage") || detail?.status === 402) {
-        toast.error(t("shared.checkin.needsPayment"));
-      } else {
-        toast.error(err?.message || t("shared.checkin.checkinFailed"));
-      }
+      toast.success(t("shared.checkin.cashCollected"));
+      await commitCheckin(s);
+    } catch (err) {
+      const e = await readApiError(err);
+      toast.error(e.message || t("shared.checkin.checkinFailed"));
     } finally {
       setBusy(false);
     }
@@ -239,80 +338,162 @@ export function AdminCheckinScreen() {
     }
   };
 
-  const sessionButton = (s: SessionOption, suggested: boolean) => (
-    <div
-      key={s.sessionId}
-      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-    >
-      <div className="min-w-0">
-        <div className="font-medium">{s.courseTitle}</div>
-        <div className="text-xs text-muted-foreground" dir="ltr">
-          {s.startTime}–{s.endTime}
-        </div>
-        {suggested ? (
-          <StatusBadge tone="success">{t("shared.checkin.coveredBadge")}</StatusBadge>
-        ) : null}
+  /**
+   * The payment step, inside the session row it belongs to rather than in a
+   * modal — the operator must see which session they are collecting for while
+   * they collect. Money treatment in full: the computation, the double-rule
+   * total, and a commit that names its own amount.
+   */
+  const paymentStep = (s: SessionOption) => {
+    const price = payment?.pricePerSession ?? null;
+    return (
+      <div className="border-t border-[var(--rule)] bg-[var(--amber-soft)]/40 p-4">
+        <Eyebrow>{t("shared.checkin.needsPaymentTitle")}</Eyebrow>
+        <p className="mt-1.5 mb-3 text-[13px] leading-relaxed text-[var(--ink-2)]">
+          {t("shared.checkin.needsPaymentBody", {
+            course: payment?.courseTitle ?? s.courseTitle,
+          })}
+        </p>
+
+        {price == null ? (
+          <p className="m-0 text-[13px] text-[var(--ink-2)]">
+            {t("shared.checkin.noSessionPrice")}
+          </p>
+        ) : (
+          <>
+            <Computation
+              lines={[
+                {
+                  label: payment?.courseTitle ?? s.courseTitle,
+                  value: <Amount piasters={price} locale={locale} />,
+                },
+              ]}
+              totalLabel={t("shared.checkin.cashDue")}
+              totalValue={<Amount piasters={price} locale={locale} />}
+            />
+            <div className="mt-3">
+              <TwoStepCommit
+                // Row change disarms: the key is the session being paid for.
+                resetKey={payment?.sessionId ?? null}
+                icon={<Banknote className="size-4" />}
+                label={t("shared.checkin.armCollect", { price: formatEGP(price) })}
+                armedLabel={t("shared.checkin.confirmCollect", { price: formatEGP(price) })}
+                busy={busy}
+                onCommit={() => collectAndCheckin(s)}
+                // Thumb reach at the counter; inline at a desk.
+                anchor="viewport-bottom"
+              />
+              <button
+                type="button"
+                onClick={clearPayment}
+                className="mt-2 h-11 w-full rounded-lg text-[13px] font-medium text-[var(--ink-2)]"
+              >
+                {t("actions.cancel")}
+              </button>
+            </div>
+          </>
+        )}
       </div>
-      {s.covered ? (
-        <Button size="lg" disabled={busy} onClick={() => checkin(s, false)}>
-          <CheckCircle2 className="size-4" />
-          {t("shared.checkin.checkIn")}
-        </Button>
-      ) : s.pricePerSession ? (
-        <Button size="lg" variant="outline" disabled={busy} onClick={() => checkin(s, true)}>
-          <Banknote className="size-4" />
-          {t("shared.checkin.collectAndCheckIn", { price: formatEGP(s.pricePerSession) })}
-        </Button>
-      ) : (
-        <span className="text-xs text-muted-foreground">{t("shared.checkin.noSessionPrice")}</span>
-      )}
-    </div>
-  );
+    );
+  };
+
+  const sessionRow = (s: SessionOption, suggested: boolean) => {
+    const paying = payment?.sessionId === s.sessionId;
+    return (
+      <div key={s.sessionId} className="border-b border-[var(--rule-2)] last:border-b-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold text-[var(--ink)]">{s.courseTitle}</div>
+            <Num className="mt-0.5 block text-xs text-[var(--ink-3)]">
+              {s.startTime}–{s.endTime}
+            </Num>
+            {suggested ? (
+              <span className="mt-1.5 inline-block">
+                <Badge tone="done">{t("shared.checkin.coveredBadge")}</Badge>
+              </span>
+            ) : null}
+          </div>
+          {paying ? null : s.covered ? (
+            <Button size="lg" className="h-12 min-w-[132px]" disabled={busy} onClick={() => startCheckin(s)}>
+              <CheckCircle2 className="size-4" />
+              {t("shared.checkin.checkIn")}
+            </Button>
+          ) : s.pricePerSession != null ? (
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12"
+              disabled={busy}
+              onClick={() => startCheckin(s)}
+            >
+              <Banknote className="size-4" />
+              {t("shared.checkin.collectAndCheckIn", { price: formatEGP(s.pricePerSession) })}
+            </Button>
+          ) : (
+            <span className="text-[13px] text-[var(--ink-3)]">
+              {t("shared.checkin.noSessionPrice")}
+            </span>
+          )}
+        </div>
+        {paying ? paymentStep(s) : null}
+      </div>
+    );
+  };
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <PageHeader title={t("shared.checkin.title")} description={t("shared.checkin.description")} />
+    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+      <PageHead title={t("shared.checkin.title")} subtitle={t("shared.checkin.description")} />
 
-      <Card>
-        <CardContent className="space-y-3">
+      <Sheet>
+        <div className="flex flex-col gap-3 p-4">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
               <Input
-                className="h-12 ps-9 text-base"
+                // First focusable element on the screen, numeric-friendly.
+                autoFocus
+                inputMode="search"
+                className="num h-12 border-[var(--rule)] bg-[var(--field)] ps-9 text-base"
                 placeholder={t("shared.checkin.searchPlaceholder")}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && search()}
               />
             </div>
-            <Button size="lg" onClick={search} disabled={busy}>
-              {busy ? <Spinner /> : t("actions.search")}
+            <Button size="lg" className="h-12 px-5" onClick={search} disabled={busy}>
+              {t("actions.search")}
             </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setWalkInOpen((v) => !v)}>
+          <Button
+            variant="ghost"
+            className="h-11 self-start px-2 text-[13px]"
+            onClick={() => setWalkInOpen((v) => !v)}
+          >
             <UserPlus className="size-4" />
             {t("shared.checkin.newWalkIn")}
           </Button>
+
           {walkInOpen ? (
-            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+            <div className="lg-field flex flex-col gap-2.5 p-3.5">
               <Input
+                className="h-12 text-base"
                 placeholder={t("shared.checkin.walkInName")}
                 value={walkName}
                 onChange={(e) => setWalkName(e.target.value)}
               />
               <Input
+                className="num h-12 text-base"
                 placeholder={t("shared.checkin.walkInPhone")}
                 dir="ltr"
+                inputMode="tel"
                 value={walkPhone}
                 onChange={(e) => setWalkPhone(e.target.value)}
               />
-              <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
-                <p className="mb-2 text-xs font-medium text-foreground">
-                  {t("shared.checkin.guardianContactTitle")}
-                </p>
-                <div className="space-y-2">
+              <div className="rounded-lg border border-[var(--rule)] bg-[var(--sheet)] p-3">
+                <Eyebrow>{t("shared.checkin.guardianContactTitle")}</Eyebrow>
+                <div className="mt-2 flex flex-col gap-2">
                   <Input
+                    className="num h-12 text-base"
                     placeholder={t("shared.checkin.guardianEmail")}
                     type="email"
                     dir="ltr"
@@ -320,136 +501,136 @@ export function AdminCheckinScreen() {
                     onChange={(e) => setGuardianEmail(e.target.value)}
                   />
                   <Input
+                    className="num h-12 text-base"
                     placeholder={t("shared.checkin.guardianPhone")}
                     dir="ltr"
+                    inputMode="tel"
                     value={guardianPhone}
                     onChange={(e) => setGuardianPhone(e.target.value)}
                   />
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="mt-2 mb-0 text-xs leading-relaxed text-[var(--ink-2)]">
                   {t("shared.checkin.guardianContactHint")}
                 </p>
               </div>
-              <Button onClick={createWalkIn} disabled={busy}>
-                {busy ? <Spinner /> : null}
+              <Button className="h-12" onClick={createWalkIn} disabled={busy}>
                 {t("shared.checkin.walkInCreate")}
               </Button>
             </div>
           ) : null}
+
           {pendingInvite ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {pendingInvite.guardianEmailRequired ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                // Not an error — a protection being applied. Amber, and it says
+                // exactly what still works (classes, payments) and what does not.
+                <div className="rounded-lg border border-[var(--amber)] bg-[var(--amber-soft)] p-3">
+                  <p className="m-0 text-[13px] font-semibold text-[var(--amber)]">
                     {t("shared.checkin.guardianEmailMissingTitle")}
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {t("shared.checkin.guardianEmailMissingBody", {
-                      name: pendingInvite.name,
-                    })}
+                  <p className="mt-1 mb-0 text-xs leading-relaxed text-[var(--ink-2)]">
+                    {t("shared.checkin.guardianEmailMissingBody", { name: pendingInvite.name })}
                   </p>
                 </div>
               ) : null}
               <InviteLink link={pendingInvite.link} delivery={pendingInvite.delivery} />
-              <Button variant="ghost" size="sm" onClick={() => setPendingInvite(null)}>
+              <Button
+                variant="ghost"
+                className="h-11 self-start text-[13px]"
+                onClick={() => setPendingInvite(null)}
+              >
                 {t("invite.done")}
               </Button>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </Sheet>
 
       {matches ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("shared.checkin.results")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {matches.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("shared.checkin.noMatches")}</p>
-            ) : (
-              matches.map((m) => (
+        <Sheet>
+          <SheetHead title={t("shared.checkin.results")} />
+          {matches.length === 0 ? (
+            <EmptyState title={t("shared.checkin.noMatches")} />
+          ) : (
+            <div>
+              {matches.map((m) => (
                 <button
                   key={m.studentId}
                   type="button"
                   onClick={() => pickStudent(m)}
-                  className="flex w-full items-center justify-between rounded-lg border border-border p-3 text-start hover:bg-muted/50"
+                  className="flex w-full items-center justify-between gap-3 border-b border-[var(--rule-2)] p-4 text-start last:border-b-0 hover:bg-[var(--rule-2)]"
                 >
-                  <span>
-                    <span className="block font-medium">{m.name}</span>
-                    <span className="block text-xs text-muted-foreground" dir="ltr">
-                      {m.studentCode} · {m.phone ?? "—"}
-                    </span>
-                  </span>
+                  <RowIdentity
+                    name={m.name ?? "—"}
+                    meta={`${m.studentCode}${m.phone ? ` · ${m.phone}` : ""}`}
+                  />
                   <span className="flex flex-col items-end gap-1">
                     {m.onOurRoster ? (
-                      <StatusBadge tone="success">{t("shared.checkin.ourStudent")}</StatusBadge>
+                      <Badge tone="done">{t("shared.checkin.ourStudent")}</Badge>
                     ) : m.otherCenters.length > 0 ? (
-                      <StatusBadge tone="warning">
+                      <Badge tone="pending">
                         {t("shared.checkin.knownElsewhere", { center: m.otherCenters[0] })}
-                      </StatusBadge>
+                      </Badge>
                     ) : (
-                      <StatusBadge tone="neutral">{t("shared.checkin.newHere")}</StatusBadge>
+                      <Badge tone="neutral">{t("shared.checkin.newHere")}</Badge>
                     )}
-                    {m.isShell ? <StatusBadge tone="neutral">{t("shared.checkin.tempBadge")}</StatusBadge> : null}
+                    {m.isShell ? <Badge tone="neutral">{t("shared.checkin.tempBadge")}</Badge> : null}
                   </span>
                 </button>
-              ))
-            )}
-          </CardContent>
-        </Card>
+              ))}
+            </div>
+          )}
+        </Sheet>
       ) : null}
 
       {student ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{student.name}</span>
-              <span className="font-mono text-sm text-muted-foreground" dir="ltr">
-                {student.studentCode}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {student.otherCenters.length > 0 && !student.onOurRoster ? (
-              <p className="rounded-md bg-warning/10 px-3 py-2 text-sm text-warning">
-                {t("shared.checkin.crossCenterNote", { center: student.otherCenters[0] })}
-              </p>
-            ) : null}
-
+        <Sheet>
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--rule)] p-4">
+            <RowIdentity name={student.name ?? "—"} meta={student.studentCode} />
             {student.isShell ? (
-              <Button variant="outline" size="sm" disabled={busy} onClick={resendWhatsApp}>
+              <Button variant="outline" className="h-11" disabled={busy} onClick={resendWhatsApp}>
                 {t("shared.checkin.resendWhatsApp")}
               </Button>
             ) : null}
+          </div>
 
-            {sessions ? (
-              <>
-                {sessions.suggested.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{t("shared.checkin.suggested")}</div>
-                    {sessions.suggested.map((s) => sessionButton(s, true))}
+          {student.otherCenters.length > 0 && !student.onOurRoster ? (
+            <p className="m-0 border-b border-[var(--rule-2)] bg-[var(--amber-soft)] px-4 py-3 text-[13px] leading-relaxed text-[var(--amber)]">
+              {t("shared.checkin.crossCenterNote", { center: student.otherCenters[0] })}
+            </p>
+          ) : null}
+
+          {sessions ? (
+            <>
+              {sessions.suggested.length > 0 ? (
+                <div>
+                  <div className="border-b border-[var(--rule)] bg-[var(--field)] px-4 py-2.5">
+                    <Eyebrow>{t("shared.checkin.suggested")}</Eyebrow>
                   </div>
-                ) : null}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <DoorOpen className="size-4" />
-                    {t("shared.checkin.todaysSessions")}
-                  </div>
-                  {sessions.today.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t("shared.checkin.noSessionsToday")}</p>
-                  ) : (
-                    sessions.today
-                      .filter((s) => !sessions.suggested.some((x) => x.sessionId === s.sessionId))
-                      .map((s) => sessionButton(s, false))
-                  )}
+                  {sessions.suggested.map((s) => sessionRow(s, true))}
                 </div>
-              </>
-            ) : (
-              <Spinner />
-            )}
-          </CardContent>
-        </Card>
+              ) : null}
+              <div>
+                <div className="flex items-center gap-2 border-b border-[var(--rule)] bg-[var(--field)] px-4 py-2.5">
+                  <DoorOpen className="size-3.5 text-[var(--ink-3)]" />
+                  <Eyebrow>{t("shared.checkin.todaysSessions")}</Eyebrow>
+                </div>
+                {sessions.today.filter((s) => !sessions.suggested.some((x) => x.sessionId === s.sessionId))
+                  .length === 0 ? (
+                  <EmptyState title={t("shared.checkin.noSessionsToday")} />
+                ) : (
+                  sessions.today
+                    .filter((s) => !sessions.suggested.some((x) => x.sessionId === s.sessionId))
+                    .map((s) => sessionRow(s, false))
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center text-[13px] text-[var(--ink-3)]">
+              {t("centerStaff.loading")}
+            </div>
+          )}
+        </Sheet>
       ) : null}
     </div>
   );

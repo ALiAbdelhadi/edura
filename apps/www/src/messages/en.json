@@ -102,7 +102,10 @@
     "remove": "Remove",
     "sendInvite": "Send invite",
     "export": "Export",
-    "review": "Review"
+    "review": "Review",
+    "retry": "Retry",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -437,6 +440,8 @@
     "auditNote": "Every staff action is recorded on behalf of your center.",
     "portalTitle": "Center Staff",
     "loading": "Loading…",
+    "noMessagingTitle": "No messaging in this role — by design",
+    "noMessagingBody": "An accountant reads the center's books, not its families, so there is no empty inbox here to begin with. If you need to reach a teacher or a parent, ask your center manager.",
     "roleName": {
       "receptionist": "Receptionist",
       "manager": "Manager",
@@ -461,7 +466,13 @@
     "pendingInvite": "Invite pending",
     "resendInvite": "Resend invite",
     "resendBody": "Send {name} a fresh invite link. The previous link stops working immediately.",
-    "resendFailed": "Could not resend the invite"
+    "resendFailed": "Could not resend the invite",
+    "availableBalance": "Available to withdraw",
+    "txnType": "Type",
+    "txnDate": "Date",
+    "txnAmount": "Amount",
+    "fillRate": "Fill rate",
+    "enrolledOfMax": "Enrolled"
   },
   "oversight": {
     "title": "My children's conversations",

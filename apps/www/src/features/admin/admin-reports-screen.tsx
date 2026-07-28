@@ -2,73 +2,57 @@
 "use client";
 
 import { BarChart, DonutChart } from "@/components/charts";
-import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
-import { StatCard } from "@/components/kit/stat-card";
-import {
-  enrollmentFunnelBarData,
-  sessionStatusDonutData,
-} from "@/lib/analytics/transforms";
+import { enrollmentFunnelBarData, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
 import { Calendar } from "@repo/ui/components/calendar";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui/components/popover";
-import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import dayjs from "dayjs";
-import {
-  BarChart3,
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  DollarSign,
-  FileText,
-  TriangleAlert,
-} from "lucide-react";
+import { Calendar as CalendarIcon, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React from "react";
+import {
+  Amount,
+  CATEGORICAL,
+  CHART,
+  ErrorState,
+  Eyebrow,
+  Num,
+  PageHead,
+  Sheet,
+  SheetHead,
+} from "./ledger";
+
 type DateRange = { from: Date | undefined; to?: Date | undefined };
 
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--brand-teal)",
-  "var(--primary)",
-];
-
+/**
+ * التقارير — eight endpoints over a 977-line service with no test coverage.
+ *
+ * SCOPE: restyle the surface, do NOT restructure the logic. Every query, every
+ * field read and every derivation below is unchanged from the version this
+ * replaces; what changed is the token layer, the figure treatment and the chart
+ * colours.
+ *
+ * Charts previously reached for seven decorative hues (`--chart-1..5`,
+ * `--info`, `--warning`, `--success`) from the superseded palette. They now come
+ * from one place — see chart-palette.ts — where the colour encodes meaning:
+ * teal is money, grey is what it is measured against, red is money leaving.
+ */
 export function AdminReportsScreen() {
   const t = useTranslations();
-  const { formatShortEGP, formatDate } = useFormatters();
+  const { formatShortEGP, formatDate, locale } = useFormatters();
   const fmtEGP = formatShortEGP;
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
-    undefined,
-  );
-  const [granularity, setGranularity] = React.useState<"week" | "month">(
-    "month",
-  );
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
+  const [granularity, setGranularity] = React.useState<"week" | "month">("month");
 
   const resetRange = () => setDateRange(undefined);
 
   const queryValues = React.useMemo(
     () => ({
-      ...(dateRange?.from
-        ? { from: dayjs(dateRange.from).format("YYYY-MM-DD") }
-        : {}),
-      ...(dateRange?.to
-        ? { to: dayjs(dateRange.to).format("YYYY-MM-DD") }
-        : {}),
+      ...(dateRange?.from ? { from: dayjs(dateRange.from).format("YYYY-MM-DD") } : {}),
+      ...(dateRange?.to ? { to: dayjs(dateRange.to).format("YYYY-MM-DD") } : {}),
       granularity,
     }),
     [dateRange, granularity],
@@ -101,24 +85,24 @@ export function AdminReportsScreen() {
   });
   const data = (result?.data as any) || null;
   const trendData = ((trendResult?.data as any)?.series ?? []) as any[];
-  const expensesByCategory = ((expensesTimeseriesResult?.data as any)
-    ?.byCategory ?? []) as any[];
+  const expensesByCategory = ((expensesTimeseriesResult?.data as any)?.byCategory ?? []) as any[];
   const fillRates = ((fillRateResult?.data as any)?.items ?? []) as any[];
   const funnel = ((funnelResult?.data as any)?.items ?? []) as any[];
 
-  if (
-    (query.isLoading || trendQuery.isLoading || expensesQuery.isLoading) &&
-    !result?.data
-  ) {
+  if ((query.isLoading || trendQuery.isLoading || expensesQuery.isLoading) && !result?.data) {
     return <PageSpinner label={t("adminManage.reports.loadingReports")} />;
   }
 
   if (query.isError && !data) {
     return (
-      <EmptyState
-        icon={TriangleAlert}
-        title={t("adminManage.reports.loadFailed")}
-      />
+      <Sheet>
+        <ErrorState
+          title={t("adminManage.reports.loadFailed")}
+          hint={t("shared.ledger.loadFailedHint")}
+          onRetry={() => query.refetch()}
+          retryLabel={t("actions.retry")}
+        />
+      </Sheet>
     );
   }
 
@@ -127,46 +111,39 @@ export function AdminReportsScreen() {
   const netProfit = data?.netProfit ?? 0;
   const margin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : "0";
   const byCourse = data?.byCourse ?? [];
-  const enrollmentRates =
-    fillRates.length > 0 ? fillRates : (data?.enrollmentRates ?? []);
+  const enrollmentRates = fillRates.length > 0 ? fillRates : (data?.enrollmentRates ?? []);
   const sessionStatusMix = data?.sessionStatusMix ?? [];
 
   const expenseDonut = expensesByCategory.map((entry, index) => ({
     id: entry._id,
     label: entry._id,
     value: entry.subtotal ?? 0,
-    color: CHART_COLORS[index % CHART_COLORS.length],
+    color: CATEGORICAL[index % CATEGORICAL.length],
   }));
 
+  const rangeLabel = dateRange?.from
+    ? dateRange.to
+      ? `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`
+      : formatDate(dateRange.from)
+    : t("adminManage.reports.pickDateRange");
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-col gap-5">
+      <PageHead
+        title={t("nav.reports")}
+        subtitle={t("adminManage.reports.subtitle")}
+        actions={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              {t("adminManage.reports.dateRange")}
-            </span>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="min-w-56 justify-start gap-2 font-normal"
+                  className="min-w-56 justify-start gap-2 border-[var(--rule)] bg-[var(--field)] font-normal"
                 >
-                  <CalendarIcon className="size-4 text-muted-foreground" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <span>
-                        {formatDate(dateRange.from)} –{" "}
-                        {formatDate(dateRange.to)}
-                      </span>
-                    ) : (
-                      formatDate(dateRange.from)
-                    )
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {t("adminManage.reports.pickDateRange")}
-                    </span>
-                  )}
+                  <CalendarIcon className="size-4 text-[var(--ink-3)]" />
+                  <Num className={dateRange?.from ? "text-[var(--ink)]" : "text-[var(--ink-3)]"}>
+                    {rangeLabel}
+                  </Num>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -179,64 +156,94 @@ export function AdminReportsScreen() {
                 />
               </PopoverContent>
             </Popover>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              {t("adminManage.reports.granularity")}
-            </span>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={granularity}
-              onValueChange={(value) =>
-                value && setGranularity(value as "week" | "month")
-              }
+
+            {/* Status-pill filter row: each pill is its own control, the active
+                one carries indigo. Replaces the toggle-group, which read as a
+                form widget rather than a filter. */}
+            <div className="flex items-center gap-1 rounded-lg border border-[var(--rule)] bg-[var(--field)] p-1">
+              {(["month", "week"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGranularity(g)}
+                  aria-pressed={granularity === g}
+                  className={`h-8 rounded-md px-3 text-[13px] font-semibold transition-colors ${
+                    granularity === g
+                      ? "bg-[var(--indigo)] text-[var(--indigo-ink)]"
+                      : "text-[var(--ink-2)] hover:bg-[var(--rule-2)]"
+                  }`}
+                >
+                  {g === "month"
+                    ? t("adminManage.reports.monthly")
+                    : t("adminManage.reports.weekly")}
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              className="text-[13px] text-[var(--ink-2)]"
+              onClick={resetRange}
             >
-              <ToggleGroupItem value="month">
-                {t("adminManage.reports.monthly")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="week">
-                {t("adminManage.reports.weekly")}
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Button variant="outline" onClick={resetRange}>
               {t("adminManage.reports.reset")}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t("common.revenue")}
-          value={fmtEGP(revenue)}
-          icon={DollarSign}
-        />
-        <StatCard
-          label={t("common.expenses")}
-          value={fmtEGP(expenses)}
-          icon={FileText}
-        />
-        <StatCard
-          label={t("adminManage.reports.netProfit")}
-          value={fmtEGP(netProfit)}
-          hint={`${margin}% ${t("adminManage.reports.margin")}`}
-          icon={BarChart3}
-          accent
-        />
-        <StatCard
-          label={t("adminManage.reports.attendanceRate")}
-          value={`${data?.attendanceRate ?? 0}%`}
-          icon={CheckCircle2}
-        />
+      {/* The P&L reads as one statement closing on the accountant's rule, not as
+          four disconnected stat cards. Attendance sits apart — it is not money. */}
+      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.netProfit")} />
+          <div className="flex flex-col p-[18px]">
+            <StatementLine label={t("common.revenue")} piasters={revenue} locale={locale} />
+            <StatementLine
+              label={t("common.expenses")}
+              piasters={-expenses}
+              locale={locale}
+              tone="out"
+            />
+            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
+              <span className="text-[13px] font-semibold text-[var(--ink)]">
+                {t("adminManage.reports.netProfit")}
+              </span>
+              <span className="flex items-baseline gap-2">
+                <Num className="text-[11px] text-[var(--ink-3)]">
+                  {margin}% {t("adminManage.reports.margin")}
+                </Num>
+                <Amount
+                  piasters={netProfit}
+                  locale={locale}
+                  className="text-[22px] font-semibold text-[var(--money)]"
+                />
+              </span>
+            </div>
+          </div>
+        </Sheet>
+
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.attendanceRate")} />
+          <div className="p-[18px]">
+            <Eyebrow>{t("adminManage.reports.attendanceRate")}</Eyebrow>
+            <p className="mt-1 mb-0">
+              <Num className="text-[34px] font-semibold leading-none text-[var(--ink)]">
+                {data?.attendanceRate ?? 0}%
+              </Num>
+            </p>
+          </div>
+        </Sheet>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{`${t("adminManage.reports.cashflow")} (${granularity === "month" ? t("adminManage.reports.monthly") : t("adminManage.reports.weekly")})`}</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Sheet className="lg:col-span-2">
+          <SheetHead
+            title={`${t("adminManage.reports.cashflow")} · ${
+              granularity === "month"
+                ? t("adminManage.reports.monthly")
+                : t("adminManage.reports.weekly")
+            }`}
+          />
+          <div className="p-[18px]">
             <BarChart
               data={trendData.map((entry) => ({
                 label: entry.label,
@@ -244,117 +251,109 @@ export function AdminReportsScreen() {
                 expenses: entry.expenses,
               }))}
               series={[
-                {
-                  key: "revenue",
-                  label: t("common.revenue"),
-                  color: "var(--info)",
-                },
-                {
-                  key: "expenses",
-                  label: t("common.expenses"),
-                  color: "var(--warning)",
-                },
+                { key: "revenue", label: t("common.revenue"), color: CHART.money },
+                { key: "expenses", label: t("common.expenses"), color: CHART.out },
               ]}
               yValueFormatter={(value) => fmtEGP(value)}
               emptyText={t("adminManage.reports.noCashflow")}
             />
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>{t("adminManage.reports.expenseCategories")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+        </Sheet>
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.expenseCategories")} />
+          <div className="p-[18px]">
             <DonutChart
               data={expenseDonut}
               centerLabel={t("common.expenses")}
               emptyText={t("adminManage.reports.noExpenseBreakdown")}
               formatValue={fmtEGP}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </Sheet>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("adminManage.reports.revenueByCourse")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.revenueByCourse")} />
+          <div className="p-[18px]">
             <BarChart
               data={byCourse.slice(0, 8).map((entry: any) => ({
                 label: entry.title,
                 revenue: entry.revenue,
               }))}
-              series={[
-                {
-                  key: "revenue",
-                  label: t("common.revenue"),
-                  color: "var(--info)",
-                },
-              ]}
+              series={[{ key: "revenue", label: t("common.revenue"), color: CHART.money }]}
               horizontal
               yValueFormatter={(value) => fmtEGP(value)}
               emptyText={t("adminManage.reports.noRevenueByCourse")}
             />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("adminManage.reports.enrollmentRate")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+        </Sheet>
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.enrollmentRate")} />
+          <div className="p-[18px]">
             <BarChart
               data={enrollmentRates.slice(0, 8).map((entry: any) => ({
                 label: entry.title,
                 fillRate: entry.fillRatePct ?? entry.pct,
               }))}
               series={[
-                {
-                  key: "fillRate",
-                  label: t("adminManage.reports.fillRatePct"),
-                  color: "var(--success)",
-                },
+                { key: "fillRate", label: t("adminManage.reports.fillRatePct"), color: CHART.count },
               ]}
               horizontal
               yValueFormatter={(value) => `${Math.round(value)}%`}
               emptyText={t("adminManage.reports.noEnrollmentRate")}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </Sheet>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("adminManage.reports.enrollmentFunnel")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.enrollmentFunnel")} />
+          <div className="p-[18px]">
             <BarChart
               data={enrollmentFunnelBarData(funnel)}
               series={[
-                {
-                  key: "count",
-                  label: t("adminManage.reports.requests"),
-                  color: "var(--primary)",
-                },
+                { key: "count", label: t("adminManage.reports.requests"), color: CHART.count },
               ]}
               emptyText={t("adminManage.reports.noEnrollmentRequests")}
             />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("adminManage.reports.sessionStatus")}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+        </Sheet>
+        <Sheet>
+          <SheetHead title={t("adminManage.reports.sessionStatus")} />
+          <div className="p-[18px]">
             <DonutChart
               data={sessionStatusDonutData(sessionStatusMix)}
               centerLabel={t("adminManage.reports.sessions")}
+              emptyText={t("adminHome.dashboard_noSessionStatus")}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </Sheet>
       </div>
+    </div>
+  );
+}
+
+function StatementLine({
+  label,
+  piasters,
+  locale,
+  tone,
+}: {
+  label: string;
+  piasters: number;
+  locale: string;
+  tone?: "out";
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5 first:pt-0">
+      <span className="text-[13px] text-[var(--ink-2)]">{label}</span>
+      <Amount
+        piasters={piasters}
+        locale={locale}
+        className={`text-[15px] ${tone === "out" ? "text-[var(--red)]" : "text-[var(--ink)]"}`}
+      />
     </div>
   );
 }

@@ -77,7 +77,8 @@
     "perSessionShort": "session",
     "pricePerMonthEGP": "Monthly plan price (EGP)",
     "pricePerSessionEGP": "Per-session price (EGP)",
-    "planDisabled": "Empty = plan disabled"
+    "planDisabled": "Empty = plan disabled",
+    "subtitle": "A class with no price cannot be subscribed to. Set a monthly or per-session price to make it available."
   },
   "rooms": {
     "colName": "Name",
@@ -132,7 +133,9 @@
     "seats": "seats",
     "noPhotos": "No photos yet",
     "noDescription": "No description provided.",
-    "detailsSubtitle": "Room details"
+    "detailsSubtitle": "Room details",
+    "subtitle": "Rooms and their prices drive what teachers see when requesting a collaboration. Changing a price does not touch existing classes.",
+    "totalRoomsFact": "Each room is bookable by teachers."
   },
   "fees": {
     "dateRange": "Date range",
@@ -196,7 +199,14 @@
     "walletEmptyMeansAll": "Leave empty to withdraw everything",
     "walletConfirm": "Request payout",
     "walletInvalidAmount": "Enter a valid amount",
-    "walletRequestSubmitted": "Payout request submitted"
+    "walletRequestSubmitted": "Payout request submitted",
+    "subtitle": "Every amount here is written into a ledger that cannot be edited. The only correction after recording is a new reversing entry.",
+    "dateFrom": "From date",
+    "dateTo": "To date",
+    "walletRequested": "Requested",
+    "walletFinality": "A payout request reserves the amount from the center's balance immediately and is written to the ledger. It cannot be undone — only the platform can cancel it.",
+    "walletArm": "Request {amount}",
+    "walletConfirmFinal": "Final confirm — press to record the request"
   },
   "expenses": {
     "categories": {
@@ -227,7 +237,8 @@
     "expenseUpdated": "Expense updated",
     "expenseDeleted": "Expense deleted",
     "failed": "Something went wrong",
-    "deleteFailed": "Failed to delete expense"
+    "deleteFailed": "Failed to delete expense",
+    "subtitle": "Expenses are deducted from the center's net profit in reports. Each entry is dated and counted once."
   },
   "reports": {
     "dateRange": "Date range:",
@@ -254,7 +265,8 @@
     "requests": "Requests",
     "noEnrollmentRequests": "No enrollment request data yet.",
     "sessionStatus": "Session Status",
-    "sessions": "Sessions"
+    "sessions": "Sessions",
+    "subtitle": "Every figure here is derived from the center's ledger and cannot be edited from this screen. Change the date range to recalculate."
   },
   "enroll": {
     "title": "Enrollment Requests",
@@ -270,7 +282,25 @@
     "requestDeclined": "Request declined",
     "approveFailed": "Failed to approve request",
     "declineFailed": "Failed to decline request",
-    "alreadyEnrolled": "Student is already enrolled in this course"
+    "alreadyEnrolled": "Student is already enrolled in this course",
+    "subtitle": "Approving enrols the student immediately and opens attendance for them. Declining requires a reason, which is sent to the student.",
+    "panelEyebrow": "Enrolment decision",
+    "selectPrompt": "Select a request to review",
+    "selectHint": "Decisions are made from this panel, not from table rows — so nothing is approved by a mis-tap while scrolling.",
+    "colStudent": "Student",
+    "colCourse": "Class",
+    "colSubmitted": "Requested",
+    "colStatus": "Status",
+    "waitingAge": "{n}d",
+    "approveCommit": "Approve enrolment",
+    "approveArmed": "Final confirm — enrol the student",
+    "approveHint": "Two steps: the first press arms the button, the second enrols.",
+    "approveArmedHint": "The next press enrols the student and notifies them.",
+    "clearance": "The class accepts a new enrolment and nothing blocks this student.",
+    "declineOpen": "Decline with a reason",
+    "declineSubmit": "Send decline",
+    "requestedOn": "Requested on",
+    "studentIdLabel": "Student ID"
   },
   "confirmApprovalTitle": "Confirm approval",
   "confirmApprovalBody": "This will activate the account and notify the owner.",
