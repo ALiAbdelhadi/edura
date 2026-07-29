@@ -11,7 +11,8 @@ import {
 import { SearchInput } from "@repo/ui/components/search-input";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { useCallback, useMemo } from "react";
 
 export type SearchFieldConfig = {

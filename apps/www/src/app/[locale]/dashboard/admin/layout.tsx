@@ -3,7 +3,7 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 import { OnboardingGate } from "@/features/onboarding/onboarding-gate";
-import { plexMono } from "@/features/admin/ledger";
+import { plexMono, LedgerPortalScope } from "@/features/admin/ledger";
 import "@/features/admin/ledger/ledger.css";
 
 // `label` is not display copy — DashboardShell looks it up in its NAV_KEY table
@@ -28,6 +28,36 @@ const navItems = [
   { href: "/dashboard/admin/settings", icon: "settings", label: "Settings" },
 ];
 
+/**
+ * Phone bar order — deliberately NOT the sidebar's order.
+ *
+ * A center admin runs the record from a desk, but the phone is what they hold
+ * while walking the floor, so the four slots are the counter loop: the day's
+ * decisions (Overview), the desk itself (Check-in), who is in front of them
+ * (Students), and what they owe (Fees). Reports, Expenses and Staff are desk
+ * work at a keyboard and sit in "more" — they are not less important, they are
+ * just never the reason a phone comes out of a pocket.
+ *
+ * EVERY `navItems` href is listed — the bar is the phone's only navigation.
+ */
+const BAR_ORDER = [
+  "/dashboard/admin",
+  "/dashboard/admin/checkin",
+  "/dashboard/admin/students",
+  "/dashboard/admin/fees",
+  "/dashboard/admin/enrollment-requests",
+  "/dashboard/admin/classes",
+  "/dashboard/admin/teachers",
+  "/dashboard/admin/rooms",
+  "/dashboard/admin/messages",
+  "/dashboard/admin/notes",
+  "/dashboard/admin/expenses",
+  "/dashboard/admin/reports",
+  "/dashboard/admin/staff",
+  "/dashboard/admin/notifications",
+  "/dashboard/admin/settings",
+];
+
 export default function AdminLayout({
   children,
 }: {
@@ -36,7 +66,10 @@ export default function AdminLayout({
   return (
     <RoleGuard allowedRole="center_admin">
       <OnboardingGate>
-        <DashboardShell role="admin" navItems={navItems}>
+        {/* Marks <html> so ledger.css can restyle the shared chrome for these
+            routes only — see portal-scope.tsx. */}
+        <LedgerPortalScope />
+        <DashboardShell role="admin" navItems={navItems} bottomNav={BAR_ORDER}>
           {/* The Ledger scope. `compact` — a center admin operates the record at
               a desk. Staff get `touch` on the same screens; see staff/layout. */}
           <div className={`led ${plexMono.variable}`} data-density="compact">

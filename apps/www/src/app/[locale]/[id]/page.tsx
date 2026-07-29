@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
+import { cn } from "@repo/ui/lib/utils";
+import dayjs from "dayjs";
 import {
   AlertCircle,
   AlertTriangle,
@@ -14,15 +19,10 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import dayjs from "dayjs";
 import { useTranslations } from "next-intl";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { cn } from "@repo/ui/lib/utils";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Link, useRouter } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 type Affiliation = {
   _id?: string;
@@ -36,12 +36,12 @@ type Affiliation = {
 type Me = { id: string; role: string; name?: string };
 
 const RESULT_TONE: Record<"success" | "warning" | "info" | "neutral", string> =
-  {
-    success: "bg-success/15 text-success",
-    warning: "bg-warning/15 text-warning",
-    info: "bg-info/15 text-info",
-    neutral: "bg-muted text-muted-foreground",
-  };
+{
+  success: "bg-success/15 text-success",
+  warning: "bg-warning/15 text-warning",
+  info: "bg-info/15 text-info",
+  neutral: "bg-muted text-muted-foreground",
+};
 
 function ResultCard({
   icon: Icon,
@@ -126,7 +126,7 @@ export default function AffiliationLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, t]);
 
   const handleAction = async (action: "accept" | "decline") => {
     setActing(action);
@@ -141,7 +141,7 @@ export default function AffiliationLandingPage() {
         try {
           const body = await res.json();
           msg = body?.error?.message ?? msg;
-        } catch {}
+        } catch { }
         throw new Error(msg);
       }
       setDone(action === "accept" ? "accepted" : "declined");
@@ -154,7 +154,7 @@ export default function AffiliationLandingPage() {
 
   const shell = (children: React.ReactNode) => (
     <div className="flex min-h-screen items-center justify-center bg-muted p-6">
-      <div className="w-full max-w-[480px]">{children}</div>
+      <div className="w-full max-w-120">{children}</div>
     </div>
   );
 
@@ -313,11 +313,11 @@ export default function AffiliationLandingPage() {
             <StatusBadge tone={expired ? "danger" : "info"}>
               {expired
                 ? t("affiliationInvite.expired", {
-                    date: formatDate(affiliation.expiresAt),
-                  })
+                  date: formatDate(affiliation.expiresAt),
+                })
                 : t("affiliationInvite.expires", {
-                    date: formatDate(affiliation.expiresAt),
-                  })}
+                  date: formatDate(affiliation.expiresAt),
+                })}
             </StatusBadge>
           </div>
         )}

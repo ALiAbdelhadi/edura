@@ -18,6 +18,16 @@ export type MeResponse = {
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
+    // Same rule as the login screen: never mint a session on top of a live one.
+    // "/dashboard" resolves the portal from the server session, so a stale
+    // client-side role can no longer steer the redirect.
+    if (typeof window !== "undefined") {
+      try {
+        if (await getSession()) await signOut({ redirect: false });
+        localStorage.removeItem("edura_state");
+      } catch {}
+    }
+
     const result = await signIn("credentials", {
       email,
       password,
@@ -47,14 +57,29 @@ export const authProvider: AuthProvider = {
       // filtered by teacherId, so anything left unsynced (still offline) is
       // simply invisible to whichever account signs in next — no need to
       // block logout on it or discard it outright.
-      const session = await getSession();
-      const teacherId = session?.user?.id;
-      if (teacherId) await syncQueuedAttendance(teacherId);
+      //
+      // Wrapped: a failure here (IndexedDB unavailable, sync throwing) must
+      // never leave the user signed in. Clearing the session is the one part
+      // of logout that is not optional.
+      try {
+        const session = await getSession();
+        const teacherId = session?.user?.id;
+        if (teacherId) await syncQueuedAttendance(teacherId);
+      } catch {}
     }
 
     await signOut({ redirect: false });
+
     if (typeof window !== "undefined") {
       localStorage.removeItem("edura_state");
+      // Confirm the session is really gone before handing the user to /login.
+      // Landing on /login while still authenticated is what let the next
+      // sign-in start from a stale identity on a shared device.
+      try {
+        if (await getSession()) {
+          await signOut({ redirect: false });
+        }
+      } catch {}
       // Cached /api and page/RSC responses are scoped to the signed-out user —
       // must not leak to the next account on a shared device.
       await purgeUserScopedCaches();

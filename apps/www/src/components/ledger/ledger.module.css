@@ -189,13 +189,16 @@
   padding: 1px 6px;
 }
 
-/* Header: sheet, bottom rule, no backdrop blur — glass is not in this system. */
-.shellScope header {
+/* Header: sheet, bottom rule, no backdrop blur — glass is not in this system.
+   Scoped to the dashboard shell's own header (the one inside SidebarInset).
+   A bare `.shellScope header` also matched the onboarding wizard's header and
+   the auth shells' brand bars, painting a white band across a paper canvas. */
+.shellScope [data-slot="sidebar-inset"] > header {
   background: var(--sheet);
   border-color: var(--rule);
   backdrop-filter: none;
 }
-.shellScope header h1 {
+.shellScope [data-slot="sidebar-inset"] > header h1 {
   color: var(--ink);
   font-weight: 600;
 }

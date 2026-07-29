@@ -10,7 +10,7 @@ import CopyableText from "@/components/ui/copyable-text";
 import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCreate, useCustom, useList } from "@refinedev/core";
+import { useCustom, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -60,6 +60,8 @@ import {
   Sheet,
   SheetHead,
   TwoStepCommit,
+  postMoney,
+  readApiError,
 } from "./ledger";
 
 export function AdminFeesScreen() {
@@ -118,9 +120,6 @@ export function AdminFeesScreen() {
     filters: [{ field: "status", operator: "eq", value: "active" }],
     pagination: { mode: "off" },
   });
-  const { mutate: createPayment, mutation: createMutation } = useCreate();
-  const { mutate: createSubscription, mutation: subMutation } = useCreate();
-  const { mutate: requestPayout, mutation: payoutMutation } = useCreate();
 
   // Center wallet + withdraw (Step 4.5).
   const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
@@ -145,28 +144,51 @@ export function AdminFeesScreen() {
     return Number.isFinite(egp) && egp > 0 ? Math.round(egp * 100) : 0;
   }, [withdrawEgp, centerWallet?.available]);
 
-  const handleWithdraw = () => {
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+
+  /**
+   * Deliberately a raw `postMoney` rather than refine's `useCreate`.
+   *
+   * Two reasons, both about this being an irreversible ledger write:
+   *  - refine routes through the shared data provider, which cannot carry a
+   *    per-request timeout, so this would keep the 10s default. A payout request
+   *    reserves money; the client giving up while the server commits is the
+   *    worst failure mode this screen has.
+   *  - the data provider also flattens the error envelope, discarding `code`,
+   *    so a business-rule refusal arrives as ky's generic English string.
+   */
+  const handleWithdraw = async () => {
     const egp = withdrawEgp.trim() === "" ? null : Number(withdrawEgp);
     if (egp !== null && (!Number.isFinite(egp) || egp <= 0)) {
       toast.error(t("adminManage.fees.walletInvalidAmount"));
       return;
     }
-    requestPayout(
-      {
-        resource: "center/wallet/payout-request",
-        values: egp === null ? {} : { amount: Math.round(egp * 100) },
-      },
-      {
-        onSuccess: () => {
-          setIsWithdrawOpen(false);
-          setWithdrawEgp("");
-          toast.success(t("adminManage.fees.walletRequestSubmitted"));
-          walletQuery.refetch();
-          centerPayoutsQuery.refetch();
-        },
-        onError: (err: any) => toast.error(err?.message || t("adminManage.fees.recordFailed")),
-      },
-    );
+    setWithdrawBusy(true);
+    try {
+      await postMoney(
+        "center/wallet/payout-request",
+        egp === null ? {} : { amount: Math.round(egp * 100) },
+      );
+      setIsWithdrawOpen(false);
+      setWithdrawEgp("");
+      toast.success(t("adminManage.fees.walletRequestSubmitted"));
+      walletQuery.refetch();
+      centerPayoutsQuery.refetch();
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        // No answer from the server — the request MAY have been recorded. Never
+        // say "failed" here; a second armed press would reserve the money twice.
+        toast.error(t("adminManage.fees.walletIndeterminate"), { duration: 12000 });
+        setIsWithdrawOpen(false);
+        walletQuery.refetch();
+        centerPayoutsQuery.refetch();
+      } else {
+        toast.error(e.message || t("adminManage.fees.recordFailed"));
+      }
+    } finally {
+      setWithdrawBusy(false);
+    }
   };
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -195,7 +217,18 @@ export function AdminFeesScreen() {
     setSubMarkAttendance(true);
   };
 
-  const handleRecordSubscription = () => {
+  const [subBusy, setSubBusy] = useState(false);
+
+  /**
+   * Cash subscription at the counter — a ledger write, so it goes through
+   * `postMoney` for the same two reasons as the payout: the 45s timeout, and an
+   * error envelope that survives to the operator instead of being flattened.
+   *
+   * This is the heaviest write on the screen (Payment + Transaction + points +
+   * notification, and optionally an attendance mark), which makes it the most
+   * likely of the three to breach the shared 10s default.
+   */
+  const handleRecordSubscription = async () => {
     if (!subStudentId || !subCourseId) {
       toast.error(t("adminManage.fees.subMissingFields"));
       return;
@@ -204,32 +237,39 @@ export function AdminFeesScreen() {
       toast.error(t("adminManage.fees.subMissingSession"));
       return;
     }
-    createSubscription(
-      {
-        resource: "center/subscriptions",
-        values: {
-          studentId: subStudentId,
-          courseId: subCourseId,
-          plan: subPlan,
-          ...(subPlan === "per_session"
-            ? { sessionId: subSessionId, markAttendance: subMarkAttendance }
-            : {}),
-        },
-      },
-      {
-        onSuccess: (res: any) => {
-          setIsSubOpen(false);
-          resetSubForm();
-          const receipt = res?.data?.data?.receiptNumber ?? res?.data?.receiptNumber;
-          toast.success(
-            `${t("adminManage.fees.subscriptionRecorded")}${receipt ? ` — ${receipt}` : ""}`,
-          );
-          paymentsQuery.refetch();
-          reportsQuery.refetch();
-        },
-        onError: (err: any) => toast.error(err?.message || t("adminManage.fees.recordFailed")),
-      },
-    );
+    setSubBusy(true);
+    try {
+      const data = await postMoney<{ receiptNumber?: string }>("center/subscriptions", {
+        studentId: subStudentId,
+        courseId: subCourseId,
+        plan: subPlan,
+        ...(subPlan === "per_session"
+          ? { sessionId: subSessionId, markAttendance: subMarkAttendance }
+          : {}),
+      });
+      setIsSubOpen(false);
+      resetSubForm();
+      const receipt = data?.receiptNumber;
+      toast.success(
+        `${t("adminManage.fees.subscriptionRecorded")}${receipt ? ` — ${receipt}` : ""}`,
+      );
+      paymentsQuery.refetch();
+      reportsQuery.refetch();
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        // No answer — the charge may have committed. Send the operator to the
+        // payment log rather than letting them record the same cash twice.
+        toast.error(t("adminManage.fees.writeIndeterminate"), { duration: 12000 });
+        setIsSubOpen(false);
+        paymentsQuery.refetch();
+        reportsQuery.refetch();
+      } else {
+        toast.error(e.message || t("adminManage.fees.recordFailed"));
+      }
+    } finally {
+      setSubBusy(false);
+    }
   };
 
   const payments = (paymentsResult?.data ?? []) as any[];
@@ -284,33 +324,45 @@ export function AdminFeesScreen() {
     if (!open) form.reset(defaultValues);
   };
 
-  const handleRecordPayment = (values: { studentId: string; courseId: string; amount: number }) => {
+  const [paymentBusy, setPaymentBusy] = useState(false);
+
+  /** Manual payment entry — a ledger write, same treatment as the other two. */
+  const handleRecordPayment = async (values: {
+    studentId: string;
+    courseId: string;
+    amount: number;
+  }) => {
     const amountPiastres = Math.round(Number(values.amount) * 100);
     if (!Number.isFinite(amountPiastres) || amountPiastres <= 0) {
       toast.error(t("adminManage.fees.validAmountError"));
       return;
     }
 
-    createPayment(
-      {
-        resource: "payments",
-        values: {
-          studentId: values.studentId,
-          courseId: values.courseId,
-          amount: amountPiastres,
-        },
-      },
-      {
-        onSuccess: () => {
-          setIsFormOpen(false);
-          form.reset(defaultValues);
-          toast.success(t("adminManage.fees.paymentRecorded"));
-          paymentsQuery.refetch();
-          reportsQuery.refetch();
-        },
-        onError: (err: any) => toast.error(err?.message || t("adminManage.fees.recordFailed")),
+    setPaymentBusy(true);
+    try {
+      await postMoney("payments", {
+        studentId: values.studentId,
+        courseId: values.courseId,
+        amount: amountPiastres,
+      });
+      setIsFormOpen(false);
+      form.reset(defaultValues);
+      toast.success(t("adminManage.fees.paymentRecorded"));
+      paymentsQuery.refetch();
+      reportsQuery.refetch();
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("adminManage.fees.writeIndeterminate"), { duration: 12000 });
+        setIsFormOpen(false);
+        paymentsQuery.refetch();
+        reportsQuery.refetch();
+      } else {
+        toast.error(e.message || t("adminManage.fees.recordFailed"));
       }
-    );
+    } finally {
+      setPaymentBusy(false);
+    }
   };
 
   const revenue = reports?.revenue || 0;
@@ -668,11 +720,17 @@ export function AdminFeesScreen() {
               // armed button must never carry a figure that is no longer true.
               resetKey={withdrawEgp}
               icon={<DollarSign className="size-4" />}
+              // `decimals: true` matters: formatEGP rounds to whole pounds by
+              // default, so a 13.33 balance produced a button reading "13 ج.م"
+              // above a total reading "13.33 ج.م". The commit sent the correct
+              // 1333 piasters either way, but a button that names a different
+              // figure than the total it sits under defeats the whole point of
+              // making the button carry its own amount.
               label={t("adminManage.fees.walletArm", {
-                amount: formatEGP(withdrawPiasters),
+                amount: formatEGP(withdrawPiasters, { decimals: true }),
               })}
               armedLabel={t("adminManage.fees.walletConfirmFinal")}
-              busy={payoutMutation.isPending}
+              busy={withdrawBusy}
               disabled={withdrawPiasters <= 0}
               onCommit={handleWithdraw}
             />
@@ -822,9 +880,9 @@ export function AdminFeesScreen() {
           <DialogFooter>
             <Button
               onClick={handleRecordSubscription}
-              disabled={subMutation.isPending}
+              disabled={subBusy}
             >
-              {subMutation.isPending ? <Spinner /> : null}
+              {subBusy ? <Spinner /> : null}
               {t("adminManage.fees.confirmCashSubscription")}
             </Button>
           </DialogFooter>
@@ -924,8 +982,8 @@ export function AdminFeesScreen() {
                 >
                   {t("actions.cancel")}
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? <Spinner /> : null}
+                <Button type="submit" disabled={paymentBusy}>
+                  {paymentBusy ? <Spinner /> : null}
                   {t("adminManage.fees.record")}
                 </Button>
               </DialogFooter>

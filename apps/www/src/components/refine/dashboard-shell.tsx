@@ -49,8 +49,7 @@ import {
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { BottomNav } from "@repo/ui/components/bottom-nav";
 import { useLocale, useTranslations } from "next-intl";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import React from "react";
 
 const NAV_KEY: Record<string, string> = {
@@ -165,7 +164,21 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function HeaderSidebarToggle() {
+/**
+ * ONE navigation per viewport.
+ *
+ * A portal that ships a phone bar must NOT also ship the drawer behind this
+ * button: the two carry the same destinations, so a phone showed two complete
+ * navigation systems at once and neither was authoritative. The bar is the
+ * phone's navigation and the sidebar is the desktop's, so this button is a
+ * DESKTOP affordance in those portals and hides with the breakpoint the bar
+ * appears at (`md`, the same 768px `useIsMobile` switches the sidebar to a
+ * drawer at — they must stay in step or a width exists with neither).
+ *
+ * Portals with no bar (teacher, assistant, center admin, center staff) keep it
+ * at every width: there the drawer IS the only navigation.
+ */
+function HeaderSidebarToggle({ desktopOnly }: { desktopOnly: boolean }) {
   const t = useTranslations();
   const { toggleSidebar, isMobile, openMobile, state } = useSidebar();
   const expanded = isMobile ? openMobile : state === "expanded";
@@ -174,6 +187,7 @@ function HeaderSidebarToggle() {
       type="button"
       variant="ghost"
       size="icon"
+      className={desktopOnly ? "hidden md:inline-flex" : undefined}
       onClick={toggleSidebar}
       aria-label={
         expanded ? t("shared.collapseSidebar") : t("shared.expandSidebar")
@@ -240,8 +254,19 @@ export default function DashboardShell({
   role: string;
   navItems?: NavItem[];
   navGroups?: NavGroup[];
-  /** Phone chrome. Student, parent and staff are mostly on phones; a sidebar there is
-      a drawer you must open before you can navigate. 4–5 hrefs, drawn from navItems. */
+  /**
+   * Phone chrome. Student, parent and staff are mostly on phones; a sidebar there is
+   * a drawer you must open before you can navigate.
+   *
+   * Hrefs in BAR ORDER, drawn from navItems — the bar's own `maxVisible` decides
+   * how many get a slot and puts the remainder behind "more", so this is the full
+   * list, not the first four.
+   *
+   * LIST EVERY href IN `navItems`. Passing this hides the sidebar toggle on phones
+   * (see HeaderSidebarToggle), so an href left out of it is a destination a phone
+   * user cannot reach at all. Anything omitted here must be deliberately
+   * desktop-only.
+   */
   bottomNav?: string[];
   children: React.ReactNode;
 }) {
@@ -266,7 +291,8 @@ export default function DashboardShell({
   const roleName = roleLabels[role] || "User";
   const displayName = identity?.name || roleName;
 
-  const path = (pathname ?? "").replace(/^\/(ar|en)(?=\/|$)/, "") || "/";
+  // `usePathname` from @/i18n/navigation already strips the locale prefix.
+  const path = pathname || "/";
   const selectedKey =
     flatNav.find((item) => path === item.href)?.href ||
     [...flatNav]
@@ -297,6 +323,33 @@ export default function DashboardShell({
           : {}),
       };
     });
+
+  // The one fact the header toggle needs, derived from what is ACTUALLY
+  // rendered rather than promised by a prop. A portal that renders its own bar
+  // as a child could claim one and be wrong; this cannot disagree with itself.
+  const hasPhoneNav = bottomNavItems.length > 0;
+
+  // Hiding the toggle turns "this href is missing from `bottomNav`" from an
+  // ordering preference into a destination no phone can reach, across seven
+  // portals whose nav lists keep growing. A doc comment does not survive that —
+  // the parent bar had already drifted two entries behind its sidebar before
+  // anyone noticed. Dev-only: this is an authoring mistake, caught while the
+  // author is looking, and it must never cost anything in production.
+  // `flatNav`/`bottomNav` are rebuilt every render; their CONTENT is what
+  // decides this, so the effect keys on stable strings rather than on array
+  // identities that change on every keystroke.
+  const navKey = flatNav.map((i) => i.href).join("|");
+  const barKey = (bottomNav ?? []).join("|");
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !barKey) return;
+    const bar = barKey.split("|");
+    const missing = navKey.split("|").filter((href) => !bar.includes(href));
+    if (missing.length) {
+      console.error(
+        `[DashboardShell] role="${role}": ${missing.length} destination(s) are in the sidebar but not in \`bottomNav\`, so they are UNREACHABLE on phones (the sidebar toggle is hidden wherever a bar exists). Add them to the bar order:\n  ${missing.join("\n  ")}`,
+      );
+    }
+  }, [role, navKey, barKey]);
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -393,8 +446,13 @@ export default function DashboardShell({
       <SidebarInset className="min-h-0">
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-sm supports-backdrop-filter:bg-background/70 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <HeaderSidebarToggle />
-            <div className="h-5 w-px shrink-0 bg-border" />
+            <HeaderSidebarToggle desktopOnly={hasPhoneNav} />
+            {/* The rule separates the toggle from the title, so it goes where
+                the toggle goes — left on its own it reads as a stray mark
+                floating before the screen name. */}
+            <div
+              className={`h-5 w-px shrink-0 bg-border ${hasPhoneNav ? "hidden md:block" : ""}`}
+            />
             <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
               {tNav(screenLabel)}
             </h1>

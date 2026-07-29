@@ -1,13 +1,13 @@
-import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { encode } from "next-auth/jwt";
+import { platformDb } from "@/lib/db/scope";
+import { AuthError } from "@/lib/errors/classes";
 import { withErrors } from "@/lib/errors/http";
+import { ok } from "@/lib/http/envelope";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { parseJson } from "@/lib/validation/zod";
-import { ok } from "@/lib/http/envelope";
-import { AuthError } from "@/lib/errors/classes";
-import { platformDb } from "@/lib/db/scope";
 import { canSignIn, resolveLoginCenterId } from "@repo/server-core/auth/login-policy";
+import bcrypt from "bcryptjs";
+import { encode } from "next-auth/jwt";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,7 @@ export const POST = withRateLimit(
         locale: user.locale,
         name: user.name,
         email: user.email,
-        ver: user.tokenVersion, // L1: session epoch, revalidated per request
+        ver: user.tokenVersion,
       },
       maxAge: SESSION_MAX_AGE,
     });

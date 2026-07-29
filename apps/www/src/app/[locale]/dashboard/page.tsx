@@ -1,74 +1,57 @@
 "use client";
 
+import { portalForRole, uiRoleForRole } from "@/lib/auth/portal";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-const ROLE_TO_PORTAL: Record<string, string> = {
-  admin: "/dashboard/admin",
-  center_admin: "/dashboard/admin",
-  center_staff: "/dashboard/staff",
-  teacher: "/dashboard/teacher",
-  assistant: "/dashboard/assistant",
-  student: "/dashboard/student",
-  parent: "/dashboard/parent",
-};
+import { useRouter } from "@/i18n/navigation";
 
 export default function DashboardIndexPage() {
   const router = useRouter();
 
   useEffect(() => {
-    let cached: string | null = null;
-    try {
-      const s = JSON.parse(localStorage.getItem("edura_state") || "{}");
-      if (s.role && ROLE_TO_PORTAL[s.role]) {
-        router.replace(ROLE_TO_PORTAL[s.role]);
-        return;
-      }
-      cached = s.role ?? null;
-    } catch {}
-
-    const verifySession = async () => {
-      let r = await fetch("/api/v1/me");
+    // The SERVER session decides where this user goes. `edura_state` used to be
+    // read first and trusted outright, so a cached role that disagreed with the
+    // live session sent the user to a portal whose RoleGuard bounced them right
+    // back here — an endless /dashboard <-> /dashboard/<role> ping-pong, which a
+    // shared device (student and parent on one phone) hits routinely.
+    const resolvePortal = async () => {
+      let r = await fetch("/api/v1/me", { cache: "no-store" });
       if (r.status === 401) {
+        // Tolerate the brief window right after sign-in where the freshly-set
+        // cookie is not yet visible to this request.
         await new Promise((res) => setTimeout(res, 1500));
-        r = await fetch("/api/v1/me");
+        r = await fetch("/api/v1/me", { cache: "no-store" });
       }
-      if (r.status === 401) {
+
+      const json = r.ok ? await r.json().catch(() => null) : null;
+      const user = json?.data;
+      const target = portalForRole(user?.role);
+      if (!target) {
+        // Signed out, unreadable, or a role www does not host — never guess.
         try {
           localStorage.removeItem("edura_state");
         } catch {}
         router.replace("/login");
         return;
       }
+
+      // Refresh the display cache from the authoritative answer, so it can no
+      // longer describe someone other than the user who is actually signed in.
       try {
-        const json = await r.json();
-        if (!json?.data) return;
-        const role = json.data.role;
-        const target = ROLE_TO_PORTAL[role];
-        if (!target) {
-          router.replace("/login");
-          return;
-        }
-        try {
-          const s = JSON.parse(localStorage.getItem("edura_state") || "{}");
-          localStorage.setItem(
-            "edura_state",
-            JSON.stringify({
-              ...s,
-              role: role === "center_admin" ? "admin" : role,
-              name: json.data.name,
-              email: json.data.email,
-            }),
-          );
-        } catch {}
-        router.replace(target);
-      } catch {
-        if (cached && ROLE_TO_PORTAL[cached])
-          router.replace(ROLE_TO_PORTAL[cached]);
-        else router.replace("/login");
-      }
+        localStorage.setItem(
+          "edura_state",
+          JSON.stringify({
+            role: uiRoleForRole(user.role),
+            screen: "dashboard",
+            name: user.name,
+            email: user.email,
+          }),
+        );
+      } catch {}
+
+      router.replace(target);
     };
-    verifySession();
+
+    resolvePortal().catch(() => router.replace("/login"));
   }, [router]);
 
   return (

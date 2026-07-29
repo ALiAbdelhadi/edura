@@ -1,12 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { KeyRound, CheckCircle2 } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { LedgerButton } from "@/components/ledger";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
@@ -84,41 +85,62 @@ function ClaimInner() {
   const canSubmit = password.length >= 8 && (!!fixedEmail || !!email.trim());
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-6">
+    <AuthCenteredShell>
       {phase === "authenticating" ? (
-        <Card>
-          <CardContent className="flex items-center gap-3 py-8">
-            <Spinner />
-            <span>{t("claim.authenticating")}</span>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 py-4" style={{ color: "var(--ink-2)" }}>
+          <Spinner />
+          <span>{t("claim.authenticating")}</span>
+        </div>
       ) : phase === "invalid" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("claim.invalidTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>{t("claim.invalidBody")}</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-2">
+          {/* An invalid or spent token is a blocking state, so it carries the
+              red — bordered, never a filled panel. */}
+          <div
+            className="flex size-11 items-center justify-center rounded-lg"
+            style={{ background: "var(--red-soft)", color: "var(--red)" }}
+          >
+            <KeyRound className="size-5" aria-hidden />
+          </div>
+          <h1 className="pt-2 text-xl font-bold" style={{ color: "var(--ink)" }}>
+            {t("claim.invalidTitle")}
+          </h1>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
+            {t("claim.invalidBody")}
+          </p>
+        </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <KeyRound className="size-4" />
+        <div className="space-y-4">
+          <div>
+            <h1
+              className="text-xl font-bold"
+              style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+            >
               {t("claim.credentialsTitle")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+            </h1>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
               {fixedEmail ? t("claim.staffBody") : t("claim.credentialsBody")}
             </p>
+          </div>
+
+          <div className="space-y-3">
+            {/* An invitee keeps the address they were invited at; only a
+                phone-only student chooses one. */}
             {fixedEmail ? (
-              <Input type="email" dir="ltr" value={fixedEmail} readOnly disabled />
+              <Input
+                type="email"
+                dir="ltr"
+                aria-label={t("claim.emailPlaceholder")}
+                className="font-[family-name:var(--ledger-mono)]"
+                value={fixedEmail}
+                readOnly
+                disabled
+              />
             ) : (
               <Input
                 type="email"
                 dir="ltr"
+                aria-label={t("claim.emailPlaceholder")}
+                className="font-[family-name:var(--ledger-mono)]"
                 placeholder={t("claim.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -127,20 +149,27 @@ function ClaimInner() {
             <Input
               type="password"
               dir="ltr"
+              aria-label={t("claim.passwordPlaceholder")}
               placeholder={t("claim.passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <Button className="w-full" disabled={busy || !canSubmit} onClick={saveCredentials}>
-              {busy ? <Spinner /> : <CheckCircle2 className="size-4" />}
+            <LedgerButton
+              variant="primary"
+              className="w-full"
+              disabled={busy || !canSubmit}
+              onClick={saveCredentials}
+            >
+              {busy ? <Spinner /> : <CheckCircle2 className="size-4" aria-hidden />}
               {t("claim.continue")}
-            </Button>
-          </CardContent>
-        </Card>
+            </LedgerButton>
+          </div>
+        </div>
       )}
-    </div>
+    </AuthCenteredShell>
   );
 }
+
 
 export default function ClaimPage() {
   return (

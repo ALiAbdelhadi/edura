@@ -102,6 +102,8 @@ type SuiteResult = {
   ms: number;
   /** Set when the suite printed no `N passed, M failed` line. */
   unparsed: boolean;
+  /** Set when the suite was re-run after a countless non-zero exit. */
+  retried?: boolean;
 };
 
 /**
@@ -116,11 +118,22 @@ function parseCounts(out: string): { pass: number; fail: number } | null {
   return { pass: Number(last[1]), fail: Number(last[2]) };
 }
 
-function runSuite(
+function indent(out: string): string {
+  return out
+    .trimEnd()
+    .split("\n")
+    .slice(-25)
+    .map((l) => `        │ ${l}`)
+    .join("\n");
+}
+
+type Attempt = { res: SuiteResult; out: string };
+
+function spawnSuite(
   tsx: { cmd: string; pre: string[] },
   cwd: string,
   file: string,
-): Promise<SuiteResult> {
+): Promise<Attempt> {
   const started = Date.now();
   return new Promise((resolve) => {
     // No --env-file: the child INHERITS this process's env, which assertDbEnv
@@ -135,45 +148,91 @@ function runSuite(
     child.stderr.on("data", (d: Buffer) => (out += d.toString()));
     child.on("close", (code) => {
       const counts = parseCounts(out);
-      const res: SuiteResult = {
-        suite: path.basename(file),
-        pass: counts?.pass ?? null,
-        fail: counts?.fail ?? null,
-        exit: code ?? 1,
-        ms: Date.now() - started,
-        unparsed: counts === null,
-      };
-      const ok = res.exit === 0 && (res.fail ?? 0) === 0;
-      const badge = ok ? "PASS" : "FAIL";
-      const counted = counts
-        ? `${counts.pass} passed, ${counts.fail} failed`
-        : `no count line (exit ${res.exit})`;
-      console.log(
-        `  ${badge}  ${res.suite.padEnd(42)} ${counted.padEnd(26)} ${(res.ms / 1000).toFixed(1)}s`,
-      );
-      if (!ok) {
-        const tail = out.trimEnd().split("\n").slice(-25).join("\n");
-        console.log(
-          tail
-            .split("\n")
-            .map((l) => `        │ ${l}`)
-            .join("\n"),
-        );
-      }
-      resolve(res);
+      resolve({
+        out,
+        res: {
+          suite: path.basename(file),
+          pass: counts?.pass ?? null,
+          fail: counts?.fail ?? null,
+          exit: code ?? 1,
+          ms: Date.now() - started,
+          unparsed: counts === null,
+        },
+      });
     });
     child.on("error", (err) => {
-      console.log(`  FAIL  ${path.basename(file).padEnd(42)} spawn error: ${err.message}`);
       resolve({
-        suite: path.basename(file),
-        pass: null,
-        fail: null,
-        exit: 1,
-        ms: Date.now() - started,
-        unparsed: true,
+        out: `spawn error: ${err.message}`,
+        res: {
+          suite: path.basename(file),
+          pass: null,
+          fail: null,
+          exit: 1,
+          ms: Date.now() - started,
+          unparsed: true,
+        },
       });
     });
   });
+}
+
+/**
+ * A suite that exits non-zero having printed NO count line did not fail an
+ * assertion — it never reached its own summary. The observed cause is a
+ * transport blip: the Neon WebSocket drops mid-batch and (before the fix in
+ * packages/database/src/neon-ws.ts) took the process down with
+ * ERR_UNHANDLED_REJECTION. It hit a different suite each time and every
+ * affected suite passed 100% when re-run alone, so scoring it by exit code
+ * alone reported a false FAIL on a money proof.
+ *
+ * THE RETRY IS DELIBERATELY NARROW:
+ *   - only when there is NO count line at all. A suite that printed
+ *     "40 passed, 1 failed" is a real regression and is NEVER re-run — that
+ *     is the case where a retry would actually hide something.
+ *   - once, not until green.
+ *   - loudly: the badge becomes PASS* and the summary names every retried
+ *     suite. A silent retry would turn a genuinely flaky money proof into an
+ *     invisible one, which is worse than the false FAIL it replaces.
+ */
+function isInfraBlip(res: SuiteResult): boolean {
+  return res.exit !== 0 && res.unparsed;
+}
+
+async function runSuite(
+  tsx: { cmd: string; pre: string[] },
+  cwd: string,
+  file: string,
+  allowRetry: boolean,
+): Promise<SuiteResult> {
+  let { res, out } = await spawnSuite(tsx, cwd, file);
+  let retried = false;
+
+  if (allowRetry && isInfraBlip(res)) {
+    // Print the first attempt's tail NOW — it is the only record of what the
+    // blip actually looked like, and a green retry would otherwise erase it.
+    console.log(
+      `  RETRY ${res.suite.padEnd(42)} no count line (exit ${res.exit}) — re-running once`,
+    );
+    console.log(indent(out));
+    retried = true;
+    const firstMs = res.ms;
+    ({ res, out } = await spawnSuite(tsx, cwd, file));
+    res.ms += firstMs;
+  }
+
+  res.retried = retried;
+
+  const ok = res.exit === 0 && (res.fail ?? 0) === 0;
+  const badge = ok ? (retried ? "PASS*" : "PASS ") : "FAIL ";
+  const counted =
+    res.pass !== null
+      ? `${res.pass} passed, ${res.fail} failed`
+      : `no count line (exit ${res.exit})`;
+  console.log(
+    `  ${badge} ${res.suite.padEnd(42)} ${counted.padEnd(26)} ${(res.ms / 1000).toFixed(1)}s`,
+  );
+  if (!ok) console.log(indent(out));
+  return res;
 }
 
 async function main() {
@@ -181,6 +240,9 @@ async function main() {
   const dirArg = args.find((a) => !a.startsWith("--")) ?? "tests/db";
   const bail = args.includes("--bail");
   const listOnly = args.includes("--list");
+  // `--no-retry` — score every suite on its first attempt, for when you WANT
+  // to see the raw flakiness rate rather than have it smoothed over.
+  const noRetry = args.includes("--no-retry");
   // Accepts `--only=a,b` and `--only a,b`. Must stay undefined when the flag is
   // absent: an earlier version fell through to args[indexOf(...)+1], which with
   // indexOf === -1 read args[0] — the directory — and filtered every suite out.
@@ -246,7 +308,7 @@ async function main() {
   const tsx = resolveTsx(cwd);
   const results: SuiteResult[] = [];
   for (const s of suites) {
-    const r = await runSuite(tsx, cwd, path.join(dirArg, s));
+    const r = await runSuite(tsx, cwd, path.join(dirArg, s), !noRetry);
     results.push(r);
     if (bail && (r.exit !== 0 || (r.fail ?? 0) > 0)) {
       console.log(`\nrun-db-suites: --bail after ${r.suite}`);
@@ -270,6 +332,21 @@ async function main() {
     console.log(
       `note: ${unparsed.length} suite(s) printed no "N passed, M failed" line and were ` +
         `scored by exit code only: ${unparsed.map((r) => r.suite).join(", ")}`,
+    );
+  }
+  // Never let a retry pass unremarked: a suite that needs one is flaky, and
+  // that is a finding in its own right even when the second attempt is green.
+  const retried = results.filter((r) => r.retried);
+  if (retried.length) {
+    console.log(
+      `RETRIED (${retried.length}): ${retried
+        .map((r) => `${r.suite} [${r.exit === 0 && (r.fail ?? 0) === 0 ? "green on retry" : "failed again"}]`)
+        .join(", ")}`,
+    );
+    console.log(
+      `  ↳ each exited non-zero with no count line on its first attempt, which is an\n` +
+        `    infrastructure blip, not an assertion failure. Investigate if it recurs;\n` +
+        `    re-run with --no-retry to see the raw first-attempt result.`,
     );
   }
   if (badSuites.length) {

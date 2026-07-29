@@ -2,6 +2,20 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "edura-navfix-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "edura",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3022"
+      ],
+      "port": 3022
+    },
+    {
       "name": "edura-www",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
@@ -24,6 +38,20 @@
         "3021"
       ],
       "port": 3021
+    },
+    {
+      "name": "edura-sidebar-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "edura",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3042"
+      ],
+      "port": 3042
     },
     {
       "name": "edura-prod",

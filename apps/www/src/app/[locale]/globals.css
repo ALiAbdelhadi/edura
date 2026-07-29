@@ -1,9 +1,9 @@
+/* Paper, not glass. A record is consulted and signed; a dashboard is browsed. The
+   austerity below is a claim about which of the two this is. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../../../../../packages/ui/src/styles/globals.css";
 
-/* Paper, not glass. A record is consulted and signed; a dashboard is browsed. The
-   austerity below is a claim about which of the two this is. */
 body {
   font-family: var(--font-plex-arabic), var(--font-noto-sans), sans-serif;
   background: var(--paper);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useGetIdentity } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import type { MeResponse } from "@/lib/refine";

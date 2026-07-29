@@ -1,8 +1,8 @@
+import { routing } from "@/i18n/routing";
+import { onboardingMessages } from "@/lib/i18n/scope";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
-import { routing } from "@/i18n/routing";
 import type { ReactNode } from "react";
-import { onboardingMessages } from "@/lib/i18n/scope";
 
 /**
  * The root layout ships only the base namespaces, so the onboarding wizard

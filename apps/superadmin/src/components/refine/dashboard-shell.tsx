@@ -1,39 +1,15 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useGetIdentity, useLogout, useList } from "@refinedev/core";
-import {
-  Home,
-  Calendar,
-  ClipboardList,
-  Award,
-  CheckCircle2,
-  MessageSquare,
-  BookOpen,
-  Users,
-  User,
-  DollarSign,
-  Bell,
-  Settings,
-  LayoutGrid,
-  BarChart3,
-  FileSearch,
-  Star,
-  Search,
-  Wallet,
-  ShieldCheck,
-  LogOut,
-  PanelLeft,
-  type LucideIcon,
-} from "lucide-react";
-import type { MeResponse } from "@/lib/refine";
-import { useTranslations } from "next-intl";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { HeaderQuickSettings } from "@/components/ui/header-quick-settings";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Link, usePathname } from "@/i18n/navigation";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import type { MeResponse } from "@/lib/refine";
+import { useGetIdentity, useList, useLogout } from "@refinedev/core";
+import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
+import { BottomNav } from "@repo/ui/components/bottom-nav";
+import { Button } from "@repo/ui/components/button";
 import {
   Sidebar,
   SidebarContent,
@@ -47,8 +23,32 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@repo/ui/components/sidebar";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { Button } from "@repo/ui/components/button";
+import {
+  Award,
+  BarChart3,
+  Bell,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ClipboardList,
+  DollarSign,
+  FileSearch,
+  Home,
+  LayoutGrid,
+  LogOut,
+  MessageSquare,
+  PanelLeft,
+  Search,
+  Settings,
+  ShieldCheck,
+  Star,
+  User,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import React from "react";
 
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
@@ -145,7 +145,14 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function HeaderSidebarToggle() {
+/**
+ * ONE navigation per viewport. Mirrors www's shell exactly — a portal that
+ * ships a phone bar must not also ship the drawer behind this button, or a
+ * phone gets two complete navigation systems and neither is authoritative.
+ * `md` is the same 768px `useIsMobile` switches the sidebar to a drawer at, so
+ * no width exists with neither.
+ */
+function HeaderSidebarToggle({ desktopOnly }: { desktopOnly: boolean }) {
   const t = useTranslations();
   const { toggleSidebar, isMobile, openMobile, state } = useSidebar();
   const expanded = isMobile ? openMobile : state === "expanded";
@@ -154,6 +161,7 @@ function HeaderSidebarToggle() {
       type="button"
       variant="ghost"
       size="icon"
+      className={desktopOnly ? "hidden md:inline-flex" : undefined}
       onClick={toggleSidebar}
       aria-label={
         expanded ? t("shared.collapseSidebar") : t("shared.expandSidebar")
@@ -204,10 +212,20 @@ function SidebarNavLink({
 export default function DashboardShell({
   role,
   navItems,
+  bottomNav,
   children,
 }: {
   role: string;
   navItems: NavItem[];
+  /**
+   * Phone chrome. Hrefs in BAR ORDER, drawn from navItems — the bar's own
+   * `maxVisible` decides how many get a slot and puts the remainder behind
+   * "more", so this is the full list, not the first four.
+   *
+   * LIST EVERY href IN `navItems`. Passing this hides the sidebar toggle on
+   * phones, so an href left out is a destination a phone user cannot reach.
+   */
+  bottomNav?: string[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -228,7 +246,8 @@ export default function DashboardShell({
   const roleName = roleLabels[role] || "User";
   const displayName = identity?.name || roleName;
 
-  const path = (pathname ?? "").replace(/^\/(ar|en)(?=\/|$)/, "") || "/";
+  // `usePathname` from @/i18n/navigation already strips the locale prefix.
+  const path = pathname || "/";
   const selectedKey =
     navItems.find((item) => path === item.href)?.href ||
     [...navItems]
@@ -238,6 +257,47 @@ export default function DashboardShell({
 
   const screenLabel =
     navItems.find((item) => item.href === selectedKey)?.label || "Dashboard";
+
+  // Bottom nav is a SUBSET of the same nav, never a second information
+  // architecture — a destination that exists only on the phone is one desktop
+  // users cannot find. `bottomNav` names hrefs already present in the sidebar.
+  const bottomNavItems = (bottomNav ?? [])
+    .map((href) => navItems.find((i) => i.href === href))
+    .filter((i): i is NavItem => Boolean(i))
+    .map((i) => {
+      const Icon = iconMap[i.icon] || LayoutGrid;
+      const badge =
+        i.href.includes("notifications") && unreadCount > 0
+          ? unreadCount
+          : undefined;
+      return {
+        key: i.href,
+        href: i.href,
+        label: tNav(i.label),
+        icon: <Icon className="size-5" />,
+        ...(badge !== undefined
+          ? { badge, badgeLabel: `${tNav(i.label)} (${badge})` }
+          : {}),
+      };
+    });
+
+  const hasPhoneNav = bottomNavItems.length > 0;
+
+  // Same dev-only guard as www: hiding the toggle turns a missing href from an
+  // ordering preference into an unreachable destination, and this app's nav
+  // grows a screen at a time.
+  const navKey = navItems.map((i) => i.href).join("|");
+  const barKey = (bottomNav ?? []).join("|");
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !barKey) return;
+    const bar = barKey.split("|");
+    const missing = navKey.split("|").filter((href) => !bar.includes(href));
+    if (missing.length) {
+      console.error(
+        `[DashboardShell] role="${role}": ${missing.length} destination(s) are in the sidebar but not in \`bottomNav\`, so they are UNREACHABLE on phones. Add them to the bar order:\n  ${missing.join("\n  ")}`,
+      );
+    }
+  }, [role, navKey, barKey]);
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -318,8 +378,12 @@ export default function DashboardShell({
       <SidebarInset className="min-h-0">
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-sm supports-backdrop-filter:bg-background/70 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <HeaderSidebarToggle />
-            <div className="h-5 w-px shrink-0 bg-border" />
+            <HeaderSidebarToggle desktopOnly={hasPhoneNav} />
+            {/* The rule separates the toggle from the title, so it goes where
+                the toggle goes. */}
+            <div
+              className={`h-5 w-px shrink-0 bg-border ${hasPhoneNav ? "hidden md:block" : ""}`}
+            />
             <h1 className="truncate text-lg font-semibold tracking-tight text-ink">
               {tNav(screenLabel)}
             </h1>
@@ -367,6 +431,20 @@ export default function DashboardShell({
         >
           {children}
         </div>
+
+        {/* Phone chrome. Hidden at md+ by the component itself, so the sidebar
+            remains the only navigation on desktop and the two never coexist. */}
+        {hasPhoneNav ? (
+          <BottomNav
+            items={bottomNavItems}
+            activeKey={selectedKey}
+            maxVisible={5}
+            linkAs={Link}
+            navLabel={t("nav.dashboard")}
+            moreLabel={t("nav.more")}
+            moreTitle={t("nav.allSections")}
+          />
+        ) : null}
       </SidebarInset>
     </SidebarProvider>
   );

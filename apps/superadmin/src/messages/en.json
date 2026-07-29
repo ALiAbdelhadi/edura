@@ -53,7 +53,8 @@
     "requests": "Requests",
     "myClasses": "My Classes",
     "myCenters": "My Centers",
-    "more": "More"
+    "more": "More",
+    "allSections": "All sections"
   },
   "roles": {
     "student": "Student",
@@ -188,7 +189,10 @@
     "inviteFailed": "Failed to activate account",
     "inviteTitle": "Activate your account",
     "inviteSubtitle": "Set your password to get started.",
-    "activateButton": "Activate account"
+    "activateButton": "Activate account",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "capsLockOn": "Caps Lock is on"
   },
   "common": {
     "loading": "Loading…",

@@ -6,7 +6,6 @@ import { BookOpen, ChevronDown, Clock, MapPin, Archive, CreditCard, Wallet, User
 import { useTranslations } from "next-intl";
 import { Card } from "@repo/ui/components/card";
 import { SearchInput } from "@repo/ui/components/search-input";
-import { Input } from "@repo/ui/components/input";
 import { Button } from "@repo/ui/components/button";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import {
@@ -59,6 +58,17 @@ type CourseHit = {
 
 /** Sentinel understood by /api/v1/search/courses: subjectId=none ⇒ uncatalogued. */
 const UNCATEGORIZED_ID = "none";
+
+/**
+ * A fresh idempotency key per submit. Module scope, not inline in the click
+ * handler: Date.now()/Math.random() are impure, and the React Compiler refuses
+ * impure calls reachable from a component body.
+ */
+function newIdempotencyKey(courseId: string, plan: string): string {
+  const stamp = Date.now().toString(36);
+  const noise = Math.random().toString(36).slice(2, 8);
+  return `psub-${courseId}-${plan}-${stamp}-${noise}`;
+}
 
 /** What the parent has committed to buy, held while they pick how to pay. */
 type PendingPurchase = {
@@ -305,7 +315,7 @@ export function ParentPayScreen() {
           ...(pending.sessionId ? { sessionId: pending.sessionId } : {}),
           method: "card",
           payFrom,
-          idempotencyKey: `psub-${pending.course.id}-${pending.plan}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          idempotencyKey: newIdempotencyKey(pending.course.id, pending.plan),
         },
       });
       const data = (res as any)?.data?.data ?? (res as any)?.data;

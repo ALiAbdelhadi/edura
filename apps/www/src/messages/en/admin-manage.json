@@ -211,7 +211,9 @@
     "walletRequested": "Requested",
     "walletFinality": "A payout request reserves the amount from the center's balance immediately and is written to the ledger. It cannot be undone — only the platform can cancel it.",
     "walletArm": "Request {amount}",
-    "walletConfirmFinal": "Final confirm — press to record the request"
+    "walletConfirmFinal": "Final confirm — press to record the request",
+    "walletIndeterminate": "The connection dropped before a reply — the request may already be recorded. Check “Recent payout requests” before retrying; do not press twice.",
+    "writeIndeterminate": "The connection dropped before a reply — the amount may already be recorded. Check the payment log before re-entering it; do not collect again."
   },
   "expenses": {
     "categories": {

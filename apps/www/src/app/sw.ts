@@ -84,7 +84,7 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
         const existing = clientsArr.find((c) =>
           c.url.startsWith(self.location.origin),
         ) as WindowClient | undefined;
-        
+
         if (existing) return existing.focus();
         return self.clients.openWindow(url);
       }),

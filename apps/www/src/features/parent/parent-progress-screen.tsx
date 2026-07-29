@@ -25,12 +25,18 @@ import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
 
+// Chart series read `--chart-*`, NOT `--series-*`.
+// Both names existed while the design system was being assembled; the token
+// layer that landed on main defines `--chart-1..5` only. A `var()` that
+// resolves to nothing makes SVG `fill` fall back to BLACK, so the bars were
+// drawn at the right geometry and were simply invisible — the failure is
+// silent, which is why it survived a build, a typecheck and a screenshot.
 const SERIES = [
-  "var(--series-1)",
-  "var(--series-2)",
-  "var(--series-3)",
-  "var(--series-4)",
-  "var(--series-5)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 function percentageToGrade(pct: number): string {
@@ -250,7 +256,7 @@ export function ParentProgressScreen() {
                     {
                       key: "average",
                       label: t("parentProgress.averagePercent"),
-                      color: "var(--series-1)",
+                      color: "var(--chart-1)",
                     },
                   ]}
                   horizontal

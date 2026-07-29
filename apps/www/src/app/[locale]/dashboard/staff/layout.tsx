@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 import { api } from "@/lib/api/client";
-import { plexMono } from "@/features/admin/ledger";
+import { plexMono, LedgerPortalScope } from "@/features/admin/ledger";
 import "@/features/admin/ledger/ledger.css";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
@@ -46,6 +46,41 @@ function navForRole(role: StaffRole) {
   return items;
 }
 
+/**
+ * Phone bar order, DERIVED from whatever `navForRole` returned.
+ *
+ * This portal is the one that most needs a bar — the layout below already says
+ * staff "work standing, one-handed, on a phone, with a parent in front of them
+ * and a queue behind" — and the one where a hand-written bar list would be
+ * wrong. There are three sub-role nav lists, not one, so a literal array would
+ * either omit a manager's screens or offer a receptionist screens their tier
+ * does not have. Deriving makes it exhaustive BY CONSTRUCTION: the tail sweeps
+ * up anything not named in the priority list, so a nav entry added later shows
+ * up in the bar instead of becoming unreachable.
+ *
+ * The priority list only REORDERS. Messages is pulled ahead of Rooms/Reports so
+ * a manager's four slots stay the counter loop rather than filling with the
+ * screens only a manager happens to also have.
+ */
+function barForItems(items: { href: string }[]) {
+  const base = "/dashboard/staff";
+  const priority = [
+    base,
+    `${base}/checkin`,
+    `${base}/students`,
+    `${base}/messages`,
+    `${base}/finance`,
+    `${base}/rooms`,
+    `${base}/reports`,
+  ];
+  const present = new Set(items.map((i) => i.href));
+  const ordered = priority.filter((href) => present.has(href));
+  // Everything the priority list does not name, in nav order. Notifications and
+  // Settings land here, which is where they belong anyway.
+  const rest = items.map((i) => i.href).filter((h) => !ordered.includes(h));
+  return [...ordered, ...rest];
+}
+
 function StaffShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
   const router = useRouter();
@@ -78,15 +113,27 @@ function StaffShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const navItems = navForRole(role);
+
   return (
-    <DashboardShell role="center_staff" navItems={navForRole(role)}>
-      {/* `touch` — staff work standing, one-handed, on a phone, with a parent in
-          front of them and a queue behind. 48px targets, 16px type, 12px gaps;
-          nothing actionable at 12px. Same components as admin, one prop apart. */}
-      <div className={`led ${plexMono.variable}`} data-density="touch">
-        {children}
-      </div>
-    </DashboardShell>
+    <>
+      {/* Marks <html> so ledger.css can restyle the shared chrome for these
+          routes only — see portal-scope.tsx. */}
+      <LedgerPortalScope />
+      <DashboardShell
+        role="center_staff"
+        navItems={navItems}
+        bottomNav={barForItems(navItems)}
+      >
+        {/* `touch` — staff work standing, one-handed, on a phone, with a parent
+            in front of them and a queue behind. 48px targets, 16px type, 12px
+            gaps; nothing actionable at 12px. Same components as admin, one prop
+            apart. */}
+        <div className={`led ${plexMono.variable}`} data-density="touch">
+          {children}
+        </div>
+      </DashboardShell>
+    </>
   );
 }
 

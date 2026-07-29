@@ -60,7 +60,14 @@
     "noSubjectsForGrades": "No subjects available for the selected grades"
   },
   "empty": {
-    "noOptions": "No options available right now — contact support"
+    "noOptions": "No options available right now — contact support",
+    "noSystems": "No education systems are available right now.",
+    "noStages": "No stages are available for this system.",
+    "noGrades": "No grades are available for this stage.",
+    "noTracks": "No tracks are available for this grade.",
+    "noSubjects": "No subjects will be assigned automatically with this selection.",
+    "blockedHint": "This step cannot be completed without it. Check with your center, or try again.",
+    "retry": "Try again"
   },
   "errors": {
     "selectOne": "Pick an option to continue",
@@ -80,5 +87,6 @@
     "phone": "Phone",
     "coverage": "Covered stages",
     "stagesCount": "{count} stages"
-  }
+  },
+  "progressSaved": "Your progress is saved — you can close this and pick up where you left off."
 }

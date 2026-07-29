@@ -1,35 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import type { ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useCustom } from "@refinedev/core";
-import {
-  ArrowLeft,
-  Building2,
-  BookOpen,
-  Users,
-  Star,
-  Phone,
-  Mail,
-  MapPin,
-} from "lucide-react";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { DescriptionList } from "@/components/kit/description-list";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageSpinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
+import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { cn } from "@repo/ui/lib/utils";
+import { useCustom } from "@refinedev/core";
+import { Button } from "@repo/ui/components/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { DescriptionList } from "@/components/kit/description-list";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageSpinner } from "@/components/kit/spinner";
+import { cn } from "@repo/ui/lib/utils";
+import {
+  ArrowLeft,
+  BookOpen,
+  Building2,
+  Mail,
+  MapPin,
+  Phone,
+  Star,
+  Users,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import type { ReactNode } from "react";
 
 function formatSchedule(
   pattern: any,
@@ -63,7 +65,7 @@ export default function CenterDetailPage() {
 
   if (!center) {
     return (
-      <div className="mx-auto max-w-[900px] p-6">
+      <div className="mx-auto max-w-225 p-6">
         <Button variant="outline" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="size-4 rtl:-scale-x-100" />
           {t("common.back")}
@@ -172,12 +174,11 @@ export default function CenterDetailPage() {
   ].filter(Boolean) as { label: ReactNode; value: ReactNode }[];
 
   return (
-    <div className="mx-auto max-w-[900px] p-6">
+    <div className="mx-auto max-w-225 p-6">
       <Button variant="outline" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="size-4 rtl:-scale-x-100" />
         {t("common.back")}
       </Button>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">

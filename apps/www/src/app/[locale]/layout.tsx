@@ -1,17 +1,17 @@
-import type { Metadata, Viewport } from "next";
-import {
-  Noto_Sans,
-  IBM_Plex_Sans_Arabic,
-  IBM_Plex_Mono,
-} from "next/font/google";
-import type { ReactNode } from "react";
-import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
-import { routing, isRtlLocale } from "@/i18n/routing";
-import { appBaseUrl } from "@repo/server-core/http/app-url";
 import { AppProviders } from "@/components/providers/app-providers";
+import { isRtlLocale, routing } from "@/i18n/routing";
 import { baseMessages } from "@/lib/i18n/scope";
+import { appBaseUrl } from "@repo/server-core/http/app-url";
+import type { Metadata, Viewport } from "next";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
+import {
+  IBM_Plex_Mono,
+  IBM_Plex_Sans_Arabic,
+  Noto_Sans,
+} from "next/font/google";
+import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import "./globals.css";
 
 const notoSans = Noto_Sans({
@@ -31,6 +31,7 @@ const plexArabic = IBM_Plex_Sans_Arabic({
 // wrote this", and it is what makes Latin-inside-Arabic systematic rather than
 // incidental. It carries no Arabic glyphs, which is deliberate: Arabic-Indic digits
 // in prose must NOT resolve here (see the `num-prose` utility).
+
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
@@ -119,6 +120,10 @@ export default async function RootLayout({
         {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
             it as a hoistable resource and never warns about client-rendered
             inline scripts; same-origin + blocking so it runs before paint. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- blocking is
+            the point: async/defer would let the light-theme paint land first
+            and flash. It is a 361-byte same-origin file, not a third-party
+            dependency, so the rule's actual hazard does not apply. */}
         <script src="/theme-init.js" />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>

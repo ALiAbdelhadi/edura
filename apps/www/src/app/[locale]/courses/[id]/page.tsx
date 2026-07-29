@@ -1,29 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { DescriptionList } from "@/components/kit/description-list";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatCard } from "@/components/kit/stat-card";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import {
-  ArrowLeft,
-  BookOpen,
-  User,
-  Calendar,
-  DollarSign,
-  Users,
-  Star,
-  Clock,
-  Building2,
-} from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { toast } from "@repo/ui/components/sonner";
-import { StatCard } from "@/components/kit/stat-card";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { DescriptionList } from "@/components/kit/description-list";
-import { Spinner, PageSpinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import {
+  ArrowLeft,
+  BookOpen,
+  Building2,
+  Calendar,
+  Clock,
+  DollarSign,
+  Star,
+  User,
+  Users,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useState } from "react";
 
 function formatSchedule(
   pattern: any,

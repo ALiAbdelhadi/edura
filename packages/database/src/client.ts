@@ -3,6 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaPg } from "@prisma/adapter-pg";
 import ws from "ws";
 import { PrismaClient, Prisma } from "./generated/client/index";
+import { hardenNeonWebSockets, isNeonSocketDropError } from "./neon-ws";
 import {
   sessionRevocationExtension,
   softDeleteExtension,
@@ -10,6 +11,14 @@ import {
   auditLogExtension,
   roleGuardExtension,
 } from "./extensions/index";
+
+// AT IMPORT, not in createAdapter(): the ~40 DB test suites assign
+// `neonConfig.webSocketConstructor = ws` at their own module scope, and imports
+// are evaluated before the importing module's body. Installing here is the only
+// point guaranteed to precede them. It reads no env and opens no connection, so
+// the deliberate laziness of `prisma` below is preserved. See neon-ws.ts for
+// why a dropped socket used to take the whole process down.
+hardenNeonWebSockets();
 
 // Driver selection: short-lived serverless functions (Next.js) use the Neon
 // serverless driver (default). Long-running processes (the realtime WebSocket
@@ -139,6 +148,29 @@ const DEFAULT_TX_OPTIONS: Required<TxOptions> = {
 // retried here — the transaction body already ran partway, and re-running it
 // under the same contention would add load rather than relieve it. Match on
 // the specific message rather than the code alone.
+//
+// A DROPPED WEBSOCKET IS ALSO RETRIED, BUT ONLY OUTSIDE THE COMMIT WINDOW.
+//
+// neon-ws.ts turns a dropped socket into a normal Error that
+// `isNeonSocketDropError` recognises. Retrying one is safe in every case but
+// ONE, and the exception is the whole reason for the flag below:
+//
+//   drop BEFORE the callback is entered   -> BEGIN never succeeded, nothing ran.
+//   drop WHILE the callback is running    -> the transaction is open and
+//                                            uncommitted; when the connection
+//                                            dies Postgres rolls it back. Even a
+//                                            write whose acknowledgement was lost
+//                                            is inside that rollback.
+//   drop AFTER the callback RETURNED      -> COMMIT is in flight. We cannot tell
+//                                            "it never arrived" from "it
+//                                            committed and the ack was lost", so
+//                                            a retry here would apply the whole
+//                                            body TWICE.
+//
+// Only the third case is ambiguous, and it is exactly the case `bodyCompleted`
+// excludes. This wrapper carries every payment, settlement and ledger write, so
+// the ambiguous window fails loudly rather than risking a double-charge; the
+// other two — which is where a mid-batch transport blip actually lands — retry.
 const TRANSACTION_START_RETRIES = 2;
 const TRANSACTION_RETRY_DELAY_MS = 300;
 
@@ -150,6 +182,41 @@ function isTransactionStartTimeout(err: unknown): boolean {
   );
 }
 
+// `isNeonSocketDropError` alone is NOT enough here, and the difference was only
+// visible against a live database: when the TCP socket is destroyed, the driver
+// that wins the race to reject the in-flight query is pg's own connection
+// bookkeeping — a bare `Error: Connection terminated unexpectedly`, with no
+// code and no cause — not the WebSocket "error" event that neon-ws.ts
+// normalizes. Matching only our own marker would have produced a retry that
+// looked correct and never once fired.
+//
+// These are other people's strings, which is a weaker contract than the marker;
+// that is acceptable ONLY because `bodyCompleted` — not this predicate — is
+// what protects the COMMIT window. Widening what counts as a transport failure
+// cannot widen the double-apply risk.
+const CONNECTION_FAILURE_MESSAGES = [
+  "Connection terminated unexpectedly",
+  "Connection terminated due to connection timeout",
+  "Client has encountered a connection error and is not queryable",
+  "server closed the connection unexpectedly",
+  "terminating connection due to administrator command",
+];
+
+function isConnectionFailure(err: unknown): boolean {
+  if (isNeonSocketDropError(err)) return true;
+  for (let cur: unknown = err, hops = 0; cur != null && hops < 10; hops++) {
+    const message = (cur as { message?: unknown }).message;
+    if (
+      typeof message === "string" &&
+      CONNECTION_FAILURE_MESSAGES.some((m) => message.includes(m))
+    ) {
+      return true;
+    }
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -159,16 +226,23 @@ async function transactionWithRetry<T>(
   options: TxOptions,
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
+    // Per-attempt, and set SYNCHRONOUSLY the instant the body resolves: from
+    // that point on any failure belongs to COMMIT and must not be retried.
+    let bodyCompleted = false;
     try {
-      return await prisma.$transaction(fn, {
-        ...DEFAULT_TX_OPTIONS,
-        ...options,
-      });
+      return await prisma.$transaction(
+        async (tx) => {
+          const result = await fn(tx);
+          bodyCompleted = true;
+          return result;
+        },
+        { ...DEFAULT_TX_OPTIONS, ...options },
+      );
     } catch (err) {
-      if (
-        attempt >= TRANSACTION_START_RETRIES ||
-        !isTransactionStartTimeout(err)
-      ) {
+      const retryable =
+        isTransactionStartTimeout(err) ||
+        (isConnectionFailure(err) && !bodyCompleted);
+      if (attempt >= TRANSACTION_START_RETRIES || !retryable) {
         throw err;
       }
       await delay(TRANSACTION_RETRY_DELAY_MS * (attempt + 1));

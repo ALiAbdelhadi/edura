@@ -1,17 +1,17 @@
-import { z } from "zod";
-import { parseJson } from "@/lib/validation/zod";
+import { platformDb } from "@/lib/db/scope";
+import { withErrors } from "@/lib/errors/http";
+import { ok } from "@/lib/http/envelope";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
+import { registerCenter } from "@/lib/services/auth/register";
 import {
   emailSchema,
+  localeSchema,
+  nameSchema,
   passwordSchema,
   phoneSchema,
-  nameSchema,
-  localeSchema,
 } from "@/lib/validation/common";
-import { withErrors } from "@/lib/errors/http";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { ok } from "@/lib/http/envelope";
-import { registerCenter } from "@/lib/services/auth/register";
-import { platformDb } from "@/lib/db/scope";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 

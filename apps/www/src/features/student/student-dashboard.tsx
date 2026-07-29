@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useCustom } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";

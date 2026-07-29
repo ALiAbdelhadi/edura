@@ -53,7 +53,8 @@
     "requests": "الطلبات",
     "myClasses": "فصولي",
     "myCenters": "مراكزي",
-    "more": "المزيد"
+    "more": "المزيد",
+    "allSections": "كل الأقسام"
   },
   "roles": {
     "student": "طالب",
@@ -121,7 +122,7 @@
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
-    "backofficeTitle": "إدارة إديورا (Edura Back-office)",
+    "backofficeTitle": "إدارة إديورا",
     "backofficeSubtitle": "تسجيل دخول الموظفين — الإدارة العامة والمالية فقط",
     "signingIn": "جاري تسجيل الدخول...",
     "invalidCredentialsBackoffice": "بيانات الاعتماد غير صالحة أو الحساب غير مصرح له.",
@@ -188,7 +189,10 @@
     "inviteFailed": "فشل تفعيل الحساب",
     "inviteTitle": "تفعيل حسابك",
     "inviteSubtitle": "عيّن كلمة المرور للبدء.",
-    "activateButton": "تفعيل الحساب"
+    "activateButton": "تفعيل الحساب",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "capsLockOn": "مفتاح Caps Lock مُفعّل"
   },
   "common": {
     "loading": "جارٍ التحميل…",

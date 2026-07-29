@@ -1,5 +1,5 @@
-import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { getCatalogTree } from "@/lib/services/catalog/catalog-read";
 

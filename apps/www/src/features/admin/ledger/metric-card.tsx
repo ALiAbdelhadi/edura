@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@repo/ui/lib/utils";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import * as React from "react";
 import { Num } from "./num";
 

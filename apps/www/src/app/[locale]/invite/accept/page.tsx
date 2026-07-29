@@ -9,7 +9,7 @@ import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, UserCheck, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -132,7 +132,7 @@ function InviteAcceptContent() {
             width={120}
             height={90}
             priority
-            className="mb-4 h-[90px] w-auto"
+            className="mb-4 h-22.5 w-auto"
           />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("auth.inviteTitle")}

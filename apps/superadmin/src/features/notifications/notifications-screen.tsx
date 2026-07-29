@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useList, useCustomMutation, useInvalidate } from "@refinedev/core";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Bell, Check, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";

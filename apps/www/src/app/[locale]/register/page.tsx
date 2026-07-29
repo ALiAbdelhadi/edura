@@ -2,10 +2,9 @@
 
 import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
+import { LedgerButton } from "@/components/ledger";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EGYPT_PHONE_RE } from "@repo/server-core/validation/common";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { Button } from "@repo/ui/components/button";
 import {
   Form,
   FormControl,
@@ -16,7 +15,6 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { cn } from "@repo/ui/lib/utils";
 import ky from "ky";
 import {
   Building2,
@@ -30,8 +28,7 @@ import {
 } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -248,26 +245,33 @@ export default function RegisterPage() {
     return (
       <AuthShell variant="signup">
         <div className="flex flex-col items-center gap-4 text-center">
-          <Image
-            src="/edura-logo.svg"
-            alt="Edura"
-            width={120}
-            height={90}
-            priority
-            className="mb-4 h-[90px] w-auto"
-          />
-          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
-            <Clock className="size-6 text-primary" />
+          {/* Waiting is amber in this system — it is the one state an operator
+              scans for, and it is not an error. */}
+          <div
+            className="flex size-11 items-center justify-center rounded-lg"
+            style={{ background: "var(--amber-soft)", color: "var(--amber)" }}
+          >
+            <Clock className="size-5" aria-hidden />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            {t("auth.pendingApprovalTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("auth.pendingApprovalBody")}
-          </p>
-          <Button asChild className="w-full">
-            <Link href="/login">{t("auth.signInTitle")}</Link>
-          </Button>
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
+              {t("auth.pendingApprovalTitle")}
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
+              {t("auth.pendingApprovalBody")}
+            </p>
+          </div>
+          <Link
+            href="/login"
+            className="inline-flex w-full items-center justify-center rounded-lg px-3.5 py-2 text-sm font-semibold"
+            style={{
+              background: "var(--indigo)",
+              color: "var(--indigo-ink)",
+              border: "1px solid var(--indigo)",
+            }}
+          >
+            {t("auth.signInTitle")}
+          </Link>
         </div>
       </AuthShell>
     );
@@ -277,19 +281,14 @@ export default function RegisterPage() {
 
   return (
     <AuthShell variant="signup">
-      <div className="mb-8 flex flex-col items-center text-center">
-        <Image
-          src="/edura-logo.svg"
-          alt="Edura"
-          width={120}
-          height={90}
-          priority
-          className="mb-4 h-22.5 w-auto"
-        />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="mb-6">
+        <h1
+          className="text-2xl font-bold"
+          style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+        >
           {t("auth.createAccountTitle")}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
           {t("auth.registerSubtitle")}
         </p>
       </div>
@@ -298,14 +297,25 @@ export default function RegisterPage() {
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-4"
         >
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg px-3 py-2 text-sm font-medium"
+              style={{
+                color: "var(--red)",
+                background: "var(--red-soft)",
+                border: "1px solid var(--red)",
+              }}
+            >
+              {error}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-2">
             <Label>{t("auth.roleSelectLabel")}</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-muted p-1">
+            <div
+              className="grid grid-cols-2 gap-1 rounded-lg p-1 sm:grid-cols-4"
+              style={{ background: "var(--field)", border: "1px solid var(--rule)" }}
+            >
               {ROLE_OPTIONS.map((opt) => {
                 const active = role === opt.value;
                 return (
@@ -314,12 +324,12 @@ export default function RegisterPage() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setRole(opt.value)}
-                    className={cn(
-                      "rounded-lg px-1 py-2 text-center text-sm font-medium transition-colors",
+                    className="rounded-md px-1 py-2 text-center text-sm font-medium transition-colors"
+                    style={
                       active
-                        ? "bg-background text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
+                        ? { background: "var(--indigo-soft)", color: "var(--indigo)", fontWeight: 600 }
+                        : { color: "var(--ink-2)" }
+                    }
                   >
                     {t(opt.labelKey)}
                   </button>
@@ -482,14 +492,14 @@ export default function RegisterPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full gap-2" disabled={loading}>
+          <LedgerButton type="submit" variant="primary" className="w-full" disabled={loading}>
             {loading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <UserPlus className="size-4" />
             )}
             {t("auth.createAccountTitle")}
-          </Button>
+          </LedgerButton>
         </form>
       </Form>
       <p className="mt-6 text-center text-sm text-muted-foreground">

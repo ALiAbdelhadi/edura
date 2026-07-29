@@ -1,5 +1,6 @@
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
+import { hardenNeonWebSockets } from "../src/neon-ws.ts";
 import { config } from "dotenv";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -20,6 +21,8 @@ function requireAdminUrl() {
   return url;
 }
 config();
+// Normalize a dropped socket into a real Error — see src/neon-ws.ts.
+hardenNeonWebSockets();
 neonConfig.webSocketConstructor = ws;
 
 const migrationsDir = join(

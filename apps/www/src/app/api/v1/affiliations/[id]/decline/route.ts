@@ -1,13 +1,7 @@
-import { withErrors } from "@/lib/errors/http";
 import { delegated } from "@/lib/authz/teacher-actor";
-import { requireRole } from "@/lib/authz/require-role";
 import { scopedDb } from "@/lib/db/scope";
-import { NotFoundError, ForbiddenError, BusinessRuleError } from "@/lib/errors/classes";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
-
-export const dynamic = "force-dynamic";
-
-type Ctx = { params: Promise<{ id: string }> };
 
 export const POST = delegated(async (_req, ctx, { acting: user }) => {
   const { id } = await ctx.params;

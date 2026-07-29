@@ -1,10 +1,10 @@
-import { z } from "zod";
-import { parseJson } from "@/lib/validation/zod";
-import { emailSchema, passwordSchema, phoneSchema, nameSchema, localeSchema } from "@/lib/validation/common";
 import { withErrors } from "@/lib/errors/http";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { ok } from "@/lib/http/envelope";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { registerStudent } from "@/lib/services/auth/register";
+import { emailSchema, localeSchema, nameSchema, passwordSchema, phoneSchema } from "@/lib/validation/common";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 

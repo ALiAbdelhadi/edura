@@ -4,7 +4,6 @@ import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 import { OnboardingGate } from "@/features/onboarding/onboarding-gate";
 import { ledgerMono, ledgerScope, ledgerShellScope } from "@/features/student/ledger";
-import { StudentBottomNav } from "@/features/student/student-bottom-nav";
 
 const navItems = [
   { href: "/dashboard/student", icon: "home", label: "Dashboard" },
@@ -33,6 +32,32 @@ const navItems = [
   { href: "/dashboard/student/settings", icon: "settings", label: "Settings" },
 ];
 
+/**
+ * Phone bar order — deliberately NOT the sidebar's order.
+ *
+ * The four that get a slot are chosen by what a student actually opens between
+ * classes — where am I meant to be, what do I owe — not by nav-tree order, so
+ * Schedule outranks Subjects here and does not in the sidebar. The remaining
+ * eight sit behind "more".
+ *
+ * EVERY `navItems` href is listed: the bar is the phone's only navigation, so
+ * an omission here is a screen no student on a phone can open.
+ */
+const BAR_ORDER = [
+  "/dashboard/student",
+  "/dashboard/student/schedule",
+  "/dashboard/student/subjects",
+  "/dashboard/student/wallet",
+  "/dashboard/student/grades",
+  "/dashboard/student/attendance",
+  "/dashboard/student/materials",
+  "/dashboard/student/reviews",
+  "/dashboard/student/family",
+  "/dashboard/student/messages",
+  "/dashboard/student/notifications",
+  "/dashboard/student/settings",
+];
+
 export default function StudentLayout({
   children,
 }: {
@@ -46,22 +71,34 @@ export default function StudentLayout({
             (--sidebar*, --background, --card, --border). That converts the
             sidebar and header for the student portal without editing
             dashboard-shell.tsx, which parent, teacher, admin and assistant also
-            render. See features/student/ledger/ledger.module.css for the full
+            render. See components/ledger/ledger.module.css for the full
             reasoning and for when this layer should be deleted. */}
         <div className={`${ledgerMono.variable} ${ledgerShellScope} contents`}>
-          <DashboardShell role="student" navItems={navItems}>
+          {/* Phone chrome: bottom navigation, not a collapsed sidebar — and now
+              the SHELL's bar rather than a second implementation beside it.
+              `student-bottom-nav.tsx` said it should be replaced once the
+              shared primitive landed; it has. Every destination it carried is
+              in BAR_ORDER, in the same order, so nothing is lost. Passing
+              `bottomNav` is also what drops the sidebar toggle on phones, which
+              is what stopped this portal shipping two navigations at once. */}
+          <DashboardShell
+            role="student"
+            navItems={navItems}
+            bottomNav={BAR_ORDER}
+          >
             {/* Negative margins cancel DashboardShell's own `p-4 sm:p-6 lg:p-8`
                 so the paper canvas reaches the edges, then re-apply the same
                 padding inside the scope. Keep these in step with the shell.
-                The bottom padding clears the phone bottom-nav bar. */}
+                No bottom padding for the bar: BottomNav renders its own spacer,
+                and it now sits OUTSIDE this scroll container, so the container
+                is already short by the bar's height. The old `pb-24` would
+                double it. */}
             <div
-              className={`${ledgerScope} -m-4 min-h-full p-4 pb-24 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8 md:pb-6`}
+              className={`${ledgerScope} -m-4 min-h-full p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8`}
             >
               {children}
             </div>
           </DashboardShell>
-          {/* Phone chrome: bottom navigation, not a collapsed sidebar. */}
-          <StudentBottomNav />
         </div>
       </OnboardingGate>
     </RoleGuard>

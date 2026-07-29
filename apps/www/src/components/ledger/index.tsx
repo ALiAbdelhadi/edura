@@ -1,6 +1,7 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { cloneElement, isValidElement } from "react";
+import type { ComponentProps, CSSProperties, ReactElement, ReactNode } from "react";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import styles from "./ledger.module.css";
 
@@ -369,13 +370,19 @@ export function Tr({ children }: { children: ReactNode }) {
 /* ── Buttons ───────────────────────────────────────────────────────────────
    Primary is indigo; secondary is bordered, never filled. A destructive
    action is bordered red text — never an equal-weight twin of the safe one. */
+const BUTTON_BASE =
+  "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50";
+
 export function LedgerButton({
   variant = "secondary",
   className,
   children,
+  asChild = false,
   ...rest
 }: {
   variant?: "primary" | "secondary" | "danger";
+  /** Render the single child element as the control (e.g. a <Link>). */
+  asChild?: boolean;
 } & ComponentProps<"button">) {
   const style =
     variant === "primary"
@@ -384,15 +391,19 @@ export function LedgerButton({
         ? { background: "transparent", color: "var(--red)", border: "1px solid var(--red)" }
         : { background: "var(--sheet)", color: "var(--ink)", border: "1px solid var(--rule)" };
 
+  // A local `asChild` rather than Radix's Slot: @radix-ui/react-slot is a
+  // dependency of packages/ui, not of this app, and one cloneElement is
+  // cheaper than adding a direct dep for a single prop.
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<{ className?: string; style?: CSSProperties }>;
+    return cloneElement(child, {
+      className: cx(BUTTON_BASE, className, child.props.className),
+      style: { ...style, ...child.props.style },
+    });
+  }
+
   return (
-    <button
-      className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
-        className,
-      )}
-      style={style}
-      {...rest}
-    >
+    <button className={cx(BUTTON_BASE, className)} style={style} {...rest}>
       {children}
     </button>
   );

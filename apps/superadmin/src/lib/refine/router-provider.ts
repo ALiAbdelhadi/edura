@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { useRouter, usePathname, useSearchParams, useParams } from "next/navigation";
-import Link from "next/link";
+import { useSearchParams, useParams } from "next/navigation";
+import { Link, useRouter, usePathname } from "@/i18n/navigation";
 import type { RouterProvider, GoConfig, ParseFunction } from "@refinedev/core";
 
 function stringifyQuery(query: Record<string, unknown>): string {

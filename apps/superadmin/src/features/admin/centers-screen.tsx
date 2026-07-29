@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { PageHeader } from "@/components/kit/page-header";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { Link } from "@/i18n/navigation";
+import { amenityLabel } from "@/lib/rooms/amenities";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Eye, Home, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { Num } from "@repo/ui/components/num";
 import {
   Select,
   SelectContent,
@@ -15,16 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/dialog";
+import { toast } from "@repo/ui/components/sonner";
 import {
   Table,
   TableBody,
@@ -33,12 +35,10 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { toast } from "@repo/ui/components/sonner";
-import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { amenityLabel } from "@/lib/rooms/amenities";
+import { Eye, Home, Info } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
 
 type Split = { platformShareBp: number; teacherShareBp: number; centerShareBp: number };
 type ResolvedSplit = (Split & { source: "room" | "center" | "global" }) | null;
@@ -802,8 +802,6 @@ export function CentersScreen() {
                           <Link href={`/dashboard/superadmin/centers/${c.id}`}>
                             <Eye className="size-4" />{t("oversight")}</Link>
                         </Button>
-                        {/* The pricing dialog stays exactly where it was — the
-                            revenue split is edited here and nowhere else. */}
                         <Button size="sm" variant="outline" onClick={() => setDetailId(c.id)}>
                           <Home className="size-4" />
                           Rooms &amp; split

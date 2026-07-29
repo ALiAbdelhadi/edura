@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useList } from "@refinedev/core";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";

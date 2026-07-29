@@ -22,6 +22,31 @@ const navItems = [
   { href: "/dashboard/assistant/settings", icon: "settings", label: "Settings" },
 ];
 
+/**
+ * Phone bar order — the one portal where it barely reorders the sidebar,
+ * because the sidebar is already ordered by what an assistant does.
+ *
+ * Messages keeps the first slot: it is both this portal's index route and its
+ * main workspace. Door Check-in is promoted into the four, though — in
+ * `counter_and_door` mode the hall-door check-in is the ASSISTANT'S job (it is
+ * the teacher's account only as a fallback), and it is done standing at a door
+ * holding a phone, which is precisely what this bar is for.
+ *
+ * EVERY `navItems` href is listed — the bar is the phone's only navigation.
+ */
+const BAR_ORDER = [
+  "/dashboard/assistant",
+  "/dashboard/assistant/attendance",
+  "/dashboard/assistant/door",
+  "/dashboard/assistant/classes",
+  "/dashboard/assistant/notes",
+  "/dashboard/assistant/grades",
+  "/dashboard/assistant/materials",
+  "/dashboard/assistant/collaborations",
+  "/dashboard/assistant/notifications",
+  "/dashboard/assistant/settings",
+];
+
 export default function AssistantLayout({
   children,
 }: {
@@ -29,7 +54,11 @@ export default function AssistantLayout({
 }) {
   return (
     <RoleGuard allowedRole="assistant">
-      <DashboardShell role="assistant" navItems={navItems}>
+      <DashboardShell
+        role="assistant"
+        navItems={navItems}
+        bottomNav={BAR_ORDER}
+      >
         {children}
       </DashboardShell>
     </RoleGuard>

@@ -1,19 +1,19 @@
 "use client";
 
-import React from "react";
-import { useList, useCustomMutation } from "@refinedev/core";
-import { useRouter, useParams, usePathname } from "next/navigation";
-import { Bell, Check } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Button } from "@repo/ui/components/button";
-import { cn } from "@repo/ui/lib/utils";
-import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useCustomMutation, useList } from "@refinedev/core";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
+import { cn } from "@repo/ui/lib/utils";
+import { Bell, Check } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useParams } from "next/navigation";
 interface Notification {
   id: string;
   type: string;

@@ -127,6 +127,35 @@ Proposed:   `activeRowId?: string` + `getRowId?: (row: TData) => string`, render
             selection, bar = panel subject, so the two never read as one state).
 ```
 
+## [OPEN] superadmin — `Input`'s focus ring is 3px/offset-0, not the constitution's 2px/offset-2
+
+```
+Needs:      packages/ui/src/components/input.tsx line 12 currently ships
+              focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+            The constitution (§8, "Done means") specifies the focus ring as
+            2px --indigo at 2px OFFSET, which is exactly what the `.focus-ledger`
+            utility in globals.css already draws.
+Why:        The colour is already right (--ring aliases to --indigo through the D-031
+            shim), so this is geometry, not palette: a 3px ring at zero offset sits ON
+            the field border instead of clear of it, and at ring-ring/50 it is a
+            half-opacity blur rather than the crisp 2px outline the spec calls for.
+            §8 names focus rings on BOTH canvases in BOTH themes as one of the checks
+            "usually missed", and Input is on every form in all six portals — login,
+            checkout, the reject-reason field, the counter's student-code input. One
+            component, six portals, so it is not portal-specific.
+Blocking:   no — the login page is converted and usable. I deliberately did NOT
+            add `.focus-ledger` as a local className: it would double up with the
+            base ring rather than replace it, and a local patch to shared styling is
+            the thing the rebase rule exists to prevent.
+Proposed:   Replace the three focus-visible utilities on Input (and Textarea, which
+            carries the same line) with the `focus-ledger` utility, so the ring has
+            exactly one definition:
+              - "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              + "focus-ledger"
+            Verify on --paper AND --sheet in both themes; the 2px offset is what makes
+            it legible against --field, which is where inputs actually sit.
+```
+
 ---
 
 # Landed

@@ -58,6 +58,38 @@ const navItems = [
   { href: "/dashboard/superadmin/audit", icon: "shield", label: "Audit log", group: "Comms" },
 ];
 
+/**
+ * Phone bar order — deliberately NOT the sidebar's order.
+ *
+ * This console is desk work, so the bar is built for the case it is actually
+ * used in: something needs looking at away from the desk. Registrations and
+ * Payouts are the two queues that hold someone else up while they wait, so
+ * they outrank the money screens that are read rather than acted on.
+ *
+ * EVERY `navItems` href is listed — the bar is the phone's only navigation.
+ * The sidebar's three groups are not carried over: `bottomNav` names hrefs and
+ * the shell builds flat items from them, so "more" is one list here. That is a
+ * deliberate simplification of the grouping, not a loss of any destination.
+ */
+const BAR_ORDER = [
+  "/dashboard/superadmin",
+  "/dashboard/superadmin/registrations",
+  "/dashboard/superadmin/payouts",
+  "/dashboard/superadmin/notifications",
+  "/dashboard/superadmin/centers",
+  "/dashboard/superadmin/teachers",
+  "/dashboard/superadmin/collaborations",
+  "/dashboard/superadmin/payments",
+  "/dashboard/superadmin/settlements",
+  "/dashboard/superadmin/subscriptions",
+  "/dashboard/superadmin/commission",
+  "/dashboard/superadmin/wallet",
+  "/dashboard/superadmin/messaging",
+  "/dashboard/superadmin/whatsapp",
+  "/dashboard/superadmin/audit",
+  "/dashboard/superadmin/catalog",
+];
+
 export default function SuperAdminLayout({
   children,
 }: {
@@ -65,7 +97,7 @@ export default function SuperAdminLayout({
 }) {
   return (
     <RoleGuard allowedRole="super_admin">
-      <DashboardShell role="superadmin" navItems={navItems}>
+      <DashboardShell role="superadmin" navItems={navItems} bottomNav={BAR_ORDER}>
         {children}
       </DashboardShell>
     </RoleGuard>

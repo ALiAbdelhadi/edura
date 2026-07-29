@@ -10,17 +10,19 @@
 //     a hand-picked list;
 //   - when the channel is announcement-only, the composer is replaced by a
 //     plain explanation instead of a disabled box with no reason given.
-import React, { useEffect, useRef, useState } from "react";
-import { Megaphone, Bell, BellOff, Send, Users } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Input } from "@repo/ui/components/input";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
-import { ScrollArea } from "@repo/ui/components/scroll-area";
-import { cn } from "@repo/ui/lib/utils";
+
+
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { cn } from "@repo/ui/lib/utils";
+import { Bell, BellOff, Megaphone, Send, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useEffect, useRef, useState } from "react";
 import type { GroupsController } from "./use-groups";
 
 export function GroupPanel({
@@ -76,7 +78,7 @@ function GroupList({ ctl }: { ctl: GroupsController }) {
                 <div className="relative shrink-0 rounded-full bg-field p-2">
                   <Megaphone className="size-4 text-ink-2" />
                   {g.unreadCount > 0 ? (
-                    <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
+                    <span className="absolute -top-1 -inset-e-1 flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
                       {g.unreadCount}
                     </span>
                   ) : null}
@@ -220,7 +222,7 @@ function GroupThread({
                   >
                     <div
                       className={cn(
-                        "break-words whitespace-pre-wrap",
+                        "wrap-break-word whitespace-pre-wrap",
                         m.deleted && "italic opacity-60",
                       )}
                     >

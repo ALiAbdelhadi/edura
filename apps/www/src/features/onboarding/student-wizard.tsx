@@ -3,14 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BookOpen, GraduationCap, MoonStar, School, Languages, Check } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
 import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
-import { WizardShell, OptionCard } from "./wizard-shell";
+import { WizardShell, OptionCard, WizardEmpty } from "./wizard-shell";
+import { Chip, Eyebrow, LedgerButton, Num, Sheet } from "@/components/ledger";
 import { useOnboarding, apiSend } from "./use-onboarding";
 import { studentSteps, stepAfterGrade, stepAfterSystem, stepAfterTrack, type StudentStepId } from "./steps";
 import type { CatalogSubject, StudentSelections } from "./types";
@@ -128,7 +127,13 @@ export function StudentWizard() {
     }
   }
 
-  if (error) return <div className="p-8 text-center text-destructive">{error}</div>;
+  if (error) {
+    return (
+      <div className="p-8 text-center text-sm font-medium" style={{ color: "var(--red)" }}>
+        {error}
+      </div>
+    );
+  }
   if (!tree || !state) {
     return (
       <div className="mx-auto grid max-w-2xl gap-4 px-4 py-16">
@@ -163,6 +168,14 @@ export function StudentWizard() {
   );
 
   if (stepId === "system") {
+    if (tree.length === 0) {
+      return shell(
+        <WizardEmpty
+          title={t("onboarding.empty.noSystems")}
+          onRetry={() => window.location.reload()}
+        />,
+      );
+    }
     return shell(
       <div className="grid gap-3">
         {tree.map((s) => (
@@ -184,6 +197,9 @@ export function StudentWizard() {
   }
 
   if (stepId === "stage") {
+    if ((system?.stages.length ?? 0) === 0) {
+      return shell(<WizardEmpty title={t("onboarding.empty.noStages")} />);
+    }
     return shell(
       <div className="grid gap-3">
         {(system?.stages ?? []).map((s) => (
@@ -199,6 +215,9 @@ export function StudentWizard() {
   }
 
   if (stepId === "grade") {
+    if ((stage?.gradeLevels.length ?? 0) === 0) {
+      return shell(<WizardEmpty title={t("onboarding.empty.noGrades")} />);
+    }
     return shell(
       <div className="grid gap-3 sm:grid-cols-2">
         {(stage?.gradeLevels ?? []).map((g) => (
@@ -220,6 +239,9 @@ export function StudentWizard() {
   }
 
   if (stepId === "track") {
+    if ((grade?.trackOptions.length ?? 0) === 0) {
+      return shell(<WizardEmpty title={t("onboarding.empty.noTracks")} />);
+    }
     return shell(
       <div className="grid gap-3">
         {(grade?.trackOptions ?? []).map((tr) => (
@@ -243,7 +265,11 @@ export function StudentWizard() {
             <Skeleton className="h-16" />
           </>
         ) : langOptions.length === 0 ? (
-          <p className="text-center text-muted-foreground">{t("onboarding.empty.noOptions")}</p>
+          /* This one already had an empty state, and it has a real way out —
+             the Skip in the footer — so it is a note, not a blocked step. */
+          <p className="text-center text-sm" style={{ color: "var(--ink-2)" }}>
+            {t("onboarding.empty.noOptions")}
+          </p>
         ) : (
           langOptions.map((s) => (
             <OptionCard
@@ -256,13 +282,12 @@ export function StudentWizard() {
           ))
         )}
       </div>,
-      <Button
-        variant="outline"
+      <LedgerButton
         className="w-full"
         onClick={() => go("review", { ...sel, secondLanguageSubjectId: null })}
       >
         {t("onboarding.skip")}
-      </Button>,
+      </LedgerButton>,
     );
   }
 
@@ -277,37 +302,65 @@ export function StudentWizard() {
   if (needsLang)
     rows.push([t("onboarding.review.secondLanguage"), langName ? dn(langName) : t("onboarding.review.none")]);
 
+  const previewSubjects =
+    preview === null ? null : filterStudentSecondLanguage(preview, sel.secondLanguageSubjectId);
+
   return shell(
     <div className="grid gap-6">
-      <dl className="grid gap-3 rounded-xl border p-4">
+      <Sheet className="grid gap-3 p-4">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-muted-foreground">{k}</dt>
-            <dd className="font-medium">{v}</dd>
+            <dt className="text-sm" style={{ color: "var(--ink-2)" }}>
+              {k}
+            </dt>
+            <dd className="font-medium" style={{ color: "var(--ink)" }}>
+              {v}
+            </dd>
           </div>
         ))}
-      </dl>
+      </Sheet>
+
       <div>
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-          {t("onboarding.review.subjectsPreview")}
-        </h2>
-        {preview === null ? (
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <Eyebrow>{t("onboarding.review.subjectsPreview")}</Eyebrow>
+          {previewSubjects && previewSubjects.length > 0 ? (
+            <Num style={{ color: "var(--ink-3)", fontSize: 11 }}>{previewSubjects.length}</Num>
+          ) : null}
+        </div>
+        {previewSubjects === null ? (
           <Skeleton className="h-16" />
+        ) : previewSubjects.length === 0 ? (
+          /* The consequence of confirming, stated before the commit. This
+             selection assigns no subjects, and the student would otherwise
+             find that out only on an empty Subjects screen. */
+          <p
+            className="rounded-lg px-3 py-2 text-sm"
+            style={{
+              color: "var(--amber)",
+              background: "var(--amber-soft)",
+            }}
+          >
+            {t("onboarding.empty.noSubjects")}
+          </p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {filterStudentSecondLanguage(preview, sel.secondLanguageSubjectId)
-              .map((s) => (
-                <Badge key={s.id} variant="secondary">
-                  {dn(s)}
-                </Badge>
-              ))}
+            {previewSubjects.map((s) => (
+              <Chip key={s.id} tone="indigo">
+                {dn(s)}
+              </Chip>
+            ))}
           </div>
         )}
       </div>
     </div>,
-    <Button className="w-full" size="lg" onClick={() => void confirm()} disabled={submitting}>
-      {submitting ? <Spinner /> : <Check className="size-4" />}
+    <LedgerButton
+      variant="primary"
+      className="w-full"
+      onClick={() => void confirm()}
+      disabled={submitting}
+    >
+      {submitting ? <Spinner /> : <Check className="size-4" aria-hidden />}
       {t("onboarding.confirm")}
-    </Button>,
+    </LedgerButton>,
   );
 }

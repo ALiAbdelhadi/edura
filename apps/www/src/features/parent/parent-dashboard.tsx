@@ -121,7 +121,7 @@ export function ParentDashboard() {
       {
         id: "attendance",
         label: t("parentDashboard.attendanceLabel"),
-        color: "var(--series-2)",
+        color: "var(--chart-2)",
         points: byDay,
       },
     ];
@@ -143,7 +143,7 @@ export function ParentDashboard() {
       {
         id: "grades",
         label: t("parentDashboard.gradePercentLabel"),
-        color: "var(--series-1)",
+        color: "var(--chart-1)",
         points: ordered,
       },
     ];
@@ -279,7 +279,7 @@ export function ParentDashboard() {
                 <div dir="ltr">
                   <ProgressArcChart
                     percent={paidRatio}
-                    color="var(--series-2)"
+                    color="var(--chart-2)"
                     label={t("parentDashboard.paidCoverage")}
                     subLabel={`${formatEGP(paid)} ${t("parentDashboard.paidLabel")} / ${formatEGP(pendingAmount)} ${t("parentDashboard.dueLabel")}`}
                   />

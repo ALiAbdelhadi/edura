@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { Eyebrow, LedgerButton } from "@/components/ledger";
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
@@ -8,8 +9,7 @@ import { Button } from "@repo/ui/components/button";
 import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -46,16 +46,16 @@ function ResetPasswordContent() {
             <XCircle className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
               {t("auth.resetInvalidTitle")}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm" style={{ color: "var(--ink-2)" }}>
               {t("auth.resetInvalidSubtitle")}
             </p>
           </div>
-          <Button asChild className="w-full">
+          <LedgerButton asChild variant="primary" className="w-full">
             <Link href="/forgot-password">{t("auth.requestNewLink")}</Link>
-          </Button>
+          </LedgerButton>
         </div>
       </AuthCenteredShell>
     );
@@ -65,20 +65,20 @@ function ResetPasswordContent() {
     return (
       <AuthCenteredShell>
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-success/15 text-success">
+          <div className="flex size-11 items-center justify-center rounded-lg" style={{ background: "var(--teal-soft)", color: "var(--teal)" }}>
             <CheckCircle2 className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
               {t("auth.resetDoneTitle")}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm" style={{ color: "var(--ink-2)" }}>
               {t("auth.resetDoneSubtitle")}
             </p>
           </div>
-          <Button asChild className="w-full">
+          <LedgerButton asChild variant="primary" className="w-full">
             <Link href="/login">{t("auth.signInTitle")}</Link>
-          </Button>
+          </LedgerButton>
         </div>
       </AuthCenteredShell>
     );
@@ -116,16 +116,8 @@ function ResetPasswordContent() {
 
   return (
     <AuthCenteredShell>
-      <div className="mb-8 flex flex-col items-center text-center">
-        <Image
-          src="/edura-logo.svg"
-          alt="Edura"
-          width={120}
-          height={90}
-          priority
-          className="mb-4 h-[90px] w-auto"
-        />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}>
           {t("auth.resetTitle")}
         </h1>
       </div>
@@ -137,11 +129,15 @@ function ResetPasswordContent() {
         }}
         className="flex flex-col gap-4"
       >
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg px-3 py-2 text-sm font-medium"
+            style={{ color: "var(--red)", background: "var(--red-soft)", border: "1px solid var(--red)" }}
+          >
+            {error}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">{t("auth.newPassword")}</Label>
           <div className="relative">
@@ -171,10 +167,10 @@ function ResetPasswordContent() {
             />
           </div>
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <LedgerButton type="submit" variant="primary" className="w-full" disabled={loading}>
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
           {t("auth.resetButton")}
-        </Button>
+        </LedgerButton>
       </form>
     </AuthCenteredShell>
   );

@@ -1,20 +1,5 @@
 "use client";
 
-// Realtime chat state machine — shared by every role's messages screen.
-//
-// Transport: Socket.IO to the standalone realtime server (WebSocket only, no
-// polling). The handshake carries a short-lived JWT fetched from
-// /api/v1/realtime/token; socket.io re-invokes the auth callback on every
-// reconnect attempt, so a fresh token is minted each time. REST is the
-// degraded fallback: if the socket is down, sends go through POST /messages
-// and the UI keeps working without live updates.
-//
-// Ordering: the server assigns a monotonically increasing `seq` per message —
-// committed messages sort by seq; optimistic (pending) ones render after.
-// Idempotency: every send carries a client-generated UUID (`clientId`), so a
-// retry after a reconnect can never duplicate a message.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
 import { api } from "@/lib/api/client";
 import type {
   ConversationReadEvent,
@@ -25,6 +10,8 @@ import type {
   SendMessageAck,
   TypingEvent,
 } from "@repo/database/chat-protocol";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 import type {
   ChatConnectionStatus,
   Envelope,

@@ -23,6 +23,8 @@ import {
   Sheet,
   SheetHead,
   TwoStepCommit,
+  postMoney,
+  readApiError,
 } from "./ledger";
 
 type Match = {
@@ -43,39 +45,6 @@ type SessionOption = {
   covered: boolean;
   pricePerSession: number | null;
 };
-
-type ApiError = {
-  status: number;
-  code?: string;
-  message?: string;
-  details?: Record<string, unknown>;
-};
-
-/**
- * ky throws an HTTPError carrying the raw fetch Response; the envelope
- * (`{ error: { code, message, details } }`) is only readable by consuming it.
- * Refine's data provider maps errors down to `{ message, statusCode }` and drops
- * `code` and `details`, so the counter could never see the price the server had
- * already computed — every uncovered student surfaced as ky's generic English
- * "Request failed with status code 402". Read the envelope directly instead.
- */
-async function readApiError(err: unknown): Promise<ApiError> {
-  const res = (err as { response?: Response })?.response;
-  if (!res || typeof res.clone !== "function") return { status: 0 };
-  try {
-    const body = (await res.clone().json()) as {
-      error?: { code?: string; message?: string; details?: Record<string, unknown> };
-    };
-    return {
-      status: res.status,
-      code: body.error?.code,
-      message: body.error?.message,
-      details: body.error?.details,
-    };
-  } catch {
-    return { status: res.status };
-  }
-}
 
 /**
  * تشيك-إن الكاونتر — the counter.
@@ -157,11 +126,14 @@ export function AdminCheckinScreen() {
    *  into the flow — the direct one and the one that follows cash collection. */
   const commitCheckin = async (s: SessionOption) => {
     if (!student) return;
-    const res = await api
-      .post("center/checkin", { json: { studentId: student.studentId, sessionId: s.sessionId } })
-      .json<{ data: { status?: string } }>();
+    // Long timeout too: this is the second half of a money commit, and giving
+    // up early here is what strands a paid student without attendance.
+    const data = await postMoney<{ status?: string }>("center/checkin", {
+      studentId: student.studentId,
+      sessionId: s.sessionId,
+    });
     toast.success(
-      res.data?.status === "present"
+      data?.status === "present"
         ? t("shared.checkin.present")
         : t("shared.checkin.counterDone"),
     );
@@ -206,25 +178,85 @@ export function AdminCheckinScreen() {
     }
   };
 
-  /** The armed commit: take the cash, then check in, without leaving the row. */
+  /**
+   * Did the cash actually land? Re-reads coverage from the server.
+   *
+   * The client cannot tell a failed write from a lost response. `api` times out
+   * at 10s (lib/api/client.ts) and the subscriptions transaction writes Payment
+   * + Transaction + points + notification — so a slow counter connection can
+   * time the CLIENT out while the SERVER commits. Coverage is the server's own
+   * answer to "was this paid for", so ask it rather than guessing.
+   */
+  const coverageLanded = async (sessionId: string) => {
+    if (!student) return false;
+    try {
+      const res = await api
+        .get(`center/checkin/suggest?studentId=${student.studentId}`)
+        .json<{ data: { suggested: SessionOption[]; today: SessionOption[] } }>();
+      return [...res.data.suggested, ...res.data.today].some(
+        (x) => x.sessionId === sessionId && x.covered,
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * The armed commit: take the cash, then check in, without leaving the row.
+   *
+   * These are deliberately TWO server calls. The subscriptions endpoint can do
+   * both atomically via `markAttendance: true`, but that path predates Step 6 —
+   * it writes `status: "present"` unconditionally with no `counterAt`, so it
+   * would mark a student present even under `counter_and_door` (where the
+   * counter alone must NOT count as present) and would leave the later door
+   * check-in rejecting with `no_counter`. Correct staging is worth the split.
+   *
+   * What the split costs is atomicity, so the gap is closed here: if the charge
+   * appears to fail we re-read coverage before saying so, and if the charge
+   * landed but the check-in did not, we say THAT — never something that reads
+   * as "nothing happened", which is what invites a second charge.
+   */
   const collectAndCheckin = async (s: SessionOption) => {
     if (!student) return;
     setBusy(true);
+    let charged = false;
     try {
-      await api.post("center/subscriptions", {
-        json: {
+      try {
+        await postMoney("center/subscriptions", {
           studentId: student.studentId,
           courseId: sessionCourse(s),
           plan: "per_session",
           sessionId: s.sessionId,
+          // Staged check-in happens in the next call — see the note above.
           markAttendance: false,
-        },
-      });
+        });
+        charged = true;
+      } catch (chargeErr) {
+        // Self-heal: the write may have committed while the client gave up.
+        if (await coverageLanded(s.sessionId)) {
+          charged = true;
+        } else {
+          const e = await readApiError(chargeErr);
+          toast.error(e.message || t("shared.checkin.cashFailed"));
+          return;
+        }
+      }
+
       toast.success(t("shared.checkin.cashCollected"));
       await commitCheckin(s);
     } catch (err) {
       const e = await readApiError(err);
-      toast.error(e.message || t("shared.checkin.checkinFailed"));
+      if (charged) {
+        // The money is in the ledger and the student is covered; only the
+        // attendance mark is missing. Say so explicitly and leave the row on
+        // its now-covered "check in" action — collecting again would
+        // double-charge a family standing at the counter.
+        toast.error(t("shared.checkin.paidNotCheckedIn"), { duration: 12000 });
+        clearPayment();
+        await pickStudent(student);
+      } else {
+        toast.error(e.message || t("shared.checkin.checkinFailed"));
+      }
     } finally {
       setBusy(false);
     }

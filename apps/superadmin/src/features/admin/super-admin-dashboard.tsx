@@ -26,11 +26,18 @@
    genuine blocking condition, knowable before the operator commits, and it carries
    exactly the «يوقف الصرف» meaning the card was drawn to carry. See the note in
    lib/services/admin/platform-dashboard.ts. */
-
-import React from "react";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { StatCardsSkeleton } from "@/components/ui/skeletons";
+import { Link } from "@/i18n/navigation";
+import { asKey } from "@/lib/i18n/keys";
 import { useCustom } from "@refinedev/core";
-import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { Button } from "@repo/ui/components/button";
+import { BarChart } from "@repo/ui/components/charts";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { MetricCard } from "@repo/ui/components/metric-card";
+import { Num, ProseCount } from "@repo/ui/components/num";
+import type { Locale } from "@repo/ui/lib/format";
 import {
   BanknoteArrowDown,
   ClipboardList,
@@ -39,18 +46,8 @@ import {
   RefreshCcw,
   TriangleAlert,
 } from "lucide-react";
-
-import { Button } from "@repo/ui/components/button";
-import { Eyebrow } from "@repo/ui/components/eyebrow";
-import { MetricCard } from "@repo/ui/components/metric-card";
-import { Num, ProseCount } from "@repo/ui/components/num";
-import { BarChart } from "@repo/ui/components/charts";
-import type { Locale } from "@repo/ui/lib/format";
-
-import { PageHeader } from "@/components/kit/page-header";
-import { EmptyState } from "@/components/kit/empty-state";
-import { StatCardsSkeleton } from "@/components/ui/skeletons";
-import { asKey } from "@/lib/i18n/keys";
+import { useLocale, useTranslations } from "next-intl";
+import React from "react";
 
 type DecisionQueue = {
   payouts: {

@@ -17,7 +17,11 @@
  * reference. Do not tune them here; they are final and shared across six portals.
  */
 
-.led {
+/* Defined at both scopes: `.led` for this portal's content, and the root marker
+   so the shared chrome around it (sidebar, header, <main>) can read the same
+   values. See the migration-shim block below. */
+.led,
+html[data-portal="ledger"] {
   --paper: #f7f6f2;
   --sheet: #ffffff;
   --field: #fbfaf7;
@@ -48,7 +52,8 @@
   color: var(--ink);
 }
 
-[data-theme="dark"] .led {
+[data-theme="dark"] .led,
+html[data-portal="ledger"][data-theme="dark"] {
   --paper: #14161c;
   --sheet: #1b1e26;
   --field: #1f232b;
@@ -97,7 +102,16 @@
  * Values are raw channels because the shadcn utilities wrap them in color-mix()
  * and oklch() calls that require a bare color, not a var() indirection.
  */
-.led {
+/*
+ * Applied at BOTH scopes on purpose.
+ *
+ * `.led` covers this portal's own content. `html[data-portal="ledger"]` covers
+ * the shared chrome around it — the shell's <main> paints `bg-background`, which
+ * resolves above `.led` and so kept rendering the Deep Trust canvas as a border
+ * around ledger content. Hoisting the aliases to the root fixes the seam.
+ */
+.led,
+html[data-portal="ledger"] {
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--sheet);
@@ -152,6 +166,106 @@
 }
 .led .shadow-glow {
   box-shadow: var(--lift) !important;
+}
+
+/* ============================================================ the chrome ====
+ * Sidebar + header, scoped to this portal's routes by the marker that
+ * portal-scope.tsx puts on <html>.
+ *
+ * The near-black sidebar is REMOVED. The rationale from the spec: a dark slab
+ * beside a light canvas read as two different apps, and it was the loudest
+ * element on screen while carrying the least information.
+ *
+ * This is done ENTIRELY by re-pointing `--sidebar*` — dashboard-shell.tsx and
+ * packages/ui/components/sidebar.tsx are untouched, because they are shared
+ * with three other portal sessions. Values are literal rather than var()
+ * references because these land on <html>, above the `.led` scope where the
+ * ledger names are defined.
+ */
+html[data-portal="ledger"] {
+  --sidebar: #ffffff;
+  --sidebar-foreground: #5b6273;
+  --sidebar-primary: #1a2f73;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaecf6;
+  --sidebar-accent-foreground: #1a2f73;
+  --sidebar-border: #e4e1d8;
+  --sidebar-ring: #1a2f73;
+  /* 248px per §3.1, replacing the shadcn default. */
+  --sidebar-width: 248px;
+}
+
+html[data-portal="ledger"][data-theme="dark"] {
+  --sidebar: #1b1e26;
+  --sidebar-foreground: #a3a49c;
+  --sidebar-primary: #93a4e6;
+  --sidebar-primary-foreground: #0d1330;
+  --sidebar-accent: #232840;
+  --sidebar-accent-foreground: #93a4e6;
+  --sidebar-border: #2a2d35;
+  --sidebar-ring: #93a4e6;
+}
+
+/* A hairline, not a tonal shift — the rule IS the separation device. */
+html[data-portal="ledger"] [data-slot="sidebar-container"] {
+  border-inline-end: 1px solid var(--sidebar-border);
+}
+
+/* Active item: indigo on indigo-soft, with the 3px inset bar at the start
+   edge. `inset-inline-start` so it flips with direction — the bar is
+   positional, unlike the lock and shield glyphs, which do not flip. */
+html[data-portal="ledger"] [data-slot="sidebar-menu-button"][data-active="true"] {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--sidebar-primary);
+}
+[dir="rtl"] html[data-portal="ledger"] [data-slot="sidebar-menu-button"][data-active="true"],
+html[data-portal="ledger"] [dir="rtl"] [data-slot="sidebar-menu-button"][data-active="true"] {
+  box-shadow: inset -3px 0 0 var(--sidebar-primary);
+}
+
+/* Nav items: 8px radius, mono-free 14px label, quiet until active. */
+html[data-portal="ledger"] [data-slot="sidebar-menu-button"] {
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* The count badge carries TEXT in mono, never a bare aria-hidden dot — the old
+   red dot had no text equivalent for assistive tech. */
+html[data-portal="ledger"] [data-slot="sidebar-menu-badge"] {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: #a35a06;
+  background: #fbf0dd;
+}
+html[data-portal="ledger"][data-theme="dark"] [data-slot="sidebar-menu-badge"] {
+  color: #e0a44a;
+  background: #33260f;
+}
+
+/* Group labels, brand block and footer all sit on the sheet now. */
+html[data-portal="ledger"] [data-slot="sidebar-group-label"] {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #8b91a1;
+}
+html[data-portal="ledger"][data-theme="dark"] [data-slot="sidebar-group-label"] {
+  color: #7c7e78;
+}
+html[data-portal="ledger"] [data-slot="sidebar-header"],
+html[data-portal="ledger"] [data-slot="sidebar-footer"] {
+  border-color: var(--sidebar-border);
+}
+
+/* Header: 60px on the sheet with a bottom rule, matching §3.2. */
+html[data-portal="ledger"] header {
+  background: var(--sidebar);
+  border-color: var(--sidebar-border);
 }
 
 /* ---------------------------------------------------------------- figures --

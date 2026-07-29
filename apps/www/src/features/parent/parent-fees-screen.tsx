@@ -114,13 +114,13 @@ export function ParentFeesScreen() {
       {
         id: "paid",
         label: t("parentFees.cumulativePaid"),
-        color: "var(--series-2)",
+        color: "var(--chart-2)",
         points: points.map((p) => ({ x: p.x, value: p.paid })),
       },
       {
         id: "net",
         label: t("parentFees.cumulativeNet"),
-        color: "var(--series-1)",
+        color: "var(--chart-1)",
         points: points.map((p) => ({ x: p.x, value: p.net })),
       },
     ];

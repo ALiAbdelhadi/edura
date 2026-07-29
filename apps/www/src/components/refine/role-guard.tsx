@@ -1,9 +1,10 @@
 "use client";
 
+import { portalForRole } from "@/lib/auth/portal";
 import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity } from "@refinedev/core";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import React, { useEffect } from "react";
 
 export default function RoleGuard({
@@ -18,13 +19,18 @@ export default function RoleGuard({
   const { data: identity, isLoading } = useGetIdentity<MeResponse>();
 
   useEffect(() => {
-    if (!isLoading && identity) {
-      if (identity.role !== allowedRole) {
-        router.replace("/dashboard");
-      }
-    }
-    if (!isLoading && !identity) {
+    if (isLoading) return;
+    if (!identity) {
       router.replace("/login");
+      return;
+    }
+    if (identity.role !== allowedRole) {
+      // Go straight to the portal this identity actually owns. Redirecting to
+      // "/dashboard" instead made the mismatch a LOOP whenever the role router
+      // disagreed about who was signed in: it sent the user back here, and this
+      // guard sent them back there. Resolving from `identity` — the same server
+      // answer the role router now uses — is a fixed point: one hop, no bounce.
+      router.replace(portalForRole(identity.role) ?? "/login");
     }
   }, [isLoading, identity, allowedRole, router]);
 

@@ -1,16 +1,16 @@
-import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
-import { ok } from "@/lib/http/envelope";
-import { ValidationError } from "@/lib/errors/classes";
 import { platformDb } from "@/lib/db/scope";
-import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
+import { ValidationError } from "@/lib/errors/classes";
+import { withErrors } from "@/lib/errors/http";
+import { ok } from "@/lib/http/envelope";
 import {
-  getSubjectsForSelection,
-  getSubjectsForGradeLevels,
-  getSecondLanguageOptions,
   getAllActiveSubjects,
+  getSecondLanguageOptions,
   getStudentOwnSubjects,
+  getSubjectsForGradeLevels,
+  getSubjectsForSelection,
 } from "@/lib/services/catalog/catalog-read";
+import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
 
 export const dynamic = "force-dynamic";
 

@@ -1,8 +1,11 @@
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
+import { hardenNeonWebSockets } from "../src/neon-ws.ts";
 import { config } from "dotenv";
 import { assertDbEnv } from "./db-guard.ts";
 config();
+// Normalize a dropped socket into a real Error — see src/neon-ws.ts.
+hardenNeonWebSockets();
 neonConfig.webSocketConstructor = ws;
 
 const TXN = Number(process.argv[2] ?? 1_000_000);

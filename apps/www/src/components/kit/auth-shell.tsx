@@ -1,17 +1,31 @@
 "use client";
 
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { cn } from "@repo/ui/lib/utils";
-import {
-  CalendarCheck,
-  CreditCard,
-  GraduationCap,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { Eyebrow, Sheet, ledgerMono, ledgerShellScope } from "@/components/ledger";
+import { CalendarCheck, CreditCard, GraduationCap, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, type ReactNode } from "react";
 
+/**
+ * The auth shell, under the Ledger.
+ *
+ * WHAT CHANGED AND WHY: the previous version was a 45%-wide gradient panel
+ * (`gradient-primary`) carrying two blurred white orbs, glass-blur tiles, the
+ * `.display` face and brand-teal accents. Every one of those devices is out of
+ * this system — gradients and the glow are deleted, `.display` is an Ant-era
+ * leftover, and a saturated slab beside a light form reads as two products.
+ *
+ * NOTHING WAS DELETED. The value column keeps all of its copy (tagline,
+ * subtitle, the three features / three signup steps) and every i18n key stays
+ * in use; it is re-expressed on paper, in ink, separated from the form by a
+ * hairline rule instead of a colour boundary.
+ *
+ * NOTE ON OWNERSHIP: login and register are shared entry points for every
+ * role, so unlike the student portal's screens this cannot be scoped — the
+ * change is visible to center, teacher, parent, student and assistant alike.
+ * Handoff §6 assigns login to the foundation session; this is that design,
+ * landed early.
+ */
 export function AuthShell({
   children,
   variant = "signin",
@@ -22,122 +36,115 @@ export function AuthShell({
   const t = useTranslations();
   const isSignup = variant === "signup";
 
+  const features = [
+    { icon: CalendarCheck, label: t("auth.heroFeatureAttendance") },
+    { icon: CreditCard, label: t("auth.heroFeaturePayments") },
+    { icon: Users, label: t("auth.heroFeatureRoles") },
+  ];
+  const steps = [t("auth.heroStep1"), t("auth.heroStep2"), t("auth.heroStep3")];
+
   return (
     <div
-      className={cn(
-        "flex min-h-dvh w-full bg-background",
-        isSignup && "lg:flex-row-reverse",
-      )}
+      className={`${ledgerMono.variable} ${ledgerShellScope} flex min-h-dvh w-full flex-col`}
+      style={{ background: "var(--paper)" }}
     >
-      <aside className="bg-indigo relative hidden w-[45%] shrink-0 flex-col justify-between overflow-hidden p-12 text-primary-foreground lg:flex xl:p-16">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.15]"
-          style={{
-            backgroundImage:
-              "radial-gradient(currentColor 1px, transparent 1px)",
-            backgroundSize: "22px 22px",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute size-72 rounded-full bg-white/10 blur-3xl"
-          style={{ top: "-6rem", insetInlineEnd: "-6rem" }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute size-72 rounded-full bg-white/10 blur-3xl"
-          style={{ bottom: "-6rem", insetInlineStart: "-6rem" }}
-        />
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur-md">
-              <GraduationCap aria-hidden="true" className="size-6" />
-            </span>
-            <span className="text-2xl font-bold tracking-tight">
-              Edura
-            </span>
-          </div>
-          <span className="mt-4 block h-1 w-12 rounded-full bg-brand-teal" />
+      <header className="flex shrink-0 items-center justify-between gap-3 px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="flex size-8 items-center justify-center rounded-lg"
+            style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}
+          >
+            <GraduationCap aria-hidden className="size-4" />
+          </span>
+          <span className="text-[15px] font-bold leading-none" style={{ color: "var(--ink)" }}>
+            Edura
+          </span>
         </div>
-        {isSignup ? (
-          <div className="relative max-w-md">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-teal/15 px-3 py-1 text-xs font-semibold text-brand-teal ring-1 ring-inset ring-brand-teal/30">
-              <Sparkles aria-hidden="true" className="size-3.5" />
-              {t("auth.heroSignupBadge")}
-            </span>
-            <h2 className="mt-4 text-3xl font-bold leading-tight xl:text-4xl">
-              {t("auth.heroTaglineSignup")}
+        <Suspense fallback={null}>
+          <LanguageSwitcher />
+        </Suspense>
+      </header>
+
+      <main className="flex flex-1 items-center justify-center px-6 py-8">
+        <div className="grid w-full max-w-4xl items-center gap-10 lg:grid-cols-2">
+          {/* The value column. Paper, ink, a hairline — no panel, no gradient.
+              Hidden on phone, where the form is the only thing that matters.
+              On signup it sits after the form so the first thing a new user
+              meets is the form itself. */}
+          <aside
+            className={`hidden lg:block ${isSignup ? "lg:order-2" : ""}`}
+            style={{ color: "var(--ink-2)" }}
+          >
+            <Eyebrow>{isSignup ? t("auth.heroSignupBadge") : "Edura"}</Eyebrow>
+            <h2
+              className="mt-2 text-3xl font-bold leading-tight"
+              style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+            >
+              {isSignup ? t("auth.heroTaglineSignup") : t("auth.heroTagline")}
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-primary-foreground/80">
-              {t("auth.heroSubtitleSignup")}
+            <p className="mt-3 max-w-[46ch] text-sm leading-relaxed">
+              {isSignup ? t("auth.heroSubtitleSignup") : t("auth.heroSubtitle")}
             </p>
-            <p className="mt-8 text-xs font-semibold uppercase tracking-wider text-primary-foreground/60">
-              {t("auth.heroStepsTitle")}
-            </p>
-            <ol className="mt-3 flex flex-col gap-3 text-sm text-primary-foreground/90">
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-teal text-sm font-bold text-brand-teal-foreground shadow-sm">
-                  1
-                </span>
-                {t("auth.heroStep1")}
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-teal text-sm font-bold text-brand-teal-foreground shadow-sm">
-                  2
-                </span>
-                {t("auth.heroStep2")}
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-teal text-sm font-bold text-brand-teal-foreground shadow-sm">
-                  3
-                </span>
-                {t("auth.heroStep3")}
-              </li>
-            </ol>
+
+            <div className="mt-7 pt-6" style={{ borderTop: "1px solid var(--rule)" }}>
+              {isSignup ? (
+                <>
+                  <Eyebrow>{t("auth.heroStepsTitle")}</Eyebrow>
+                  <ol className="mt-3 flex flex-col gap-3 text-sm">
+                    {steps.map((label, i) => (
+                      <li key={label} className="flex items-center gap-3">
+                        <span
+                          className="flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold"
+                          style={{
+                            background: "var(--indigo-soft)",
+                            color: "var(--indigo)",
+                            fontFamily: "var(--ledger-mono), ui-monospace, monospace",
+                          }}
+                        >
+                          {i + 1}
+                        </span>
+                        {label}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : (
+                <ul className="flex flex-col gap-3 text-sm">
+                  {features.map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-3">
+                      <span
+                        className="flex size-7 shrink-0 items-center justify-center rounded-md"
+                        style={{ background: "var(--field)", color: "var(--ink-2)" }}
+                      >
+                        <Icon aria-hidden className="size-4" />
+                      </span>
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+
+          {/* The form, on a single sheet card. */}
+          <div className={`mx-auto w-full max-w-sm ${isSignup ? "lg:order-1" : ""}`}>
+            <Sheet className="p-6 sm:p-7">{children}</Sheet>
           </div>
-        ) : (
-          <div className="relative max-w-md">
-            <h2 className="text-3xl font-bold leading-tight xl:text-4xl">
-              {t("auth.heroTagline")}
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-primary-foreground/80">
-              {t("auth.heroSubtitle")}
-            </p>
-            <ul className="mt-8 flex flex-col gap-3 text-sm text-primary-foreground/90">
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <CalendarCheck aria-hidden="true" className="size-4" />
-                </span>
-                {t("auth.heroFeatureAttendance")}
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <CreditCard aria-hidden="true" className="size-4" />
-                </span>
-                {t("auth.heroFeaturePayments")}
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <Users aria-hidden="true" className="size-4" />
-                </span>
-                {t("auth.heroFeatureRoles")}
-              </li>
-            </ul>
-          </div>
-        )} 
-        <p className="relative text-xs text-primary-foreground/60">
-          © {new Date().getFullYear()} Edura
-        </p>
-      </aside>
-      <main className="flex flex-1 flex-col overflow-y-auto p-6">
-        <div className="flex shrink-0 justify-end">
-          <Suspense fallback={null}>
-            <LanguageSwitcher />
-          </Suspense>
         </div>
-        <div className="m-auto w-full max-w-sm py-6">{children}</div>
       </main>
+
+      <footer className="shrink-0 px-6 pb-6 text-center">
+        <span
+          dir="ltr"
+          className="text-xs"
+          style={{
+            color: "var(--ink-3)",
+            fontFamily: "var(--ledger-mono), ui-monospace, monospace",
+          }}
+        >
+          © {new Date().getFullYear()} Edura
+        </span>
+      </footer>
     </div>
   );
 }

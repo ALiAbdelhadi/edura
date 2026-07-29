@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Skeleton } from "@repo/ui/components/skeleton";
-import { useRouter } from "@/i18n/navigation";
+import { CenterWizard } from "@/features/onboarding/center-wizard";
 import { StudentWizard } from "@/features/onboarding/student-wizard";
 import { TeacherWizard } from "@/features/onboarding/teacher-wizard";
-import { CenterWizard } from "@/features/onboarding/center-wizard";
+import { useRouter } from "@/i18n/navigation";
+import { Skeleton } from "@repo/ui/components/skeleton";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const DASHBOARD_BY_ROLE: Record<string, string> = {
   student: "/dashboard/student",

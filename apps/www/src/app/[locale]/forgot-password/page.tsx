@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
@@ -10,6 +9,7 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { Eyebrow, LedgerButton } from "@/components/ledger";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations();
@@ -49,20 +49,20 @@ export default function ForgotPasswordPage() {
     return (
       <AuthCenteredShell>
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-success/15 text-success">
+          <div className="flex size-11 items-center justify-center rounded-lg" style={{ background: "var(--teal-soft)", color: "var(--teal)" }}>
             <CheckCircle2 className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
               {t("auth.forgotSentTitle")}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm" style={{ color: "var(--ink-2)" }}>
               {t("auth.forgotSentSubtitle", { email })}
             </p>
           </div>
-          <Button asChild className="w-full">
+          <LedgerButton asChild variant="primary" className="w-full">
             <Link href="/login">{t("auth.backToSignIn")}</Link>
-          </Button>
+          </LedgerButton>
         </div>
       </AuthCenteredShell>
     );
@@ -70,19 +70,11 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthCenteredShell>
-      <div className="mb-8 flex flex-col items-center text-center">
-        <Image
-          src="/edura-logo.svg"
-          alt="Edura"
-          width={120}
-          height={90}
-          priority
-          className="mb-4 h-[90px] w-auto"
-        />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}>
           {t("auth.forgotPassword")}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
           {t("auth.forgotSubtitle")}
         </p>
       </div>
@@ -94,11 +86,15 @@ export default function ForgotPasswordPage() {
         }}
         className="flex flex-col gap-4"
       >
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg px-3 py-2 text-sm font-medium"
+            style={{ color: "var(--red)", background: "var(--red-soft)", border: "1px solid var(--red)" }}
+          >
+            {error}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{t("auth.email")}</Label>
           <div className="relative">
@@ -115,10 +111,10 @@ export default function ForgotPasswordPage() {
             />
           </div>
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <LedgerButton type="submit" variant="primary" className="w-full" disabled={loading}>
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
           {t("auth.sendResetLink")}
-        </Button>
+        </LedgerButton>
       </form>
 
       <p className="mt-6 text-center text-sm">

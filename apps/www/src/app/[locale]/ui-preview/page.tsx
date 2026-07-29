@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -8,11 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Badge } from "@repo/ui/components/badge";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
-import { Separator } from "@repo/ui/components/separator";
-import { toast } from "@repo/ui/components/sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +17,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
+import { Separator } from "@repo/ui/components/separator";
+import { toast } from "@repo/ui/components/sonner";
 
 const TOKEN_SWATCHES: { name: string; className: string }[] = [
   { name: "background", className: "bg-background border border-border" },

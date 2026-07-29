@@ -1,6 +1,6 @@
-import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
+import type { MetadataRoute } from "next";
 
 const BASE_URL = appBaseUrl();
 

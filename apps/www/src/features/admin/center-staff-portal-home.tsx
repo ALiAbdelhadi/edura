@@ -3,7 +3,7 @@
 import { api } from "@/lib/api/client";
 import { BarChart3, CheckCircle2, DollarSign, Handshake, Home, ShieldCheck, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import React, { useEffect, useState } from "react";
 import { Badge, PageHead, Sheet } from "./ledger";
 

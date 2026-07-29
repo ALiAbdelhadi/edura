@@ -1,11 +1,11 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { parseJson } from "@/lib/validation/zod";
-import { passwordSchema } from "@/lib/validation/common";
-import { ok } from "@/lib/http/envelope";
-import { acceptInvite } from "@/lib/services/auth/invite-accept";
 import { platformDb } from "@/lib/db/scope";
+import { withErrors } from "@/lib/errors/http";
+import { ok } from "@/lib/http/envelope";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
+import { acceptInvite } from "@/lib/services/auth/invite-accept";
+import { passwordSchema } from "@/lib/validation/common";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 

@@ -204,7 +204,9 @@
     "cashDue": "Cash due",
     "armCollect": "Collect {price} in cash",
     "confirmCollect": "Confirm — {price} received",
-    "armedAnnounce": "Waiting for confirmation: take {price} in cash and check the student in. Press Escape to cancel."
+    "armedAnnounce": "Waiting for confirmation: take {price} in cash and check the student in. Press Escape to cancel.",
+    "cashFailed": "The payment was not recorded — nothing was charged. Try again.",
+    "paidNotCheckedIn": "The cash was collected and written to the ledger, but attendance was not marked. Do NOT collect again — just press “Check in”."
   },
   "door": {
     "title": "Door check-in",
@@ -242,5 +244,11 @@
     "armedHint": "The next press is final — the entry is written in your name and cannot be undone.",
     "armedAnnounce": "Button armed. The next press is final. Press Escape to cancel.",
     "empty": "Nothing here yet"
+  },
+  "calendar": {
+    "prevMonth": "Go to the previous month",
+    "nextMonth": "Go to the next month",
+    "today": "Today, {date}",
+    "selected": "{date}, selected"
   }
 }

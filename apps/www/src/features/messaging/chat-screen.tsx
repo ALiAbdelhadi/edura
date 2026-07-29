@@ -1,27 +1,15 @@
 "use client";
 
-// Shared 1:1 chat module — the SAME component serves every role (student,
-// parent, teacher, assistant, center admin, super admin). Role-specific
-// behavior comes from the server: the contacts directory and the conversation
-// matrix are enforced in the backend; this UI just renders what it is allowed
-// to see. Live updates flow through useChat (Socket.IO), with REST fallback.
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { EmptyState } from "@/components/kit/empty-state";
+import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity } from "@refinedev/core";
-import { AlertCircle, Ban, Check, CheckCheck, ChevronUp, Clock3, Eye, Flag, MessageSquare, MoreVertical, Plus, Send, ShieldAlert, User, WifiOff } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Card } from "@repo/ui/components/card";
-import { SearchInput } from "@repo/ui/components/search-input";
-import { Input } from "@repo/ui/components/input";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Card } from "@repo/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -29,29 +17,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/dialog";
-import { Textarea } from "@repo/ui/components/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
+import { Input } from "@repo/ui/components/input";
+import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { SearchInput } from "@repo/ui/components/search-input";
+import { Textarea } from "@repo/ui/components/textarea";
 import { cn } from "@repo/ui/lib/utils";
-import { api } from "@/lib/api/client";
-import { EmptyState } from "@/components/kit/empty-state";
-import { Spinner } from "@/components/kit/spinner";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import type { MeResponse } from "@/lib/refine";
+import { AlertCircle, Ban, Check, CheckCheck, ChevronUp, Clock3, Eye, Flag, MessageSquare, MoreVertical, Plus, Send, ShieldAlert, User, WifiOff } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import type { UiMessage, WireContact, WireConversation } from "./chat-types";
+import { GroupPanel } from "./group-panel";
 import { useChat, type ChatController } from "./use-chat";
 import { useGroups } from "./use-groups";
-import { GroupPanel } from "./group-panel";
-import type { UiMessage, WireContact, WireConversation } from "./chat-types";
 
 export function ChatScreen() {
   const { data: identity } = useGetIdentity<MeResponse>();
   if (!identity?.id) {
     return (
-      <Card className="flex min-h-[400px] items-center justify-center">
+      <Card className="flex min-h-100 items-center justify-center">
         <Spinner />
       </Card>
     );
@@ -75,10 +70,6 @@ function ChatScreenInner({ meId }: { meId: string }) {
           {t("chat.connectionLost")}
         </div>
       ) : null}
-
-      {/* Direct threads and derived-membership channels are two views of the
-          same inbox; keeping them as tabs (not separate screens) means one
-          unread story and one nav entry per role. */}
       <div className="flex items-center gap-1 border-b border-border px-3 pt-3">
         <TabButton
           active={tab === "direct"}
@@ -93,7 +84,7 @@ function ChatScreenInner({ meId }: { meId: string }) {
         />
       </div>
 
-      <div className="grid h-[calc(100vh-250px)] min-h-[560px] grid-cols-1 md:grid-cols-3">
+      <div className="grid h-[calc(100vh-250px)] min-h-140 grid-cols-1 md:grid-cols-3">
         {tab === "direct" ? (
           <>
             <ConversationList chat={chat} meId={meId} />
@@ -225,10 +216,10 @@ function ConversationListItem({
           </AvatarFallback>
         </Avatar>
         {online ? (
-          <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-card bg-emerald-500" />
+          <span className="absolute -bottom-0.5 -inset-e-0.5 size-3 rounded-full border-2 border-card bg-emerald-500" />
         ) : null}
         {c.unreadCount > 0 ? (
-          <span className="absolute -top-1 -end-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
+          <span className="absolute -top-1 -inset-e-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
             {c.unreadCount}
           </span>
         ) : null}
@@ -298,7 +289,7 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
             </AvatarFallback>
           </Avatar>
           {online ? (
-            <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-card bg-emerald-500" />
+            <span className="absolute -bottom-0.5 -inset-e-0.5 size-3 rounded-full border-2 border-card bg-emerald-500" />
           ) : null}
         </div>
         <div className="min-w-0">
@@ -328,9 +319,6 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
           />
         </div>
       </div>
-
-      {/* DISCLOSURE, not surveillance: when a parent can see this thread BOTH
-          participants are told so, on every visit. The adult sees it too. */}
       {chat.oversight?.monitored ? (
         <div className="flex items-center gap-2 border-b border-border bg-sky-500/10 px-4 py-2 text-xs text-sky-800 dark:text-sky-300">
           <Eye className="size-3.5 shrink-0" />
@@ -649,11 +637,10 @@ function MessageBubble({
           msg.failed && "opacity-70",
         )}
       >
-        {/* Soft-deleted: the participant view loses the text, the platform
-            record keeps it (retention). */}
+
         <div
           className={cn(
-            "break-words whitespace-pre-wrap",
+            "wrap-break-word whitespace-pre-wrap",
             msg.deleted && "italic opacity-60",
           )}
         >
@@ -866,7 +853,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
     setLoading(true);
     try {
       const result = await searchRef.current(term);
-      if (requestId.current !== id) return; // superseded by a later keystroke
+      if (requestId.current !== id) return;
       setContacts(result);
     } catch {
       if (requestId.current === id) setContacts([]);

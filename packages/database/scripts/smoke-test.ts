@@ -3,6 +3,7 @@ config();
 
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
+import { hardenNeonWebSockets } from "../src/neon-ws";
 import {
   prisma,
   withTenant,
@@ -10,6 +11,8 @@ import {
 } from "../src/index.js";
 import { assertDbEnv } from "./db-guard";
 
+// Normalize a dropped socket into a real Error — see src/neon-ws.ts.
+hardenNeonWebSockets();
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
