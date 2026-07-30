@@ -1,12 +1,10 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { adminCancelCourse } from "@/lib/services/admin/center-academic";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
-// Named action. Cancels FUTURE sessions and the course; refunds nothing and
-// cancels no subscription — already-settled sessions are untouched.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ reason: z.string().trim().min(1).max(500) }).strict();

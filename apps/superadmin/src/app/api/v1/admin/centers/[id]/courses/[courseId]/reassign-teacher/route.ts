@@ -1,13 +1,10 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { adminReassignTeacher } from "@/lib/services/admin/center-academic";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
-// Named action. The new teacher must have an ACTIVE affiliation with this
-// center, and only FUTURE sessions move — a past session records who actually
-// taught it, and may already have settled to that person.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ teacherId: z.uuid() }).strict();

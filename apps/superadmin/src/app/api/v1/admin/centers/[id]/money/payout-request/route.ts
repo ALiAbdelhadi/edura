@@ -1,18 +1,15 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
-import { moneySchema } from "@repo/server-core/validation/common";
 import {
   adminGetCenterWallet,
   adminListCenterPayouts,
   adminRequestCenterPayout,
 } from "@/lib/services/admin/center-money";
+import { parseJson } from "@/lib/validation/zod";
+import { moneySchema } from "@repo/server-core/validation/common";
+import { z } from "zod";
 
-// Raises a PENDING payout. It pays nothing: approval and settlement stay in the
-// accountant's finance surface, where the H1 row lock and the H2 balance floor
-// live.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ amount: moneySchema.positive().optional() }).strict();

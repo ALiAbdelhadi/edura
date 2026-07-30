@@ -1,7 +1,7 @@
-import { withErrors } from "@/lib/errors/http";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { adminLookupStudents } from "@/lib/services/admin/center-operations";
 
 export const dynamic = "force-dynamic";

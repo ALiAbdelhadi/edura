@@ -1,15 +1,12 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { updateAffiliationCenterShare } from "@/lib/services/admin/rooms-split";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// centerShare is piasters per present student for the teacher's NO-ROOM
-// courses at this center. super_admin ONLY — neither the teacher nor the
-// center can set it (collaboration requests always store 0).
 const bodySchema = z
   .object({ centerShare: z.number().int().min(0).max(99_999_900) })
   .strict();

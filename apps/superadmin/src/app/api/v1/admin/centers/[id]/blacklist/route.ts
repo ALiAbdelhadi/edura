@@ -1,15 +1,13 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import {
-  adminListCenterBlacklist,
   adminAddCenterBlacklist,
+  adminListCenterBlacklist,
 } from "@/lib/services/admin/center-operations";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
-// Goes through the H-04 cascade journal, so lifting restores exactly the
-// enrollments the block withdrew.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z

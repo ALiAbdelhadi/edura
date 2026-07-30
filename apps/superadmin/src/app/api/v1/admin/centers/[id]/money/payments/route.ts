@@ -6,16 +6,12 @@ import { parseJson } from "@/lib/validation/zod";
 import { moneySchema } from "@repo/server-core/validation/common";
 import { adminListPayments, adminRecordPayment } from "@/lib/services/admin/center-money";
 
-// A SANCTIONED money flow: recording cash taken at the counter writes a Payment
-// with a receipt and a mirrored Transaction, in one transaction. It is not a
-// ledger edit — the append-only REVOKEs are untouched by it.
 export const dynamic = "force-dynamic";
 
 const createSchema = z
   .object({
     studentId: z.uuid(),
     courseId: z.uuid().optional(),
-    // Positive only. Returning money is the refund flow, not a negative payment.
     amount: moneySchema.positive(),
     note: z.string().trim().max(500).optional(),
   })

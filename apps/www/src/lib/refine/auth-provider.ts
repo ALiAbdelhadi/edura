@@ -1,8 +1,8 @@
-import type { AuthProvider } from "@refinedev/core";
-import { signIn, signOut, getSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
-import { purgeUserScopedCaches } from "@/lib/pwa/purge-caches";
 import { syncQueuedAttendance } from "@/lib/pwa/attendance-outbox";
+import { purgeUserScopedCaches } from "@/lib/pwa/purge-caches";
+import type { AuthProvider } from "@refinedev/core";
+import { getSession, signIn, signOut } from "next-auth/react";
 
 export type MeResponse = {
   id: string;
@@ -18,9 +18,6 @@ export type MeResponse = {
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
-    // Same rule as the login screen: never mint a session on top of a live one.
-    // "/dashboard" resolves the portal from the server session, so a stale
-    // client-side role can no longer steer the redirect.
     if (typeof window !== "undefined") {
       try {
         if (await getSession()) await signOut({ redirect: false });
@@ -52,15 +49,6 @@ export const authProvider: AuthProvider = {
 
   logout: async () => {
     if (typeof window !== "undefined") {
-      // Best-effort: give any offline-queued attendance a last chance to sync
-      // before the session goes away. Everything the outbox exposes is
-      // filtered by teacherId, so anything left unsynced (still offline) is
-      // simply invisible to whichever account signs in next — no need to
-      // block logout on it or discard it outright.
-      //
-      // Wrapped: a failure here (IndexedDB unavailable, sync throwing) must
-      // never leave the user signed in. Clearing the session is the one part
-      // of logout that is not optional.
       try {
         const session = await getSession();
         const teacherId = session?.user?.id;
@@ -72,16 +60,11 @@ export const authProvider: AuthProvider = {
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("edura_state");
-      // Confirm the session is really gone before handing the user to /login.
-      // Landing on /login while still authenticated is what let the next
-      // sign-in start from a stale identity on a shared device.
       try {
         if (await getSession()) {
           await signOut({ redirect: false });
         }
       } catch {}
-      // Cached /api and page/RSC responses are scoped to the signed-out user —
-      // must not leak to the next account on a shared device.
       await purgeUserScopedCaches();
     }
     return {

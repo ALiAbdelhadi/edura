@@ -1,14 +1,10 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { setCenterMemberStatus } from "@/lib/services/admin/center-control";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
-// Control ops #2/#3 — activate / deactivate a TEACHER or STUDENT within this
-// center. Account-level only: the roster, affiliation and enrollments are
-// untouched, so reactivation restores the exact prior state. Deactivation cuts
-// the account's session on its next request (C-03).
 export const dynamic = "force-dynamic";
 
 const schema = z

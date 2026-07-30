@@ -1,9 +1,9 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
+import { adminEnrollStudent, adminListEnrollments } from "@/lib/services/admin/center-academic";
 import { parseJson } from "@/lib/validation/zod";
-import { adminListEnrollments, adminEnrollStudent } from "@/lib/services/admin/center-academic";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,6 @@ export const GET = withErrors(async (req, ctx) => {
   return ok(await adminListEnrollments(user, id, q));
 });
 
-// Enrolling creates the ROSTER link only — no subscription, so it does not
-// hand out paid coverage.
 export const POST = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id } = await ctx.params;
