@@ -223,6 +223,15 @@
       },
     },
   },
+  "trustedDependencies": [
+    "esbuild",
+    "sharp",
+    "@prisma/engines",
+    "@swc/core",
+    "unrs-resolver",
+    "prisma",
+    "@parcel/watcher",
+  ],
   "overrides": {
     "@hono/node-server": "^1.19.14",
     "brace-expansion@1": "^1.1.16",
