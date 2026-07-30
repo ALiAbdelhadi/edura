@@ -2,7 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
 
-
 allowBuilds:
   "@parcel/watcher": true
   "@prisma/engines": true
@@ -11,6 +10,9 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - brace-expansion@5.0.9
 
 overrides:
   "minimatch@3": "^3.1.5"
