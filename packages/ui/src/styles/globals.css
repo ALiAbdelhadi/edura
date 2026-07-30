@@ -1,158 +1,110 @@
-/* الدفتر / The Ledger — shared TOKEN layer, single source of truth.
-   `@import "tailwindcss"` and `@import "tw-animate-css"` live in the CONSUMING app's
-   globals.css: bare npm specifiers resolve from the app's node_modules, and Turbopack
-   resolves nested @imports file-relative — so they can't live here. This file is
-   imported AFTER those two.
-
-   ── How to read this file ─────────────────────────────────────────────────────
-   LAYER 1  the ledger palette. The real names. New work uses these.
-   LAYER 2  the shadcn/legacy contract, DERIVED from layer 1. It exists so the ~110
-            screens already written against `bg-background` / `text-muted-foreground`
-            / `border-border` keep rendering while the palette underneath them
-            changes. Nothing here is a second palette — every value is a `var()`
-            pointing back into layer 1. Deleting a name here breaks call sites;
-            re-pointing one changes the product everywhere at once, which is the
-            whole reason the indirection is worth having.
-   LAYER 3  @theme inline — exposes BOTH name sets as Tailwind utilities.
-
-   ── The concept ──────────────────────────────────────────────────────────────
-   Approving a payout debits a wallet, writes an immutable ledger row, and marks the
-   request paid, in one irreversible click. The interface is therefore built as a
-   ledger an operator signs, not a dashboard they browse. Paper not glass; every
-   figure monospaced; irreversible actions carry their own amount and cost two
-   presses. Each token below is downstream of that. */
-
-/* Scan this package's own components for Tailwind classes (v4 needs an explicit
-   @source for workspace packages; the app auto-detects its own src). */
 @source "../**/*.{ts,tsx}";
 
-/* Bridge shadcn's `dark:` variant to the app's EXISTING dark hook: ThemeModeProvider
-   + the no-flash <script> stamp data-theme="dark" on <html> — no `.dark`, no
-   next-themes. The attribute is the single source of truth. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   LAYER 1 — the ledger palette
-   ══════════════════════════════════════════════════════════════════════════════ */
-
 :root {
-  /* Surfaces. Warm paper canvas, white sheet on top of it. `--field` is the
-     recessed surface: table headers, inputs, footers, computation boxes. */
   --paper: #f7f6f2;
   --sheet: #ffffff;
   --field: #fbfaf7;
 
-  /* Ink. Three levels, and only three.
-     NOTE --ink-3 is #707686, NOT the #8b91a1 in the design handoff. #8b91a1 scores
-     2.91–3.15:1 against the three surfaces it sits on — below the 4.5:1 AA floor for
-     text under 18.66px. --ink-3 is not decorative: it is the eyebrow, the mono meta
-     line, table headers, and the email/code line of every row-identity cell. #707686
-     clears 4.5:1 on all three surfaces and still reads as the third level down. */
   --ink: #1c2230;
   --ink-2: #5b6273;
   --ink-3: #707686;
-
-  /* Hairlines. The system's structural element — `--rule` for card borders and
-     section rules, `--rule-2` for in-table row dividers and hover fill. */
   --rule: #e4e1d8;
   --rule-2: #efece4;
-
-  /* Four colours, each with one meaning. Enforced in review:
-     indigo = brand + primary action · teal = money out / confirmed
-     amber  = waiting, and nothing else · red = irreversible or blocking, and nothing else
-     A figure is never coloured for decoration. Never two saturated colours in one row. */
   --indigo: #1a2f73;
   --indigo-soft: #eaecf6;
   --indigo-ink: #ffffff;
-
-  /* #0a7a6f, not the handoff's #0d7d72. A 12/600 badge sits below the 18.66px
-     large-text threshold, so `--teal` on `--teal-soft` needs 4.5:1 and scored 4.34:1.
-     Darkening the INK rather than lightening the FILL was the right correction: it
-     also lifts every teal money figure (on --sheet 5.01 -> 5.22, on --paper 4.63 ->
-     4.82, both previously marginal), and it keeps the soft fill's distinctness from
-     --sheet at 1.15:1, in line with amber-soft (1.13) and red-soft (1.17). Lightening
-     the fill instead would have made "paid / verified" the faintest badge of the
-     three, which is backwards for a confirmed state. */
   --teal: #0a7a6f;
   --teal-soft: #e2f2f0;
-
   --amber: #a35a06;
   --amber-soft: #fbf0dd;
-
   --red: #a81d1d;
   --red-soft: #fbe9e7;
 
-  /* The seal — the `TRX-` stamp on a row that has been written to the ledger.
-     Derived from --red rather than given its own hue: a seal marks permanence, which
-     is the same thing red means everywhere else in this system. Mixing toward the
-     canvas keeps it a stamp rather than an alarm. */
   --seal: color-mix(in oklab, var(--red) 64%, var(--paper));
 
-  /* Elevation. Two levels exist. There is no third. */
   --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
-  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22); /* overlays/popovers only */
+  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22);
 
-  /* ── Geometry ──────────────────────────────────────────────────────────────
-     Set as the four scale steps rather than offsets from one --radius, because the
-     handoff's targets aren't a single arithmetic progression: buttons want 8 and
-     cards want 12, which `calc(--radius ± n)` cannot produce at once. */
-  --radius: 0.75rem; /* 12px — kept for the ~8 call sites reading var(--radius) */
-  --radius-step-sm: 6px; /* small chips, menu items */
-  --radius-step-md: 8px; /* buttons, inputs, badges */
-  --radius-step-lg: 12px; /* dialogs, panels */
-  --radius-step-xl: 12px; /* cards, table containers */
-  --radius-badge: 5px; /* count badges */
-  --radius-tile: 7px; /* initials tiles */
+  --radius: 0.75rem;
+  --radius-step-sm: 6px;
+  --radius-step-md: 8px;
+  --radius-step-lg: 12px;
+  --radius-step-xl: 12px;
+  --radius-badge: 5px;
+  --radius-tile: 7px;
 
-  /* ── The eyebrow ───────────────────────────────────────────────────────────
-     The system's primary hierarchy marker: every section label, nav group label and
-     table header.
-
-     Latin can carry uppercase + letter-spacing + monospace. Arabic can carry NONE of
-     them: it has no case, it is a connected script so tracking breaks the joins, and
-     IBM Plex Mono ships no Arabic glyphs so `font-mono` silently falls back and the
-     mono guarantee is lost without an error. Applying the Latin recipe to Arabic
-     therefore degrades it to plain small text — leaving the hierarchy STRONGER in the
-     secondary language than in the primary one, which for an Arabic-first product is
-     backwards.
-
-     Resolution: the MARKER is the shared invariant, present in both scripts. Case,
-     tracking and mono become the Latin-only variant; weight, size and word-spacing
-     are the Arabic one. word-spacing is safe where letter-spacing is not — it widens
-     the space character only and never touches the joins. See <Eyebrow>. */
   --eyebrow-marker-w: 2px;
   --eyebrow-marker-h: 9px;
   --eyebrow-marker-gap: 7px;
   --eyebrow-color: var(--ink-3);
-
   --eyebrow-lat-size: 10px;
   --eyebrow-lat-weight: 600;
   --eyebrow-lat-track: 0.12em;
-
-  /* 12px, not 10px: 10px Latin caps have a ~7px cap band, and Arabic needs more size
-     to match that optically. 11 reads under-weight beside the Latin form, 13 out-ranks
-     the items below it, and 600 is the body-emphasis weight so it fails to read as a
-     label at all. */
   --eyebrow-ar-size: 12px;
   --eyebrow-ar-weight: 700;
   --eyebrow-ar-word: 0.1em;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: var(--indigo-ink);
+  --secondary: var(--indigo-soft);
+  --secondary-foreground: var(--indigo);
+  --muted: var(--field);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--indigo-soft);
+  --accent-foreground: var(--indigo);
+  --destructive: var(--red);
+  --destructive-foreground: var(--indigo-ink);
+
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--indigo);
+
+  --brand-teal: var(--teal);
+  --brand-teal-foreground: var(--indigo-ink);
+  --success: var(--teal);
+  --success-foreground: var(--indigo-ink);
+  --warning: var(--amber);
+  --warning-foreground: var(--indigo-ink);
+  --info: var(--indigo);
+  --info-foreground: var(--indigo-ink);
+
+  --chart-1: var(--teal);
+  --chart-2: var(--indigo);
+  --chart-3: var(--amber);
+  --chart-4: var(--ink-3);
+  --chart-5: var(--red);
+
+  --sidebar: var(--sheet);
+  --sidebar-foreground: var(--ink-2);
+  --sidebar-primary: var(--indigo);
+  --sidebar-primary-foreground: var(--indigo-ink);
+  --sidebar-accent: var(--indigo-soft);
+  --sidebar-accent-foreground: var(--indigo);
+  --sidebar-border: var(--rule);
+  --sidebar-ring: var(--indigo);
+
+  --shadow-xs: var(--lift);
+  --shadow-sm: var(--lift);
+  --shadow-md: var(--lift);
+  --shadow-lg: var(--lift-2);
 }
 
 [data-theme="dark"] {
-  /* Dark mode is the same record under different light — not a different product.
-     The four devices most likely to vanish on a swap, and which carry meaning, are
-     re-checked here: the hairlines, the double rule on totals, the semantic weights,
-     and the seal. */
   --paper: #14161c;
   --sheet: #1b1e26;
   --field: #1f232b;
 
   --ink: #eceadf;
   --ink-2: #a3a49c;
-  /* #888a84, not the handoff's #7c7e78 — same AA correction as light. #7c7e78 scores
-     3.83–4.40:1 against the three dark surfaces; #888a84 clears 4.5:1 on all three. */
   --ink-3: #888a84;
-
   --rule: #2a2d35;
   --rule-2: #22252c;
 
@@ -169,127 +121,11 @@
   --red: #ef6a6a;
   --red-soft: #361b1b;
 
-  /* Mixed toward the dark canvas so the stamp stays a stamp; --red at full strength
-     on --sheet reads as an error state rather than a mark of permanence. */
   --seal: color-mix(in oklab, var(--red) 70%, var(--paper));
 
   --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
   --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   LAYER 2 — MIGRATION SHIM. Temporary. Shrinking to nothing.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Every name below is an ALIAS for a layer-1 token. Nothing here is a second palette
-   — each value is a `var()` pointing back into layer 1.
-
-   Why it exists: re-pointing rather than renaming was the only safe way to change the
-   palette under ~110 already-written screens (143 call sites on the semantic colours
-   alone, 58 on the sidebar group). Renaming would have broken the chrome of both apps
-   in a single commit.
-
-   Why it must not become permanent: two vocabularies for one value is a token-level
-   version of exactly the two-system drift the original audit opened with. A reader
-   seeing `bg-card` and `bg-sheet` in the same file cannot tell whether they differ.
-
-   ── The rule ─────────────────────────────────────────────────────────────────
-   NEW CODE USES LEDGER NAMES ONLY. No new call site may reference a name in this
-   block. Each portal session deletes the aliases its own screens used as it converts
-   them; when a row's count reaches zero, delete the row. When the block is empty,
-   delete the block. That is the exit path — there is no other.
-
-   ── The map ──────────────────────────────────────────────────────────────────
-     --background ......... --paper          --foreground ......... --ink
-     --card, --popover .... --sheet          --card-foreground .... --ink
-     --muted .............. --field          --muted-foreground ... --ink-2
-     --primary ............ --indigo         --primary-foreground . --indigo-ink
-     --secondary, --accent  --indigo-soft    --*-foreground ....... --indigo
-     --destructive ........ --red            --border, --input .... --rule
-     --ring ............... --indigo
-     --success, --brand-teal --teal          --warning ............ --amber
-     --info ............... --indigo         (was a FIFTH hue; the system has four)
-     --chart-1..5 ......... teal, indigo, amber, ink-3, red   (see charts/chart-frame)
-     --sidebar* ........... the sheet/ink scale (the near-black slab is gone)
-     --shadow-xs..lg ...... --lift / --lift-2
-
-   Declared once, not per theme: [data-theme="dark"] matches the same <html> element
-   as :root, so each var() below resolves against whichever layer-1 value won. */
-
-:root {
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--sheet);
-  --card-foreground: var(--ink);
-  --popover: var(--sheet);
-  --popover-foreground: var(--ink);
-
-  --primary: var(--indigo);
-  --primary-foreground: var(--indigo-ink);
-  --secondary: var(--indigo-soft);
-  --secondary-foreground: var(--indigo);
-  --muted: var(--field);
-  --muted-foreground: var(--ink-2);
-  --accent: var(--indigo-soft);
-  --accent-foreground: var(--indigo);
-  --destructive: var(--red);
-  --destructive-foreground: var(--indigo-ink);
-
-  --border: var(--rule);
-  --input: var(--rule);
-  --ring: var(--indigo);
-
-  /* Colour discipline, enforced at the token layer rather than at 143 call sites.
-     The system has four colours; `success`/`warning`/`info`/`brand-teal` are the
-     older five-colour vocabulary still used across the app. Re-pointing them here
-     collapses the palette everywhere at once — in particular `info`, which was a
-     fifth hue (sky blue), now resolves to the brand indigo. */
-  --brand-teal: var(--teal);
-  --brand-teal-foreground: var(--indigo-ink);
-  --success: var(--teal);
-  --success-foreground: var(--indigo-ink);
-  --warning: var(--amber);
-  --warning-foreground: var(--indigo-ink);
-  --info: var(--indigo);
-  --info-foreground: var(--indigo-ink);
-
-  /* Charts. Series colour is meaning, not decoration: the money series is teal over a
-     neutral rule-grey for "of total". The remaining slots are held by the two other
-     semantic colours and a muted ink, so a five-series chart cannot introduce a hue
-     the rest of the system does not have. */
-  --chart-1: var(--teal);
-  --chart-2: var(--indigo);
-  --chart-3: var(--amber);
-  --chart-4: var(--ink-3);
-  --chart-5: var(--red);
-
-  /* The near-black sidebar slab is gone: it read as a second application beside the
-     light canvas, and it was the loudest element on screen while carrying the least
-     information. The token NAMES are kept and re-pointed at the sheet/ink scale —
-     `packages/ui/components/sidebar.tsx` and both dashboard shells consume them in 58
-     places, so renaming would break the chrome of both apps in the same commit. They
-     retire when the shells are rewritten. */
-  --sidebar: var(--sheet);
-  --sidebar-foreground: var(--ink-2);
-  --sidebar-primary: var(--indigo);
-  --sidebar-primary-foreground: var(--indigo-ink);
-  --sidebar-accent: var(--indigo-soft);
-  --sidebar-accent-foreground: var(--indigo);
-  --sidebar-border: var(--rule);
-  --sidebar-ring: var(--indigo);
-
-  /* Elevation compatibility. The scale is two levels now; the old five-step names map
-     onto them so existing `shadow-md` / `shadow-lg` call sites flatten to the system's
-     actual vocabulary instead of dangling. */
-  --shadow-xs: var(--lift);
-  --shadow-sm: var(--lift);
-  --shadow-md: var(--lift);
-  --shadow-lg: var(--lift-2);
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   LAYER 3 — Tailwind theme
-   ══════════════════════════════════════════════════════════════════════════════ */
 
 @theme inline {
   --radius-sm: var(--radius-step-sm);
@@ -297,7 +133,6 @@
   --radius-lg: var(--radius-step-lg);
   --radius-xl: var(--radius-step-xl);
 
-  /* ledger names */
   --color-paper: var(--paper);
   --color-sheet: var(--sheet);
   --color-field: var(--field);
@@ -317,7 +152,6 @@
   --color-red-soft: var(--red-soft);
   --color-seal: var(--seal);
 
-  /* shadcn contract */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -362,23 +196,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* IBM Plex Sans Arabic is the single system face for prose (Arabic + Latin).
-     IBM Plex Mono is mandatory for every FIGURE — see <Num>. The two are siblings by
-     design, which is why the pairing works at small sizes. */
-  --font-sans: var(--font-plex-arabic), var(--font-noto-sans), ui-sans-serif,
-    system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans:
+    var(--font-plex-arabic), var(--font-noto-sans), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono:
+    var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Elevation has exactly TWO levels. The scale must live HERE, in the theme, not
-     only as :root variables — Tailwind resolves `shadow-sm` / `shadow-md` / `shadow-lg`
-     from this namespace, so a `--shadow-*` declared only in :root is read by nothing
-     except an explicit `var(--shadow-*)` call site. Before this, every one of the 35
-     shadow utilities in the two apps rendered Tailwind's stock black shadows while the
-     token file claimed to define a layered scale; the scale was aspirational.
-
-     Collapsing five steps onto two is the point, not a shortcut: an interface that
-     wants to read as paper has a sheet resting on a canvas, and an overlay above it.
-     There is no third thing for a third shadow to mean. */
   --shadow-2xs: var(--lift);
   --shadow-xs: var(--lift);
   --shadow-sm: var(--lift);
@@ -394,37 +217,17 @@
   }
 }
 
-/* ── Figures ────────────────────────────────────────────────────────────────────
-   The single highest-signal rule in the system, and the reason is not typographic
-   taste: mono separates what the SYSTEM COMPUTED from what a HUMAN WROTE. A figure in
-   a proportional face reads as prose and invites doubt about whether it is
-   authoritative. It also fixes Latin-inside-Arabic, which is why it earns its place
-   in an Arabic-first product specifically.
-
-   `.num` is the raw utility. Prefer the <Num> component — it also handles direction
-   isolation, which a class cannot. */
 @utility num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-/* Arabic-Indic digits inside Arabic prose (`٣ أيام`) are a WORD IN A SENTENCE, not a
-   value the system computed — the opposite of `.num`. IBM Plex Mono carries no
-   Arabic-Indic glyphs, so applying mono here would silently fall back and
-   `tabular-nums` would not apply. This utility exists to make that path explicit
-   rather than implicit. */
 @utility num-prose {
   font-family: var(--font-sans);
   font-variant-numeric: normal;
 }
 
-/* Direction isolation for a Latin run inside an Arabic one (or the reverse).
-   `·`, `-`, `—`, `:` and `()` are bidi-NEUTRAL: between an LTR run and an RTL run
-   their placement is resolved by the paragraph direction, not by authorial intent, so
-   `TRX-98421 · مدرّس فيزياء` renders differently in an RTL context than it was
-   written. Isolating each run fixes it structurally. Never fix a bidi break by
-   reordering the source string — the next translation reintroduces it. */
 @utility ltr-island {
   direction: ltr;
   unicode-bidi: isolate;
@@ -435,20 +238,10 @@
   unicode-bidi: isolate;
 }
 
-/* ── Totals ─────────────────────────────────────────────────────────────────────
-   The accountant's double rule: this line is a CONCLUSION, not another row. It belongs
-   anywhere a number is a sum the user is expected to act on, and nowhere else.
-   It is also the element most likely to disappear in dark mode — a 2px double border
-   resolves to two hairlines with a gap — so it is drawn from --ink, the highest
-   contrast ink available, in both themes rather than from --rule. */
 @utility rule-total {
   border-top: 2px double var(--ink);
 }
 
-/* ── The seal ───────────────────────────────────────────────────────────────────
-   Motion budget for the entire product: ONE animation, spent on the one moment
-   something became permanent. Motion is a scarce signal here; spending it on
-   transitions is spending it on nothing. */
 @keyframes seal-in {
   from {
     opacity: 0;
@@ -464,8 +257,6 @@
   animation: seal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-/* ── Focus ──────────────────────────────────────────────────────────────────────
-   2px --indigo at 2px offset, verified against --paper and --sheet in both themes. */
 @utility focus-ledger {
   &:focus-visible {
     outline: 2px solid var(--indigo);
@@ -473,17 +264,6 @@
   }
 }
 
-/* Sonner status surfaces (see components/sonner.tsx).
-   Sonner paints the toast body, its border, the close button and the action /
-   cancel buttons from --normal-bg / --normal-border / --normal-text. Tinting
-   those VARIABLES per status — rather than overriding `background` with a
-   utility — keeps every sub-part in sync, and beats sonner's own
-   `[data-sonner-toast][data-styled='true']` rule (specificity 0,2,0) without a
-   single `!important`, because a declaration on the toast itself outranks one
-   inherited from the toaster.
-   Each tint blends the semantic token into --popover; both sides flip with
-   data-theme, so ONE recipe covers light and dark. --normal-text is left alone
-   so body copy stays --popover-foreground and keeps its contrast ratio. */
 @utility toast-success {
   --normal-bg: color-mix(in oklab, var(--teal) 8%, var(--popover));
   --normal-border: color-mix(in oklab, var(--teal) 30%, var(--rule));
@@ -504,19 +284,11 @@
   --normal-border: color-mix(in oklab, var(--indigo) 30%, var(--rule));
 }
 
-/* Loading stays neutral on purpose — an in-flight action has no outcome yet, so
-   colouring it would pre-announce one. */
 @utility toast-loading {
   --normal-bg: var(--popover);
   --normal-border: var(--rule);
 }
 
-/* Draw-in for the success mark (components/icons/success-icon.tsx). Both shapes
-   carry pathLength="100", so one keyframe covers the ring and the check.
-   Deliberately CSS and not SMIL: an <animate begin="…"> runs on the DOCUMENT
-   timeline, so an icon mounted after page load (every toast) starts already
-   past its begin time and snaps to the end state instead of drawing. A CSS
-   animation restarts per element. */
 @keyframes success-draw {
   from {
     stroke-dashoffset: 100;
@@ -540,8 +312,7 @@
     animation: none;
     stroke-dashoffset: 0;
   }
-  /* The seal marks permanence; without motion it must still be PRESENT, just not
-     animated. It never simply disappears. */
+
   .seal-in {
     animation: none;
     opacity: 1;

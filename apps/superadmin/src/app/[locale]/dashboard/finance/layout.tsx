@@ -12,12 +12,6 @@ const navItems = [
   { href: "/dashboard/finance/notifications", icon: "bell", label: "Notifications" },
 ];
 
-/**
- * Phone bar order. Six destinations, so five get a slot and only Commission —
- * a policy screen nobody opens from a phone — sits behind "more".
- *
- * EVERY `navItems` href is listed; the bar is the phone's only navigation.
- */
 const BAR_ORDER = [
   "/dashboard/finance",
   "/dashboard/finance/payments",

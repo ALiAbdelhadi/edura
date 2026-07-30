@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
+import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity } from "@refinedev/core";
 import { useTranslations } from "next-intl";
-import type { MeResponse } from "@/lib/refine";
+import { useEffect } from "react";
 
 const ROLE_HOME: Record<string, string> = {
   super_admin: "/dashboard/superadmin",

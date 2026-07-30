@@ -1,9 +1,10 @@
 "use client";
 
-import { uiRoleForRole } from "@/lib/auth/portal";
 import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { Eyebrow, LedgerButton, Num } from "@/components/ledger";
+import { Link } from "@/i18n/navigation";
+import { uiRoleForRole } from "@/lib/auth/portal";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -17,7 +18,6 @@ import { Input } from "@repo/ui/components/input";
 import { Loader2, LogIn, TriangleAlert } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";

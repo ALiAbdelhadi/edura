@@ -3,14 +3,7 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 
-// Three labelled sections, replacing 16 flat items. The audit's finding was
-// that Payments / Payouts / Room settlements / Commission / Wallet policy read
-// as five indistinguishable siblings — and two of them literally rendered the
-// same Arabic string. Grouping is what makes the money screens legible as a
-// set; the payouts/payments rename is what makes them distinguishable within
-// it. See design/DECISIONS.md.
 const navItems = [
-  // الإشراف / Oversight
   { href: "/dashboard/superadmin", icon: "grid", label: "Overview", group: "Oversight" },
   {
     href: "/dashboard/superadmin/registrations",
@@ -28,7 +21,6 @@ const navItems = [
     group: "Oversight",
   },
 
-  // الأموال / Money
   { href: "/dashboard/superadmin/payouts", icon: "chart", label: "Payouts", group: "Money" },
   { href: "/dashboard/superadmin/payments", icon: "dollar", label: "Payments", group: "Money" },
   {
@@ -45,8 +37,6 @@ const navItems = [
     group: "Money",
   },
   { href: "/dashboard/superadmin/wallet", icon: "wallet", label: "Wallet policy", group: "Money" },
-
-  // التواصل والرقابة / Comms & oversight
   {
     href: "/dashboard/superadmin/notifications",
     icon: "bell",
@@ -58,19 +48,6 @@ const navItems = [
   { href: "/dashboard/superadmin/audit", icon: "shield", label: "Audit log", group: "Comms" },
 ];
 
-/**
- * Phone bar order — deliberately NOT the sidebar's order.
- *
- * This console is desk work, so the bar is built for the case it is actually
- * used in: something needs looking at away from the desk. Registrations and
- * Payouts are the two queues that hold someone else up while they wait, so
- * they outrank the money screens that are read rather than acted on.
- *
- * EVERY `navItems` href is listed — the bar is the phone's only navigation.
- * The sidebar's three groups are not carried over: `bottomNav` names hrefs and
- * the shell builds flat items from them, so "more" is one list here. That is a
- * deliberate simplification of the grouping, not a loss of any destination.
- */
 const BAR_ORDER = [
   "/dashboard/superadmin",
   "/dashboard/superadmin/registrations",
