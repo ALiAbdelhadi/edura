@@ -37,7 +37,7 @@ hits `/api/v1/cron`:
 
 - `find . -name "vercel.json"` → none.
 - `.github/` → does not exist. No CI of any kind.
-- No `*.yml` / `*.yaml` other than `bun.lock` and `pnpm-workspace.yaml`.
+- No `*.yml` / `*.yaml` other than the lockfile and the workspace config (both since replaced by their Bun equivalents).
 - No `cron` entry in any `package.json` script.
 - `CRON_SECRET` appears only in: `CLAUDE.md`, `turbo.json`, the route itself,
   `docs/security/security-audit.md`, `tests/db/_fixtures.ts`,

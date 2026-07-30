@@ -22,7 +22,7 @@ The brief mandates "typecheck, both builds". None of it could run when this revi
 
 | Check | Before | After |
 |---|---|---|
-| `bun install` | **fails**; `node_modules` and `.pnpm` both empty | clean, all 7 build scripts run |
+| `bun install` | **fails**; `node_modules` and the package store both empty | clean, all 7 build scripts run |
 | `bun run check-types` | could not run | **6/6 pass** |
 | `bun run build` | could not run | **both apps pass** (1m27s) |
 | `bun run test:unit` (www) | could not run | **111 passed, 1 skipped** |
@@ -50,24 +50,25 @@ The brief mandates "typecheck, both builds". None of it could run when this revi
 
 ### 1 — Install broken, `node_modules` destroyed → **FIXED**
 
-Root `node_modules` and `.pnpm` were empty; a failed `bun install` had torn the store down.
+Root `node_modules` and the package store were empty; a failed `bun install` had torn the store down.
 It failed on policy: the regenerated lockfile carried `@rollup/rollup-*@4.62.3` published
-inside pnpm 11's `minimumReleaseAge` window.
+inside the package manager's `minimumReleaseAge` window.
 
 Fixed by `bun run clean --lockfile` + a fresh resolution, plus the two items below that a clean
 install then exposed.
 
 ### 1a — `overrides` had gone silently inert → **FIXED** *(new)*
 
-pnpm 11 no longer reads the `pnpm` field in `package.json` and warns that it is ignored. That
-field held the **security clearance for the 13 audit advisories** (`docs/security/security-audit.md`
+The package manager in use at the time (v11) no longer read the legacy overrides field in
+`package.json` and warned that it was ignored. That field held the **security clearance for the 13 audit advisories** (`docs/security/security-audit.md`
 §7) — so all 8 overrides had quietly stopped applying. Moved to `overrides:` in
-`pnpm-workspace.yaml` (their new home) with the rationale preserved. This alone accounts for
+the workspace config (their home at the time; now top-level `overrides` in `package.json`)
+with the rationale preserved. This alone accounts for
 9 of the 22 advisories.
 
 ### 1b — 7 dependency build scripts silently skipped → **FIXED** *(new)*
 
-pnpm 11 requires explicit approval. `@prisma/engines`, `prisma`, `sharp`, `esbuild`,
+The package manager required explicit approval for dependency build scripts. `@prisma/engines`, `prisma`, `sharp`, `esbuild`,
 `@swc/core`, `@parcel/watcher`, `unrs-resolver` were all being skipped — which fails at
 *runtime*, not install. Declared in `allowBuilds:`; all seven now run. This is the status quo
 ante, not a new grant.
