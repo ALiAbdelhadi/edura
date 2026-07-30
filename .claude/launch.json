@@ -5,9 +5,9 @@
       "name": "edura-navfix-preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/www",
-        "run",
         "next",
         "dev",
         "-p",
@@ -19,9 +19,9 @@
       "name": "edura-www",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/www",
-        "run",
         "dev"
       ],
       "port": 3002
@@ -30,9 +30,9 @@
       "name": "edura-preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/www",
-        "run",
         "next",
         "dev",
         "-p",
@@ -44,9 +44,9 @@
       "name": "edura-sidebar-preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/www",
-        "run",
         "next",
         "dev",
         "-p",
@@ -58,9 +58,9 @@
       "name": "edura-prod",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/www",
-        "run",
         "start"
       ],
       "port": 3003
@@ -69,9 +69,9 @@
       "name": "edura-superadmin",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/superadmin",
-        "run",
         "dev"
       ],
       "port": 3004
@@ -80,9 +80,9 @@
       "name": "edura-realtime",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/realtime",
-        "run",
         "dev"
       ],
       "port": 3005
@@ -91,9 +91,9 @@
       "name": "superadmin-main-checkout",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "/Users/ali/edura/apps/superadmin",
-        "run",
         "dev"
       ],
       "port": 3004
@@ -102,9 +102,9 @@
       "name": "edura-superadmin-preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
+        "run",
         "--cwd",
         "apps/superadmin",
-        "run",
         "next",
         "dev",
         "-p",
