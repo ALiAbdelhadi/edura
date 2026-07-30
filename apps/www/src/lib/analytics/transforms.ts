@@ -12,16 +12,32 @@ import type {
   TeacherScoreDistributionPoint,
 } from "@/lib/analytics/contracts";
 
+// Series colours come from the token layer, never from literals. The token is
+// `--chart-*`: that is the name the shipped layer defines, and a var() that
+// resolves to nothing makes SVG fill fall back to BLACK — silently. Explicit
+// per-series assignment (rather than the components' positional seriesColor
+// fallback) keeps a series' hue stable when a sibling series is added,
+// removed, or reordered.
+const DEFAULT_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
 export function revenueVsExpensesLineSeries(points: RevenueTimeseriesPoint[]) {
   return [
     {
       id: "revenue",
       label: "Revenue",
+      color: "var(--chart-1)",
       points: points.map((row) => ({ x: row.label, value: row.revenue })),
     },
     {
       id: "expenses",
       label: "Expenses",
+      color: "var(--chart-3)",
       points: points.map((row) => ({ x: row.label, value: row.expenses })),
     },
   ];
@@ -32,6 +48,7 @@ export function sessionStatusDonutData(items: SessionStatusPoint[]) {
     id: row.status,
     label: row.status[0].toUpperCase() + row.status.slice(1),
     value: row.count,
+    color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
   }));
 }
 
@@ -61,6 +78,7 @@ export function teacherAttendanceLineSeries(points: TeacherAttendanceTrendPoint[
     {
       id: "attendance",
       label: "Attendance Rate",
+      color: "var(--chart-2)",
       points: points.map((row) => ({ x: row.label, value: row.attendanceRatePct })),
     },
   ];
@@ -86,6 +104,7 @@ export function studentGradeTrendLineSeries(points: StudentGradeTrendPoint[]) {
     {
       id: "grades",
       label: "Grade %",
+      color: "var(--chart-1)",
       points: points.map((row) => ({ x: row.label, value: row.percentage })),
     },
   ];
@@ -97,11 +116,13 @@ export function paymentTrendLineSeries(points: ParentPaymentTrendPoint[]) {
     {
       id: "paid",
       label: "Paid",
+      color: "var(--chart-2)",
       points: points.map((row) => ({ x: row.label, value: row.paid })),
     },
     {
       id: "net",
       label: "Net",
+      color: "var(--chart-1)",
       points: points.map((row) => ({ x: row.label, value: row.net })),
     },
   ];
