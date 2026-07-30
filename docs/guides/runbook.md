@@ -71,7 +71,7 @@ The demo instance is pre-seeded with **Nile Educational Academy** (أكاديم�
 ### Prerequisites
 
 - Node.js ≥ 20.0.0
-- pnpm 9.12.3 (`npm i -g pnpm@9.12.3`)
+- Bun 1.3.12 (`curl -fsSL https://bun.sh/install | bash`)
 - MongoDB Atlas cluster (or local `mongod --replSet rs0` for transactions)
 
 ### Install
@@ -79,7 +79,7 @@ The demo instance is pre-seeded with **Nile Educational Academy** (أكاديم�
 ```bash
 git clone <repo>
 cd edura
-pnpm install
+bun install
 ```
 
 ### Environment variables
@@ -119,7 +119,7 @@ APP_BASE_URL=http://localhost:3002
 SEED_PASSWORD=Passw0rd!
 ```
 
-> **Note:** The Atlas cluster has IP whitelisting. Run `pnpm seed` from a machine whose IP is whitelisted, or add `0.0.0.0/0` in Atlas Network Access for dev.
+> **Note:** The Atlas cluster has IP whitelisting. Run `bun run seed` from a machine whose IP is whitelisted, or add `0.0.0.0/0` in Atlas Network Access for dev.
 
 ---
 
@@ -127,17 +127,17 @@ SEED_PASSWORD=Passw0rd!
 
 ```bash
 # Development (hot reload)
-pnpm dev          # starts on http://localhost:3002
+bun run dev          # starts on http://localhost:3002
 
 # Production build + start
-pnpm build
-pnpm start
+bun run build
+bun run start
 
 # Type check only
-pnpm typecheck
+bun run typecheck
 
 # Lint
-pnpm lint
+bun run lint
 ```
 
 The app opens at `http://localhost:3002` which redirects to `/login`.
@@ -150,12 +150,12 @@ The seed script is **idempotent** — safe to run multiple times. It uses upsert
 
 ```bash
 # Full seed (requires MONGODB_URI)
-pnpm seed
+bun run seed
 # or
-pnpm tsx --env-file .env.local scripts/seed.ts
+bun run tsx --env-file .env.local scripts/seed.ts
 
 # Deploy-safe variant (exits 0 if MONGODB_URI not set)
-pnpm seed:deploy
+bun run seed:deploy
 ```
 
 ### What the seed creates
@@ -727,12 +727,12 @@ These endpoints exist and work but have no UI:
 ```toml
 # netlify.toml
 [build]
-  command = "pnpm run build && pnpm run seed:deploy"
+  command = "bun run build && bun run seed:deploy"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
-  PNPM_VERSION = "9.12.3"
+  BUN_VERSION = "1.3.12"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -781,19 +781,19 @@ curl -s -b cookies.txt "http://localhost:3002/api/v1/reports/net-profit" | jq .
 
 ```bash
 # Playwright UI/e2e suite (tests/playwright/*.spec.ts)
-pnpm test:pw
-pnpm test:pw:headed          # watch it drive a browser
-pnpm test:pw:ui              # Playwright UI mode
+bun run test:pw
+bun run test:pw:headed          # watch it drive a browser
+bun run test:pw:ui              # Playwright UI mode
 
 # Live-DB integration suites (money distribution, refund, offline-sync,
 # RBAC/RLS isolation) — needs DATABASE_URL + ADMIN_URL/DIRECT_URL
-pnpm test:db:all
+bun run test:db:all
 
 # Money-math unit tests (vitest)
-pnpm test:unit
+bun run test:unit
 
 # Role-based API smoke test (bash + curl)
-pnpm smoke:api
+bun run smoke:api
 ```
 
 ### Portal smoke checklist

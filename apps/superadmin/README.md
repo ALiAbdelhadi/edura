@@ -31,9 +31,9 @@ both this app and www. UI components are copied, not shared, to keep
 ## Run
 
 ```bash
-pnpm install
+bun install
 cp apps/superadmin/.env.example apps/superadmin/.env.local   # then fill values
-pnpm --filter superadmin dev        # http://localhost:3004 (prod: next start -p 3006)
+bun run --filter superadmin dev        # http://localhost:3004 (prod: next start -p 3006)
 ```
 
 Required env (see `.env.example`): `DATABASE_URL` (edura_app NOBYPASSRLS role,
@@ -42,7 +42,7 @@ pooled host), `SUPERADMIN_NEXTAUTH_SECRET` (must differ from www's
 
 ## Seeded staff credentials
 
-`pnpm --filter @repo/database seed` creates exactly one super_admin and one
+`bun run --filter @repo/database seed` creates exactly one super_admin and one
 accountant:
 
 | Env vars (packages/database env)                       | Behavior |
@@ -61,6 +61,6 @@ into production.
 ## Tests
 
 ```bash
-pnpm --filter superadmin test:db   # refund/reversal money-safety DB test (needs ADMIN_URL in .env.local)
-pnpm --filter superadmin check-types
+bun run --filter superadmin test:db   # refund/reversal money-safety DB test (needs ADMIN_URL in .env.local)
+bun run --filter superadmin check-types
 ```

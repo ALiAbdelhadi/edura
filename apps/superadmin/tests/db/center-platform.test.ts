@@ -19,7 +19,7 @@
  *     records whether it turned parent oversight off;
  *   • moving a course between centers is refused outright.
  *
- *   pnpm exec tsx --env-file=<env> tests/db/center-platform.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-platform.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

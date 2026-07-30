@@ -49,7 +49,7 @@ app-layer `requireRole`/`requireCenterScope` kept on top as defense-in-depth.
 ## Commands
 
 ```
-pnpm --filter @repo/database generate     # prisma generate
+bun run --filter @repo/database generate     # prisma generate
 node scripts/apply-migrations.mjs         # apply migrations over WS (Neon)
-pnpm --filter @repo/database exec tsx scripts/smoke-test.ts
+bun run --filter @repo/database exec tsx scripts/smoke-test.ts
 ```

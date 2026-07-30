@@ -39,8 +39,8 @@
  *
  * Idempotent: deterministic UUIDv5 ids, re-run safely.
  *
- *   Seed:  pnpm exec tsx --env-file=.env prisma/parent-pay-demo-seed.ts
- *   Purge: pnpm exec tsx --env-file=.env prisma/parent-pay-demo-seed.ts --purge
+ *   Seed:  bunx tsx --env-file=.env prisma/parent-pay-demo-seed.ts
+ *   Purge: bunx tsx --env-file=.env prisma/parent-pay-demo-seed.ts --purge
  * ============================================================================
  */
 import { createHash } from "node:crypto";
@@ -192,7 +192,7 @@ async function main() {
       : null;
     if (!grade || !offering) {
       throw new Error(
-        "parent-pay-demo-seed: the education catalog is empty — run `pnpm seed` first.",
+        "parent-pay-demo-seed: the education catalog is empty — run `bun run seed` first.",
       );
     }
 

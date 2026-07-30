@@ -297,7 +297,7 @@ Migration `20260722200000_messaging_scope_groups_safety` (additive only).
 Proofs: `apps/www/tests/db/messaging-scope.test.ts` **87/87**, unit
 `tests/unit/messaging-matrix.test.ts` 12/12. Regressions green: rbac-isolation
 11/11, center-staff-delegation 55/55, unit suite 85 pass/1 skip, typecheck 5/5,
-`pnpm build` both apps. Demo data: `prisma/messaging-demo-seed.ts`
+`bun run build` both apps. Demo data: `prisma/messaging-demo-seed.ts`
 (`--purge` to remove), two centers so isolation is visible in the preview.
 
 ## Team notes (built 2026-07-27 — awaiting review)
@@ -350,9 +350,9 @@ staff role, so none of the child-safety machinery applies).
    center-actor + real resolveActingTeacher + real service; includes raw-RLS
    cross-center peek and the CHECK rejections). Regressions green: root
    check-types 6/6, www unit 111 pass/1 skip, rbac-isolation 11/11,
-   center-staff-delegation 55/55, messaging-scope 87/87, l1 12/12, `pnpm
+   center-staff-delegation 55/55, messaging-scope 87/87, l1 12/12, `bun run
    build` both apps. Demo data: `prisma/team-notes-demo-seed.ts`
-   (`pnpm seed:teamnotes-demo`, `--purge` to remove) — one center team + one
+   (`bun run seed:teamnotes-demo`, `--purge` to remove) — one center team + one
    teacher team, all states visible, zero money rows. Verified live in the
    browser on dev (staff home panel + full board, create + fanout rows).
 
@@ -416,7 +416,7 @@ Cross-center read visibility + a CLOSED SET of audited control operations, in
 
 **No database migration was required.** Proof: `apps/superadmin/tests/db/
 center-oversight.test.ts` **119/119** (live DB, real services + real NextAuth
-callbacks + real DB role). Regressions green: `pnpm check-types` 5/5, `pnpm
+callbacks + real DB role). Regressions green: `bun run check-types` 5/5, `bun run
 build` both apps, www unit 111 pass/1 skip, rbac-isolation 11/11, h04 44/44,
 c03 www 26/26 + superadmin 15/15, c04 72/72 + 26/26, messaging-scope 87/87,
 center-staff-delegation 55/55, l1 12/12, refund 13/13, h2 7/7, h3 6/6,
@@ -515,7 +515,7 @@ two.** Consequence: `guardian_contact_due_at` does not exist there, so the
 `guardian-contact-reminders` cron job ERRORS on production rather than no-oping.
 Applying them is part of the production bootstrap. Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
 DB, real services + real NextAuth providers + the real me/credentials route).
-Regressions green: `pnpm check-types` 5/5, `pnpm build` both apps, www unit
+Regressions green: `bun run check-types` 5/5, `bun run build` both apps, www unit
 111 pass/1 skip, messaging-scope 87/87, c04 72/72, center-staff-delegation
 55/55, rbac-isolation 11/11, l1 12/12, m5 10/10.
 
@@ -588,16 +588,16 @@ The `parent_profiles_wallet_balance_nonneg` CHECK is `convalidated = true` from
 birth in dev and test (every row was 0), unlike the centers wallet CHECK.
 
 Proof: `apps/www/tests/db/parent-pay.test.ts` **60/60** (live DB, real services,
-real webhook + HMAC path). Regressions green: `pnpm build` both apps, www unit
+real webhook + HMAC path). Regressions green: `bun run build` both apps, www unit
 111 pass/1 skip, wallet 20/20, wallet-no-cap 7/7, m1-webhook-atomicity 9/9,
 c04-login-parity 72/72, messaging-scope 87/87, rbac-isolation 11/11 (206
 assertions across 6 suites). Typecheck is clean for every package this touched;
-the repo-wide `pnpm check-types` fails only in the untracked
+the repo-wide `bun run check-types` fails only in the untracked
 `packages/ui/src/components/charts/` work in progress (`ChartLegendItem` expects
 `key`, line-chart passes `id`) — unrelated, and surfaced only because `recharts`
 was declared in `packages/ui/package.json` but never installed until now.
 
-Demo data: `prisma/parent-pay-demo-seed.ts` (`pnpm seed:parentpay-demo`,
+Demo data: `prisma/parent-pay-demo-seed.ts` (`bun run seed:parentpay-demo`,
 `--purge` to remove) — one parent, two linked children, one center, two courses
 with BOTH plans priced and 8 upcoming sessions, and a 750 EGP opening parent
 wallet balance written through the REAL credit primitive so it reconciles like
@@ -679,14 +679,14 @@ docs/security/security-audit.md for the full report and severities.
   in EVERY env (no `NODE_ENV` bypass); `GET = POST` alias removed so the
   data-mutating jobs are POST-only (plain GET → 405). Proof in
   apps/www/tests/unit/m7-cron-auth.test.ts.
-- **Dependency overrides** — pnpm `overrides` to clear the 13 dev/build-time
+- **Dependency overrides** — package `overrides` (root package.json) to clear the 13 dev/build-time
   advisories (all transitive tooling; no runtime-path exposure).
-  *Done (2026-07-20):* root `package.json` `pnpm.overrides` forces the patched
+  *Done (2026-07-20):* root `package.json` `overrides` forces the patched
   version WITHIN THE SAME MAJOR for minimatch (^3.1.5), flatted (^3.4.2),
   brace-expansion@1 (^1.1.16), picomatch@2 (^2.3.2) + picomatch@4 (^4.0.5),
   @hono/node-server (^1.19.14), postcss@8 (^8.5.20), uuid@8 (→ ^11.1.1 for
-  next-auth). `pnpm audit` now reports **0 vulnerabilities**; typecheck (5/5),
-  www unit suite (48 pass/1 skip), and `pnpm build` (both apps) all green. No
+  next-auth). `bun audit` now reports **0 vulnerabilities**; typecheck (5/5),
+  www unit suite (48 pass/1 skip), and `bun run build` (both apps) all green. No
   security-sensitive runtime dep (next/react/next-auth/prisma/bcryptjs/zod/
   jose/socket.io/ioredis) was bumped — deliberately out of scope.
 - Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),

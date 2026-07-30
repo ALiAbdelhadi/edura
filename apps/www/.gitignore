@@ -12,7 +12,6 @@ dist
 .env
 .env.local
 .env.*.local
-.pnpm-store
 coverage
 .tsbuildinfo
 next-env.d.ts.bak
@@ -26,7 +25,7 @@ tests/ui-probe/*.png
 # Local Netlify folder
 .netlify
 
-# Bruno local env (may hold a captured session token; regenerate with pnpm gen:bruno)
+# Bruno local env (may hold a captured session token; regenerate with bun run gen:bruno)
 bruno/environments/Local.bru
 
 # Local-only dev-server launch config (duplicates root .claude/launch.json per-machine)

@@ -38,8 +38,8 @@
  * Run it alone.
  *
  * Run (dev server must be up):
- *   pnpm --filter edura test:db                  # all suites, guarded
- *   pnpm --filter edura test:db:only h03-seed-uuid-flows
+ *   bun run --filter edura test:db                  # all suites, guarded
+ *   bun run --filter edura test:db:only h03-seed-uuid-flows
  *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
  *   WWW_BASE_URL=http://localhost:3021 … to point at another dev port.
  */
@@ -144,9 +144,9 @@ async function main() {
   if (!lina || !reception || !msgYoussef || !msgKamal) {
     console.error(
       "Missing seeded fixtures. Run:\n" +
-        "  pnpm exec tsx --env-file=.env prisma/seed.ts\n" +
-        "  pnpm exec tsx --env-file=.env prisma/preview-seed.ts\n" +
-        "  pnpm exec tsx --env-file=.env prisma/messaging-demo-seed.ts",
+        "  bunx tsx --env-file=.env prisma/seed.ts\n" +
+        "  bunx tsx --env-file=.env prisma/preview-seed.ts\n" +
+        "  bunx tsx --env-file=.env prisma/messaging-demo-seed.ts",
     );
     process.exit(1);
   }

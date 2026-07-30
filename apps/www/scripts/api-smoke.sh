@@ -2,7 +2,7 @@
 # API smoke test against a running dev server (http://localhost:3002).
 # Replaces the old Mongo-based newman harness: logs in as each role and
 # exercises the key read paths, one write path, and RBAC isolation.
-# Usage: pnpm smoke:api   (server must be running: pnpm dev)
+# Usage: bun run smoke:api   (server must be running: bun run dev)
 set -u
 BASE="${SMOKE_BASE:-http://localhost:3002}/api/v1"
 PW="${SMOKE_PASSWORD:-Passw0rd!}"

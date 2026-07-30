@@ -57,6 +57,6 @@ subject_requests: طلبات "أضيفوا مادة" من المدرسين
 ## الاختبارات
 
 ```bash
-pnpm --filter edura test                 # unit (منطق خطوات الـ wizard)
-pnpm --filter edura exec tsx --env-file=.env.local tests/db/catalog-onboarding.test.ts  # acceptance ضد Neon
+bun run --filter edura test                 # unit (منطق خطوات الـ wizard)
+bun run --filter edura exec tsx --env-file=.env.local tests/db/catalog-onboarding.test.ts  # acceptance ضد Neon
 ```

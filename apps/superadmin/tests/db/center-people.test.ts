@@ -23,7 +23,7 @@
  *      the back office cannot be a softer door than the portal);
  *   5. no money row is created, modified or deleted by any of it.
  *
- *   pnpm exec tsx --env-file=<env> tests/db/center-people.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-people.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

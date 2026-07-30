@@ -29,8 +29,8 @@
  *
  * Idempotent: deterministic ids, re-run safely.
  *
- *   Seed:  pnpm exec tsx --env-file=.env prisma/messaging-demo-seed.ts
- *   Purge: pnpm exec tsx --env-file=.env prisma/messaging-demo-seed.ts --purge
+ *   Seed:  bunx tsx --env-file=.env prisma/messaging-demo-seed.ts
+ *   Purge: bunx tsx --env-file=.env prisma/messaging-demo-seed.ts --purge
  * ============================================================================
  */
 import { createHash } from "node:crypto";

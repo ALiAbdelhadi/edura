@@ -12,8 +12,8 @@
  * (Proof 5, refund-returns-to-wallet-once, lives in apps/superadmin where the
  * refund engine is: tests/db/wallet-refund.test.ts.)
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only wallet
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only wallet
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

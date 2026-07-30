@@ -11,7 +11,7 @@
 
 ### 1.1 Monorepo
 
-pnpm 9 workspaces + Turborepo ^2.10 (`apps/*`, `packages/*`), TypeScript 5.9, Node ≥ 20.
+Bun 1.3 workspaces + Turborepo ^2.10 (`apps/*`, `packages/*`), TypeScript 5.9, Node ≥ 20.
 
 | Workspace | What it is |
 |---|---|

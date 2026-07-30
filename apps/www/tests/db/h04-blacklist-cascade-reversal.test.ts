@@ -14,8 +14,8 @@
  * Everything created is `is_demo` and torn down at the end; the money tables are
  * snapshotted before and after and asserted byte-identical.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only h04-blacklist-cascade-reversal
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only h04-blacklist-cascade-reversal
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

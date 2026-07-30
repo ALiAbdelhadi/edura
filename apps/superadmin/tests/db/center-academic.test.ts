@@ -16,7 +16,7 @@
  * So the proof asserts that snapshot is set once and then never moves — not by
  * an edit, not by a hall swap, not by a teacher reassignment, not by a cancel.
  *
- *   pnpm exec tsx --env-file=<env> tests/db/center-academic.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-academic.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

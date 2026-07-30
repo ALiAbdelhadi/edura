@@ -25,8 +25,8 @@
  *
  * Idempotent: deterministic ids, re-run safely.
  *
- *   Seed:  pnpm exec tsx --env-file=.env prisma/team-notes-demo-seed.ts
- *   Purge: pnpm exec tsx --env-file=.env prisma/team-notes-demo-seed.ts --purge
+ *   Seed:  bunx tsx --env-file=.env prisma/team-notes-demo-seed.ts
+ *   Purge: bunx tsx --env-file=.env prisma/team-notes-demo-seed.ts --purge
  * ============================================================================
  */
 import bcrypt from "bcryptjs";

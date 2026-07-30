@@ -7,8 +7,8 @@
  *   2. A student already holding more than the old cap can still top up.
  *   3. The per-transaction min/max top-up bounds are STILL enforced.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only wallet-no-cap
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only wallet-no-cap
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

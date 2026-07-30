@@ -25,8 +25,8 @@
  *      refused.
  *  12. The STUDENT path is untouched: a self-checkout still records no payer.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only parent-pay
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only parent-pay
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

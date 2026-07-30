@@ -40,8 +40,8 @@
  *   • Beneficiaries are resolved by their natural key (shortId / email), never
  *     by a hardcoded uuid, so this cannot bind to the wrong row.
  *
- *   Seed:  pnpm exec tsx --env-file=.env.local prisma/payouts-demo-seed.ts
- *   Purge: pnpm exec tsx --env-file=.env.local prisma/payouts-demo-seed.ts --purge
+ *   Seed:  bunx tsx --env-file=.env.local prisma/payouts-demo-seed.ts
+ *   Purge: bunx tsx --env-file=.env.local prisma/payouts-demo-seed.ts --purge
  * ============================================================================
  */
 import { assertNotProduction } from "../scripts/db-guard";

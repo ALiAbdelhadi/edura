@@ -86,7 +86,7 @@ describe("C1 — verifyWebhook constant-time HMAC compare", () => {
 
 describe("C1 — mock-complete route is 404 in production", () => {
   // Importing the route eager-loads the DB client (needs DATABASE_URL). Runs in
-  // the DB-env harness (pnpm test:db context); skipped in a bare unit run.
+  // the DB-env harness (bun run test:db context); skipped in a bare unit run.
   it.skipIf(!process.env.DATABASE_URL)("returns HTTP 404 under a simulated production env (before any auth)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const { POST } = await import(

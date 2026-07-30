@@ -1,5 +1,5 @@
 {
-  "//": "Type-checks the service worker in isolation. The worker runs in the WebWorker global scope (self: ServiceWorkerGlobalScope), which conflicts with the app's `dom` lib, so it must be checked with its own lib set. Serwist compiles src/app/sw.ts independently; this file only exists for `pnpm check-types:sw`.",
+  "//": "Type-checks the service worker in isolation. The worker runs in the WebWorker global scope (self: ServiceWorkerGlobalScope), which conflicts with the app's `dom` lib, so it must be checked with its own lib set. Serwist compiles src/app/sw.ts independently; this file only exists for `bun run check-types:sw`.",
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ESNext", "WebWorker"],

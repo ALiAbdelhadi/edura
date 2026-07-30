@@ -166,7 +166,7 @@ Six things materially change how "close to done" should be read. They are not op
 | 1 | **The Paymob integration does not exist.** Not "partially wired" — the driver is 84 lines in which both methods are stubs. `createCheckout` throws; `verifyWebhook` returns `{valid:false}` unconditionally. Five TODO comments *are* the integration. | [paymob-driver.ts:22-84](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:22) |
 | 2 | **`sandbox` is as broken as `live`.** `resolveDriver()` returns the stub for both. There is no working non-mock mode to test against. | [gateway/index.ts:16](apps/www/src/lib/services/payments/gateway/index.ts:16) |
 | 3 | **Six cron jobs exist; nothing schedules any of them.** No `vercel.json`, no crontab, no `fly.toml`, no Dockerfile, no pipeline file anywhere in the repo. Subscription expiry, intent expiry, collaboration expiry, lesson reminders, month-end statements and the entire guardian escalation are inert code. | [cron/[job]/route.ts:28-43](apps/www/src/app/api/v1/cron/[job]/route.ts:28); `find` for scheduler configs returns nothing |
-| 4 | **The proof corpus is not runnable.** All 38 DB test suites are launched via `tsx --env-file=.env.test`. There is no `.env.test` anywhere in the tree, and no `.env.example` either (despite `.gitignore:11` claiming those are the committed secret-free copies). `node --env-file=<missing>` exits 9. Every `pnpm test:db*` fails before the first assertion. | [package.json](apps/www/package.json) `pretest:db`; `find . -name '.env.test*'` → empty |
+| 4 | **The proof corpus is not runnable.** All 38 DB test suites are launched via `tsx --env-file=.env.test`. There is no `.env.test` anywhere in the tree, and no `.env.example` either (despite `.gitignore:11` claiming those are the committed secret-free copies). `node --env-file=<missing>` exits 9. Every `bun run test:db*` fails before the first assertion. | [package.json](apps/www/package.json) `pretest:db`; `find . -name '.env.test*'` → empty |
 | 5 | **There is no CI.** No `.github/workflows`, no pipeline config of any kind. Every "119/119", "107/107", "87/87" in `CLAUDE.md` is a number from a manual run on one machine, unreproducible today because of #4. | `ls .github/workflows` → not found |
 | 6 | **`apps/superadmin/.env.production` contains three keys** — `DIRECT_URL`, `DATABASE_URL`, `APP_ROLE_PASSWORD`. No `NEXTAUTH_SECRET`, no `SUPERADMIN_NEXTAUTH_SECRET`, no `CRON_SECRET`, no `INTERNAL_API_SECRET`, no `MAIL_PROVIDER`, no `PAYMENTS_MODE`. The back-office app is not production-configured at all. | [apps/superadmin/.env.production](apps/superadmin/.env.production) |
 
@@ -662,7 +662,7 @@ resolve: { alias: { "@": fileURLToPath(new URL("./src/", import.meta.url)) } }
 
 That is a **path** alias, not a module substitution — it does not stub anything. The real hiding is elsewhere and is structural:
 
-1. **`include: ["tests/unit/**/*.test.ts"]`** — the 20 DB suites are outside vitest's include glob. `pnpm test` in `apps/www` reports success having run **13 of 33** suites. That is the mechanism by which a green `pnpm test` means much less than it appears to.
+1. **`include: ["tests/unit/**/*.test.ts"]`** — the 20 DB suites are outside vitest's include glob. `bun run test` in `apps/www` reports success having run **13 of 33** suites. That is the mechanism by which a green `bun run test` means much less than it appears to.
 2. **`PAYMENTS_MODE` defaults to `mock`** outside production ([types.ts:74](apps/www/src/lib/services/payments/gateway/types.ts:74)), so every payment test runs against `mockDriver`. `m1-webhook-atomicity` asserts on a webhook the test itself signed with `signMockWebhook`. The atomicity claim is genuinely proven; the *gateway* claim is proven about nothing.
 3. **`MAIL_PROVIDER` defaults to `console`**, which returns `{sent:false}` and never throws. A test asserting "the invite was sent" that calls `sendInvoiceEmail` would pass on the hardcoded `{sent:true}` (§2.5) regardless. **This is a second instance of the same class as the alias problem, and it is on a money surface.**
 4. **`whatsappMode()` defaults to `mock`**, so every WhatsApp assertion is about `mockWhatsAppDriver`.
@@ -857,11 +857,11 @@ Work order: commit the missing `.example` files, build an aggregate runner, fix 
 
 | § | Said | Actually |
 |---|---|---|
-| 5.1, Findings #4 | "20 db tests in `apps/www/tests/db`", 38 total | **23** runnable in www (22 `*.test.ts` + `run-db-tests.ts`) and 18 in superadmin = **41**. The runner now prints the list: `pnpm --filter edura test:db:list`. |
+| 5.1, Findings #4 | "20 db tests in `apps/www/tests/db`", 38 total | **23** runnable in www (22 `*.test.ts` + `run-db-tests.ts`) and 18 in superadmin = **41**. The runner now prints the list: `bun run --filter edura test:db:list`. |
 | 5.1 | "13 www unit files" | Confirmed: **13 files, 111 passed / 1 skipped**, matching `CLAUDE.md`. |
 | 5.6 | "no CI" | Fixed — [.github/workflows/ci.yml](.github/workflows/ci.yml). |
 | Findings #4 | "`.env.test` absent, no `.env.example` anywhere" | Fixed — ten `.example` files committed (§A4). |
-| 5.2 | "5 packages typecheck" | **`packages/database` had no `check-types` script at all** — the package holding the schema, all seeds and every DB script was outside `pnpm check-types`. Adding it surfaced **7 pre-existing type errors** in two demo seeds. Now 6/6 green. |
+| 5.2 | "5 packages typecheck" | **`packages/database` had no `check-types` script at all** — the package holding the schema, all seeds and every DB script was outside `bun run check-types`. Adding it surfaced **7 pre-existing type errors** in two demo seeds. Now 6/6 green. |
 
 ### A2. The guard hole is worse than "a hole the size of how people run these" — and it is now closed
 
@@ -876,7 +876,7 @@ db-guard [suite wallet.test.ts]: REFUSING TO RUN against a 'dev' database.
   allowed:  test
 ```
 
-Spot-checked on `center-oversight`, `refund`, `h3-refund-race`, `invite-claim`, `messaging-scope` and the runner itself. The 15 misleading docblocks were rewritten to point at `pnpm test:db` / `test:db:only`.
+Spot-checked on `center-oversight`, `refund`, `h3-refund-race`, `invite-claim`, `messaging-scope` and the runner itself. The 15 misleading docblocks were rewritten to point at `bun run test:db` / `test:db:only`.
 
 **One hole cannot be closed this way, and it is the bigger one.** `apps/www/tests/db/` contains **19 committed `_*.{ts,mjs}` probe scripts** — not counted in the audit above because they do not match `*.test.ts`. They are the harness that produced `docs/reports/api-verification.md`, and they work at the HTTP layer: **348 POST/PUT/PATCH calls** against a *running* dev server on ports 3002/3004, authenticated with session cookies forged by `_mint.ts`. Those writes travel through the server's own connection, so no connection-string guard — `db-guard`, the runner, or anything else — can ever observe them.
 
@@ -923,8 +923,8 @@ So: **leakage plus direct `--env-file=.env.local` invocation is exactly right**,
 
 | Claim | Status | Evidence |
 |---|---|---|
-| `pnpm check-types` 5/5 | **Reproduces, and was understating the scope** — 6/6 now that `packages/database` is included | run 2026-07-26 |
-| `pnpm build` both apps | **Reproduces** | 2 tasks successful, 26.7s |
+| `bun run check-types` 5/5 | **Reproduces, and was understating the scope** — 6/6 now that `packages/database` is included | run 2026-07-26 |
+| `bun run build` both apps | **Reproduces** | 2 tasks successful, 26.7s |
 | www unit 111 pass / 1 skip | **Reproduces exactly** | 13 files, 111 passed, 1 skipped |
 | Every DB figure — messaging-scope 87/87, invite-claim 107/107, center-oversight 119/119, c04 72/72, center-staff-delegation 55/55, room-pricing-methods 47/47, h04 44/44, and the rest | **Still unverified** | Blocked: no `edura-env:test` database exists to run them against. See below. |
 
@@ -937,13 +937,13 @@ To get the numbers, once:
 #    psql "<branch-admin-url>" -c "COMMENT ON DATABASE neondb IS 'edura-env:test';"
 # 2. cp apps/www/.env.test.example apps/www/.env.test           # fill in the 3 URLs
 #    cp apps/superadmin/.env.test.example apps/superadmin/.env.test
-# 3. pnpm --filter @repo/database migrate:deploy
-# 4. pnpm --filter edura test:db && pnpm --filter superadmin test:db
+# 3. bun run --filter @repo/database migrate:deploy
+# 4. bun run --filter edura test:db && bun run --filter superadmin test:db
 ```
 
 The runner prints a per-suite table and a single total, so step 4's output *is* the answer to "which figures reproduce".
 
-**Dev was not written to by any of this work** — verified before and after: 535 users / 42 super_admins / 472 `@x.io`, unchanged. The historical residue is still there; `pnpm --filter edura test:db:sweep -- --dry-run m2- msgtest- split- wallet- wref- nocap- shadm- share- roomown- wpol- commaud-` reports what removing it would take, and dropping `--dry-run` does it. That is a destructive write against dev, so it is deliberately left for you to run.
+**Dev was not written to by any of this work** — verified before and after: 535 users / 42 super_admins / 472 `@x.io`, unchanged. The historical residue is still there; `bun run --filter edura test:db:sweep -- --dry-run m2- msgtest- split- wallet- wref- nocap- shadm- share- roomown- wpol- commaud-` reports what removing it would take, and dropping `--dry-run` does it. That is a destructive write against dev, so it is deliberately left for you to run.
 
 ---
 
@@ -1241,7 +1241,7 @@ All three guards passed on the relabelled branch (`assertNotProduction` = `asser
 
 `seed.ts` decides what to write from the **database label**, not `NODE_ENV`: on a `test` label it seeds catalog + staff + demo; on `production` it would seed catalog + staff only, and refuse without explicit staff credentials.
 
-**Invocation matters:** these scripts load env through `scripts/load-env.ts`, which defaults to `packages/database/.env` — **dev**. They must be run as `EDURA_ENV=test tsx prisma/<seed>.ts`, which loads `.env.test`. A bare `pnpm seed` writes to dev.
+**Invocation matters:** these scripts load env through `scripts/load-env.ts`, which defaults to `packages/database/.env` — **dev**. They must be run as `EDURA_ENV=test tsx prisma/<seed>.ts`, which loads `.env.test`. A bare `bun run seed` writes to dev.
 
 ### A9.1 — 31 of 41 suites depend on pre-existing database state
 
@@ -1253,15 +1253,15 @@ What it needs, between "Materialise" and "DB suites":
 
 ```yaml
 - name: Apply migrations to the test branch
-  run: pnpm --filter @repo/database exec tsx --env-file=.env.test scripts/apply-migrations.mjs
+  run: bun run --filter @repo/database exec tsx --env-file=.env.test scripts/apply-migrations.mjs
 
 - name: Seed deterministically
   env: { EDURA_ENV: test }
   run: |
-    pnpm --filter @repo/database exec tsx prisma/seed.ts
-    pnpm --filter @repo/database exec tsx prisma/preview-seed.ts
-    pnpm --filter @repo/database exec tsx prisma/center-oversight-demo-seed.ts
-    pnpm --filter @repo/database exec tsx prisma/messaging-demo-seed.ts
+    bun run --filter @repo/database exec tsx prisma/seed.ts
+    bun run --filter @repo/database exec tsx prisma/preview-seed.ts
+    bun run --filter @repo/database exec tsx prisma/center-oversight-demo-seed.ts
+    bun run --filter @repo/database exec tsx prisma/messaging-demo-seed.ts
 ```
 
 `packages/database/.env.test` must also be materialised, not just the two app ones — the seeds read it. All four seeds are idempotent (`upsert` on deterministic UUIDv5 ids from `seed-ids.ts`), so re-running is safe; but a CI branch that persists between runs will accumulate whatever the suites fail to sweep, so the residue sweep at the end of the job is load-bearing, not optional.
@@ -1310,7 +1310,7 @@ Caveat on provenance: this was the CI *sequence* run locally against the real te
 
 Two bugs in the workflow were found and fixed by running it:
 - `packages/database/.env.test` was not materialised — the seeds read that file, not the app envs.
-- `pnpm --filter X exec` runs from the **repo root**, so `--env-file=.env.test` resolved to nothing and node exited 9. The migrate step now uses `working-directory: packages/database`.
+- `bun run --filter X exec` runs from the **repo root**, so `--env-file=.env.test` resolved to nothing and node exited 9. The migrate step now uses `working-directory: packages/database`.
 
 ### A10.2 `sweepTag` is CLEARED — the suspicion was wrong
 
@@ -1349,7 +1349,7 @@ EDURA_ENV=test       -> packages/database/.env.test
 EDURA_ENV=production -> packages/database/.env.production
 ```
 
-**Unset means dev.** So a bare `pnpm --filter @repo/database seed` — the obvious command, the one in the README-shaped muscle memory — writes demo users, centers, courses and enrollments **into the dev database**. Every seed and script that imports `load-env` inherits this default.
+**Unset means dev.** So a bare `bun run --filter @repo/database seed` — the obvious command, the one in the README-shaped muscle memory — writes demo users, centers, courses and enrollments **into the dev database**. Every seed and script that imports `load-env` inherits this default.
 
 **This is the same mechanism as the 2026-07-23 incident.** `db-guard.ts`'s own header records it: *"dev, tests, and (as documented) production all resolved to ONE Neon database, because every context read the same `.env.local`. 330 `@x.io` users and 83 unflagged centers were written into what was meant to be the launch database by test runs alone."* The lineage is direct — a default that silently resolves to a real database, with no explicit target in the command.
 

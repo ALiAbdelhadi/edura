@@ -41,30 +41,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 9
+          bun-version: 1.3.12
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       # `prisma generate`. The client is imported by ~36 suites and by both
       # apps' build, and packages/database/src/generated is not committed.
       - name: Generate Prisma client
-        run: pnpm --filter @repo/database generate
+        run: bun run --filter @repo/database generate
 
       # 6 packages, not 5: packages/database was outside `turbo run check-types`
       # until 2026-07-26 and had 7 uncaught type errors in its demo seeds.
       - name: Typecheck
-        run: pnpm check-types
+        run: bun run check-types
 
       - name: Unit tests (www)
-        run: pnpm --filter edura test:unit
+        run: bun run --filter edura test:unit
 
       # A build needs the public env vars present but not real. These are
       # placeholders — nothing here reaches a third party.
@@ -79,7 +78,7 @@ jobs:
           APP_BASE_URL: http://localhost:3002
           DATABASE_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
           DIRECT_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
-        run: pnpm build
+        run: bun run build
 
   # ---------------------------------------------------------------------------
   # DB suites: 23 in www + 18 in superadmin, via the aggregate runner.
@@ -118,24 +117,23 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.gate.outputs.ok == 'true'
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         if: steps.gate.outputs.ok == 'true'
         with:
-          version: 9
+          bun-version: 1.3.12
 
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.ok == 'true'
         with:
           node-version: 20
-          cache: pnpm
 
       - name: Install
         if: steps.gate.outputs.ok == 'true'
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Generate Prisma client
         if: steps.gate.outputs.ok == 'true'
-        run: pnpm --filter @repo/database generate
+        run: bun run --filter @repo/database generate
 
       # The suites read .env.test from disk (`tsx --env-file=.env.test`), so CI
       # materialises one from the committed template plus secrets. Written with
@@ -181,20 +179,20 @@ jobs:
       # Fails loudly if the secret points anywhere but a test-labelled database.
       - name: Assert the target database is labelled 'test'
         if: steps.gate.outputs.ok == 'true'
-        run: pnpm --filter edura pretest:db
+        run: bun run --filter edura pretest:db
 
       # The test branch is a Neon branch and inherits its PARENT's migration
       # state — the branch used on 2026-07-26 arrived at 34 of 36, so every suite
       # that creates a StudentProfile died on a missing column. Migrate first.
       # apply-migrations.mjs is used rather than `prisma migrate deploy` because
       # it takes ADMIN_URL directly; DIRECT_URL is the owner string here anyway.
-      # working-directory matters: `pnpm --filter X exec` runs from the REPO
+      # working-directory matters: `bun run --filter X` runs from the REPO
       # ROOT, so a bare `--env-file=.env.test` resolves to the wrong path and
       # node exits 9 with ".env.test: not found".
       - name: Apply migrations to the test branch
         if: steps.gate.outputs.ok == 'true'
         working-directory: packages/database
-        run: pnpm exec tsx --env-file=.env.test scripts/apply-migrations.mjs
+        run: bunx tsx --env-file=.env.test scripts/apply-migrations.mjs
 
       # 31 of the 41 suites assert against rows they did not create. Without this
       # the run fails exactly as the first real run did: 28 of 41 crashing before
@@ -209,10 +207,10 @@ jobs:
         working-directory: packages/database
         run: |
           set -euo pipefail
-          pnpm exec tsx prisma/seed.ts
-          pnpm exec tsx prisma/preview-seed.ts
-          pnpm exec tsx prisma/center-oversight-demo-seed.ts
-          pnpm exec tsx prisma/messaging-demo-seed.ts
+          bunx tsx prisma/seed.ts
+          bunx tsx prisma/preview-seed.ts
+          bunx tsx prisma/center-oversight-demo-seed.ts
+          bunx tsx prisma/messaging-demo-seed.ts
 
       - name: DB suites — www (23)
         if: steps.gate.outputs.ok == 'true'
@@ -222,11 +220,11 @@ jobs:
         # These cannot pass in CI at any database state. A permanently red
         # test trains people to ignore red, so they are skipped explicitly
         # rather than left failing.
-        run: pnpm --filter edura test:db:ci
+        run: bun run --filter edura test:db:ci
 
       - name: DB suites — superadmin (18)
         if: steps.gate.outputs.ok == 'true'
-        run: pnpm --filter superadmin test:db
+        run: bun run --filter superadmin test:db
 
       # Fixture teardown is per-suite and in a `finally`, so this should find
       # nothing. It runs anyway: a suite killed by the job timeout never reaches
@@ -234,7 +232,7 @@ jobs:
       - name: Sweep any residue
         if: steps.gate.outputs.ok == 'true' && always()
         run: |
-          pnpm --filter edura test:db:sweep -- \
+          bun run --filter edura test:db:sweep \
             wallet- nocap- roomown- share- msgtest- \
             shadm- commaud- split- m2- wref- wpol- dbtest- || true
 

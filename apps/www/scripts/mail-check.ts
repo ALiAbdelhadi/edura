@@ -1,10 +1,10 @@
 /**
  * Mail configuration check.
  *
- *   pnpm --filter edura mail:check                    # verify SMTP credentials only
- *   pnpm --filter edura mail:check you@gmail.com      # send a test email (Arabic)
- *   pnpm --filter edura mail:check you@gmail.com en   # ... in English
- *   pnpm --filter edura mail:check you@gmail.com both # one of each, to compare
+ *   bun run --filter edura mail:check                    # verify SMTP credentials only
+ *   bun run --filter edura mail:check you@gmail.com      # send a test email (Arabic)
+ *   bun run --filter edura mail:check you@gmail.com en   # ... in English
+ *   bun run --filter edura mail:check you@gmail.com both # one of each, to compare
  *
  * Proves the SMTP host, port and credentials work BEFORE trusting a deploy —
  * the alternative is discovering a bad password only when a user can't reset
@@ -45,7 +45,7 @@ async function main() {
 
   if (!to) {
     console.log("\nPass an address to send a real test email:");
-    console.log("   pnpm --filter edura mail:check you@example.com");
+    console.log("   bun run --filter edura mail:check you@example.com");
     process.exit(0);
   }
 

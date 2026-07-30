@@ -23,12 +23,12 @@
     "mail:check": "tsx --env-file=.env.local scripts/mail-check.ts",
     "smoke:api": "bash scripts/api-smoke.sh",
     "gen:bruno": "node scripts/gen-bruno.mjs",
-    "db:seed": "pnpm --filter @repo/database seed",
+    "db:seed": "bun run --filter @repo/database seed",
     "test:db:list": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --list",
     "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
     "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
     "test:db:sweep": "tsx --env-file=.env.test ../../packages/database/scripts/test-cleanup.ts",
-    "test:all": "pnpm check-types && pnpm test:unit && pnpm test:db",
+    "test:all": "bun run check-types && bun run test:unit && bun run test:db",
     "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude catalog-onboarding,c01-lesson-settlement,h03-seed-uuid-flows"
   },
   "dependencies": {

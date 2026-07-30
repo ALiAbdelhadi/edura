@@ -20,8 +20,8 @@
  *
  * Idempotent: re-run safely (upserts on stable keys / deterministic ids).
  *
- *   Seed:   pnpm exec tsx --env-file=.env prisma/preview-seed.ts
- *   Purge:  pnpm exec tsx --env-file=.env prisma/preview-seed.ts --purge
+ *   Seed:   bunx tsx --env-file=.env prisma/preview-seed.ts
+ *   Purge:  bunx tsx --env-file=.env prisma/preview-seed.ts --purge
  *
  * Purge removes ALL isDemo data (this preview data AND the pre-existing demo
  * login group) plus its child rows, returning the DB to catalog + config +

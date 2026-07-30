@@ -22,7 +22,7 @@
  *   set directly, there is no wallet debit, a negative "payment" is refused,
  *   and marking a payment refunded writes NO reversal.
  *
- *   pnpm exec tsx --env-file=<env> tests/db/center-money.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-money.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

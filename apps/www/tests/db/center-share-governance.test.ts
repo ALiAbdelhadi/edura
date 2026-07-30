@@ -15,8 +15,8 @@
  * The superadmin setter, its audit trail, and the settlement that consumes the
  * value are proven in apps/superadmin/tests/db/center-share-admin.test.ts.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only center-share-governance
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only center-share-governance
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

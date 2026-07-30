@@ -15,7 +15,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { channel: "chrome" } }],
   webServer: {
-    command: "pnpm dev",
+    command: "bun run dev",
     url: "http://localhost:3002",
     reuseExistingServer: true,
     timeout: 120_000,

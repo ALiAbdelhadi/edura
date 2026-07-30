@@ -1,8 +1,8 @@
 // =============================================================================
 // Education catalog + onboarding acceptance tests (PRD §10) — runs against the
 // live Neon DB like the other tests/db scripts:
-//   pnpm --filter edura test:db                  # all suites, guarded
-//   pnpm --filter edura test:db:only catalog-onboarding
+//   bun run --filter edura test:db                  # all suites, guarded
+//   bun run --filter edura test:db:only catalog-onboarding
 //   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
 //
 // Covers:

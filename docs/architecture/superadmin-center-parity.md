@@ -295,7 +295,7 @@ and read-isolation between centers, the center's own business rules still
 refusing (registered teacher, teacher with active courses, last admin), the raw
 invite token never written to the audit log, and the money witness.
 
-**Regressions green:** check-types 5/5 · `pnpm build` both apps · www unit
+**Regressions green:** check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · center-staff-delegation 55/55 · rbac-isolation 11/11 ·
 registration-doors 17/17 · h04 44/44 · c04 72/72 + 26/26 · c03 15/15 ·
 center-oversight 119/119 · refund 13/13.
@@ -353,7 +353,7 @@ Also asserted: enrolling creates **no** subscription (a seat is not paid
 coverage), unenrolling and cancelling refund nothing, `enrolled_by` records the
 super admin rather than the center, and the money witness across six tables.
 
-**Regressions green:** check-types 5/5 · `pnpm build` both apps · www unit
+**Regressions green:** check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · center-people 66/66 · center-oversight 119/119 ·
 rbac-isolation 11/11 · room-ownership 5/5 · h04 44/44 ·
 center-staff-delegation 55/55 · registration-doors 17/17 · c04 72/72 + 26/26 ·
@@ -363,7 +363,7 @@ c03 15/15 · messaging-scope 87/87 · refund 13/13 · room-pricing 47/47.
 
 `apps/www/tests/db/c01-lesson-settlement.test.ts` fails in the current working
 tree (0 students present → 0 ledger rows written). It drives the live www HTTP
-API, so it needs `pnpm --filter edura dev` on :3002 to run at all. With the
+API, so it needs `bun run --filter edura dev` on :3002 to run at all. With the
 server up it still fails — **and it fails identically with this phase's www
 route changes stashed**, which is how it was ruled out as a regression from the
 extraction. It touches door-check-in / subscription, which Phase 2 did not
@@ -420,7 +420,7 @@ is the truth about a student. But the settlement is not recomputed, the frozen
 written into the audit row so it surfaces in the log instead of being
 discovered later.
 
-**Regressions green:** check-types 5/5 · `pnpm build` both apps · www unit
+**Regressions green:** check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · center-academic 54/54 · center-people 66/66 ·
 center-oversight 119/119 · rbac-isolation 11/11 · offline-sync 16/16 ·
 h04 44/44 · center-staff-delegation 55/55 · registration-doors 17/17 ·
@@ -498,7 +498,7 @@ nothing on that screen could move money. That stopped being true the moment the
 counter actions landed, so it now says the ledger below is append-only history
 while the actions above *add* to it through the real flows.
 
-**Regressions green:** check-types 5/5 · `pnpm build` both apps · www unit
+**Regressions green:** check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · wallet 20/20 · wallet-no-cap 7/7 · M1 9/9 · H1 PASS ·
 H2 7/7 · H3 6/6 · refund 13/13 · rbac-isolation 11/11 · center-operations
 47/47 · center-academic 54/54 · center-people 66/66 · center-oversight 119/119 ·
@@ -555,7 +555,7 @@ its completed sessions have settled to that center's wallet.
    which refuses every www role regardless of epoch (C-04). Switched to an
    accountant so the test measures the epoch, not the login boundary.
 
-**Regressions green:** check-types 5/5 · `pnpm build` both apps · www unit
+**Regressions green:** check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · center-money 48/48 · center-operations 47/47 ·
 center-academic 54/54 · center-people 66/66 · center-oversight 119/119 ·
 rbac-isolation 11/11 · c03 26/26 + 15/15 · l1 12/12 · h04 44/44 ·
@@ -601,7 +601,7 @@ both `postponeSession` and `cancelSession` refuse, and the session is asserted
 untouched afterwards. Without that, a wrapper-only guard would have looked
 identical from the back office while leaving www open.
 
-Regressions green: check-types 5/5 · `pnpm build` both apps · www unit
+Regressions green: check-types 5/5 · `bun run build` both apps · www unit
 111 pass / 1 skip · offline-sync 16/16 · rbac-isolation 11/11 ·
 center-money 48/48 · center-platform 44/44 · center-academic 54/54 ·
 center-people 66/66.

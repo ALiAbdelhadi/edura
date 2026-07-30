@@ -518,8 +518,8 @@ Proofs:
   `Invalid UUID`** by the live route. Everything created is removed and the
   ledger, the wallets and the notification counts are asserted back to baseline.
 
-Regressions green: `pnpm check-types` 5/5, www unit **111 pass / 1 skip**,
-`pnpm build` both apps, messaging-scope **87/87**, rbac-isolation **11/11**,
+Regressions green: `bun run check-types` 5/5, www unit **111 pass / 1 skip**,
+`bun run build` both apps, messaging-scope **87/87**, rbac-isolation **11/11**,
 C-01 **43/43**, C-04 **72/72**, H1 payout race PASS.
 
 > Known, unchanged: `superadmin.demo@edura.eg` was a legacy `is_demo`
@@ -619,8 +619,8 @@ re-asserted intact.
 > servers run against this same live DB, so unrelated concurrent writes would
 > otherwise show up as a false failure. The scoped claim is the stronger one.
 
-Regressions green: `pnpm check-types` 5/5, www unit 94 pass/1 skip, C-03 www
-26/26 + superadmin 15/15, rbac-isolation 11/11, `pnpm build` both apps.
+Regressions green: `bun run check-types` 5/5, www unit 94 pass/1 skip, C-03 www
+26/26 + superadmin 15/15, rbac-isolation 11/11, `bun run build` both apps.
 
 ---
 
@@ -739,7 +739,7 @@ No data leaks, but the guard order should be auth → validate.
 | **L-04** | `GET /api/v1/catalog/tree`, `GET /api/v1/catalog/subjects`, `GET /api/v1/centers/[id]/rooms` | Require a session. Fine if onboarding is always post-login — flagged only to confirm the intent. |
 | **L-05** | `GET /api/v1/centers/[id]/rooms` | `center_admin` gets **403** ("need one of: teacher, assistant") on **its own** center's rooms. Intentional per the route comment (centers use `/api/v1/rooms`), but the error message is misleading. |
 | **L-06** | `POST /api/v1/center/walk-in` | Called twice with the same phone produced **two** user rows sharing `+201026794016` (`… WalkIn` and `… WalkIn dup`), both `201`. The documented behaviour is "duplicate phone → reminder, never a second account". Worth a second look — the second call may have normalised the number differently before the duplicate check. |
-| **L-07** | `apps/realtime` `pnpm dev` | `tsx watch src/server.ts` loads `.env`, not `.env.local`, so the server exits at boot with `REALTIME_JWT_SECRET or NEXTAUTH_SECRET must be set (development)`. Dev-tooling only; `--env-file=.env.local` works. |
+| **L-07** | `apps/realtime` `bun run dev` | `tsx watch src/server.ts` loads `.env`, not `.env.local`, so the server exits at boot with `REALTIME_JWT_SECRET or NEXTAUTH_SECRET must be set (development)`. Dev-tooling only; `--env-file=.env.local` works. |
 
 ---
 

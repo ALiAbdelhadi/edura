@@ -11,8 +11,8 @@
  *
  * Restores the original bounds at the end (this touches the GLOBAL policy row).
  *
- * Run (all suites, guarded):  pnpm --filter superadmin test:db
- * Run (this one only):        pnpm --filter superadmin test:db:only wallet-settings-admin
+ * Run (all suites, guarded):  bun run --filter superadmin test:db
+ * Run (this one only):        bun run --filter superadmin test:db:only wallet-settings-admin
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

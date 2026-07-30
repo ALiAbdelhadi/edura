@@ -9,8 +9,8 @@
  *  - a center_admin CAN set profile fields (features/photos/price) on its OWN
  *    room, and cannot even see another center's room under its tenant scope.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only room-ownership
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only room-ownership
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withTenant, withPlatformContext } from "@repo/database";

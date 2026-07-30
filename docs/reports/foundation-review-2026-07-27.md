@@ -22,11 +22,11 @@ The brief mandates "typecheck, both builds". None of it could run when this revi
 
 | Check | Before | After |
 |---|---|---|
-| `pnpm install` | **fails**; `node_modules` and `.pnpm` both empty | clean, all 7 build scripts run |
-| `pnpm check-types` | could not run | **6/6 pass** |
-| `pnpm build` | could not run | **both apps pass** (1m27s) |
-| `pnpm test:unit` (www) | could not run | **111 passed, 1 skipped** |
-| `pnpm audit` | 22 vulns (1 critical, 9 high) | 13 (1 critical, 5 high) — see open item |
+| `bun install` | **fails**; `node_modules` and `.pnpm` both empty | clean, all 7 build scripts run |
+| `bun run check-types` | could not run | **6/6 pass** |
+| `bun run build` | could not run | **both apps pass** (1m27s) |
+| `bun run test:unit` (www) | could not run | **111 passed, 1 skipped** |
+| `bun audit` | 22 vulns (1 critical, 9 high) | 13 (1 critical, 5 high) — see open item |
 
 ---
 
@@ -50,14 +50,14 @@ The brief mandates "typecheck, both builds". None of it could run when this revi
 
 ### 1 — Install broken, `node_modules` destroyed → **FIXED**
 
-Root `node_modules` and `.pnpm` were empty; a failed `pnpm install` had torn the store down.
+Root `node_modules` and `.pnpm` were empty; a failed `bun install` had torn the store down.
 It failed on policy: the regenerated lockfile carried `@rollup/rollup-*@4.62.3` published
 inside pnpm 11's `minimumReleaseAge` window.
 
-Fixed by `pnpm clean --lockfile` + a fresh resolution, plus the two items below that a clean
+Fixed by `bun run clean --lockfile` + a fresh resolution, plus the two items below that a clean
 install then exposed.
 
-### 1a — `pnpm.overrides` had gone silently inert → **FIXED** *(new)*
+### 1a — `overrides` had gone silently inert → **FIXED** *(new)*
 
 pnpm 11 no longer reads the `pnpm` field in `package.json` and warns that it is ignored. That
 field held the **security clearance for the 13 audit advisories** (`docs/security/security-audit.md`
@@ -176,7 +176,7 @@ repo-wide sweep confirms no third file has the pattern.
 
 ## Open — needs your decision, not mine
 
-**`pnpm audit`: 13 remaining, 1 critical + 5 high.** All are on genuine runtime dependencies,
+**`bun audit`: 13 remaining, 1 critical + 5 high.** All are on genuine runtime dependencies,
 which is a different situation from the original 13 advisories (`docs/security/security-audit.md`
 §7 scoped those explicitly to dev/build-time tooling with "no runtime-path exposure"):
 
@@ -190,7 +190,7 @@ which is a different situation from the original 13 advisories (`docs/security/s
 | HIGH | `brace-expansion` | ≥ 5.0.8 | the existing override targets `brace-expansion@1`; this is v5 |
 
 `next-auth` is the auth/session model, which `CLAUDE.md` lists as untouchable and needing its
-own plan. I have not touched it. **`CLAUDE.md`'s claim that `pnpm audit` reports 0
+own plan. I have not touched it. **`CLAUDE.md`'s claim that `bun audit` reports 0
 vulnerabilities is no longer true and should be corrected with a date.**
 
 Also outstanding: the **dependency upgrade decision** (finding 2). Next/React/Tailwind/lucide/

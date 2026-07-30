@@ -11,7 +11,7 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | Layer        | Technology                                    |
 |------------- |-----------------------------------------------|
 | Runtime      | Node.js ≥ 20                                 |
-| Package Mgr  | pnpm 9.x                                     |
+| Package Mgr  | Bun 1.3.x                                     |
 | Framework    | Next.js 16 (App Router, TypeScript)           |
 | Database     | Neon Postgres (serverless) via Prisma — `@repo/database` |
 | Auth         | next-auth 4.x — Credentials provider, JWT     |
@@ -20,7 +20,7 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | Charts       | Recharts 3.x                                  |
 | i18n         | next-intl 4.x (ar default + RTL, en)          |
 | PWA          | Serwist + native VAPID web-push               |
-| Tests        | Vitest (unit) + live-DB suites + Playwright (browser) + `pnpm smoke:api` |
+| Tests        | Vitest (unit) + live-DB suites + Playwright (browser) + `bun run smoke:api` |
 
 ---
 
@@ -29,7 +29,7 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 | Dependency          | Version  | Check                      |
 |---------------------|----------|----------------------------|
 | **Node.js**         | ≥ 20     | `node -v`                  |
-| **pnpm**            | ≥ 9      | `pnpm -v`                  |
+| **Bun**             | ≥ 1.3    | `bun -v`                  |
 | **Git**             | any      | `git --version`            |
 
 > The database is a hosted **Neon Postgres** instance — nothing to install locally. Migrations/RLS live in `packages/database`; see `docs/guides/deployment.md` (repo root).
@@ -48,7 +48,7 @@ cd edura
 ### 2. Install dependencies
 
 ```bash
-pnpm install
+bun install
 ```
 
 ### 3. Configure environment
@@ -72,7 +72,7 @@ Open `.env.local` and fill in:
 ### 4. Seed the database (optional)
 
 ```bash
-pnpm db:seed
+bun run db:seed
 ```
 
 This creates subject data and dev fixture accounts.
@@ -80,7 +80,7 @@ This creates subject data and dev fixture accounts.
 ### 5. Start the dev server
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
 Open [http://localhost:3002](http://localhost:3002) in your browser.
@@ -99,8 +99,8 @@ brew install nvm
 nvm install 20
 nvm use 20
 
-# pnpm
-npm install -g pnpm@9
+# Bun
+curl -fsSL https://bun.sh/install | bash
 ```
 
 **Generate your auth secret:**
@@ -125,10 +125,10 @@ nvm install 20
 nvm use 20
 ```
 
-**Install pnpm:**
+**Install Bun:**
 
 ```bash
-npm install -g pnpm@9
+curl -fsSL https://bun.sh/install | bash
 ```
 
 **Generate your auth secret:**
@@ -147,14 +147,14 @@ openssl rand -base64 32
 # Node.js
 winget install OpenJS.NodeJS.LTS
 
-# pnpm
-npm install -g pnpm@9
+# Bun
+powershell -c "irm bun.sh/install.ps1 | iex"
 ```
 
 **Option B — Using installers:**
 
 1. Download and install [Node.js 20 LTS](https://nodejs.org/)
-2. Run `npm install -g pnpm@9` in PowerShell
+2. Run `powershell -c "irm bun.sh/install.ps1 | iex"`
 
 **Generate your auth secret (PowerShell):**
 
@@ -168,20 +168,20 @@ npm install -g pnpm@9
 
 | Command                      | Description                                          |
 |------------------------------|------------------------------------------------------|
-| `pnpm dev`                   | Start dev server on `:3002`                          |
-| `pnpm dev:pwa`               | Dev server with the Serwist service worker enabled   |
-| `pnpm build`                 | Production build                                     |
-| `pnpm start`                 | Start production server on `:3003`                   |
-| `pnpm lint`                  | Run ESLint                                           |
-| `pnpm typecheck`             | Run TypeScript type checking (`tsc --noEmit`)        |
-| `pnpm db:seed`               | Seed subjects + dev fixtures                         |
-| `pnpm test:unit`             | Unit tests (Vitest)                                  |
-| `pnpm test:db`               | Live-DB suites against `.env.test` (guarded)         |
-| `pnpm test:pw`               | Browser tests (Playwright)                           |
-| `pnpm test:all`              | `check-types` + unit + live-DB suites                |
-| `pnpm smoke:api`             | Role-based API smoke test (`scripts/api-smoke.sh`)   |
-| `pnpm gen:bruno`             | Regenerate the Bruno API collection                  |
-| `pnpm mail:check`            | Verify SMTP delivery config                          |
+| `bun run dev`                   | Start dev server on `:3002`                          |
+| `bun run dev:pwa`               | Dev server with the Serwist service worker enabled   |
+| `bun run build`                 | Production build                                     |
+| `bun run start`                 | Start production server on `:3003`                   |
+| `bun run lint`                  | Run ESLint                                           |
+| `bun run typecheck`             | Run TypeScript type checking (`tsc --noEmit`)        |
+| `bun run db:seed`               | Seed subjects + dev fixtures                         |
+| `bun run test:unit`             | Unit tests (Vitest)                                  |
+| `bun run test:db`               | Live-DB suites against `.env.test` (guarded)         |
+| `bun run test:pw`               | Browser tests (Playwright)                           |
+| `bun run test:all`              | `check-types` + unit + live-DB suites                |
+| `bun run smoke:api`             | Role-based API smoke test (`scripts/api-smoke.sh`)   |
+| `bun run gen:bruno`             | Regenerate the Bruno API collection                  |
+| `bun run mail:check`            | Verify SMTP delivery config                          |
 
 ---
 
@@ -265,7 +265,7 @@ context is set. A missing tenant context returns zero rows, not an error.
 <details>
 <summary><strong>Port 3002 already in use</strong></summary>
 
-Kill the process using port 3002 (the dev port; `pnpm start` uses 3003):
+Kill the process using port 3002 (the dev port; `bun run start` uses 3003):
 
 ```bash
 # macOS / Linux
@@ -278,16 +278,16 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess | Stop-Proc
 </details>
 
 <details>
-<summary><strong>pnpm not found after install</strong></summary>
+<summary><strong>bun run not found after install</strong></summary>
 
-Make sure pnpm is in your PATH. Try:
+Make sure bun is in your PATH. Try:
 
 ```bash
-corepack enable
-corepack prepare pnpm@9 --activate
+curl -fsSL https://bun.sh/install | bash
+exec $SHELL
 ```
 
-Or install globally: `npm install -g pnpm@9`
+Or via npm: `npm install -g bun`
 
 </details>
 

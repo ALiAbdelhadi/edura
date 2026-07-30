@@ -9,7 +9,7 @@ offline attendance capture and native web-push notifications.
 
 ## Monorepo layout
 
-pnpm workspaces + Turborepo. Node ≥ 20, pnpm 9.
+Bun workspaces + Turborepo. Node ≥ 20, Bun 1.3.
 
 | Workspace | Description |
 |---|---|
@@ -22,7 +22,7 @@ pnpm workspaces + Turborepo. Node ≥ 20, pnpm 9.
 ## Getting started
 
 ```sh
-pnpm install
+bun install
 
 # Environment: copy and fill (Neon URLs, NEXTAUTH_SECRET, VAPID keys, …)
 cp apps/www/.env.example apps/www/.env.local
@@ -30,26 +30,26 @@ cp apps/www/.env.example apps/www/.env.local
 # Apply migrations to the database (custom runner — see packages/database/README.md)
 # Run via tsx, not plain node: the script imports the shared environment guard
 # (scripts/db-guard.ts) and refuses an unlabelled database.
-pnpm exec tsx packages/database/scripts/apply-migrations.mjs
+bunx tsx packages/database/scripts/apply-migrations.mjs
 
 # Seed demo data + the Egyptian education catalog
-pnpm --filter @repo/database run seed
+bun run --filter @repo/database run seed
 
 # Run everything (www + realtime)
-pnpm dev
+bun run dev
 
 # Or a single app
-pnpm dev --filter=edura
+bun run dev --filter=edura
 ```
 
 ## Common commands
 
 ```sh
-pnpm build                        # turbo build (www uses `next build --webpack` for Serwist)
-pnpm lint                         # eslint across workspaces
-pnpm check-types                  # tsc --noEmit across workspaces
-pnpm --filter edura test          # vitest unit tests
-pnpm --filter @repo/database run generate   # prisma generate
+bun run build                        # turbo build (www uses `next build --webpack` for Serwist)
+bun run lint                         # eslint across workspaces
+bun run check-types                  # tsc --noEmit across workspaces
+bun run --filter edura test          # vitest unit tests
+bun run --filter @repo/database run generate   # prisma generate
 ```
 
 ## Architecture notes

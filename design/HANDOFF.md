@@ -132,8 +132,8 @@ rule applied to the constitution's own spec.
 
 | Check | Result |
 |---|---|
-| `pnpm check-types` | **6/6 pass** |
-| `pnpm build` (both apps) | **2/2 compiled** |
+| `bun run check-types` | **6/6 pass** |
+| `bun run build` (both apps) | **2/2 compiled** |
 | Token resolution (computed styles, live) | all Ledger + shim tokens correct, both themes |
 | Mono pipeline | `.num` and `font-mono` → IBM Plex Mono + `tabular-nums` |
 | Contrast matrix | 30 pairs measured; 3 failures found and corrected |
@@ -142,7 +142,7 @@ rule applied to the constitution's own spec.
 | Visual | login + center dashboard, light and dark, RTL |
 
 **Environment note:** this worktree had no `node_modules` and no `.env`. I ran
-`pnpm install` and symlinked `packages/database/.env*` + each app's `.env.local` from
+`bun install` and symlinked `packages/database/.env*` + each app's `.env.local` from
 `/Users/ali/edura`. The symlinks are gitignored and local-only.
 
 ---

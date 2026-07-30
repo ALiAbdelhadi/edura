@@ -21,7 +21,7 @@
  *      silent: the settlement is not recomputed, and the divergence from the
  *      frozen present_count is recorded in the audit row.
  *
- *   pnpm exec tsx --env-file=<env> tests/db/center-operations.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-operations.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

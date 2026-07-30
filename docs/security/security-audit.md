@@ -38,7 +38,7 @@
 | L8 | **LOW** | Validation | Unvalidated enum casts + a few unbounded fields → 500s (materials type, notifications type, grade scores, NaN `take`) | Optional |
 | L9 | **LOW** | Infra | Internal-bridge secret compared with `!==` (not constant-time) | Optional |
 | L10 | **LOW** | Money | Walk-in cash subscription has no idempotency; concurrent double-POST double-charges (staff-initiated) | Optional |
-| D* | **LOW** | Deps | 13 `pnpm audit` advisories (7 high / 6 moderate) — **all dev/build-time transitive tooling**, none on the runtime request path | Clear before launch (low urgency) |
+| D* | **LOW** | Deps | 13 `bun audit` advisories (7 high / 6 moderate) — **all dev/build-time transitive tooling**, none on the runtime request path | Clear before launch (low urgency) |
 
 **Blockers (must fix before production): C1, C2, H1, H2, H3, H4, H5.** Everything else is post-launch-acceptable but several are cheap and should be batched with the blockers.
 
@@ -227,7 +227,7 @@ Ownership/scope confirmed for: `subscriptions/[id]/cancel` (`studentId===user.id
 
 ## 7. Dependencies
 
-`pnpm audit`: **13 advisories — 0 critical, 7 high, 6 moderate.** `--prod`: 5 (1 high, 4 moderate). **Every advisory is in dev/build-time transitive tooling** (eslint plugins, `@ducanh2912/next-pwa` build chain, `next-auth`'s bundled `uuid`, `next`'s bundled `postcss`, `@prisma/dev`). **No direct runtime dependency is vulnerable; the deployed request path is clean.**
+`bun audit`: **13 advisories — 0 critical, 7 high, 6 moderate.** `--prod`: 5 (1 high, 4 moderate). **Every advisory is in dev/build-time transitive tooling** (eslint plugins, `@ducanh2912/next-pwa` build chain, `next-auth`'s bundled `uuid`, `next`'s bundled `postcss`, `@prisma/dev`). **No direct runtime dependency is vulnerable; the deployed request path is clean.**
 
 | Package | Installed | Sev | Advisory | Patched | Path | Runtime-exploitable |
 |---|---|---|---|---|---|---|
@@ -241,7 +241,7 @@ Ownership/scope confirmed for: `subscriptions/[id]/cancel` (`studentId===user.id
 
 Direct security-sensitive deps are all current: `next@16.2.10`, `react@19.2.7`, `next-auth@4.24.14` (latest v4), `prisma`/`@prisma/client@7.8.0`, `bcryptjs@3.0.3`, `ws@^8.18.0`, `zod@4.4.3`, `jose@^6.0.11`, `socket.io@^4.8.3`, `@neondatabase/serverless@^1.1.0`. No `jsonwebtoken`.
 
-**Fix:** pnpm `overrides` forcing the patched versions (or `pnpm update -r --latest` on the eslint/next-pwa toolchains) to clear the audit. Low urgency (no prod-runtime exposure), but should be zero before launch.
+**Fix:** package `overrides` forcing the patched versions (or `bun update --latest` on the eslint/next-pwa toolchains) to clear the audit. Low urgency (no prod-runtime exposure), but should be zero before launch.
 
 ---
 

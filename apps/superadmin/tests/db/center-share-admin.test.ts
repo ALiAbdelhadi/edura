@@ -11,8 +11,8 @@
  *  VP3  the write is audited (actor + before/after).
  *  VP4  invalid amounts and cross-center affiliations are rejected.
  *
- * Run (all suites, guarded):  pnpm --filter superadmin test:db
- * Run (this one only):        pnpm --filter superadmin test:db:only center-share-admin
+ * Run (all suites, guarded):  bun run --filter superadmin test:db
+ * Run (this one only):        bun run --filter superadmin test:db:only center-share-admin
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

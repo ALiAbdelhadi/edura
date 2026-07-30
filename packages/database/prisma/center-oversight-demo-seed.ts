@@ -37,8 +37,8 @@
  *
  * Idempotent: deterministic UUIDv5 ids, re-run safely.
  *
- *   Seed:  pnpm exec tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts
- *   Purge: pnpm exec tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts --purge
+ *   Seed:  bunx tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts
+ *   Purge: bunx tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts --purge
  * ============================================================================
  */
 import { createHash } from "node:crypto";
@@ -197,7 +197,7 @@ async function main() {
       : null;
     if (!grade || !offering) {
       throw new Error(
-        "The Egyptian education catalog is empty — run the main seed first (pnpm --filter @repo/database seed).",
+        "The Egyptian education catalog is empty — run the main seed first (bun run --filter @repo/database seed).",
       );
     }
 

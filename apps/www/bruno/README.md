@@ -7,7 +7,7 @@ it diffs and reviews in PRs (unlike a giant Postman JSON blob).
 ## Regenerate (don't hand-edit the request files)
 
 ```bash
-pnpm gen:bruno
+bun run gen:bruno
 ```
 
 Re-run whenever routes change — `scripts/gen-bruno.mjs` re-derives every request
@@ -17,7 +17,7 @@ Re-run whenever routes change — `scripts/gen-bruno.mjs` re-derives every reque
 ## Use it
 
 1. Install [Bruno](https://www.usebruno.com/) and open this `bruno/` folder as a collection.
-2. Start the app: `pnpm dev` (serves on `:3002` — matches the `Local` env `baseUrl`).
+2. Start the app: `bun run dev` (serves on `:3002` — matches the `Local` env `baseUrl`).
 3. Select the **Local** environment (top-right).
 4. Run **`_auth/Login`** first. It authenticates as the seeded super-admin
    (`superadmin@edura.eg` / dev seed password — see `docs/guides/test-credentials.md` (repo root))

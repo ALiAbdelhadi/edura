@@ -51,8 +51,8 @@ owning the frontend and REST endpoints; this server owns the sockets.
 ## Run
 
 ```sh
-pnpm --filter realtime dev    # tsx watch
-pnpm --filter realtime start
+bun run --filter realtime dev    # tsx watch
+bun run --filter realtime start
 ```
 
 ## Scaling out

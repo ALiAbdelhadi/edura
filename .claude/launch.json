@@ -3,11 +3,11 @@
   "configurations": [
     {
       "name": "edura-navfix-preview",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "edura",
-        "exec",
+        "--cwd",
+        "apps/www",
+        "run",
         "next",
         "dev",
         "-p",
@@ -17,21 +17,22 @@
     },
     {
       "name": "edura-www",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "edura",
+        "--cwd",
+        "apps/www",
+        "run",
         "dev"
       ],
       "port": 3002
     },
     {
       "name": "edura-preview",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "edura",
-        "exec",
+        "--cwd",
+        "apps/www",
+        "run",
         "next",
         "dev",
         "-p",
@@ -41,11 +42,11 @@
     },
     {
       "name": "edura-sidebar-preview",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "edura",
-        "exec",
+        "--cwd",
+        "apps/www",
+        "run",
         "next",
         "dev",
         "-p",
@@ -55,51 +56,55 @@
     },
     {
       "name": "edura-prod",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "edura",
+        "--cwd",
+        "apps/www",
+        "run",
         "start"
       ],
       "port": 3003
     },
     {
       "name": "edura-superadmin",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "superadmin",
+        "--cwd",
+        "apps/superadmin",
+        "run",
         "dev"
       ],
       "port": 3004
     },
     {
       "name": "edura-realtime",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "realtime",
+        "--cwd",
+        "apps/realtime",
+        "run",
         "dev"
       ],
       "port": 3005
     },
     {
       "name": "superadmin-main-checkout",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--dir",
+        "--cwd",
         "/Users/ali/edura/apps/superadmin",
+        "run",
         "dev"
       ],
       "port": 3004
     },
     {
       "name": "edura-superadmin-preview",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "--filter",
-        "superadmin",
-        "exec",
+        "--cwd",
+        "apps/superadmin",
+        "run",
         "next",
         "dev",
         "-p",

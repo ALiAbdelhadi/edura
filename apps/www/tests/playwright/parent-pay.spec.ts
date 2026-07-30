@@ -13,7 +13,7 @@
  *
  * Auth is the DEV quick-login button, not a typed password.
  *
- *   pnpm --filter edura exec playwright test parent-pay --project=chromium
+ *   bun run --filter edura exec playwright test parent-pay --project=chromium
  */
 import { test, expect, type Page } from "@playwright/test";
 

@@ -16,7 +16,7 @@
  * at BOTH layers (the Prisma immutability extension and the Postgres REVOKE).
  *
  * Fixtures are `is_demo`, created and torn down by this file.
- *   pnpm exec tsx --env-file=<env> tests/db/center-oversight.test.ts
+ *   bunx tsx --env-file=<env> tests/db/center-oversight.test.ts
  * ===========================================================================
  */
 import { neonConfig, Pool } from "@neondatabase/serverless";

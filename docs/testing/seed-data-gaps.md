@@ -17,7 +17,7 @@
 > [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
 > anything in this file.
 
-> Cross-reference of all MongoDB collections vs what `pnpm seed` actually
+> Cross-reference of all MongoDB collections vs what `bun run seed` actually
 > creates. Identifies what's missing for production demo readiness.
 
 ---
@@ -195,14 +195,14 @@ same Nile Academy users and structure. The mock data provides:
 - Color schemes per role
 
 All dashboard screens fetch from live API endpoints and depend on seeded data
-being present. If `pnpm seed` hasn't run, dashboards show zeros/empty lists.
+being present. If `bun run seed` hasn't run, dashboards show zeros/empty lists.
 
 ---
 
 ## Checklist Before Production Demo
 
 ```
-[ ] Run `pnpm seed` against production MongoDB
+[ ] Run `bun run seed` against production MongoDB
 [ ] Verify admin login: admin@nile-academy.eg / Passw0rd!
 [ ] Verify admin dashboard shows non-zero counts
 [ ] Verify teacher login: hossam.aziz@nile-academy.eg / Passw0rd!

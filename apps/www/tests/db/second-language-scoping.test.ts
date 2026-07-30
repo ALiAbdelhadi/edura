@@ -2,8 +2,8 @@
 // Second-foreign-language scoping — the student's OWN subjects list must contain
 // ONLY the language they picked at onboarding, never the whole language menu.
 // Runs against the live Neon DB like the other tests/db scripts:
-//   pnpm --filter edura test:db                  # all suites, guarded
-//   pnpm --filter edura test:db:only second-language-scoping
+//   bun run --filter edura test:db                  # all suites, guarded
+//   bun run --filter edura test:db:only second-language-scoping
 //   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
 //
 // Covers:

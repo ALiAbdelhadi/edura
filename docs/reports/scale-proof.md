@@ -1,6 +1,6 @@
 # Scale & Performance Proof (PRD §9.1)
 
-Reproducible via `pnpm exec tsx packages/database/scripts/scale-load-test.mjs [txnCount] [attnCount]`
+Reproducible via `bunx tsx packages/database/scripts/scale-load-test.mjs [txnCount] [attnCount]`
 (tsx, not plain node — the script imports the shared guard in `scripts/db-guard.ts` and
 refuses to run against anything but a `dev`- or `test`-labelled database).
 The script seeds synthetic rows server-side (`INSERT … SELECT generate_series`), `ANALYZE`s,

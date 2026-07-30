@@ -246,7 +246,7 @@ or a 7-line wrapper; no server data is read anywhere in the subtree.
 **Why it needs a gate anyway:** this is the only batch that changes what gets written to disk at
 build time. It ships **only** after this three-part proof:
 
-1. `pnpm build` output shows the 73 routes as `○ (Static)` with no build error. Any route that
+1. `bun run build` output shows the 73 routes as `○ (Static)` with no build error. Any route that
    still needs request data will *fail the build* rather than leak — Next 16 errors on
    `cookies()`/`headers()` in a static render. That failure mode is the safety net.
 2. **Byte-level inspection**: grep every emitted `.next/server/app/**/*.html` for the launch
@@ -373,7 +373,7 @@ For the record, so no future batch drifts into them:
 | 0 | **P2 — `loading.tsx`** (optional, cheapest win, zero data risk) | Visual check per role |
 | 1 | **Batch 1 — catalog `'use cache'`** | 3 proofs (§4.1) |
 | 2 | **Batch 2 — dashboard shell prerender** | 3-part proof incl. byte-level HTML grep (§4.2) |
-| 3 | **Batch 4 — code splitting** | Bundle-size before/after; `pnpm build` green |
+| 3 | **Batch 4 — code splitting** | Bundle-size before/after; `bun run build` green |
 | 4 | **Batch 3 — i18n trim** | Per-locale render pass, ar + en, RTL checked |
 | — | P5 `cacheComponents` | Deferred — needs its own approved plan |
 

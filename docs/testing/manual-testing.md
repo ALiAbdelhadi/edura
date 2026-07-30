@@ -5,7 +5,7 @@
 > **Last accurate: the Newman/MongoDB era (pre-Prisma migration).** This
 > document is framed around a **Newman e2e harness that no longer exists** —
 > the PRD compliance audit confirms `scripts/e2e-runner.mjs` and the
-> `pnpm test:e2e` script were never present post-migration
+> `bun run test:e2e` script were never present post-migration
 > ([../product/prd-compliance-audit.md](../product/prd-compliance-audit.md)).
 > Any statement here about "what Newman covers" or "what Newman cannot test" is
 > no longer a valid basis for deciding what needs manual testing.

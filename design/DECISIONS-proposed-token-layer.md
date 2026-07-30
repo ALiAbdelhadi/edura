@@ -135,8 +135,8 @@ from a portal session would touch four portals' files.
 
 ## 7. Verification
 
-- `pnpm build` — **2/2 apps green**.
-- `pnpm check-types` — **6/6 green**.
+- `bun run build` — **2/2 apps green**.
+- `bun run check-types` — **6/6 green**.
 - Compiled CSS carries `--paper`, `--sheet`, `--ink-3`, `--rule`, `--indigo`, `--teal`,
   `--seal`, `--lift`, `--series-1`, `--font-plex-mono`, `seal-in`; **zero `linear-gradient(`**.
 - Contrast matrix above, computed from the shipped file, 28 pairs, no failures.

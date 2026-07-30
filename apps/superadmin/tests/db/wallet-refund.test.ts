@@ -3,8 +3,8 @@
  * the student's WALLET, exactly once (piggybacks the one-refund-per-payment
  * uniqueness; a concurrent double-refund credits the wallet only once).
  *
- * Run (all suites, guarded):  pnpm --filter superadmin test:db
- * Run (this one only):        pnpm --filter superadmin test:db:only wallet-refund
+ * Run (all suites, guarded):  bun run --filter superadmin test:db
+ * Run (this one only):        bun run --filter superadmin test:db:only wallet-refund
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { withPlatformContext } from "@repo/database";

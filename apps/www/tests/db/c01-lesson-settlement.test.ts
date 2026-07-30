@@ -28,8 +28,8 @@
  * Everything it creates is deleted at the end and the table counts are asserted
  * back to the pre-run baseline.
  *
- * Run (all suites, guarded):  pnpm --filter edura test:db
- * Run (this one only):        pnpm --filter edura test:db:only c01-lesson-settlement
+ * Run (all suites, guarded):  bun run --filter edura test:db
+ * Run (this one only):        bun run --filter edura test:db:only c01-lesson-settlement
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
 import { encode } from "next-auth/jwt";
