@@ -75,7 +75,8 @@
     "postinstall": "prisma generate",
     "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts",
     "seed:teamnotes-demo": "tsx --env-file=.env prisma/team-notes-demo-seed.ts",
-    "seed:parentpay-demo": "tsx --env-file=.env prisma/parent-pay-demo-seed.ts"
+    "seed:parentpay-demo": "tsx --env-file=.env prisma/parent-pay-demo-seed.ts",
+    "db:wipe": "tsx scripts/wipe-data.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

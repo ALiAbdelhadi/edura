@@ -125,7 +125,16 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   grades / tracks / subjects / offerings) and my real superadmin/accountant
   accounts — which always stay.
   **[dev, verified 2026-07-26]** the catalog is present (3 systems / 45 subjects
-  / 27 grade levels) and the real operator account exists. **[production,
+  / 27 grade levels) and the real operator account exists.
+  **[dev, WIPED + RE-SEEDED 2026-07-31]** the entire dev database was reset at
+  Ali's request with `packages/database/scripts/wipe-data.ts` (`bun run db:wipe
+  dev --yes` — label-guarded, dev/test only, REFUSES production by design):
+  552 users / 144 centers / 508 transactions truncated across 70 tables,
+  sequences restarted. Re-seeded with the same four canonical seeds CI uses
+  (seed → preview-seed → center-oversight-demo → messaging-demo).
+  verify-db 25/25 green, E2E smoke 7/7 green. Every dev-state claim in this
+  file dated BEFORE 2026-07-31 (legacy unflagged rows, 41 leaked super_admins,
+  student_profiles dob counts) is now historical — that data no longer exists. **[production,
   verified 2026-07-26]** the database is an EMPTY SCHEMA SHELL — 68 tables, zero
   rows, no catalog, no super_admin, no accountant. It has never been seeded.
   Bootstrap order for a fresh environment: `label-db` → `bootstrap-app-role` →
