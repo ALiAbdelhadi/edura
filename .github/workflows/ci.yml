@@ -226,6 +226,45 @@ jobs:
         if: steps.gate.outputs.ok == 'true'
         run: bun run --filter superadmin test:db
 
+      # ------------------------------------------------------------------
+      # E2E smoke — the deploy gate. Boots www in dev mode (quick-login tiles
+      # are NODE_ENV-gated) against the seeded test branch, then drives real
+      # Chromium through: login form, invalid-credentials rejection, all four
+      # portals' nav, and the unauthenticated-bounce guard. A build that
+      # cannot log in does not ship.
+      # ------------------------------------------------------------------
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.ok == 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Boot www against the test branch
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: apps/www
+        run: |
+          set -euo pipefail
+          cp .env.test .env.local
+          {
+            echo "NEXTAUTH_URL=http://localhost:3002"
+            echo "APP_BASE_URL=http://localhost:3002"
+          } >> .env.local
+          (bun run dev > /tmp/e2e-server.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3002/ar/login -o /dev/null && exit 0
+            sleep 2
+          done
+          echo "www never became ready"; tail -50 /tmp/e2e-server.log; exit 1
+
+      - name: E2E smoke (login + all four portals)
+        if: steps.gate.outputs.ok == 'true'
+        working-directory: apps/www
+        env:
+          E2E_BASE_URL: http://localhost:3002
+        run: bun run test:e2e
+
+      - name: Show server log on smoke failure
+        if: steps.gate.outputs.ok == 'true' && failure()
+        run: tail -100 /tmp/e2e-server.log || true
+
       # Fixture teardown is per-suite and in a `finally`, so this should find
       # nothing. It runs anyway: a suite killed by the job timeout never reaches
       # its own cleanup, and residue must not accumulate across runs.
@@ -238,4 +277,4 @@ jobs:
 
       - name: Remove generated env files
         if: always()
-        run: rm -f apps/www/.env.test apps/superadmin/.env.test
+        run: rm -f apps/www/.env.test apps/superadmin/.env.test apps/www/.env.local

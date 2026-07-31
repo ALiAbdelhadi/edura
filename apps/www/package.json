@@ -29,7 +29,8 @@
     "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
     "test:db:sweep": "tsx --env-file=.env.test ../../packages/database/scripts/test-cleanup.ts",
     "test:all": "bun run check-types && bun run test:unit && bun run test:db",
-    "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude catalog-onboarding,c01-lesson-settlement,h03-seed-uuid-flows"
+    "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude catalog-onboarding,c01-lesson-settlement,h03-seed-uuid-flows",
+    "test:e2e": "bun test ./tests/e2e/smoke.e2e.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
