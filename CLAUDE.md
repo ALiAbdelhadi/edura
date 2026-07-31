@@ -140,9 +140,16 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   populated preview is ever wanted again; CI is unaffected (test branch seeds
   its own). Every dev-state claim in this
   file dated BEFORE 2026-07-31 (legacy unflagged rows, 41 leaked super_admins,
-  student_profiles dob counts) is now historical — that data no longer exists. **[production,
-  verified 2026-07-26]** the database is an EMPTY SCHEMA SHELL — 68 tables, zero
-  rows, no catalog, no super_admin, no accountant. It has never been seeded.
+  student_profiles dob counts) is now historical — that data no longer exists. **[production, BOOTSTRAPPED 2026-07-31]** the production branch
+  (ep-solitary-river…, labelled `edura-env:production` internally) is now LIVE-READY:
+  all 40 migrations applied, seeded via the production seed path (45 catalog
+  subjects / 411 offerings, the two real staff accounts from SEED_*, points
+  rules, ZERO demo rows), the H2 `centers_wallet_balance_nonneg` CHECK
+  VALIDATED, and verify-db reports 25/25. During bootstrap the role-guard
+  caught the old prod `DATABASE_URL` pointing at `neondb_owner` — it now uses
+  `edura_app` (password synced to `APP_ROLE_PASSWORD`); the owner string lives
+  only in `ADMIN_URL`/`DIRECT_URL`. (The earlier 2026-07-26 note — empty shell,
+  68 tables, never seeded — is history.)
   Bootstrap order for a fresh environment: `label-db` → `bootstrap-app-role` →
   `prisma migrate deploy` → `seed` → `verify-db`.
 - **Realistic demo data during development:** whenever building a new
@@ -540,9 +547,7 @@ Migrations (additive only): `20260725100000_invite_purposes_guardian_notice`
 (enum values, own file — Postgres cannot USE a new enum value in the transaction
 that adds it) and `20260725100100_guardian_contact` (5 nullable columns + index,
 no backfill).
-**[dev, verified 2026-07-26] APPLIED — 36 migrations. [production, verified
-2026-07-26] NOT APPLIED — 34 migrations; production is behind by exactly these
-two.** Consequence: `guardian_contact_due_at` does not exist there, so the
+**[dev] APPLIED. [production, 2026-07-31] APPLIED — all 40 migrations deployed; production is no longer behind.** Consequence: `guardian_contact_due_at` does not exist there, so the
 `guardian-contact-reminders` cron job ERRORS on production rather than no-oping.
 Applying them is part of the production bootstrap. Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
 DB, real services + real NextAuth providers + the real me/credentials route).
@@ -610,11 +615,7 @@ subscription engine — not by adding a second money path. Nothing was rebuilt.
 Migrations (additive only): `20260727110000_parent_wallet_topup_purpose` (enum
 value, own file — Postgres cannot USE a new enum value in the transaction that
 adds it) and `20260727110100_parent_wallet`.
-**[dev, verified 2026-07-27] APPLIED — 40 migrations, 71 tables. [test,
-verified 2026-07-27] APPLIED — 40 migrations, 71 tables. [production] NOT
-APPLIED** — production remains the empty schema shell at 34 migrations and is
-now behind by six (the two guardian ones, the two team-note ones, and these
-two). Applying them is part of the production bootstrap.
+**[dev + test, verified 2026-07-27] APPLIED — 40 migrations. [production, 2026-07-31] APPLIED — bootstrap executed, 40 migrations, verify-db 25/25.**
 The `parent_profiles_wallet_balance_nonneg` CHECK is `convalidated = true` from
 birth in dev and test (every row was 0), unlike the centers wallet CHECK.
 
