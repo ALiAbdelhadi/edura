@@ -5,8 +5,8 @@
   "description": "Edura realtime chat server — long-running Socket.IO process (WebSocket transport, socket-level auth, message persistence to Neon). Runs OUTSIDE Next.js because serverless functions cannot hold persistent WebSocket connections.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
     "check-types": "tsc --noEmit",
     "lint": "eslint ."
   },
@@ -21,7 +21,6 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",
-    "tsx": "4.23.0",
     "typescript": "5.9.3"
   },
   "engines": {

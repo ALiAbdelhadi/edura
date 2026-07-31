@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3004",
     "build": "next build",
-    "start": "next start -p 3006",
+    "start": "bun --bun next start -p 3006",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check-types": "tsc --noEmit",

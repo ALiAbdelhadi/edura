@@ -85,6 +85,22 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
    repo-wide sweep. This is a performance refinement for after launch, done
    carefully, not a pre-launch task.
 
+## Runtime: Bun-only surface (binding, added 2026-07-31)
+
+- Bun is the only package manager/toolchain AND the official runtime:
+  both apps' `start` scripts run `bun --bun next start` (proven 2026-07-31:
+  session endpoint + full credentials path return 401-not-500, zero external-
+  module errors), and `apps/realtime` runs `bun src/server.ts` directly
+  (`tsx` removed from the app).
+- The ONE remaining internal Node surface: `next dev` (Turbopack). Under
+  `bun --bun` its hashed external server modules (bcryptjs, @prisma/adapter-neon,
+  ws, pg) fail to resolve and every `/api/auth/*` route 500s — proven
+  2026-07-31. Do NOT flip dev to `--bun` until a Bun/Next upgrade passes the
+  login smoke test. CI keeps `setup-node` for exactly this dev/build tooling.
+- `packages/database` tooling is explicitly ALLOWED to keep Node/tsx
+  (Ali's decision, 2026-07-31). No Node install instructions, `engines.node`,
+  or Node references may appear anywhere user-facing; `engines` declare Bun only.
+
 ## Conventions
 
 > **STATE CLAIMS MUST NAME THEIR ENVIRONMENT (binding, added 2026-07-26).**
