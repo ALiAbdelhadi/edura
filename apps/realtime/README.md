@@ -1,6 +1,6 @@
 # realtime — Edura chat WebSocket server
 
-A **standalone long-running Node.js process** for real-time messaging. It is
+A **standalone long-running server process** (run with Bun) for real-time messaging. It is
 separate from Next.js on purpose: serverless functions (Vercel-style) are
 short-lived and cannot hold persistent WebSocket connections. Next.js keeps
 owning the frontend and REST endpoints; this server owns the sockets.

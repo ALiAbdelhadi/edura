@@ -9,7 +9,7 @@ offline attendance capture and native web-push notifications.
 
 ## Monorepo layout
 
-Bun workspaces + Turborepo. Node ≥ 20, Bun 1.3.
+Bun workspaces + Turborepo. Bun ≥ 1.3 — the only toolchain you install.
 
 | Workspace | Description |
 |---|---|

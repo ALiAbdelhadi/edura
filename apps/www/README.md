@@ -10,7 +10,6 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 
 | Layer        | Technology                                    |
 |------------- |-----------------------------------------------|
-| Runtime      | Node.js ≥ 20                                 |
 | Package Mgr  | Bun 1.3.x                                     |
 | Framework    | Next.js 16 (App Router, TypeScript)           |
 | Database     | Neon Postgres (serverless) via Prisma — `@repo/database` |
@@ -28,7 +27,6 @@ A modern educational management platform for tutoring centers in Egypt, built wi
 
 | Dependency          | Version  | Check                      |
 |---------------------|----------|----------------------------|
-| **Node.js**         | ≥ 20     | `node -v`                  |
 | **Bun**             | ≥ 1.3    | `bun -v`                  |
 | **Git**             | any      | `git --version`            |
 
@@ -94,12 +92,7 @@ Open [http://localhost:3002](http://localhost:3002) in your browser.
 **Install prerequisites with Homebrew:**
 
 ```bash
-# Node.js (via nvm recommended)
-brew install nvm
-nvm install 20
-nvm use 20
-
-# Bun
+# Bun — the only runtime/toolchain to install
 curl -fsSL https://bun.sh/install | bash
 ```
 
@@ -112,18 +105,6 @@ openssl rand -base64 32
 ---
 
 ### Linux (Ubuntu/Debian)
-
-**Install Node.js:**
-
-```bash
-# Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc
-
-# Install Node 20
-nvm install 20
-nvm use 20
-```
 
 **Install Bun:**
 
@@ -144,17 +125,9 @@ openssl rand -base64 32
 **Option A — Using winget (recommended):**
 
 ```powershell
-# Node.js
-winget install OpenJS.NodeJS.LTS
-
-# Bun
+# Bun — the only toolchain to install
 powershell -c "irm bun.sh/install.ps1 | iex"
 ```
-
-**Option B — Using installers:**
-
-1. Download and install [Node.js 20 LTS](https://nodejs.org/)
-2. Run `powershell -c "irm bun.sh/install.ps1 | iex"`
 
 **Generate your auth secret (PowerShell):**
 
@@ -291,17 +264,7 @@ Or via npm: `npm install -g bun`
 
 </details>
 
-<details>
-<summary><strong>Node version mismatch</strong></summary>
 
-This project requires Node.js ≥ 20. Use [nvm](https://github.com/nvm-sh/nvm) to manage versions:
-
-```bash
-nvm install 20
-nvm use 20
-```
-
-</details>
 
 ---
 

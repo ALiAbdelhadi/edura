@@ -70,7 +70,6 @@ The demo instance is pre-seeded with **Nile Educational Academy** (أكاديم�
 
 ### Prerequisites
 
-- Node.js ≥ 20.0.0
 - Bun 1.3.12 (`curl -fsSL https://bun.sh/install | bash`)
 - MongoDB Atlas cluster (or local `mongod --replSet rs0` for transactions)
 
@@ -731,7 +730,6 @@ These endpoints exist and work but have no UI:
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
   BUN_VERSION = "1.3.12"
 
 [[plugins]]
