@@ -30,3 +30,5 @@ bruno/environments/Local.bru
 
 # Local-only dev-server launch config (duplicates root .claude/launch.json per-machine)
 .claude/launch.json
+.vercel
+.env*
