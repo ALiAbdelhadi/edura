@@ -50,6 +50,10 @@ export default function LoginPage() {
   const next = isSafeNext(nextParam) ? nextParam : "/dashboard";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // USER_NOT_FOUND is a guidance state, not a failure — it renders as a calm
+  // inline panel with a sign-up CTA (email carried over), never as the red
+  // alert. Holds the email exactly as typed so the CTA prefills it.
+  const [notFoundEmail, setNotFoundEmail] = useState<string | null>(null);
 
   const schema = z.object({
     email: z
@@ -67,6 +71,7 @@ export default function LoginPage() {
   const onSubmit = async (values: z.infer<typeof schema>) => {
     setLoading(true);
     setError(null);
+    setNotFoundEmail(null);
     // Drop any previous account's role hint BEFORE authenticating. Signing in
     // as a different user on the same device (a student and a parent sharing a
     // phone is routine here) otherwise leaves the old role in `edura_state`,
@@ -81,7 +86,18 @@ export default function LoginPage() {
         redirect: false,
       });
       if (result?.error) {
-        setError(t("auth.invalidCredentials"));
+        // authorize() surfaces typed codes as the thrown-error message; any
+        // unrecognized value (incl. plain "CredentialsSignin") stays the
+        // generic invalid-credentials line, so nothing new is ever leaked.
+        if (result.error === "USER_NOT_FOUND") {
+          setNotFoundEmail(values.email.trim());
+        } else if (result.error === "ACCOUNT_INACTIVE") {
+          setError(t("auth.accountInactive"));
+        } else if (result.error === "RATE_LIMITED") {
+          setError(t("auth.rateLimited"));
+        } else {
+          setError(t("auth.invalidCredentials"));
+        }
         setLoading(false);
         return;
       }
@@ -133,6 +149,34 @@ export default function LoginPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {/* Not-registered is guidance, not failure: indigo panel, sign-up
+              CTA, the typed email carried into the register form. */}
+          {notFoundEmail ? (
+            <div
+              role="status"
+              className="rounded-lg px-3 py-3 text-sm"
+              style={{
+                background: "var(--indigo-soft)",
+                border: "1px solid var(--indigo)",
+              }}
+            >
+              <p className="font-semibold" style={{ color: "var(--indigo)" }}>
+                {t("auth.notRegisteredTitle")}
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--ink-2)" }}>
+                {t("auth.notRegisteredHint")}
+              </p>
+              <Link
+                href={`/register?email=${encodeURIComponent(notFoundEmail)}`}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold hover:opacity-90"
+                style={{ background: "var(--indigo)", color: "var(--paper)" }}
+              >
+                <LogIn className="size-3.5" aria-hidden />
+                {t("auth.notRegisteredCta")}
+              </Link>
+            </div>
+          ) : null}
+
           {/* A failed sign-in is a blocking state, so it carries the red — but
               bordered, not filled. */}
           {error ? (

@@ -213,7 +213,12 @@
     "fixFieldsBelow": "Please correct the highlighted fields and try again.",
     "approvalRequiredHint": "This account type is reviewed by the Edura team before you can sign in.",
     "pendingApprovalTitle": "Account created — awaiting review",
-    "pendingApprovalBody": "Your account was created successfully. The Edura team reviews it before activation, and you will be notified once it is approved. You can sign in after that."
+    "pendingApprovalBody": "Your account was created successfully. The Edura team reviews it before activation, and you will be notified once it is approved. You can sign in after that.",
+    "notRegisteredTitle": "This email isn't registered yet.",
+    "notRegisteredHint": "Create an account in a minute — we’ll carry your email over.",
+    "notRegisteredCta": "Create an account with this email",
+    "accountInactive": "Your account is currently inactive. Contact support or your center to reactivate it.",
+    "rateLimited": "Too many attempts — please wait a moment and try again."
   },
   "common": {
     "loading": "Loading…",

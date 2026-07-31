@@ -46,18 +46,28 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
         const email = credentials.email.toLowerCase().trim();
 
-        // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work.
+        // C2: per-IP + per-email throttle BEFORE the DB/bcrypt work. The typed
+        // failure below rides the SAME budget — RATE_LIMITED fires regardless
+        // of whether the email exists, so it is not an enumeration oracle.
         const ip = clientIp(req);
-        if (!(await checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE))) return null;
+        if (!(await checkRateLimit(`login-ip:${ip}`, LOGIN_IP_CAP, LOGIN_IP_RATE))) {
+          throw new Error("RATE_LIMITED");
+        }
         if (!(await checkRateLimit(`login-email:${email}`, LOGIN_EMAIL_CAP, LOGIN_EMAIL_RATE))) {
-          return null;
+          throw new Error("RATE_LIMITED");
         }
 
         const user = await prisma.user.findUnique({ where: { email } });
 
-        // H5: run bcrypt.compare UNCONDITIONALLY — against the real hash when
-        // the account is eligible, else against DUMMY_HASH — so a nonexistent
-        // email and a real-but-wrong password take the same timing path.
+        // H5 (scoped decision, 2026-07-31): the www consumer app now tells a
+        // visitor when an email has NO account at all — a deliberate,
+        // Ali-approved UX trade (sign-up conversion) bounded by the C2 rate
+        // limit above. Everything short of "no row" stays indistinguishable:
+        // shell/invited accounts, soft-deleted accounts and back-office roles
+        // all fall through to the same generic failure as a wrong password,
+        // and bcrypt still runs UNCONDITIONALLY so those branches keep the
+        // identical timing path. The superadmin app keeps full H5 semantics —
+        // its authorize() is untouched and stays a single generic null.
         const eligible =
           !!user &&
           canSignIn("www", user.role) &&
@@ -67,7 +77,21 @@ export const authOptions: NextAuthOptions = {
           credentials.password,
           eligible ? (user.passwordHash as string) : DUMMY_HASH,
         );
-        if (!user || !eligible || !passwordOk) return null;
+        if (!user) throw new Error("USER_NOT_FOUND");
+        if (!eligible || !passwordOk) {
+          // ACCOUNT_INACTIVE is revealed ONLY to someone who proved ownership
+          // by typing the CORRECT password of a real www-role account that is
+          // merely not active right now. A wrong password on the same account,
+          // any staff role, and any credential-less shell all stay generic.
+          const ownsInactiveAccount =
+            !!user.passwordHash &&
+            canSignIn("www", user.role) &&
+            user.status !== "active" &&
+            user.deletedAt === null &&
+            (await bcrypt.compare(credentials.password, user.passwordHash));
+          if (ownsInactiveAccount) throw new Error("ACCOUNT_INACTIVE");
+          return null;
+        }
 
         // Shared with the REST login door (C-04): center_admin resolves its
         // profile's center, center_staff its live (removed_at IS NULL) link.
