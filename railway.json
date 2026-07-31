@@ -5,7 +5,7 @@
     "buildCommand": "bun install --frozen-lockfile"
   },
   "deploy": {
-    "startCommand": "bun --cwd apps/realtime run start",
+    "startCommand": "cd /app/apps/realtime && exec bun src/server.ts",
     "healthcheckPath": "/healthz",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
