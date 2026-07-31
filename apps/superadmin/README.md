@@ -32,11 +32,11 @@ both this app and www. UI components are copied, not shared, to keep
 
 ```bash
 bun install
-cp apps/superadmin/.env.example apps/superadmin/.env.local   # then fill values
+# fill the single root .env — this app reads it via the .env symlink
 bun run --filter superadmin dev        # http://localhost:3004 (prod: next start -p 3006)
 ```
 
-Required env (see `.env.example`): `DATABASE_URL` (edura_app NOBYPASSRLS role,
+Required env (see the root `.env`): `DATABASE_URL` (edura_app NOBYPASSRLS role,
 pooled host), `SUPERADMIN_NEXTAUTH_SECRET` (must differ from www's
 `NEXTAUTH_SECRET`; dev-only fallback to it exists), `NEXTAUTH_URL`.
 
@@ -61,6 +61,6 @@ into production.
 ## Tests
 
 ```bash
-bun run --filter superadmin test:db   # refund/reversal money-safety DB test (needs ADMIN_URL in .env.local)
+bun run --filter superadmin test:db   # refund/reversal money-safety DB test (needs ADMIN_URL in the root .env)
 bun run --filter superadmin check-types
 ```

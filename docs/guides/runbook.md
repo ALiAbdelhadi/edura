@@ -83,7 +83,7 @@ bun install
 
 ### Environment variables
 
-Create `.env.local` in the project root:
+Fill `.env` in the project root (all apps/packages read it via symlinks; `.env.production` carries the same keys):
 
 ```env
 # MongoDB
@@ -105,7 +105,7 @@ APP_BASE_URL=http://localhost:3002
 SEED_PASSWORD=Passw0rd!
 ```
 
-#### Current `.env.local` (dev / demo)
+#### Current root `.env` (dev / demo)
 
 ```env
 MONGODB_URI=mongodb+srv://<REDACTED>
@@ -151,7 +151,7 @@ The seed script is **idempotent** — safe to run multiple times. It uses upsert
 # Full seed (requires MONGODB_URI)
 bun run seed
 # or
-bun run tsx --env-file .env.local scripts/seed.ts
+bunx tsx --env-file .env scripts/seed.ts
 
 # Deploy-safe variant (exits 0 if MONGODB_URI not set)
 bun run seed:deploy

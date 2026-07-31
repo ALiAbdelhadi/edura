@@ -25,7 +25,7 @@ Bun workspaces + Turborepo. Bun ≥ 1.3 — the only toolchain you install.
 bun install
 
 # Environment: copy and fill (Neon URLs, NEXTAUTH_SECRET, VAPID keys, …)
-cp apps/www/.env.example apps/www/.env.local
+# fill the single root .env — every app and package reads it via symlinks
 
 # Apply migrations to the database (custom runner — see packages/database/README.md)
 # Run via tsx, not plain node: the script imports the shared environment guard

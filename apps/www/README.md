@@ -52,10 +52,10 @@ bun install
 ### 3. Configure environment
 
 ```bash
-cp .env.example .env.local
+# edit the ROOT .env (this app reads it via the .env symlink)
 ```
 
-Open `.env.local` and fill in:
+Open the root `.env` and fill in:
 
 | Variable           | Required | Description                                                     |
 |--------------------|----------|-----------------------------------------------------------------|
@@ -212,7 +212,7 @@ apps/www/
 
 ## Environment Variables Reference
 
-See [`.env.example`](.env.example) for the full list. Key variables:
+See the root `.env` for the full list (same keys as `.env.production`). Key variables:
 
 ```env
 DATABASE_URL=postgresql://edura_app:<password>@ep-...-pooler.<region>.aws.neon.tech/neondb?sslmode=require
