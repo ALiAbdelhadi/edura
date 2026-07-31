@@ -27,6 +27,10 @@ async function main() {
     );
   }
   const isProduction = dbEnv === "production";
+  // `--no-demo`: seed exactly what production would get (catalog + the two
+  // real staff accounts + points rules) on a dev/test database — for starting
+  // from a truly clean slate with zero demo entities.
+  const noDemo = process.argv.includes("--no-demo");
 
   // In production the staff accounts MUST come from explicit env credentials —
   // fail fast, before any DB write, rather than ever seeding a
@@ -155,9 +159,9 @@ async function main() {
       // points rules. Everything below this line is demo data and must never
       // reach the production database.
       // ======================================================================
-      if (isProduction) {
+      if (isProduction || noDemo) {
         console.log(
-          "Production seed complete: education catalog, points rules, and the " +
+          `${isProduction ? "Production" : "--no-demo"} seed complete: education catalog, points rules, and the ` +
             "two staff accounts from SEED_* env vars. No demo data written.",
         );
         return;

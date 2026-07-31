@@ -130,9 +130,15 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   Ali's request with `packages/database/scripts/wipe-data.ts` (`bun run db:wipe
   dev --yes` — label-guarded, dev/test only, REFUSES production by design):
   552 users / 144 centers / 508 transactions truncated across 70 tables,
-  sequences restarted. Re-seeded with the same four canonical seeds CI uses
-  (seed → preview-seed → center-oversight-demo → messaging-demo).
-  verify-db 25/25 green, E2E smoke 7/7 green. Every dev-state claim in this
+  sequences restarted. Later the same day Ali
+  requested a FULLY EMPTY start: wiped again and seeded with the new
+  `bun run seed --no-demo` (production-equivalent path: catalog + the two real
+  staff accounts + points rules, ZERO demo entities). Census now: 2 users /
+  0 centers / 0 courses / 0 money rows / 45 catalog subjects; verify-db 25/25
+  green. NOTE: dev quick-login tiles and the local E2E role-portal tests need
+  demo accounts — run the demo seeds (`bun run seed` + preview-seed) if a
+  populated preview is ever wanted again; CI is unaffected (test branch seeds
+  its own). Every dev-state claim in this
   file dated BEFORE 2026-07-31 (legacy unflagged rows, 41 leaked super_admins,
   student_profiles dob counts) is now historical — that data no longer exists. **[production,
   verified 2026-07-26]** the database is an EMPTY SCHEMA SHELL — 68 tables, zero
