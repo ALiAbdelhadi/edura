@@ -2,6 +2,7 @@ import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { registerStudent } from "@/lib/services/auth/register";
+import { sendStudentWelcomeEmail } from "@/lib/services/onboarding/welcome-email";
 import { emailSchema, localeSchema, nameSchema, passwordSchema, phoneSchema } from "@/lib/validation/common";
 import { parseJson } from "@/lib/validation/zod";
 import { z } from "zod";
@@ -21,6 +22,10 @@ export const POST = withRateLimit(
   withErrors(async (req) => {
     const input = await parseJson(req, bodySchema);
     const result = await registerStudent(input);
+    // Welcome email AFTER the commit, fire-and-forget: sendStudentWelcomeEmail
+    // never throws and stamps onboarding_email_sent_at atomically, so a mail
+    // outage cannot fail sign-up and a duplicate submission cannot mail twice.
+    void sendStudentWelcomeEmail(result.userId);
     return ok(result, { status: 201 });
   }),
   20,
