@@ -80,7 +80,10 @@ export default async function RootLayout({
       className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable}`}
     >
       <body>
-        <script src="/theme-init.js" />
+        {/* Anti-FOUC theme init — `async` keeps it a React 19 hoistable
+            resource (no "script tag while rendering" error on client
+            re-renders); see apps/www root layout for the full rationale. */}
+        <script src="/theme-init.js" async />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>

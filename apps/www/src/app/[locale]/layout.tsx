@@ -117,14 +117,15 @@ export default async function RootLayout({
       className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable}`}
     >
       <body>
-        {/* Anti-FOUC theme init. External file (not inline) so React 19 treats
-            it as a hoistable resource and never warns about client-rendered
-            inline scripts; same-origin + blocking so it runs before paint. */}
-        {/* eslint-disable-next-line @next/next/no-sync-scripts -- blocking is
-            the point: async/defer would let the light-theme paint land first
-            and flash. It is a 361-byte same-origin file, not a third-party
-            dependency, so the rule's actual hazard does not apply. */}
-        <script src="/theme-init.js" />
+        {/* Anti-FOUC theme init. `async` + external src is the ONE script form
+            React 19 treats as a hoistable resource — anything else (sync src,
+            inline) gets recreated as an inert <div> plus a console error
+            whenever React client-renders this layout (hydration recovery,
+            locale remount). React hoists it into <head>, so its 361-byte
+            same-origin fetch starts with the render-blocking stylesheet and
+            executes before first paint in practice; if it ever loses that
+            race, ThemeModeProvider re-applies the theme at hydration. */}
+        <script src="/theme-init.js" async />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>
