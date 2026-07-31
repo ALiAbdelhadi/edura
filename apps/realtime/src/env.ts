@@ -34,7 +34,9 @@ const PRIVATE_ORIGIN =
   /^https?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
 
 export const env = {
-  port: Number(process.env.REALTIME_PORT ?? 3005),
+  // REALTIME_PORT wins; PORT is the platform-injected fallback (Railway/Fly
+  // set it and route traffic to it — binding anything else fails healthchecks).
+  port: Number(process.env.REALTIME_PORT ?? process.env.PORT ?? 3005),
   /**
    * Secret for the short-lived socket handshake JWTs minted by Next.js
    * (GET /api/v1/realtime/token). Dedicated + required in production (M2).
