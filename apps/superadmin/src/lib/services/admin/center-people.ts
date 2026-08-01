@@ -27,6 +27,10 @@ import {
   removeStaff,
   resendStaffInvite,
 } from "@repo/server-core/services/center/staff";
+import {
+  createCollaborationRequest,
+  type CollaborationInput,
+} from "@repo/server-core/services/collaboration/collaboration";
 
 // ---------------------------------------------------------------------------
 // PHASE 1 — PEOPLE. Superadmin parity with a center over students, teachers,
@@ -258,6 +262,56 @@ export async function adminInviteTeacher(
     },
   });
   return result;
+}
+
+/**
+ * Send a collaboration request TO a teacher, on behalf of the center.
+ *
+ * This is the counterpart to `adminInviteTeacher`, which is shell-account
+ * onboarding only and refuses a teacher who already has an account. Step 5 made
+ * the collaboration request the ONE way an already-registered teacher joins a
+ * center, and this wrapper gives the back office that same door rather than a
+ * private one: `superadminAsCenter` shapes the actor into a `center_admin`
+ * carrying this center's id, so the kernel's `initiator = "center"` branch,
+ * its `input.centerId !== user.centerId` guard, the catalog-offering check, the
+ * hall/pricing-method rules and the duplicate guard all run UNCHANGED.
+ *
+ * Consent is preserved, which is the point of routing through here instead of
+ * `linkTeacherCenter`: the request lands `pending`, the teacher is notified,
+ * and only THEIR acceptance creates the affiliation, course, schedule and the
+ * frozen pricing snapshot. No money value crosses this boundary — the kernel
+ * forces `proposedCenterShare: 0`, and a center-initiated request may not
+ * pre-pick a pricing method on a both-methods hall (the teacher picks at
+ * accept time).
+ */
+export async function adminCreateCollaborationRequest(
+  actor: SessionUser,
+  centerId: string,
+  input: Omit<CollaborationInput, "centerId">,
+) {
+  const { acting } = await superadminAsCenter(actor, centerId);
+  const request = await createCollaborationRequest({ ...input, centerId }, acting);
+  await audit(actor, centerId, {
+    action: "collaboration_request.created",
+    targetType: "collaboration_request",
+    targetId: request.id,
+    before: null,
+    after: {
+      teacherId: request.teacherId,
+      subjectId: request.subjectId,
+      gradeLevelId: request.gradeLevelId,
+      trackId: request.trackId,
+      roomId: request.roomId,
+      initiator: request.initiator,
+      status: request.status,
+      startDate: request.startDate,
+      proposedPricingMethod: request.proposedPricingMethod,
+      // The kernel owns this and forces 0 — recorded so the trail shows no rate
+      // was smuggled in from the back office.
+      proposedCenterShare: request.proposedCenterShare,
+    },
+  });
+  return request;
 }
 
 // ===========================================================================

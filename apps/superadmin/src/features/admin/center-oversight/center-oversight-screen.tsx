@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useCustomMutation } from "@refinedev/core";
-import { ArrowLeft, Info, Save } from "lucide-react";
+import { ArrowLeft, Inbox, Info, Save } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { EmptyState } from "@repo/ui/components/empty-state";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -27,10 +28,12 @@ import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num } from "@repo/ui/components/num";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import type { Locale } from "@repo/ui/lib/format";
+import { cn } from "@repo/ui/lib/utils";
 import { asKey } from "@/lib/i18n/keys";
 import { useOversight, type Paged } from "./use-oversight";
 import { FinanceTab } from "./finance-tab";
 import { ControlAction } from "./control-actions";
+import { CollabRequestButton } from "./collab-request-dialog";
 import {
   StudentsTab,
   TeachersTab,
@@ -81,23 +84,24 @@ type Overview = {
   counts: Record<string, number>;
 };
 
-const TABS = [
-  "overview",
-  "rooms",
-  "teachers",
-  "students",
-  "courses",
-  "sessions",
-  "enrollments",
-  "subscriptions",
-  "attendance",
-  "staff",
-  "pending",
-  "deletions",
-  "reports",
-  "finance",
-  "audit",
+// Fifteen tabs in one flat strip overflowed its row and pushed the first items
+// off-screen, so the nav could not tell you where you were. They are grouped
+// into the five sections the feature is already split into on disk
+// (people-tabs / academic-tabs / operations-tabs / finance-tab / platform-tabs),
+// and only ONE group's tabs are rendered at a time — five items instead of
+// fifteen. Every tab `value` is unchanged, so every TabsContent below still
+// matches and no screen moved.
+const TAB_GROUPS = [
+  { key: "overview", tabs: ["overview"] },
+  { key: "people", tabs: ["teachers", "students", "staff"] },
+  { key: "academic", tabs: ["rooms", "courses", "sessions", "enrollments", "attendance"] },
+  { key: "money", tabs: ["subscriptions", "finance"] },
+  { key: "platform", tabs: ["pending", "deletions", "reports", "audit"] },
 ] as const;
+
+const GROUP_OF = new Map<string, string>(
+  TAB_GROUPS.flatMap((g) => g.tabs.map((t) => [t, g.key] as const)),
+);
 
 export function CenterOversightScreen({ centerId }: { centerId: string }) {
   const [tab, setTab] = useState<string>("overview");
@@ -169,13 +173,46 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex-wrap">
-          {TABS.map((x) => (
-            <TabsTrigger key={x} value={x}>
-              {t(asKey(`tab_${x}`))}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {/* Level 1 — section. Selecting one lands on its first tab. */}
+        <div
+          role="tablist"
+          aria-label={t("sections")}
+          className="flex flex-wrap items-center gap-1 border-b border-rule pb-2"
+        >
+          {TAB_GROUPS.map((g) => {
+            const active = GROUP_OF.get(tab) === g.key;
+            return (
+              <button
+                key={g.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(g.tabs[0])}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-ink-2 hover:bg-field hover:text-ink",
+                )}
+              >
+                {t(asKey(`grp_${g.key}`))}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Level 2 — the selected section's tabs only. A one-tab section needs
+            no second row, so Overview shows none. */}
+        {(TAB_GROUPS.find((g) => g.key === GROUP_OF.get(tab))?.tabs.length ?? 0) > 1 ? (
+          <TabsList className="flex-wrap">
+            {TAB_GROUPS.find((g) => g.key === GROUP_OF.get(tab))?.tabs.map((x) => (
+              <TabsTrigger key={x} value={x}>
+                {t(asKey(`tab_${x}`))}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        ) : null}
 
         {/* ---------------- Overview ---------------- */}
         <TabsContent value="overview" className="space-y-4">
@@ -454,7 +491,7 @@ function SimpleTable({
     <div className="space-y-2">
       {note ? <p className="text-xs text-ink-2">{note}</p> : null}
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("nothingHere")}</p>
+        <EmptyState icon={Inbox} title={t("nothingHere")} />
       ) : (
         <>
           <p className="text-xs text-ink-2">
@@ -545,8 +582,9 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">{t("collabRequests")}</CardTitle>
+          <CollabRequestButton centerId={centerId} onDone={req.refetch} />
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-ink-2">

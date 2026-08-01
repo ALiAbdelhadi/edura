@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
-import { Info, Mail, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
+import { GraduationCap, IdCard, Info, Mail, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { EmptyState } from "@repo/ui/components/empty-state";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -37,6 +38,7 @@ import type { Locale } from "@repo/ui/lib/format";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useAdminGet } from "./use-oversight";
 import { ControlAction } from "./control-actions";
+import { CollabRequestButton } from "./collab-request-dialog";
 
 // ---------------------------------------------------------------------------
 // PHASE 1 — People tabs. Every button here calls a back-office route that runs
@@ -137,7 +139,7 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("pp_noStudents")}</p>
+        <EmptyState icon={Users} title={t("pp_noStudents")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -361,12 +363,17 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
           Removing a teacher is refused while they still have active courses here — the same rule
           the center is held to.
         </p>
-        <Button size="sm" onClick={() => setInviting(true)}>
-          <UserPlus className="size-4" />{t("pp_inviteTeacher")}</Button>
+        <div className="flex flex-wrap gap-2">
+          {/* Registered teacher → collaboration request (the invite below is
+              shell-account onboarding and refuses one with a 409). */}
+          <CollabRequestButton centerId={centerId} onDone={req.refetch} />
+          <Button size="sm" onClick={() => setInviting(true)}>
+            <UserPlus className="size-4" />{t("pp_inviteTeacher")}</Button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("pp_noTeachers")}</p>
+        <EmptyState icon={GraduationCap} title={t("pp_noTeachers")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -389,31 +396,39 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
                   </TableCell>
                   <TableCell>{row.coursesCount}</TableCell>
                   <TableCell className="text-end">
+                    {/* Deactivate and Activate are opposite states, so only the
+                        one that applies is offered — the row already carries the
+                        teacher's status and used to render BOTH regardless,
+                        which made every row ask a question it had the answer
+                        to. Mirrors the page header, which has always done this. */}
                     <div className="flex flex-wrap justify-end gap-2">
-                      <ControlAction
-                        label={t("pp_deactivate")}
-                        title={t("pp_deactivateTeacherQ")}
-                        destructive
-                        requireReason
-                        confirmText={t("pp_deactivate")}
-                        url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
-                        values={{ kind: "teacher", action: "deactivate" }}
-                        onDone={req.refetch}
-                        description={
-                          <p>
-                            {t("pp_teacherLosesAccess")}
-                          </p>
-                        }
-                      />
-                      <ControlAction
-                        label={t("pp_activate")}
-                        title={t("pp_reactivateTeacherQ")}
-                        confirmText={t("pp_activate")}
-                        url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
-                        values={{ kind: "teacher", action: "activate" }}
-                        onDone={req.refetch}
-                        description={<p>{t("pp_canSignInAgain")}</p>}
-                      />
+                      {row.status === "active" ? (
+                        <ControlAction
+                          label={t("pp_deactivate")}
+                          title={t("pp_deactivateTeacherQ")}
+                          destructive
+                          requireReason
+                          confirmText={t("pp_deactivate")}
+                          url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
+                          values={{ kind: "teacher", action: "deactivate" }}
+                          onDone={req.refetch}
+                          description={
+                            <p>
+                              {t("pp_teacherLosesAccess")}
+                            </p>
+                          }
+                        />
+                      ) : (
+                        <ControlAction
+                          label={t("pp_activate")}
+                          title={t("pp_reactivateTeacherQ")}
+                          confirmText={t("pp_activate")}
+                          url={`admin/centers/${centerId}/members/${row.teacherId}/status`}
+                          values={{ kind: "teacher", action: "activate" }}
+                          onDone={req.refetch}
+                          description={<p>{t("pp_canSignInAgain")}</p>}
+                        />
+                      )}
                       <ControlAction
                         label={t("pp_removeFromCenter")}
                         title={t("pp_endAffiliationQ")}
@@ -508,7 +523,7 @@ export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boo
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("pp_noStaff")}</p>
+        <EmptyState icon={IdCard} title={t("pp_noStaff")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>

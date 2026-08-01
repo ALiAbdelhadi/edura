@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
-import { AlertTriangle, Megaphone, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CalendarDays, Megaphone, ShieldAlert, Trash2, UserCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { EmptyState } from "@repo/ui/components/empty-state";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -84,7 +85,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("op_noSessions")}</p>
+        <EmptyState icon={CalendarDays} title={t("op_noSessions")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -443,7 +444,7 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("op_noAttendance")}</p>
+        <EmptyState icon={UserCheck} title={t("op_noAttendance")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -534,7 +535,7 @@ export function DeletionRequestsTab({
       </Alert>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("op_noDeletions")}</p>
+        <EmptyState icon={Trash2} title={t("op_noDeletions")} />
       ) : (
         rows.map((r) => {
           const u = typeof r.userId === "string" ? null : r.userId;

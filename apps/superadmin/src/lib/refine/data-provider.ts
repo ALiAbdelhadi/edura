@@ -99,10 +99,16 @@ function extractListData<T>(response: unknown): T {
   return response as T;
 }
 
+// ky exposes the pre-parsed error body on `error.data`, NOT `error.response.data`
+// (that is the axios shape). Reading the wrong field used to drop the API's real
+// message and its field errors on every failed request.
 function mapError(error: any): HttpError {
   if (error?.response) {
     const status = error.response.status || 500;
-    const body = error.response.data || {};
+    const body = (typeof error.data === "object" && error.data !== null ? error.data : {}) as {
+      error?: { message?: string; fields?: Record<string, string[]> };
+      message?: string;
+    };
     return {
       message: body.error?.message || body.message || error.message || "Unknown error",
       statusCode: status,

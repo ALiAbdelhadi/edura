@@ -1,6 +1,10 @@
 // Rate limiter (M3). A shared Redis store keeps limits consistent across
 // instances and across restarts; when REDIS_URL is unset (local dev) or Redis
 // errors, it degrades gracefully to a per-process in-memory bucket.
+//
+// Keys are namespaced per environment (`rl:<env>:<key>`) so that one Redis
+// instance serving several environments keeps their buckets disjoint — see
+// `envNamespace` below.
 import type { Redis } from "ioredis";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +65,35 @@ redis.call('PEXPIRE', KEYS[1], ttl)
 return allowed
 `;
 
+// ---------------------------------------------------------------------------
+// Environment namespace.
+//
+// One Redis instance is shared by more than one environment — dev and
+// production were found pointing at the SAME `REDIS_URL`, which meant a
+// developer's failed logins consumed the bucket of a real user with the same
+// email, and a local load test could throttle production. Keys are therefore
+// namespaced by environment, so the stores are disjoint even on one instance.
+//
+// `EDURA_ENV` is the project's existing environment identifier (see
+// packages/database/scripts/load-env.ts). It is a tooling variable and is not
+// necessarily set in a deployed app, so the fallback has to be right on its
+// own: NODE_ENV is "production" only in a real deployment, and anything else
+// (next dev, tests) is treated as dev. Production and a laptop therefore never
+// share a namespace even if nobody sets EDURA_ENV anywhere.
+//
+// Read per call rather than memoised so tests can switch environments.
+// ---------------------------------------------------------------------------
+function envNamespace(): string {
+  const explicit = process.env.EDURA_ENV?.trim();
+  if (explicit) return explicit;
+  return process.env.NODE_ENV === "production" ? "production" : "dev";
+}
+
+/** Fully-qualified key: `rl:<env>:<caller key>`. */
+function namespacedKey(key: string): string {
+  return `rl:${envNamespace()}:${key}`;
+}
+
 // undefined = not yet initialised, null = disabled (no URL / init failed).
 let redisClient: Redis | null | undefined;
 
@@ -101,20 +134,28 @@ export async function checkRateLimit(
   capacity: number,
   refillPerMinute: number,
 ): Promise<boolean> {
+  // Namespaced once, here, so the Redis path and the in-memory fallback can
+  // never disagree about which bucket a caller is consuming.
+  const fullKey = namespacedKey(key);
   const redis = await getRedis();
-  if (!redis) return checkRateLimitMemory(key, capacity, refillPerMinute);
+  if (!redis) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
 
   const refillPerMs = refillPerMinute / 60_000;
   const now = Date.now();
   // Live long enough to fully refill, then it is safe to evict (back to full).
   const ttl = Math.max(60_000, Math.ceil(capacity / refillPerMs) * 2);
   try {
-    const res = await redis.eval(BUCKET_LUA, 1, `rl:${key}`, capacity, refillPerMs, now, ttl);
+    const res = await redis.eval(BUCKET_LUA, 1, fullKey, capacity, refillPerMs, now, ttl);
     return Number(res) === 1;
   } catch (e) {
     console.error("[rate-limit] redis eval failed, in-memory fallback:", (e as Error).message);
-    return checkRateLimitMemory(key, capacity, refillPerMinute);
+    return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
   }
+}
+
+/** The key `checkRateLimit` would use — for tests and operational tooling. */
+export function rateLimitKey(key: string): string {
+  return namespacedKey(key);
 }
 
 // Test-only: reset the lazy client (lets a test point at a fresh REDIS_URL).
