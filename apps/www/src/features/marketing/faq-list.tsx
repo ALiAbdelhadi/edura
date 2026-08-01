@@ -1,6 +1,7 @@
 "use client";
 
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { ChevronDown } from "lucide-react";
 import styles from "./marketing.module.css";
 
@@ -28,7 +29,7 @@ export function FaqList({
             className={`${styles.cardMuted} group`}
             onToggle={(e) => {
               if ((e.currentTarget as HTMLDetailsElement).open) {
-                track("faq_opened", { question: item.id });
+                track(ANALYTICS_EVENTS.FAQ_OPENED, { question: item.id });
               }
             }}
           >

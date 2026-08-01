@@ -3,6 +3,7 @@
 import { LedgerButton } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import {
   Sheet,
   SheetClose,
@@ -100,7 +101,7 @@ export function MarketingMobileNav({
             <DemoCta
               url={demoUrl}
               label={demoLabel}
-              placement="mobile_nav"
+              surface="mobile_nav"
               variant="secondary"
               className="w-full justify-center py-2.5"
               withIcon
@@ -109,7 +110,7 @@ export function MarketingMobileNav({
               <Link
                 href="/register"
                 onClick={() => {
-                  track("cta_clicked", { cta: "register", placement: "mobile_nav" });
+                  track(ANALYTICS_EVENTS.LANDING_CTA_CLICKED, { cta: "register", surface: "mobile_nav" });
                   setOpen(false);
                 }}
               >

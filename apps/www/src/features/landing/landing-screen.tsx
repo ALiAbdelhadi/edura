@@ -53,7 +53,7 @@ export async function LandingScreen() {
                 <TrackedCta
                   href="/register"
                   cta="register"
-                  placement="hero"
+                  surface="hero"
                   className="px-7 py-2.5 text-[15px]"
                 >
                   {t("hero.ctaPrimary")}
@@ -63,7 +63,7 @@ export async function LandingScreen() {
                 <DemoCta
                   url={demoUrl}
                   label={tm("nav.bookDemo")}
-                  placement="hero"
+                  surface="hero"
                   variant="secondary"
                   className="px-7 py-2.5 text-[15px]"
                   withIcon
@@ -214,7 +214,7 @@ export async function LandingScreen() {
             <TrackedCta
               href="/register"
               cta="register"
-              placement="landing_cta_band"
+              surface="landing_cta_band"
               variant="secondary"
               className="mt-7 border-0 px-8 py-2.5 text-[15px] font-semibold"
               style={{ background: "var(--indigo-ink)", color: "var(--indigo)" }}

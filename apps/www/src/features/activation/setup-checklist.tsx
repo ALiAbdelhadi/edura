@@ -3,6 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { useCustom } from "@refinedev/core";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -98,7 +99,7 @@ export function SetupChecklist({ className }: { className?: string }) {
 
   useEffect(() => {
     if (data && !dismissed) {
-      track("onboarding_checklist_viewed", { done: data.done, total: data.total });
+      track(ANALYTICS_EVENTS.CHECKLIST_VIEWED, { done: data.done, total: data.total });
     }
   }, [data, dismissed]);
 
@@ -106,7 +107,7 @@ export function SetupChecklist({ className }: { className?: string }) {
 
   function dismiss() {
     writeDismissed();
-    track("onboarding_checklist_dismissed", { done: data?.done ?? 0, total: data?.total ?? 0 });
+    track(ANALYTICS_EVENTS.CHECKLIST_DISMISSED, { done: data?.done ?? 0, total: data?.total ?? 0 });
   }
 
   const pct = data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
@@ -210,7 +211,7 @@ export function SetupChecklist({ className }: { className?: string }) {
               ) : (
                 <Link
                   href={href}
-                  onClick={() => track("onboarding_checklist_step_clicked", { step })}
+                  onClick={() => track(ANALYTICS_EVENTS.CHECKLIST_STEP_CLICKED, { step })}
                   className="flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-(--field)"
                 >
                   {body}

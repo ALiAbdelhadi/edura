@@ -67,13 +67,13 @@ export async function FaqScreen() {
               {t("faq.moreBody")}
             </p>
             <div className="mt-5 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-              <TrackedCta href="/help" cta="help" placement="faq" className="px-7 py-2.5">
+              <TrackedCta href="/help" cta="help" surface="faq" className="px-7 py-2.5">
                 {t("nav.help")}
               </TrackedCta>
               <TrackedCta
                 href="/contact"
                 cta="contact"
-                placement="faq"
+                surface="faq"
                 variant="secondary"
                 className="px-7 py-2.5"
               >

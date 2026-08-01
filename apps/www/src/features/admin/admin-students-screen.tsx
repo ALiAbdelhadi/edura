@@ -10,6 +10,7 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useInvalidate, useList, useUpdate } from "@refinedev/core";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -327,7 +328,7 @@ export function AdminStudentsScreen() {
                 action={
                   <Button
                     onClick={() => {
-                      track("empty_state_cta_clicked", { list: "students" });
+                      track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "students" });
                       setIsInviteOpen(true);
                     }}
                   >

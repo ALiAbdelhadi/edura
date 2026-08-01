@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import type { SessionLike } from "@repo/observability";
 import { capturePageview, captureEvent, identifyUser, initAnalytics } from "./posthog-client";
+import { registerTrackSink } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
 
 /**
@@ -23,6 +24,13 @@ export function AnalyticsProvider({
 }) {
   useEffect(() => {
     initAnalytics();
+    // Point the app-wide `track()` seam at PostHog. Registering it HERE rather
+    // than importing captureEvent inside lib/track.ts is what keeps posthog-js
+    // out of the import graph of every component that records a click —
+    // including server components that merely import a module which imports
+    // track. captureEvent is itself guarded by `started`, so registering before
+    // (or without) a PostHog key is harmless.
+    registerTrackSink(captureEvent);
   }, []);
 
   useEffect(() => {

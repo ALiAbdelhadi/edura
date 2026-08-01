@@ -77,7 +77,7 @@ export async function ContactScreen({ locale }: { locale: Locale }) {
                   <DemoCta
                     url={demoUrl}
                     label={t("contact.demo.cta")}
-                    placement="contact"
+                    surface="contact"
                     variant="primary"
                     withIcon
                   />

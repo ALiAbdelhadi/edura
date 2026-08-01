@@ -17,6 +17,7 @@ import {
 } from "@refinedev/core";
 import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import {
@@ -657,7 +658,7 @@ export function AdminClassesScreen() {
                   action={
                     <Button
                       onClick={() => {
-                        track("empty_state_cta_clicked", { list: "classes" });
+                        track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "classes" });
                         setIsCreateOpen(true);
                       }}
                     >

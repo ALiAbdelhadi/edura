@@ -2,6 +2,7 @@
 
 import { LedgerButton } from "@/components/ledger";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { CheckCircle2 } from "lucide-react";
 import { useId, useState } from "react";
 import styles from "./marketing.module.css";
@@ -90,7 +91,7 @@ export function ContactForm({ labels, locale }: { labels: ContactLabels; locale:
         setStatus("sent");
         // Only the subject crosses into analytics — never the message, the
         // name, the email or the phone number.
-        track("contact_submitted", { subject });
+        track(ANALYTICS_EVENTS.CONTACT_SUBMITTED, { subject });
         return;
       }
 
@@ -104,11 +105,11 @@ export function ContactForm({ labels, locale }: { labels: ContactLabels; locale:
             : labels.errorGeneric,
       );
       setStatus("error");
-      track("contact_failed", { status: res.status });
+      track(ANALYTICS_EVENTS.CONTACT_FAILED, { status: res.status });
     } catch {
       setError(labels.errorGeneric);
       setStatus("error");
-      track("contact_failed", { status: 0 });
+      track(ANALYTICS_EVENTS.CONTACT_FAILED, { status: 0 });
     }
   }
 

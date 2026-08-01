@@ -1,56 +1,49 @@
 /**
  * Product analytics — the SEAM, not the implementation.
  *
- * Every conversion surface in this workstream calls `track()`. Today it is a
- * no-op (a `console.debug` in development so the events are visible while
- * building). The PostHog client lands in a sibling workstream; wiring it is a
- * one-function change inside `deliver()` below, and NOT a hunt through the
- * component tree for call sites that were never written.
+ * Every conversion surface calls `track()`. The seam exists so the call sites
+ * were written before the analytics client did, and so the client can be
+ * swapped without touching them. PostHog is registered into it at runtime by
+ * `AnalyticsProvider`; nothing here imports posthog-js, which is what keeps a
+ * browser SDK out of the import graph of any module that merely wants to
+ * record that a button was clicked.
  *
  * Rules this helper enforces so the seam stays safe:
  *  1. It NEVER throws. An analytics failure must not break a page — every call
  *     is wrapped, and a broken sink degrades to silence.
- *  2. It carries NO personal data. `TrackProps` is a flat map of primitives and
- *     the call sites pass counts, plan names, locales and step ids — never a
- *     name, email, phone, student id, or any money figure. The event names are
- *     an explicit union so a new event is a deliberate edit here.
+ *  2. It carries NO personal data. Event NAMES come from the shared registry in
+ *     @repo/observability, and PROPERTIES pass that package's allowlist before
+ *     they reach PostHog — so a careless spread cannot put a name or an email
+ *     into the warehouse even if a call site tries.
  *  3. It is client-only by design. Calling it during SSR is a no-op rather than
  *     an error, so a component can call it from an effect without guarding.
  */
 
-export type TrackEvent =
-  // Conversion surface
-  | "cta_clicked"
-  | "demo_requested"
-  | "contact_submitted"
-  | "contact_failed"
-  // Content surface
-  | "help_article_viewed"
-  | "faq_opened"
-  | "pricing_example_changed"
-  // Activation surface
-  | "onboarding_checklist_viewed"
-  | "onboarding_checklist_step_clicked"
-  | "onboarding_checklist_dismissed"
-  | "empty_state_cta_clicked";
-
-/** Flat, non-identifying event properties. */
-export type TrackProps = Record<string, string | number | boolean | null | undefined>;
+import type { AnalyticsEvent, AnalyticsProperties } from "@repo/observability";
 
 /**
- * The sink. Replaced post-merge by the PostHog capture call:
+ * The closed set from @repo/observability — deliberately NOT a second local
+ * union. Two registries would let `contact_submitted` and `contactSubmitted`
+ * both exist and split one funnel in half with no error anywhere.
+ */
+export type TrackEvent = AnalyticsEvent;
+
+/** Flat, non-identifying event properties. */
+export type TrackProps = AnalyticsProperties;
+
+/**
+ * The sink. A module-level binding rather than an import, so this file pulls in
+ * no vendor bundle: `AnalyticsProvider` (already a client component that owns
+ * posthog-js) registers `captureEvent` here on mount.
  *
- *   posthog.capture(event, props)
- *
- * Kept as a module-level binding (not an import) so this file has ZERO
- * dependencies and can be imported from any client component without pulling a
- * vendor bundle into a route that does not need one.
+ * Unregistered is a legitimate state, not a broken one — it is what every local
+ * run, every CI run and every deployment without NEXT_PUBLIC_POSTHOG_KEY looks
+ * like, and `track()` is silent in all of them.
  */
 let sink: ((event: TrackEvent, props: TrackProps) => void) | null = null;
 
 /**
- * Register the real analytics sink. Workstream 2 calls this once from its
- * PostHog provider; until then nothing is registered and `track` stays silent.
+ * Register the real analytics sink. Called once from `AnalyticsProvider`.
  */
 export function registerTrackSink(fn: (event: TrackEvent, props: TrackProps) => void) {
   sink = fn;

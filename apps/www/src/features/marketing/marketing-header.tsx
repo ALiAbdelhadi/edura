@@ -73,10 +73,10 @@ export async function MarketingHeader({ active }: { active?: string }) {
           <DemoCta
             url={demoUrl}
             label={t("nav.bookDemo")}
-            placement="navbar"
+            surface="navbar"
             variant="secondary"
           />
-          <TrackedCta href="/register" cta="register" placement="navbar">
+          <TrackedCta href="/register" cta="register" surface="navbar">
             {t("nav.register")}
           </TrackedCta>
         </div>

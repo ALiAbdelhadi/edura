@@ -1,6 +1,7 @@
 "use client";
 
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { useEffect, type ReactNode } from "react";
 
 /**
@@ -18,7 +19,7 @@ export function HelpArticleView({
   children: ReactNode;
 }) {
   useEffect(() => {
-    track("help_article_viewed", { slug, category });
+    track(ANALYTICS_EVENTS.HELP_ARTICLE_VIEWED, { slug, category });
   }, [slug, category]);
 
   return <>{children}</>;

@@ -107,7 +107,7 @@ export async function HelpArticleScreen({
               <TrackedCta
                 href="/contact"
                 cta="contact"
-                placement="help_article"
+                surface="help_article"
                 className="px-7 py-2.5"
               >
                 {t("nav.contact")}

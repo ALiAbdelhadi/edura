@@ -6,6 +6,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 import { asKey } from "@/lib/i18n/keys";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useDelete, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
@@ -236,7 +237,7 @@ export function AdminTeachersScreen() {
               action={
                 <Button
                   onClick={() => {
-                    track("empty_state_cta_clicked", { list: "teachers" });
+                    track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "teachers" });
                     setIsInviteOpen(true);
                   }}
                 >

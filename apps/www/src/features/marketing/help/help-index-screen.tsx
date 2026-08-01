@@ -93,7 +93,7 @@ export async function HelpIndexScreen({ locale }: { locale: Locale }) {
             {t("help.stillStuckBody")}
           </p>
           <div className="mt-5 flex justify-center">
-            <TrackedCta href="/contact" cta="contact" placement="help_index" className="px-7 py-2.5">
+            <TrackedCta href="/contact" cta="contact" surface="help_index" className="px-7 py-2.5">
               {t("nav.contact")}
             </TrackedCta>
           </div>

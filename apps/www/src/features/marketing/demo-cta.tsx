@@ -2,6 +2,7 @@
 
 import { LedgerButton } from "@/components/ledger";
 import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { CalendarDays } from "lucide-react";
 
 /**
@@ -18,7 +19,7 @@ import { CalendarDays } from "lucide-react";
 export function DemoCta({
   url,
   label,
-  placement,
+  surface,
   variant = "secondary",
   className,
   withIcon = false,
@@ -26,7 +27,7 @@ export function DemoCta({
   url: string | null;
   label: string;
   /** Recorded on the event so navbar vs hero conversion can be compared. */
-  placement: "navbar" | "hero" | "mobile_nav" | "contact" | "pricing";
+  surface: "navbar" | "hero" | "mobile_nav" | "contact" | "pricing";
   variant?: "primary" | "secondary";
   className?: string;
   withIcon?: boolean;
@@ -39,7 +40,7 @@ export function DemoCta({
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track("demo_requested", { placement })}
+        onClick={() => track(ANALYTICS_EVENTS.DEMO_REQUESTED, { surface })}
       >
         {withIcon ? <CalendarDays className="size-4 shrink-0" aria-hidden /> : null}
         {label}

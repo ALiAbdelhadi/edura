@@ -300,13 +300,13 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
               {t("pricing.cta.body")}
             </p>
             <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-              <TrackedCta href="/contact" cta="contact" placement="pricing_footer" className="px-7 py-2.5">
+              <TrackedCta href="/contact" cta="contact" surface="pricing_footer" className="px-7 py-2.5">
                 {t("pricing.cta.primary")}
               </TrackedCta>
               <DemoCta
                 url={demoUrl}
                 label={t("nav.bookDemo")}
-                placement="pricing"
+                surface="pricing"
                 variant="secondary"
                 className="px-7 py-2.5"
                 withIcon
@@ -314,7 +314,7 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
               <TrackedCta
                 href="/register"
                 cta="register"
-                placement="pricing_footer"
+                surface="pricing_footer"
                 variant="secondary"
                 className="px-7 py-2.5"
               >
