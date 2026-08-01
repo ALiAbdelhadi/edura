@@ -1,0 +1,157 @@
+/**
+ * C-01 P7 — refund reversal against a ZERO-wallet center.
+ *
+ * This was the tail of apps/www/tests/db/c01-lesson-settlement.test.ts, where it
+ * ran by POSTing to a superadmin server over HTTP. That is the exact shape that
+ * made those writes invisible to db-guard (proven 2026-08-01: the suite created
+ * rows in DEV while the guard read `test`), so c01 moved in-process — and
+ * `refundLessonForStudent` could not come with it: it exists ONLY in
+ * apps/superadmin. It is not a `@repo/server-core` shim like commission /
+ * distribution / fees, and importing it from apps/www would resolve its own
+ * `@/lib/...` imports against apps/www/src, where files of the SAME NAME exist.
+ * The proof would then run www's platformDb and notify while claiming to
+ * exercise superadmin's. So the assertions moved to the app that owns the
+ * service instead — nothing here is weakened, only relocated.
+ *
+ * WHY THIS IS NOT refund.test.ts: that suite refunds a center configured with
+ * centerShare = 5000 and pre-loaded wallets. C-01's case is the opposite and is
+ * the one the H2 floor actually bites on — a BRAND-NEW center, wallet 0, NO
+ * centerShare (the default) — where the reversal must debit wallets back to
+ * exactly zero without ever crossing below it.
+ *
+ *   1. a zero-wallet center settles its first lesson (the C-01 precondition)
+ *   2. the refund reverses BOTH wallets by exactly the settled nets
+ *   3. neither wallet goes negative — `centers_wallet_balance_nonneg` holds
+ *   4. H3: the second refund of the same charge is REFUSED
+ *   5. exactly one refund row exists for the charge
+ *
+ * Everything it creates is deleted at the end.
+ *
+ * Run (all suites, guarded):  bun run --filter superadmin test:db
+ * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
+ */
+import { neonConfig, Pool } from "@neondatabase/serverless";
+import ws from "ws";
+import { withPlatformContext, prisma } from "@repo/database";
+import { completeSession } from "@/lib/services/finance/distribution";
+import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
+
+import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+neonConfig.webSocketConstructor = ws as never;
+const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+
+let pass = 0;
+let fail = 0;
+function assert(cond: boolean, msg: string) {
+  if (cond) { pass++; console.log("  ✓", msg); }
+  else { fail++; console.error("  ✗", msg); }
+}
+
+const PRICE = 20000;
+
+async function main() {
+  const tag = "c01p7-" + Math.floor(Math.random() * 1e9).toString(36);
+  console.log("C-01 P7 — zero-wallet refund reversal —", tag);
+
+  // The C-01 preconditions, built explicitly: both wallets 0, and the
+  // affiliation carries NO centerShare (leave it at the column default, exactly
+  // as a fresh superadmin link or an accepted collaboration request would).
+  const fx = await withPlatformContext(async (tx) => {
+    const teacher = await tx.user.create({ data: { name: tag + "-t", role: "teacher", email: tag + "-t@x.io", status: "active" } });
+    await tx.teacherProfile.create({ data: { userId: teacher.id, walletBalance: 0 } });
+    const center = await tx.center.create({ data: { name: tag + "-c", shortId: tag.slice(0, 12).toUpperCase(), status: "active", walletBalance: 0 } });
+    await tx.centerTeacherAffiliation.create({ data: { centerId: center.id, teacherId: teacher.id, status: "active", expiresAt: new Date("2027-01-01T00:00:00Z") } });
+    const course = await tx.course.create({ data: { centerId: center.id, teacherId: teacher.id, title: tag, subject: "Math", daysOfWeek: [1], startTime: "10:00", endTime: "11:00", startDate: new Date("2026-01-01T00:00:00Z"), price: PRICE, maxStudents: 30, status: "active" } });
+    const su = await tx.user.create({ data: { name: tag + "-s", role: "student", email: tag + "-s@x.io", status: "active" } });
+    await tx.studentProfile.create({ data: { userId: su.id, fullName: tag + "-s", familyLinkCode: (tag + "0").slice(0, 18), pointsBalance: 0 } });
+    await tx.enrollment.create({ data: { studentId: su.id, courseId: course.id, centerId: center.id, status: "active", enrolledBy: teacher.id } });
+    const s1 = await tx.session.create({ data: { courseId: course.id, teacherId: teacher.id, originalDate: new Date("2026-02-02T10:00:00Z"), date: new Date("2026-02-02T10:00:00Z"), startTime: "10:00", endTime: "11:00", status: "scheduled" } });
+    await tx.attendanceRecord.create({ data: { sessionId: s1.id, studentId: su.id, courseId: course.id, centerId: center.id, status: "present", markedBy: teacher.id } });
+    return { teacher: teacher.id, center: center.id, course: course.id, s1: s1.id, student: su.id };
+  });
+
+  const walletsNow = () => withPlatformContext(async (tx) => ({
+    t: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))?.walletBalance ?? 0,
+    c: (await tx.center.findUnique({ where: { id: fx.center }, select: { walletBalance: true } }))?.walletBalance ?? 0,
+  }));
+
+  try {
+    const fees = (await adminPool.query(
+      `select platform_teacher_fee::int tf, platform_center_fee::int cf from commission_settings where scope='global'`,
+    )).rows[0] as { tf: number; cf: number };
+
+    const before = await walletsNow();
+    assert(before.t === 0 && before.c === 0, `both wallets start at zero (teacher ${before.t}, center ${before.c})`);
+
+    // ---- settle ----
+    await completeSession(fx.s1, { id: fx.teacher, role: "teacher" } as never);
+    const settled = await walletsNow();
+
+    const expected = computeNoRoomLessonSplit(PRICE, 0, { platformTeacherFee: fees.tf, platformCenterFee: fees.cf });
+    const teacherNet = PRICE - expected.fees.platformTeacherFee - expected.centerShare;
+    const centerNet = expected.centerShare - expected.fees.platformCenterFee;
+    assert(settled.t === teacherNet, `the zero-wallet lesson settled the teacher by exactly teacherNet (${settled.t} == ${teacherNet})`);
+    assert(settled.c === centerNet, `... and the center by exactly centerNet (${settled.c} == ${centerNet})`);
+
+    // ---- refund ----
+    await refundLessonForStudent(fx.s1, fx.student, `${tag} proof`, { id: fx.teacher, role: "accountant" } as never);
+    const reversed = await walletsNow();
+    assert(reversed.t === settled.t - teacherNet, `the teacher wallet reversed by exactly teacherNet (${settled.t} -> ${reversed.t})`);
+    assert(reversed.c === settled.c - centerNet, `the center wallet reversed by exactly centerNet (${settled.c} -> ${reversed.c})`);
+    assert(reversed.t >= 0 && reversed.c >= 0, "both wallets are still >= 0 after the reversal — the H2 floor held");
+
+    // ---- H3: no double refund ----
+    let refusedWith = "";
+    try {
+      await refundLessonForStudent(fx.s1, fx.student, `${tag} double`, { id: fx.teacher, role: "accountant" } as never);
+    } catch (e) {
+      refusedWith = e instanceof Error ? e.message : String(e);
+    }
+    assert(refusedWith !== "", `H3: the second refund of the same charge is REFUSED (${refusedWith || "it was NOT refused"})`);
+
+    const refundRows = (await adminPool.query(
+      `select count(*)::int c from transactions where type='refund' and lesson_id=$1`, [fx.s1],
+    )).rows[0].c as number;
+    assert(refundRows === 1, `exactly one refund row exists for this charge (${refundRows})`);
+
+    // The constraint this whole scenario exists for must still be enforced.
+    let floorHeld = false;
+    try {
+      await adminPool.query(`update centers set wallet_balance = -1 where id=$1`, [fx.center]);
+    } catch (e) {
+      floorHeld = /wallet_balance_nonneg/.test((e as Error).message);
+    }
+    assert(floorHeld, "a direct attempt to drive this center's wallet to -1 is STILL rejected by the DB");
+  } finally {
+    const c = await adminPool.connect();
+    try {
+      await c.query(`DELETE FROM transactions WHERE lesson_id = $1`, [fx.s1]);
+      await c.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [[fx.student, fx.teacher]]);
+      await c.query(`DELETE FROM points_ledger WHERE student_id = $1`, [fx.student]);
+      await c.query(`DELETE FROM session_settlements WHERE course_id = $1`, [fx.course]);
+      await c.query(`DELETE FROM attendance_records WHERE session_id = $1`, [fx.s1]);
+      await c.query(`DELETE FROM sessions WHERE id = $1`, [fx.s1]);
+      await c.query(`DELETE FROM enrollments WHERE course_id = $1`, [fx.course]);
+      await c.query(`DELETE FROM courses WHERE id = $1`, [fx.course]);
+      await c.query(`DELETE FROM center_teacher_affiliations WHERE center_id = $1`, [fx.center]);
+      await c.query(`DELETE FROM student_profiles WHERE user_id = $1`, [fx.student]);
+      await c.query(`DELETE FROM teacher_profiles WHERE user_id = $1`, [fx.teacher]);
+      await c.query(`DELETE FROM audit_logs WHERE actor_id = $1`, [fx.teacher]);
+      await c.query(`DELETE FROM centers WHERE id = $1`, [fx.center]);
+      await c.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[fx.student, fx.teacher]]);
+    } finally {
+      c.release();
+      await adminPool.end();
+    }
+  }
+
+  console.log(`\n${pass} passed, ${fail} failed`);
+  await prisma.$disconnect();
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+// The environment guard runs BEFORE main(), so invoking this file directly
+// (which bypasses the `pretest:db` step) cannot write to dev or production.
+assertDbEnv(["test"], { intent: "suite c01-zero-wallet-refund.test.ts" })
+  .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

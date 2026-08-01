@@ -235,6 +235,13 @@ type CenterSearchInput = {
   q?: string;
   page?: string;
   limit?: string;
+  /**
+   * Student discovery (the default) lists only centers a student can actually
+   * enroll at, so it requires at least one active course. A teacher looking for
+   * a center to APPLY TO needs the opposite: a brand-new center with no courses
+   * yet is precisely the one that needs teachers. Opt in to include those.
+   */
+  includeEmpty?: boolean;
 };
 
 export async function searchCenters(filters: CenterSearchInput) {
@@ -247,7 +254,7 @@ export async function searchCenters(filters: CenterSearchInput) {
   return platformDb(async (tx) => {
     const where: Prisma.CenterWhereInput = {
       status: "active",
-      courses: { some: { status: "active" } },
+      ...(filters.includeEmpty ? {} : { courses: { some: { status: "active" } } }),
     };
 
     if (filters.subject) where.subjects = { has: filters.subject };
@@ -285,6 +292,7 @@ export async function searchCenters(filters: CenterSearchInput) {
         whatsapp: true,
         logoUrl: true,
       },
+      orderBy: { name: "asc" },
       skip: (page - 1) * limit,
       take: limit,
     });

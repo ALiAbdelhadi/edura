@@ -30,6 +30,8 @@ export function Combobox({
   clearLabel,
   disabled,
   id,
+  search,
+  onSearchChange,
 }: {
   options: ComboboxOption[];
   value: string | null | undefined;
@@ -40,8 +42,17 @@ export function Combobox({
   clearLabel?: string;
   disabled?: boolean;
   id?: string;
+  /**
+   * Controlled search. Pass both to drive the option list from a server query;
+   * local filtering is then turned OFF so the server's results are shown as-is
+   * (filtering them again by label would hide rows the server matched on other
+   * fields). Omit both to keep the default local-filtering behaviour.
+   */
+  search?: string;
+  onSearchChange?: (search: string) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const serverSearch = search !== undefined && onSearchChange !== undefined;
   const selected = options.find((o) => o.value === value);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -67,8 +78,13 @@ export function Combobox({
         align="start"
         className="w-(--radix-popover-trigger-width) p-0"
       >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={!serverSearch}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            {...(serverSearch
+              ? { value: search, onValueChange: onSearchChange }
+              : {})}
+          />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>

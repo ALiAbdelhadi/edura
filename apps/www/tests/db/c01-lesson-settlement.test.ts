@@ -15,35 +15,51 @@
  * AFTER the fix both nets are non-negative BY CONSTRUCTION via the shared
  * `computeNoRoomLessonSplit` (see its doc comment for the money semantics).
  *
- * This test drives the REAL HTTP endpoints against the REAL database — no
- * service-layer shortcuts — and asserts:
+ * This test drives the REAL route handlers IN-PROCESS against the REAL database
+ * — no service-layer shortcuts, only `getServerSession` is stubbed — and asserts:
  *   P1  a brand-new center (wallet 0) completes its FIRST lesson              -> 200
  *   P2  money reconciles EXACTLY: ledger rows == wallet deltas, nothing lost
  *   P3  exactly-once still holds (replayed completion writes nothing)
  *   P4  the H2 floor is NOT weakened (constraints still validated + enforced)
  *   P5  a correctly-configured no-room course is BYTE-IDENTICAL to the old math
  *   P6  the room-based (Method 1) branch is untouched
- *   P7  refund reversal round-trips wallets to zero and H3 still refuses a double
+ *   P7  MOVED -> apps/superadmin/tests/db/c01-zero-wallet-refund.test.ts
  *
  * Everything it creates is deleted at the end and the table counts are asserted
  * back to the pre-run baseline.
+ *
+ * WHY IN-PROCESS: this suite used to POST to http://localhost:3002 and :3004 —
+ * whatever servers held those ports. Its writes then travelled on THOSE servers'
+ * connections, where db-guard could not see them; proven 2026-08-01, when
+ * running it with `--env-file=.env.test` created a center and a user in DEV
+ * while the guard correctly read `test`. In-process, the only connection is this
+ * process's own — the one db-guard validates. No server is required.
  *
  * Run (all suites, guarded):  bun run --filter edura test:db
  * Run (this one only):        bun run --filter edura test:db:only c01-lesson-settlement
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
-import { encode } from "next-auth/jwt";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
+
+import { createRequire } from "node:module";
+import type { SessionUser } from "@/lib/auth/session";
+import { POST as coursesRoute } from "@/app/api/v1/courses/route";
+import { PATCH as courseByIdRoute } from "@/app/api/v1/courses/[id]/route";
+import { POST as enrollmentsRoute } from "@/app/api/v1/enrollments/route";
+import { POST as centerSubscriptionsRoute } from "@/app/api/v1/center/subscriptions/route";
+import { PATCH as attendanceModeRoute } from "@/app/api/v1/teacher/attendance-mode/route";
+import { POST as doorCheckinRoute } from "@/app/api/v1/door-checkin/route";
+import { POST as sessionCompleteRoute } from "@/app/api/v1/sessions/[id]/complete/route";
+import { POST as registerCenterRoute } from "@/app/api/v1/auth/register/center/route";
+import { POST as centerStaffRoute } from "@/app/api/v1/center/staff/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
 
-const WWW = process.env.WWW_BASE_URL ?? "http://localhost:3002";
-const SA = process.env.SUPERADMIN_BASE_URL ?? "http://localhost:3004";
 const TAG = "c01-" + Math.random().toString(36).slice(2, 7);
 const PW = "C01Proof123";
 
@@ -54,31 +70,79 @@ function assert(cond: boolean, msg: string) {
 }
 function section(s: string) { console.log("\n" + s); }
 
-async function cookieFor(userId: string, app: "www" | "superadmin") {
-  const u = (await q(`select u.id,u.email,u.role,u.locale,u.token_version,
+// ------------------------------------------------------------------- session
+// IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
+// edge (`getServerSession`), the same seam invite-claim.test.ts uses. The authz
+// wrappers, zod, the settlement services and every DB write are the real code
+// path — and the only connection in play is this process's own, the one
+// db-guard validates. See the docblock for why that matters here.
+const nodeRequire = createRequire(__filename);
+const nextAuthNext = nodeRequire("next-auth/next") as {
+  getServerSession: (...a: unknown[]) => Promise<unknown>;
+};
+let currentSession: { user: SessionUser } | null = null;
+nextAuthNext.getServerSession = async () => currentSession;
+
+export type Session = { user: SessionUser };
+
+/** The www session a given user would carry, resolved from the DB row. */
+async function sessionFor(userId: string): Promise<Session> {
+  const u = (await q(`select u.id,u.email,u.name,u.role,u.locale,
       (select cap.center_id from center_admin_profiles cap where cap.user_id=u.id limit 1) admin_center,
       (select cs.center_id from center_staff cs where cs.staff_user_id=u.id and cs.removed_at is null limit 1) staff_center
     from users u where u.id=$1`, [userId]))[0];
-  const secret = (app === "superadmin"
-    ? process.env.SUPERADMIN_NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET
-    : process.env.NEXTAUTH_SECRET) as string;
-  const jwe = await encode({
-    token: { name: u.email, email: u.email, sub: u.id, uid: u.id, role: u.role,
-      centerId: u.admin_center ?? u.staff_center ?? undefined, locale: u.locale, ver: u.token_version } as never,
-    secret, maxAge: 3600,
-  });
-  return `${app === "superadmin" ? "edura-superadmin.session-token" : "next-auth.session-token"}=${jwe}`;
+  return {
+    user: {
+      id: u.id, role: u.role, email: u.email, name: u.name,
+      centerId: u.admin_center ?? u.staff_center ?? undefined, locale: u.locale,
+    } as SessionUser,
+  };
 }
 
-async function call(base: string, method: string, path: string, cookie?: string, body?: unknown) {
-  const h: Record<string, string> = {};
-  if (cookie) h.cookie = cookie;
+type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
+
+/**
+ * path -> the REAL route handler. Dynamic segments are matched by a regex so
+ * `/api/v1/courses/<uuid>` reaches courses/[id] with `params.id` populated,
+ * exactly as Next would. An unmatched path throws — a typo must be a loud
+ * failure, not a silent 404 that reads like a rejected request.
+ */
+const ROUTES: { method: string; pattern: RegExp; handler: Handler; keys: string[] }[] = [
+  { method: "POST", pattern: /^\/api\/v1\/courses$/, handler: coursesRoute as Handler, keys: [] },
+  { method: "PATCH", pattern: /^\/api\/v1\/courses\/([^/]+)$/, handler: courseByIdRoute as Handler, keys: ["id"] },
+  { method: "POST", pattern: /^\/api\/v1\/enrollments$/, handler: enrollmentsRoute as Handler, keys: [] },
+  { method: "POST", pattern: /^\/api\/v1\/center\/subscriptions$/, handler: centerSubscriptionsRoute as Handler, keys: [] },
+  { method: "PATCH", pattern: /^\/api\/v1\/teacher\/attendance-mode$/, handler: attendanceModeRoute as Handler, keys: [] },
+  { method: "POST", pattern: /^\/api\/v1\/door-checkin$/, handler: doorCheckinRoute as Handler, keys: [] },
+  { method: "POST", pattern: /^\/api\/v1\/sessions\/([^/]+)\/complete$/, handler: sessionCompleteRoute as Handler, keys: ["id"] },
+  { method: "POST", pattern: /^\/api\/v1\/auth\/register\/center$/, handler: registerCenterRoute as Handler, keys: [] },
+  { method: "POST", pattern: /^\/api\/v1\/center\/staff$/, handler: centerStaffRoute as Handler, keys: [] },
+];
+
+/** A distinct IP per call so the shared rate-limit buckets never starve the run. */
+const nextIp = () => `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
+
+async function call(method: string, path: string, session?: Session, body?: unknown) {
+  const route = ROUTES.find((r) => r.method === method && r.pattern.test(path));
+  if (!route) throw new Error(`c01: no in-process handler registered for ${method} ${path}`);
+  const m = route.pattern.exec(path) as RegExpExecArray;
+  const params = Object.fromEntries(route.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
+
+  const h: Record<string, string> = { "x-forwarded-for": nextIp() };
   let payload: string | undefined;
   if (body !== undefined) { payload = JSON.stringify(body); h["content-type"] = "application/json"; }
-  const res = await fetch(base + path, { method, headers: h, body: payload });
-  const text = await res.text();
-  let json: never | null = null; try { json = JSON.parse(text); } catch { /* */ }
-  return { status: res.status, json, text: text.slice(0, 400) };
+  currentSession = session ?? null;
+  try {
+    const res = await route.handler(
+      new Request(`http://localhost${path}`, { method, headers: h, body: payload }),
+      { params: Promise.resolve(params) },
+    );
+    const text = await res.text();
+    let json: never | null = null; try { json = JSON.parse(text); } catch { /* */ }
+    return { status: res.status, json, text: text.slice(0, 400) };
+  } finally {
+    currentSession = null;
+  }
 }
 const D = (r: { json: never | null }) => (r.json as never as { data?: never })?.data as never;
 
@@ -143,9 +207,9 @@ async function purge() {
 
 /** Build a settled lesson end-to-end and return the observed money. */
 async function settleLesson(opts: {
-  label: string; centerId: string; adminCookie: string; teacherId: string;
-  teacherCookie: string; studentId: string; receptionCookie: string;
-  assistantCookie?: string; withRoom?: string; centerShare?: number | null; price: number;
+  label: string; centerId: string; adminSession: Session; teacherId: string;
+  teacherSession: Session; studentId: string; receptionSession: Session;
+  assistantSession?: Session; withRoom?: string; centerShare?: number | null; price: number;
 }) {
   const start = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
   const end = new Date(Date.now() + 9 * 86400000).toISOString().slice(0, 10);
@@ -156,7 +220,7 @@ async function settleLesson(opts: {
     schedulePattern: { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: `${hh}:00`, endTime: `${String(Number(hh) + 1).padStart(2, "0")}:00`, startDate: start, endDate: end },
   };
   if (opts.withRoom) { body.defaultRoomId = opts.withRoom; body.pricingMethod = "whole_room_percent"; }
-  let r = await call(WWW, "POST", "/api/v1/courses", opts.adminCookie, body);
+  let r = await call("POST", "/api/v1/courses", opts.adminSession, body);
   if (r.status !== 201 && r.status !== 200) return { error: `course create -> ${r.status}: ${r.text}` };
   const courseId = (D(r) as { id?: string }).id as string;
   created.courses.push(courseId);
@@ -165,19 +229,19 @@ async function settleLesson(opts: {
     await pool.query(`update center_teacher_affiliations set center_share=$3 where teacher_id=$1 and center_id=$2`,
       [opts.teacherId, opts.centerId, opts.centerShare]);
   }
-  await call(WWW, "PATCH", `/api/v1/courses/${courseId}`, opts.adminCookie, { pricePerSession: 5000, pricePerMonth: 20000 });
+  await call("PATCH", `/api/v1/courses/${courseId}`, opts.adminSession, { pricePerSession: 5000, pricePerMonth: 20000 });
   const sess = (await q(`select id from sessions where course_id=$1 order by date limit 1`, [courseId]))[0];
   const plannedSessions = (await q(`select count(*)::int c from sessions where course_id=$1`, [courseId]))[0].c;
-  await call(WWW, "POST", "/api/v1/enrollments", opts.adminCookie, { studentId: opts.studentId, courseId });
-  await call(WWW, "POST", "/api/v1/center/subscriptions", opts.receptionCookie,
+  await call("POST", "/api/v1/enrollments", opts.adminSession, { studentId: opts.studentId, courseId });
+  await call("POST", "/api/v1/center/subscriptions", opts.receptionSession,
     { studentId: opts.studentId, courseId, plan: "per_session", sessionId: sess.id, markAttendance: true });
-  await call(WWW, "PATCH", "/api/v1/teacher/attendance-mode", opts.teacherCookie, { mode: "counter_and_door" });
-  await call(WWW, "POST", "/api/v1/door-checkin", opts.assistantCookie ?? opts.teacherCookie, { studentId: opts.studentId, sessionId: sess.id });
+  await call("PATCH", "/api/v1/teacher/attendance-mode", opts.teacherSession, { mode: "counter_and_door" });
+  await call("POST", "/api/v1/door-checkin", opts.assistantSession ?? opts.teacherSession, { studentId: opts.studentId, sessionId: sess.id });
   const present = (await q(`select count(*)::int c from attendance_records where session_id=$1 and status='present'`, [sess.id]))[0].c;
 
   const before = await wallets(opts.centerId, opts.teacherId);
   const b = await snap();
-  const complete = await call(WWW, "POST", `/api/v1/sessions/${sess.id}/complete`, opts.teacherCookie, {});
+  const complete = await call("POST", `/api/v1/sessions/${sess.id}/complete`, opts.teacherSession, {});
   const after = await wallets(opts.centerId, opts.teacherId);
   const a = await snap();
   const ledger = await q(`select type,amount,from_entity_id,to_entity_id,notes from transactions where lesson_id=$1 order by created_at,ref_number`, [sess.id]);
@@ -201,20 +265,15 @@ async function main() {
   // SEED_SUPERADMIN_* env vars instead). short_id and role are stable.
   const NILE = (await q(`select id from centers where short_id='NILE'`))[0]?.id as string;
   if (!NILE) throw new Error("NILE center missing — run packages/database/prisma/preview-seed.ts");
-  const superadminId = (await q(
-    `select id from users where role='super_admin' and status='active' and deleted_at is null order by created_at limit 1`,
-  ))[0]?.id as string;
-  if (!superadminId) throw new Error("no active super_admin — run packages/database/prisma/seed.ts");
-  const superCookie = await cookieFor(superadminId, "superadmin");
   const teacherId = (await q(`select id from users where email='hossam.aziz@nile-academy.eg'`))[0].id;
-  const teacherCookie = await cookieFor(teacherId, "www");
+  const teacherSession = await sessionFor(teacherId);
   const assistantId = (await q(`select id from users where email='sara.fawzy@nile-academy.eg'`))[0].id;
-  const assistantCookie = await cookieFor(assistantId, "www");
+  const assistantSession = await sessionFor(assistantId);
   const studentId = (await q(`select id from users where email='lina.hassan@student.nile-academy.eg'`))[0].id;
   const nileAdminId = (await q(`select id from users where email='admin@nile-academy.eg'`))[0].id;
-  const nileAdminCookie = await cookieFor(nileAdminId, "www");
+  const nileAdminSession = await sessionFor(nileAdminId);
   const nileReceptionId = (await q(`select id from users where email='reception@nile-academy.eg'`))[0].id;
-  const nileReceptionCookie = await cookieFor(nileReceptionId, "www");
+  const nileReceptionSession = await sessionFor(nileReceptionId);
   const nileRoom = (await q(`select id from rooms where center_id=$1 and is_active=true limit 1`, [NILE]))[0].id;
   const fees = (await q(`select platform_teacher_fee::int tf, platform_center_fee::int cf from commission_settings where scope='global'`))[0];
   const origShare = (await q(`select center_share from center_teacher_affiliations where teacher_id=$1 and center_id=$2`, [teacherId, NILE]))[0]?.center_share ?? null;
@@ -237,7 +296,7 @@ async function main() {
   // =====================================================================
   section("P1 — a BRAND-NEW center with a ZERO wallet completes its FIRST lesson");
   // =====================================================================
-  let r = await call(WWW, "POST", "/api/v1/auth/register/center", undefined, {
+  let r = await call("POST", "/api/v1/auth/register/center", undefined, {
     centerName: `${TAG} Fresh Center`, adminName: `${TAG} Owner`,
     email: `${TAG}-owner@c01proof.test`, password: PW, locale: "en",
   });
@@ -246,31 +305,52 @@ async function main() {
   const newAdminId = (D(r) as { user?: { id?: string } }).user?.id as string;
   created.centers.push(newCenterId); created.users.push(newAdminId);
 
-  r = await call(SA, "POST", `/api/v1/admin/centers/${newCenterId}/approve`, superCookie, {});
-  assert(r.status === 200 || r.status === 201, `super_admin approves it -> ${r.status}`);
-  r = await call(SA, "POST", `/api/v1/admin/teachers/${teacherId}/link-center`, superCookie, { centerId: newCenterId });
-  assert([200, 201, 409].includes(r.status), `a teacher is affiliated to the new center -> ${r.status}`);
+  // FIXTURE, not an assertion. Approving a center and affiliating a teacher are
+  // apps/superadmin operations, and a superadmin service cannot be imported here:
+  // its own `@/lib/...` imports would resolve against apps/www/src, where files
+  // of the SAME NAME exist — so it would silently run www's platformDb and
+  // notify. Proven 2026-08-01, and unacceptable in a money proof. Those two
+  // operations are covered in-process on their own side
+  // (apps/superadmin/tests/db/center-platform.test.ts); what C-01 needs from
+  // them is only the resulting STATE, written here directly.
+  await pool.query(`update centers set status='active' where id=$1`, [newCenterId]);
+  // Same shape linkTeacherCenter writes: active, responded now, one-year expiry.
+  await pool.query(
+    `insert into center_teacher_affiliations
+       (id, center_id, teacher_id, status, responded_at, expires_at, created_at, updated_at)
+     values (gen_random_uuid(), $1, $2, 'active', now(), now() + interval '1 year', now(), now())
+     on conflict do nothing`,
+    [newCenterId, teacherId],
+  );
+  assert(
+    (await q(`select status from centers where id=$1`, [newCenterId]))[0].status === "active",
+    "the new center is active (fixture: approval state)",
+  );
+  assert(
+    (await q(`select 1 from center_teacher_affiliations where teacher_id=$1 and center_id=$2 and status='active'`,
+      [teacherId, newCenterId])).length === 1,
+    "the teacher is affiliated to the new center (fixture: link state)",
+  );
 
   const freshWallet = Number((await q(`select wallet_balance from centers where id=$1`, [newCenterId]))[0].wallet_balance);
   assert(freshWallet === 0, `the new center's wallet is ${freshWallet} (zero — the exact C-01 precondition)`);
   const freshShare = (await q(`select center_share from center_teacher_affiliations where teacher_id=$1 and center_id=$2`, [teacherId, newCenterId]))[0]?.center_share;
   assert(freshShare == null || Number(freshShare) === 0, `the affiliation's centerShare is ${freshShare ?? "NULL"} (the default — the other C-01 precondition)`);
 
-  const newAdminCookie = await cookieFor(newAdminId, "www");
   await pool.query(`update users set status='active' where id=$1`, [newAdminId]);
-  const newAdminCookie2 = await cookieFor(newAdminId, "www");
+  const newAdminSession = await sessionFor(newAdminId);
   // give the new center a receptionist so the counter path is identical
-  r = await call(WWW, "POST", "/api/v1/center/staff", newAdminCookie2,
+  r = await call("POST", "/api/v1/center/staff", newAdminSession,
     { name: `${TAG} Desk`, email: `${TAG}-desk@c01proof.test`, password: PW, role: "receptionist" });
   const deskUserId = (D(r) as { staffUserId?: string; user?: { id?: string } })?.staffUserId ?? (D(r) as { user?: { id?: string } })?.user?.id;
   if (deskUserId) created.users.push(deskUserId as string);
-  const deskCookie = deskUserId ? await cookieFor(deskUserId as string, "www") : newAdminCookie2;
+  const deskSession = deskUserId ? await sessionFor(deskUserId as string) : newAdminSession;
   await pool.query(`insert into center_student_rosters (id,center_id,student_id,added_at,created_at,updated_at)
      values (gen_random_uuid(),$1,$2,now(),now(),now()) on conflict do nothing`, [newCenterId, studentId]);
 
   const p1 = await settleLesson({
-    label: "fresh no-room", centerId: newCenterId, adminCookie: newAdminCookie2, teacherId,
-    teacherCookie, studentId, receptionCookie: deskCookie, assistantCookie, price: 20000, centerShare: null,
+    label: "fresh no-room", centerId: newCenterId, adminSession: newAdminSession, teacherId,
+    teacherSession, studentId, receptionSession: deskSession, assistantSession, price: 20000, centerShare: null,
   });
   if ("error" in p1) { assert(false, `P1 setup failed: ${p1.error}`); }
   else {
@@ -302,7 +382,7 @@ async function main() {
     // ---- P3 exactly-once ----
     section("P3 — exactly-once still holds");
     const b3 = await snap();
-    const replay = await call(WWW, "POST", `/api/v1/sessions/${p1.sessionId}/complete`, teacherCookie, {});
+    const replay = await call("POST", `/api/v1/sessions/${p1.sessionId}/complete`, teacherSession, {});
     const a3 = await snap();
     const w3 = await wallets(newCenterId, teacherId);
     assert(a3.t === b3.t, `replaying the completion wrote NO extra transactions (${b3.t} -> ${a3.t})`);
@@ -310,30 +390,21 @@ async function main() {
     assert(w3.t === p1.walletsAfter.t && w3.c === p1.walletsAfter.c, "replaying moved NEITHER wallet — the distributedAt claim still gates");
     assert([200, 201, 409, 422].includes(replay.status), `the replay answered ${replay.status} (never a 500)`);
 
-    // ---- P7 refund round-trip ----
-    section("P7 — refund reversal round-trips exactly, and H3 still refuses a double");
-    const wBeforeRefund = await wallets(newCenterId, teacherId);
-    const ref1 = await call(SA, "POST", "/api/v1/finance/refunds", superCookie,
-      { sessionId: p1.sessionId, studentId, reason: `${TAG} proof` });
-    const wAfterRefund = await wallets(newCenterId, teacherId);
-    assert(ref1.status === 200 || ref1.status === 201, `the refund succeeded -> ${ref1.status}`);
-    assert(!/wallet_balance_nonneg/.test(ref1.text), "the refund did NOT violate the wallet floor");
-    assert(wAfterRefund.t === wBeforeRefund.t - teacherNet, `the teacher wallet reversed by exactly teacherNet (${wBeforeRefund.t} -> ${wAfterRefund.t})`);
-    assert(wAfterRefund.c === wBeforeRefund.c - centerNet, `the center wallet reversed by exactly centerNet (${wBeforeRefund.c} -> ${wAfterRefund.c})`);
-    assert(wAfterRefund.t >= 0 && wAfterRefund.c >= 0, "both wallets are still >= 0 after the reversal");
-    const ref2 = await call(SA, "POST", "/api/v1/finance/refunds", superCookie,
-      { sessionId: p1.sessionId, studentId, reason: `${TAG} double` });
-    assert([409, 422].includes(ref2.status), `H3: the second refund of the same charge is refused -> ${ref2.status}`);
-    const refundRows = (await q(`select count(*)::int c from transactions where type='refund' and lesson_id=$1`, [p1.sessionId]))[0].c;
-    assert(refundRows === 1, `exactly one refund row exists for this charge (${refundRows})`);
+    // ---- P7 lives in apps/superadmin now ----
+    // The refund round-trip against a ZERO-wallet center moved to
+    // apps/superadmin/tests/db/c01-zero-wallet-refund.test.ts. It is not dropped
+    // and not weakened — `refundLessonForStudent` exists ONLY in apps/superadmin
+    // (it is not a server-core shim like commission/distribution/fees), so it
+    // cannot be imported here without binding to www's same-named modules. The
+    // suite that owns that service now owns the assertions too.
   }
 
   // =====================================================================
   section("P5 — a CORRECTLY-CONFIGURED no-room course is byte-identical to the old math");
   // =====================================================================
   const p5 = await settleLesson({
-    label: "configured no-room", centerId: NILE, adminCookie: nileAdminCookie, teacherId,
-    teacherCookie, studentId, receptionCookie: nileReceptionCookie, assistantCookie,
+    label: "configured no-room", centerId: NILE, adminSession: nileAdminSession, teacherId,
+    teacherSession, studentId, receptionSession: nileReceptionSession, assistantSession,
     price: 80000, centerShare: 1000,
   });
   if ("error" in p5) assert(false, `P5 setup failed: ${p5.error}`);
@@ -357,8 +428,8 @@ async function main() {
   section("P6 — the room-based (Method 1) branch is untouched");
   // =====================================================================
   const p6 = await settleLesson({
-    label: "room based", centerId: NILE, adminCookie: nileAdminCookie, teacherId,
-    teacherCookie, studentId, receptionCookie: nileReceptionCookie, assistantCookie,
+    label: "room based", centerId: NILE, adminSession: nileAdminSession, teacherId,
+    teacherSession, studentId, receptionSession: nileReceptionSession, assistantSession,
     withRoom: nileRoom, price: 20000, centerShare: null,
   });
   if ("error" in p6) assert(false, `P6 setup failed: ${p6.error}`);
@@ -386,7 +457,14 @@ async function main() {
     (select count(*) from student_profiles where wallet_balance<0)::int s`))[0];
   assert(negs.c === 0 && negs.t === 0 && negs.s === 0,
     `no wallet anywhere is negative (centers ${negs.c}, teachers ${negs.t}, students ${negs.s})`);
-  const checks2 = await q(`select count(*)::int c from pg_constraint where conname like '%wallet_balance_nonneg%' and convalidated`);
+  // NAME the three, do not pattern-match. `like '%wallet_balance_nonneg%'` used
+  // to be a false green: the parent-wallet migration added a FOURTH constraint,
+  // so parent+student+teacher alone satisfied "3/3" while
+  // `centers_wallet_balance_nonneg` — the one this entire suite is about — could
+  // sit NOT VALID unnoticed. It was doing exactly that on the test branch.
+  const checks2 = await q(`select count(*)::int c from pg_constraint
+     where conname in ('centers_wallet_balance_nonneg','teacher_profiles_wallet_balance_nonneg','student_profiles_wallet_balance_nonneg')
+       and convalidated`);
   assert(checks2[0].c === 3, `all 3 CHECKs remain present and validated (${checks2[0].c}/3) — the fix did NOT weaken H2`);
 
   // =====================================================================

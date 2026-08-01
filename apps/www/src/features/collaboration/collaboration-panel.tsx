@@ -482,11 +482,27 @@ function CreateCollabDialog({
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // The picker types straight into the combobox, so debounce before hitting the
+  // API rather than firing a request per keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(targetQuery.trim()), 300);
+    return () => clearTimeout(id);
+  }, [targetQuery]);
+
   // Target directory: teachers search centers, centers search teachers.
+  // `includeEmpty` is what makes a center with no courses yet appear here — the
+  // student-facing default hides those, and a new center is exactly the one a
+  // teacher wants to apply to.
   const { result: targetsRes } = useCustom({
     url: role === "teacher" ? "search/centers" : "search/teachers",
     method: "get",
-    config: { query: targetQuery ? { q: targetQuery } : {} },
+    config: {
+      query: {
+        ...(debouncedQuery ? { q: debouncedQuery } : {}),
+        ...(role === "teacher" ? { includeEmpty: "1" } : {}),
+      },
+    },
     queryOptions: { enabled: open },
   });
   const targets = asArray(targetsRes);
@@ -679,12 +695,8 @@ function CreateCollabDialog({
             <div className="mb-1 text-sm font-medium">
               {role === "teacher" ? t("shared.collab.pickCenter") : t("shared.collab.pickTeacher")}
             </div>
-            <Input
-              placeholder={t("actions.search")}
-              value={targetQuery}
-              onChange={(e) => setTargetQuery(e.target.value)}
-              className="mb-2"
-            />
+            {/* One search box, not two: the combobox's own input IS the server
+                query, so typing there can never filter an empty local list. */}
             <Combobox
               options={targets.map((x: any) => ({
                 value: String(x.id ?? x.userId),
@@ -697,6 +709,8 @@ function CreateCollabDialog({
               }
               searchPlaceholder={t("actions.search")}
               emptyText={t("common.noData")}
+              search={targetQuery}
+              onSearchChange={setTargetQuery}
             />
           </div>
 
