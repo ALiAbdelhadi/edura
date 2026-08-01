@@ -56,7 +56,10 @@
     "more": "More",
     "allSections": "All sections",
     "security": "Security",
-    "users": "Users"
+    "users": "Users",
+    "featureFlags": "Feature flags",
+    "contactInbox": "Contact inbox",
+    "deletionQueue": "Deletion requests"
   },
   "roles": {
     "student": "Student",
@@ -717,7 +720,8 @@
     "deniedBody": "Your account is not permitted to view settlements.",
     "prev": "Previous",
     "next": "Next",
-    "settlementCount": "settlements"
+    "settlementCount": "settlements",
+    "exportXlsx": "Export to Excel"
   },
   "auditLog": {
     "title": "Audit log",
@@ -1408,5 +1412,90 @@
     "confirm_impersonate_body": "Your session becomes theirs until you stop, and both the start and the stop are audited. Only back-office accounts can be viewed this way.",
     "impersonatingAs": "You are viewing the back office as {name}",
     "stopImpersonating": "Stop impersonating"
+  },
+  "featureFlags": {
+    "title": "Feature flags",
+    "subtitle": "Platform-wide switches. Every change is written to the audit log.",
+    "defaultClosedTitle": "Default: disabled",
+    "defaultClosedBody": "A key with no row in the database reads as disabled. A typo'd key or an unseeded database ends at “not available”, never at exposing something that isn't ready.",
+    "on": "Enabled",
+    "off": "Disabled",
+    "neverSet": "Never set",
+    "enable": "Enable",
+    "disable": "Disable",
+    "enabledOk": "{key} enabled",
+    "disabledOk": "{key} disabled",
+    "saveFail": "Could not save. Please try again.",
+    "lastChanged": "Last changed {when}",
+    "loading": "Loading",
+    "emptyTitle": "No flags",
+    "emptyBody": "No flag is defined in code or stored in the database."
+  },
+  "contactInbox": {
+    "title": "Contact inbox",
+    "subtitle": "Messages received through the public site's contact form.",
+    "readOnlyNotice": "Read-only — no message text or sender detail can be edited here. Only the triage status can change.",
+    "filterSearch": "Search",
+    "filterSearchPlaceholder": "Name, email, or message text",
+    "status": {
+      "new": "New",
+      "handled": "Handled",
+      "spam": "Spam",
+      "all": "All"
+    },
+    "waiting": "Waiting:",
+    "markHandled": "Mark handled",
+    "markSpam": "Mark as spam",
+    "reopen": "Reopen",
+    "triagedOk": "Status updated",
+    "triageFail": "Could not update the status",
+    "handledBy": "Handled by {who} on {when}",
+    "loading": "Loading",
+    "emptyTitle": "No messages",
+    "emptyBody": "Nothing has arrived that matches the current filters.",
+    "totalSuffix": "messages",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "deletionQueue": {
+    "title": "Account deletion requests",
+    "subtitle": "Personal-data deletion requests under Egypt's Law 151/2020.",
+    "ledgerNotice": "Approving erases personal details only (name, email, phone, guardian contact). Financial records — payments, receipts, settlements — remain exactly as they are, without a name, because the law requires us to keep them and because they cannot be edited in the first place.",
+    "origin": {
+      "self": "Self-requested",
+      "guardian": "Guardian-requested",
+      "center": "Center-requested"
+    },
+    "status": {
+      "pending": "Under review",
+      "approved": "Completed",
+      "rejected": "Rejected",
+      "cancelled": "Withdrawn",
+      "all": "All"
+    },
+    "subject": "Account holder",
+    "requestedBy": "Requested by",
+    "requestedAt": "Requested",
+    "reason": "Reason",
+    "reviewNote": "Review note",
+    "reviewNotePlaceholder": "Why — required",
+    "approve": "Approve and erase details",
+    "reject": "Reject request",
+    "approveConfirmTitle": "Confirm deletion",
+    "approveConfirmBody": "The account is disabled immediately and its personal details are permanently erased. Erasure cannot be undone.",
+    "confirm": "Execute",
+    "cancel": "Cancel",
+    "approvedOk": "Request executed and personal details erased",
+    "rejectedOk": "Request rejected",
+    "actionFail": "The action could not be completed",
+    "anonymized": "Details erased {when}",
+    "notAnonymized": "Account disabled but personal details not yet erased",
+    "anonymizeNow": "Erase details now",
+    "loading": "Loading",
+    "emptyTitle": "No requests",
+    "emptyBody": "Nothing matches the current filters.",
+    "totalSuffix": "requests",
+    "prev": "Previous",
+    "next": "Next"
   }
 }

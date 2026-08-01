@@ -231,8 +231,35 @@ enum DeletionStatus {
   pending
   approved
   rejected
+  // The subject withdrew their own request before anyone acted on it.
+  // Deliberately NOT folded into `rejected`: rejection is a decision someone
+  // else made about you, and a data-rights report must not confuse the two.
+  cancelled
 
   @@map("deletion_status")
+}
+
+// Who raised a deletion request. `center` is what every row predating the
+// data-rights work meant, which is why it is the default.
+enum DeletionOrigin {
+  self
+  guardian
+  center
+
+  @@map("deletion_origin")
+}
+
+// `enum ContactSubmissionStatus` lives with its model at the bottom of this
+// file — the conversion layer's copy. See the note beside DataExportRequest.
+
+enum DataExportStatus {
+  pending
+  processing
+  ready
+  failed
+  expired
+
+  @@map("data_export_status")
 }
 
 enum InvitePurpose {
@@ -453,6 +480,7 @@ model User {
   authSessions       AuthSession[]
   authAccounts       AuthAccount[]
   twoFactors         TwoFactor[]
+  dataExportRequests DataExportRequest[]
 
   @@index([role])
   @@index([status])
@@ -1509,22 +1537,95 @@ model AuditLog {
 // DELETION REQUESTS (existing)
 // =============================================================================
 
+// ONE deletion queue, three origins. This table was born as the CENTER-raised
+// queue; the data-rights work (قانون 151/2020) added the SELF- and
+// GUARDIAN-raised paths to the SAME table rather than opening a second way to
+// disable an account. Approving is a soft delete + a PII scrub — the money
+// ledger is never touched (see the 20260802100100 migration header).
 model DeletionRequest {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String         @map("user_id") @db.Uuid
-  centerId    String?        @map("center_id") @db.Uuid
-  reason      String
-  status      DeletionStatus @default(pending)
-  requestedAt DateTime       @default(now()) @map("requested_at") @db.Timestamptz(6)
-  reviewedBy  String?        @map("reviewed_by") @db.Uuid
-  reviewedAt  DateTime?      @map("reviewed_at") @db.Timestamptz(6)
-  reviewNote  String?        @map("review_note")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  centerId      String?         @map("center_id") @db.Uuid
+  reason        String
+  status        DeletionStatus  @default(pending)
+  // Who raised it. NULL only on rows predating the column — all center-raised.
+  requestedBy   String?         @map("requested_by") @db.Uuid
+  origin        DeletionOrigin  @default(center)
+  requesterNote String?         @map("requester_note")
+  requestedAt   DateTime        @default(now()) @map("requested_at") @db.Timestamptz(6)
+  reviewedBy    String?         @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote    String?         @map("review_note")
+  // NULL on an approved row = soft-deleted but still carrying a name. The
+  // admin queue surfaces that state so a half-finished erasure cannot hide.
+  anonymizedAt  DateTime?       @map("anonymized_at") @db.Timestamptz(6)
+  anonymizedBy  String?         @map("anonymized_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([userId])
   @@index([centerId, status])
+  @@index([status, requestedAt(sort: Desc)])
+  // Plus (raw SQL — Prisma cannot express a partial unique): UNIQUE on
+  // user_id WHERE status = 'pending'. One open request per subject.
   @@map("deletion_requests")
+}
+
+// =============================================================================
+// MATURITY LAYER — feature flags, contact inbox, data exports (2026-08-02)
+// =============================================================================
+
+// Platform-global feature switches. DEFAULT-CLOSED: a key with no row here
+// reads as disabled, so a typo or an unseeded database fails to "off".
+model FeatureFlag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  description String?
+  enabled     Boolean  @default(false)
+  note        String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("feature_flags")
+}
+
+// `model ContactSubmission` is NOT here. The conversion layer landed the same
+// table independently (migration 20260802140000_contact_submissions, written
+// IF NOT EXISTS against the shape this branch had already applied to dev), and
+// its model is the one that survives — see the bottom of this file. Two models
+// mapping to `contact_submissions` would not compile, and the duplicate
+// deleted here was the younger of two identical definitions.
+//
+// The back-office READER for those rows is
+// apps/superadmin/src/lib/services/admin/contact-submissions.ts, in this
+// branch; the WRITER is apps/www POST /api/v1/contact, in theirs.
+
+// Self-serve data export. The payload lives INLINE and expires — there is no
+// file in object storage and therefore no public URL to leak.
+model DataExportRequest {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  // Equals userId for a self-serve request; a parent's id when a guardian
+  // exports a minor child's data.
+  requestedBy String           @map("requested_by") @db.Uuid
+  status      DataExportStatus @default(pending)
+  requestedAt DateTime         @default(now()) @map("requested_at") @db.Timestamptz(6)
+  startedAt   DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  expiresAt   DateTime?        @map("expires_at") @db.Timestamptz(6)
+  payload     Json?
+  byteSize    Int?             @map("byte_size")
+  error       String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, requestedAt(sort: Desc)])
+  @@index([status, requestedAt])
+  // Plus (raw SQL): UNIQUE on user_id WHERE status IN ('pending','processing').
+  @@map("data_export_requests")
 }
 
 // =============================================================================

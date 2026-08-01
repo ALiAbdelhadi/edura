@@ -39,7 +39,10 @@ export function LegalPage({
           {ar ? "آخر تحديث: " : "Last updated: "}
           {updated}
         </p>
-        <div className="legal-prose mt-8 space-y-6 rounded-[var(--radius)] border border-[var(--rule)] bg-[var(--sheet)] p-6 sm:p-8 [&_h2]:border-b [&_h2]:border-[var(--rule-2)] [&_h2]:pb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--ink)] [&_li]:text-sm [&_li]:leading-7 [&_li]:text-[var(--ink-2)] [&_p]:text-sm [&_p]:leading-7 [&_p]:text-[var(--ink-2)] [&_ul]:ms-5 [&_ul]:list-disc [&_ul]:space-y-1">
+        {/* `h3` was added for the data-rights section, which has genuine
+            sub-headings (access / deletion / correction). Rule-less and
+            smaller than h2 so the hierarchy stays two levels deep visually. */}
+        <div className="legal-prose mt-8 space-y-6 rounded-[var(--radius)] border border-[var(--rule)] bg-[var(--sheet)] p-6 sm:p-8 [&_h2]:border-b [&_h2]:border-[var(--rule-2)] [&_h2]:pb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--ink)] [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-[var(--ink)] [&_li]:text-sm [&_li]:leading-7 [&_li]:text-[var(--ink-2)] [&_p]:text-sm [&_p]:leading-7 [&_p]:text-[var(--ink-2)] [&_ul]:ms-5 [&_ul]:list-disc [&_ul]:space-y-1">
           {children}
         </div>
       </main>

@@ -98,6 +98,9 @@ const NAV_KEY: Record<string, string> = {
   "Wallet policy": "nav.walletPolicy",
   "Audit log": "nav.auditLog",
   Security: "nav.security",
+  "Feature flags": "nav.featureFlags",
+  "Contact inbox": "nav.contactInbox",
+  "Deletion requests": "nav.deletionQueue",
 };
 
 const iconMap: Record<string, LucideIcon> = {

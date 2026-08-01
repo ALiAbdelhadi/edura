@@ -16,6 +16,7 @@ import { toast } from "@repo/ui/components/sonner";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { newIdempotencyKey } from "@/features/student/idempotency";
+import { StudentReceiptsSection } from "@/features/student/student-receipts-section";
 import {
   Chip,
   DoubleTotal,
@@ -302,6 +303,11 @@ export function StudentWalletScreen() {
           )}
         </div>
       </Sheet>
+
+      {/* The student's own receipts. Kept as its own sheet, NOT merged into the
+          ledger above: that table's rows must sum to the closing balance, and a
+          card or cash payment never touched the wallet. */}
+      <StudentReceiptsSection />
 
       {/* Top-up dialog */}
       <Dialog open={topupOpen} onOpenChange={(o) => !busy && setTopupOpen(o)}>

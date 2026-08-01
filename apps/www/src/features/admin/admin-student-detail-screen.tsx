@@ -56,6 +56,7 @@ import {
   UserX,
   Wallet,
 } from "lucide-react";
+import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
@@ -260,7 +261,10 @@ export function AdminStudentDetailScreen() {
       id: "receipt",
       header: t("adminHome.detail_receiptNumber"),
       cell: ({ row }) => (
-        <CopyableText value={row.original.receiptNumber} label="Receipt number" />
+        <div className="flex flex-col items-start gap-0.5">
+          <CopyableText value={row.original.receiptNumber} label="Receipt number" />
+          {row.original.id ? <ReceiptLink paymentId={row.original.id} /> : null}
+        </div>
       ),
     },
     {

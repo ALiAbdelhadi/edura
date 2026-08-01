@@ -30,6 +30,7 @@ import { DescriptionList } from "@/components/kit/description-list";
 import { PageHeader } from "@/components/kit/page-header";
 import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
 import { ProfileImageCard } from "@/features/settings/profile-image-card";
+import { DataRightsCard } from "@/features/settings/data-rights-card";
 import { SessionsCard } from "@/features/settings/sessions-card";
 import { TwoFactorCard } from "@/features/settings/two-factor-card";
 import { Spinner } from "@/components/kit/spinner";
@@ -299,6 +300,9 @@ export function SettingsScreen() {
           gets the devices & sessions list. */}
       {me?.role === "center_admin" ? <TwoFactorCard /> : null}
       <SessionsCard />
+      {/* Law 151/2020: export and erasure, on every role's settings screen.
+          These are rights, not a feature for one portal. */}
+      <DataRightsCard />
     </div>
   );
 }

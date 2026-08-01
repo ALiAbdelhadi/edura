@@ -65,6 +65,7 @@ import {
   postMoney,
   readApiError,
 } from "./ledger";
+import { ReceiptLink } from "@/features/receipts/receipt-link";
 
 export function AdminFeesScreen() {
   const t = useTranslations();
@@ -481,10 +482,14 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.receiptNumber"),
       enableSorting: false,
       cell: ({ row }) => (
-        <CopyableText
-          value={row.original.receiptNumber}
-          label={t("adminManage.fees.receiptNumberLabel")}
-        />
+        <div className="flex flex-col items-start gap-0.5">
+          <CopyableText
+            value={row.original.receiptNumber}
+            label={t("adminManage.fees.receiptNumberLabel")}
+          />
+          {/* The counter is where a receipt is most often ASKED for out loud. */}
+          {row.original.id ? <ReceiptLink paymentId={row.original.id} /> : null}
+        </div>
       ),
     },
     {
