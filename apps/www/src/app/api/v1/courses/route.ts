@@ -9,6 +9,7 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moneySchema, isNotPastDate } from "@/lib/validation/common";
 import { createCourse } from "@repo/server-core/services/center/courses";
+import { trackFirstGroup } from "@/lib/observability/funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -174,6 +175,9 @@ export const POST = withErrors(async (req) => {
   // snapshot, session generation) moved to the shared kernel so the back office
   // runs the SAME code. Guard, schema and response shape are unchanged.
   const { course, sessionsGenerated } = await createCourse(user, body);
+  // Funnel step 3. Post-commit and never throwing — it counts rows to decide
+  // whether this was the FIRST group, so it cannot double-fire.
+  await trackFirstGroup(user, { centerId: course.centerId, teacherId: course.teacherId });
   return ok(
     {
       ...course,

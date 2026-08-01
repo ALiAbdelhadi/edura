@@ -2,7 +2,7 @@
   "name": "@repo/server-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura shared server kernel — HTTP envelope/errors, scoped DB wrappers, rate limiting, validation, notification dispatch, and the money-engine primitives used by both apps/www and apps/superadmin. Drift-critical code lives here exactly once.",
+  "description": "Edura shared server kernel \u2014 HTTP envelope/errors, scoped DB wrappers, rate limiting, validation, notification dispatch, and the money-engine primitives used by both apps/www and apps/superadmin. Drift-critical code lives here exactly once.",
   "type": "module",
   "exports": {
     "./*": {
@@ -12,9 +12,12 @@
   },
   "dependencies": {
     "@repo/database": "workspace:*",
+    "@repo/notifications": "workspace:*",
+    "@repo/observability": "workspace:*",
     "bcryptjs": "3.0.3",
     "ioredis": "^5.11.1",
     "nodemailer": "^9.0.3",
+    "posthog-node": "^5.47.3",
     "web-push": "^3.6.7",
     "zod": "4.4.3"
   },

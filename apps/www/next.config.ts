@@ -1,5 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import withSerwistInit from "@serwist/next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -29,8 +30,19 @@ const csp = [
   // hydration/streaming scripts; 'unsafe-eval' only in dev (HMR). Tightening
   // to a nonce-based script-src is a recommended follow-up.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  // 'self' + the realtime socket origins (chat).
-  `connect-src 'self' ${realtimeHttp} ${realtimeWs}`,
+  // 'self' + the realtime socket origins (chat) + observability ingest.
+  //
+  // Sentry and PostHog are added here even though the CSP is still
+  // Report-Only: the point of Report-Only is that the report reflects what
+  // enforcing WOULD do. Leaving legitimate ingest out would fill the report
+  // with violations that are not problems and hide the ones that are — and
+  // the day the header flips to enforce, error reporting would go dark
+  // exactly when it is most needed.
+  //
+  // PostHog is proxied same-origin through /ingest (see the rewrites below),
+  // so only Sentry needs a cross-origin entry. `*.ingest.sentry.io` and
+  // `*.ingest.de.sentry.io` cover both the US and EU regions.
+  `connect-src 'self' ${realtimeHttp} ${realtimeWs} https://*.ingest.sentry.io https://*.ingest.de.sentry.io`,
   // Same-origin mock checkout + the real Paymob card iframe.
   `frame-src 'self' https://accept.paymob.com`,
   `worker-src 'self'`,
@@ -88,6 +100,27 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
+  // PostHog is reverse-proxied through our own origin. Two reasons, and the
+  // first is the one that matters in this market: `*.i.posthog.com` is on every
+  // major blocklist, so direct ingest silently loses a large slice of Egyptian
+  // traffic and the funnel under-reports without any error to notice. Second,
+  // same-origin keeps `connect-src 'self'` sufficient for analytics.
+  //
+  // Sentry is deliberately NOT proxied this way: an error tracker has to keep
+  // working when this server is unhealthy, which is precisely when a
+  // self-hosted tunnel would be down too. Hence its explicit connect-src entry.
+  async rewrites() {
+    const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
+    const assetHost = posthogHost.replace("//eu.i.", "//eu-assets.i.").replace("//us.i.", "//us-assets.i.");
+    return [
+      { source: "/ingest/static/:path*", destination: `${assetHost}/static/:path*` },
+      { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
+    ];
+  },
+  // PostHog's ingest paths are trailing-slash sensitive; Next's default
+  // redirect would break them.
+  skipTrailingSlashRedirect: true,
+
   images: {
     // `as const` is load-bearing: `remotePatterns` is typed `(RemotePattern | URL)[]`,
     // and RemotePattern.protocol is the union "http" | "https". Without it the literal
@@ -99,7 +132,13 @@ const nextConfig = {
     ],
   },
 
-  transpilePackages: ["@repo/database", "@repo/ui", "@repo/server-core"],
+  transpilePackages: [
+    "@repo/database",
+    "@repo/ui",
+    "@repo/server-core",
+    "@repo/notifications",
+    "@repo/observability",
+  ],
   serverExternalPackages: [
     "bcryptjs",
     "@prisma/client",
@@ -113,4 +152,39 @@ const nextConfig = {
   ],
 };
 
-export default withSerwist(withNextIntl(nextConfig));
+// ============================================================================
+// Sentry wraps OUTERMOST so its webpack plugin sees the final config, including
+// the Serwist service-worker build.
+//
+// SOURCE MAPS: uploaded only when SENTRY_AUTH_TOKEN is set — i.e. in CI. A
+// local `bun run build` neither uploads nor needs credentials, and
+// `deleteSourcemapsAfterUpload` means the .map files never ship to the CDN. A
+// publicly-served source map is a free copy of the entire server-side codebase,
+// which on this app includes the money engine.
+// ============================================================================
+export default withSentryConfig(withSerwist(withNextIntl(nextConfig)), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Quiet locally, verbose in CI where the log is the only way to see it work.
+  silent: !process.env.CI,
+
+  sourcemaps: {
+    // Never leave maps on the CDN.
+    deleteSourcemapsAfterUpload: true,
+    // No token (local/preview builds) => no upload attempt, no build failure.
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+
+  // Covers files served from static chunks that the default glob misses —
+  // without it, client stack traces stay minified.
+  widenClientFileUpload: true,
+
+  // Strips Sentry's own debug logging from the production bundle.
+  disableLogger: true,
+
+  // We are on Vercel, but cron monitoring is not set up and the automatic
+  // instrumentation would create check-ins nobody watches.
+  automaticVercelMonitors: false,
+});

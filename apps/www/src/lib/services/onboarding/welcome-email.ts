@@ -14,9 +14,11 @@
 // state), the session authenticates the PERSON — /onboarding matches the two.
 // =============================================================================
 import { prisma } from "@repo/database";
+import { groupFamilyCode, send } from "@repo/notifications";
 import { SignJWT, jwtVerify } from "jose";
-import { deliverInviteEmail } from "@/lib/services/invites/deliver";
 import { appBaseUrl, inviteTtlMs } from "@/lib/services/invites/invite-token";
+
+export { groupFamilyCode };
 
 const TOKEN_PURPOSE = "student_onboarding";
 
@@ -52,67 +54,10 @@ export async function verifyOnboardingToken(token: string): Promise<OnboardingTo
   }
 }
 
-/** XXXX-XXXX-XXXX — the same code, just readable over a phone call. */
-export function groupFamilyCode(code: string): string {
-  return code.replace(/(.{4})(?=.)/g, "$1-");
-}
-
-function emailContent(input: {
-  locale: "ar" | "en";
-  name: string;
-  familyCode: string;
-  link: string;
-}): { subject: string; html: string; text: string } {
-  const code = groupFamilyCode(input.familyCode);
-  const btn =
-    `background:#4f46e5;color:#ffffff;padding:12px 22px;border-radius:8px;` +
-    `text-decoration:none;font-weight:700;display:inline-block`;
-  const codeBox =
-    `font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:2px;` +
-    `background:#f4f4f5;border:1px solid #e4e4e7;border-radius:8px;padding:10px 16px;` +
-    `display:inline-block;direction:ltr`;
-  if (input.locale === "en") {
-    return {
-      subject: "Welcome to Edura — complete your profile",
-      text:
-        `Welcome, ${input.name}!\n\nComplete your profile: ${input.link}\n\n` +
-        `Your Student ID: ${code}\nShare this ID with your parent so they can follow your progress.\n` +
-        `The link expires in 7 days.`,
-      html: `
-<div dir="ltr" style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b">
-  <h2 style="margin:24px 0 8px">Welcome, ${input.name} 👋</h2>
-  <p style="margin:0 0 16px;color:#3f3f46">Edura connects you with your teachers and centers — schedule, attendance, grades and payments in one place.</p>
-  <p style="margin:24px 0"><a href="${input.link}" style="${btn}">Complete your profile</a></p>
-  <p style="margin:24px 0 6px;font-weight:700">Your Student ID</p>
-  <p style="margin:0 0 6px"><span style="${codeBox}">${code}</span></p>
-  <p style="margin:0;color:#52525b;font-size:13px">Share this ID with your parent so they can follow your progress.</p>
-  <p style="margin:28px 0 0;color:#a1a1aa;font-size:12px">The button link expires in 7 days — you can request a new one from your onboarding page.</p>
-</div>`,
-    };
-  }
-  return {
-    subject: "أهلاً بك في إدورا — أكمل ملفك الشخصي",
-    text:
-      `أهلاً ${input.name}!\n\nأكمل ملفك الشخصي: ${input.link}\n\n` +
-      `رمز الطالب الخاص بك: ${code}\nشارك هذا الرمز مع ولي أمرك ليتابع تقدمك الدراسي.\n` +
-      `صلاحية الرابط ٧ أيام.`,
-    html: `
-<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#18181b">
-  <h2 style="margin:24px 0 8px">أهلاً ${input.name} 👋</h2>
-  <p style="margin:0 0 16px;color:#3f3f46">إدورا تربطك بمعلميك ومراكزك — الجدول والحضور والدرجات والمدفوعات في مكان واحد.</p>
-  <p style="margin:24px 0"><a href="${input.link}" style="${btn}">أكمل ملفك الشخصي</a></p>
-  <p style="margin:24px 0 6px;font-weight:700">رمز الطالب الخاص بك</p>
-  <p style="margin:0 0 6px"><span style="${codeBox}">${code}</span></p>
-  <p style="margin:0;color:#52525b;font-size:13px">شارك هذا الرمز مع ولي أمرك ليتابع تقدمك الدراسي.</p>
-  <p style="margin:28px 0 0;color:#a1a1aa;font-size:12px">صلاحية زر الرابط ٧ أيام — يمكنك طلب رابط جديد من صفحة إكمال الملف.</p>
-</div>`,
-  };
-}
-
 /**
- * NEVER THROWS (mirrors deliverInviteEmail's contract) — callers fire-and-forget.
- * `force` is the resend path: it skips the exactly-once stamp but NOT the
- * eligibility guards, and its callers are rate-limited.
+ * NEVER THROWS (mirrors the notification dispatcher's contract) — callers
+ * fire-and-forget. `force` is the resend path: it skips the exactly-once stamp
+ * but NOT the eligibility guards, and its callers are rate-limited.
  */
 export async function sendStudentWelcomeEmail(
   userId: string,
@@ -150,16 +95,22 @@ export async function sendStudentWelcomeEmail(
     const locale: "ar" | "en" = user.locale === "en" ? "en" : "ar";
     const token = await signOnboardingToken(userId);
     const link = `${appBaseUrl()}/${locale}/onboarding?token=${token}`;
-    const { subject, html, text } = emailContent({
-      locale,
-      name: user.name ?? "",
-      familyCode: profile.familyLinkCode,
-      link,
-    });
-
-    const res = await deliverInviteEmail({ to: user.email, subject, html, text });
-    if (res.status !== "sent") {
-      console.error(`[welcome-email] send failed for ${userId}: ${res.error ?? "unknown"}`);
+    // The expiry sentence is derived from inviteTtlMs(), the same knob that
+    // signs the token above — the email cannot promise a window the token does
+    // not honour.
+    const res = await send(
+      "welcome",
+      { email: user.email, locale, userId: user.id },
+      {
+        name: user.name ?? "",
+        link,
+        studentCode: profile.familyLinkCode,
+        expiryDays: Math.max(1, Math.round(inviteTtlMs() / (24 * 60 * 60 * 1000))),
+      },
+    );
+    if (!res.delivered) {
+      const why = res.results.map((r) => `${r.channel}=${r.error ?? r.status}`).join(", ");
+      console.error(`[welcome-email] send failed for ${userId}: ${why}`);
       return { sent: false, reason: "send_failed" };
     }
     return { sent: true };

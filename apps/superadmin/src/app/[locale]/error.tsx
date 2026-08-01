@@ -1,5 +1,7 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+
 import { Button } from "@repo/ui/components/button";
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -14,8 +16,11 @@ export default function ErrorPage({
 }) {
   const t = useTranslations("shared");
   useEffect(() => {
-    // Digest only — the raw message may carry internals (M4 discipline).
+    // Digest only in the log — the raw message may carry internals
+    // (M4 discipline). Sentry gets the full error object, where it is scrubbed
+    // by beforeSend (@repo/observability) rather than by omission.
     console.error("[error-boundary]", error.digest ?? error.message);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

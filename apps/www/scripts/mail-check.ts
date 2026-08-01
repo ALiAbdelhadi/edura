@@ -55,7 +55,7 @@ async function main() {
 
   for (const locale of locales) {
     console.log(`\nSending a test password-reset email (${locale}) to ${to}…`);
-    const { subject, html, text } = passwordResetEmail({
+    const { subject, html, text } = await passwordResetEmail({
       // The token is deliberately not a real one — this previews the design,
       // it must never hand out a usable credential.
       link: `${appBaseUrl()}/${locale}/reset-password?token=TEST-TOKEN-NOT-REAL`,

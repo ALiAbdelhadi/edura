@@ -2,6 +2,7 @@ import { z } from "zod";
 import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { MANAGER } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
+import { trackFirstTeacher } from "@/lib/observability/funnel";
 import { acceptCollaborationRequest } from "@/lib/services/collaboration/collaboration";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,13 @@ export const POST = delegatedWithCenter(
   async (req, ctx, { acting: user }) => {
     const { id } = await ctx.params;
     const body = acceptSchema.parse(await req.json().catch(() => null));
-    return ok(await acceptCollaborationRequest(id, user, { pricingMethod: body?.pricingMethod }));
+    const result = await acceptCollaborationRequest(id, user, {
+      pricingMethod: body?.pricingMethod,
+    });
+    // Funnel step 3. Counted on ACCEPTANCE — a request nobody accepted is not
+    // activation. Post-commit, never throws, fires only on the first one.
+    await trackFirstTeacher(user, result.request?.centerId);
+    return ok(result);
   },
   { staffAllow: MANAGER },
 );
