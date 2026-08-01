@@ -882,6 +882,15 @@ new surfaces, two new packages, and NO schema migration.
    by the same `edura-env:` marker, and it REFUSES to upload an unencrypted
    dump. `.github/workflows/backup.yml` runs it nightly + a **weekly restore
    test that pulls from the BUCKET** (so download and decrypt are exercised too).
+   > **[2026-08-02] THE SCHEDULE IS DISABLED — nothing is being backed up
+   > automatically.** No bucket and no `BACKUP_*` secrets exist yet, and the
+   > job fails LOUDLY rather than skipping quietly, so it was paused rather
+   > than training anyone to ignore a nightly red run. **Neon PITR is the only
+   > protection currently in force.** Re-enable with
+   > `packages/database/scripts/setup-backup-secrets.sh`, confirm a manual run
+   > passes, then restore the `schedule:` block (exact YAML is in the
+   > workflow's header comment — the key was REMOVED, not emptied, because
+   > GitHub rejects an empty schedule array).
    > **PostgreSQL client major must be >= the server's.** Neon runs **18.4**;
    > `pg_dump` 17 aborts outright. The scripts pre-flight this with an
    > actionable error.
