@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   trustedClientIp,
   checkRateLimit,
+  rateLimitKey,
   __resetRateLimiterForTests,
 } from "@/lib/rate-limit/token-bucket";
 
@@ -56,5 +57,51 @@ describe("M3 — in-memory fallback when REDIS_URL is unset (local dev)", () => 
     // capacity 3, negligible refill: first 3 allowed, 4th denied.
     for (let i = 0; i < 4; i++) results.push(await checkRateLimit(key, 3, 1));
     expect(results).toEqual([true, true, true, false]);
+  });
+});
+
+// One Redis instance is shared by more than one environment (dev and production
+// were found on the SAME REDIS_URL), so a developer's failed logins consumed a
+// real user's bucket. Keys carry the environment.
+describe("M3 — per-environment key namespace", () => {
+  it("puts the environment in the key", () => {
+    vi.stubEnv("EDURA_ENV", "production");
+    expect(rateLimitKey("login-email:a@b.com")).toBe("rl:production:login-email:a@b.com");
+  });
+
+  it("dev and production never collide on the same logical key", () => {
+    vi.stubEnv("EDURA_ENV", "dev");
+    const dev = rateLimitKey("login-email:a@b.com");
+    vi.stubEnv("EDURA_ENV", "production");
+    const prod = rateLimitKey("login-email:a@b.com");
+    expect(dev).not.toBe(prod);
+  });
+
+  it("falls back to NODE_ENV when EDURA_ENV is unset — a deployed app is 'production'", () => {
+    vi.stubEnv("EDURA_ENV", "");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(rateLimitKey("k")).toBe("rl:production:k");
+  });
+
+  it("…and anything that is not a deployment is 'dev', so a laptop cannot reach production's buckets", () => {
+    vi.stubEnv("EDURA_ENV", "");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(rateLimitKey("k")).toBe("rl:dev:k");
+  });
+
+  it("the buckets themselves are separate, not just the names", async () => {
+    vi.stubEnv("REDIS_URL", ""); // in-memory path exercises the same namespacing
+    __resetRateLimiterForTests();
+    const key = "m3-ns-" + Math.random().toString(36).slice(2);
+
+    vi.stubEnv("EDURA_ENV", "dev");
+    // Drain dev's bucket completely (capacity 2).
+    expect(await checkRateLimit(key, 2, 1)).toBe(true);
+    expect(await checkRateLimit(key, 2, 1)).toBe(true);
+    expect(await checkRateLimit(key, 2, 1)).toBe(false);
+
+    // Production's bucket for the SAME logical key is untouched.
+    vi.stubEnv("EDURA_ENV", "production");
+    expect(await checkRateLimit(key, 2, 1)).toBe(true);
   });
 });

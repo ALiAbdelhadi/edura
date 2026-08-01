@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
-import { Info, Lock, Pencil, Plus } from "lucide-react";
+import { BookOpen, ClipboardList, DoorOpen, Info, Lock, Pencil, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
+import { EmptyState } from "@repo/ui/components/empty-state";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -99,7 +100,7 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("ac_noCourses")}</p>
+        <EmptyState icon={BookOpen} title={t("ac_noCourses")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -606,7 +607,7 @@ export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enable
       </div>
 
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("ac_noEnrollments")}</p>
+        <EmptyState icon={ClipboardList} title={t("ac_noEnrollments")} />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -895,7 +896,7 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
       </div>
 
       {rooms.length === 0 ? (
-        <p className="p-4 text-sm text-ink-2">{t("ac_noHalls")}</p>
+        <EmptyState icon={DoorOpen} title={t("ac_noHalls")} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {rooms.map((room) => (
