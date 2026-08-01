@@ -432,6 +432,56 @@ Cross-center read visibility + a CLOSED SET of audited control operations, in
    walletBalance / receiptSeq / status / shortId / entityType / isDemo /
    ownerUserId. Splits keep their dedicated pricing flow with snapshot-on-create
    + new-courses-only semantics — one money-sensitive number, one edit path.
+
+   > **AMENDED 2026-08-01 (Ali) — the CENTER now prices its own hall's
+   > per-attending-student rate.** Rationale: the center owns the hall. This
+   > splits the two numbers that used to be lumped together as "superadmin-only
+   > money config":
+   > - **whole-room revenue split %** (platform/teacher/center) — UNCHANGED,
+   >   still superadmin-only. That is the platform's cut.
+   > - **per-attending-student rate** (`center_per_student_fee|bp`) — the
+   >   center may now set it for its OWN halls, **bounded by the platform's
+   >   published rate (center > global), which is the CEILING**. The bound is
+   >   not optional politeness: a per-student-only hall deliberately shows NO
+   >   price to the teacher at booking (the cost depends on attendance), so an
+   >   unbounded center-set rate would take a share the teacher never saw and
+   >   only discovers at settlement. The center must also quote in the SAME
+   >   form the platform published (piasters vs basis points are not comparable
+   >   without a lesson price). The superadmin is NOT bounded — it sets the
+   >   ceiling.
+   >
+   > One implementation in `@repo/server-core/services/rooms/room-rate.ts`
+   > (shape rules, row layout, ceiling, ownership, audit); apps/superadmin
+   > re-exports the primitives so the two writers cannot drift, and the ONLY
+   > difference between them is the ceiling. The center writes through
+   > `POST/PATCH /api/v1/rooms` in the same transaction as the hall itself.
+   > Every center-set rate writes an `m2_rate.room.updated` audit row attributed
+   > to the center actor. Snapshot-on-create still holds: changing a hall's rate
+   > never re-prices an existing course. Proof: room-pricing-methods **73/73**
+   > (VP10).
+   >
+   > **The teacher SEES the rate at booking (added same day).** The asymmetry
+   > the ceiling only bounded is now closed: `GET /api/v1/centers/[id]/rooms`
+   > returns each hall's effective per-student rate (resolved room > center >
+   > global by `resolveMethod2RatesForRooms`, one query for all halls), and the
+   > collaboration panel shows it ON THE HALL CARD — so halls are compared on
+   > it, not just confirmed after picking — plus an explicit line at the moment
+   > the per-student method is chosen. `source` (room/center/global) is NOT
+   > exposed: the teacher needs the number, not where the center got it. The
+   > whole-room split % is still never sent to a teacher. A per-student-only
+   > hall still hides its whole-room `price` (meaningless there) — the rate is
+   > now what it shows instead. Proof: VP11 asserts the picker's batch resolver
+   > returns exactly what the per-room resolver (the settlement engine) returns
+   > at every precedence state, so a hall can never be quoted a price it does
+   > not settle at.
+   >
+   > Demo data: `prisma/room-rate-demo-seed.ts` (`bun run seed:roomrate-demo`,
+   > `--purge` to remove) — two centers whose six halls cover every state
+   > (own rate under the cap / at the cap / inheriting / no per-student method),
+   > one of them carrying a CENTER-level cap so `center > global` is visible,
+   > plus a teacher to browse them. Zero money rows; the GLOBAL rate is
+   > platform config, so the seed creates it only when missing and never
+   > overwrites one you set.
 6. **Deactivation reuses C-03**, not a new mechanism: the status write passes
    through `sessionRevocationExtension`, so `token_version` bumps in the same
    statement and the next request is unauthenticated. Enrollments are NOT

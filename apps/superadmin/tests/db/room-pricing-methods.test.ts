@@ -27,6 +27,16 @@
  *       holds; clearing a split preserves a co-located rate and vice versa.
  *  VP9  the is_demo seed wrote method configs + an M2 demo course but NO
  *       ledger rows.
+ *  VP10 the CENTER setting its OWN hall's rate: refused with no published
+ *       platform rate, refused above it, refused in the other rate form,
+ *       refused on another center's hall; allowed at/under the ceiling, lands
+ *       in the same room > center > global chain the money engine reads,
+ *       audited to the center actor, clears back to the platform's rate — and
+ *       the superadmin stays unbounded.
+ *  VP11 the batch resolver behind the TEACHER's hall picker answers exactly
+ *       what the per-room resolver (the money engine) answers, at every
+ *       precedence state, including two halls of one center on different
+ *       rates — and shows nothing at all when nothing is configured.
  *
  * Run (all suites, guarded):  bun run --filter superadmin test:db
  * Run (this one only):        bun run --filter superadmin test:db:only room-pricing-methods
@@ -36,6 +46,8 @@ import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import {
   resolveMethod2Rate,
+  resolveMethod2Availability,
+  resolveMethod2RatesForRooms,
   resolveCoursePricingSnapshot,
 } from "@/lib/services/finance/commission";
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
@@ -51,6 +63,10 @@ import {
   clearRoomSplit,
 } from "@/lib/services/admin/rooms-split";
 import { listSessionSettlements } from "@/lib/services/admin/session-settlements";
+import {
+  setRoomM2RateAsCenter,
+  clearRoomM2RateAsCenter,
+} from "@repo/server-core/services/rooms/room-rate";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
@@ -252,32 +268,72 @@ async function main() {
     "DB CHECK rejects a rate row with BOTH flat fee and bp set",
   );
 
+  // The room form disables its per-student checkbox from
+  // resolveMethod2Availability while the write path gates on
+  // resolveMethod2Rate. A UI that offers what the gate refuses (or hides what
+  // it would allow) is the drift this asserts away at EVERY state below.
+  const availabilityAgrees = async (label: string) => {
+    const [live, avail] = await withPlatformContext(async (tx) => [
+      await resolveMethod2Rate(tx, { roomId, centerId }),
+      await resolveMethod2Availability(tx, { centerId, roomIds: [roomId] }),
+    ] as const);
+    assert(
+      avail.rooms[roomId] === (live !== null),
+      `availability agrees with the gate for this room — ${label}`,
+    );
+    const centerOnly = await withPlatformContext((tx) => resolveMethod2Rate(tx, { centerId }));
+    assert(
+      avail.center === (centerOnly !== null),
+      `availability agrees with the gate for a NEW room — ${label}`,
+    );
+  };
+
   let rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate === null, "no rate configured anywhere → resolves to null (M2 unavailable)");
+  await availabilityAgrees("nothing configured");
 
   await updateGlobalM2Rate({ fee: 300, bp: null }, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate?.source === "global" && rate?.fee === 300, "GLOBAL flat rate resolves (300 pt/student)");
+  await availabilityAgrees("global rate");
 
   await upsertCenterM2Rate(centerId, { fee: null, bp: 800 }, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate?.source === "center" && rate?.bp === 800, "per-CENTER bp rate beats global");
+  await availabilityAgrees("center rate");
 
   await upsertRoomM2Rate(centerId, roomId, { fee: 500, bp: null }, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate?.source === "room" && rate?.fee === 500, "per-ROOM flat rate beats center (room→center→global)");
+  await availabilityAgrees("room rate");
 
   await clearRoomM2Rate(centerId, roomId, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate?.source === "center", "clearing the room rate falls back to center");
+  await availabilityAgrees("room rate cleared");
 
   await clearCenterM2Rate(centerId, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate?.source === "global", "clearing the center rate falls back to global");
+  await availabilityAgrees("center rate cleared");
 
   await clearGlobalM2Rate(su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate === null, "clearing the global rate → M2 unavailable again");
+  await availabilityAgrees("everything cleared");
+
+  // A ROOM-scope rate is the one case where the two answers differ: that room
+  // may keep the method, but a BRAND-NEW room (no room row yet) may not — which
+  // is exactly why the endpoint answers `center` and `rooms[id]` separately.
+  await upsertRoomM2Rate(centerId, roomId, { fee: 500, bp: null }, su);
+  const scoped = await withPlatformContext((tx) =>
+    resolveMethod2Availability(tx, { centerId, roomIds: [roomId] }),
+  );
+  assert(
+    scoped.rooms[roomId] === true && scoped.center === false,
+    "a room-only rate enables that room's checkbox but NOT a new room's",
+  );
+  await clearRoomM2Rate(centerId, roomId, su);
 
   // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — method policy + no-rate guard at snapshot time");
@@ -634,6 +690,178 @@ async function main() {
     seedCheck.m2Courses.length >= 1 &&
       seedCheck.m2Courses.every((c) => c.m2CenterFee != null && c.splitPlatformBp != null),
     "an M2 demo course exists with a fully-frozen snapshot",
+  );
+
+  // --------------------------------------------------------------- VP10
+  // The CENTER writing its own hall's rate. Same rate columns, same resolver,
+  // but bounded: the platform's published rate is the maximum, because the
+  // teacher accepting the booking never sees this number.
+  console.log("\nVP10 — center-set hall rate: bounded by the platform, own halls only");
+  const cs = await mkCenterRoom(tag + "-cs", ["whole_room_percent", "per_attending_student"]);
+  const other = await mkCenterRoom(tag + "-ot", ["per_attending_student"]);
+  const centerActorId = await withPlatformContext((tx) =>
+    tx.user
+      .create({
+        data: {
+          name: `${tag}-ca`,
+          role: "center_admin",
+          email: `${tag}-ca@x.io`,
+          status: "active",
+        },
+      })
+      .then((u) => u.id),
+  );
+  const asCenter = { roomId: cs.roomId, centerId: cs.centerId, actorId: centerActorId };
+
+  await clearGlobalM2Rate(su);
+  await expectThrows(
+    () => withPlatformContext((tx) => setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 500 })),
+    "platform must set the rate first",
+    "no published rate → the center cannot invent one",
+  );
+
+  await updateGlobalM2Rate({ fee: null, bp: 1500 }, su);
+
+  await expectThrows(
+    () => withPlatformContext((tx) => setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 1501 })),
+    "may not exceed the platform maximum",
+    "one basis point OVER the ceiling is refused",
+  );
+  await expectThrows(
+    () => withPlatformContext((tx) => setRoomM2RateAsCenter(tx, asCenter, { fee: 100, bp: null })),
+    "must be a percentage too",
+    "quoting a flat fee against a percentage ceiling is refused (not comparable)",
+  );
+  await expectThrows(
+    () =>
+      withPlatformContext((tx) =>
+        setRoomM2RateAsCenter(
+          tx,
+          { roomId: other.roomId, centerId: cs.centerId, actorId: centerActorId },
+          { fee: null, bp: 500 },
+        ),
+      ),
+    "Room not found at this center",
+    "a center cannot price ANOTHER center's hall",
+  );
+
+  const set = await withPlatformContext((tx) =>
+    setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 1500 }),
+  );
+  assert(set?.bp === 1500, "exactly AT the ceiling is allowed");
+  const under = await withPlatformContext((tx) =>
+    setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 800 }),
+  );
+  assert(under?.bp === 800, "under the ceiling is allowed (the hall prices itself)");
+
+  const resolvedForHall = await withPlatformContext((tx) =>
+    resolveMethod2Rate(tx, { roomId: cs.roomId, centerId: cs.centerId }),
+  );
+  assert(
+    resolvedForHall?.source === "room" && resolvedForHall.bp === 800,
+    "the money engine resolves the CENTER-set rate through the same room > center > global chain",
+  );
+
+  // The ceiling is measured against the PLATFORM's rate, never against the
+  // hall's own — otherwise a hall that lowered itself could never go back up.
+  const backUp = await withPlatformContext((tx) =>
+    setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 1200 }),
+  );
+  assert(backUp?.bp === 1200, "a hall that lowered its rate can raise it again up to the ceiling");
+
+  const auditRows = await withPlatformContext((tx) =>
+    tx.auditLog.findMany({
+      where: { targetType: "room", targetId: cs.roomId },
+      orderBy: { createdAt: "asc" },
+    }),
+  );
+  assert(
+    auditRows.length >= 3 &&
+      auditRows.every(
+        (r) => r.actorId === centerActorId && r.action === "m2_rate.room.updated" && r.centerId === cs.centerId,
+      ),
+    "every center-set rate wrote an audit row attributed to the center actor",
+  );
+
+  await withPlatformContext((tx) => clearRoomM2RateAsCenter(tx, asCenter));
+  const afterClear = await withPlatformContext((tx) =>
+    resolveMethod2Rate(tx, { roomId: cs.roomId, centerId: cs.centerId }),
+  );
+  assert(
+    afterClear?.source === "global" && afterClear.bp === 1500,
+    "clearing the hall's own rate falls back to the platform's",
+  );
+
+  // The superadmin is NOT bound by the ceiling — it IS the ceiling.
+  const suOver = await upsertRoomM2Rate(cs.centerId, cs.roomId, { fee: null, bp: 9000 }, su);
+  assert(suOver?.bp === 9000, "the superadmin can still set a rate above its own published one");
+  await clearRoomM2Rate(cs.centerId, cs.roomId, su);
+
+  // --------------------------------------------------------------- VP11
+  // The batch resolver behind the TEACHER's hall picker. It must answer
+  // exactly what the per-room resolver answers — a picker that disagrees with
+  // the settlement engine would quote the teacher a price they do not get.
+  console.log("\nVP11 — batch rate resolution for the teacher's hall picker == the money engine");
+  const second = await withPlatformContext((tx) =>
+    tx.room
+      .create({
+        data: {
+          centerId: cs.centerId,
+          name: "hall-2",
+          isActive: true,
+          allowedPricingMethods: ["per_attending_student"],
+        },
+      })
+      .then((r) => r.id),
+  );
+  const roomIds = [cs.roomId, second];
+
+  const agreesWithEngine = async (label: string) => {
+    const [batch, perRoom] = await withPlatformContext(async (tx) => [
+      await resolveMethod2RatesForRooms(tx, { centerId: cs.centerId, roomIds }),
+      await Promise.all(
+        roomIds.map((rid) => resolveMethod2Rate(tx, { roomId: rid, centerId: cs.centerId })),
+      ),
+    ]);
+    assert(
+      roomIds.every(
+        (rid, i) =>
+          (batch[rid]?.fee ?? null) === (perRoom[i]?.fee ?? null) &&
+          (batch[rid]?.bp ?? null) === (perRoom[i]?.bp ?? null) &&
+          (batch[rid]?.source ?? null) === (perRoom[i]?.source ?? null),
+      ),
+      `the picker quotes exactly what the engine settles at — ${label}`,
+    );
+  };
+
+  await agreesWithEngine("nothing configured");
+  await updateGlobalM2Rate({ fee: 250, bp: null }, su);
+  await agreesWithEngine("global only (both halls inherit)");
+  await upsertCenterM2Rate(cs.centerId, { fee: 400, bp: null }, su);
+  await agreesWithEngine("center override beats global for both halls");
+  await withPlatformContext((tx) => setRoomM2RateAsCenter(tx, asCenter, { fee: 300, bp: null }));
+  await agreesWithEngine("ONE hall priced itself, the other still inherits");
+
+  const mixed = await withPlatformContext((tx) =>
+    resolveMethod2RatesForRooms(tx, { centerId: cs.centerId, roomIds }),
+  );
+  assert(
+    mixed[cs.roomId]?.fee === 300 &&
+      mixed[cs.roomId]?.source === "room" &&
+      mixed[second]?.fee === 400 &&
+      mixed[second]?.source === "center",
+    "two halls of the SAME center resolve to different rates in one batch",
+  );
+
+  await clearCenterM2Rate(cs.centerId, su);
+  await withPlatformContext((tx) => clearRoomM2RateAsCenter(tx, asCenter));
+  await clearGlobalM2Rate(su);
+  const none = await withPlatformContext((tx) =>
+    resolveMethod2RatesForRooms(tx, { centerId: cs.centerId, roomIds }),
+  );
+  assert(
+    roomIds.every((rid) => none[rid] === null),
+    "with nothing configured the picker shows no rate at all (never a made-up one)",
   );
 
   console.log(`\n${pass} passed, ${fail} failed`);

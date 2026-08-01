@@ -9,13 +9,16 @@ import {
   deleteImageByUrl,
 } from "@repo/server-core/media/images";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
+import type { M2RateInput } from "@repo/server-core/services/rooms/room-rate";
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_PHOTOS_PER_ROOM = 12;
 
 // ---------------------------------------------------------------------------
-// Room pricing methods — center-set AVAILABILITY only. Every number behind a
-// method (split %, per-student rate) stays superadmin config.
+// Room pricing methods — the center sets WHICH methods a hall offers, and (as
+// the hall's owner) its own per-student rate, BOUNDED by the platform's
+// published rate. The whole-room split % stays superadmin-only: that one is
+// the platform's cut, not the hall's.
 // ---------------------------------------------------------------------------
 
 export const pricingMethodsSchema = z
@@ -23,6 +26,19 @@ export const pricingMethodsSchema = z
   .min(1)
   .max(2)
   .refine((m) => new Set(m).size === m.length, "Duplicate pricing method");
+
+/**
+ * The hall's own per-student rate.
+ *  - omitted  → leave whatever the hall has (inherit, or keep its override)
+ *  - null     → drop the override, go back to inheriting the platform's rate
+ *  - object   → set it (server re-checks shape + ceiling; the UI is a hint)
+ */
+export const perStudentRateSchema = z
+  .object({
+    fee: z.number().int().nonnegative().max(99_999_900).nullable(),
+    bp: z.number().int().min(0).max(10_000).nullable(),
+  })
+  .nullable();
 
 export const roomCreateSchema = z.object({
   name: z.string().trim().min(1),
@@ -32,6 +48,7 @@ export const roomCreateSchema = z.object({
   price: z.number().int().nonnegative().nullable().optional(), // piasters
   description: z.string().trim().max(2000).nullable().optional(),
   allowedPricingMethods: pricingMethodsSchema.optional(),
+  perStudentRate: perStudentRateSchema.optional(),
 });
 
 export const roomPatchSchema = z.object({
@@ -42,11 +59,27 @@ export const roomPatchSchema = z.object({
   price: z.number().int().nonnegative().nullable().optional(), // piasters
   description: z.string().trim().max(2000).nullable().optional(),
   allowedPricingMethods: pricingMethodsSchema.optional(),
+  perStudentRate: perStudentRateSchema.optional(),
 });
+
+/**
+ * `perStudentRate` is NOT a Room column — it is a commission_settings scope row
+ * written alongside. Split it out so the rest can still be spread straight into
+ * the Prisma call and a new field can never leak into `room.create` by accident.
+ */
+export function splitRoomPayload<T extends { perStudentRate?: M2RateInput | null }>(body: T) {
+  const { perStudentRate, ...roomFields } = body;
+  return { roomFields, perStudentRate };
+}
 
 // Lives in the shared kernel (the collaboration service moved there and needs
 // it); re-exported here so every existing www import path keeps working.
 export { assertMethod2Enablable } from "@repo/server-core/services/rooms/method2";
+export {
+  setRoomM2RateAsCenter,
+  clearRoomM2RateAsCenter,
+  resolveRoomRateCeiling,
+} from "@repo/server-core/services/rooms/room-rate";
 
 /**
  * Upload a room photo to Cloudinary and append its URL to room.photos.

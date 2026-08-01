@@ -851,6 +851,23 @@ function CreateCollabDialog({
                               <span className="text-sm font-semibold text-primary">{formatEGP(r.price)}</span>
                             ) : null}
                           </div>
+                          {/* What this hall takes per attending student. Shown
+                              on the CARD, not only after picking, because it is
+                              what the halls differ by — and because a
+                              per-student-only hall has no other price to
+                              compare. Left hidden until now, it was a cost the
+                              teacher agreed to and first saw at settlement. */}
+                          {r.perStudentRate ? (
+                            <div className="text-xs font-medium text-[var(--teal)]">
+                              {r.perStudentRate.bp != null
+                                ? t("shared.collab.perStudentRatePercent", {
+                                    value: r.perStudentRate.bp / 100,
+                                  })
+                                : t("shared.collab.perStudentRateFlat", {
+                                    value: formatEGP(r.perStudentRate.fee),
+                                  })}
+                            </div>
+                          ) : null}
                           {r.capacity != null ? (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Users className="size-3" />
@@ -897,6 +914,20 @@ function CreateCollabDialog({
                   ) : (
                     <MethodRadio value={method} onChange={setMethod} allowed={allowedMethods} />
                   )}
+                  {/* At the moment of choosing, spell out what the method
+                      actually costs — the card line is for comparing halls,
+                      this one is for agreeing to one. */}
+                  {effectiveMethod === "per_attending_student" && pickedRoom?.perStudentRate ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {pickedRoom.perStudentRate.bp != null
+                        ? t("shared.collab.perStudentRateNotePercent", {
+                            value: pickedRoom.perStudentRate.bp / 100,
+                          })
+                        : t("shared.collab.perStudentRateNoteFlat", {
+                            value: formatEGP(pickedRoom.perStudentRate.fee),
+                          })}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

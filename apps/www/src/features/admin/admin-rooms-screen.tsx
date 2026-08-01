@@ -6,7 +6,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenities";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCreate, useDelete, useList, useUpdate } from "@refinedev/core";
+import { useCreate, useCustom, useDelete, useList, useUpdate } from "@refinedev/core";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -30,6 +30,12 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/tooltip";
 import { compressImage } from "@repo/ui/lib/image-compress";
 import { Check, ChevronLeft, ChevronRight, Eye, Home, ImageIcon, ImagePlus, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -52,6 +58,20 @@ type Room = {
 };
 
 type PricingMethod = "whole_room_percent" | "per_attending_student";
+
+/** EXACTLY one of the two forms is ever set — a flat amount OR a percentage. */
+type M2Rate = { fee: number | null; bp: number | null };
+
+/**
+ * `ceiling` = what the platform published: the MAXIMUM this center may charge
+ * per attending student, and the fallback for a hall that sets nothing.
+ * `rooms[id]` = that hall's own override (absent when it just inherits).
+ */
+type M2Availability = { ceiling: M2Rate | null; rooms: Record<string, M2Rate> };
+
+/** The rate is quoted in the platform's form — piasters/EGP or bp/percent. */
+const rateToInput = (r: M2Rate | null | undefined): string =>
+  r == null ? "" : String((r.bp != null ? r.bp : r.fee!) / 100);
 
 function roomId(r: Room): string {
   return r.id || r._id || "";
@@ -77,6 +97,39 @@ export function AdminRoomsScreen() {
 
   const rooms = (result?.data ?? []) as Room[];
 
+  // The hall's per-student pricing: what the platform published (the ceiling
+  // and the fallback) plus each hall's own override. Drives BOTH the checkbox's
+  // disabled state and the rate field, so the operator learns the rule BEFORE
+  // filling the dialog instead of being rejected on submit by the same checks
+  // in the write path. A hint — the server re-resolves the ceiling on write.
+  const availabilityReq = useCustom({
+    url: "rooms/per-student-availability",
+    method: "get",
+  });
+  const availability = availabilityReq.result?.data as M2Availability | undefined;
+  const ceiling = availability?.ceiling ?? null;
+  const ownRate = editingId ? (availability?.rooms?.[editingId] ?? null) : null;
+  // The platform publishes ONE form; a hall must quote in the same one,
+  // because piasters and basis points are not comparable without a lesson price.
+  const ceilingIsPercent = ceiling?.bp != null;
+  // Editable only when the platform has published something to be bounded by.
+  // A hall may still CARRY a rate with no ceiling (the superadmin set it
+  // directly) — then it is shown read-only rather than hidden.
+  const perStudentAvailable = ceiling != null || ownRate != null;
+  const perStudentChecked = methods.includes("per_attending_student");
+  // An already-enabled method whose rate was later cleared must stay
+  // UNCHECKABLE-off, never uncheckable-on: locking the box would trap the room
+  // in a state the server refuses to save.
+  const perStudentDisabled =
+    !perStudentAvailable && !perStudentChecked && !availabilityReq.query.isLoading;
+
+  const [rateInput, setRateInput] = useState("");
+  const ceilingValue = ceiling ? (ceiling.bp ?? ceiling.fee!) / 100 : null;
+  const rateNumber = rateInput.trim() === "" ? NaN : Number(rateInput);
+  const rateTooHigh =
+    ceilingValue != null && Number.isFinite(rateNumber) && rateNumber > ceilingValue;
+  const rateMissing = perStudentChecked && ceiling != null && !Number.isFinite(rateNumber);
+
   const schema = useMemo(
     () =>
       z.object({
@@ -101,6 +154,9 @@ export function AdminRoomsScreen() {
     setFeatureDraft("");
     setPhotos([]);
     setMethods(["whole_room_percent"]);
+    // A new hall starts at the platform's rate — the common case is "same as
+    // everyone", and the operator edits down from there.
+    setRateInput(rateToInput(ceiling));
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -126,6 +182,8 @@ export function AdminRoomsScreen() {
     setPhotos(room.photos ?? []);
     setMethods(room.allowedPricingMethods ?? ["whole_room_percent"]);
     setFeatureDraft("");
+    // The hall's own rate if it has one, otherwise what it inherits.
+    setRateInput(rateToInput(availability?.rooms?.[roomId(room)] ?? ceiling));
     setIsModalOpen(true);
   };
 
@@ -209,9 +267,35 @@ export function AdminRoomsScreen() {
 
   const removePhoto = (url: string) => setPhotos(photos.filter((p) => p !== url));
 
+  /**
+   * The hall's own rate, in the wire shape the API expects:
+   *   null      → drop any override (the method is off, or was never priced)
+   *   undefined → leave it exactly as it is (nothing here may edit it)
+   *   {fee,bp}  → this hall's price, quoted in the platform's form
+   */
+  const ratePayload = (): M2Rate | null | undefined => {
+    if (!perStudentChecked) return null;
+    // No ceiling to be bounded by → the rate is the superadmin's, not ours.
+    if (!ceiling) return undefined;
+    const units = Math.round(rateNumber * 100);
+    return ceilingIsPercent ? { fee: null, bp: units } : { fee: units, bp: null };
+  };
+
   const handleSubmit = (values: FormValues) => {
     if (methods.length === 0) {
       toast.error(t("adminManage.rooms.methodsRequired"));
+      return;
+    }
+    if (rateMissing) {
+      toast.error(t("adminManage.rooms.perStudentRateRequired"));
+      return;
+    }
+    if (perStudentChecked && rateTooHigh) {
+      toast.error(
+        ceilingIsPercent
+          ? t("adminManage.rooms.perStudentRateMaxPercent", { max: ceilingValue! })
+          : t("adminManage.rooms.perStudentRateMaxFlat", { max: ceilingValue! }),
+      );
       return;
     }
     const payload = {
@@ -222,6 +306,7 @@ export function AdminRoomsScreen() {
       facilities,
       photos,
       allowedPricingMethods: methods,
+      perStudentRate: ratePayload(),
     };
     if (editingId) {
       updateRoom(
@@ -229,6 +314,9 @@ export function AdminRoomsScreen() {
         {
           onSuccess: () => {
             toast.success(t("adminManage.rooms.roomUpdated"));
+            // The hall's rate lives outside the rooms list — refetch it too,
+            // or reopening the dialog shows the pre-edit number.
+            availabilityReq.query.refetch();
             handleOpenChange(false);
           },
           onError: (err) =>
@@ -241,6 +329,7 @@ export function AdminRoomsScreen() {
         {
           onSuccess: () => {
             toast.success(t("adminManage.rooms.roomCreated"));
+            availabilityReq.query.refetch();
             handleOpenChange(false);
           },
           onError: (err) =>
@@ -504,23 +593,118 @@ export function AdminRoomsScreen() {
                       ["whole_room_percent", t("adminManage.rooms.methodPercent")],
                       ["per_attending_student", t("adminManage.rooms.methodPerStudent")],
                     ] as [PricingMethod, string][]
-                  ).map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={methods.includes(key)}
-                        onCheckedChange={(on) =>
-                          setMethods((cur) =>
-                            on ? [...cur.filter((m) => m !== key), key] : cur.filter((m) => m !== key),
-                          )
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
+                  ).map(([key, label]) => {
+                    const disabled = key === "per_attending_student" && perStudentDisabled;
+                    const row = (
+                      <label
+                        className={`flex items-center gap-2 text-sm ${disabled ? "cursor-not-allowed text-muted-foreground" : ""}`}
+                      >
+                        <Checkbox
+                          checked={methods.includes(key)}
+                          disabled={disabled}
+                          onCheckedChange={(on) =>
+                            setMethods((cur) =>
+                              on
+                                ? [...cur.filter((m) => m !== key), key]
+                                : cur.filter((m) => m !== key),
+                            )
+                          }
+                        />
+                        {label}
+                      </label>
+                    );
+                    if (key !== "per_attending_student" || perStudentAvailable) {
+                      return <div key={key}>{row}</div>;
+                    }
+                    return (
+                      // A disabled control swallows pointer events, so the
+                      // trigger is the wrapper — otherwise the tooltip explaining
+                      // WHY it is disabled would never open.
+                      <TooltipProvider key={key}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>{row}</div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[260px]">
+                            {perStudentChecked
+                              ? t("adminManage.rooms.methodPerStudentUnavailableEnabled")
+                              : t("adminManage.rooms.methodPerStudentUnavailable")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {t("adminManage.rooms.methodsHint")}
                 </p>
+                {/* Also stated inline: a tooltip is hover-only, and this screen
+                    is used on phones at the front desk. */}
+                {!perStudentAvailable && !availabilityReq.query.isLoading ? (
+                  <p className="text-xs text-[var(--amber)]">
+                    {perStudentChecked
+                      ? t("adminManage.rooms.methodPerStudentUnavailableEnabled")
+                      : t("adminManage.rooms.methodPerStudentUnavailable")}
+                  </p>
+                ) : null}
+                {/* The hall's own price per attending student. Shown only once
+                    the method is on — an input for a method you are not
+                    offering is noise. Editable up to the platform's ceiling;
+                    read-only when the platform published none (that rate is the
+                    superadmin's and this screen must not overwrite it). */}
+                {perStudentChecked && perStudentAvailable ? (
+                  <div className="space-y-1 rounded-md border p-3">
+                    <label className="text-sm font-medium" htmlFor="per-student-rate">
+                      {t("adminManage.rooms.perStudentRateLabel")}
+                    </label>
+                    {ceiling ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="per-student-rate"
+                            type="number"
+                            min={0}
+                            max={ceilingValue ?? undefined}
+                            step={ceilingIsPercent ? "0.01" : "1"}
+                            value={rateInput}
+                            onChange={(e) => setRateInput(e.target.value)}
+                            aria-invalid={rateTooHigh || rateMissing}
+                            className="max-w-[160px]"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {ceilingIsPercent
+                              ? t("adminManage.rooms.perStudentRatePercentUnit")
+                              : t("adminManage.rooms.perStudentRateFlatUnit")}
+                          </span>
+                        </div>
+                        <p
+                          className={`text-xs ${rateTooHigh || rateMissing ? "text-[var(--red)]" : "text-muted-foreground"}`}
+                        >
+                          {rateMissing
+                            ? t("adminManage.rooms.perStudentRateRequired")
+                            : ceilingIsPercent
+                              ? t("adminManage.rooms.perStudentRateMaxPercent", {
+                                  max: ceilingValue!,
+                                })
+                              : t("adminManage.rooms.perStudentRateMaxFlat", { max: ceilingValue! })}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm">
+                        {ownRate!.bp != null
+                          ? t("adminManage.rooms.perStudentRateFixedPercent", {
+                              value: ownRate!.bp / 100,
+                            })
+                          : t("adminManage.rooms.perStudentRateFixedFlat", {
+                              value: ownRate!.fee! / 100,
+                            })}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {t("adminManage.rooms.perStudentRateHint")}
+                    </p>
+                  </div>
+                ) : null}
               </div>
               <FormField
                 control={form.control}
