@@ -57,7 +57,8 @@
     "feesPayments": "الرسوم والمدفوعات",
     "parentWallet": "محفظتي",
     "payForChild": "ادفع لدرس",
-    "teamNotes": "ملاحظات الفريق"
+    "teamNotes": "ملاحظات الفريق",
+    "auditLog": "سجل التدقيق"
   },
   "roles": {
     "student": "طالب",

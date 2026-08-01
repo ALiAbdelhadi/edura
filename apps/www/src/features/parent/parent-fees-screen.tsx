@@ -31,6 +31,7 @@ import { Input } from "@repo/ui/components/input";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
+import { ReceiptLink } from "@/features/receipts/receipt-link";
 import {
   Figure,
   LimitNote,
@@ -42,6 +43,7 @@ import {
 } from "./ledger-kit";
 
 type PaymentRow = {
+  id?: string;
   _id?: string;
   courseName?: string;
   amount: number;
@@ -149,14 +151,20 @@ export function ParentFeesScreen() {
     {
       id: "receiptNumber",
       header: t("parentFees.receipt"),
-      cell: ({ row }) =>
-        row.original.receiptNumber ? (
-          <Figure className="text-[12px] text-ink-2">
-            {row.original.receiptNumber}
-          </Figure>
-        ) : (
-          <span className="text-ink-3">—</span>
-        ),
+      cell: ({ row }) => {
+        const paymentId = row.original.id ?? row.original._id;
+        if (!row.original.receiptNumber) return <span className="text-ink-3">—</span>;
+        return (
+          <div className="flex flex-col items-start gap-0.5">
+            <Figure className="text-[12px] text-ink-2">
+              {row.original.receiptNumber}
+            </Figure>
+            {/* The document itself, not just its number. Printing it is what a
+                parent actually needs at a counter or for a reimbursement. */}
+            {paymentId ? <ReceiptLink paymentId={paymentId} /> : null}
+          </div>
+        );
+      },
     },
     {
       id: "status",
