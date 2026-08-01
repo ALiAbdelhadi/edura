@@ -27,7 +27,8 @@ type SessionRow = {
   userAgent?: string | null;
 };
 
-function deviceLabel(ua: string | null | undefined, fallback: string) {
+/** Exported so the admin user-detail screen labels a device the same way. */
+export function deviceLabel(ua: string | null | undefined, fallback: string) {
   if (!ua) return { label: fallback, mobile: false };
   const browser = /Edg\//.test(ua)
     ? "Edge"
