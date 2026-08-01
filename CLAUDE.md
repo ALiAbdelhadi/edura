@@ -150,6 +150,21 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   `edura_app` (password synced to `APP_ROLE_PASSWORD`); the owner string lives
   only in `ADMIN_URL`/`DIRECT_URL`. (The earlier 2026-07-26 note — empty shell,
   68 tables, never seeded — is history.)
+  **[production, 2026-08-02] CAUGHT AND FIXED: production had been running
+  better-auth CODE against a database with NO auth tables.** `better_auth` was
+  merged to main on 2026-08-01 but never applied to production, so
+  `auth_sessions` / `auth_accounts` / `auth_verifications` / `two_factors` did
+  not exist there and EVERY sign-in returned 500 instead of 401 — proven by
+  probing the deployed login door with deliberately invalid credentials before
+  and after. Both pending migrations (`20260801170000_better_auth`,
+  `20260802140000_contact_submissions`) were applied: production went 41 → 43
+  migrations, 70 → 75 tables, verify-db 25/25, and the login door now returns
+  401. Data was untouched (6 users / 1 center / 0 money rows before and after).
+  **The lesson, written down because it cost a live outage:** merging a
+  migration to main does NOT apply it anywhere. A branch whose code needs new
+  schema must have its migration applied to production BEFORE that code
+  deploys, and `verify-db` against production is the check that would have
+  caught it on day one — it is read-only and safe against any target.
   Bootstrap order for a fresh environment: `label-db` → `bootstrap-app-role` →
   `prisma migrate deploy` → `seed` → `verify-db`.
 - **Realistic demo data during development:** whenever building a new
@@ -355,7 +370,8 @@ staff role, so none of the child-safety machinery applies).
    `20260727100000_team_note_notification_types` (isolated enum ADD VALUEs:
    `team_note_created`, `team_note_status_changed`) and
    `20260727100100_team_notes`. **[dev + test, applied 2026-07-27] — 38
-   migrations. [production] NOT applied (still behind; part of bootstrap).**
+   migrations. [production, applied 2026-08-02] — production is no longer
+   behind; it now stands at 43 migrations, verify-db 25/25.**
 2. **Membership IS the gate.** One route pair (`/api/v1/team-notes`,
    `/team-notes/[id]`) wrapped in `delegatedWithCenter(..., {staffAllow: ALL
    three sub-roles})`: the wrappers' live-link resolution already proves team
@@ -762,9 +778,12 @@ data-migration + rollback plan:
    `auth_accounts`, `auth_verifications`, `two_factors` + user columns
    `image`, `two_factor_enabled`, `banned`, `ban_reason`, `ban_expires`.
    User IDs/rows untouched — better-auth maps onto the existing `users` table.
-   **[dev + test, applied 2026-08-01] — 42 migrations, verify-db 25/25, and
-   the expected-db-shape file now says 74 tables / 42 migrations.
-   [production] NOT applied (part of this branch's deploy).**
+   **[dev + test, applied 2026-08-01] — 42 migrations, verify-db 25/25.
+   [production, APPLIED 2026-08-02] — see the note below; production had been
+   running better-auth CODE against a database with NO auth tables, so every
+   sign-in returned 500. Applying this migration is what fixed it.
+   The expected-db-shape file now says 75 tables / 43 migrations (the extra
+   table + migration over 74/42 is `contact_submissions`).**
 3. **`users.password_hash` stays the SINGLE SOURCE OF TRUTH.** DB triggers
    (`users_credential_sync_*`) mirror it into the better-auth credential row
    both directions with IS-DISTINCT guards, so none of the ~10 existing
