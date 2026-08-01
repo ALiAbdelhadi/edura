@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
       disabled={isPending}
       onValueChange={handleChange}
       aria-label={t("common.language")}
-    >
+>
       {routing.locales.map((l) => (
         <ToggleGroupItem key={l} value={l} aria-label={LOCALE_LABELS[l] ?? l}>
           <Globe className="me-1.5 size-4" />
