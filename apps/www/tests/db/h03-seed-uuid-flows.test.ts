@@ -15,7 +15,9 @@
  * structural half of the proof (tests/unit/h03-seed-uuid.test.ts) asserts every
  * one of these fields still declares `z.uuid()`.
  *
- * What this file asserts, driving the REAL HTTP endpoints with REAL sessions:
+ * What this file asserts, driving the REAL route handlers IN-PROCESS with REAL
+ * sessions (only the `getServerSession` edge is stubbed — parseJson/zod, the
+ * authz wrappers, the services and the DB writes all run for real):
  *   F0  every id in the seeded demo dataset passes the routes' own predicate
  *   F1  counter check-in       — seeded student + seeded session, no 400
  *   F2  walk-in cash           — per-session cash + check-in in ONE step (201),
@@ -33,27 +35,36 @@
  * touched wallets are asserted back to the pre-run snapshot.
  *
  * F6 compares GLOBAL money-table counts, so it needs the database to itself:
- * another money suite (or a second dev server sharing this DB) writing
- * concurrently will shift a count and show up here as a spurious failure.
- * Run it alone.
+ * another money suite (or a dev server sharing this DB) writing concurrently
+ * will shift a count and show up here as a spurious failure. Run it alone.
  *
- * Run (dev server must be up):
+ * Run — NO server required, and no WWW_BASE_URL: this suite used to drive
+ * http://localhost:3002, which is whatever server holds that port. Its writes
+ * then travelled on THAT server's connection, where db-guard could not see them
+ * (proven 2026-08-01: it created rows in DEV while the guard read `test`).
+ * In-process, the only connection is this process's own — the one db-guard
+ * validates.
  *   bun run --filter edura test:db                  # all suites, guarded
  *   bun run --filter edura test:db:only h03-seed-uuid-flows
  *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
- *   WWW_BASE_URL=http://localhost:3021 … to point at another dev port.
  */
-import { encode } from "next-auth/jwt";
+import { createRequire } from "node:module";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { z } from "zod";
+import type { SessionUser } from "@/lib/auth/session";
+import { POST as checkinRoute } from "@/app/api/v1/center/checkin/route";
+import { POST as centerSubscriptionsRoute } from "@/app/api/v1/center/subscriptions/route";
+import { POST as checkoutRoute } from "@/app/api/v1/subscriptions/checkout/route";
+import { POST as paymentsInitiateRoute } from "@/app/api/v1/payments/initiate/route";
+import { POST as conversationsRoute } from "@/app/api/v1/messages/conversations/route";
+import { POST as messageReportsRoute } from "@/app/api/v1/messages/reports/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
 
-const WWW = process.env.WWW_BASE_URL ?? "http://localhost:3002";
 const uuid = z.uuid();
 
 let pass = 0,
@@ -71,50 +82,89 @@ function section(s: string) {
   console.log("\n" + s);
 }
 
-async function cookieFor(userId: string) {
+// ------------------------------------------------------------------- session
+// IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
+// edge (`getServerSession`), the same seam invite-claim.test.ts uses. Everything
+// inside each route — the centerStaff/authz wrappers, parseJson + zod (which is
+// the entire point of this suite), the services and the DB writes — is the real
+// code path. Nothing depends on a server being up, so the suite can no longer
+// write to whatever database happens to be listening on port 3002.
+const nodeRequire = createRequire(__filename);
+const nextAuthNext = nodeRequire("next-auth/next") as {
+  getServerSession: (...a: unknown[]) => Promise<unknown>;
+};
+let currentSession: { user: SessionUser } | null = null;
+nextAuthNext.getServerSession = async () => currentSession;
+
+/** The session a given seeded user would carry, resolved from the DB row. */
+async function sessionFor(userId: string): Promise<{ user: SessionUser }> {
   const u = (
     await q(
-      `select u.id,u.email,u.role,u.locale,u.token_version,
+      `select u.id,u.email,u.name,u.role,u.locale,
         (select cap.center_id from center_admin_profiles cap where cap.user_id=u.id limit 1) admin_center,
         (select cs.center_id from center_staff cs where cs.staff_user_id=u.id and cs.removed_at is null limit 1) staff_center
        from users u where u.id=$1`,
       [userId],
     )
   )[0] as Record<string, string>;
-  const jwe = await encode({
-    token: {
-      name: u.email,
-      email: u.email,
-      sub: u.id,
-      uid: u.id,
+  return {
+    user: {
+      id: u.id,
       role: u.role,
+      email: u.email,
+      name: u.name,
       centerId: u.admin_center ?? u.staff_center ?? undefined,
       locale: u.locale,
-      ver: u.token_version,
-    } as never,
-    secret: process.env.NEXTAUTH_SECRET as string,
-    maxAge: 3600,
-  });
-  return `next-auth.session-token=${jwe}`;
+    } as SessionUser,
+  };
 }
 
-async function call(method: string, path: string, cookie?: string, body?: unknown) {
-  const h: Record<string, string> = {};
-  if (cookie) h.cookie = cookie;
+type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
+
+/** path -> the REAL route handler. A path with no entry is a typo, not a 404. */
+const ROUTES: Record<string, Handler> = {
+  "/api/v1/center/checkin": checkinRoute as Handler,
+  "/api/v1/center/subscriptions": centerSubscriptionsRoute as Handler,
+  "/api/v1/subscriptions/checkout": checkoutRoute as Handler,
+  "/api/v1/payments/initiate": paymentsInitiateRoute as Handler,
+  "/api/v1/messages/conversations": conversationsRoute as Handler,
+  "/api/v1/messages/reports": messageReportsRoute as Handler,
+};
+
+/** A distinct IP per call so the shared rate-limit buckets never starve the run. */
+const nextIp = () => `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
+
+async function call(
+  method: string,
+  path: string,
+  session?: { user: SessionUser },
+  body?: unknown,
+) {
+  const handler = ROUTES[path];
+  if (!handler) throw new Error(`h03: no in-process handler registered for ${path}`);
+  const h: Record<string, string> = { "x-forwarded-for": nextIp() };
   let payload: string | undefined;
   if (body !== undefined) {
     payload = JSON.stringify(body);
     h["content-type"] = "application/json";
   }
-  const res = await fetch(WWW + path, { method, headers: h, body: payload });
-  const text = await res.text();
-  let json: unknown = null;
+  currentSession = session ?? null;
   try {
-    json = JSON.parse(text);
-  } catch {
-    /* */
+    const res = await handler(
+      new Request(`http://localhost${path}`, { method, headers: h, body: payload }),
+      { params: Promise.resolve({}) },
+    );
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* */
+    }
+    return { status: res.status, json: json as never, text: text.slice(0, 300) };
+  } finally {
+    currentSession = null;
   }
-  return { status: res.status, json: json as never, text: text.slice(0, 300) };
 }
 const D = (r: { json: never }) => (r.json as { data?: never } | null)?.data as never;
 /** Was THIS response the H-03 failure (a UUID-shaped field rejected as invalid)? */
@@ -200,9 +250,9 @@ async function main() {
     }[]).map((r) => r.id),
   );
 
-  const receptionCookie = await cookieFor(reception);
-  const linaCookie = await cookieFor(lina);
-  const youssefCookie = await cookieFor(msgYoussef);
+  const receptionSession = await sessionFor(reception);
+  const linaSession = await sessionFor(lina);
+  const youssefSession = await sessionFor(msgYoussef);
 
   // =====================================================================
   section("F0 — every id in the seeded demo dataset passes the routes' predicate");
@@ -238,7 +288,7 @@ async function main() {
   // =====================================================================
   section("F1 — counter check-in accepts the SEEDED student + session ids");
   // =====================================================================
-  const checkin1 = await call("POST", "/api/v1/center/checkin", receptionCookie, {
+  const checkin1 = await call("POST", "/api/v1/center/checkin", receptionSession, {
     studentId: lina,
     sessionId: seeded.session_id,
   });
@@ -252,7 +302,7 @@ async function main() {
   // =====================================================================
   section("F2 — walk-in cash: per-session cash + check-in in ONE step");
   // =====================================================================
-  const walkin = await call("POST", "/api/v1/center/subscriptions", receptionCookie, {
+  const walkin = await call("POST", "/api/v1/center/subscriptions", receptionSession, {
     studentId: lina,
     courseId: seeded.course_id,
     plan: "per_session",
@@ -272,7 +322,7 @@ async function main() {
   );
   assert(afterWalkin.s === baseline.s + 1, `subscriptions ${baseline.s} -> ${afterWalkin.s}`);
 
-  const checkin2 = await call("POST", "/api/v1/center/checkin", receptionCookie, {
+  const checkin2 = await call("POST", "/api/v1/center/checkin", receptionSession, {
     studentId: lina,
     sessionId: seeded.session_id,
   });
@@ -290,7 +340,7 @@ async function main() {
   section("F3 — checkout on a seeded course");
   // =====================================================================
   const idem = "h03-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-  const checkout = await call("POST", "/api/v1/subscriptions/checkout", linaCookie, {
+  const checkout = await call("POST", "/api/v1/subscriptions/checkout", linaSession, {
     courseId: seededOther.course_id,
     plan: "per_session",
     sessionId: seededOther.session_id, // NOT the session F2 already covered
@@ -304,7 +354,7 @@ async function main() {
   const iid = intentId.intentId ?? intentId.id ?? null;
   assert(!!iid && uuid.safeParse(iid).success, `intent id returned and is itself a valid uuid: ${iid}`);
 
-  const initiate = await call("POST", "/api/v1/payments/initiate", linaCookie, {
+  const initiate = await call("POST", "/api/v1/payments/initiate", linaSession, {
     courseId: seeded.course_id,
     method: "card",
     idempotencyKey: idem + "-b",
@@ -317,7 +367,7 @@ async function main() {
   // =====================================================================
   section("F4 — messaging on the seeded demo users");
   // =====================================================================
-  const conv = await call("POST", "/api/v1/messages/conversations", youssefCookie, {
+  const conv = await call("POST", "/api/v1/messages/conversations", youssefSession, {
     recipientId: msgKamal,
   });
   assert(!isUuidValidationError(conv), `no "Invalid UUID" 400 on the seeded recipientId — got ${conv.status}`);
@@ -329,7 +379,7 @@ async function main() {
   assert(!!convId && uuid.safeParse(convId).success, `conversation id is a valid uuid: ${convId}`);
 
   if (seededConv) {
-    const report = await call("POST", "/api/v1/messages/reports", youssefCookie, {
+    const report = await call("POST", "/api/v1/messages/reports", youssefSession, {
       conversationId: seededConv.id,
       category: "other",
       details: "h03 proof — seeded conversation id must validate",
@@ -353,7 +403,7 @@ async function main() {
   // The exact id the verification report quoted for the NILE completed session.
   const legacy = "8a0f946b-50c3-2304-1d26-fecd09ce863d";
   assert(!uuid.safeParse(legacy).success, "the legacy seed id still fails z.uuid() (nothing was relaxed)");
-  const rejected = await call("POST", "/api/v1/center/checkin", receptionCookie, {
+  const rejected = await call("POST", "/api/v1/center/checkin", receptionSession, {
     studentId: lina,
     sessionId: legacy,
   });
@@ -361,7 +411,7 @@ async function main() {
     isUuidValidationError(rejected),
     `the route still answers 400 "Invalid UUID" for a non-RFC id: ${rejected.status} ${rejected.text}`,
   );
-  const rejectedMsg = await call("POST", "/api/v1/messages/conversations", youssefCookie, {
+  const rejectedMsg = await call("POST", "/api/v1/messages/conversations", youssefSession, {
     recipientId: "2dfbea05-4c2b-21de-66c7-1da369e7a5a9",
   });
   assert(
