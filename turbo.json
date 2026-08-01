@@ -3,9 +3,18 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "!.next/dev/**"
+      ],
       "env": [
         "CLOUDINARY_CLOUD_NAME",
         "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
@@ -44,7 +53,28 @@
         "WALKIN_TOKEN_TTL_HOURS",
         "VAPID_PRIVATE_KEY",
         "VAPID_SUBJECT",
-        "FIREBASE_SERVICE_ACCOUNT_JSON"
+        "FIREBASE_SERVICE_ACCOUNT_JSON",
+        "NOTIFICATION_CHANNELS",
+        "NOTIFICATIONS_PREVIEW",
+        "NOTIFICATIONS_PREVIEW_DIR",
+        "MAIL_REPLY_TO",
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USER",
+        "SMTP_PASS",
+        "SMTP_SECURE",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "SENTRY_DSN",
+        "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+        "NEXT_PUBLIC_SENTRY_RELEASE",
+        "SENTRY_TRACES_SAMPLE_RATE",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "SENTRY_PROJECT_SUPERADMIN",
+        "SENTRY_AUTH_TOKEN",
+        "NEXT_PUBLIC_POSTHOG_KEY",
+        "NEXT_PUBLIC_POSTHOG_HOST",
+        "CI"
       ],
       "passThroughEnv": [
         "REALTIME_PORT",
@@ -58,10 +88,14 @@
       ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": [
+        "^lint"
+      ]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": [
+        "^check-types"
+      ]
     },
     "dev": {
       "cache": false,

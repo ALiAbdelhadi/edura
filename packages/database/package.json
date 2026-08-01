@@ -2,7 +2,7 @@
   "name": "@repo/database",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura data layer — Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
+  "description": "Edura data layer \u2014 Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
   "type": "module",
   "exports": {
     ".": {
@@ -77,7 +77,9 @@
     "seed:teamnotes-demo": "tsx --env-file=.env prisma/team-notes-demo-seed.ts",
     "seed:parentpay-demo": "tsx --env-file=.env prisma/parent-pay-demo-seed.ts",
     "seed:roomrate-demo": "tsx --env-file=.env prisma/room-rate-demo-seed.ts",
-    "db:wipe": "tsx scripts/wipe-data.ts"
+    "db:wipe": "tsx scripts/wipe-data.ts",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:restore-test": "tsx scripts/restore-test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -90,6 +92,7 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "@repo/notifications": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",
     "@types/pg": "^8.20.0",

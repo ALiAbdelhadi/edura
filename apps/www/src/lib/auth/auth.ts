@@ -8,6 +8,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@repo/server-core/auth/passwords";
+import { send } from "@repo/notifications";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -120,6 +121,42 @@ export const auth = betterAuth({
     // POLICY is enforced by the custom register/reset/credentials flows.
     minPasswordLength: 1,
     password: { hash: hashPassword, verify: verifyPassword },
+    // `sendResetPassword` is DELIBERATELY NOT SET — see the note below.
+  },
+
+  // ==========================================================================
+  // Outbound mail. Everything better-auth sends goes through @repo/notifications
+  // so there is exactly one template set and one transport.
+  //
+  // WHY THERE IS NO `sendResetPassword` HERE:
+  // better-auth ships a complete reset flow (forget-password -> reset-password)
+  // backed by its own `auth_verifications` tokens. Wiring it would give this app
+  // a SECOND way to set a password — and better-auth's writer does not bump
+  // `users.token_version`, which is the write that fires the
+  // `users_revoke_sessions` trigger. A reset down that path would leave every
+  // pre-existing session alive, silently undoing L1.
+  //
+  // So password reset stays on `requestPasswordReset`/`resetPassword`
+  // (@repo/server-core/services/auth/password-reset), which bumps the column in
+  // the SAME transaction as the new hash. Leaving this option unset is what
+  // keeps better-auth's endpoint inert: it errors rather than half-working.
+  // Same reasoning as "ONE SUSPENSION MECHANISM" in CLAUDE.md.
+  // ==========================================================================
+  emailVerification: {
+    // Address confirmation has NO competing implementation, so it is safe to
+    // hand to better-auth. Note this only makes the endpoint functional — it
+    // does NOT set `requireEmailVerification`, so no sign-in behaviour changes.
+    sendVerificationEmail: async ({ user, url }) => {
+      await send(
+        "email_verification",
+        {
+          email: user.email,
+          locale: (user as { locale?: string | null }).locale,
+          userId: user.id,
+        },
+        { link: url, expiryHours: 1 },
+      );
+    },
   },
   // Defense-in-depth over the token buckets below (which are the C2
   // authority and Redis-backed). Strict on the credential endpoints.
