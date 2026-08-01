@@ -1,27 +1,23 @@
-"use client";
+import { LandingScreen } from "@/features/landing/landing-screen";
+import { getSessionUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useRouter } from "@/i18n/navigation";
+export const dynamic = "force-dynamic";
 
-export default function RootPage() {
-  const router = useRouter();
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem("edura_state") || "{}");
-      if (s.role) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/login");
-      }
-    } catch {
-      router.replace("/login");
-    }
-  }, [router]);
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#f4f5f7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 24, height: 24, border: "3px solid #e0e2e8", borderTopColor: "#0fa5e9", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+/**
+ * The root page. Used to be a spinner that bounced everyone to /login — a
+ * visitor to the product's own domain never saw what the product IS. Now:
+ * a signed-in user (server-side session, not the old localStorage guess) goes
+ * straight to their dashboard exactly as before; everyone else gets the
+ * landing page.
+ */
+export default async function RootPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const user = await getSessionUser();
+  if (user) redirect(`/${locale}/dashboard`);
+  return <LandingScreen />;
 }

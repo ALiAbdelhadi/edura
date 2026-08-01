@@ -10,6 +10,7 @@ import parentEn from "@/messages/en/parent.json";
 import sharedEn from "@/messages/en/shared.json";
 import catalogEn from "@/messages/en/catalog.json";
 import onboardingEn from "@/messages/en/onboarding.json";
+import landingEn from "@/messages/en/landing.json";
 import adminHomeAr from "@/messages/ar/admin-home.json";
 import adminManageAr from "@/messages/ar/admin-manage.json";
 import teacherAr from "@/messages/ar/teacher.json";
@@ -19,6 +20,7 @@ import parentAr from "@/messages/ar/parent.json";
 import sharedAr from "@/messages/ar/shared.json";
 import catalogAr from "@/messages/ar/catalog.json";
 import onboardingAr from "@/messages/ar/onboarding.json";
+import landingAr from "@/messages/ar/landing.json";
 
 export const LOCALES = ["ar", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -35,6 +37,7 @@ const enMerged = {
   shared: sharedEn,
   catalog: catalogEn,
   onboarding: onboardingEn,
+  landing: landingEn,
 };
 
 export type Messages = typeof enMerged;
@@ -50,6 +53,7 @@ const arMerged = {
   shared: sharedAr,
   catalog: catalogAr,
   onboarding: onboardingAr,
+  landing: landingAr,
 } as Messages;
 
 const dictionaries: Record<Locale, Messages> = { en: enMerged, ar: arMerged };
