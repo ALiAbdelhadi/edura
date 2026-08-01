@@ -156,10 +156,23 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   `auth_sessions` / `auth_accounts` / `auth_verifications` / `two_factors` did
   not exist there and EVERY sign-in returned 500 instead of 401 — proven by
   probing the deployed login door with deliberately invalid credentials before
-  and after. Both pending migrations (`20260801170000_better_auth`,
-  `20260802140000_contact_submissions`) were applied: production went 41 → 43
-  migrations, 70 → 75 tables, verify-db 25/25, and the login door now returns
-  401. Data was untouched (6 users / 1 center / 0 money rows before and after).
+  and after. Every pending migration was applied — `better_auth`,
+  `maturity_enums`, `maturity_layer`, `contact_submissions`: production went
+  41 → 45 migrations, 70 → 77 tables, verify-db 25/25, and the login door now
+  returns 401. Data was untouched (6 users / 1 center / 0 money rows before and
+  after).
+  **A second lesson from the same session, kept because it was a real mistake:**
+  `contact_submissions` was applied to production BEFORE the workstream that
+  owned the table had merged its own (non-idempotent) `maturity_layer`
+  migration. That left production unable to run maturity_layer at all — its
+  plain `CREATE TYPE contact_submission_status` would have aborted on the type
+  this branch had already created, taking `feature_flags` and
+  `data_export_requests` down with it. The repair was to drop the (empty,
+  0-row) table and type, delete the migration's row from `_prisma_migrations`,
+  and re-run the whole set in name order so `maturity_layer` created the table
+  as its author intended. Do NOT apply a migration to production ahead of a
+  sibling branch that owns the same object; migration order in the repo is the
+  contract, and applying out of order breaks it for everyone downstream.
   **The lesson, written down because it cost a live outage:** merging a
   migration to main does NOT apply it anywhere. A branch whose code needs new
   schema must have its migration applied to production BEFORE that code
