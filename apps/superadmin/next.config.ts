@@ -1,4 +1,5 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -20,7 +21,12 @@ const csp = [
   // 'unsafe-inline' covers the theme-bootstrap + Next inline hydration scripts;
   // 'unsafe-eval' only in dev (HMR). Nonce-based tightening is a follow-up.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  `connect-src 'self'`,
+  // 'self' + Sentry ingest. Added while the CSP is still Report-Only on
+  // purpose: the report only means something if legitimate traffic is
+  // allowed, and the day this flips to enforce, error reporting must not go
+  // dark. NO PostHog entry — product analytics does not run in the back
+  // office (see the note in apps/www/next.config.ts).
+  `connect-src 'self' https://*.ingest.sentry.io https://*.ingest.de.sentry.io`,
   `frame-src 'none'`,
   `worker-src 'self'`,
 ].join("; ");
@@ -47,7 +53,13 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
-  transpilePackages: ["@repo/database", "@repo/ui", "@repo/server-core"],
+  transpilePackages: [
+    "@repo/database",
+    "@repo/ui",
+    "@repo/server-core",
+    "@repo/notifications",
+    "@repo/observability",
+  ],
   serverExternalPackages: [
     "bcryptjs",
     "@prisma/client",
@@ -61,4 +73,19 @@ const nextConfig = {
   ],
 };
 
-export default withNextIntl(nextConfig);
+// Sentry wraps outermost. Source maps upload only when SENTRY_AUTH_TOKEN is
+// set (CI) and are deleted afterwards — a public source map of the back office
+// would hand out the whole admin surface. Identical policy to apps/www.
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT_SUPERADMIN ?? process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});

@@ -1,9 +1,8 @@
 import bcrypt from "bcryptjs";
+import { normalizeLocale, send } from "@repo/notifications";
 import { platformDb } from "../../db/scope";
 import { ExpiredError, NotFoundError } from "../../errors/classes";
 import { appBaseUrl } from "../../http/app-url";
-import { sendMail } from "../../mail/send";
-import { normalizeMailLocale, passwordResetEmail } from "../../mail/templates";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
 
 /**
@@ -22,6 +21,7 @@ import { generateOpaqueToken, hashToken } from "../../utils/random";
  * the www origin).
  */
 const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_TTL_HOURS = RESET_TTL_MS / (60 * 60 * 1000);
 
 export async function requestPasswordReset(
   email: string,
@@ -50,15 +50,21 @@ export async function requestPasswordReset(
 
   if (!result || !result.email) return;
 
-  const mailLocale = normalizeMailLocale(locale);
+  const mailLocale = normalizeLocale(locale);
   const base = (opts.linkBaseUrl ?? appBaseUrl()).replace(/\/+$/, "");
   const link = `${base}/${mailLocale}/reset-password?token=${result.token}`;
-  const { subject, html, text } = passwordResetEmail({ link, locale: mailLocale });
-  const outcome = await sendMail({ to: result.email, subject, html, text });
-  if (!outcome.sent) {
-    console.error(
-      `[password-reset] reset email was not delivered${outcome.error ? `: ${outcome.error}` : ""}`,
-    );
+
+  // The TTL is passed, not restated: the email can no longer claim a validity
+  // window that disagrees with RESET_TTL_MS above.
+  const outcome = await send(
+    "password_reset",
+    { email: result.email, locale: mailLocale },
+    { link, expiryHours: RESET_TTL_HOURS },
+  );
+  if (!outcome.delivered) {
+    const why = outcome.results.map((r) => `${r.channel}=${r.error ?? r.status}`).join(", ");
+    // The LINK is never logged — this line is read in shared log tooling.
+    console.error(`[password-reset] reset email was not delivered: ${why}`);
   }
 }
 

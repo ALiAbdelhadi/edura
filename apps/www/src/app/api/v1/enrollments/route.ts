@@ -8,6 +8,7 @@ import { scopedDb } from "@/lib/db/scope";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { trackFirstStudent } from "@/lib/observability/funnel";
 import { enrollStudent } from "@repo/server-core/services/center/enrollments";
 
 export const dynamic = "force-dynamic";
@@ -129,5 +130,9 @@ export const POST = withErrors(async (req) => {
   // Moved to the shared kernel with its guards intact: the three-level
   // blacklist gate, the center-roster block, the center-scope check and the
   // duplicate-enrollment conflict.
-  return ok(await enrollStudent(user, body), { status: 201 });
+  const enrollment = await enrollStudent(user, body);
+  // Funnel step 3. Attributed to the CENTER ACTOR who added them — the student
+  // is the object of this event, never its subject, and no student id travels.
+  await trackFirstStudent(user, user.centerId);
+  return ok(enrollment, { status: 201 });
 });

@@ -9,6 +9,8 @@ import type { Course, Prisma, Session, Subscription } from "@repo/database";
 import { notify } from "../../services/notifications/notify";
 import { studentAndParents } from "../../services/notifications/fanout";
 import type { SettleNotification } from "../../services/payments/notification-types";
+import { sendPaymentReceiptEmail } from "../../services/payments/receipt-email";
+import { trackFirstPayment } from "../../services/analytics/funnel";
 import { awardPoints } from "../../services/points/points";
 import { nextTxnRef } from "../../services/finance/ref-numbers";
 import { computeTeacherDirectSplit } from "../../services/finance/fees";
@@ -466,6 +468,14 @@ export async function createSubscriptionCheckout(
         : `Your subscription is active (paid from wallet). Receipt ${settled.receiptNumber}.`,
       data: { subscriptionId: settled.subscriptionId, receiptNumber: settled.receiptNumber },
     });
+    // Same emailed receipt the gateway path sends — a receipt must not depend
+    // on which rail the money came down. Post-commit, read-only, never throws.
+    void sendPaymentReceiptEmail(settled.receiptNumber, "wallet");
+    // Funnel step 4 on the WALLET rail. Living in the kernel is exactly why
+    // this line can exist: a helper in apps/www could only ever see the gateway
+    // rail, and a "first payment" metric that ignores wallet payments would
+    // under-report activation with no way to notice.
+    void trackFirstPayment(settled.receiptNumber, "wallet");
     return { walletPaid: true, ...settled };
   }
 
