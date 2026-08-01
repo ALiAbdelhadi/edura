@@ -66,6 +66,7 @@ const NAV_KEY: Record<string, string> = {
   Dashboard: "nav.dashboard",
   Students: "nav.students",
   Teachers: "nav.teachers",
+  Users: "nav.users",
   WhatsApp: "nav.whatsapp",
   Classes: "nav.classes",
   Courses: "nav.courses",

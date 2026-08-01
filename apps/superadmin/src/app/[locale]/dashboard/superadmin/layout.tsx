@@ -11,6 +11,7 @@ const navItems = [
     label: "Registrations",
     group: "Oversight",
   },
+  { href: "/dashboard/superadmin/users", icon: "users", label: "Users", group: "Oversight" },
   { href: "/dashboard/superadmin/centers", icon: "home", label: "Centers", group: "Oversight" },
   { href: "/dashboard/superadmin/teachers", icon: "users", label: "Teachers", group: "Oversight" },
   { href: "/dashboard/superadmin/catalog", icon: "book", label: "Catalog", group: "Oversight" },
@@ -52,6 +53,7 @@ const navItems = [
 const BAR_ORDER = [
   "/dashboard/superadmin",
   "/dashboard/superadmin/registrations",
+  "/dashboard/superadmin/users",
   "/dashboard/superadmin/payouts",
   "/dashboard/superadmin/notifications",
   "/dashboard/superadmin/centers",
