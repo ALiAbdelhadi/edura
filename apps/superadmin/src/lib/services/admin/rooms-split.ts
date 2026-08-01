@@ -41,43 +41,17 @@ function pickSplit(row: CommissionSetting): SplitInput | null {
 }
 
 // Method-2 (per-attending-student) rate: EXACTLY one of the two forms.
-export type M2RateInput = {
-  fee: number | null; // flat piasters per attending student
-  bp: number | null; // basis points of the per-session price per attending student
-};
-
-function assertM2Rate(i: M2RateInput): void {
-  const hasFee = i.fee != null;
-  const hasBp = i.bp != null;
-  if (hasFee === hasBp) {
-    throw new BusinessRuleError(
-      "Set exactly one rate form: a flat EGP amount per student OR a percentage per student",
-    );
-  }
-  if (hasFee && (!Number.isInteger(i.fee) || i.fee! < 0 || i.fee! > 99_999_900)) {
-    throw new BusinessRuleError("The flat per-student fee must be a whole number of piasters >= 0");
-  }
-  if (hasBp && (!Number.isInteger(i.bp) || i.bp! < 0 || i.bp! > 10_000)) {
-    throw new BusinessRuleError(
-      "The per-student percentage must be between 0 and 10000 basis points",
-    );
-  }
-}
-
-function pickM2(row: CommissionSetting | null): M2RateInput | null {
-  if (!row || (row.centerPerStudentFee == null && row.centerPerStudentBp == null)) return null;
-  return { fee: row.centerPerStudentFee, bp: row.centerPerStudentBp };
-}
-
-/** A commission_settings row is deletable only when NOTHING else lives on it. */
-function rowIsEmpty(row: CommissionSetting): boolean {
-  return (
-    row.platformTeacherFee == null &&
-    row.platformShareBp == null &&
-    row.centerPerStudentFee == null &&
-    row.centerPerStudentBp == null
-  );
-}
+// Shape rules, row layout and emptiness live in the shared kernel because the
+// CENTER now writes this rate too (bounded — see room-rate.ts). Two copies of
+// "what is a valid rate row" would drift; the superadmin path is the one with
+// NO ceiling, and that is the only difference.
+export type { M2RateInput } from "@repo/server-core/services/rooms/room-rate";
+import {
+  type M2RateInput,
+  assertM2RateShape as assertM2Rate,
+  pickM2,
+  m2RowIsEmpty as rowIsEmpty,
+} from "@repo/server-core/services/rooms/room-rate";
 
 async function auditLog(
   tx: TenantTx,

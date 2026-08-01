@@ -192,6 +192,98 @@ export async function resolveMethod2Rate(
   };
 }
 
+/**
+ * `resolveMethod2Rate` for MANY rooms of one center at once — the EFFECTIVE
+ * rate each hall settles at, same room > center > global precedence.
+ *
+ * Exists so the teacher's hall picker can show what a hall will actually take
+ * per attending student without one query per room. Same answer as calling
+ * `resolveMethod2Rate` per room; a drift proof asserts exactly that.
+ */
+export async function resolveMethod2RatesForRooms(
+  tx: TenantTx,
+  scope: { centerId?: string | null; roomIds: readonly string[] },
+): Promise<Record<string, ResolvedM2Rate | null>> {
+  const { centerId, roomIds } = scope;
+  if (!roomIds.length) return {};
+
+  const rows = await tx.commissionSetting.findMany({
+    where: {
+      OR: [
+        { centerPerStudentFee: { not: null } },
+        { centerPerStudentBp: { not: null } },
+      ],
+      AND: {
+        OR: [
+          { scope: "global" },
+          ...(centerId ? [{ scope: "center" as const, centerId }] : []),
+          { scope: "room" as const, roomId: { in: [...roomIds] } },
+        ],
+      },
+    },
+  });
+
+  const toRate = (r: (typeof rows)[number]): ResolvedM2Rate => ({
+    fee: r.centerPerStudentFee,
+    bp: r.centerPerStudentBp,
+    source: r.scope as "room" | "center" | "global",
+  });
+  // Precedence resolved ONCE for the whole center, then a room's own row (if
+  // any) wins over it — the same order `resolveMethod2Rate` applies per call.
+  const inherited =
+    rows.find((r) => r.scope === "center") ?? rows.find((r) => r.scope === "global");
+  const byRoom = new Map(rows.filter((r) => r.scope === "room" && r.roomId).map((r) => [r.roomId!, r]));
+
+  return Object.fromEntries(
+    roomIds.map((id) => {
+      const pick = byRoom.get(id) ?? inherited;
+      return [id, pick ? toRate(pick) : null];
+    }),
+  );
+}
+
+/**
+ * The same question `resolveMethod2Rate` answers ("does a rate resolve?"), but
+ * for a whole center at once and WITHOUT returning the numbers — the rate is
+ * superadmin-only config a center may not see.
+ *
+ * Exists so the center's room form can DISABLE the per-student checkbox instead
+ * of letting an operator fill the whole dialog and be rejected on submit by
+ * `assertMethod2Enablable`. Same precedence (room > center > global), expressed
+ * as "any row in the chain carries a rate" — which is exactly when
+ * `resolveMethod2Rate` returns non-null. One query, not one per room.
+ */
+export async function resolveMethod2Availability(
+  tx: TenantTx,
+  scope: { centerId?: string | null; roomIds?: readonly string[] } = {},
+): Promise<{ center: boolean; rooms: Record<string, boolean> }> {
+  const roomIds = scope.roomIds ?? [];
+  const rows = await tx.commissionSetting.findMany({
+    where: {
+      OR: [
+        { centerPerStudentFee: { not: null } },
+        { centerPerStudentBp: { not: null } },
+      ],
+      AND: {
+        OR: [
+          { scope: "global" },
+          ...(scope.centerId ? [{ scope: "center" as const, centerId: scope.centerId }] : []),
+          ...(roomIds.length ? [{ scope: "room" as const, roomId: { in: [...roomIds] } }] : []),
+        ],
+      },
+    },
+    select: { scope: true, roomId: true },
+  });
+
+  // A global/center rate covers every room; a room row only covers its own.
+  const inherited = rows.some((r) => r.scope === "global" || r.scope === "center");
+  const own = new Set(rows.filter((r) => r.scope === "room" && r.roomId).map((r) => r.roomId));
+  return {
+    center: inherited,
+    rooms: Object.fromEntries(roomIds.map((id) => [id, inherited || own.has(id)])),
+  };
+}
+
 export type RoomPricingMethodValue = "whole_room_percent" | "per_attending_student";
 
 export type CoursePricingSnapshot =
