@@ -453,6 +453,9 @@ model StudentProfile {
   phone                   String?
   grade                   String? // DEPRECATED free text — superseded by gradeLevelId (education catalog)
   familyLinkCode          String     @unique @map("family_link_code")
+  // Welcome-email idempotency stamp: the sender claims it atomically
+  // (updateMany WHERE null) so duplicate/retried sign-ups mail exactly once.
+  onboardingEmailSentAt   DateTime?  @map("onboarding_email_sent_at") @db.Timestamptz(6)
   // Step 6: typeable Student ID ("STU-000123") for counter check-in; DB default
   // covers every creation site, migration backfilled existing rows.
   studentCode             String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")

@@ -29,6 +29,7 @@ import {
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -150,11 +151,19 @@ export default function RegisterPage() {
       },
     );
 
+  // Sign-in hands unregistered visitors over with their email in the query
+  // (login page "create an account" CTA) — carry it into the form so they
+  // never retype it. Anything non-email-shaped is simply ignored.
+  const searchParams = useSearchParams();
+  const emailParam = searchParams.get("email");
+  const prefilledEmail =
+    emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam) ? emailParam : "";
+
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
-      email: "",
+      email: prefilledEmail,
       phone: "",
       centerName: "",
       address: "",
