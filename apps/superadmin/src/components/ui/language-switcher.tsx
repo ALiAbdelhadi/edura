@@ -34,9 +34,8 @@ export function LanguageSwitcher() {
   return (
     <ToggleGroup
       type="single"
-      size="default"
-      variant="default"
-      spacing={1}
+      size="sm"
+      variant="outline"
       value={locale}
       disabled={isPending}
       onValueChange={handleChange}

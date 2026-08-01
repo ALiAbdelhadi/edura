@@ -16,9 +16,8 @@ export function ThemeToggle() {
   return (
     <ToggleGroup
       type="single"
-      size="default"
-      variant="default"
-      spacing={1}
+      size="sm"
+      variant="outline"
       value={mode}
       onValueChange={(v) => v && setMode(v as ThemeMode)}
       aria-label={t("theme.label")}
