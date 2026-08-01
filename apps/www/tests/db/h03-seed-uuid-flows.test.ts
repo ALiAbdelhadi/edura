@@ -16,7 +16,8 @@
  * one of these fields still declares `z.uuid()`.
  *
  * What this file asserts, driving the REAL route handlers IN-PROCESS with REAL
- * sessions (only the `getServerSession` edge is stubbed — parseJson/zod, the
+ * sessions (only the session-read edge is stubbed, via the
+ * `__setSessionOverrideForTests` seam in @/lib/auth/session — parseJson/zod, the
  * authz wrappers, the services and the DB writes all run for real):
  *   F0  every id in the seeded demo dataset passes the routes' own predicate
  *   F1  counter check-in       — seeded student + seeded session, no 400
@@ -48,11 +49,11 @@
  *   bun run --filter edura test:db:only h03-seed-uuid-flows
  *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
  */
-import { createRequire } from "node:module";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth/session";
+import { __setSessionOverrideForTests } from "@/lib/auth/session";
 import { POST as checkinRoute } from "@/app/api/v1/center/checkin/route";
 import { POST as centerSubscriptionsRoute } from "@/app/api/v1/center/subscriptions/route";
 import { POST as checkoutRoute } from "@/app/api/v1/subscriptions/checkout/route";
@@ -84,17 +85,14 @@ function section(s: string) {
 
 // ------------------------------------------------------------------- session
 // IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
-// edge (`getServerSession`), the same seam invite-claim.test.ts uses. Everything
+// edge (`__setSessionOverrideForTests` in @/lib/auth/session — the explicit
+// test seam that replaced the old getServerSession monkey-patch). Everything
 // inside each route — the centerStaff/authz wrappers, parseJson + zod (which is
 // the entire point of this suite), the services and the DB writes — is the real
 // code path. Nothing depends on a server being up, so the suite can no longer
 // write to whatever database happens to be listening on port 3002.
-const nodeRequire = createRequire(__filename);
-const nextAuthNext = nodeRequire("next-auth/next") as {
-  getServerSession: (...a: unknown[]) => Promise<unknown>;
-};
 let currentSession: { user: SessionUser } | null = null;
-nextAuthNext.getServerSession = async () => currentSession;
+__setSessionOverrideForTests(() => currentSession?.user ?? null);
 
 /** The session a given seeded user would carry, resolved from the DB row. */
 async function sessionFor(userId: string): Promise<{ user: SessionUser }> {

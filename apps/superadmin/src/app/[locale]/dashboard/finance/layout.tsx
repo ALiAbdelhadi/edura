@@ -10,6 +10,7 @@ const navItems = [
   { href: "/dashboard/finance/payouts", icon: "chart", label: "Payouts" },
   { href: "/dashboard/finance/commission", icon: "settings", label: "Commission" },
   { href: "/dashboard/finance/notifications", icon: "bell", label: "Notifications" },
+  { href: "/dashboard/finance/security", icon: "shield", label: "Security" },
 ];
 
 const BAR_ORDER = [
@@ -19,6 +20,7 @@ const BAR_ORDER = [
   "/dashboard/finance/subscriptions",
   "/dashboard/finance/notifications",
   "/dashboard/finance/commission",
+  "/dashboard/finance/security",
 ];
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,5 @@
 import type { AuthProvider } from "@refinedev/core";
-import { signIn, signOut, getSession } from "next-auth/react";
+import { authClient } from "@/lib/auth/client";
 import { api } from "@/lib/api/client";
 
 export type MeResponse = {
@@ -13,22 +13,28 @@ export type MeResponse = {
   emailVerified: boolean;
 };
 
+async function currentSession() {
+  const { data } = await authClient.getSession();
+  return data;
+}
+
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const { data, error } = await authClient.signIn.email({ email, password });
 
-    if (result?.error) {
+    if (error) {
       return {
         success: false,
         error: {
-          message: result.error,
-          statusCode: 401,
+          message: error.message ?? "Invalid credentials",
+          statusCode: error.status ?? 401,
         },
       };
+    }
+
+    // Password correct + TOTP enrolled: hand off to the second-factor screen.
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+      return { success: true, redirectTo: "/two-factor" };
     }
 
     return {
@@ -38,7 +44,9 @@ export const authProvider: AuthProvider = {
   },
 
   logout: async () => {
-    await signOut({ redirect: false });
+    try {
+      await authClient.signOut();
+    } catch {}
     return {
       success: true,
       redirectTo: "/login",
@@ -50,7 +58,7 @@ export const authProvider: AuthProvider = {
       typeof window !== "undefined" &&
       window.location.pathname.startsWith("/login");
     try {
-      const session = await getSession();
+      const session = await currentSession();
       if (session?.user?.id) {
         return {
           authenticated: true,
@@ -83,8 +91,8 @@ export const authProvider: AuthProvider = {
   },
 
   getPermissions: async () => {
-    const session = await getSession();
-    return session?.user?.role ?? null;
+    const session = await currentSession();
+    return (session?.user as { role?: string } | undefined)?.role ?? null;
   },
 
   getIdentity: async () => {

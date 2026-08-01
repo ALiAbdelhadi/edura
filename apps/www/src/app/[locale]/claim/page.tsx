@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { signIn } from "next-auth/react";
+import { authClient } from "@/lib/auth/client";
 import { useTranslations } from "next-intl";
 import { KeyRound, CheckCircle2 } from "lucide-react";
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
@@ -22,7 +22,7 @@ const LANDING: Record<string, string> = {
 
 /**
  * Claim landing — opened from the one-time invite link (Step 7, generalized).
- * 1. signIn("invite-token") with the URL token (no password step);
+ * 1. POST /api/auth/invite-token/claim with the URL token (no password step);
  * 2. set a password — plus an email, but ONLY for a walk-in student, who has
  *    none yet. An assistant/staff member was invited AT an address, so theirs
  *    is fixed and shown read-only: the invite is proof of that address, and
@@ -49,8 +49,11 @@ function ClaimInner() {
     if (!token || attempted.current) return;
     attempted.current = true;
     (async () => {
-      const res = await signIn("invite-token", { token, redirect: false });
-      if (res?.ok) {
+      const { error: claimError } = await authClient.$fetch(
+        "/invite-token/claim",
+        { method: "POST", body: { token } },
+      );
+      if (!claimError) {
         const me = await fetch("/api/v1/me")
           .then((r) => r.json())
           .catch(() => null);

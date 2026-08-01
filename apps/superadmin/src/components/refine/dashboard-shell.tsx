@@ -96,6 +96,7 @@ const NAV_KEY: Record<string, string> = {
   Catalog: "nav.catalog",
   "Wallet policy": "nav.walletPolicy",
   "Audit log": "nav.auditLog",
+  Security: "nav.security",
 };
 
 const iconMap: Record<string, LucideIcon> = {

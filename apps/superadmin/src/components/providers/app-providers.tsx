@@ -1,7 +1,6 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { SessionProvider } from "next-auth/react";
 import { useLocale } from "next-intl";
 import { Refine } from "@refinedev/core";
 import { DirectionProvider } from "@repo/ui/components/direction-provider";
@@ -43,19 +42,19 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  // No SessionProvider needed: better-auth's useSession (lib/auth/client) is
+  // a self-contained nanostore — no React context wrapper.
   return (
-    <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={false}>
-      <ThemeModeProvider>
-        <DirectionProvider dir={dir}>
-          <Suspense fallback={null}>
-            <RefineProvider>{children}</RefineProvider>
-          </Suspense>
-          <Toaster
-            dir={dir}
-            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
-          />
-        </DirectionProvider>
-      </ThemeModeProvider>
-    </SessionProvider>
+    <ThemeModeProvider>
+      <DirectionProvider dir={dir}>
+        <Suspense fallback={null}>
+          <RefineProvider>{children}</RefineProvider>
+        </Suspense>
+        <Toaster
+          dir={dir}
+          position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+        />
+      </DirectionProvider>
+    </ThemeModeProvider>
   );
 }

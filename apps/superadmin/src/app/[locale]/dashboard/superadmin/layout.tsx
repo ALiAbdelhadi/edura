@@ -46,6 +46,7 @@ const navItems = [
   { href: "/dashboard/superadmin/messaging", icon: "message", label: "Messaging", group: "Comms" },
   { href: "/dashboard/superadmin/whatsapp", icon: "bell", label: "WhatsApp", group: "Comms" },
   { href: "/dashboard/superadmin/audit", icon: "shield", label: "Audit log", group: "Comms" },
+  { href: "/dashboard/superadmin/security", icon: "shield", label: "Security", group: "Comms" },
 ];
 
 const BAR_ORDER = [
@@ -65,6 +66,7 @@ const BAR_ORDER = [
   "/dashboard/superadmin/whatsapp",
   "/dashboard/superadmin/audit",
   "/dashboard/superadmin/catalog",
+  "/dashboard/superadmin/security",
 ];
 
 export default function SuperAdminLayout({

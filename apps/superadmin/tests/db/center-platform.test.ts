@@ -34,8 +34,8 @@ import {
   verifyStudentDateOfBirth,
   moveCourseBetweenCenters,
 } from "@/lib/services/admin/center-platform";
-import { authOptions } from "@/lib/auth/options";
 import type { SessionUser } from "@/lib/auth/session";
+import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
@@ -66,25 +66,11 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
 }
 const q = async (sql: string, p: unknown[] = []) => (await admin.query(sql, p)).rows;
 
-/**
- * The real per-request session gate — is this stored token still accepted?
- *
- * The claim is `uid`, NOT `id`: the jwt callback keys its revalidation on
- * `token.uid` and the session callback reads the same. A token shaped with `id`
- * is simply ignored and yields no user, which would make a "token rejected"
- * assertion pass for the wrong reason entirely.
- */
-async function effectiveUserId(stored: Record<string, unknown>) {
-  const token = await authOptions.callbacks!.jwt!({
-    token: { ...stored },
-    user: undefined,
-  } as never);
-  const session = (await authOptions.callbacks!.session!({
-    session: { user: {} },
-    token,
-  } as never)) as { user?: { id?: string } };
-  return session?.user?.id ?? null;
-}
+// The real per-request session gate is a DB row now (better-auth): signInDoor
+// drives the full /sign-in/email pipeline and sessionFor is a real getSession
+// with the real cookie — no hand-shaped token claims to get wrong, and a
+// force-logout revokes by ROW DELETION (users_revoke_sessions trigger on the
+// token_version bump), not by a per-request epoch re-read.
 
 async function main() {
   const tag = "plat-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -129,10 +115,10 @@ async function main() {
     const centerB = await mkCenter("B");
     const teacher = await mkUser("teacher", "teacher");
     const student = await mkUser("student", "student");
-    // An ACCOUNTANT, not a www role: the round trip below is validated through
-    // THIS app's jwt callback, and that gate refuses every www role outright
-    // (C-04) regardless of the session epoch. Using a back-office role keeps
-    // the test measuring the epoch, not the login boundary.
+    // An ACCOUNTANT, not a www role: the round trip below signs in through
+    // THIS app's better-auth door, and that door refuses every www role
+    // outright (C-04) regardless of the session epoch. Using a back-office
+    // role keeps the test measuring the revocation, not the login boundary.
     const staff = await mkUser("staff", "accountant");
 
     await q(
@@ -290,13 +276,16 @@ async function main() {
     section("Force logout — epoch only, NOT a deactivation");
     // =====================================================================
     const verBefore = Number((await q(`SELECT token_version FROM users WHERE id=$1`, [staff]))[0].token_version);
-    const staffToken = { uid: staff, role: "accountant", ver: verBefore } as Record<string, unknown>;
 
-    // Sanity-check the harness FIRST: a valid current token must be accepted,
-    // or a later "rejected" result proves nothing.
+    // Sign in ONCE and hold the cookie — "a later request" below is a real
+    // getSession against it. Sanity-check the harness FIRST: a valid current
+    // session must be accepted, or a later "rejected" result proves nothing.
+    const staffAuth = await signInDoor(`${tag}-staff@edura.test`, "Passw0rd!PLAT");
+    assert(staffAuth.ok, "harness check: the accountant signs in through the full door");
+    if (!staffAuth.ok) throw new Error("cannot continue without the accountant session");
     assert(
-      (await effectiveUserId(staffToken)) === staff,
-      "harness check: the account's CURRENT token is accepted before any bump",
+      (await sessionFor(staffAuth.cookie))?.userId === staff,
+      "harness check: the account's CURRENT session is accepted before any bump",
     );
 
     const noWhy = await rejects(() => forceLogoutUser(actor, staff, "  "), /reason is required/i);
@@ -311,12 +300,13 @@ async function main() {
       "LIMIT: the account's STATUS is unchanged — this is not a deactivation",
     );
     assert(
-      (await effectiveUserId(staffToken)) === null,
-      "C-03 path: a token minted before the bump is rejected on the very next request",
+      (await sessionFor(staffAuth.cookie)) === null,
+      "C-03 path: a session minted before the bump is rejected on the very next request",
     );
+    const staffAuth2 = await signInDoor(`${tag}-staff@edura.test`, "Passw0rd!PLAT");
     assert(
-      (await effectiveUserId({ uid: staff, role: "accountant", ver: out.tokenVersion })) === staff,
-      "…while a token carrying the NEW epoch is accepted — they can sign right back in",
+      staffAuth2.ok && (await sessionFor(staffAuth2.cookie))?.userId === staff,
+      "…while a fresh sign-in mints a session that IS accepted — they can sign right back in",
     );
     rows = await auditRows("platform.user_force_logged_out", staff, superAdminId);
     assert(

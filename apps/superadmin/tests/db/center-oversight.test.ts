@@ -6,7 +6,7 @@
  *
  *   PART 1  center-oversight.ts        — full read visibility, any center
  *   PART 2  center-control.ts          — the six audited control operations
- *   C-03    both apps' jwt callbacks   — deactivation cuts the NEXT request
+ *   C-03    the DB session gate        — deactivation cuts the NEXT request
  *   H-04    blacklist cascade journal  — enrollment removal is reversible
  *   MONEY   the append-only guarantees — a super admin cannot edit the ledger
  *
@@ -23,7 +23,7 @@ import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
-import { authOptions } from "@/lib/auth/options";
+import { sessionFor, signInDoor } from "./helpers/auth-door";
 import {
   centerOverview,
   centerStudents,
@@ -85,32 +85,31 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
 }
 
 // ---------------------------------------------------------------------------
-// The REAL per-request session gate: mint a token through the shipped jwt
-// callback, then re-run it (user: undefined, i.e. a subsequent request) and see
-// whether any identity survives.
+// The REAL per-request session gate. Sessions are DB rows now (better-auth):
+// signInDoor drives the full /sign-in/email pipeline (C2 limits, C-04
+// partition, full H5) and sessionFor is a real getSession with the real
+// cookie. C-03 revocation is the users_revoke_sessions trigger deleting the
+// auth_sessions row atomically with the deactivating write — so "the next
+// request is unauthenticated" is literally a missing row.
 // ---------------------------------------------------------------------------
-const credProvider = (
-  authOptions.providers[0] as unknown as {
-    options: { authorize: (c: unknown, r: unknown) => Promise<Record<string, unknown> | null> };
-  }
-).options;
-const login = (email: string, password: string) =>
-  credProvider.authorize({ email, password }, { headers: { "x-forwarded-for": "203.0.113.77" } });
+const sessionRowsOf = async (userId: string) =>
+  Number(
+    (await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id=$1`, [userId]))
+      .rows[0].n,
+  );
 
-async function mint(user: Record<string, unknown>) {
-  return (await authOptions.callbacks!.jwt!({ token: {}, user } as never)) as Record<string, unknown>;
-}
-async function effectiveUserId(stored: Record<string, unknown>) {
-  const token = await authOptions.callbacks!.jwt!({
-    token: { ...stored },
-    user: undefined,
-  } as never);
-  const session = (await authOptions.callbacks!.session!({
-    session: { user: {} },
-    token,
-  } as never)) as { user?: { id?: string } };
-  return session?.user?.id ?? null;
-}
+/**
+ * www roles cannot sign in through THIS app's door (C-04), but every app's
+ * sessions live in the SAME auth_sessions table — plant a row the way a www
+ * login would, so the trigger's hard revocation can be observed on it.
+ * (Rows are removed with the fixture users: user_id is ON DELETE CASCADE.)
+ */
+const plantSession = (userId: string) =>
+  admin.query(
+    `INSERT INTO auth_sessions (token, user_id, expires_at, updated_at)
+     VALUES (gen_random_uuid()::text, $1, now() + interval '7 days', now())`,
+    [userId],
+  );
 
 // ---------------------------------------------------------------------------
 
@@ -555,14 +554,21 @@ async function main() {
 
     // --- op 2/3: member deactivate + C-03 ---
     section("C-03 — deactivation cuts access on the NEXT request");
-    const authTeacher = await login(`${tag}-teacherA@edura.test`, PW);
-    assert(authTeacher === null, "www teacher is refused by the BACK-OFFICE login door (unchanged)");
+    const authTeacher = await signInDoor(`${tag}-teacherA@edura.test`, PW);
+    assert(
+      !authTeacher.ok && authTeacher.message === "Invalid email or password",
+      "www teacher is refused by the BACK-OFFICE login door — one generic H5 failure (unchanged)",
+    );
 
-    // The gate under test is the shared users row + epoch, so mint a token the
-    // way the app does and re-run the jwt callback after the status change.
-    const staffAuth = await login(`${tag}-super@edura.test`, PW);
-    const staffToken = await mint(staffAuth!);
-    assert((await effectiveUserId(staffToken)) === superAdminId, "baseline: the super admin's own session is live");
+    // Sign the super admin in ONCE through the full door and hold the cookie
+    // for the whole run — the per-email C2 bucket (capacity 5) is real here.
+    const superAuth = await signInDoor(`${tag}-super@edura.test`, PW);
+    assert(superAuth.ok, "the super admin signs in through the full better-auth door");
+    if (!superAuth.ok) throw new Error("cannot continue without a super admin session");
+    assert(
+      (await sessionFor(superAuth.cookie))?.userId === superAdminId,
+      "baseline: the super admin's own session is live",
+    );
 
     const verOf = async (id: string) =>
       Number((await admin.query(`SELECT token_version FROM users WHERE id=$1`, [id])).rows[0].token_version);
@@ -590,13 +596,16 @@ async function main() {
     );
     assert(enrStillActive === 2, "C-03: deactivating a teacher removed NO enrollments");
 
-    // A live student session dies on its next request.
+    // A live student session dies on its next request. A www student cannot
+    // sign in through THIS app's door (C-04), but sessions share ONE table —
+    // plant a row the way a www login would and watch the trigger revoke it.
     await admin.query(`UPDATE users SET status='active' WHERE id=$1`, [studentA]);
-    const wwwToken = { id: studentA, role: "student", ver: await verOf(studentA) } as Record<string, unknown>;
+    await plantSession(studentA);
+    assert((await sessionRowsOf(studentA)) === 1, "baseline: the student holds a live session row");
     await setCenterMemberStatus(centerA, studentA, "student", "deactivate", "Proof run", actor);
     assert(
-      (await effectiveUserId(wwwToken)) === null,
-      "C-03: a token minted BEFORE the deactivation is rejected on the very next request",
+      (await sessionRowsOf(studentA)) === 0,
+      "C-03: a session issued BEFORE the deactivation is hard-deleted — the very next request is unauthenticated",
     );
     await setCenterMemberStatus(centerA, studentA, "student", "activate", undefined, actor);
     assert(
@@ -604,7 +613,11 @@ async function main() {
       "C-03: reactivation restores the account",
     );
     assert(
-      (await effectiveUserId(staffToken)) === superAdminId,
+      (await sessionRowsOf(studentA)) === 0,
+      "C-03: reactivation does NOT resurrect the revoked session — they log in fresh",
+    );
+    assert(
+      (await sessionFor(superAuth.cookie))?.userId === superAdminId,
       "control: the acting super admin's own session is never disturbed",
     );
 
@@ -616,7 +629,7 @@ async function main() {
     assert(wrongCenter.threw && wrongCenter.matched, "member ops are scoped: A's student is unreachable via center B");
 
     // --- op 1: center deactivate/activate + C-03 for its admins ---
-    const adminToken = { id: adminA, role: "center_admin", ver: await verOf(adminA) } as Record<string, unknown>;
+    await plantSession(adminA); // center_admin is a www role too — same table
     await setCenterStatus(centerA, "deactivate", "Proof run", actor);
     assert(
       (await admin.query(`SELECT status FROM centers WHERE id=$1`, [centerA])).rows[0].status === "suspended",
@@ -627,7 +640,7 @@ async function main() {
       "center deactivation cascaded to its center_admin",
     );
     assert((await verOf(adminA)) === 1, "C-03: the cascade updateMany bumped the admin's epoch too");
-    assert((await effectiveUserId(adminToken)) === null, "C-03: the center admin's live session is cut");
+    assert((await sessionRowsOf(adminA)) === 0, "C-03: the center admin's live session is cut (row deleted)");
     assert(await auditCount("center.deactivated", centerA) === 1, "audit: exactly one center.deactivated row");
 
     await setCenterStatus(centerA, "activate", undefined, actor);

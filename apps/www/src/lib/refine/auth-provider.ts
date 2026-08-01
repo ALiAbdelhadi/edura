@@ -1,8 +1,8 @@
 import { api } from "@/lib/api/client";
+import { authClient } from "@/lib/auth/client";
 import { syncQueuedAttendance } from "@/lib/pwa/attendance-outbox";
 import { purgeUserScopedCaches } from "@/lib/pwa/purge-caches";
 import type { AuthProvider } from "@refinedev/core";
-import { getSession, signIn, signOut } from "next-auth/react";
 
 export type MeResponse = {
   id: string;
@@ -16,27 +16,28 @@ export type MeResponse = {
   centerId: string | null;
 };
 
+async function currentSession() {
+  const { data } = await authClient.getSession();
+  return data;
+}
+
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
     if (typeof window !== "undefined") {
       try {
-        if (await getSession()) await signOut({ redirect: false });
+        if (await currentSession()) await authClient.signOut();
         localStorage.removeItem("edura_state");
       } catch {}
     }
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const { error } = await authClient.signIn.email({ email, password });
 
-    if (result?.error) {
+    if (error) {
       return {
         success: false,
         error: {
-          message: result.error,
-          statusCode: 401,
+          message: error.message ?? "Invalid credentials",
+          statusCode: error.status ?? 401,
         },
       };
     }
@@ -50,19 +51,21 @@ export const authProvider: AuthProvider = {
   logout: async () => {
     if (typeof window !== "undefined") {
       try {
-        const session = await getSession();
+        const session = await currentSession();
         const teacherId = session?.user?.id;
         if (teacherId) await syncQueuedAttendance(teacherId);
       } catch {}
     }
 
-    await signOut({ redirect: false });
+    try {
+      await authClient.signOut();
+    } catch {}
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("edura_state");
       try {
-        if (await getSession()) {
-          await signOut({ redirect: false });
+        if (await currentSession()) {
+          await authClient.signOut();
         }
       } catch {}
       await purgeUserScopedCaches();
@@ -78,7 +81,7 @@ export const authProvider: AuthProvider = {
       typeof window !== "undefined" &&
       window.location.pathname.startsWith("/login");
     try {
-      const session = await getSession();
+      const session = await currentSession();
       if (session?.user?.id) {
         return {
           authenticated: true,
@@ -111,8 +114,8 @@ export const authProvider: AuthProvider = {
   },
 
   getPermissions: async () => {
-    const session = await getSession();
-    return session?.user?.role ?? null;
+    const session = await currentSession();
+    return (session?.user as { role?: string } | undefined)?.role ?? null;
   },
 
   getIdentity: async () => {

@@ -1,15 +1,15 @@
-// C-04 drift test — the two www login doors (NextAuth credentials and the
-// manual POST /api/v1/auth/login) must accept EXACTLY the same set of roles,
-// and the www/superadmin split must stay a clean partition of the Role enum.
+// C-04 drift test — every login door must consult the ONE shared role
+// partition, and the www/superadmin split must stay a clean partition of the
+// Role enum.
 //
 // This is the STRUCTURAL half of the proof (the behavioural half — real
 // accounts through both real doors against the live DB — is
-// tests/db/c04-login-parity.test.ts). It asserts three things:
-//   1. neither door declares its own allowlist any more (source-level check —
-//      this is what actually caused C-04);
-//   2. the shared partition covers EVERY role in schema.prisma, with no role in
-//      both apps and none unclassified;
-//   3. canSignIn is default-deny for anything that is not a known role.
+// tests/db/c04-login-parity.test.ts). Since the better-auth migration the
+// door layout is:
+//   - www browser door  = the before-hook in apps/www/src/lib/auth/auth.ts
+//   - www REST door     = POST /api/v1/auth/login, which FORWARDS to that same
+//     instance and holds NO policy of its own (drift structurally impossible)
+//   - superadmin door   = the before-hook in apps/superadmin/src/lib/auth/auth.ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -21,9 +21,9 @@ import {
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
-const NEXTAUTH_DOOR = read("../../src/lib/auth/options.ts");
+const WWW_DOOR = read("../../src/lib/auth/auth.ts");
 const REST_DOOR = read("../../src/app/api/v1/auth/login/route.ts");
-const SUPERADMIN_DOOR = read("../../../superadmin/src/lib/auth/options.ts");
+const SUPERADMIN_DOOR = read("../../../superadmin/src/lib/auth/auth.ts");
 const SCHEMA = read("../../../../packages/database/prisma/schema.prisma");
 
 /** Every role in the Prisma enum, read from the schema itself. */
@@ -93,48 +93,52 @@ describe("C-04 — one shared allowlist for every login door", () => {
 
   it("no login door declares a local allowlist any more (the C-04 root cause)", () => {
     for (const [name, src] of [
-      ["www NextAuth", NEXTAUTH_DOOR],
+      ["www better-auth", WWW_DOOR],
       ["www REST", REST_DOOR],
-      ["superadmin NextAuth", SUPERADMIN_DOOR],
+      ["superadmin better-auth", SUPERADMIN_DOOR],
     ] as const) {
       // A local `new Set([... "teacher" ...])`-style allowlist is exactly what
-      // drifted. The only role literals left in these files belong to the
-      // shared module.
+      // drifted before C-04 was fixed.
       expect(src, `${name} still declares WWW_ROLES/STAFF_ROLES`).not.toMatch(
         /const\s+(WWW_ROLES|STAFF_ROLES)\s*=/,
       );
-      expect(src, `${name} does not consult the shared policy`).toMatch(
-        /canSignIn\(\s*"(www|superadmin)"/,
-      );
     }
+    // The two better-auth doors consult the shared partition…
+    expect(WWW_DOOR).toMatch(/canSignIn\(\s*"www"/);
+    expect(SUPERADMIN_DOOR).toMatch(/canSignIn\(\s*"superadmin"/);
+    // …and the REST door holds NO policy at all: it forwards to the same
+    // better-auth instance, so it can never drift from the browser door.
+    expect(REST_DOOR, "REST door must not run its own role policy").not.toMatch(
+      /canSignIn\(/,
+    );
+    expect(REST_DOOR, "REST door must not verify passwords itself").not.toMatch(
+      /bcrypt|DUMMY_HASH|passwordHash/,
+    );
+    expect(REST_DOOR, "REST door must forward to the shared instance").toMatch(
+      /auth\.api\.signInEmail\(/,
+    );
   });
 
-  it("H5 survives the edit: every door runs ONE unconditional bcrypt.compare", () => {
+  it("H5 survives the edit: every refusal path runs the dummy bcrypt compare", () => {
     for (const [name, src] of [
-      ["www NextAuth", NEXTAUTH_DOOR],
-      ["www REST", REST_DOOR],
-      ["superadmin NextAuth", SUPERADMIN_DOOR],
+      ["www better-auth", WWW_DOOR],
+      ["superadmin better-auth", SUPERADMIN_DOOR],
     ] as const) {
-      // The compare must be reached on every path, choosing the hash rather than
-      // short-circuiting — an ineligible role must not answer faster.
-      expect(src, `${name} lost the H5 dummy-hash branch`).toMatch(
-        /bcrypt\.compare\([\s\S]{0,160}eligible \? \(user\.passwordHash as string\) : DUMMY_HASH/,
+      // Refusals must burn one bcrypt compare against DUMMY_HASH before
+      // throwing, so a missing/ineligible account answers no faster than a
+      // wrong password (the happy path's single compare runs in the endpoint
+      // against the trigger-mirrored credential row).
+      expect(src, `${name} lost the H5 dummy compare`).toMatch(
+        /verifyPassword\(\{\s*hash:\s*DUMMY_HASH,\s*password\s*\}\)/,
       );
-      expect(src, `${name} lost DUMMY_HASH`).toMatch(/const DUMMY_HASH = "\$2b\$10\$/);
-      // canSignIn feeds `eligible`, so the role check happens BEFORE the hash is
-      // chosen but AFTER the decision to compare — never as an early return.
-      expect(src, `${name} rejects on role before comparing`).not.toMatch(
-        /if\s*\(\s*!canSignIn\([\s\S]{0,40}\)\s*\)\s*(return|throw)/,
+      // The shared DUMMY_HASH lives in @repo/server-core/auth/passwords — the
+      // door must import it, not redeclare it.
+      expect(src, `${name} must import DUMMY_HASH from the shared module`).toMatch(
+        /DUMMY_HASH[\s\S]{0,200}from "@repo\/server-core\/auth\/passwords"/,
+      );
+      expect(src, `${name} must not redeclare DUMMY_HASH`).not.toMatch(
+        /const DUMMY_HASH\s*=/,
       );
     }
-  });
-
-  it("each door asks for its OWN app (a door cannot be pointed at the other)", () => {
-    expect(NEXTAUTH_DOOR).toMatch(/canSignIn\("www", user\.role\)/);
-    expect(REST_DOOR).toMatch(/canSignIn\("www", user\.role\)/);
-    expect(SUPERADMIN_DOOR).toMatch(/canSignIn\("superadmin", user\.role\)/);
-    expect(NEXTAUTH_DOOR).not.toMatch(/canSignIn\("superadmin"/);
-    expect(REST_DOOR).not.toMatch(/canSignIn\("superadmin"/);
-    expect(SUPERADMIN_DOOR).not.toMatch(/canSignIn\("www"/);
   });
 });

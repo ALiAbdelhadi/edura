@@ -5,21 +5,25 @@
 // The www half of the proof is apps/www/tests/db/c04-login-parity.test.ts
 // (center_staff now logs in through both www doors). This half asserts the
 // other direction: that widening www did NOT widen the back office. It drives
-// the REAL apps/superadmin authorize() + jwt()/session() callbacks against the
-// live DB, one account per role, and re-checks the C2/H5/L1/C-03 hardening on
-// this door too.
+// the REAL apps/superadmin better-auth pipeline (/sign-in/email before-hook:
+// C2 limits + the canSignIn partition + full H5, then real DB session rows +
+// getSession) against the live DB, one account per role, and re-checks the
+// C2/H5/L1/C-03 hardening on this door too.
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
 import { WWW_LOGIN_ROLES, SUPERADMIN_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
-import { authOptions } from "@/lib/auth/options";
+import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
 const PW = "Passw0rd!C04sa";
+// Full H5 on this door: every refusal (unknown email, www role, shell,
+// suspended, wrong password) is this ONE generic message.
+const GENERIC = "Invalid email or password";
 
 let pass = 0;
 let fail = 0;
@@ -33,36 +37,16 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-const credProvider = (
-  authOptions.providers[0] as unknown as {
-    options: { authorize: (c: unknown, r: unknown) => Promise<Record<string, unknown> | null> };
-  }
-).options;
-
 // The superadmin per-email bucket is deliberately tight (cap 5, refill 1/min),
-// so every account here gets at most a couple of attempts and each call uses a
-// fresh IP for the per-IP bucket (cap 10).
-let ipCounter = 0;
-const login = (email: string, password: string, ip?: string) =>
-  credProvider.authorize(
-    { email, password },
-    { headers: { "x-forwarded-for": ip ?? `198.51.100.${(ipCounter += 1) % 250}` } },
-  );
-
-const mint = async (user: Record<string, unknown>) =>
-  (await authOptions.callbacks!.jwt!({ token: {}, user } as never)) as Record<string, unknown>;
-
-async function effectiveUserId(storedToken: Record<string, unknown>) {
-  const token = await authOptions.callbacks!.jwt!({
-    token: { ...storedToken },
-    user: undefined,
-  } as never);
-  const session = (await authOptions.callbacks!.session!({
-    session: { user: {} },
-    token,
-  } as never)) as { user?: { id?: string } };
-  return session?.user?.id ?? null;
-}
+// so every account below stays under 5 attempts — except the C2 victim, whose
+// burst is the point. signInDoor uses a fresh IP per call, so the per-IP
+// bucket (cap 10) never trips across the suite.
+const sessionRows = async (ids: string[]) =>
+  (
+    await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id = ANY($1::uuid[])`, [
+      ids,
+    ])
+  ).rows[0].n as number;
 
 async function main() {
   const tag = "c04sa-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -118,38 +102,37 @@ async function main() {
       ["super_admin", superAdmin],
       ["accountant", platformAccountant],
     ] as const) {
-      const auth = await login(u.email, PW);
-      assert(auth?.id === u.id, `${label}: authorize() -> the account`);
-      assert(
-        (await effectiveUserId(await mint(auth!))) === u.id,
-        `${label}: the session is accepted on subsequent requests`,
-      );
+      const auth = await signInDoor(u.email, PW);
+      assert(auth.ok && (auth.user.id as string) === u.id, `${label}: sign-in -> the account`);
+      if (auth.ok) {
+        assert(
+          (await sessionFor(auth.cookie))?.userId === u.id,
+          `${label}: the session is accepted on subsequent requests`,
+        );
+      }
     }
 
     // ============================== 2) every www role is refused (the boundary)
     console.log("\n2) every www role is refused by the back-office door");
     for (const u of wwwUsers) {
-      const auth = await login(u.email, PW);
-      assert(auth === null, `${u.label}: refused with the CORRECT password`);
+      const auth = await signInDoor(u.email, PW);
+      assert(
+        !auth.ok && auth.message === GENERIC,
+        `${u.label}: refused with the CORRECT password (generic H5 message)`,
+      );
     }
     assert(
       wwwUsers.length === 8,
       `covered all 8 www principals (5 roles + 3 center_staff sub-roles), got ${wwwUsers.length}`,
     );
 
-    // A www role must also be unable to RIDE a token: even a forged claim set
-    // naming a www user is rejected by the per-request gate, because the epoch
-    // read is by uid and the role never gets re-admitted here.
-    const rider = wwwUsers[0]!;
-    const forged = await mint({
-      id: rider.id,
-      role: "super_admin",
-      locale: "ar",
-      tokenVersion: 999,
-    });
+    // Nearest DB-level analogue of the old forged-claim check: sessions are DB
+    // rows now, sign-in is the ONLY mint path, and it refused every www role —
+    // so no www principal holds a session row to ride; there is no client-side
+    // claim set left to forge.
     assert(
-      (await effectiveUserId(forged)) === null,
-      "a forged back-office token naming a www user is rejected by the L1 epoch check",
+      (await sessionRows(wwwUsers.map((u) => u.id))) === 0,
+      "no refused www principal holds a session row (nothing to ride)",
     );
 
     // ================================= 3) the partition is the reason it holds
@@ -168,52 +151,74 @@ async function main() {
 
     // H5: unknown email and wrong password both pay for a bcrypt compare.
     const t0 = Date.now();
-    assert((await login(`${tag}-nobody@x.io`, PW)) === null, "H5: unknown email refused");
+    const unknown = await signInDoor(`${tag}-nobody@x.io`, PW);
     const tUnknown = Date.now() - t0;
+    assert(!unknown.ok && unknown.message === GENERIC, "H5: unknown email refused (generic)");
     const t1 = Date.now();
-    assert(
-      (await login(superAdmin.email, "WrongPassword!")) === null,
-      "H5: wrong password refused",
-    );
+    const wrong = await signInDoor(superAdmin.email, "WrongPassword!");
     const tWrong = Date.now() - t1;
+    assert(!wrong.ok && wrong.message === GENERIC, "H5: wrong password refused (generic)");
     assert(
       tUnknown > 15 && tWrong > 15,
       `H5: both paths ran bcrypt (unknown ${tUnknown}ms, wrong-password ${tWrong}ms)`,
     );
 
     // C2: per-email bucket (cap 5, refill 1/min) — much tighter than www.
+    // Rate-limit trips are the ONE distinguishable refusal by design
+    // (message "RATE_LIMITED", not the generic H5 text).
     const victim = await mk("c2victim", "super_admin");
-    for (let i = 0; i < 6; i++) await login(victim.email, "nope");
+    for (let i = 0; i < 6; i++) await signInDoor(victim.email, "nope");
+    const throttled = await signInDoor(victim.email, PW);
     assert(
-      (await login(victim.email, PW)) === null,
+      !throttled.ok && throttled.message === "RATE_LIMITED",
       "C2: after the burst the CORRECT password is throttled too",
     );
+    const unaffected = await signInDoor(superAdmin.email, PW);
     assert(
-      (await login(superAdmin.email, PW))?.id === superAdmin.id,
+      unaffected.ok && (unaffected.user.id as string) === superAdmin.id,
       "C2: an unrelated staff account is unaffected (per-email bucket)",
     );
 
-    // L1 + C-03 on this door.
+    // L1 + C-03 on this door — with DB sessions the epoch bump hard-DELETES
+    // the session rows (users_revoke_sessions trigger), not just a claim check.
     const live = await mk("revoke", "accountant");
-    const token = await mint((await login(live.email, PW))!);
-    assert((await effectiveUserId(token)) === live.id, "L1/C-03: baseline session accepted");
+    const liveAuth = await signInDoor(live.email, PW);
+    assert(liveAuth.ok, "L1/C-03: the fresh accountant signs in");
+    if (!liveAuth.ok) throw new Error("cannot continue without a live session");
+    assert(
+      (await sessionFor(liveAuth.cookie))?.userId === live.id,
+      "L1/C-03: baseline session accepted",
+    );
     await admin.query(`UPDATE users SET token_version = token_version + 1 WHERE id = $1`, [live.id]);
     assert(
-      (await effectiveUserId(token)) === null,
+      (await sessionFor(liveAuth.cookie)) === null,
       "L1: a bumped epoch revokes the back-office session on the next request",
     );
-    const token2 = await mint((await login(live.email, PW))!);
-    assert((await effectiveUserId(token2)) === live.id, "L1: a fresh login works again");
+    assert(
+      (await sessionRows([live.id])) === 0,
+      "L1: the session rows are DELETED (hard revocation)",
+    );
+    const liveAuth2 = await signInDoor(live.email, PW);
+    if (!liveAuth2.ok) throw new Error("cannot continue without a fresh session");
+    assert(
+      (await sessionFor(liveAuth2.cookie))?.userId === live.id,
+      "L1: a fresh login works again",
+    );
     await withPlatformContext((tx) =>
       tx.user.update({ where: { id: live.id }, data: { status: "suspended" } }),
     );
     assert(
-      (await effectiveUserId(token2)) === null,
+      (await sessionFor(liveAuth2.cookie)) === null,
       "C-03: suspending the accountant kills the live back-office session",
     );
     assert(
-      (await login(live.email, PW)) === null,
-      "C-03: and the suspended account cannot log back in",
+      (await sessionRows([live.id])) === 0,
+      "C-03: the suspended accountant's session rows are DELETED too",
+    );
+    const suspendedLogin = await signInDoor(live.email, PW);
+    assert(
+      !suspendedLogin.ok && suspendedLogin.message === GENERIC,
+      "C-03: and the suspended account cannot log back in (generic H5 message)",
     );
   } finally {
     await admin.query(`DELETE FROM center_staff WHERE staff_user_id = ANY($1::uuid[])`, [
