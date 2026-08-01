@@ -11,6 +11,8 @@ import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustom, useList } from "@refinedev/core";
+import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -778,7 +780,21 @@ export function AdminFeesScreen() {
               data={payments}
               pageSize={10}
               emptyState={
-                <EmptyState icon={Receipt} title={t("adminManage.fees.noPayments")} />
+                <EmptyState
+                  icon={Receipt}
+                  title={t("activation.empty.payments.title")}
+                  description={t("activation.empty.payments.body")}
+                  action={
+                    <Button
+                      onClick={() => {
+                        track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "payments" });
+                        setIsFormOpen(true);
+                      }}
+                    >
+                      {t("activation.empty.payments.cta")}
+                    </Button>
+                  }
+                />
               }
             />
           )}

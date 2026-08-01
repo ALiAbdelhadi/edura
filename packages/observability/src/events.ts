@@ -20,6 +20,29 @@ export const ANALYTICS_EVENTS = {
   FIRST_STUDENT_ADDED: "first_student_added",
   /** Step 4 — money moved for the first time. */
   FIRST_PAYMENT_COMPLETED: "first_payment_completed",
+
+  // ── Conversion layer ──────────────────────────────────────────────────────
+  // Added additively; the four funnel steps above are untouched. These sit
+  // AROUND the funnel rather than inside it: they say what a visitor read and
+  // where they hesitated, which is what makes a stalled funnel step
+  // explainable instead of merely visible.
+  //
+  // A marketing CTA click is NOT given a new name here — it reuses
+  // LANDING_CTA_CLICKED, because two names for one act split the funnel.
+  /** A visitor asked for a live demo (the Calendly CTA). */
+  DEMO_REQUESTED: "demo_requested",
+  /** The public contact form was accepted / rejected. */
+  CONTACT_SUBMITTED: "contact_submitted",
+  CONTACT_FAILED: "contact_failed",
+  /** Content: which help article, which FAQ question. */
+  HELP_ARTICLE_VIEWED: "help_article_viewed",
+  FAQ_OPENED: "faq_opened",
+  /** Activation: the center-owner setup checklist. */
+  CHECKLIST_VIEWED: "onboarding_checklist_viewed",
+  CHECKLIST_STEP_CLICKED: "onboarding_checklist_step_clicked",
+  CHECKLIST_DISMISSED: "onboarding_checklist_dismissed",
+  /** An empty list's call to action was the way out of a dead end. */
+  EMPTY_STATE_CTA_CLICKED: "empty_state_cta_clicked",
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -49,6 +72,24 @@ export const ALLOWED_PROPERTIES = new Set([
   // Money, in piasters. An integer, never a formatted string.
   "amount_piasters",
   "currency",
+  // ── Conversion layer ──────────────────────────────────────────────────────
+  // Every one of these is an id, an enum or an integer, per the rule above.
+  // Note what is NOT here and cannot be added casually: a contact form's name,
+  // email, phone or message. The form emits only its `subject` enum.
+  /** Help article slug / FAQ question id — stable ids, not translated titles. */
+  "slug",
+  "question",
+  /** Which help section the article belonged to (start | money | safety | …). */
+  "category",
+  /** Which checklist step, which list an empty-state CTA belonged to. */
+  "step",
+  "list",
+  /** Checklist progress, as integers. */
+  "done",
+  "total",
+  /** The contact form's subject enum, and an HTTP status on failure. */
+  "subject",
+  "status",
 ]);
 
 export type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;

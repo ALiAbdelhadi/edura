@@ -14,14 +14,17 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { DemoCta } from "@/features/marketing/demo-cta";
+import { MarketingShell } from "@/features/marketing/marketing-shell";
+import { demoBookingUrl } from "@/features/marketing/nav";
+import { TrackedCta } from "@/features/marketing/tracked-cta";
 import { getTranslations } from "next-intl/server";
-import Image from "next/image";
-import { LandingHeader } from "./landing-header";
 import styles from "./landing.module.css";
-import { LandingShell } from "./landing-shell";
 
 export async function LandingScreen() {
   const t = await getTranslations("landing");
+  const tm = await getTranslations("marketing");
+  const demoUrl = demoBookingUrl();
 
   const steps = [
     { n: 1, icon: Users, title: t("how.s1title"), body: t("how.s1body") },
@@ -30,9 +33,7 @@ export async function LandingScreen() {
   ] as const;
 
   return (
-    <LandingShell>
-      <LandingHeader loginLabel={t("hero.ctaSecondary")} registerLabel={t("footer.register")} />
-
+    <MarketingShell active="/">
       {/* Hero */}
       <section className="border-b" style={{ borderColor: "var(--rule)" }}>
         <Container className="py-12 sm:py-16 lg:py-20">
@@ -49,9 +50,24 @@ export async function LandingScreen() {
                 {t("hero.subtitle")}
               </p>
               <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
-                <LedgerButton asChild variant="primary" className="px-7 py-2.5 text-[15px]">
-                  <Link href="/register">{t("hero.ctaPrimary")}</Link>
-                </LedgerButton>
+                <TrackedCta
+                  href="/register"
+                  cta="register"
+                  surface="hero"
+                  className="px-7 py-2.5 text-[15px]"
+                >
+                  {t("hero.ctaPrimary")}
+                </TrackedCta>
+                {/* Renders nothing when NEXT_PUBLIC_CALENDLY_URL is unset, and
+                    the sign-in link stays as the secondary action either way. */}
+                <DemoCta
+                  url={demoUrl}
+                  label={tm("nav.bookDemo")}
+                  surface="hero"
+                  variant="secondary"
+                  className="px-7 py-2.5 text-[15px]"
+                  withIcon
+                />
                 <LedgerButton asChild variant="secondary" className="px-7 py-2.5 text-[15px]">
                   <Link href="/login">{t("hero.ctaSecondary")}</Link>
                 </LedgerButton>
@@ -195,53 +211,20 @@ export async function LandingScreen() {
             <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed opacity-90 sm:text-[15px]">
               {t("cta.body")}
             </p>
-            <LedgerButton
-              asChild
+            <TrackedCta
+              href="/register"
+              cta="register"
+              surface="landing_cta_band"
               variant="secondary"
               className="mt-7 border-0 px-8 py-2.5 text-[15px] font-semibold"
               style={{ background: "var(--indigo-ink)", color: "var(--indigo)" }}
             >
-              <Link href="/register">{t("cta.button")}</Link>
-            </LedgerButton>
+              {t("cta.button")}
+            </TrackedCta>
           </div>
         </Container>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t" style={{ borderColor: "var(--rule)", background: "var(--sheet)" }}>
-        <Container className="flex flex-col items-center gap-6 py-10 sm:flex-row sm:justify-between sm:gap-8">
-          <div className="flex items-center gap-2.5">
-            <Image src="/edura-mark.svg" alt="" width={24} height={24} />
-            <div className="text-start">
-              <div className="text-sm font-bold">Edura</div>
-              <div className="text-xs" style={{ color: "var(--ink-3)" }}>
-                {t("footer.tagline")}
-              </div>
-            </div>
-          </div>
-          <nav
-            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm"
-            style={{ color: "var(--ink-2)" }}
-          >
-            <Link href="/login" className="transition-colors hover:text-(--indigo)">
-              {t("footer.login")}
-            </Link>
-            <Link href="/register" className="transition-colors hover:text-(--indigo)">
-              {t("footer.register")}
-            </Link>
-            <Link href="/terms" className="transition-colors hover:text-(--indigo)">
-              {t("footer.terms")}
-            </Link>
-            <Link href="/privacy" className="transition-colors hover:text-(--indigo)">
-              {t("footer.privacy")}
-            </Link>
-          </nav>
-          <div className="text-xs" style={{ color: "var(--ink-3)" }}>
-            © <Num>{new Date().getFullYear()}</Num> Edura
-          </div>
-        </Container>
-      </footer>
-    </LandingShell>
+    </MarketingShell>
   );
 }
 

@@ -9,6 +9,8 @@ import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useInvalidate, useList, useUpdate } from "@refinedev/core";
+import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -315,7 +317,26 @@ export function AdminStudentsScreen() {
             selectedKey={cascadeFor?.id ?? null}
             caption={t("nav.students")}
             empty={
-              <EmptyState icon={<Users className="size-6" />} title={t("adminHome.students_noStudents")} />
+              /* Only offered when the roster is genuinely empty rather than
+                 filtered to nothing — `filtered` is the search result, so this
+                 branch also covers "no matches". The CTA is still the right
+                 next step in both cases: register the student you're looking
+                 for. */
+              <EmptyState
+                icon={<Users className="size-6" />}
+                title={t("activation.empty.students.title")}
+                hint={t("activation.empty.students.body")}
+                action={
+                  <Button
+                    onClick={() => {
+                      track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "students" });
+                      setIsInviteOpen(true);
+                    }}
+                  >
+                    {t("activation.empty.students.cta")}
+                  </Button>
+                }
+              />
             }
           />
         )}

@@ -2,6 +2,7 @@
 
 import { BarChart, DonutChart, LineChart } from "@/components/charts";
 import { PageSkeleton } from "@/components/ui/skeletons";
+import { SetupChecklist } from "@/features/activation/setup-checklist";
 import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
@@ -73,6 +74,12 @@ export function AdminDashboard() {
         }
         subtitle={openDecisions > 0 ? t("adminHome.queue_subtitle") : t("adminHome.queue_allClear")}
       />
+
+      {/* Setup checklist. ABOVE the decision cards on purpose: a center that has
+          no teachers and no groups has no decisions to make, so the queue below
+          is empty and says nothing about what to do next. It renders nothing
+          once dismissed, and nothing at all while its own fetch is in flight. */}
+      <SetupChecklist />
 
       {/* Ordered by urgency: unanswered requests block a student from attending;
           unpaid fees block attendance at the counter; today's sessions are the
