@@ -107,6 +107,65 @@ age-keygen -o edura-backup.key
 The output file contains the private key (`AGE-SECRET-KEY-1…` → `BACKUP_AGE_IDENTITY`)
 and prints the public key (`age1…` → `BACKUP_AGE_RECIPIENT`).
 
+### Creating the bucket — Cloudflare R2, step by step
+
+R2 is the recommendation because it is S3-compatible and has **zero egress
+fees**, which matters precisely when you need it: a real restore means pulling
+the whole archive back down, and on most providers that is the expensive part.
+
+> **R2 requires a payment method on file even for the free 10 GB tier.** If that
+> is a blocker, **Backblaze B2** has a 10 GB free tier with a lighter signup and
+> works with every script here unchanged — only the endpoint differs. Your dev
+> dump was 0.32 MiB, so you are nowhere near either free tier.
+
+1. **Dash → R2 → Create bucket.**
+   - Name: `edura-backups`
+   - Location: **Automatic**, or `EEUR`/`WEUR` to sit near the Neon
+     `eu-central-1` region.
+   - Leave public access **OFF**. This bucket must never be internet-readable —
+     it holds every user row and every minor's record.
+
+2. **Bucket → Settings → Object lifecycle rules.** This is what actually
+   enforces retention; the backup script only prunes *local* files.
+   - prefix `production/daily/` → delete after **8** days (keeps 7, one spare)
+   - prefix `production/weekly/` → delete after **35** days (keeps 4, one spare)
+
+3. **Bucket → Settings → turn ON versioning.** Without it, an overwrite —
+   accidental or hostile — is permanent.
+
+4. **R2 → API → Manage API tokens → Create API token.**
+   - Permission: **Object Read & Write**
+   - Scope it to **this bucket only**, not "all buckets"
+   - TTL: no expiry (or diarise the rotation)
+   - You get an **Access Key ID** and a **Secret Access Key**. The secret is
+     shown **once** — put it straight into the setup script.
+
+5. **Note your endpoint**, shown on the bucket page as
+   `https://<account-id>.r2.cloudflarestorage.com`. Region is `auto`.
+
+6. **Feed it to the secrets script** (§Setting all of this up above):
+
+   ```bash
+   bash packages/database/scripts/setup-backup-secrets.sh
+   ```
+
+7. **Prove the bucket works before trusting it** — a token that can write but
+   not list, or an endpoint that silently truncates, both look fine until a
+   restore:
+
+   ```bash
+   export BACKUP_S3_BUCKET=edura-backups
+   export BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+   export AWS_ACCESS_KEY_ID=...      # from step 4
+   export AWS_SECRET_ACCESS_KEY=...
+   export AWS_DEFAULT_REGION=auto
+   bash packages/database/scripts/verify-backup-storage.sh
+   ```
+
+   It writes a 1 MiB random probe, lists it, reads it back, compares checksums,
+   deletes it, and checks versioning. Only enable the schedule once this is
+   green.
+
 ### Bucket configuration
 
 Create the bucket **private**, then:
@@ -290,8 +349,16 @@ month means the backups are once again a hypothesis.
 | Date | Source | Method | Result |
 |---|---|---|---|
 | 2026-08-02 | `dev` (real dump, 0.32 MiB) | `db:restore-test` into a scratch PostgreSQL 18.4 server | ✅ **8/8** — 78 tables, 44 applied migrations, 45 subjects / 27 grade levels, 38 users, 0 orphaned refunds, 0 orphaned enrollments, 296 indexes / 45 FKs, 6 sequences |
+| 2026-08-02 | `dev` → local MinIO bucket | **Full chain**: dump → age-encrypt → upload → list → download → decrypt → restore | ✅ decrypted SHA-256 matched the backup's logged checksum byte-for-byte (`47f925a4…`); restore **8/8** |
 
-**Caveat on that run, stated honestly:** the dev database had been wiped and
+The second row matters most: it is the first exercise of `age` encryption, the
+S3 upload, and the *download-and-decrypt* path the weekly workflow depends on.
+It ran against a local MinIO server standing in for R2 — the same S3 API, so it
+proves the code path, but **not** R2's own specifics (credentials, endpoint,
+region, token scope). `verify-backup-storage.sh` covers those, and must be run
+against the real bucket before the schedule is re-enabled.
+
+**Caveat on the dev data itself, stated honestly:** the dev database had been wiped and
 re-seeded, so it held **0 transactions and 0 payments**. The money-ledger check
 therefore passed *vacuously* — it proved the tables restore and are readable,
 not that a large ledger round-trips intact. The first production run will be the
