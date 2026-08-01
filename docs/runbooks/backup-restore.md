@@ -4,7 +4,8 @@
 > an incident is the wrong time to discover that `pg_dump` refuses to talk to
 > the server, or that nobody has the decryption key.
 
-**Last verified: 2026-08-02** — a real dump of the `dev` database was restored
+**Last verified: 2026-08-02** (restore path only — the SCHEDULE IS OFF, see §3)
+A real dump of the `dev` database was restored
 into a scratch PostgreSQL server and passed 8/8 integrity checks. Evidence is in
 [§ Verification log](#verification-log).
 
@@ -123,8 +124,18 @@ Create the bucket **private**, then:
 
 ## 3. Taking a backup
 
-Automatic: `.github/workflows/backup.yml`, 02:30 UTC (04:30 Cairo) daily.
-Sunday's dump is written to **both** `daily/` and `weekly/`.
+> ### ⚠️ AUTOMATIC BACKUPS ARE CURRENTLY OFF
+> The schedule in `.github/workflows/backup.yml` was disabled on **2026-08-02**
+> because the bucket and the `BACKUP_*` secrets do not exist yet. **Nothing is
+> being backed up on a schedule right now** — the only protection in force is
+> Neon PITR, inside its retention window.
+>
+> Re-enable by running `setup-backup-secrets.sh` (above), confirming a manual
+> run passes, and restoring the `schedule:` block — the exact YAML to paste is
+> in the comment at the top of the workflow file.
+
+Once enabled: `.github/workflows/backup.yml` runs at 02:30 UTC (04:30 Cairo)
+daily. Sunday's dump is written to **both** `daily/` and `weekly/`.
 
 Manual:
 

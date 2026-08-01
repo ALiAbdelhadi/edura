@@ -166,7 +166,8 @@ export function AdminStudentsScreen() {
     },
     {
       id: "coursesCount",
-      header: t("nav.courses"),
+      // Active ENROLLMENTS at this center (the roster link), not subscriptions.
+      header: t("adminHome.students_colCourses"),
       numeric: true,
       cell: (r) => <Num className="text-[13px] text-[var(--ink)]">{r.coursesCount || 0}</Num>,
     },

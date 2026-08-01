@@ -71,6 +71,29 @@ export async function listRosterStudents(
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
+    // Courses per student = their ACTIVE ENROLLMENTS at THIS center. Enrollment
+    // is the roster link, which is what a roster column means; a Subscription is
+    // the payment coverage wrapping it and is deliberately NOT what is counted
+    // here (the header says courses, so it counts courses).
+    //
+    // Grouping by (studentId, courseId) counts each COURSE once rather than
+    // each ROW: a student who left a course and rejoined it has two rows for it,
+    // and only the active one may count. (The partial unique index
+    // `enrollments_active_student_course` already forbids two ACTIVE rows for a
+    // pair, so this grouping is belt-and-braces — but it makes the count
+    // distinct by construction instead of by reference to an index elsewhere.)
+    // One query for the whole page, not one per row.
+    const enrollmentGroups = ids.length
+      ? await tx.enrollment.groupBy({
+          by: ["studentId", "courseId"],
+          where: { studentId: { in: ids }, centerId, status: "active" },
+        })
+      : [];
+    const coursesByStudent = new Map<string, number>();
+    for (const g of enrollmentGroups) {
+      coursesByStudent.set(g.studentId, (coursesByStudent.get(g.studentId) ?? 0) + 1);
+    }
+
     return rosters.map((r) => {
       const u = userMap.get(r.studentId);
       return {
@@ -81,6 +104,7 @@ export async function listRosterStudents(
         blacklistReason: r.blacklistReason,
         addedAt: r.addedAt,
         leftAt: r.leftAt,
+        coursesCount: coursesByStudent.get(r.studentId) ?? 0,
         name: u?.name,
         email: u?.email,
         phone: u?.phone,

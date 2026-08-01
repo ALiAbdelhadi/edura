@@ -14,14 +14,38 @@ name: Database backup
 # ============================================================================
 
 on:
-  schedule:
-    # 02:30 UTC = 04:30 Africa/Cairo — after the day's teaching has ended and
-    # before anyone is awake to be affected by the read load.
-    - cron: "30 2 * * *"
-    # Mondays 04:00 UTC — the restore test. Its own schedule rather than a
-    # day-of-week check inside the job, because GitHub gives the matched cron
-    # expression in `github.event.schedule` and nothing simpler for weekdays.
-    - cron: "0 4 * * 1"
+  # ==========================================================================
+  # ⚠️  THE SCHEDULE IS DISABLED — THERE ARE NO AUTOMATIC BACKUPS RIGHT NOW.
+  #
+  # Paused 2026-08-02 because the storage bucket and the BACKUP_* secrets do
+  # not exist yet, and the job is built to FAIL LOUDLY rather than skip
+  # quietly (a green tick on a backup that never ran is how people discover
+  # months later that they have nothing). Rather than train anyone to ignore a
+  # red run, the schedule is off until it can actually succeed.
+  #
+  # TO RE-ENABLE, in order:
+  #   1. bash packages/database/scripts/setup-backup-secrets.sh
+  #   2. gh workflow run backup.yml -f environment=production   (must pass)
+  #   3. replace this comment block with EXACTLY:
+  #
+  #        schedule:
+  #          - cron: "30 2 * * *"
+  #          - cron: "0 4 * * 1"
+  #
+  # Note the `schedule:` key must come back too — the crons are nested under
+  # it. They are not merely commented out here: an empty `schedule: []` is
+  # rejected by GitHub and would break the whole file, so the key is gone.
+  #
+  #   "30 2 * * *"  daily 02:30 UTC = 04:30 Africa/Cairo — after the day's
+  #                 teaching has ended, before anyone is awake to notice the
+  #                 read load.
+  #   "0 4 * * 1"   Mondays 04:00 UTC — the restore test. Its own schedule
+  #                 rather than a day-of-week check inside the job, because
+  #                 GitHub exposes the matched cron in github.event.schedule.
+  #
+  # Manual runs still work in the meantime:
+  #   gh workflow run backup.yml -f environment=production
+  # ==========================================================================
   workflow_dispatch:
     inputs:
       environment:
