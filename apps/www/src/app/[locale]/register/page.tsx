@@ -509,6 +509,16 @@ export default function RegisterPage() {
             )}
             {t("auth.createAccountTitle")}
           </LedgerButton>
+          <p className="text-center text-xs text-muted-foreground">
+            {t("auth.consentPrefix")}{" "}
+            <Link href="/terms" className="text-primary hover:underline">
+              {t("auth.consentTerms")}
+            </Link>{" "}
+            {t("auth.consentAnd")}{" "}
+            <Link href="/privacy" className="text-primary hover:underline">
+              {t("auth.consentPrivacy")}
+            </Link>
+          </p>
         </form>
       </Form>
       <p className="mt-6 text-center text-sm text-muted-foreground">

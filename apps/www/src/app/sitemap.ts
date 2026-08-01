@@ -4,7 +4,7 @@ import type { MetadataRoute } from "next";
 
 const BASE_URL = appBaseUrl();
 
-const PUBLIC_PATHS = ["", "/login", "/register", "/forgot-password"];
+const PUBLIC_PATHS = ["", "/login", "/register", "/forgot-password", "/terms", "/privacy"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PUBLIC_PATHS.map((path) => ({

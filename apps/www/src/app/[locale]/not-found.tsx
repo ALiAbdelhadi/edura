@@ -1,0 +1,20 @@
+import { Link } from "@/i18n/navigation";
+import { Button } from "@repo/ui/components/button";
+import { SearchX } from "lucide-react";
+import { useTranslations } from "next-intl";
+
+export default function NotFound() {
+  const t = useTranslations("shared");
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--paper)] px-6 text-center">
+      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--indigo-soft)] text-[var(--indigo)]">
+        <SearchX className="size-7" />
+      </div>
+      <h1 className="text-2xl font-bold text-[var(--ink)]">{t("notFoundTitle")}</h1>
+      <p className="max-w-sm text-sm text-[var(--ink-2)]">{t("notFoundBody")}</p>
+      <Button asChild className="mt-2">
+        <Link href="/">{t("notFoundHome")}</Link>
+      </Button>
+    </div>
+  );
+}

@@ -1,0 +1,80 @@
+{
+  "hero": {
+    "eyebrow": "The education operations platform",
+    "title": "Your center, teachers, and students — one organized ledger",
+    "subtitle": "Edura runs attendance, subscriptions, payments, and messaging — from the center's front desk to the parent's phone — in one system built for the Egyptian market.",
+    "ctaPrimary": "Create your free account",
+    "ctaSecondary": "Sign in",
+    "note": "Works on mobile and desktop right away — nothing to install."
+  },
+  "roles": {
+    "eyebrow": "Every role gets its tools",
+    "title": "One platform, four complete experiences",
+    "center": {
+      "name": "The Center",
+      "b1": "Front-desk check-in by student code or QR",
+      "b2": "Cash and online in one auto-settling financial ledger",
+      "b3": "Halls with prices and pricing methods you set yourself",
+      "b4": "Staff with scoped permissions and an audit trail for every action"
+    },
+    "teacher": {
+      "name": "The Teacher",
+      "b1": "Groups, schedules, materials, and grades in one place",
+      "b2": "A second check-in at the classroom door, and assistants with their own accounts",
+      "b3": "An earnings wallet that updates with every completed lesson",
+      "b4": "Collaboration requests with centers on clear terms before you accept"
+    },
+    "parent": {
+      "name": "The Parent",
+      "b1": "Your children's attendance and grades in real time",
+      "b2": "Pay for your child's lessons straight from your own wallet",
+      "b3": "Read-only oversight of minors' conversations with adults",
+      "b4": "Instant notifications for absences and payments"
+    },
+    "student": {
+      "name": "The Student",
+      "b1": "Your schedule, materials, and grades in one app",
+      "b2": "Points and rewards for attendance and commitment",
+      "b3": "A prepaid wallet for your lessons",
+      "b4": "Safe messaging with your teachers"
+    }
+  },
+  "how": {
+    "eyebrow": "Up and running in minutes",
+    "title": "Three steps and you're live",
+    "s1title": "Register and pick your role",
+    "s1body": "Center, teacher, parent, or student — each role gets a tailored experience from the first minute.",
+    "s2title": "Set up your classes and prices",
+    "s2body": "Groups, schedules, halls, and payment methods — all from one dashboard.",
+    "s3title": "Watch attendance and money in real time",
+    "s3body": "Every lesson settles automatically, every check-in is recorded, and each party sees only what's theirs."
+  },
+  "money": {
+    "eyebrow": "Money counted right",
+    "title": "A financial ledger that closes itself",
+    "b1": "Every completed lesson settles automatically at the rates in force when the class was created",
+    "b2": "A financial record that cannot be edited or deleted — every piaster leaves a trail",
+    "b3": "Online payment via Paymob or cash at the counter — both land in the same ledger",
+    "b4": "Prepaid wallets for students and parents"
+  },
+  "safety": {
+    "eyebrow": "Minor safety is not an add-on",
+    "title": "Built from day one to protect students",
+    "b1": "Any student not verifiably an adult is treated as a minor automatically",
+    "b2": "Messaging adults requires a guardian contact channel",
+    "b3": "Parents get read-only visibility into their child's conversations with adults — disclosed to both sides",
+    "b4": "Each center's data is isolated at the database level"
+  },
+  "cta": {
+    "title": "Ready to move your center to Edura?",
+    "body": "Start free today — registration takes minutes and needs no card.",
+    "button": "Start now"
+  },
+  "footer": {
+    "tagline": "The education operations platform for the Egyptian market",
+    "login": "Sign in",
+    "register": "Create account",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  }
+}
