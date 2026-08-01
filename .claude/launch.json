@@ -111,34 +111,6 @@
         "3037"
       ],
       "port": 3037
-    },
-    {
-      "name": "edura-worktree-preview",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/www",
-        "dev",
-        "--",
-        "-p",
-        "3088"
-      ],
-      "port": 3088
-    },
-    {
-      "name": "edura-superadmin-worktree-preview",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/superadmin",
-        "dev",
-        "--",
-        "-p",
-        "3089"
-      ],
-      "port": 3089
     }
   ]
 }
