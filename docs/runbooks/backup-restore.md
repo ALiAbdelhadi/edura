@@ -82,7 +82,22 @@ copy in your password manager (manual runs):
 > Store it in a password manager **and** on paper in a physical safe. It is
 > unrecoverable: lose it and every backup is permanently unreadable.
 
-### Generate the age key pair
+### Setting all of this up
+
+There is a script that does it. **You run it, not an assistant** — it prompts for
+each value and pipes it straight into `gh secret set`, so nothing is echoed,
+written to a file, or left in shell history:
+
+```bash
+bash packages/database/scripts/setup-backup-secrets.sh
+```
+
+It also generates the age key pair for you and refuses to move on until you
+confirm you have stored the private key somewhere durable.
+
+Prerequisites: `brew install gh age`, then `gh auth login`.
+
+### Generate the age key pair manually (if you are not using the script)
 
 ```bash
 age-keygen -o edura-backup.key
