@@ -1,0 +1,222 @@
+/* Landing — scoped under `.landing` inside the Ledger shell scope. */
+
+.landing {
+  --landing-max: 68rem;
+}
+
+/* Fluid display type — tight tracking, readable line length */
+.heroTitle {
+  font-size: clamp(1.875rem, 4.5vw + 0.5rem, 3.25rem);
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+}
+
+.heroSubtitle {
+  font-size: clamp(1rem, 1.2vw + 0.75rem, 1.125rem);
+  line-height: 1.65;
+}
+
+.sectionTitle {
+  font-size: clamp(1.5rem, 2vw + 0.75rem, 2rem);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Hero product preview — stacked sheets, subtle offset */
+.previewStack {
+  position: relative;
+  width: 100%;
+  max-width: 22rem;
+  margin-inline: auto;
+}
+
+.previewBack {
+  position: absolute;
+  inset: 0;
+  transform: translate(12px, 12px);
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--field);
+  opacity: 0.65;
+}
+
+.previewFront {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  box-shadow: var(--lift-2);
+  padding: 1.25rem 1.35rem;
+}
+
+.previewStat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--rule-2);
+}
+.previewStat:last-child {
+  border-bottom: 0;
+}
+
+/* Bento role grid */
+.roleGrid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .roleGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .roleGrid {
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1rem;
+  }
+  .roleCenter {
+    grid-column: span 6;
+  }
+  .roleTeacher {
+    grid-column: span 6;
+  }
+  .roleParent {
+    grid-column: span 6;
+  }
+  .roleStudent {
+    grid-column: span 6;
+  }
+}
+
+.roleCard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  box-shadow: var(--lift);
+  padding: 1.25rem 1.35rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+@media (hover: hover) {
+  .roleCard:hover {
+    border-color: color-mix(in srgb, var(--indigo) 22%, var(--rule));
+    box-shadow: var(--lift-2);
+  }
+}
+
+/* Steps — vertical on mobile, connected row on desktop */
+.steps {
+  display: grid;
+  gap: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    position: relative;
+  }
+  .steps::before {
+    content: "";
+    position: absolute;
+    top: 2.05rem;
+    inset-inline: 12%;
+    height: 1px;
+    background: var(--rule);
+    pointer-events: none;
+  }
+}
+
+.stepCard {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  box-shadow: var(--lift);
+  padding: 1.35rem 1.25rem;
+}
+
+.stepNum {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  font-family: var(--ledger-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Feature bands */
+.featureGrid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .featureGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+}
+
+.featureCard {
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 1.5rem 1.35rem;
+  height: 100%;
+}
+
+/* CTA band — indigo without gradient */
+.ctaBand {
+  border-radius: 12px;
+  background: var(--indigo);
+  color: var(--indigo-ink);
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2rem);
+  text-align: center;
+}
+
+/* Trust row under hero CTAs */
+.trustRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  margin-top: 1.75rem;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.trustItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.trustDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--teal);
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roleCard {
+    transition: none;
+  }
+}

@@ -1,8 +1,6 @@
 import { Container } from "@/components/kit/container";
-import { Eyebrow, Num } from "@/components/ledger";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { Eyebrow, LedgerButton, Num } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
-import { Button } from "@repo/ui/components/button";
 import {
   Building2,
   CalendarCheck2,
@@ -10,6 +8,7 @@ import {
   HeartHandshake,
   Landmark,
   ShieldCheck,
+  Smartphone,
   UserRound,
   Users,
   Wallet,
@@ -17,56 +16,75 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
+import { LandingHeader } from "./landing-header";
+import styles from "./landing.module.css";
+import { LandingShell } from "./landing-shell";
 
 export async function LandingScreen() {
   const t = await getTranslations("landing");
 
+  const steps = [
+    { n: 1, icon: Users, title: t("how.s1title"), body: t("how.s1body") },
+    { n: 2, icon: CalendarCheck2, title: t("how.s2title"), body: t("how.s2body") },
+    { n: 3, icon: Wallet, title: t("how.s3title"), body: t("how.s3body") },
+  ] as const;
+
   return (
-    <div className="min-h-screen bg-(--paper) text-(--ink)">
-      <header className="sticky top-0 z-20 border-b border-(--rule) bg-(--sheet)/95 backdrop-blur">
-        <Container className="flex items-center justify-between py-3.5">
-          <div className="flex items-center gap-2.5">
-            <Image src="/edura-mark.svg" alt="" width={30} height={30} priority />
-            <span className="text-xl font-bold">Edura</span>
+    <LandingShell>
+      <LandingHeader loginLabel={t("hero.ctaSecondary")} registerLabel={t("footer.register")} />
+
+      {/* Hero */}
+      <section className="border-b" style={{ borderColor: "var(--rule)" }}>
+        <Container className="py-12 sm:py-16 lg:py-20">
+          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
+            <div className="text-center lg:text-start">
+              <Eyebrow>{t("hero.eyebrow")}</Eyebrow>
+              <h1 className={`${styles.heroTitle} mt-4 max-w-2xl font-extrabold lg:mx-0 mx-auto`}>
+                {t("hero.title")}
+              </h1>
+              <p
+                className={`${styles.heroSubtitle} mx-auto mt-5 max-w-xl lg:mx-0`}
+                style={{ color: "var(--ink-2)" }}
+              >
+                {t("hero.subtitle")}
+              </p>
+              <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
+                <LedgerButton asChild variant="primary" className="px-7 py-2.5 text-[15px]">
+                  <Link href="/register">{t("hero.ctaPrimary")}</Link>
+                </LedgerButton>
+                <LedgerButton asChild variant="secondary" className="px-7 py-2.5 text-[15px]">
+                  <Link href="/login">{t("hero.ctaSecondary")}</Link>
+                </LedgerButton>
+              </div>
+              <div className={`${styles.trustRow} lg:justify-start`}>
+                <span className={styles.trustItem}>
+                  <Smartphone className="size-3.5 shrink-0" aria-hidden />
+                  {t("hero.trustMobile")}
+                </span>
+                <span className={styles.trustItem}>
+                  <span className={styles.trustDot} aria-hidden />
+                  {t("hero.trustNoInstall")}
+                </span>
+              </div>
+            </div>
+
+            <HeroPreview
+              title={t("hero.previewTitle")}
+              sessions={t("hero.previewSessions")}
+              checkedIn={t("hero.previewCheckedIn")}
+              settled={t("hero.previewSettled")}
+            />
           </div>
-          <nav className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">{t("hero.ctaSecondary")}</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/register">{t("footer.register")}</Link>
-            </Button>
-          </nav>
-        </Container>
-      </header>
-      <section>
-        <Container className="pb-16 pt-16 text-center sm:pt-24">
-          <div className="flex justify-center">
-            <Eyebrow>{t("hero.eyebrow")}</Eyebrow>
-          </div>
-          <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl sm:leading-[1.2]">
-            {t("hero.title")}
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-(--ink-2) sm:text-lg">
-            {t("hero.subtitle")}
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild size="lg" className="px-7">
-              <Link href="/register">{t("hero.ctaPrimary")}</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="px-7">
-              <Link href="/login">{t("hero.ctaSecondary")}</Link>
-            </Button>
-          </div>
-          <p className="mt-4 text-xs text-[var(--ink-3)]">{t("hero.note")}</p>
         </Container>
       </section>
-      <section className="border-y border-[var(--rule)] bg-[var(--sheet)]">
-        <Container className="py-16">
+
+      {/* Roles — bento grid */}
+      <section style={{ background: "var(--sheet)" }} className="border-b" >
+        <Container className="py-14 sm:py-16 lg:py-20">
           <SectionHead eyebrow={t("roles.eyebrow")} title={t("roles.title")} />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={`${styles.roleGrid} mt-10 lg:mt-12`}>
             <RoleCard
+              className={styles.roleCenter}
               icon={Building2}
               tone="indigo"
               name={t("roles.center.name")}
@@ -78,6 +96,7 @@ export async function LandingScreen() {
               ]}
             />
             <RoleCard
+              className={styles.roleTeacher}
               icon={GraduationCap}
               tone="teal"
               name={t("roles.teacher.name")}
@@ -89,6 +108,7 @@ export async function LandingScreen() {
               ]}
             />
             <RoleCard
+              className={styles.roleParent}
               icon={HeartHandshake}
               tone="amber"
               name={t("roles.parent.name")}
@@ -100,6 +120,7 @@ export async function LandingScreen() {
               ]}
             />
             <RoleCard
+              className={styles.roleStudent}
               icon={UserRound}
               tone="indigo"
               name={t("roles.student.name")}
@@ -113,101 +134,165 @@ export async function LandingScreen() {
           </div>
         </Container>
       </section>
+
+      {/* How it works */}
       <section>
-        <Container className="py-16">
+        <Container className="py-14 sm:py-16 lg:py-20">
           <SectionHead eyebrow={t("how.eyebrow")} title={t("how.title")} />
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            {[
-              { n: "١", icon: Users, title: t("how.s1title"), body: t("how.s1body") },
-              { n: "٢", icon: CalendarCheck2, title: t("how.s2title"), body: t("how.s2body") },
-              { n: "٣", icon: Wallet, title: t("how.s3title"), body: t("how.s3body") },
-            ].map((s, i) => (
-              <div
-                key={i}
-                className="rounded-md border border-(--rule) bg-(--sheet) p-6"
-                style={{ boxShadow: "var(--lift)" }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-md bg-(--indigo-soft) text-(--indigo)">
-                    <s.icon className="size-5" />
+          <div className={`${styles.steps} mt-10 lg:mt-12`}>
+            {steps.map((s) => (
+              <div key={s.n} className={styles.stepCard}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className={styles.stepNum}>
+                    <Num>{s.n}</Num>
                   </div>
-                  <div className="text-3xl font-light text-(--ink-3) opacity-50"><Num>{s.n}</Num></div>
+                  <div
+                    className="flex size-10 items-center justify-center rounded-lg"
+                    style={{ background: "var(--field)", color: "var(--ink-2)" }}
+                  >
+                    <s.icon className="size-5" aria-hidden />
+                  </div>
                 </div>
-                <h3 className="mt-4 font-semibold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-7 text-(--ink-2)">{s.body}</p>
+                <h3 className="mt-4 text-[15px] font-semibold">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
+                  {s.body}
+                </p>
               </div>
             ))}
           </div>
         </Container>
       </section>
-      <section className="border-y border-[var(--rule)] bg-[var(--sheet)]">
-        <Container className="grid gap-10 py-16 lg:grid-cols-2">
-          <FeatureBand
-            icon={Landmark}
-            iconClass="bg-(--teal-soft) text-(--teal)"
-            eyebrow={t("money.eyebrow")}
-            title={t("money.title")}
-            bullets={[t("money.b1"), t("money.b2"), t("money.b3"), t("money.b4")]}
-            markClass="text-(--teal)"
-          />
-          <FeatureBand
-            icon={ShieldCheck}
-            iconClass="bg-(--amber-soft) text-(--amber)"
-            eyebrow={t("safety.eyebrow")}
-            title={t("safety.title")}
-            bullets={[t("safety.b1"), t("safety.b2"), t("safety.b3"), t("safety.b4")]}
-            markClass="text-(--amber)"
-          />
-        </Container>
-      </section>
-      <section>
-        <Container className="py-16">
-          <div className="rounded-[var(--radius)] bg-[var(--indigo)] px-6 py-12 text-center text-[var(--indigo-ink)]">
-            <h2 className="text-2xl font-bold sm:text-3xl">{t("cta.title")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 opacity-90">{t("cta.body")}</p>
-            <Button asChild size="lg" variant="secondary" className="mt-6 px-8">
-              <Link href="/register">{t("cta.button")}</Link>
-            </Button>
+
+      {/* Money + Safety */}
+      <section className="border-y" style={{ borderColor: "var(--rule)", background: "var(--sheet)" }}>
+        <Container className="py-14 sm:py-16 lg:py-20">
+          <div className={styles.featureGrid}>
+            <FeatureBand
+              icon={Landmark}
+              iconClass="bg-(--teal-soft) text-(--teal)"
+              eyebrow={t("money.eyebrow")}
+              title={t("money.title")}
+              bullets={[t("money.b1"), t("money.b2"), t("money.b3"), t("money.b4")]}
+              markClass="text-(--teal)"
+            />
+            <FeatureBand
+              icon={ShieldCheck}
+              iconClass="bg-(--amber-soft) text-(--amber)"
+              eyebrow={t("safety.eyebrow")}
+              title={t("safety.title")}
+              bullets={[t("safety.b1"), t("safety.b2"), t("safety.b3"), t("safety.b4")]}
+              markClass="text-(--amber)"
+            />
           </div>
         </Container>
       </section>
-      <footer className="border-t border-[var(--rule)] bg-[var(--sheet)]">
-        <Container className="flex flex-col items-center gap-5 py-10 sm:flex-row sm:justify-between">
+
+      {/* CTA */}
+      <section>
+        <Container className="py-14 sm:py-16 lg:py-20">
+          <div className={styles.ctaBand}>
+            <h2 className={`${styles.sectionTitle} font-bold`}>{t("cta.title")}</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed opacity-90 sm:text-[15px]">
+              {t("cta.body")}
+            </p>
+            <LedgerButton
+              asChild
+              variant="secondary"
+              className="mt-7 border-0 px-8 py-2.5 text-[15px] font-semibold"
+              style={{ background: "var(--indigo-ink)", color: "var(--indigo)" }}
+            >
+              <Link href="/register">{t("cta.button")}</Link>
+            </LedgerButton>
+          </div>
+        </Container>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t" style={{ borderColor: "var(--rule)", background: "var(--sheet)" }}>
+        <Container className="flex flex-col items-center gap-6 py-10 sm:flex-row sm:justify-between sm:gap-8">
           <div className="flex items-center gap-2.5">
             <Image src="/edura-mark.svg" alt="" width={24} height={24} />
-            <div>
+            <div className="text-start">
               <div className="text-sm font-bold">Edura</div>
-              <div className="text-xs text-(--ink-3)">{t("footer.tagline")}</div>
+              <div className="text-xs" style={{ color: "var(--ink-3)" }}>
+                {t("footer.tagline")}
+              </div>
             </div>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-(--ink-2)">
-            <Link href="/login" className="hover:text-(--indigo)">
+          <nav
+            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm"
+            style={{ color: "var(--ink-2)" }}
+          >
+            <Link href="/login" className="transition-colors hover:text-(--indigo)">
               {t("footer.login")}
             </Link>
-            <Link href="/register" className="hover:text-(--indigo)">
+            <Link href="/register" className="transition-colors hover:text-(--indigo)">
               {t("footer.register")}
             </Link>
-            <Link href="/terms" className="hover:text-(--indigo)">
+            <Link href="/terms" className="transition-colors hover:text-(--indigo)">
               {t("footer.terms")}
             </Link>
-            <Link href="/privacy" className="hover:text-(--indigo)">
+            <Link href="/privacy" className="transition-colors hover:text-(--indigo)">
               {t("footer.privacy")}
             </Link>
           </nav>
-          <div className="text-xs text-[var(--ink-3)]">© {new Date().getFullYear()} Edura</div>
+          <div className="text-xs" style={{ color: "var(--ink-3)" }}>
+            © <Num>{new Date().getFullYear()}</Num> Edura
+          </div>
         </Container>
       </footer>
+    </LandingShell>
+  );
+}
+
+function HeroPreview({
+  title,
+  sessions,
+  checkedIn,
+  settled,
+}: {
+  title: string;
+  sessions: string;
+  checkedIn: string;
+  settled: string;
+}) {
+  return (
+    <div className={`${styles.previewStack} lg:ms-auto`} aria-hidden>
+      <div className={styles.previewBack} />
+      <div className={styles.previewFront}>
+        <Eyebrow>{title}</Eyebrow>
+        <div className="mt-4">
+          <div className={styles.previewStat}>
+            <span className="text-sm" style={{ color: "var(--ink-2)" }}>
+              {sessions}
+            </span>
+            <Num className="text-sm font-semibold">3</Num>
+          </div>
+          <div className={styles.previewStat}>
+            <span className="text-sm" style={{ color: "var(--ink-2)" }}>
+              {checkedIn}
+            </span>
+            <Num className="text-sm font-semibold" style={{ color: "var(--teal)" }}>
+              24
+            </Num>
+          </div>
+          <div className={styles.previewStat}>
+            <span className="text-sm" style={{ color: "var(--ink-2)" }}>
+              {settled}
+            </span>
+            <Num className="text-sm font-semibold">4,200</Num>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 function SectionHead({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div className="text-center">
-      <div className="flex justify-center">
-        <Eyebrow>{eyebrow}</Eyebrow>
-      </div>
-      <h2 className="mt-3 text-2xl font-bold sm:text-3xl">{title}</h2>
+    <div className="mx-auto max-w-2xl text-center">
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className={`${styles.sectionTitle} mt-3 font-bold`}>{title}</h2>
     </div>
   );
 }
@@ -223,22 +308,28 @@ function RoleCard({
   tone,
   name,
   bullets,
+  className,
 }: {
   icon: LucideIcon;
   tone: keyof typeof ROLE_TONES;
   name: string;
   bullets: string[];
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col rounded-md border border-(--rule) bg-(--paper) p-5" style={{ boxShadow: "var(--lift)" }}>
-      <div className={`flex size-10 items-center justify-center rounded-md ${ROLE_TONES[tone]}`}>
-        <Icon className="size-5" />
+    <div className={`${styles.roleCard} ${className ?? ""}`}>
+      <div className={`flex size-10 items-center justify-center rounded-lg ${ROLE_TONES[tone]}`}>
+        <Icon className="size-5" aria-hidden />
       </div>
-      <h3 className="mt-3 font-bold">{name}</h3>
-      <ul className="mt-3 space-y-2">
+      <h3 className="mt-3.5 text-[15px] font-bold">{name}</h3>
+      <ul className="mt-3 flex-1 space-y-2">
         {bullets.map((b, i) => (
-          <li key={i} className="flex gap-2 text-[13px] leading-6 text-(--ink-2)">
-            <span className="mt-2.5 size-1 shrink-0 rounded-full bg-(--ink-3)" />
+          <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
+            <span
+              className="mt-2 size-1 shrink-0 rounded-full"
+              style={{ background: "var(--ink-3)" }}
+              aria-hidden
+            />
             {b}
           </li>
         ))}
@@ -263,18 +354,18 @@ function FeatureBand({
   markClass: string;
 }) {
   return (
-    <div>
-      <div className={`flex size-11 items-center justify-center rounded-md ${iconClass}`}>
-        <Icon className="size-5.5" />
+    <div className={styles.featureCard}>
+      <div className={`flex size-11 items-center justify-center rounded-lg ${iconClass}`}>
+        <Icon className="size-5.5" aria-hidden />
       </div>
       <div className="mt-4">
         <Eyebrow>{eyebrow}</Eyebrow>
       </div>
-      <h2 className="mt-2 text-xl font-bold sm:text-2xl">{title}</h2>
+      <h2 className="mt-2 text-xl font-bold sm:text-[1.35rem]">{title}</h2>
       <ul className="mt-4 space-y-2.5">
         {bullets.map((b, i) => (
-          <li key={i} className="flex gap-2.5 text-sm leading-7 text-(--ink-2)">
-            <span className={`mt-3 size-1.5 shrink-0 rounded-full bg-current ${markClass}`} />
+          <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
+            <span className={`mt-2.5 size-1.5 shrink-0 rounded-full bg-current ${markClass}`} aria-hidden />
             {b}
           </li>
         ))}

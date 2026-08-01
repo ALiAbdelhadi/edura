@@ -5,7 +5,13 @@
     "subtitle": "Edura runs attendance, subscriptions, payments, and messaging — from the center's front desk to the parent's phone — in one system built for the Egyptian market.",
     "ctaPrimary": "Create your free account",
     "ctaSecondary": "Sign in",
-    "note": "Works on mobile and desktop right away — nothing to install."
+    "note": "Works on mobile and desktop right away — nothing to install.",
+    "trustMobile": "Mobile & desktop ready",
+    "trustNoInstall": "Nothing to install",
+    "previewTitle": "Today's ledger",
+    "previewSessions": "Sessions running",
+    "previewCheckedIn": "Checked in",
+    "previewSettled": "Settled (EGP)"
   },
   "roles": {
     "eyebrow": "Every role gets its tools",
