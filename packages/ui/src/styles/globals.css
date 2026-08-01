@@ -127,7 +127,7 @@
   --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
-@theme inline {
+@theme {
   --radius-sm: var(--radius-step-sm);
   --radius-md: var(--radius-step-md);
   --radius-lg: var(--radius-step-lg);
