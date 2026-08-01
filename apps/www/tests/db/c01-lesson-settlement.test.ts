@@ -16,7 +16,8 @@
  * `computeNoRoomLessonSplit` (see its doc comment for the money semantics).
  *
  * This test drives the REAL route handlers IN-PROCESS against the REAL database
- * — no service-layer shortcuts, only `getServerSession` is stubbed — and asserts:
+ * — no service-layer shortcuts, only the session read is stubbed (via the
+ * `__setSessionOverrideForTests` seam in @/lib/auth/session) — and asserts:
  *   P1  a brand-new center (wallet 0) completes its FIRST lesson              -> 200
  *   P2  money reconciles EXACTLY: ledger rows == wallet deltas, nothing lost
  *   P3  exactly-once still holds (replayed completion writes nothing)
@@ -43,8 +44,8 @@ import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
-import { createRequire } from "node:module";
 import type { SessionUser } from "@/lib/auth/session";
+import { __setSessionOverrideForTests } from "@/lib/auth/session";
 import { POST as coursesRoute } from "@/app/api/v1/courses/route";
 import { PATCH as courseByIdRoute } from "@/app/api/v1/courses/[id]/route";
 import { POST as enrollmentsRoute } from "@/app/api/v1/enrollments/route";
@@ -72,16 +73,13 @@ function section(s: string) { console.log("\n" + s); }
 
 // ------------------------------------------------------------------- session
 // IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
-// edge (`getServerSession`), the same seam invite-claim.test.ts uses. The authz
+// edge (`__setSessionOverrideForTests` in @/lib/auth/session — the explicit
+// test seam that replaced the old getServerSession monkey-patch). The authz
 // wrappers, zod, the settlement services and every DB write are the real code
 // path — and the only connection in play is this process's own, the one
 // db-guard validates. See the docblock for why that matters here.
-const nodeRequire = createRequire(__filename);
-const nextAuthNext = nodeRequire("next-auth/next") as {
-  getServerSession: (...a: unknown[]) => Promise<unknown>;
-};
 let currentSession: { user: SessionUser } | null = null;
-nextAuthNext.getServerSession = async () => currentSession;
+__setSessionOverrideForTests(() => currentSession?.user ?? null);
 
 export type Session = { user: SessionUser };
 

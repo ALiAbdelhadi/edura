@@ -1,12 +1,11 @@
+import { auth } from "@/lib/auth/auth";
 import { platformDb } from "@/lib/db/scope";
 import { AuthError } from "@/lib/errors/classes";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { parseJson } from "@/lib/validation/zod";
-import { canSignIn, resolveLoginCenterId } from "@repo/server-core/auth/login-policy";
-import bcrypt from "bcryptjs";
-import { encode } from "next-auth/jwt";
+import { APIError } from "better-auth/api";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -16,89 +15,73 @@ const bodySchema = z.object({
   password: z.string().min(1),
 });
 
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
-
-// C-04: this door used to keep its OWN copy of the www allowlist, which had
-// drifted from lib/auth/options.ts (center_staff was missing → every Center
-// Staff account got 401 with the correct password here while NextAuth let them
-// in). Both doors now call canSignIn("www", role) against the single shared
-// partition in @repo/server-core/auth/login-policy. No list lives in this file.
-
-// H5: a valid bcrypt hash of a random string. Compared against when the account
-// is missing/ineligible so login timing matches a real wrong-password attempt.
-const DUMMY_HASH = "$2b$10$wrFkXDBP7l73KSdBAgzutOaGQi9FZfAP/69GAeqzK0AiUDGWqhpsW";
-
-function cookieName(): string {
-  const isSecure = process.env.NEXTAUTH_URL?.startsWith("https://");
-  return isSecure ? "__Secure-next-auth.session-token" : "next-auth.session-token";
-}
-
+// C-04: this door no longer holds ANY policy of its own — it forwards to the
+// same better-auth instance the browser login uses, so the role partition
+// (canSignIn), C2 rate limits, H5 timing and the credential verify are the
+// SINGLE implementation in lib/auth/auth.ts. The old drift bug (this door
+// missing center_staff while NextAuth allowed it) is structurally impossible.
 export const POST = withRateLimit(
   withErrors(async (req) => {
     const { email, password } = await parseJson(req, bodySchema);
 
-    const user = await platformDb((tx) => tx.user.findFirst({ where: { email } }));
-
-    // H5: bcrypt.compare runs UNCONDITIONALLY — against the real hash when the
-    // account is eligible, else DUMMY_HASH — so a nonexistent email and a
-    // real-but-wrong password share a timing path (no enumeration oracle).
-    // Identical shape to lib/auth/options.ts.
-    const eligible =
-      !!user && canSignIn("www", user.role) && user.status === "active" && !!user.passwordHash;
-    const pwMatches = await bcrypt.compare(
-      password,
-      eligible ? (user.passwordHash as string) : DUMMY_HASH,
-    );
-    if (!user || !eligible || !pwMatches) {
-      throw new AuthError("Invalid email or password");
+    let result: { headers: Headers; response: { token: string | null; user: unknown } };
+    try {
+      result = await auth.api.signInEmail({
+        body: { email, password },
+        headers: req.headers,
+        returnHeaders: true,
+      });
+    } catch (e) {
+      if (e instanceof APIError) {
+        // Generic message on purpose — this REST door predates the typed www
+        // UX and its callers (E2E, tooling) only branch on 401 vs 200.
+        throw new AuthError("Invalid email or password");
+      }
+      throw e;
     }
 
-    // Same resolver NextAuth uses (center_admin → profile, center_staff → live
-    // link). Staff authorization is still re-derived per request by
-    // requireCenterActor; this claim is only a convenience.
-    const centerId = await resolveLoginCenterId(user.role, user.id);
+    const sessionUser = result.response.user as {
+      id: string;
+      email: string | null;
+      name: string | null;
+      role: string;
+      locale: "ar" | "en";
+    };
 
-    const secret = process.env.NEXTAUTH_SECRET;
-    if (!secret) throw new Error("NEXTAUTH_SECRET is not configured");
-
-    const token = await encode({
-      secret,
-      token: {
-        uid: user.id,
-        role: user.role,
-        centerId,
-        locale: user.locale,
-        name: user.name,
-        email: user.email,
-        ver: user.tokenVersion,
-      },
-      maxAge: SESSION_MAX_AGE,
-    });
+    // The session-create hook stored the centerId claim on the session row.
+    const centerId = result.response.token
+      ? ((
+          await platformDb((tx) =>
+            tx.authSession.findUnique({
+              where: { token: result.response.token as string },
+              select: { centerId: true },
+            }),
+          )
+        )?.centerId ?? undefined)
+      : undefined;
 
     const res = ok({
-      token,
+      token: result.response.token,
       user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-        locale: user.locale,
+        id: sessionUser.id,
+        email: sessionUser.email,
+        role: sessionUser.role,
+        name: sessionUser.name,
+        locale: sessionUser.locale,
         centerId,
       },
     });
 
-    const name = cookieName();
-    const isSecure = name.startsWith("__Secure-");
+    // Forward better-auth's Set-Cookie headers onto the envelope response.
+    // E2E=1 keeps the old behaviour: session-scoped cookie (dropped when the
+    // browser context closes) instead of the 30-day Max-Age.
     const e2e = process.env.E2E === "1";
-    res.cookies.set({
-      name,
-      value: token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isSecure,
-      path: "/",
-      maxAge: e2e ? 0 : SESSION_MAX_AGE,
-    });
+    for (const cookie of result.headers.getSetCookie()) {
+      res.headers.append(
+        "set-cookie",
+        e2e ? cookie.replace(/;\s*Max-Age=\d+/i, "") : cookie,
+      );
+    }
 
     return res;
   }),

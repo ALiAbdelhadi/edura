@@ -8,7 +8,6 @@ import { useAppRouterProvider } from "@/lib/refine/router-provider";
 import { Refine } from "@refinedev/core";
 import { DirectionProvider } from "@repo/ui/components/direction-provider";
 import { Toaster } from "@repo/ui/components/sonner";
-import { SessionProvider } from "next-auth/react";
 import { useLocale } from "next-intl";
 import React, { Suspense } from "react";
 
@@ -54,20 +53,20 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
+  // No SessionProvider needed: better-auth's useSession (lib/auth/client) is
+  // a self-contained nanostore — no React context wrapper.
   return (
-    <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={false}>
-      <ThemeModeProvider>
-        <DirectionProvider dir={dir}>
-          <Suspense fallback={null}>
-            <RefineProvider>{children}</RefineProvider>
-          </Suspense>
-          <Toaster
-            dir={dir}
-            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
-          />
-          <InstallPrompt />
-        </DirectionProvider>
-      </ThemeModeProvider>
-    </SessionProvider>
+    <ThemeModeProvider>
+      <DirectionProvider dir={dir}>
+        <Suspense fallback={null}>
+          <RefineProvider>{children}</RefineProvider>
+        </Suspense>
+        <Toaster
+          dir={dir}
+          position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+        />
+        <InstallPrompt />
+      </DirectionProvider>
+    </ThemeModeProvider>
   );
 }

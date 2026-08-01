@@ -54,7 +54,8 @@
     "myClasses": "My Classes",
     "myCenters": "My Centers",
     "more": "More",
-    "allSections": "All sections"
+    "allSections": "All sections",
+    "security": "Security"
   },
   "roles": {
     "student": "Student",
@@ -1280,5 +1281,43 @@
     "oversight": "Oversight",
     "money": "Money",
     "comms": "Comms & oversight"
+  },
+  "security": {
+    "sessionsTitle": "Devices & sessions",
+    "sessionsDesc": "Every device currently signed in to your account. Sign out any device you don't recognize.",
+    "thisDevice": "This device",
+    "unknownDevice": "Unknown device",
+    "lastActive": "Last active",
+    "revoke": "Sign out",
+    "revokeAll": "Sign out all other devices",
+    "revokedToast": "Device signed out",
+    "revokeAllDone": "All other devices signed out",
+    "revokeFailed": "Could not sign out the device",
+    "noOtherSessions": "No other active sessions",
+    "loadFailed": "Could not load sessions",
+    "twoFactorTitle": "Two-factor authentication (2FA)",
+    "twoFactorDescOn": "2FA is enabled. Signing in requires a code from your authenticator app.",
+    "twoFactorRequired": "Two-factor authentication is REQUIRED for back-office accounts. Set it up now to continue.",
+    "enable": "Enable 2FA",
+    "regenerate": "Regenerate backup codes",
+    "passwordPrompt": "Confirm your password to continue",
+    "scanQr": "Scan this QR code with your authenticator app (Google Authenticator, Authy…), then enter the 6-digit code to confirm.",
+    "backupCodes": "Backup codes",
+    "backupCodesDesc": "Store these codes somewhere safe. Each one can be used once if you lose access to your authenticator app.",
+    "copyCodes": "Copy codes",
+    "codesCopied": "Codes copied",
+    "codePlaceholder": "6-digit code",
+    "verify": "Confirm",
+    "invalidCode": "Invalid code — try again",
+    "enabledToast": "Two-factor authentication enabled",
+    "actionFailed": "Something went wrong — try again",
+    "totpTitle": "Two-factor verification",
+    "totpSubtitle": "Enter the 6-digit code from your authenticator app",
+    "useBackupCode": "Use a backup code instead",
+    "useTotpCode": "Use an authenticator code instead",
+    "backupPlaceholder": "Backup code",
+    "trustDevice": "Trust this device for 60 days",
+    "setupTitle": "Secure your account",
+    "signOut": "Sign out"
   }
 }

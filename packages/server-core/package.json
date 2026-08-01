@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@repo/database": "workspace:*",
+    "bcryptjs": "3.0.3",
     "ioredis": "^5.11.1",
     "nodemailer": "^9.0.3",
     "web-push": "^3.6.7",

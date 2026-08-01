@@ -21,7 +21,8 @@
 //      so every failure surfaced as the generic "Registration failed".
 //
 // Nothing is mocked: the real register services, the real zod route schemas,
-// and the real NextAuth credentials authorize() all run.
+// and the real better-auth /sign-in/email pipeline (before-hooks + credential
+// verify + session issuance) all run, via the shared auth-door helper.
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import { prisma } from "@repo/database";
@@ -32,7 +33,7 @@ import {
   registerTeacher,
   registerCenter,
 } from "@/lib/services/auth/register";
-import { authOptions } from "@/lib/auth/options";
+import { signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
@@ -52,20 +53,12 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-// The real credentials-provider authorize() — the same door /login and the
-// register page's auto-signIn both go through.
-const credProvider = (
-  authOptions.providers[0] as unknown as {
-    options: { authorize: (c: unknown, r: unknown) => Promise<Record<string, unknown> | null> };
-  }
-).options;
-const login = (email: string, password: string) =>
-  credProvider.authorize(
-    { email, password },
-    // A distinct IP per run so the C2 per-IP token bucket never starves this
-    // suite; the per-email bucket (cap 5) is what the negative cases spend.
-    { headers: { "x-forwarded-for": `198.51.100.${1 + Math.floor(Math.random() * 250)}` } },
-  );
+// The real login door — the same /sign-in/email pipeline /login and the
+// register page's auto-signIn both go through. signInDoor mints a fresh IP
+// per call so the C2 per-IP bucket never starves this suite; the per-email
+// bucket (cap 5) is what the negative cases spend, and no email here is
+// tried more than twice.
+const login = (email: string, password: string) => signInDoor(email, password);
 
 async function main() {
   const tag = "reg-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -116,21 +109,32 @@ async function main() {
     );
 
     // ---- 3) the login door: ACTIVE roles in, PENDING roles out (unchanged)
-    assert((await login(emailStudent, PW))?.id === student.userId, "student can sign in right after registering");
-    assert((await login(emailParent, PW))?.id === parent.userId, "parent can sign in right after registering");
+    const inStudent = await login(emailStudent, PW);
     assert(
-      (await login(emailTeacher, PW)) === null,
+      inStudent.ok && (inStudent.user.id as string) === student.userId,
+      "student can sign in right after registering",
+    );
+    const inParent = await login(emailParent, PW);
+    assert(
+      inParent.ok && (inParent.user.id as string) === parent.userId,
+      "parent can sign in right after registering",
+    );
+    const inTeacherPending = await login(emailTeacher, PW);
+    assert(
+      !inTeacherPending.ok && inTeacherPending.message === "ACCOUNT_INACTIVE",
       "PENDING teacher is refused by the login door — auto-signIn could never work",
     );
+    const inCenterPending = await login(emailCenter, PW);
     assert(
-      (await login(emailCenter, PW)) === null,
+      !inCenterPending.ok && inCenterPending.message === "ACCOUNT_INACTIVE",
       "PENDING center admin is refused by the login door — the dead-end the UI now explains",
     );
 
     // ------------------------------ 4) approval is the only thing missing
     await admin.query(`UPDATE users SET status='active' WHERE id=$1`, [teacher.userId]);
+    const inTeacherApproved = await login(emailTeacher, PW);
     assert(
-      (await login(emailTeacher, PW))?.id === teacher.userId,
+      inTeacherApproved.ok && (inTeacherApproved.user.id as string) === teacher.userId,
       "once a super_admin approves (status → active) the teacher signs in normally",
     );
 
@@ -165,8 +169,13 @@ async function main() {
     assert(teacherConflict === "conflict", "the teacher door enforces the same uniqueness rule");
 
     // ------------------------------------- 6) no weakening of the guards
-    assert((await login(emailStudent, "WrongPassword1")) === null, "guard intact: wrong password still fails");
-    assert((await login(`${tag}-nobody@x.io`, PW)) === null, "guard intact: unknown email still fails");
+    const wrongPw = await login(emailStudent, "WrongPassword1");
+    assert(
+      !wrongPw.ok && wrongPw.message === "Invalid email or password",
+      "guard intact: wrong password still fails (generic message, no enumeration)",
+    );
+    const nobody = await login(`${tag}-nobody@x.io`, PW);
+    assert(!nobody.ok, "guard intact: unknown email still fails");
   } finally {
     await admin.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [userIds]);
     await admin.query(`DELETE FROM teacher_profiles WHERE user_id = ANY($1::uuid[])`, [userIds]);

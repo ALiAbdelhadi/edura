@@ -2,23 +2,28 @@
 // app, whose sessions are separate cookies + a separate signing secret but
 // share the users table and the L1 token_version epoch.
 //
-// Drives the REAL apps/superadmin NextAuth pipeline against the live DB:
-//   - authorize() (the staff login door, STAFF_ROLES + status='active'),
-//   - the jwt() + session() callbacks (the per-request gate),
+// Drives the REAL apps/superadmin better-auth pipeline against the live DB:
+//   - /sign-in/email (before-hook: C2 limits + C-04 partition + full H5)
+//     mints a real DB session row + cookie,
+//   - "a later request" is a real getSession with the real cookie,
 //   - the REAL updateUserStatus() service — the one
-//     PATCH /api/v1/admin/users/[id]/permissions calls.
+//     PATCH /api/v1/admin/users/[id]/permissions calls — bumps token_version,
+//     and the users_revoke_sessions DB trigger DELETES the session rows in the
+//     same statement (hard revocation, stronger than the old per-request JWT
+//     epoch re-read).
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
-import { authOptions } from "@/lib/auth/options";
 import { updateUserStatus } from "@/lib/services/admin/platform";
+import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
 const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
 
 const PW = "Passw0rd!C03";
+const GENERIC = "Invalid email or password"; // full H5: every refusal is this
 
 let pass = 0;
 let fail = 0;
@@ -32,39 +37,13 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-const credProvider = (
-  authOptions.providers[0] as unknown as {
-    options: { authorize: (c: unknown, r: unknown) => Promise<Record<string, unknown> | null> };
-  }
-).options;
-const login = (email: string, password: string) =>
-  credProvider.authorize(
-    { email, password },
-    { headers: { "x-forwarded-for": "203.0.113.32" } },
-  );
-
-async function mint(user: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return (await authOptions.callbacks!.jwt!({ token: {}, user } as never)) as Record<
-    string,
-    unknown
-  >;
-}
-
-async function effectiveUserId(storedToken: Record<string, unknown>) {
-  const token = await authOptions.callbacks!.jwt!({
-    token: { ...storedToken },
-    user: undefined,
-  } as never);
-  const session = (await authOptions.callbacks!.session!({
-    session: { user: {} },
-    token,
-  } as never)) as { user?: { id?: string } };
-  return session?.user?.id ?? null;
-}
-
 const versionOf = async (id: string) =>
   (await admin.query(`SELECT token_version FROM users WHERE id=$1`, [id])).rows[0]
     .token_version as number;
+
+const sessionRows = async (id: string) =>
+  (await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id=$1`, [id]))
+    .rows[0].n as number;
 
 async function main() {
   const tag = "c03sa-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -91,18 +70,20 @@ async function main() {
   try {
     console.log("C-03 superadmin session revocation —", tag);
 
-    const authAcct = await login(emailAcct, PW);
-    const authCtl = await login(emailCtl, PW);
+    const authAcct = await signInDoor(emailAcct, PW);
+    const authCtl = await signInDoor(emailCtl, PW);
     assert(
-      authAcct?.id === accountant && authCtl?.id === superAdmin,
+      authAcct.ok &&
+        (authAcct.user.id as string) === accountant &&
+        authCtl.ok &&
+        (authCtl.user.id as string) === superAdmin,
       "staff accounts log in while active",
     );
+    if (!authAcct.ok || !authCtl.ok) throw new Error("cannot continue without sessions");
 
-    const tokenAcct = await mint(authAcct!);
-    const tokenCtl = await mint(authCtl!);
     assert(
-      (await effectiveUserId(tokenAcct)) === accountant &&
-        (await effectiveUserId(tokenCtl)) === superAdmin,
+      (await sessionFor(authAcct.cookie))?.userId === accountant &&
+        (await sessionFor(authCtl.cookie))?.userId === superAdmin,
       "baseline: both back-office sessions are accepted",
     );
 
@@ -113,17 +94,22 @@ async function main() {
       "updateUserStatus('suspended') bumps the epoch via the shipped service path",
     );
     assert(
-      (await effectiveUserId(tokenAcct)) === null,
+      (await sessionFor(authAcct.cookie)) === null,
       "the suspended accountant's VERY NEXT back-office request is rejected",
     );
     assert(
-      (await login(emailAcct, PW)) === null,
-      "the suspended accountant cannot log back in",
+      (await sessionRows(accountant)) === 0,
+      "the accountant's session rows are DELETED (users_revoke_sessions trigger)",
+    );
+    const relogin = await signInDoor(emailAcct, PW);
+    assert(
+      !relogin.ok && relogin.message === GENERIC,
+      "the suspended accountant cannot log back in (generic H5 message)",
     );
 
     // --- the acting super_admin is untouched
     assert(
-      (await effectiveUserId(tokenCtl)) === superAdmin,
+      (await sessionFor(authCtl.cookie))?.userId === superAdmin,
       "control: the acting super_admin's session is unaffected",
     );
     assert((await versionOf(superAdmin)) === 0, "control: super_admin epoch never moved");
@@ -134,20 +120,25 @@ async function main() {
       (await versionOf(accountant)) === 1,
       "reinstate: reactivation does not bump again",
     );
-    const authAcct2 = await login(emailAcct, PW);
-    assert(authAcct2?.id === accountant, "reinstate: the accountant logs in again cleanly");
+    const authAcct2 = await signInDoor(emailAcct, PW);
     assert(
-      (await effectiveUserId(await mint(authAcct2!))) === accountant,
-      "reinstate: the fresh back-office session is accepted",
+      authAcct2.ok && (authAcct2.user.id as string) === accountant,
+      "reinstate: the accountant logs in again cleanly",
     );
+    if (authAcct2.ok) {
+      assert(
+        (await sessionFor(authAcct2.cookie))?.userId === accountant,
+        "reinstate: the fresh back-office session is accepted",
+      );
+    }
     assert(
-      (await effectiveUserId(tokenAcct)) === null,
-      "reinstate: the pre-suspension token stays dead",
+      (await sessionFor(authAcct.cookie)) === null,
+      "reinstate: the pre-suspension session stays dead (row deleted, never restored)",
     );
 
     // --- the same service suspending a www role revokes THAT app's session too
-    // (shared users table + shared epoch; the www-side gate is proven in
-    //  apps/www/tests/db/c03-status-revocation.test.ts).
+    // (shared users table + shared epoch + shared auth_sessions trigger; the
+    //  www-side gate is proven in apps/www/tests/db/c03-status-revocation.test.ts).
     await updateUserStatus(teacher, "suspended", superAdmin);
     assert(
       (await versionOf(teacher)) === 1,
@@ -155,17 +146,25 @@ async function main() {
     );
 
     // --- guards intact
+    const wrong = await signInDoor(emailCtl, "WrongPassword!");
     assert(
-      (await login(emailCtl, "WrongPassword!")) === null,
-      "guard intact: wrong password still fails (H5 path untouched)",
+      !wrong.ok && wrong.message === GENERIC,
+      "guard intact: wrong password still fails with the generic message (H5 path untouched)",
     );
     assert(
-      (await effectiveUserId({ ...tokenCtl, ver: 99 })) === null,
-      "guard intact: L1 epoch mismatch still rejects",
-    );
-    assert(
-      (await effectiveUserId(tokenCtl)) === superAdmin,
+      (await sessionFor(authCtl.cookie))?.userId === superAdmin,
       "control: still logged in at the end of the run",
+    );
+    // Nearest DB-level analogue of the old forged `ver: 99` claim check: the
+    // epoch now lives ONLY in users.token_version, and a bump hard-deletes the
+    // session rows via the users_revoke_sessions trigger — there is no client
+    // -side claim left to forge.
+    await admin.query(`UPDATE users SET token_version = token_version + 1 WHERE id = $1`, [
+      superAdmin,
+    ]);
+    assert(
+      (await sessionFor(authCtl.cookie)) === null && (await sessionRows(superAdmin)) === 0,
+      "guard intact: a raw L1 epoch bump still hard-revokes even a super_admin session",
     );
   } finally {
     await admin.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [ids]);

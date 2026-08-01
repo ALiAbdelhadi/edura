@@ -6,8 +6,10 @@
 // Nothing here is mocked except the SMTP socket. This drives:
 //   - the real services (registerWalkIn, createAssistant, createStaff,
 //     setGuardianContact, runGuardianContactReminders),
-//   - the real NextAuth providers from src/lib/auth/options.ts (the claim
-//     provider AND the password provider),
+//   - the real better-auth doors via tests/db/helpers/auth-door: the
+//     invite-token plugin's POST /invite-token/claim endpoint AND the
+//     /sign-in/email password pipeline (before-hooks, credential verify,
+//     real DB session row + cookie),
 //   - the real POST handler exported by /api/v1/me/credentials,
 //   - the real chat gate (assertCanReach / listContacts) from @repo/database,
 // against the LIVE database under the real edura_app role.
@@ -19,13 +21,11 @@
 // =============================================================================
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
-import { createRequire } from "node:module";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
 import { assertCanReach, canReach, listContacts, ChatError } from "@repo/database/chat-scope";
 import { guardianChannelState } from "@repo/database/chat-guardian";
-import { authOptions } from "@/lib/auth/options";
 import { POST as credentialsRoute } from "@/app/api/v1/me/credentials/route";
 import { registerWalkIn } from "@/lib/services/walk-in/walk-in";
 import { createAssistant, resendAssistantInvite } from "@/lib/services/teacher/assistants";
@@ -35,7 +35,9 @@ import {
   runGuardianContactReminders,
 } from "@/lib/services/invites/guardian-contact";
 import { resolveCenterActorContext } from "@/lib/authz/center-actor";
+import { __setSessionOverrideForTests } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
+import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
@@ -82,30 +84,17 @@ function drainMail() {
   mailbox.length = 0;
 }
 
-// ------------------------------------------------------------------- providers
-// `provider.authorize` at top level is a NextAuth normalization wrapper; the
-// un-mangled function is options.authorize (same accessor c04/c03 use).
-type AuthorizeFn = (c: unknown, r: unknown) => Promise<Record<string, unknown> | null>;
-const providerById = (id: string): AuthorizeFn =>
-  (
-    authOptions.providers.find(
-      (p) => (p as unknown as { options: { id?: string } }).options?.id === id,
-    ) as unknown as { options: { authorize: AuthorizeFn } }
-  ).options.authorize;
-
-const passwordAuthorize = (
-  authOptions.providers[0] as unknown as { options: { authorize: AuthorizeFn } }
-).options.authorize;
-const claimAuthorize = providerById("invite-token");
-const legacyWalkinAuthorize = providerById("walkin-token");
-
-let ipCounter = 0;
-const nextIp = () => `203.0.113.${(ipCounter++ % 250) + 1}`;
-const headers = () => ({ headers: { "x-forwarded-for": nextIp() } });
-
-const login = (email: string, password: string) =>
-  passwordAuthorize({ email, password }, headers());
-const claim = (token: string) => claimAuthorize({ token }, headers());
+// ---------------------------------------------------------------------- doors
+// Both doors run the REAL better-auth pipeline (helpers/auth-door): the claim
+// door is the invite-token plugin's POST /invite-token/claim; the password
+// door is /sign-in/email. Each returns {ok:true, cookie, user} or a typed
+// refusal {ok:false, status, message}. The old NextAuth providers returned
+// null for EVERY refusal, so wherever the old proof asserted `=== null` we
+// assert `!r.ok` and deliberately do not start distinguishing messages the
+// old proof never distinguished. Session claims (role / centerId) are read
+// the way a real later request reads them: sessionFor(cookie).
+const login = (email: string, password: string) => signInDoor(email, password);
+const claim = (token: string) => claimDoor(token);
 
 /** The token embedded in a claim link, as the invitee would copy it. */
 function tokenFromLink(link: string): string {
@@ -114,43 +103,39 @@ function tokenFromLink(link: string): string {
 
 // ------------------------------------------------------------------- session
 // The ONLY thing stubbed in this file: the cookie -> session read at the very
-// edge (`getServerSession`). Everything inside the route — requireSession, the
-// rate-limit wrapper, the error wrapper, zod, bcrypt, the set-once check and
-// the DB write — is the real code path.
-const nodeRequire = createRequire(__filename);
-const nextAuthNext = nodeRequire("next-auth/next") as {
-  getServerSession: (...a: unknown[]) => Promise<unknown>;
-};
-let currentSession: { user: SessionUser } | null = null;
-nextAuthNext.getServerSession = async () => currentSession;
-
-/** Drive the REAL set-once credentials route as the claimed session would. */
+// edge — the __setSessionOverrideForTests seam in @/lib/auth/session (the
+// same edge the old suite patched by overriding next-auth's getServerSession;
+// better-auth is ESM, so module-patching is no longer possible). Everything
+// inside the route — requireSession, the rate-limit wrapper, the error
+// wrapper, zod, bcrypt, the set-once check and the DB write — is the real
+// code path.
 async function setOwnPassword(
   userId: string,
   body: Record<string, unknown>,
 ): Promise<{ status: number; body: any }> {
   const user = await dbUser(userId);
-  currentSession = {
-    user: {
-      id: user!.id,
-      role: user!.role,
-      email: user!.email,
-      name: user!.name,
-      locale: user!.locale,
-    } as SessionUser,
-  };
+  __setSessionOverrideForTests(
+    () =>
+      ({
+        id: user!.id,
+        role: user!.role,
+        email: user!.email,
+        name: user!.name,
+        locale: user!.locale,
+      }) as SessionUser,
+  );
   try {
     const res = await credentialsRoute(
       new Request("http://localhost:3002/api/v1/me/credentials", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-forwarded-for": nextIp() },
+        headers: { "content-type": "application/json", "x-forwarded-for": freshIp() },
         body: JSON.stringify(body),
       }),
       { params: Promise.resolve({}) },
     );
     return { status: res.status, body: await res.json() };
   } finally {
-    currentSession = null;
+    __setSessionOverrideForTests(null);
   }
 }
 
@@ -280,7 +265,10 @@ async function main() {
 
     // The guardian opens the link -> passwordless session, no password door.
     const claimedA = await claim(tokenFromLink(linkA));
-    assert(claimedA?.id === wiA.studentId, "claim token signs the student in");
+    assert(
+      claimedA.ok && (claimedA.user.id as string) === wiA.studentId,
+      "claim token signs the student in",
+    );
     assert(
       (await dbUser(wiA.studentId))!.status === "active",
       "claiming flips the shell account to active",
@@ -293,13 +281,14 @@ async function main() {
       password: OWN_PW,
     });
     assert(credA.status === 200, "guardian sets the student's email + password (set-once)");
+    const loginA = await login(studentLoginEmail, OWN_PW);
     assert(
-      (await login(studentLoginEmail, OWN_PW))?.id === wiA.studentId,
+      loginA.ok && (loginA.user.id as string) === wiA.studentId,
       "student can now log in with the password the GUARDIAN chose",
     );
 
     // Single-use.
-    assert((await claim(tokenFromLink(linkA))) === null, "the claim token is single-use (replay refused)");
+    assert(!(await claim(tokenFromLink(linkA))).ok, "the claim token is single-use (replay refused)");
     // And set-once.
     const credAgain = await setOwnPassword(wiA.studentId, { password: "Another!Pass9" });
     assert(credAgain.status >= 400, "me/credentials is set-once (second call refused)");
@@ -338,13 +327,17 @@ async function main() {
 
     // Registration was NOT blocked — the account is real and claimable.
     const claimedB = await claim(tokenFromLink(wiB.invite.claimLink as string));
-    assert(claimedB?.id === wiB.studentId, "the phone-only student still registers and can claim");
+    assert(
+      claimedB.ok && (claimedB.user.id as string) === wiB.studentId,
+      "the phone-only student still registers and can claim",
+    );
     await setOwnPassword(wiB.studentId, {
       email: `${tag}-studentb-login@x.io`,
       password: OWN_PW,
     });
+    const loginB = await login(`${tag}-studentb-login@x.io`, OWN_PW);
     assert(
-      (await login(`${tag}-studentb-login@x.io`, OWN_PW))?.id === wiB.studentId,
+      loginB.ok && (loginB.user.id as string) === wiB.studentId,
       "phone-only student logs in normally — the account is NOT suspended",
     );
 
@@ -570,16 +563,20 @@ async function main() {
     assert("whatsapp" in dup, "the legacy `whatsapp` result key still exists for the counter screen");
     assert(dup.whatsapp.status === "skipped", "the WhatsApp leg is skipped (not failed) while the channel is off");
 
-    // The legacy provider id still works — Step 7 callers are untouched.
+    // The `walkin-token` provider-id ALIAS is retired along with NextAuth: the
+    // plugin exposes ONE endpoint (/invite-token/claim) and www's only caller
+    // (the claim page) posts there. What the alias existed to guarantee — a
+    // Step 7 walk-in student token still claims — is asserted on that single
+    // door instead of fabricating a second endpoint.
     const wiD = await registerWalkIn(
       { fullName: tag + " Student D", phone: phone(4), guardianEmail: `${tag}-gd@x.io`, locale: "en" },
       ownerU,
     );
     cleanupUsers.push(wiD.studentId);
+    const claimedD = await claim(tokenFromLink(wiD.invite.claimLink as string));
     assert(
-      (await legacyWalkinAuthorize({ token: tokenFromLink(wiD.invite.claimLink as string) }, headers()))
-        ?.id === wiD.studentId,
-      "the legacy `walkin-token` provider id still claims a student (Step 7 unbroken)",
+      claimedD.ok && (claimedD.user.id as string) === wiD.studentId,
+      "a walk-in student token claims through the single invite-token door (Step 7 unbroken)",
     );
 
     // =====================================================================
@@ -594,7 +591,7 @@ async function main() {
     assert(asstRow!.passwordHash === null, "the assistant account is created with NO password");
     assert(asstRow!.status === "shell", "…and in shell status");
     assert(
-      (await login(asstEmail, OWN_PW)) === null && (await login(asstEmail, "anything123")) === null,
+      !(await login(asstEmail, OWN_PW)).ok && !(await login(asstEmail, "anything123")).ok,
       "an unclaimed assistant cannot log in at the password door",
     );
     assert(mailsTo(asstEmail).length === 1, "an invite email was sent to the assistant");
@@ -605,7 +602,10 @@ async function main() {
     assert(!!asst.invite?.claimLink, "the teacher also gets the copyable fallback link");
 
     const claimedAsst = await claim(tokenFromLink(asst.invite!.claimLink));
-    assert(claimedAsst?.id === asst.user.id, "the assistant claims their account");
+    assert(
+      claimedAsst.ok && (claimedAsst.user.id as string) === asst.user.id,
+      "the assistant claims their account",
+    );
     const asstCred = await setOwnPassword(asst.user.id, { password: OWN_PW });
     assert(asstCred.status === 200, "the assistant sets THEIR OWN password");
     assert(
@@ -614,8 +614,12 @@ async function main() {
     );
 
     const asstLogin = await login(asstEmail, OWN_PW);
-    assert(asstLogin?.id === asst.user.id, "the assistant logs in with their own password");
-    assert(asstLogin?.role === "assistant", "…as role=assistant");
+    assert(
+      asstLogin.ok && (asstLogin.user.id as string) === asst.user.id,
+      "the assistant logs in with their own password",
+    );
+    const asstSession = asstLogin.ok ? await sessionFor(asstLogin.cookie) : null;
+    assert(asstSession?.role === "assistant", "…as role=assistant");
     const binding = await admin.query(
       `SELECT teacher_id FROM teacher_assistants WHERE assistant_id=$1 AND removed_at IS NULL`,
       [asst.user.id],
@@ -660,16 +664,20 @@ async function main() {
         `[${role}] created with NO password, in shell status (the no-password bug fixed at the source)`,
       );
       assert(
-        (await login(email, OWN_PW)) === null,
+        !(await login(email, OWN_PW)).ok,
         `[${role}] cannot log in before claiming`,
       );
       assert(mailsTo(email).length === 1, `[${role}] invite email sent`);
       assert(!!created.invite?.claimLink, `[${role}] copyable fallback link returned to the owner`);
 
       const claimed = await claim(tokenFromLink(created.invite!.claimLink));
-      assert(claimed?.id === created.user.id, `[${role}] claims their account`);
       assert(
-        claimed?.centerId === fx.center,
+        claimed.ok && (claimed.user.id as string) === created.user.id,
+        `[${role}] claims their account`,
+      );
+      const claimSession = claimed.ok ? await sessionFor(claimed.cookie) : null;
+      assert(
+        claimSession?.centerId === fx.center,
         `[${role}] the claimed session carries the center (C-04 resolver)`,
       );
 
@@ -677,9 +685,13 @@ async function main() {
       assert(cred.status === 200, `[${role}] sets their own password`);
 
       const loggedIn = await login(email, OWN_PW);
-      assert(loggedIn?.id === created.user.id, `[${role}] logs in via the C-04 password door`);
-      assert(loggedIn?.role === "center_staff", `[${role}] as role=center_staff`);
-      assert(loggedIn?.centerId === fx.center, `[${role}] bound to exactly this center`);
+      assert(
+        loggedIn.ok && (loggedIn.user.id as string) === created.user.id,
+        `[${role}] logs in via the C-04 password door`,
+      );
+      const loginSession = loggedIn.ok ? await sessionFor(loggedIn.cookie) : null;
+      assert(loginSession?.role === "center_staff", `[${role}] as role=center_staff`);
+      assert(loginSession?.centerId === fx.center, `[${role}] bound to exactly this center`);
 
       const ctx = await resolveCenterActorContext({
         id: created.user.id,
@@ -708,7 +720,7 @@ async function main() {
       createHash("sha256").update(crossToken).digest("hex"),
     ]);
     assert(
-      (await claim(crossToken)) === null,
+      !(await claim(crossToken)).ok,
       "a token whose purpose does not match the account's role is refused (purpose owns the role)",
     );
     await admin.query(`UPDATE invite_tokens SET purpose='center_staff_invite' WHERE token_hash=$1`, [
@@ -720,7 +732,7 @@ async function main() {
       cross.user.id,
     ]);
     assert(
-      (await claim(crossToken)) === null,
+      !(await claim(crossToken)).ok,
       "revoking the staff link kills the outstanding invite (no token hunt needed)",
     );
     await admin.query(`UPDATE center_staff SET removed_at=NULL WHERE staff_user_id=$1`, [
@@ -732,7 +744,7 @@ async function main() {
       `UPDATE invite_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash=$1`,
       [createHash("sha256").update(crossToken).digest("hex")],
     );
-    assert((await claim(crossToken)) === null, "an EXPIRED token is refused");
+    assert(!(await claim(crossToken)).ok, "an EXPIRED token is refused");
 
     // A token pointed at a CREDENTIALED account can never take it over.
     const takeover = await resendStaffInvite(ownerU, cross.link.id, "en");
@@ -742,7 +754,7 @@ async function main() {
       await bcrypt.hash("SomeoneElse!9", 10),
     ]);
     assert(
-      (await claim(takeoverToken)) === null,
+      !(await claim(takeoverToken)).ok,
       "a token pointing at an account that HAS a password is refused (no takeover)",
     );
 
@@ -751,11 +763,12 @@ async function main() {
     const first = await resendStaffInvite(ownerU, cross.link.id, "en");
     const second = await resendStaffInvite(ownerU, cross.link.id, "en");
     assert(
-      (await claim(tokenFromLink(first.claimLink))) === null,
+      !(await claim(tokenFromLink(first.claimLink))).ok,
       "issuing a new invite invalidates the previous link",
     );
+    const newest = await claim(tokenFromLink(second.claimLink));
     assert(
-      (await claim(tokenFromLink(second.claimLink)))?.id === cross.user.id,
+      newest.ok && (newest.user.id as string) === cross.user.id,
       "…and the newest link works",
     );
 
@@ -776,14 +789,15 @@ async function main() {
     );
     assert(waLeak.rows[0].c === 0, "no WhatsApp log row contains an unredacted token");
 
-    // Rate limit on the claim door.
+    // Rate limit on the claim door. The plugin's per-IP bucket is capacity 10,
+    // refill 10/min (in-memory here). Every other claim in this suite used a
+    // fresh IP (the helper's default), so only THIS fixed IP's bucket fills:
+    // by call 11+ the door must return the typed RATE_LIMITED refusal, not
+    // just INVALID_TOKEN.
     let limited = false;
-    for (let i = 0; i < 25; i++) {
-      const r = await claimAuthorize(
-        { token: "f".repeat(64) },
-        { headers: { "x-forwarded-for": "203.0.113.254" } },
-      );
-      if (r === null && i > 12) limited = true;
+    for (let i = 0; i < 12; i++) {
+      const r = await claimDoor("f".repeat(64), { ip: "203.0.113.254" });
+      if (!r.ok && r.message === "RATE_LIMITED") limited = true;
     }
     assert(limited, "the claim door is rate-limited per IP");
 

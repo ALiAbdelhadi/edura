@@ -16,7 +16,7 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Loader2, LogIn, TriangleAlert } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { authClient } from "@/lib/auth/client";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -80,25 +80,29 @@ export default function LoginPage() {
       localStorage.removeItem("edura_state");
     } catch {}
     try {
-      const result = await signIn("credentials", {
+      const { data, error: signInError } = await authClient.signIn.email({
         email: values.email,
         password: values.password,
-        redirect: false,
       });
-      if (result?.error) {
-        // authorize() surfaces typed codes as the thrown-error message; any
-        // unrecognized value (incl. plain "CredentialsSignin") stays the
-        // generic invalid-credentials line, so nothing new is ever leaked.
-        if (result.error === "USER_NOT_FOUND") {
+      if (signInError) {
+        // The sign-in hook surfaces typed codes as the APIError message; any
+        // unrecognized value stays the generic invalid-credentials line, so
+        // nothing new is ever leaked.
+        if (signInError.message === "USER_NOT_FOUND") {
           setNotFoundEmail(values.email.trim());
-        } else if (result.error === "ACCOUNT_INACTIVE") {
+        } else if (signInError.message === "ACCOUNT_INACTIVE") {
           setError(t("auth.accountInactive"));
-        } else if (result.error === "RATE_LIMITED") {
+        } else if (signInError.message === "RATE_LIMITED") {
           setError(t("auth.rateLimited"));
         } else {
           setError(t("auth.invalidCredentials"));
         }
         setLoading(false);
+        return;
+      }
+      // Password correct but TOTP enabled: the twoFactorClient plugin's
+      // onTwoFactorRedirect handles navigation — stop here.
+      if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
         return;
       }
       try {

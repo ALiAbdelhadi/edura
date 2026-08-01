@@ -427,6 +427,16 @@ model User {
   // attacker's after a compromise) are invalidated at once — server-side
   // revocation for otherwise-stateless sessions.
   tokenVersion  Int        @default(0) @map("token_version")
+  // better-auth core/plugin columns (2026-08-01 migration). `image` is the
+  // better-auth avatar slot (unused by our UI — Cloudinary owns media);
+  // banned/banReason/banExpires belong to the admin plugin and are DISTINCT
+  // from `status` (C-03 suspension stays the authoritative gate);
+  // twoFactorEnabled belongs to the twoFactor plugin.
+  image            String?
+  twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
+  banned           Boolean   @default(false)
+  banReason        String?   @map("ban_reason")
+  banExpires       DateTime? @map("ban_expires") @db.Timestamptz(6)
   fcmToken      String?    @map("fcm_token")
   // Demo/seed data marker so it can be purged before launch. Flagged on root
   // entities only (users, centers, courses); child rows inherit by ancestry.
@@ -440,6 +450,9 @@ model User {
   teacherProfile     TeacherProfile?
   centerAdminProfile CenterAdminProfile?
   prefs              UserPrefs?
+  authSessions       AuthSession[]
+  authAccounts       AuthAccount[]
+  twoFactors         TwoFactor[]
 
   @@index([role])
   @@index([status])
@@ -620,6 +633,88 @@ model Center {
 // =============================================================================
 // TOKENS / AUTH
 // =============================================================================
+
+// =============================================================================
+// better-auth (2026-08-01) — DB-backed auth sessions, credential accounts,
+// verification store, TOTP 2FA. NOTE: `AuthSession` is deliberately NOT named
+// `Session` — that model is the live-class engine and is untouched.
+// `users.password_hash` remains the SINGLE SOURCE OF TRUTH for the credential;
+// auth_accounts.password is a mirror kept in sync by credentialSyncExtension
+// (packages/database/src/extensions) — never write it directly.
+// =============================================================================
+
+model AuthSession {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token          String   @unique
+  userId         String   @map("user_id") @db.Uuid
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  // admin plugin (impersonation — superadmin app only, UI in a later workstream)
+  impersonatedBy String?  @map("impersonated_by")
+  // Session-scoped center claim, resolved by resolveLoginCenterId at sign-in
+  // (center_admin → profile, center_staff → live link). Mirror of the old JWT
+  // `centerId` claim. Authoritative staff revocation stays requireCenterActor.
+  centerId       String?  @map("center_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model AuthAccount {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id") @db.Uuid
+  // bcrypt mirror of users.password_hash (providerId = 'credential' rows).
+  password              String?
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model AuthVerification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("auth_verifications")
+}
+
+model TwoFactor {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factors")
+}
 
 model PasswordResetToken {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

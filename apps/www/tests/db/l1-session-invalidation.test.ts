@@ -1,19 +1,21 @@
-// L1 proof — a password reset must invalidate JWT sessions issued BEFORE it,
+// L1 proof — a password reset must invalidate sessions issued BEFORE it,
 // while a fresh login keeps working and unrelated sessions are untouched.
 //
-// Drives the REAL www NextAuth pipeline end-to-end against the live DB:
-//   - the credentials provider's authorize() (mints the session user),
-//   - the jwt() + session() callbacks (stamp `ver` at login, revalidate the
-//     token's `ver` against users.token_version on every request),
-//   - the real resetPassword() service (bumps token_version in-tx).
-// No mocks — the only thing simulated is "a later request carrying an earlier
-// token", which is exactly what the jwt callback re-checks.
+// Drives the REAL www better-auth pipeline end-to-end against the live DB:
+//   - /sign-in/email (before-hooks + credential verify against the
+//     trigger-mirrored account row) mints a real DB session + cookie,
+//   - "a later request carrying an earlier session" is a real getSession
+//     with the real cookie,
+//   - the real resetPassword() service bumps users.token_version in-tx, and
+//     the users_revoke_sessions DB trigger deletes the session rows — HARD
+//     revocation, stronger than the old per-request JWT epoch re-read.
+// No mocks anywhere.
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 import bcrypt from "bcryptjs";
-import { authOptions } from "@/lib/auth/options";
 import { resetPassword } from "@/lib/services/auth/password-reset";
 import { generateOpaqueToken, hashToken } from "@/lib/utils/random";
+import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 neonConfig.webSocketConstructor = ws as never;
@@ -32,42 +34,6 @@ function assert(cond: boolean, msg: string) {
     fail++;
     console.error("  ✗", msg);
   }
-}
-
-// Real credentials-provider authorize() — returns the NextAuth `user` or null.
-// NB: `provider.authorize` at top level is a NextAuth normalization wrapper;
-// the un-mangled user function is `provider.options.authorize`.
-const credProvider = (
-  authOptions.providers[0] as unknown as {
-    options: { authorize: (c: unknown, r: unknown) => Promise<Record<string, unknown> | null> };
-  }
-).options;
-const login = (email: string, password: string) =>
-  credProvider.authorize(
-    { email, password },
-    { headers: { "x-forwarded-for": "203.0.113.9" } },
-  );
-
-// Mint the JWT the same way NextAuth does at sign-in (jwt callback with `user`).
-async function mint(user: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return (await authOptions.callbacks!.jwt!({ token: {}, user } as never)) as Record<
-    string,
-    unknown
-  >;
-}
-
-// Simulate a later request carrying `storedToken`: run the jwt revalidation +
-// session callbacks and return the effective session user id (null = logged out).
-async function effectiveUserId(storedToken: Record<string, unknown>) {
-  const token = await authOptions.callbacks!.jwt!({
-    token: { ...storedToken },
-    user: undefined,
-  } as never);
-  const session = (await authOptions.callbacks!.session!({
-    session: { user: {} },
-    token,
-  } as never)) as { user?: { id?: string } };
-  return session?.user?.id ?? null;
 }
 
 async function main() {
@@ -91,24 +57,30 @@ async function main() {
   try {
     console.log("L1 session-invalidation —", tag);
 
-    // 1) Login A + B (before any reset).
-    const authA = await login(emailA, OLD_PW);
-    const authB = await login(emailB, OLD_PW);
-    assert(authA?.id === userA, "login A succeeds with old password");
-    assert(
-      (authA?.tokenVersion as number) === 0 && (authB?.tokenVersion as number) === 0,
-      "issued users carry token_version 0",
-    );
+    // 0) The raw-SQL INSERT above already proved the mirror trigger: the
+    //    credential account row must exist for the sign-in below to succeed.
+    const mirrored = (
+      await admin.query(
+        `SELECT count(*)::int AS n FROM auth_accounts
+          WHERE provider_id='credential' AND user_id = ANY($1::uuid[])`,
+        [[userA, userB]],
+      )
+    ).rows[0].n as number;
+    assert(mirrored === 2, "credential rows mirrored for raw-SQL user inserts");
 
-    const tokenA = await mint(authA!); // the attacker's / owner's pre-reset token
-    const tokenB = await mint(authB!); // an unrelated normal session
-    assert((tokenA.ver as number) === 0, "minted token A stamped ver=0");
+    // 1) Login A + B (before any reset) — real sessions, real cookies.
+    const authA = await signInDoor(emailA, OLD_PW);
+    const authB = await signInDoor(emailB, OLD_PW);
+    assert(authA.ok && (authA.user.id as string) === userA, "login A succeeds with old password");
+    assert(authB.ok, "login B succeeds");
+    if (!authA.ok || !authB.ok) throw new Error("cannot continue without sessions");
 
     // 2) Both sessions are valid BEFORE the reset.
-    assert((await effectiveUserId(tokenA)) === userA, "pre-reset: token A is accepted");
-    assert((await effectiveUserId(tokenB)) === userB, "pre-reset: token B is accepted");
+    assert((await sessionFor(authA.cookie))?.userId === userA, "pre-reset: session A is accepted");
+    assert((await sessionFor(authB.cookie))?.userId === userB, "pre-reset: session B is accepted");
 
-    // 3) A resets their password (real service; bumps token_version in-tx).
+    // 3) A resets their password (real service; bumps token_version in-tx,
+    //    which fires the users_revoke_sessions trigger in the same statement).
     const resetToken = generateOpaqueToken();
     await admin.query(
       `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
@@ -122,28 +94,44 @@ async function main() {
     ).rows[0].token_version as number;
     assert(ver === 1, "reset bumped A's token_version to 1");
 
-    // 4) The pre-reset token A is now REJECTED (logged out) — the core fix.
+    // 4) The pre-reset session A is now REJECTED (row deleted) — the core fix.
     assert(
-      (await effectiveUserId(tokenA)) === null,
-      "post-reset: token issued BEFORE the reset is rejected",
+      (await sessionFor(authA.cookie)) === null,
+      "post-reset: session issued BEFORE the reset is rejected",
     );
+    const rowsA = (
+      await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id=$1`, [userA])
+    ).rows[0].n as number;
+    assert(rowsA === 0, "post-reset: A's session rows are DELETED (hard revocation)");
 
     // 5) The unrelated session B is UNAFFECTED.
     assert(
-      (await effectiveUserId(tokenB)) === userB,
+      (await sessionFor(authB.cookie))?.userId === userB,
       "post-reset: an unrelated session stays valid",
     );
 
-    // 6) A fresh login with the NEW password works and its token is accepted.
-    assert((await login(emailA, OLD_PW)) === null, "old password no longer logs in");
-    const authA2 = await login(emailA, NEW_PW);
-    assert(authA2?.id === userA, "fresh login with the new password succeeds");
-    assert((authA2?.tokenVersion as number) === 1, "fresh login carries token_version 1");
-    const tokenA2 = await mint(authA2!);
-    assert(
-      (await effectiveUserId(tokenA2)) === userA,
-      "post-reset: a freshly-issued token is accepted",
-    );
+    // 6) A fresh login with the NEW password works; the old one is dead.
+    const stale = await signInDoor(emailA, OLD_PW);
+    assert(!stale.ok, "old password no longer logs in");
+    const authA2 = await signInDoor(emailA, NEW_PW);
+    assert(authA2.ok && (authA2.user.id as string) === userA, "fresh login with the new password succeeds");
+    if (authA2.ok) {
+      assert(
+        (await sessionFor(authA2.cookie))?.userId === userA,
+        "post-reset: a freshly-issued session is accepted",
+      );
+    }
+
+    // 7) The reset also re-mirrored the credential row (trigger, not code).
+    const mirroredHash = (
+      await admin.query(
+        `SELECT a.password = u.password_hash AS in_sync
+           FROM auth_accounts a JOIN users u ON u.id = a.user_id
+          WHERE a.provider_id='credential' AND u.id=$1`,
+        [userA],
+      )
+    ).rows[0].in_sync as boolean;
+    assert(mirroredHash === true, "credential mirror follows the reset hash");
   } finally {
     await admin.query(`DELETE FROM password_reset_tokens WHERE user_id = ANY($1::uuid[])`, [
       [userA, userB],

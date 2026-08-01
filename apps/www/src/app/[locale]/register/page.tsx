@@ -26,7 +26,7 @@ import {
   User,
   UserPlus,
 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { authClient } from "@/lib/auth/client";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
@@ -209,13 +209,12 @@ export default function RegisterPage() {
         return;
       }
 
-      const result = await signIn("credentials", {
+      const { error: signInError } = await authClient.signIn.email({
         email,
         password: values.password,
-        redirect: false,
       });
 
-      if (result?.error) {
+      if (signInError) {
         window.location.assign("/login");
         return;
       }
