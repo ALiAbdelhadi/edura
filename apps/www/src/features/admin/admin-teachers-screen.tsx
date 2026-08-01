@@ -5,6 +5,7 @@ import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 import { asKey } from "@/lib/i18n/keys";
+import { track } from "@/lib/track";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useDelete, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
@@ -225,9 +226,23 @@ export function AdminTeachersScreen() {
           rowKey={(r) => String(r.id ?? r._id)}
           caption={t("nav.teachers")}
           empty={
+            /* An empty list with no way out reads as a broken screen. The
+               action here is the same one the toolbar offers, so a first-time
+               owner never has to go looking for it. */
             <EmptyState
               icon={<GraduationCap className="size-6" />}
-              title={t("adminHome.teachers_emptyText")}
+              title={t("activation.empty.teachers.title")}
+              hint={t("activation.empty.teachers.body")}
+              action={
+                <Button
+                  onClick={() => {
+                    track("empty_state_cta_clicked", { list: "teachers" });
+                    setIsInviteOpen(true);
+                  }}
+                >
+                  {t("activation.empty.teachers.cta")}
+                </Button>
+              }
             />
           }
         />

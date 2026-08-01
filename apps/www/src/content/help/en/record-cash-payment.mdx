@@ -1,0 +1,39 @@
+---
+title: Recording a cash payment and issuing a receipt
+summary: Cash at the counter goes into the same ledger as online — same entries, same numbered receipt.
+---
+
+Cash is how most Egyptian centers actually get paid, so it is not a second-class path in Edura. A cash payment is written to **the same ledger** with the same entries as an online one.
+
+## The steps
+
+1. Open **Payments** in the center dashboard (or from a receptionist account).
+2. Pick the **student**.
+3. Pick the **class** and the **plan** — a month or a single session.
+4. Check the amount.
+5. Click **Record payment**.
+
+<Shot caption="The record-cash-payment form" />
+
+## The amount is not typed in
+
+The amount comes from **the class's own settings**, not from an open field the operator fills. That is deliberate: a hand-typed amount means the gap between what was collected and what was recorded rests on whoever is standing at the screen.
+
+## The receipt
+
+Every payment gets a **numbered receipt** in the center's own sequence. The sequence is contiguous and never reused, so receipts stand up as a record.
+
+## What happens behind it
+
+A single payment writes:
+
+- the payment row, with its reference and receipt number
+- a ledger entry in the same transaction (so both are written, or neither is)
+- loyalty points for the student
+- the subscription or coverage the payment was for
+
+> **Important:** paying is not distributing. Money reaches the teacher and the center when **the session is closed**, not at the moment of payment — except for an independent teacher. See [closing a session and how money is split](/help/close-session-settlement).
+
+## Refunds
+
+A refund reverses the entries rather than deleting them, and a payment can never be refunded twice — that is enforced in the database itself, not in the screen.

@@ -16,6 +16,7 @@ import {
   useUpdate,
 } from "@refinedev/core";
 import { Alert, AlertTitle } from "@repo/ui/components/alert";
+import { track } from "@/lib/track";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import {
@@ -651,7 +652,18 @@ export function AdminClassesScreen() {
               emptyState={
                 <EmptyState
                   icon={BookOpen}
-                  title={t("adminManage.classes.emptyText")}
+                  title={t("activation.empty.classes.title")}
+                  description={t("activation.empty.classes.body")}
+                  action={
+                    <Button
+                      onClick={() => {
+                        track("empty_state_cta_clicked", { list: "classes" });
+                        setIsCreateOpen(true);
+                      }}
+                    >
+                      {t("activation.empty.classes.cta")}
+                    </Button>
+                  }
                 />
               }
             />

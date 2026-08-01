@@ -139,6 +139,15 @@
         "3089"
       ],
       "port": 3089
+    },
+    {
+      "name": "conversion-layer-preview",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-lc",
+        "cd apps/www && exec bun --bun node_modules/.bin/next start -p 3012"
+      ],
+      "port": 3012
     }
   ]
 }

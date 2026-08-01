@@ -49,6 +49,7 @@
     "next": "16.2.12",
     "next-cloudinary": "^6.17.5",
     "next-intl": "^4.13.4",
+    "next-mdx-remote": "^6.0.0",
     "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "19.2.8",
