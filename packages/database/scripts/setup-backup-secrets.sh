@@ -36,8 +36,10 @@ bold "Backup secrets → $REPO"
 dim "Press ENTER on any prompt to skip that secret and leave it unchanged."
 echo
 
-# `read -rs` keeps the value off the screen; the here-string keeps it out of
-# the process list (an argument to gh would be visible in `ps`).
+# `read -rs` keeps the value off the screen. Piping it to gh on STDIN keeps it
+# out of the PROCESS LIST too: `gh secret set X --body "$v"` puts the secret in
+# argv, where any local process can read it out of `ps` for as long as the call
+# runs. Short window, but a free one to close.
 set_secret() {
   local name="$1" prompt="$2" secret="${3:-yes}" value
   if [ "$secret" = "yes" ]; then
@@ -46,7 +48,8 @@ set_secret() {
     read -rp "  $prompt: " value
   fi
   if [ -z "$value" ]; then warn "$name skipped"; return; fi
-  gh secret set "$name" --repo "$REPO" --body "$value" >/dev/null
+  printf '%s' "$value" | gh secret set "$name" --repo "$REPO" >/dev/null
+  unset value
   ok "$name set"
 }
 
@@ -72,9 +75,9 @@ else
     ok "generated $KEYFILE"
   fi
   PUBLIC=$(age-keygen -y "$KEYFILE")
-  gh secret set BACKUP_AGE_RECIPIENT --repo "$REPO" --body "$PUBLIC" >/dev/null
+  printf '%s' "$PUBLIC" | gh secret set BACKUP_AGE_RECIPIENT --repo "$REPO" >/dev/null
   ok "BACKUP_AGE_RECIPIENT set (public key — safe to share)"
-  gh secret set BACKUP_AGE_IDENTITY --repo "$REPO" --body "$(cat "$KEYFILE")" >/dev/null
+  gh secret set BACKUP_AGE_IDENTITY --repo "$REPO" < "$KEYFILE" >/dev/null
   ok "BACKUP_AGE_IDENTITY set (private key — used by the weekly restore test)"
 
   echo
@@ -100,13 +103,18 @@ echo
 
 # --- 3. object storage -------------------------------------------------------
 bold "3. Object storage (S3-compatible)"
-dim "Works with Cloudflare R2, Backblaze B2, Wasabi, iDrive e2, MinIO or AWS."
+dim "Backblaze B2, Cloudflare R2, Wasabi, iDrive e2, MinIO or AWS S3."
 dim "Leave the endpoint blank ONLY if you are using AWS S3 itself."
+dim ""
+dim "B2:  endpoint https://s3.<region>.backblazeb2.com"
+dim "     region   the segment inside that host, e.g. eu-central-003 — NOT 'auto'"
+dim "     keys     keyID -> ACCESS_KEY_ID, applicationKey -> SECRET_ACCESS_KEY"
+dim "R2:  endpoint https://<account-id>.r2.cloudflarestorage.com, region 'auto'"
 set_secret BACKUP_S3_BUCKET   "BACKUP_S3_BUCKET (name)"           no
 set_secret BACKUP_S3_ENDPOINT "BACKUP_S3_ENDPOINT (https://...)"  no
 set_secret BACKUP_S3_ACCESS_KEY_ID     "BACKUP_S3_ACCESS_KEY_ID"
 set_secret BACKUP_S3_SECRET_ACCESS_KEY "BACKUP_S3_SECRET_ACCESS_KEY"
-set_secret BACKUP_S3_REGION   "BACKUP_S3_REGION ('auto' for R2)"  no
+set_secret BACKUP_S3_REGION   "BACKUP_S3_REGION (B2: eu-central-003 | R2: auto)"  no
 echo
 
 # --- 4. alerting -------------------------------------------------------------

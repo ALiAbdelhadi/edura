@@ -16,10 +16,13 @@
 #
 # Reads credentials from the environment, so nothing is stored or echoed:
 #   export BACKUP_S3_BUCKET=edura-backups
-#   export BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-#   export AWS_ACCESS_KEY_ID=...
-#   export AWS_SECRET_ACCESS_KEY=...
-#   export AWS_DEFAULT_REGION=auto
+#   export BACKUP_S3_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
+#   export AWS_ACCESS_KEY_ID=...          # B2 "keyID"
+#   export AWS_SECRET_ACCESS_KEY=...      # B2 "applicationKey"
+#   export AWS_DEFAULT_REGION=eu-central-003
+#
+# For Cloudflare R2 instead: endpoint
+# https://<account-id>.r2.cloudflarestorage.com and region `auto`.
 # =============================================================================
 set -uo pipefail
 
@@ -35,9 +38,27 @@ command -v aws >/dev/null || { echo "aws CLI not installed:  brew install awscli
 : "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is not set}"
 : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is not set}"
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-auto}"
+# See backup-db.ts: AWS CLI v2.23+ sends x-amz-checksum on every upload, which
+# some S3-compatible providers (Backblaze B2) reject with an opaque error that
+# reads like a credentials problem. No-op on AWS and R2.
+export AWS_REQUEST_CHECKSUM_CALCULATION="${AWS_REQUEST_CHECKSUM_CALCULATION:-when_required}"
 
 EP=()
 [ -n "${BACKUP_S3_ENDPOINT:-}" ] && EP=(--endpoint-url "$BACKUP_S3_ENDPOINT")
+
+# 'auto' is a Cloudflare R2 convention. Backblaze needs its REAL region
+# (eu-central-003, us-west-004, ...) and fails with a signature error otherwise
+# — which reads as "wrong credentials" and sends people down the wrong path.
+case "${BACKUP_S3_ENDPOINT:-}" in
+  *backblazeb2.com*)
+    if [ "$AWS_DEFAULT_REGION" = "auto" ]; then
+      printf '  \033[33m!\033[0m region is "auto" but this is a Backblaze endpoint.\n'
+      printf '    B2 needs its real region, e.g. eu-central-003 — the one in your endpoint host.\n'
+      GUESS=$(printf '%s' "$BACKUP_S3_ENDPOINT" | sed -n 's#.*s3\.\([a-z0-9-]*\)\.backblazeb2\.com.*#\1#p')
+      [ -n "$GUESS" ] && { printf '    Using "%s", inferred from the endpoint.\n' "$GUESS"; export AWS_DEFAULT_REGION="$GUESS"; }
+    fi
+    ;;
+esac
 
 BUCKET="$BACKUP_S3_BUCKET"
 KEY="_healthcheck/probe-$(date -u +%Y%m%dT%H%M%SZ)-$$.bin"
@@ -60,8 +81,9 @@ else
   bad "write — $(head -2 "$TMP/err" | tr '\n' ' ')"
   echo
   bold "Cannot continue without write access."
-  echo "  Common causes: wrong endpoint, token lacks Object Read & Write,"
-  echo "  bucket name typo, or region should be 'auto' for R2."
+  echo "  Common causes: wrong endpoint; the key lacks read+write on this"
+  echo "  bucket; a bucket-name typo; or a region mismatch — B2 needs its real"
+  echo "  region (eu-central-003, us-west-004...), R2 needs the literal 'auto'."
   exit 1
 fi
 
@@ -99,11 +121,21 @@ else
 fi
 
 # 6. versioning — not fatal, but its absence means an overwrite is permanent.
-VERS=$(aws s3api get-bucket-versioning --bucket "$BUCKET" "${EP[@]}" 2>/dev/null | grep -o '"Status": *"[A-Za-z]*"' | head -1)
-case "$VERS" in
-  *Enabled*) ok "versioning enabled" ;;
-  *)         printf '  \033[33m!\033[0m versioning is OFF — an overwritten backup is unrecoverable. Turn it on.\n' ;;
-esac
+#
+# Reported in THREE states, not two: several S3-compatible providers do not
+# implement GetBucketVersioning at all, and reporting that as "versioning is
+# OFF" would send you hunting for a setting that is not missing. Backblaze in
+# particular manages this as a per-bucket "Keep all versions" lifecycle setting
+# rather than through the S3 versioning API.
+VERS_RAW=$(aws s3api get-bucket-versioning --bucket "$BUCKET" "${EP[@]}" 2>"$TMP/verr")
+if grep -qiE "not implemented|unsupported|MethodNotAllowed|InvalidRequest" "$TMP/verr" 2>/dev/null; then
+  printf '  \033[33m!\033[0m versioning: provider does not expose the S3 versioning API.\n'
+  printf '    Check it in the provider console instead (B2: bucket -> "Keep all versions").\n'
+elif printf '%s' "$VERS_RAW" | grep -q '"Status": *"Enabled"'; then
+  ok "versioning enabled"
+else
+  printf '  \033[33m!\033[0m versioning is OFF — an overwritten backup is unrecoverable. Turn it on.\n'
+fi
 
 echo
 if [ "$FAILED" -eq 0 ]; then

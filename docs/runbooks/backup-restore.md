@@ -68,10 +68,10 @@ copy in your password manager (manual runs):
 | `BACKUP_DIRECT_URL` | **Unpooled** Neon connection string (the `DIRECT_URL`, not the `-pooler` one). The pooler cannot produce a consistent dump. |
 | `BACKUP_AGE_RECIPIENT` | age **public** key. Safe to expose; it can only encrypt. |
 | `BACKUP_AGE_IDENTITY` | age **private** key. The only thing that can read a backup. |
-| `BACKUP_S3_BUCKET` | Bucket name. |
-| `BACKUP_S3_ENDPOINT` | S3-compatible endpoint (e.g. `https://<account>.r2.cloudflarestorage.com`). Omit for AWS S3. |
-| `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` | Bucket credentials. Scope them to this bucket, write-only if the provider allows. |
-| `BACKUP_S3_REGION` | `auto` for R2. |
+| `BACKUP_S3_BUCKET` | Bucket name. B2 names are globally unique. |
+| `BACKUP_S3_ENDPOINT` | e.g. `https://s3.eu-central-003.backblazeb2.com` (B2) or `https://<account-id>.r2.cloudflarestorage.com` (R2). Omit for AWS S3. |
+| `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` | On B2 these are the **keyID** and **applicationKey**. Scope the key to this bucket only — but it needs **read AND write**, not write-only: the weekly restore test lists and downloads. |
+| `BACKUP_S3_REGION` | The region *inside your endpoint host* (`eu-central-003`) for B2. The literal `auto` for R2. |
 | `BACKUP_ALERT_EMAIL` | Where a FAILED backup shouts. |
 
 > ### ⚠️ Where the age private key must NOT live
@@ -107,79 +107,96 @@ age-keygen -o edura-backup.key
 The output file contains the private key (`AGE-SECRET-KEY-1…` → `BACKUP_AGE_IDENTITY`)
 and prints the public key (`age1…` → `BACKUP_AGE_RECIPIENT`).
 
-### Creating the bucket — Cloudflare R2, step by step
+### Creating the bucket — Backblaze B2, step by step
 
-R2 is the recommendation because it is S3-compatible and has **zero egress
-fees**, which matters precisely when you need it: a real restore means pulling
-the whole archive back down, and on most providers that is the expensive part.
+B2 is the choice here: 10 GB free, and the signup does not demand a payment
+method the way Cloudflare R2 does for its free tier. Everything below also works
+on R2, AWS S3, Wasabi, iDrive e2 or MinIO — only the endpoint and region change.
 
-> **R2 requires a payment method on file even for the free 10 GB tier.** If that
-> is a blocker, **Backblaze B2** has a 10 GB free tier with a lighter signup and
-> works with every script here unchanged — only the endpoint differs. Your dev
-> dump was 0.32 MiB, so you are nowhere near either free tier.
+1. **Sign up at backblaze.com**, verify the email, and enable **B2 Cloud
+   Storage** in the account settings.
 
-1. **Dash → R2 → Create bucket.**
+2. **Buckets → Create a Bucket.**
+   - Name: `edura-backups` (B2 bucket names are **globally unique**, so add a
+     suffix if it is taken)
+   - Files in Bucket are: **Private** — this must never be public, it holds
+     every user row and every minor's record
+   - Default Encryption: **Enable** (SSE-B2). Belt and braces: our dumps are
+     already `age`-encrypted before upload, so B2 never sees plaintext either
+     way, but at-rest encryption costs nothing.
+   - Object Lock: leave off unless you want true immutability (see §Retention).
+
+3. **Bucket → Lifecycle Settings → Use custom rules.** This is what enforces
+   retention; the script only prunes *local* files.
+
+   > **B2's model is not S3's.** There is no single "expire after N days".
+   > B2 has *days from uploading to hiding* and *days from hiding to deleting*,
+   > and a file is only really gone after both elapse. Set them as a pair:
+
+   | File Name Prefix | Days till hidden | Days till deleted |
+   |---|---|---|
+   | `production/daily/` | 8 | 1 |
+   | `production/weekly/` | 35 | 1 |
+
+   That keeps 7 daily and 4 weekly with one spare each, and reclaims the space
+   a day after hiding.
+
+4. **Keep all versions** is B2's equivalent of S3 versioning, and it is the
+   default. Leave it on — without it, an overwrite is permanent.
+
+5. **Account → Application Keys → Add a New Application Key.**
    - Name: `edura-backups`
-   - Location: **Automatic**, or `EEUR`/`WEUR` to sit near the Neon
-     `eu-central-1` region.
-   - Leave public access **OFF**. This bucket must never be internet-readable —
-     it holds every user row and every minor's record.
+   - Allow access to: **just `edura-backups`**, not all buckets
+   - Type of Access: **Read and Write**
+   - You get a **keyID** and an **applicationKey**. The applicationKey is shown
+     **once**. They map to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 
-2. **Bucket → Settings → Object lifecycle rules.** This is what actually
-   enforces retention; the backup script only prunes *local* files.
-   - prefix `production/daily/` → delete after **8** days (keeps 7, one spare)
-   - prefix `production/weekly/` → delete after **35** days (keeps 4, one spare)
+6. **Note the endpoint and region** from the bucket page. The endpoint looks
+   like `s3.eu-central-003.backblazeb2.com` — prefix it with `https://`.
 
-3. **Bucket → Settings → turn ON versioning.** Without it, an overwrite —
-   accidental or hostile — is permanent.
+   > **The region is the segment inside that host** (`eu-central-003`), NOT the
+   > literal `auto`. `auto` is a Cloudflare R2 convention; on B2 it produces a
+   > *signature* error that reads like bad credentials and sends you hunting in
+   > the wrong place. `verify-backup-storage.sh` detects this and infers the
+   > right region from your endpoint rather than letting you chase it.
 
-4. **R2 → API → Manage API tokens → Create API token.**
-   - Permission: **Object Read & Write**
-   - Scope it to **this bucket only**, not "all buckets"
-   - TTL: no expiry (or diarise the rotation)
-   - You get an **Access Key ID** and a **Secret Access Key**. The secret is
-     shown **once** — put it straight into the setup script.
-
-5. **Note your endpoint**, shown on the bucket page as
-   `https://<account-id>.r2.cloudflarestorage.com`. Region is `auto`.
-
-6. **Feed it to the secrets script** (§Setting all of this up above):
+7. **Feed it to the secrets script:**
 
    ```bash
    bash packages/database/scripts/setup-backup-secrets.sh
    ```
 
-7. **Prove the bucket works before trusting it** — a token that can write but
-   not list, or an endpoint that silently truncates, both look fine until a
-   restore:
+8. **Prove the bucket works before trusting it** — a key that can write but not
+   list, or an endpoint that silently truncates, both look fine until a restore:
 
    ```bash
    export BACKUP_S3_BUCKET=edura-backups
-   export BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-   export AWS_ACCESS_KEY_ID=...      # from step 4
-   export AWS_SECRET_ACCESS_KEY=...
-   export AWS_DEFAULT_REGION=auto
+   export BACKUP_S3_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
+   export AWS_ACCESS_KEY_ID=...          # B2 keyID
+   export AWS_SECRET_ACCESS_KEY=...      # B2 applicationKey
+   export AWS_DEFAULT_REGION=eu-central-003
    bash packages/database/scripts/verify-backup-storage.sh
    ```
 
    It writes a 1 MiB random probe, lists it, reads it back, compares checksums,
-   deletes it, and checks versioning. Only enable the schedule once this is
-   green.
+   deletes it, and reports on versioning. Only enable the schedule once green.
 
-### Bucket configuration
+> **Known S3-compatibility trap, already handled.** AWS CLI v2.23+ attaches an
+> `x-amz-checksum-*` header to every upload, which B2 and several other
+> S3-compatible providers reject with an opaque error that looks like a
+> credentials failure. Both scripts set
+> `AWS_REQUEST_CHECKSUM_CALCULATION=when_required`, which restores the older
+> behaviour and is a no-op on AWS and R2. If you ever call `aws s3` by hand
+> against B2 and get a puzzling 400, that is why.
 
-Create the bucket **private**, then:
+#### If you use Cloudflare R2 instead
 
-1. **Versioning ON.** Protects against an attacker (or a script) overwriting a
-   good backup with a bad one.
-2. **Lifecycle rules** implement remote retention — the script only prunes
-   *local* files:
-   - `production/daily/` → expire after **8 days** (keeps 7, one spare)
-   - `production/weekly/` → expire after **35 days** (keeps 4, one spare)
-3. **Object Lock / immutability** if the provider supports it. A backup an
-   intruder can delete is not a backup against ransomware.
-
----
+Same steps, three differences: the endpoint is
+`https://<account-id>.r2.cloudflarestorage.com`, the region is the literal
+`auto`, and lifecycle rules use S3's straightforward "expire after N days"
+(8 for `production/daily/`, 35 for `production/weekly/`). R2's advantage is
+**zero egress fees**, which matters on a full restore; its cost is that the
+free tier still wants a card on file.
 
 ## 3. Taking a backup
 

@@ -193,14 +193,31 @@ async function upload(file: string, key: string): Promise<void> {
   if (!bucket) throw new Error("BACKUP_S3_BUCKET is not set");
   const endpoint = process.env.BACKUP_S3_ENDPOINT;
 
-  await run("aws", [
-    "s3",
-    "cp",
-    file,
-    `s3://${bucket}/${key}`,
-    ...(endpoint ? ["--endpoint-url", endpoint] : []),
-    "--only-show-errors",
-  ]);
+  await run(
+    "aws",
+    [
+      "s3",
+      "cp",
+      file,
+      `s3://${bucket}/${key}`,
+      ...(endpoint ? ["--endpoint-url", endpoint] : []),
+      "--only-show-errors",
+    ],
+    {
+      env: {
+        // AWS CLI v2.23+ sends an `x-amz-checksum-*` header on every upload by
+        // default. Several S3-COMPATIBLE providers (Backblaze B2 among them)
+        // reject or mishandle it, and the failure looks like an opaque 400 or
+        // XAmzContentSHA256Mismatch that reads as a credentials problem.
+        //
+        // `when_required` restores the pre-2.23 behaviour: checksums are still
+        // sent where the API demands them, just not unconditionally. This is a
+        // no-op against real AWS S3 and against R2, so it is set always rather
+        // than branching on the endpoint — one code path, no provider sniffing.
+        AWS_REQUEST_CHECKSUM_CALCULATION: "when_required",
+      },
+    },
+  );
 }
 
 /** Delete local dumps past the retention window. Remote lifecycle is the bucket's job. */
