@@ -1,0 +1,53 @@
+{
+  "name": "@repo/showcase",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3006",
+    "build": "next build --webpack",
+    "start": "bun --bun next start -p 3007",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "capture": "npx playwright test -c tools/capture/playwright.config.ts",
+    "optimize:shots": "bun run tools/optimize-shots.ts",
+    "verify": "npx playwright test -c tools/verify/playwright.config.ts",
+    "flows": "npx playwright test -c tools/flows/playwright.config.ts",
+    "encode:flows": "bun run tools/flows/encode.ts",
+    "render:poster": "bun run tools/hero/render-poster.ts"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.3.0",
+    "@repo/ui": "workspace:*",
+    "gsap": "^3.13.0",
+    "lenis": "^1.3.11",
+    "lucide-react": "^1.27.0",
+    "next": "16.2.12",
+    "next-intl": "^4.13.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "^0.182.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.12",
+    "postcss": "^8.5.23",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10",
+    "@playwright/test": "^1.62.0",
+    "sharp": "^0.35.3"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}

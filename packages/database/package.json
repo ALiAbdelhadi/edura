@@ -79,7 +79,8 @@
     "seed:roomrate-demo": "tsx --env-file=.env prisma/room-rate-demo-seed.ts",
     "db:wipe": "tsx scripts/wipe-data.ts",
     "db:backup": "tsx scripts/backup-db.ts",
-    "db:restore-test": "tsx scripts/restore-test.ts"
+    "db:restore-test": "tsx scripts/restore-test.ts",
+    "seed:showcase-demo": "tsx --env-file=.env prisma/showcase-demo-seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

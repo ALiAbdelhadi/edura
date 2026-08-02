@@ -1,0 +1,1233 @@
+{
+  "source": "apps/showcase/tools/capture",
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 900,
+      "scale": 2
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "scale": 3
+    }
+  },
+  "shots": [
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "checkin",
+      "path": "/ar/dashboard/admin/checkin",
+      "file": "shots/admin/checkin.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "checkin",
+      "path": "/en/dashboard/admin/checkin",
+      "file": "shots/admin/checkin.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/ar/dashboard/admin/classes",
+      "file": "shots/admin/classes.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/en/dashboard/admin/classes",
+      "file": "shots/admin/classes.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "enrollment-requests",
+      "path": "/ar/dashboard/admin/enrollment-requests",
+      "file": "shots/admin/enrollment-requests.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "enrollment-requests",
+      "path": "/en/dashboard/admin/enrollment-requests",
+      "file": "shots/admin/enrollment-requests.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "expenses",
+      "path": "/ar/dashboard/admin/expenses",
+      "file": "shots/admin/expenses.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "expenses",
+      "path": "/en/dashboard/admin/expenses",
+      "file": "shots/admin/expenses.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "fees",
+      "path": "/ar/dashboard/admin/fees",
+      "file": "shots/admin/fees.ar.png",
+      "note": "Empty until a payment flow is run by hand — the seed writes no money rows."
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "fees",
+      "path": "/en/dashboard/admin/fees",
+      "file": "shots/admin/fees.en.png",
+      "note": "Empty until a payment flow is run by hand — the seed writes no money rows."
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/admin",
+      "file": "shots/admin/home.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/admin",
+      "file": "shots/admin/home.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/ar/dashboard/admin/notes",
+      "file": "shots/admin/notes.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/en/dashboard/admin/notes",
+      "file": "shots/admin/notes.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "reports",
+      "path": "/ar/dashboard/admin/reports",
+      "file": "shots/admin/reports.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "reports",
+      "path": "/en/dashboard/admin/reports",
+      "file": "shots/admin/reports.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "rooms",
+      "path": "/ar/dashboard/admin/rooms",
+      "file": "shots/admin/rooms.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "rooms",
+      "path": "/en/dashboard/admin/rooms",
+      "file": "shots/admin/rooms.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "staff",
+      "path": "/ar/dashboard/admin/staff",
+      "file": "shots/admin/staff.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "staff",
+      "path": "/en/dashboard/admin/staff",
+      "file": "shots/admin/staff.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "students",
+      "path": "/ar/dashboard/admin/students",
+      "file": "shots/admin/students.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "students",
+      "path": "/en/dashboard/admin/students",
+      "file": "shots/admin/students.en.png"
+    },
+    {
+      "role": "admin",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "teachers",
+      "path": "/ar/dashboard/admin/teachers",
+      "file": "shots/admin/teachers.ar.png"
+    },
+    {
+      "role": "admin",
+      "locale": "en",
+      "device": "desktop",
+      "key": "teachers",
+      "path": "/en/dashboard/admin/teachers",
+      "file": "shots/admin/teachers.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/ar/dashboard/assistant/attendance",
+      "file": "shots/assistant/attendance.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/en/dashboard/assistant/attendance",
+      "file": "shots/assistant/attendance.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/ar/dashboard/assistant/classes",
+      "file": "shots/assistant/classes.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/en/dashboard/assistant/classes",
+      "file": "shots/assistant/classes.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "door",
+      "path": "/ar/dashboard/assistant/door",
+      "file": "shots/assistant/door.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "door",
+      "path": "/en/dashboard/assistant/door",
+      "file": "shots/assistant/door.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/ar/dashboard/assistant/grades",
+      "file": "shots/assistant/grades.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/en/dashboard/assistant/grades",
+      "file": "shots/assistant/grades.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/assistant",
+      "file": "shots/assistant/home.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/assistant",
+      "file": "shots/assistant/home.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/ar/dashboard/assistant/materials",
+      "file": "shots/assistant/materials.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/en/dashboard/assistant/materials",
+      "file": "shots/assistant/materials.en.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/ar/dashboard/assistant/notes",
+      "file": "shots/assistant/notes.ar.png"
+    },
+    {
+      "role": "assistant",
+      "locale": "en",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/en/dashboard/assistant/notes",
+      "file": "shots/assistant/notes.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/ar/dashboard/parent/attendance",
+      "file": "shots/parent/attendance.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/en/dashboard/parent/attendance",
+      "file": "shots/parent/attendance.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "children",
+      "path": "/ar/dashboard/parent/children",
+      "file": "shots/parent/children.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "children",
+      "path": "/en/dashboard/parent/children",
+      "file": "shots/parent/children.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "fees",
+      "path": "/ar/dashboard/parent/fees",
+      "file": "shots/parent/fees.ar.png",
+      "note": "Empty until a payment flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "fees",
+      "path": "/en/dashboard/parent/fees",
+      "file": "shots/parent/fees.en.png",
+      "note": "Empty until a payment flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/parent",
+      "file": "shots/parent/home.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/parent",
+      "file": "shots/parent/home.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "oversight",
+      "path": "/ar/dashboard/parent/oversight",
+      "file": "shots/parent/oversight.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "oversight",
+      "path": "/en/dashboard/parent/oversight",
+      "file": "shots/parent/oversight.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "pay",
+      "path": "/ar/dashboard/parent/pay",
+      "file": "shots/parent/pay.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "pay",
+      "path": "/en/dashboard/parent/pay",
+      "file": "shots/parent/pay.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "progress",
+      "path": "/ar/dashboard/parent/progress",
+      "file": "shots/parent/progress.ar.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "progress",
+      "path": "/en/dashboard/parent/progress",
+      "file": "shots/parent/progress.en.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/ar/dashboard/parent/wallet",
+      "file": "shots/parent/wallet.ar.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/en/dashboard/parent/wallet",
+      "file": "shots/parent/wallet.en.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "attendance",
+      "path": "/ar/dashboard/parent/attendance",
+      "file": "shots/parent/attendance.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "attendance",
+      "path": "/en/dashboard/parent/attendance",
+      "file": "shots/parent/attendance.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "children",
+      "path": "/ar/dashboard/parent/children",
+      "file": "shots/parent/children.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "children",
+      "path": "/en/dashboard/parent/children",
+      "file": "shots/parent/children.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "fees",
+      "path": "/ar/dashboard/parent/fees",
+      "file": "shots/parent/fees.ar.mobile.png",
+      "note": "Empty until a payment flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "fees",
+      "path": "/en/dashboard/parent/fees",
+      "file": "shots/parent/fees.en.mobile.png",
+      "note": "Empty until a payment flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "home",
+      "path": "/ar/dashboard/parent",
+      "file": "shots/parent/home.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "home",
+      "path": "/en/dashboard/parent",
+      "file": "shots/parent/home.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "oversight",
+      "path": "/ar/dashboard/parent/oversight",
+      "file": "shots/parent/oversight.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "oversight",
+      "path": "/en/dashboard/parent/oversight",
+      "file": "shots/parent/oversight.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "pay",
+      "path": "/ar/dashboard/parent/pay",
+      "file": "shots/parent/pay.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "pay",
+      "path": "/en/dashboard/parent/pay",
+      "file": "shots/parent/pay.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "progress",
+      "path": "/ar/dashboard/parent/progress",
+      "file": "shots/parent/progress.ar.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "progress",
+      "path": "/en/dashboard/parent/progress",
+      "file": "shots/parent/progress.en.mobile.png"
+    },
+    {
+      "role": "parent",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "wallet",
+      "path": "/ar/dashboard/parent/wallet",
+      "file": "shots/parent/wallet.ar.mobile.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "parent",
+      "locale": "en",
+      "device": "mobile",
+      "key": "wallet",
+      "path": "/en/dashboard/parent/wallet",
+      "file": "shots/parent/wallet.en.mobile.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "checkin",
+      "path": "/ar/dashboard/staff/checkin",
+      "file": "shots/staff/checkin.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "checkin",
+      "path": "/en/dashboard/staff/checkin",
+      "file": "shots/staff/checkin.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/staff",
+      "file": "shots/staff/home.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/staff",
+      "file": "shots/staff/home.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/ar/dashboard/staff/notes",
+      "file": "shots/staff/notes.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/en/dashboard/staff/notes",
+      "file": "shots/staff/notes.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "reports",
+      "path": "/ar/dashboard/staff/reports",
+      "file": "shots/staff/reports.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "reports",
+      "path": "/en/dashboard/staff/reports",
+      "file": "shots/staff/reports.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "rooms",
+      "path": "/ar/dashboard/staff/rooms",
+      "file": "shots/staff/rooms.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "rooms",
+      "path": "/en/dashboard/staff/rooms",
+      "file": "shots/staff/rooms.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "students",
+      "path": "/ar/dashboard/staff/students",
+      "file": "shots/staff/students.ar.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "desktop",
+      "key": "students",
+      "path": "/en/dashboard/staff/students",
+      "file": "shots/staff/students.en.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "checkin",
+      "path": "/ar/dashboard/staff/checkin",
+      "file": "shots/staff/checkin.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "checkin",
+      "path": "/en/dashboard/staff/checkin",
+      "file": "shots/staff/checkin.en.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "home",
+      "path": "/ar/dashboard/staff",
+      "file": "shots/staff/home.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "home",
+      "path": "/en/dashboard/staff",
+      "file": "shots/staff/home.en.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "notes",
+      "path": "/ar/dashboard/staff/notes",
+      "file": "shots/staff/notes.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "notes",
+      "path": "/en/dashboard/staff/notes",
+      "file": "shots/staff/notes.en.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "reports",
+      "path": "/ar/dashboard/staff/reports",
+      "file": "shots/staff/reports.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "reports",
+      "path": "/en/dashboard/staff/reports",
+      "file": "shots/staff/reports.en.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "rooms",
+      "path": "/ar/dashboard/staff/rooms",
+      "file": "shots/staff/rooms.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "rooms",
+      "path": "/en/dashboard/staff/rooms",
+      "file": "shots/staff/rooms.en.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "students",
+      "path": "/ar/dashboard/staff/students",
+      "file": "shots/staff/students.ar.mobile.png"
+    },
+    {
+      "role": "staff",
+      "locale": "en",
+      "device": "mobile",
+      "key": "students",
+      "path": "/en/dashboard/staff/students",
+      "file": "shots/staff/students.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/ar/dashboard/student/attendance",
+      "file": "shots/student/attendance.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/en/dashboard/student/attendance",
+      "file": "shots/student/attendance.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "courses",
+      "path": "/ar/dashboard/student/courses",
+      "file": "shots/student/courses.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "courses",
+      "path": "/en/dashboard/student/courses",
+      "file": "shots/student/courses.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "family",
+      "path": "/ar/dashboard/student/family",
+      "file": "shots/student/family.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "family",
+      "path": "/en/dashboard/student/family",
+      "file": "shots/student/family.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/ar/dashboard/student/grades",
+      "file": "shots/student/grades.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/en/dashboard/student/grades",
+      "file": "shots/student/grades.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/student",
+      "file": "shots/student/home.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/student",
+      "file": "shots/student/home.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/ar/dashboard/student/materials",
+      "file": "shots/student/materials.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/en/dashboard/student/materials",
+      "file": "shots/student/materials.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "schedule",
+      "path": "/ar/dashboard/student/schedule",
+      "file": "shots/student/schedule.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "schedule",
+      "path": "/en/dashboard/student/schedule",
+      "file": "shots/student/schedule.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "subjects",
+      "path": "/ar/dashboard/student/subjects",
+      "file": "shots/student/subjects.ar.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "subjects",
+      "path": "/en/dashboard/student/subjects",
+      "file": "shots/student/subjects.en.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/ar/dashboard/student/wallet",
+      "file": "shots/student/wallet.ar.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/en/dashboard/student/wallet",
+      "file": "shots/student/wallet.en.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "attendance",
+      "path": "/ar/dashboard/student/attendance",
+      "file": "shots/student/attendance.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "attendance",
+      "path": "/en/dashboard/student/attendance",
+      "file": "shots/student/attendance.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "courses",
+      "path": "/ar/dashboard/student/courses",
+      "file": "shots/student/courses.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "courses",
+      "path": "/en/dashboard/student/courses",
+      "file": "shots/student/courses.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "family",
+      "path": "/ar/dashboard/student/family",
+      "file": "shots/student/family.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "family",
+      "path": "/en/dashboard/student/family",
+      "file": "shots/student/family.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "grades",
+      "path": "/ar/dashboard/student/grades",
+      "file": "shots/student/grades.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "grades",
+      "path": "/en/dashboard/student/grades",
+      "file": "shots/student/grades.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "home",
+      "path": "/ar/dashboard/student",
+      "file": "shots/student/home.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "home",
+      "path": "/en/dashboard/student",
+      "file": "shots/student/home.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "materials",
+      "path": "/ar/dashboard/student/materials",
+      "file": "shots/student/materials.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "materials",
+      "path": "/en/dashboard/student/materials",
+      "file": "shots/student/materials.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "schedule",
+      "path": "/ar/dashboard/student/schedule",
+      "file": "shots/student/schedule.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "schedule",
+      "path": "/en/dashboard/student/schedule",
+      "file": "shots/student/schedule.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "subjects",
+      "path": "/ar/dashboard/student/subjects",
+      "file": "shots/student/subjects.ar.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "subjects",
+      "path": "/en/dashboard/student/subjects",
+      "file": "shots/student/subjects.en.mobile.png"
+    },
+    {
+      "role": "student",
+      "locale": "ar",
+      "device": "mobile",
+      "key": "wallet",
+      "path": "/ar/dashboard/student/wallet",
+      "file": "shots/student/wallet.ar.mobile.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "student",
+      "locale": "en",
+      "device": "mobile",
+      "key": "wallet",
+      "path": "/en/dashboard/student/wallet",
+      "file": "shots/student/wallet.en.mobile.png",
+      "note": "Zero balance until a top-up flow is run by hand."
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/ar/dashboard/teacher/attendance",
+      "file": "shots/teacher/attendance.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "attendance",
+      "path": "/en/dashboard/teacher/attendance",
+      "file": "shots/teacher/attendance.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "centers",
+      "path": "/ar/dashboard/teacher/centers",
+      "file": "shots/teacher/centers.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "centers",
+      "path": "/en/dashboard/teacher/centers",
+      "file": "shots/teacher/centers.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/ar/dashboard/teacher/classes",
+      "file": "shots/teacher/classes.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "classes",
+      "path": "/en/dashboard/teacher/classes",
+      "file": "shots/teacher/classes.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "door",
+      "path": "/ar/dashboard/teacher/door",
+      "file": "shots/teacher/door.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "door",
+      "path": "/en/dashboard/teacher/door",
+      "file": "shots/teacher/door.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/ar/dashboard/teacher/grades",
+      "file": "shots/teacher/grades.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "grades",
+      "path": "/en/dashboard/teacher/grades",
+      "file": "shots/teacher/grades.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "home",
+      "path": "/ar/dashboard/teacher",
+      "file": "shots/teacher/home.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "home",
+      "path": "/en/dashboard/teacher",
+      "file": "shots/teacher/home.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/ar/dashboard/teacher/materials",
+      "file": "shots/teacher/materials.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "materials",
+      "path": "/en/dashboard/teacher/materials",
+      "file": "shots/teacher/materials.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/ar/dashboard/teacher/notes",
+      "file": "shots/teacher/notes.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "notes",
+      "path": "/en/dashboard/teacher/notes",
+      "file": "shots/teacher/notes.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "team",
+      "path": "/ar/dashboard/teacher/team",
+      "file": "shots/teacher/team.ar.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "team",
+      "path": "/en/dashboard/teacher/team",
+      "file": "shots/teacher/team.en.png"
+    },
+    {
+      "role": "teacher",
+      "locale": "ar",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/ar/dashboard/teacher/wallet",
+      "file": "shots/teacher/wallet.ar.png",
+      "note": "Zero balance until a session is settled by hand."
+    },
+    {
+      "role": "teacher",
+      "locale": "en",
+      "device": "desktop",
+      "key": "wallet",
+      "path": "/en/dashboard/teacher/wallet",
+      "file": "shots/teacher/wallet.en.png",
+      "note": "Zero balance until a session is settled by hand."
+    }
+  ]
+}

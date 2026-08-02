@@ -366,3 +366,43 @@ are configuration that governs future writes and changes nothing already recorde
 an input is honest there and the save is ONE press (D-022). The test is whether the
 number is a row in the ledger or a rule about rows yet to be written. Figures
 *reporting* current policy stay `<Num>`. — 2026-07-27
+
+---
+
+## The showcase site (`apps/showcase`)
+
+**D-044 · The showcase is exempt from the single-animation budget, because it rests on a
+different guarantee.**
+`CONSTITUTION.md` §1 spends the product's one animation on the seal, and §2 says a
+derivation needing a second animation is wrong. The showcase is not a ledger — it is an
+*argument about* one, and its guarantee is not "this record is permanent" but **"everything
+shown here is real; you are looking at the actual product."** An honest interface for that
+guarantee *demonstrates* rather than asserts. So motion is permitted exactly where it
+carries the demonstration — a diagram that draws its own computation, a counter that counts
+because the figure is derived from entries, a pin that holds one screen while its parts are
+named — and forbidden where it decorates: no parallax, no enter-transitions for rhythm, no
+second 3D scene. The product itself is unchanged; this exemption does not travel back into
+any portal. — 2026-08-02
+
+**D-045 · The showcase keeps the Ledger token layer with no additions.**
+The carve-out in D-044 is a *motion* exemption and nothing else. `--paper`/`--sheet`/
+`--ink`/`--rule`, the four colours, IBM Plex Mono for every figure, hairlines, `<Eyebrow>`'s
+marker rule and the `<Num>`/`<ProseCount>` split all apply unchanged, and the site imports
+them from `@repo/ui` rather than restating them. A marketing surface that invents a fifth
+colour or a second font stops looking like the product it is selling, which defeats the
+guarantee D-044 rests on. — 2026-08-02
+
+**D-046 · `SplitText` splits Arabic by word or line, never by character.**
+Char-splitting wraps each glyph in its own element, which breaks the cursive joins and
+ligatures that Arabic shaping depends on — the headline renders as disconnected letterforms
+in the product's *primary* language while animating correctly in its secondary one. The
+split granularity is chosen from the locale by a helper, not left to each caller to
+remember. Latin headlines may still split by character. — 2026-08-02
+
+**D-047 · Lenis, not ScrollSmoother.**
+ScrollSmoother transforms a wrapper element, which disables `position: sticky` inside it —
+and the showcase's sticky sub-nav and several pinned scenes depend on sticky. Lenis is
+~3KB against ~15KB, needs no wrapper/content markup fighting the App Router layout, and
+integrates with ScrollTrigger in one line (`lenis.on('scroll', ScrollTrigger.update)`). We
+forgo ScrollSmoother's `data-speed` effects, which are parallax — forbidden by D-044
+anyway. — 2026-08-02
