@@ -45,6 +45,7 @@ const BASELINE_PATH = path.join(here, "expected-db-shape.json");
  *                                                audit_logs, invoices, payouts)
  *   20260722100100_session_settlements
  *   20260723120100_blacklist_cascade_journal
+ *   20260803100100_external_teachers
  * Money and audit rows are append-only; invoices/payouts legitimately change
  * status, so they keep UPDATE and lose only DELETE.
  */
@@ -53,6 +54,11 @@ const APPEND_ONLY: Record<string, string[]> = {
   points_ledger: ["INSERT", "SELECT"],
   audit_logs: ["INSERT", "SELECT"],
   session_settlements: ["INSERT", "SELECT"],
+  // Off-system teachers. The conversion journal is the EVIDENCE that a status
+  // flip moved no data, and the settlement record is a money statement — both
+  // are worthless if they can be edited after the fact.
+  teacher_system_status_changes: ["INSERT", "SELECT"],
+  external_teacher_settlements: ["INSERT", "SELECT"],
   invoices: ["INSERT", "SELECT", "UPDATE"],
   payouts: ["INSERT", "SELECT", "UPDATE"],
   blacklist_cascade_actions: ["INSERT", "SELECT", "UPDATE"],

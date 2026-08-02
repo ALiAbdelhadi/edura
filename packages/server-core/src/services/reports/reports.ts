@@ -1,5 +1,5 @@
 import { PaymentStatus } from "@repo/database";
-import { scopedDb, platformDb } from "../../db/scope";
+import { scopedDb, platformDb, type TenantTx } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
 import type {
   AnalyticsGranularity,
@@ -124,17 +124,98 @@ function paymentWhereBase(centerId: string) {
   };
 }
 
-export async function getRevenueReport(user: SessionUser, from?: string, to?: string) {
+// ---------------------------------------------------------------------------
+// PROVENANCE FILTERING (off-system teachers)
+//
+// The DEFAULT IS COMBINED, and that is not an oversight — it is the point. A
+// center's revenue is its revenue whether the teacher who earned it signs in or
+// not, so every report below reads both kinds unless an operator asks for one.
+// Passing no filter therefore leaves every existing report byte-for-byte as it
+// was.
+//
+// The two filters answer different questions and are deliberately separate:
+//   dataSource   — "which rows did my staff key in by hand?"   (a column)
+//   systemStatus — "which rows belong to my off-system teachers?" (a property
+//                  of the TEACHER, resolved to their groups)
+// They usually agree, but not always: a teacher who joins the platform keeps
+// the groups the center keyed in for them, so those rows stay `manual` while
+// their teacher is now `enrolled`. Collapsing the two into one flag would make
+// that perfectly ordinary case unrepresentable.
+// ---------------------------------------------------------------------------
+
+export type ProvenanceFilter = {
+  systemStatus?: "enrolled" | "external" | null;
+  dataSource?: "system" | "manual" | null;
+};
+
+/** Nothing asked for -> nothing narrowed. One check, used by every report. */
+function isUnfiltered(f?: ProvenanceFilter): boolean {
+  return !f || (!f.systemStatus && !f.dataSource);
+}
+
+/**
+ * Turn a provenance filter into the two narrowings the reports need: a
+ * `dataSource` value, and the course ids belonging to teachers of the requested
+ * kind.
+ *
+ * `courseIds: null` means "do not narrow by course" — distinct from `[]`, which
+ * means "narrow to nothing", the correct answer when a center has no teacher of
+ * the requested kind. Conflating them would silently show the whole center's
+ * numbers under a filter that matched nobody.
+ */
+async function resolveProvenance(
+  tx: TenantTx,
+  centerId: string,
+  f?: ProvenanceFilter,
+): Promise<{ dataSource?: "system" | "manual"; courseIds: string[] | null }> {
+  if (isUnfiltered(f)) return { courseIds: null };
+
+  let courseIds: string[] | null = null;
+  if (f?.systemStatus) {
+    const profiles = await tx.teacherProfile.findMany({
+      where: { systemStatus: f.systemStatus },
+      select: { userId: true },
+    });
+    const teacherIds = profiles.map((p) => p.userId);
+    const courses = teacherIds.length
+      ? await tx.course.findMany({
+          where: { centerId, teacherId: { in: teacherIds } },
+          select: { id: true },
+        })
+      : [];
+    courseIds = courses.map((c) => c.id);
+  }
+
+  return { ...(f?.dataSource ? { dataSource: f.dataSource } : {}), courseIds };
+}
+
+/** `courseId` narrowing that is a no-op when nothing was asked for. */
+function courseNarrow(courseIds: string[] | null) {
+  return courseIds === null ? {} : { courseId: { in: courseIds } };
+}
+
+export async function getRevenueReport(
+  user: SessionUser,
+  from?: string,
+  to?: string,
+  provenance?: ProvenanceFilter,
+) {
   const centerId = user.centerId as string;
   const df = dateFilter(from, to);
 
-  const agg = await scopedDb(user, (tx) =>
-    tx.payment.aggregate({
-      where: { ...paymentWhereBase(centerId), ...(df ? { paidAt: df } : {}) },
+  const agg = await scopedDb(user, async (tx) => {
+    const { dataSource, courseIds } = await resolveProvenance(tx, centerId, provenance);
+    return tx.payment.aggregate({
+      where: {
+        ...paymentWhereBase(centerId),
+        ...(df ? { paidAt: df } : {}),
+        ...(dataSource ? { dataSource } : {}),
+        ...courseNarrow(courseIds),
+      },
       _sum: { amount: true },
       _count: true,
-    }),
-  );
+    });
+  });
 
   return { total: agg._sum.amount ?? 0, count: agg._count ?? 0, from, to };
 }
@@ -166,6 +247,7 @@ export async function getRevenueTimeseries(
   from?: string,
   to?: string,
   granularity: AnalyticsGranularity = "month",
+  provenance?: ProvenanceFilter,
 ) {
   const centerId = user.centerId as string;
   const { fromDate, toDate } = parseRange(from, to, granularity);
@@ -178,10 +260,20 @@ export async function getRevenueTimeseries(
   );
 
   const { payments, expenses } = await scopedDb(user, async (tx) => {
+    const { dataSource, courseIds } = await resolveProvenance(tx, centerId, provenance);
     const payments = await tx.payment.findMany({
-      where: { ...paymentWhereBase(centerId), paidAt: { gte: fromDate, lte: toDate } },
+      where: {
+        ...paymentWhereBase(centerId),
+        paidAt: { gte: fromDate, lte: toDate },
+        ...(dataSource ? { dataSource } : {}),
+        ...courseNarrow(courseIds),
+      },
       select: { amount: true, paidAt: true },
     });
+    // Expenses are the CENTER's own costs (rent, salaries, supplies) and belong
+    // to no teacher, so a provenance filter cannot narrow them. Left whole
+    // rather than zeroed: under a filter the series shows the filtered revenue
+    // against the center's real costs, which is the honest comparison.
     const expenses = await tx.expense.findMany({
       where: { centerId, expenseDate: { gte: fromDate, lte: toDate } },
       select: { amount: true, expenseDate: true },
@@ -259,12 +351,25 @@ export async function getExpensesTimeseries(
   };
 }
 
-export async function getCourseFillRates(user: SessionUser) {
+export async function getCourseFillRates(
+  user: SessionUser,
+  provenance?: ProvenanceFilter,
+) {
   const centerId = user.centerId as string;
 
   return scopedDb(user, async (tx) => {
+    const { dataSource, courseIds: scopeIds } = await resolveProvenance(
+      tx,
+      centerId,
+      provenance,
+    );
     const courses = await tx.course.findMany({
-      where: { centerId, status: "active" },
+      where: {
+        centerId,
+        status: "active",
+        ...(dataSource ? { dataSource } : {}),
+        ...(scopeIds === null ? {} : { id: { in: scopeIds } }),
+      },
       select: { id: true, title: true, maxStudents: true },
     });
     if (courses.length === 0) return { items: [] as CourseFillRatePoint[] };
@@ -294,14 +399,29 @@ export async function getCourseFillRates(user: SessionUser) {
   });
 }
 
-export async function getAttendanceByCourse(user: SessionUser, from?: string, to?: string) {
+export async function getAttendanceByCourse(
+  user: SessionUser,
+  from?: string,
+  to?: string,
+  provenance?: ProvenanceFilter,
+) {
   const centerId = user.centerId as string;
   const df = dateFilter(from, to);
 
   return scopedDb(user, async (tx) => {
+    const { dataSource, courseIds: scopeIds } = await resolveProvenance(
+      tx,
+      centerId,
+      provenance,
+    );
     const rows = await tx.attendanceRecord.groupBy({
       by: ["courseId", "status"],
-      where: { centerId, ...(df ? { session: { date: df } } : {}) },
+      where: {
+        centerId,
+        ...(df ? { session: { date: df } } : {}),
+        ...(dataSource ? { dataSource } : {}),
+        ...courseNarrow(scopeIds),
+      },
       _count: true,
     });
 
@@ -717,7 +837,20 @@ export async function getNetProfitReport(user: SessionUser, from?: string, to?: 
   };
 }
 
-export async function getAdminDashboard(user: SessionUser) {
+/**
+ * The center home.
+ *
+ * COMBINED BY DEFAULT: with no filter it counts on-platform and off-system
+ * teachers together, which is the whole promise — one number for the center's
+ * own business, not two half-pictures. `provenance` narrows it only when the
+ * operator switches the toggle, and the breakdown below always reports BOTH
+ * sides regardless of the filter, so the split is visible without having to go
+ * looking for it.
+ */
+export async function getAdminDashboard(
+  user: SessionUser,
+  provenance?: ProvenanceFilter,
+) {
   const centerId = user.centerId as string;
 
   const todayStart = startOfUtcDay(new Date());
@@ -727,28 +860,83 @@ export async function getAdminDashboard(user: SessionUser) {
   const [base, feeDefaulters, trend, sessionStatusMix, attendanceByCourse, courseFillRates, enrollmentFunnel] =
     await Promise.all([
       scopedDb(user, async (tx) => {
-        const totalStudents = await tx.enrollment.count({ where: { centerId, status: "active" } });
+        const { dataSource, courseIds } = await resolveProvenance(tx, centerId, provenance);
+        const courseScope = courseNarrow(courseIds);
+
+        const totalStudents = await tx.enrollment.count({
+          where: { centerId, status: "active", ...courseScope, ...(dataSource ? { dataSource } : {}) },
+        });
         const teacherGroups = await tx.course.groupBy({
           by: ["teacherId"],
-          where: { centerId, status: "active" },
+          where: {
+            centerId,
+            status: "active",
+            ...(dataSource ? { dataSource } : {}),
+            ...(courseIds === null ? {} : { id: { in: courseIds } }),
+          },
         });
-        const totalCourses = await tx.course.count({ where: { centerId, status: "active" } });
+        const totalCourses = await tx.course.count({
+          where: {
+            centerId,
+            status: "active",
+            ...(dataSource ? { dataSource } : {}),
+            ...(courseIds === null ? {} : { id: { in: courseIds } }),
+          },
+        });
         const todaySessions = await tx.session.findMany({
-          where: { date: { gte: todayStart, lt: todayEnd }, course: { centerId } },
+          where: {
+            date: { gte: todayStart, lt: todayEnd },
+            course: { centerId },
+            ...courseScope,
+            ...(dataSource ? { dataSource } : {}),
+          },
           select: { id: true, courseId: true, date: true, startTime: true, endTime: true, status: true },
         });
         const revenueAgg = await tx.payment.aggregate({
-          where: paymentWhereBase(centerId),
+          where: { ...paymentWhereBase(centerId), ...courseScope, ...(dataSource ? { dataSource } : {}) },
           _sum: { amount: true },
         });
+        // Center-own costs; no teacher owns them, so no provenance filter
+        // applies (same reasoning as the revenue timeseries).
         const expenseAgg = await tx.expense.aggregate({ where: { centerId }, _sum: { amount: true } });
         const pendingEnrollmentRequests = await tx.enrollmentRequest.count({
-          where: { centerId, status: "pending" },
+          where: { centerId, status: "pending", ...courseScope },
         });
-        const attendanceTotal = await tx.attendanceRecord.count({ where: { centerId } });
+        const attendanceTotal = await tx.attendanceRecord.count({
+          where: { centerId, ...courseScope, ...(dataSource ? { dataSource } : {}) },
+        });
         const attendancePresent = await tx.attendanceRecord.count({
-          where: { centerId, status: "present" },
+          where: { centerId, status: "present", ...courseScope, ...(dataSource ? { dataSource } : {}) },
         });
+
+        // THE SPLIT IS ALWAYS REPORTED, whatever the filter says. A center that
+        // has to change a setting to discover how much of its business runs
+        // off-system will not think to look; showing it beside the headline is
+        // what makes the combined number trustworthy rather than opaque.
+        const externalProfiles = await tx.teacherProfile.findMany({
+          where: { managedByCenterId: centerId, systemStatus: "external" },
+          select: { userId: true },
+        });
+        const externalTeacherIds = externalProfiles.map((p) => p.userId);
+        const externalCourses = externalTeacherIds.length
+          ? await tx.course.findMany({
+              where: { centerId, teacherId: { in: externalTeacherIds }, status: "active" },
+              select: { id: true },
+            })
+          : [];
+        const externalCourseIds = externalCourses.map((c) => c.id);
+        const externalRevenue = externalCourseIds.length
+          ? await tx.payment.aggregate({
+              where: { ...paymentWhereBase(centerId), courseId: { in: externalCourseIds } },
+              _sum: { amount: true },
+            })
+          : null;
+        const externalStudents = externalCourseIds.length
+          ? await tx.enrollment.count({
+              where: { centerId, status: "active", courseId: { in: externalCourseIds } },
+            })
+          : 0;
+
         return {
           totalStudents,
           totalTeachers: teacherGroups.length,
@@ -759,13 +947,19 @@ export async function getAdminDashboard(user: SessionUser) {
           pendingEnrollmentRequests,
           attendanceTotal,
           attendancePresent,
+          external: {
+            teachers: externalTeacherIds.length,
+            courses: externalCourseIds.length,
+            students: externalStudents,
+            revenue: externalRevenue?._sum.amount ?? 0,
+          },
         };
       }),
       countFeeDefaulters(user),
-      getRevenueTimeseries(user, undefined, undefined, "month"),
+      getRevenueTimeseries(user, undefined, undefined, "month", provenance),
       getSessionStatusMix(user),
-      getAttendanceByCourse(user),
-      getCourseFillRates(user),
+      getAttendanceByCourse(user, undefined, undefined, provenance),
+      getCourseFillRates(user, provenance),
       getEnrollmentFunnel(user),
     ]);
 
@@ -791,6 +985,8 @@ export async function getAdminDashboard(user: SessionUser) {
     attendanceRate,
     feeDefaulters,
     pendingEnrollmentRequests: base.pendingEnrollmentRequests,
+    /** How much of the above runs through off-system teachers. Always present. */
+    external: base.external,
     analytics: {
       revenueVsExpenses: trend.series,
       sessionStatusMix: sessionStatusMix.items,

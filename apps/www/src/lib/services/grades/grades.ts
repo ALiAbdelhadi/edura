@@ -66,6 +66,10 @@ export async function createGrade(
         gradeType,
         maxScore,
         date: new Date(data.date),
+        // Provenance inherited from the group (see the DataSource enum). A
+        // teacher who joined the platform keeps entering grades on the groups
+        // the center keyed in for them, and those stay labelled `manual`.
+        dataSource: course.dataSource,
       },
       include: { scores: true },
     });

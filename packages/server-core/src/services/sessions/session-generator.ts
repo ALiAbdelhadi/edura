@@ -1,3 +1,4 @@
+import type { DataSource } from "@repo/database";
 import { scopedDb, type TenantTx } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
 import { ConflictError } from "../../errors/classes";
@@ -20,6 +21,12 @@ export type CourseInput = {
   schedulePattern: SchedulePattern;
   teacherId: string;
   defaultRoomId?: string | null;
+  /**
+   * Provenance to stamp on the generated sessions. Omitted everywhere except
+   * the off-system-teacher path, and the column defaults to `system`, so every
+   * existing caller keeps writing exactly what it wrote before.
+   */
+  dataSource?: DataSource;
 };
 
 function walkDates(startDate: Date, endDate: Date, daysOfWeek: number[]): Date[] {
@@ -66,6 +73,7 @@ export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Pro
     startTime: string;
     endTime: string;
     status: "scheduled";
+    dataSource?: DataSource;
   }[] = [];
   const conflicts: object[] = [];
 
@@ -95,6 +103,7 @@ export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Pro
       startTime: schedulePattern.startTime,
       endTime: schedulePattern.endTime,
       status: "scheduled",
+      ...(course.dataSource ? { dataSource: course.dataSource } : {}),
     });
   }
 

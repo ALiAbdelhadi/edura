@@ -163,6 +163,13 @@ const createSchema = z.object({
   gradeTag: z.string().optional(),
   schedulePattern: schedulePatternSchema,
   price: moneySchema,
+  // Subscription plan prices. Accepted at CREATION so a new group is payable
+  // immediately: previously they could only be set by a follow-up PATCH, and a
+  // group created without that second step is one nobody can be charged for —
+  // exactly what the off-system completeness report kept flagging as
+  // "group without a price".
+  pricePerMonth: moneySchema.nullish(),
+  pricePerSession: moneySchema.nullish(),
   maxStudents: z.number().int().positive().max(10000),
   // Room-based only; validated against the room's allowed methods at snapshot.
   pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),

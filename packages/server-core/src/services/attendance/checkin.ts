@@ -184,7 +184,7 @@ export async function counterCheckin(
       }
       const course = await tx.course.findUnique({
         where: { id: session.courseId },
-        select: { centerId: true, pricePerSession: true, title: true },
+        select: { centerId: true, pricePerSession: true, title: true, dataSource: true },
       });
       if (!course || course.centerId !== centerId) {
         throw new ForbiddenError("Session is not at your center");
@@ -245,6 +245,9 @@ export async function counterCheckin(
             markedBy: admin.id,
             counterAt: now,
             counterBy: admin.id,
+            // Inherited from the group (see bulkMarkAttendance) — the counter
+            // works identically for an off-system teacher's lesson.
+            dataSource: course.dataSource,
           },
         });
       }

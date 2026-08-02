@@ -1,6 +1,7 @@
 import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { getAdminDashboard } from "@/lib/services/reports/reports";
+import { parseProvenance } from "@/lib/http/provenance";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,8 @@ function stripFinancials(
 }
 
 export const GET = centerStaff(
-  async (_req, _ctx, { acting: user, staffRole }) => {
-    const result = await getAdminDashboard(user);
+  async (req, _ctx, { acting: user, staffRole }) => {
+    const result = await getAdminDashboard(user, parseProvenance(new URL(req.url)));
     return ok(staffRole === "manager" ? stripFinancials(result) : result);
   },
   { allow: MANAGER },

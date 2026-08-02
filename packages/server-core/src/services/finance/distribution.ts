@@ -150,6 +150,11 @@ export async function distributeSessionRevenue(
         centerId,
         lessonId: sessionId,
         status: "completed",
+        // Inherited from the group, like every other row in this chain, so a
+        // center's finance report can separate platform-collected money from
+        // money its staff keyed in for an off-system teacher without joining
+        // back through course -> teacher.
+        dataSource: course.dataSource,
         notes: "Lesson revenue",
       },
       {
@@ -161,6 +166,11 @@ export async function distributeSessionRevenue(
         centerId,
         lessonId: sessionId,
         status: "completed",
+        // Inherited from the group, like every other row in this chain, so a
+        // center's finance report can separate platform-collected money from
+        // money its staff keyed in for an off-system teacher without joining
+        // back through course -> teacher.
+        dataSource: course.dataSource,
         notes: `Platform fee (teacher side)${noteSuffix}`,
       },
       {
@@ -172,6 +182,11 @@ export async function distributeSessionRevenue(
         centerId,
         lessonId: sessionId,
         status: "completed",
+        // Inherited from the group, like every other row in this chain, so a
+        // center's finance report can separate platform-collected money from
+        // money its staff keyed in for an off-system teacher without joining
+        // back through course -> teacher.
+        dataSource: course.dataSource,
         notes: `Platform fee (center side)${noteSuffix}`,
       },
     );

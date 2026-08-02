@@ -75,6 +75,7 @@ const NAV_KEY: Record<string, string> = {
   Dashboard: "nav.dashboard",
   Students: "nav.students",
   Teachers: "nav.teachers",
+  "Off-system Teachers": "nav.externalTeachers",
   Classes: "nav.classes",
   Courses: "nav.courses",
   Grades: "nav.grades",
