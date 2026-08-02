@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { statePath } from "./auth-state";
 import {
-  ACCOUNTS,
   LOCALES,
   MOBILE_ROLES,
   ROLES,
@@ -12,7 +12,6 @@ import {
 } from "./screens";
 import { VIEWPORTS } from "./playwright.config";
 
-const PASSWORD = process.env.SEED_PASSWORD ?? "Passw0rd!";
 const OUT_ROOT = path.resolve(__dirname, "../../public/shots");
 
 /** Written alongside the PNGs so a reviewer can see what produced them. */
@@ -25,24 +24,6 @@ const manifest: {
   file: string;
   note?: string;
 }[] = [];
-
-async function signIn(page: Page, role: Role, locale: Locale) {
-  await page.goto(`/${locale}/login`, { waitUntil: "domcontentloaded" });
-
-  // The email field is the first text input on the card; matching by
-  // placeholder rather than by label keeps this working in both locales.
-  await page
-    .locator('input[type="email"], input[name="email"]')
-    .first()
-    .fill(ACCOUNTS[role]);
-  await page.locator('input[type="password"]').first().fill(PASSWORD);
-  await page.locator('button[type="submit"]').first().click();
-
-  // Landing on any /dashboard route is the success signal — each role lands on
-  // its own, and hard-coding which one would make this file a second, silently
-  // drifting copy of the app's post-login routing.
-  await page.waitForURL(/\/dashboard(\/|$)/, { timeout: 30_000 });
-}
 
 /**
  * Screenshots race two things that are invisible in a passing run and obvious
@@ -94,9 +75,10 @@ for (const role of ROLES) {
           hasTouch: device.name === "mobile",
         });
 
-        test(`${role} · ${locale} · ${device.name}`, async ({ page }) => {
-          await signIn(page, role, locale);
+        // The saved session for this role, minted once by the setup project.
+        test.use({ storageState: statePath(role) });
 
+        test(`${role} · ${locale} · ${device.name}`, async ({ page }) => {
           const dir = path.join(OUT_ROOT, role);
           await mkdir(dir, { recursive: true });
 

@@ -71,3 +71,4 @@ apps/showcase/.flows-raw/
 # The capture harness is committed and reproducible, so the bytes do not belong
 # in permanent history before we know which of them ship.
 apps/showcase/public/shots/
+apps/showcase/.auth/

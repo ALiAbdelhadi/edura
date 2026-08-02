@@ -34,7 +34,13 @@ export const VIEWPORTS = {
 
 export default defineConfig({
   testDir: ".",
-  testMatch: /capture\.spec\.ts/,
+  // Two projects: a `setup` that signs each role in ONCE and saves its cookies,
+  // then the capture itself which reuses them. See auth.setup.ts — signing in
+  // per test tripped apps/www's own per-email login rate limit (C2).
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    { name: "capture", testMatch: /capture\.spec\.ts/, dependencies: ["setup"] },
+  ],
   // Sequential: the shots share one seeded database, and a parallel run makes
   // "why is this row different" unanswerable when a screenshot looks wrong.
   workers: 1,

@@ -5,7 +5,12 @@ device frames) is produced by the Phase 2 pipeline from a seeded local app. This
 lists only what that pipeline **cannot** produce, split into things that block a page and
 things the site is designed to live without.
 
-Last updated 2026-08-02, after the flow videos landed.
+Last updated 2026-08-02, after merging `main` and re-capturing.
+
+> **`/pricing` is no longer a showcase concern.** `apps/www` now publishes it,
+> computing every figure at request time from the live `commission_settings`
+> global row via the settlement engine's own pure functions. The showcase links
+> to it. An earlier entry here asked for a pricing decision; that is settled.
 
 ---
 
@@ -41,7 +46,6 @@ they are simply waiting for Phase 4 to say which scene wants one.
 | # | Asset | Why the pipeline can't make it | Where it's used |
 |---|---|---|---|
 | B1 | **Logo / wordmark** in the Ledger system (`--ink` on `--paper`, plus a `--indigo-ink` on `--indigo` reverse) | `apps/www/public/edura-mark.svg` exists but is a PWA app icon, not a marketing wordmark | Header, footer, 3D notebook cover, OG image |
-| B2 | **Decision on `/pricing` numbers** | There is no public price list anywhere in the repo. Commission lives in `commission_settings` rows, configured per platform / center / room — so any percentage on the site would be invented | `/pricing`. The page is currently designed to explain the *model* with movable inputs and no published rate; that only changes if you supply real figures |
 | B3 | **Legal entity + contact line** for the footer | Not in the repo | Footer, `/trust` |
 
 ---
@@ -74,6 +78,21 @@ object they would otherwise get.
 
 ---
 
+## 2a. Investigated and found CORRECT — `student/schedule`
+
+The schedule capture shows several near-identical rows. It is not a bug in
+either the seed or the screen. `schedule-screen.tsx` is a **weekday picker**: it
+defaults to today's weekday and filters the student's whole session list to that
+day, across every week. The seed runs each course in the same slot for eight
+weeks, which is what a real center does, so one weekday legitimately yields
+several rows — and they differ by the date column, which is displayed.
+
+No fix made, deliberately. When this is used on a page, pick a weekday where the
+student has two different subjects rather than one repeated; the repetition is
+truthful but it is not the most informative frame.
+
+---
+
 ## 2b. Captured, but do NOT use without checking
 
 Found while reviewing the 150 captures. Both are about the *app*, not the
@@ -81,8 +100,8 @@ pipeline, so they are recorded rather than quietly cropped around.
 
 | Shot | Problem |
 |---|---|
-| `admin/students.*` | **FIXED IN `main`, NOT YET RE-CAPTURED.** The spawned task landed the fix: `listRosterStudents` now runs an `enrollment.groupBy` and returns a real `coursesCount`. This worktree is 23 commits behind, so the captures here still show the old always-zero column. **Re-run `bun run capture` after main is merged**, then this row can be deleted. |
-| `student/schedule.*` | The day filter lists **every** session on that weekday across all eight seeded weeks, so Sunday shows four identical chemistry rows. That may be intended (a recurring class really does repeat), but it reads as duplicated data in a marketing shot. Prefer a weekday with a more varied timetable, or use the desktop schedule. |
+| `admin/students.*` | **RESOLVED 2026-08-02.** `listRosterStudents` now runs an `enrollment.groupBy` and returns a real `coursesCount` (fixed on `main` by the spawned task). Re-captured after merging: the column reads 2 / 1 / 2 / 2 / 1, matching the seed's enrollments exactly. Safe to use. |
+| `student/schedule.*` | Investigated — **correct behaviour, not a defect**. See §2a above. |
 
 ---
 
