@@ -54,3 +54,20 @@ yarn-error.log*
 
 # generated knowledge-graph artifacts (graphify tool output)
 graphify-out/
+
+# Showcase capture intermediates — the 2x PNGs Playwright writes (~20 MB).
+# They are losslessly-captured ORIGINALS kept on disk so a re-encode never
+# compounds artefacts from a lossy source, but the site ships only the
+# optimised AVIF/WebP under opt/, which ARE committed.
+apps/showcase/public/shots/**/*.png
+apps/showcase/test-results/
+apps/showcase/playwright-report/
+apps/showcase/verify-out/
+apps/showcase/.flows-raw/
+
+# Showcase captures. The 2x PNGs are intermediates of `bun run capture`, and the
+# optimized AVIF/WebP are regenerated from them by `bun run optimize:shots` —
+# together ~42 MB that Phase D prunes to the handful the pages actually use.
+# The capture harness is committed and reproducible, so the bytes do not belong
+# in permanent history before we know which of them ship.
+apps/showcase/public/shots/

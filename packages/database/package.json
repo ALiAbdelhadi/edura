@@ -77,7 +77,8 @@
     "seed:teamnotes-demo": "tsx --env-file=.env prisma/team-notes-demo-seed.ts",
     "seed:parentpay-demo": "tsx --env-file=.env prisma/parent-pay-demo-seed.ts",
     "seed:roomrate-demo": "tsx --env-file=.env prisma/room-rate-demo-seed.ts",
-    "db:wipe": "tsx scripts/wipe-data.ts"
+    "db:wipe": "tsx scripts/wipe-data.ts",
+    "seed:showcase-demo": "tsx --env-file=.env prisma/showcase-demo-seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

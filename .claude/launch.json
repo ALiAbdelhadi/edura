@@ -2,6 +2,26 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "edura-showcase",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "--cwd",
+        "apps/showcase",
+        "dev"
+      ],
+      "port": 3006
+    },
+    {
+      "name": "edura-www-prod-capture",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "NEXTAUTH_URL=http://localhost:3021 exec bun run --cwd apps/www next start -p 3021"
+      ],
+      "port": 3021
+    },
+    {
       "name": "edura-navfix-preview",
       "runtimeExecutable": "bun",
       "runtimeArgs": [

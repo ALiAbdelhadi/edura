@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "siteName": "Edura",
+    "titleDefault": "Edura — the operating ledger for Egyptian teaching centers",
+    "description": "Attendance, subscriptions, payments and settlement for centers, teachers, students and guardians — in one append-only ledger."
+  },
+  "nav": {
+    "home": "Home",
+    "owners": "Center owners",
+    "teachers": "Teachers",
+    "students": "Students",
+    "parents": "Guardians",
+    "trust": "Trust & safety",
+    "pricing": "How we charge",
+    "login": "Sign in",
+    "register": "Create an account",
+    "skipToContent": "Skip to content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "switchToArabic": "العربية",
+    "switchToEnglish": "English"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "One ledger",
+      "title": "Your center, your teachers, your students — in one ledger",
+      "subtitle": "Edura runs attendance, subscriptions, payments and settlement — from the center's front desk to the guardian's phone.",
+      "ctaPrimary": "Create an account",
+      "ctaSecondary": "See how it works",
+      "scrollHint": "Scroll"
+    }
+  },
+  "footer": {
+    "tagline": "Built for the Egyptian market.",
+    "product": "Product",
+    "company": "Company",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "rights": "All rights reserved."
+  }
+}
