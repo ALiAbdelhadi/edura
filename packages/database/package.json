@@ -81,7 +81,8 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:restore-test": "tsx scripts/restore-test.ts",
     "seed:showcase-demo": "tsx --env-file=.env prisma/showcase-demo-seed.ts",
-    "seed:extteachers-demo": "tsx --env-file=.env prisma/external-teachers-demo-seed.ts"
+    "seed:extteachers-demo": "tsx --env-file=.env prisma/external-teachers-demo-seed.ts",
+    "db:check-pending": "tsx scripts/check-pending-migrations.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

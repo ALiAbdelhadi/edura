@@ -1,0 +1,188 @@
+name: Deploy
+
+# ============================================================================
+# PRODUCTION DEPLOY — www + superadmin to Vercel.
+#
+# WHY THIS FILE EXISTS. Until 2026-08-02 nothing deployed this repo. The
+# 2026-07-31 launch was a `vercel deploy` typed by hand on one laptop, and the
+# `.vercel/` directories in apps/www and apps/superadmin are the residue of it.
+# The consequence showed up the day a merge landed on main and simply sat
+# there: main carried code nobody had shipped, production served an older
+# build, and no red tick anywhere said so. A deploy that depends on somebody
+# remembering is a deploy that eventually does not happen.
+#
+# THE GATE IS THE POINT, not the deploy step.
+#
+# On 2026-08-01 a migration merged to main and deployed without ever being
+# applied to production. Prisma names every column explicitly in its SELECTs,
+# so code that knows about a column the database lacks does not degrade — it
+# throws on every query touching that table. Every sign-in returned 500 and the
+# build had been green the whole time.
+#
+# So `guard` runs first and REFUSES to deploy when production is missing any
+# migration this commit contains. The reverse (database ahead of the code) is
+# only a warning: that is the safe ordering a careful deploy deliberately
+# creates — apply, confirm, then ship.
+#
+# WHY `workflow_run` AND NOT `push`. Deploying in parallel with the tests that
+# decide whether the commit is good is theatre. This starts only after CI has
+# finished on main, and stops unless CI actually passed.
+#
+# FAIL LOUDLY, NEVER SKIP QUIETLY. Same rule as backup.yml: if the secrets are
+# missing the run goes RED with an explanation, it does not go green having done
+# nothing. A green tick on a deploy that never ran is how you end up debugging
+# production code that is not deployed.
+# ============================================================================
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Manual re-run, e.g. after applying migrations that the guard blocked on.
+  workflow_dispatch:
+
+concurrency:
+  # NOT cancel-in-progress. Cancelling a half-finished deploy is how you get a
+  # production serving two different builds. Queue instead.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  VERCEL_TELEMETRY_DISABLED: 1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Would this code outrun the database it is about to run against?
+  # ---------------------------------------------------------------------------
+  guard:
+    name: production is migrated
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A CI run that failed, was cancelled, or timed out must not reach here.
+    # workflow_dispatch has no workflow_run payload, hence the first clause.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      # `secrets` cannot be used in a job-level `if`, so the presence check is a
+      # step that FAILS rather than a condition that skips (see the header).
+      - name: Require the deploy secrets
+        env:
+          HAS_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
+          HAS_ORG: ${{ secrets.VERCEL_ORG_ID != '' }}
+          HAS_WWW: ${{ secrets.VERCEL_PROJECT_ID_WWW != '' }}
+          HAS_SA: ${{ secrets.VERCEL_PROJECT_ID_SUPERADMIN != '' }}
+          HAS_DB: ${{ secrets.PRODUCTION_DIRECT_URL != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ "$HAS_TOKEN" = "true" ] || missing="$missing VERCEL_TOKEN"
+          [ "$HAS_ORG"   = "true" ] || missing="$missing VERCEL_ORG_ID"
+          [ "$HAS_WWW"   = "true" ] || missing="$missing VERCEL_PROJECT_ID_WWW"
+          [ "$HAS_SA"    = "true" ] || missing="$missing VERCEL_PROJECT_ID_SUPERADMIN"
+          [ "$HAS_DB"    = "true" ] || missing="$missing PRODUCTION_DIRECT_URL"
+          if [ -n "$missing" ]; then
+            echo "::error title=Deploy secrets are missing::Add these repository secrets:$missing"
+            echo "See the header of .github/workflows/deploy.yml for where each value comes from."
+            exit 1
+          fi
+          echo "All five deploy secrets are present."
+
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the DEFAULT branch by default, not the
+          # commit that triggered CI. Without this the guard would inspect one
+          # tree and the deploy would ship another.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      # packages/database tooling is explicitly allowed to keep Node/tsx
+      # (Ali's decision, 2026-07-31) — the runtime surface stays Bun-only.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Refuse to deploy ahead of the database
+        env:
+          # Read-only: the script runs two SELECTs. It takes the DIRECT (unpooled)
+          # string rather than the owner ADMIN_URL because it needs no writes.
+          DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+        run: bunx tsx packages/database/scripts/check-pending-migrations.ts
+
+  # ---------------------------------------------------------------------------
+  # 2. Ship. Both apps build from the same commit, in parallel.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: deploy ${{ matrix.app }}
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # NOT fail-fast. If www succeeds and superadmin fails, cancelling www
+      # mid-flight would leave the outcome ambiguous; let both finish and report.
+      fail-fast: false
+      matrix:
+        include:
+          - app: www
+            project_id_secret: VERCEL_PROJECT_ID_WWW
+          - app: superadmin
+            project_id_secret: VERCEL_PROJECT_ID_SUPERADMIN
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.project_id_secret] }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # The build itself runs on Vercel (`vercel build` here would need the
+      # whole env set locally). This pulls the project's production env + config
+      # so the CLI knows what it is deploying.
+      - name: Pull the project's production settings
+        run: |
+          bunx vercel@latest pull --yes --environment=production \
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --cwd "apps/${{ matrix.app }}"
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          set -euo pipefail
+          url=$(bunx vercel@latest deploy --prod --yes \
+                  --token="${{ secrets.VERCEL_TOKEN }}" \
+                  --cwd "apps/${{ matrix.app }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed ${{ matrix.app }} -> $url"
+
+      # A deploy that returned a URL is not the same as a deploy that works.
+      # /api/health returns 503 when the database is unreachable, and its status
+      # CODE is the signal — so a broken deploy fails the run instead of quietly
+      # sitting in production behind a green tick.
+      - name: Smoke-test the deployment
+        run: |
+          set -euo pipefail
+          url="${{ steps.deploy.outputs.url }}"
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 "$url/api/health" || echo 000)
+            echo "attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json; echo
+              echo "::notice title=${{ matrix.app }} is live::$url"
+              exit 0
+            fi
+            # Neon scales to zero; a cold start can exceed the 8s the health
+            # route allows itself. Retry before calling it a failure.
+            sleep 15
+          done
+          echo "::error title=${{ matrix.app }} deployed but is not healthy::$url/api/health returned $code"
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
