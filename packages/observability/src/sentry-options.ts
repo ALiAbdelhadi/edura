@@ -88,7 +88,15 @@ export type SentryEventLike = {
   request?: { url?: string; headers?: Record<string, string>; cookies?: unknown; data?: unknown };
   user?: { id?: string; email?: string; username?: string; ip_address?: string } | null;
   message?: string;
+  /**
+   * Where `captureException(new Error(msg))` actually puts the text. This is
+   * NOT `message` — see scrubEvent for why that distinction cost a leak.
+   */
+  exception?: { values?: { type?: string; value?: string }[] };
+  /** Sentry's structured-message form; `captureMessage` populates it. */
+  logentry?: { message?: string; params?: unknown[] };
   extra?: Record<string, unknown>;
+  contexts?: Record<string, unknown>;
   breadcrumbs?: SentryBreadcrumbLike[];
   [key: string]: unknown;
 };
@@ -153,7 +161,29 @@ export function scrubEvent(event: SentryEventLike): SentryEventLike | null {
     }
 
     if (event.message) event.message = redactText(event.message);
+
+    // THE EXCEPTION MESSAGE. `captureException(new Error(msg))` puts `msg` in
+    // `exception.values[].value`, NOT in `event.message` — and that field is
+    // the headline Sentry renders. Scrubbing only `message` therefore protected
+    // the field almost nothing uses while leaving the one everything uses in
+    // the clear. Caught 2026-08-02 by sending a real event to a mock ingest
+    // server and grepping the envelope; six unit tests over `beforeSend` had
+    // all passed because none of them built an event the way the SDK does.
+    //
+    // This is not hypothetical for this codebase: `sendMail` returns provider
+    // errors like "delivery to parent@example.com failed", Prisma puts WHERE
+    // clauses in `.message`, and the invite/reset flows throw with the claim
+    // URL — token and all — in the text.
+    if (event.exception?.values) {
+      for (const v of event.exception.values) {
+        if (typeof v.value === "string") v.value = redactText(v.value);
+      }
+    }
+    if (event.logentry?.message) event.logentry.message = redactText(event.logentry.message);
+
     if (event.extra) event.extra = redactDeep(event.extra) as Record<string, unknown>;
+    // `contexts` is free-form and SDK integrations write into it.
+    if (event.contexts) event.contexts = redactDeep(event.contexts) as Record<string, unknown>;
     if (event.breadcrumbs) {
       event.breadcrumbs = event.breadcrumbs.map(
         (c) => scrubBreadcrumb(c) ?? { message: "[dropped]" },

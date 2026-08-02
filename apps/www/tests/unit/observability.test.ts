@@ -157,6 +157,75 @@ describe("sentry: beforeSend is the last gate", () => {
     expect(event?.user).toBeNull();
   });
 
+  // ===========================================================================
+  // REGRESSION, 2026-08-02. These six existed and all passed while the actual
+  // wire format leaked, because every one of them set `event.message` — and the
+  // SDK does not. `captureException(new Error(msg))` puts the text in
+  // `exception.values[].value`. Proven by sending a real event to a mock ingest
+  // server and grepping the envelope; fixed in scrubEvent.
+  //
+  // Build events the way the SDK builds them, not the way the assertion is
+  // convenient to write.
+  // ===========================================================================
+  it("redacts the EXCEPTION VALUE — where captureException actually puts the text", () => {
+    const out = scrubEvent({
+      exception: {
+        values: [
+          {
+            type: "Error",
+            value: "claim failed for https://edura.app/ar/onboarding?token=SECRET123&x=1",
+          },
+        ],
+      },
+    });
+    const v = out?.exception?.values?.[0]?.value ?? "";
+    expect(v).not.toContain("SECRET123");
+    expect(v).toContain("[redacted]");
+    // The useful part survives — a scrubbed report still has to be debuggable.
+    expect(v).toContain("/ar/onboarding");
+  });
+
+  it("redacts an email in an exception value — the sendMail failure shape", () => {
+    // `sendMail` really does return "delivery to <address> failed: ...".
+    const out = scrubEvent({
+      exception: {
+        values: [{ type: "Error", value: "delivery to parent@example.com failed: 550" }],
+      },
+    });
+    expect(out?.exception?.values?.[0]?.value).not.toContain("parent@example.com");
+  });
+
+  it("redacts every value in a chained exception, not just the first", () => {
+    const out = scrubEvent({
+      exception: {
+        values: [
+          { type: "Error", value: "outer token=AAA111" },
+          { type: "PrismaError", value: "inner guardian@example.com" },
+        ],
+      },
+    });
+    expect(out?.exception?.values?.[0]?.value).not.toContain("AAA111");
+    expect(out?.exception?.values?.[1]?.value).not.toContain("guardian@example.com");
+  });
+
+  it("redacts logentry.message — captureMessage's structured form", () => {
+    const out = scrubEvent({ logentry: { message: "reset for parent@example.com" } });
+    expect(out?.logentry?.message).not.toContain("parent@example.com");
+  });
+
+  it("redacts contexts, which SDK integrations write into freely", () => {
+    const out = scrubEvent({
+      contexts: { extra: { guardianEmail: "guardian@example.com" }, trace: { op: "http" } },
+    });
+    expect(JSON.stringify(out?.contexts)).not.toContain("guardian@example.com");
+  });
+
+  it("survives an exception object with no values array", () => {
+    expect(() => scrubEvent({ exception: {} })).not.toThrow();
+    expect(() => scrubEvent({ exception: { values: [] } })).not.toThrow();
+    expect(() => scrubEvent({ exception: { values: [{ type: "E" }] } })).not.toThrow();
+  });
+
   it("redacts messages, extras and breadcrumb URLs", () => {
     const event = scrubEvent({
       message: "reset failed for parent@example.com",
