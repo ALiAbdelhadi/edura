@@ -1,0 +1,32 @@
+---
+title: Taking attendance with no connection
+summary: Check-in works offline, is stored on the device, and syncs when the connection returns — keeping its original timestamp.
+---
+
+Connectivity in centers drops. That isn't the exception, it's the normal state. So attendance in Edura is **built to work without a connection**.
+
+## How it works
+
+When you check a student in while offline:
+
+1. The record is stored on the device itself
+2. You see an indicator that records are waiting to be sent
+3. As soon as the connection returns, they are sent on their own
+
+You don't have to do anything. You don't have to keep the screen open.
+
+<Shot caption="The pending-sync indicator" />
+
+## The original time is preserved
+
+This is the important part: attendance is recorded with **the real counter time**, not the sync time. Check someone in at 4:05 and reconnect at 4:40, and the attendance still reads 4:05.
+
+## If there's a conflict
+
+If the same student was checked in from two devices, or the state changed on the server while you were offline, **the server wins**. A device never overwrites a state that is newer than its own.
+
+## Install Edura as an app
+
+Edura runs straight from the browser with no install, but you can add it to the home screen from the browser menu. It then opens like any app, which makes offline operation steadier.
+
+> What genuinely needs a connection is money. Payment and settlement need one — attendance does not.

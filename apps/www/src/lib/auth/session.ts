@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import type { Role } from "@repo/database";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { AuthError } from "@/lib/errors/classes";
+import { tagSentryUser } from "@/lib/observability/sentry-user";
 import { auth } from "./auth";
 
 export type { SessionUser };
@@ -37,16 +38,23 @@ export function __setSessionOverrideForTests(fn: SessionOverride | null): void {
 export async function getSessionUser(): Promise<SessionUser | null> {
   if (testOverride) return await testOverride();
   const res = await auth.api.getSession({ headers: await headers() });
-  if (!res?.user?.id) return null;
+  if (!res?.user?.id) {
+    // Clear any identity left on a reused server instance's scope.
+    tagSentryUser(null);
+    return null;
+  }
   const user = res.user as typeof res.user & {
     role: Role;
     locale: "ar" | "en";
     status?: string;
   };
-  if (user.status && user.status !== "active") return null;
+  if (user.status && user.status !== "active") {
+    tagSentryUser(null);
+    return null;
+  }
   const centerId =
     (res.session as { centerId?: string | null }).centerId ?? undefined;
-  return {
+  const sessionUser: SessionUser = {
     id: user.id,
     role: user.role,
     centerId,
@@ -54,6 +62,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     name: user.name ?? null,
     email: user.email ?? null,
   };
+  // Tag HERE, at the one session surface, so every route gets it without
+  // remembering to. Only the id/role/centerId travel — never name or email,
+  // and nothing at all for a minor. Never throws.
+  tagSentryUser(sessionUser);
+  return sessionUser;
 }
 
 export async function requireSession(): Promise<SessionUser> {

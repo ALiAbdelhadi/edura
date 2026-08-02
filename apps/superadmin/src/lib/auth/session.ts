@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import type { Role } from "@repo/database";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { AuthError } from "@/lib/errors/classes";
+import { tagSentryUser } from "@/lib/observability/sentry-user";
 import { auth } from "./auth";
 
 export type { SessionUser };
@@ -30,20 +31,31 @@ export function __setSessionOverrideForTests(fn: SessionOverride | null): void {
 export async function getSessionUser(): Promise<SessionUser | null> {
   if (testOverride) return await testOverride();
   const res = await auth.api.getSession({ headers: await headers() });
-  if (!res?.user?.id) return null;
+  if (!res?.user?.id) {
+    tagSentryUser(null);
+    return null;
+  }
   const user = res.user as typeof res.user & {
     role: Role;
     locale: "ar" | "en";
     status?: string;
   };
-  if (user.status && user.status !== "active") return null;
-  return {
+  if (user.status && user.status !== "active") {
+    tagSentryUser(null);
+    return null;
+  }
+  const sessionUser: SessionUser = {
     id: user.id,
     role: user.role,
     locale: user.locale ?? "ar",
     name: user.name ?? null,
     email: user.email ?? null,
   };
+  // Tag at the one session surface — id/role only, never name or email.
+  // Back-office roles are adults, so they are always identified (unlike www,
+  // where every `student` is treated as a minor and never is).
+  tagSentryUser(sessionUser);
+  return sessionUser;
 }
 
 export async function requireSession(): Promise<SessionUser> {

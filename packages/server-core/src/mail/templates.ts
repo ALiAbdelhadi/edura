@@ -1,8 +1,21 @@
-export type MailLocale = "ar" | "en";
+// =============================================================================
+// The three INVITE emails (student claim, assistant, center staff) still live
+// here as hand-written table HTML. Everything else moved to
+// @repo/notifications, which is now the single owner of email templates.
+//
+// They are the deliberate remainder, not an oversight: each is threaded through
+// an invite/claim flow with heavy live-DB proofs (invite-claim 107/107), and
+// re-pointing them is a change to those flows, not to a template. The shell in
+// @repo/notifications/templates/layout.tsx is a VISUAL MATCH for the layout()
+// below — same navy header, same 520px card, same footer rule — so the two
+// systems are indistinguishable in an inbox while this lasts, and porting them
+// is a copy of the COPY constants with no design decision left to make.
+// =============================================================================
+import { normalizeLocale, renderEmail, type Locale } from "@repo/notifications";
 
-export function normalizeMailLocale(value: string | null | undefined): MailLocale {
-  return value === "en" ? "en" : "ar";
-}
+export type MailLocale = Locale;
+
+export const normalizeMailLocale = normalizeLocale;
 
 const BRAND = "#1a2f73";
 const BRAND_GLOW = "#3856e0";
@@ -88,63 +101,24 @@ function layout({ locale, title, bodyHtml, footer }: LayoutInput): string {
 </html>`;
 }
 
-const COPY = {
-  ar: {
-    subject: "إعادة تعيين كلمة المرور - Edura",
-    title: "إعادة تعيين كلمة المرور",
-    intro: "تلقّينا طلبًا لإعادة تعيين كلمة المرور الخاصة بحسابك على Edura.",
-    action: "اضغط على الزر التالي لتعيين كلمة مرور جديدة. الرابط صالح لمدة ساعة واحدة فقط.",
-    cta: "إعادة تعيين كلمة المرور",
-    fallback: "إذا لم يعمل الزر، انسخ الرابط التالي والصقه في المتصفح:",
-    ignore:
-      "إذا لم تطلب إعادة تعيين كلمة المرور، تجاهل هذه الرسالة — لن يتغيّر أي شيء في حسابك.",
-    footer: "هذه رسالة آلية من منصة Edura، برجاء عدم الرد عليها.",
-  },
-  en: {
-    subject: "Reset your Edura password",
-    title: "Reset your password",
-    intro: "We received a request to reset the password for your Edura account.",
-    action: "Click the button below to set a new password. This link is valid for 1 hour only.",
-    cta: "Reset password",
-    fallback: "If the button doesn't work, copy and paste this link into your browser:",
-    ignore: "If you didn't request a password reset, ignore this email — nothing will change.",
-    footer: "This is an automated message from Edura. Please do not reply.",
-  },
-} as const;
-
 /**
- * Password-reset email. Returns subject + both parts: `text` is not a
- * courtesy — a missing plain-text alternative is a strong spam signal.
+ * SHIM — the password-reset template moved to @repo/notifications. Kept because
+ * `scripts/mail-check.ts` renders it to test SMTP credentials without sending a
+ * real reset. The production path is `requestPasswordReset`, which calls
+ * `send("password_reset", ...)` directly.
+ *
+ * Now async (rendering React to HTML is async); the one caller awaits it.
  */
-export function passwordResetEmail(input: { link: string; locale: MailLocale }): {
-  subject: string;
-  html: string;
-  text: string;
-} {
-  const t = COPY[input.locale];
-  const p = "margin:0 0 12px;font-size:15px;line-height:1.8;color:#374151;";
-
-  // Order matters: instruction → BUTTON → fallback link → ignore note. The
-  // primary action has to sit directly under the sentence that asks for it,
-  // not below the small print.
-  const bodyHtml = `
-    <p style="${p}">${t.intro}</p>
-    <p style="${p}">${t.action}</p>
-    ${ctaButton(t.cta, input.link, input.locale === "ar" ? "right" : "left")}
-    <p style="margin:8px 0 6px;font-size:13px;color:#6b7280;">${t.fallback}</p>
-    <p style="margin:0;font-size:13px;line-height:1.6;word-break:break-all;"><a href="${esc(input.link)}" style="color:${BRAND_GLOW};">${esc(input.link)}</a></p>
-    <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #eef0f6;font-size:13px;line-height:1.7;color:#6b7280;">${t.ignore}</p>`;
-
-  const html = layout({
-    locale: input.locale,
-    title: t.title,
-    bodyHtml,
-    footer: t.footer,
+export async function passwordResetEmail(input: {
+  link: string;
+  locale: MailLocale;
+  /** Matches RESET_TTL_MS in services/auth/password-reset.ts. */
+  expiryHours?: number;
+}): Promise<{ subject: string; html: string; text: string }> {
+  return renderEmail("password_reset", input.locale, {
+    link: input.link,
+    expiryHours: input.expiryHours ?? 1,
   });
-
-  const text = [t.title, "", t.intro, t.action, "", input.link, "", t.ignore].join("\n");
-
-  return { subject: t.subject, html, text };
 }
 
 // =============================================================================

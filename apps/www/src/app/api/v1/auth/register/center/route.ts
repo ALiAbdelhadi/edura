@@ -2,6 +2,8 @@ import { platformDb } from "@/lib/db/scope";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { withRateLimit } from "@/lib/rate-limit/middleware";
+import { ANALYTICS_EVENTS } from "@repo/observability";
+import { captureServerEvent } from "@/lib/observability/posthog-server";
 import { registerCenter } from "@/lib/services/auth/register";
 import {
   emailSchema,
@@ -67,6 +69,15 @@ export const POST = withRateLimit(
         where: { id: userId },
         select: { email: true, role: true, status: true, name: true },
       }),
+    );
+
+    // Funnel step 2. After the account exists, before the response — a
+    // registration that succeeded but was never counted is the one number you
+    // cannot reconstruct later. `captureServerEvent` never throws.
+    await captureServerEvent(
+      { id: userId, role: "center_admin", centerId },
+      ANALYTICS_EVENTS.SIGNUP_COMPLETED,
+      { signup_role: "center_admin", locale: input.locale },
     );
 
     return ok(

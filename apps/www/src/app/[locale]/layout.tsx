@@ -1,4 +1,6 @@
 import { AppProviders } from "@/components/providers/app-providers";
+import { getSessionUser } from "@/lib/auth/session";
+import { AnalyticsProvider } from "@/lib/observability/analytics-provider";
 import { isRtlLocale, routing } from "@/i18n/routing";
 import { baseMessages } from "@/lib/i18n/scope";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
@@ -104,6 +106,17 @@ export default async function RootLayout({
   // (full dictionary) and onboarding/layout.tsx. Omitting `messages` would
   // serialize all 72KB (en) / 94KB (ar) into every page, login included.
   const messages = baseMessages(await getMessages());
+
+  // Analytics identity, resolved on the server so the first render already
+  // knows who this is. `observabilityIdentity` inside the provider decides what
+  // (if anything) is sent — every `student` resolves to null and is never
+  // identified. Reading the session here also means a signed-out visitor
+  // explicitly RESETS any previous person on a shared device.
+  const actor = await getSessionUser();
+  const analyticsSession = actor
+    ? { id: actor.id, role: actor.role, centerId: actor.centerId ?? null }
+    : null;
+
   return (
     <html
       lang={locale}
@@ -127,7 +140,9 @@ export default async function RootLayout({
             race, ThemeModeProvider re-applies the theme at hydration. */}
         <script src="/theme-init.js" async />
         <NextIntlClientProvider messages={messages}>
-          <AppProviders>{children}</AppProviders>
+          <AnalyticsProvider session={analyticsSession}>
+            <AppProviders>{children}</AppProviders>
+          </AnalyticsProvider>
         </NextIntlClientProvider>
       </body>
     </html>

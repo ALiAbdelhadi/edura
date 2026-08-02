@@ -1,0 +1,13 @@
+-- Maturity layer — enum ADD VALUEs, isolated.
+-- ---------------------------------------------------------------------------
+-- Postgres cannot USE a newly added enum value inside the transaction that
+-- adds it, so every ADD VALUE lives in its own migration file (same rule the
+-- team-note and parent-wallet migrations follow). The tables that consume
+-- these values are created in the sibling 20260802100100_maturity_layer.
+--
+-- `cancelled` closes the one gap the center-raised deletion queue never had:
+-- a person who asks for their own account to be deleted must be able to
+-- withdraw the request before anyone acts on it. Withdrawal is not rejection —
+-- rejection is a decision someone else made about you, and conflating the two
+-- would misreport a data-rights request to a regulator.
+ALTER TYPE "deletion_status" ADD VALUE IF NOT EXISTS 'cancelled';

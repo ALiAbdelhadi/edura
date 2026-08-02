@@ -8,6 +8,8 @@ import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenitie
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreate, useCustom, useDelete, useList, useUpdate } from "@refinedev/core";
 import { Badge } from "@repo/ui/components/badge";
+import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
@@ -382,7 +384,21 @@ export function AdminRoomsScreen() {
       ) : rooms.length === 0 ? (
         <Card>
           <CardContent className="py-10">
-            <EmptyState icon={Home} title={t("adminManage.rooms.emptyText")} />
+            <EmptyState
+              icon={Home}
+              title={t("activation.empty.rooms.title")}
+              description={t("activation.empty.rooms.body")}
+              action={
+                <Button
+                  onClick={() => {
+                    track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "rooms" });
+                    handleOpenCreate();
+                  }}
+                >
+                  {t("activation.empty.rooms.cta")}
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       ) : (

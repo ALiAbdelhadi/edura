@@ -34,14 +34,13 @@ export function LanguageSwitcher() {
   return (
     <ToggleGroup
       type="single"
-      size="default"
-      variant="default"
-      spacing={1}
+      size="sm"
+      variant="outline"
       value={locale}
       disabled={isPending}
       onValueChange={handleChange}
       aria-label={t("common.language")}
-    >
+>
       {routing.locales.map((l) => (
         <ToggleGroupItem key={l} value={l} aria-label={LOCALE_LABELS[l] ?? l}>
           <Globe className="me-1.5 size-4" />

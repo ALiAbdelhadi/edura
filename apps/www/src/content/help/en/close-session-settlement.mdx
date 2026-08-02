@@ -1,0 +1,37 @@
+---
+title: Closing a session and how the money is split
+summary: Distribution happens when the session closes, for attending students only, and exactly once however many times it's closed.
+---
+
+Closing a session is not an administrative formality — **it is the moment the money moves**.
+
+## Who closes a session
+
+The teacher, from their **Classes** screen, or the center if it owns the class. An assistant can do it on the teacher's behalf, and the action is recorded under their name.
+
+<Shot caption="Closing a session from the teacher's classes screen" />
+
+## What happens on close
+
+1. The system collects the students marked **present** for that session.
+2. The per-session price is derived from the class price divided by its number of sessions.
+3. For each present student, entries are written: the payment entry plus the commission entries.
+4. The teacher's and the center's wallets are updated in the same moment.
+
+All of it in **one transaction**: either everything lands, or nothing does.
+
+## Only present students count
+
+- Absent student → not counted
+- Counter-only check-in in two-stage mode → **not counted**
+- A session nobody attended → no distribution at all, and no commission
+
+## Closing twice does not pay twice
+
+If a session is already closed and someone closes it again, **nothing is distributed a second time**. The session records that it has been distributed, and the second attempt returns without writing an entry. That is guaranteed in the database, not by the button.
+
+## One exception: the independent teacher
+
+If the class belongs to no center (a teacher teaching on their own), money settles **at payment time**, not at close. Closing such a session only changes its state — it never pays again, and that is the guard against a double payment.
+
+For the numbers in full, see [How we charge](/pricing).

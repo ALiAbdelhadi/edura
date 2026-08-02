@@ -1,0 +1,67 @@
+{
+  "checklist": {
+    "title": "Your first steps",
+    "subtitle": "Five steps and your center is fully running on Edura.",
+    "progress": "{done} of {total} done",
+    "dismiss": "Hide",
+    "dismissLabel": "Hide the setup checklist",
+    "restore": "Show setup steps",
+    "allDoneTitle": "All steps complete",
+    "allDoneBody": "Your center is running. You can hide this checklist now.",
+    "stepDone": "Done",
+    "steps": {
+      "profile": {
+        "title": "Complete your center profile",
+        "body": "Name, address and contact number — this is what students and parents see.",
+        "cta": "Complete profile"
+      },
+      "teacher": {
+        "title": "Add your first teacher",
+        "body": "Send an email invite; the teacher sets their own password.",
+        "cta": "Add a teacher"
+      },
+      "group": {
+        "title": "Create your first group",
+        "body": "Subject, grade, schedule, hall and price.",
+        "cta": "Create a group"
+      },
+      "student": {
+        "title": "Register your first student",
+        "body": "Straight from the counter — the student gets a link to finish signing up.",
+        "cta": "Register a student"
+      },
+      "payment": {
+        "title": "Record your first payment",
+        "body": "Cash at the counter or online — both land in the same ledger.",
+        "cta": "Open payments"
+      }
+    }
+  },
+  "empty": {
+    "teachers": {
+      "title": "No teachers yet",
+      "body": "Add your first teacher so you can create groups and build the schedule.",
+      "cta": "Add a teacher"
+    },
+    "classes": {
+      "title": "No groups yet",
+      "body": "A group is what ties a teacher to a subject, a schedule, a hall and a price.",
+      "cta": "Create a group"
+    },
+    "students": {
+      "title": "No students yet",
+      "body": "Register a student at the counter and they'll get a link to complete their details.",
+      "cta": "Register a student"
+    },
+    "payments": {
+      "title": "No payments yet",
+      "body": "As soon as you record cash or a student pays online, it appears here with its receipt.",
+      "cta": "Record a payment"
+    },
+    "rooms": {
+      "title": "No halls yet",
+      "body": "Add your halls so you can schedule groups and set hall pricing.",
+      "cta": "Add a hall"
+    }
+  }
+}

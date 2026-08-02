@@ -91,6 +91,7 @@ const NAV_KEY: Record<string, string> = {
   Attendance: "nav.attendance",
   Team: "nav.team",
   "Team Notes": "nav.teamNotes",
+  "Audit log": "nav.auditLog",
   Messages: "nav.messages",
   Notifications: "nav.notifications",
   Settings: "nav.settings",

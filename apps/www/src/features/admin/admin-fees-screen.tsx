@@ -11,6 +11,8 @@ import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustom, useList } from "@refinedev/core";
+import { track } from "@/lib/track";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -63,6 +65,7 @@ import {
   postMoney,
   readApiError,
 } from "./ledger";
+import { ReceiptLink } from "@/features/receipts/receipt-link";
 
 export function AdminFeesScreen() {
   const t = useTranslations();
@@ -479,10 +482,14 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.receiptNumber"),
       enableSorting: false,
       cell: ({ row }) => (
-        <CopyableText
-          value={row.original.receiptNumber}
-          label={t("adminManage.fees.receiptNumberLabel")}
-        />
+        <div className="flex flex-col items-start gap-0.5">
+          <CopyableText
+            value={row.original.receiptNumber}
+            label={t("adminManage.fees.receiptNumberLabel")}
+          />
+          {/* The counter is where a receipt is most often ASKED for out loud. */}
+          {row.original.id ? <ReceiptLink paymentId={row.original.id} /> : null}
+        </div>
       ),
     },
     {
@@ -778,7 +785,21 @@ export function AdminFeesScreen() {
               data={payments}
               pageSize={10}
               emptyState={
-                <EmptyState icon={Receipt} title={t("adminManage.fees.noPayments")} />
+                <EmptyState
+                  icon={Receipt}
+                  title={t("activation.empty.payments.title")}
+                  description={t("activation.empty.payments.body")}
+                  action={
+                    <Button
+                      onClick={() => {
+                        track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "payments" });
+                        setIsFormOpen(true);
+                      }}
+                    >
+                      {t("activation.empty.payments.cta")}
+                    </Button>
+                  }
+                />
               }
             />
           )}

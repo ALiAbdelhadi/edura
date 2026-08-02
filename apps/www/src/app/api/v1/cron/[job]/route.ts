@@ -6,6 +6,7 @@ import { expirePaymentIntents } from "@/lib/services/payments/payment-intents";
 import { expireSubscriptions } from "@/lib/services/subscriptions/subscriptions";
 import { expireCollaborationRequests } from "@/lib/services/collaboration/collaboration";
 import { runGuardianContactReminders } from "@/lib/services/invites/guardian-contact";
+import { runDataExportJob } from "@repo/server-core/services/data-rights/data-export";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,12 @@ export const POST = withErrors(async (req, ctx) => {
     // guardian email. Reminders before the deadline, center notified after.
     case "guardian-contact-reminders":
       return ok(await runGuardianContactReminders(now));
+    // Data rights (Law 151/2020): build queued exports, then drop the payloads
+    // of any that have passed their expiry. Both halves are idempotent — the
+    // claim is a conditional update, and the sweep is a bounded updateMany —
+    // so a double-fired schedule costs a no-op, never a duplicate.
+    case "data-exports":
+      return ok(await runDataExportJob());
     default:
       throw new BusinessRuleError(`Unknown cron job: ${job}`);
   }

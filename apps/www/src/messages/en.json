@@ -57,7 +57,8 @@
     "feesPayments": "Fees & Payments",
     "parentWallet": "My Wallet",
     "payForChild": "Pay for a Lesson",
-    "teamNotes": "Team Notes"
+    "teamNotes": "Team Notes",
+    "auditLog": "Audit log"
   },
   "roles": {
     "student": "Student",

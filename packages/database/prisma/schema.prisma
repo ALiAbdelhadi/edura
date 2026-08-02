@@ -231,8 +231,35 @@ enum DeletionStatus {
   pending
   approved
   rejected
+  // The subject withdrew their own request before anyone acted on it.
+  // Deliberately NOT folded into `rejected`: rejection is a decision someone
+  // else made about you, and a data-rights report must not confuse the two.
+  cancelled
 
   @@map("deletion_status")
+}
+
+// Who raised a deletion request. `center` is what every row predating the
+// data-rights work meant, which is why it is the default.
+enum DeletionOrigin {
+  self
+  guardian
+  center
+
+  @@map("deletion_origin")
+}
+
+// `enum ContactSubmissionStatus` lives with its model at the bottom of this
+// file — the conversion layer's copy. See the note beside DataExportRequest.
+
+enum DataExportStatus {
+  pending
+  processing
+  ready
+  failed
+  expired
+
+  @@map("data_export_status")
 }
 
 enum InvitePurpose {
@@ -411,39 +438,39 @@ enum SubjectRequestStatus {
 // =============================================================================
 
 model User {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String?    @unique
-  phone         String?    @unique
-  passwordHash  String?    @map("password_hash")
-  role          Role
-  name          String
-  locale        Locale     @default(ar)
-  theme         Theme      @default(system)
-  status        UserStatus @default(active)
-  emailVerified Boolean    @default(false) @map("email_verified")
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String?    @unique
+  phone            String?    @unique
+  passwordHash     String?    @map("password_hash")
+  role             Role
+  name             String
+  locale           Locale     @default(ar)
+  theme            Theme      @default(system)
+  status           UserStatus @default(active)
+  emailVerified    Boolean    @default(false) @map("email_verified")
   // L1: monotonic session epoch. Every JWT records the value at issue time; the
   // NextAuth jwt callback rejects any token whose recorded value < this column.
   // Bumped on password reset/change so all pre-existing 30-day tokens (e.g. an
   // attacker's after a compromise) are invalidated at once — server-side
   // revocation for otherwise-stateless sessions.
-  tokenVersion  Int        @default(0) @map("token_version")
+  tokenVersion     Int        @default(0) @map("token_version")
   // better-auth core/plugin columns (2026-08-01 migration). `image` is the
   // better-auth avatar slot (unused by our UI — Cloudinary owns media);
   // banned/banReason/banExpires belong to the admin plugin and are DISTINCT
   // from `status` (C-03 suspension stays the authoritative gate);
   // twoFactorEnabled belongs to the twoFactor plugin.
   image            String?
-  twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
-  banned           Boolean   @default(false)
-  banReason        String?   @map("ban_reason")
-  banExpires       DateTime? @map("ban_expires") @db.Timestamptz(6)
-  fcmToken      String?    @map("fcm_token")
+  twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
+  banned           Boolean    @default(false)
+  banReason        String?    @map("ban_reason")
+  banExpires       DateTime?  @map("ban_expires") @db.Timestamptz(6)
+  fcmToken         String?    @map("fcm_token")
   // Demo/seed data marker so it can be purged before launch. Flagged on root
   // entities only (users, centers, courses); child rows inherit by ancestry.
-  isDemo        Boolean    @default(false) @map("is_demo")
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  isDemo           Boolean    @default(false) @map("is_demo")
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   studentProfile     StudentProfile?
   parentProfile      ParentProfile?
@@ -453,6 +480,7 @@ model User {
   authSessions       AuthSession[]
   authAccounts       AuthAccount[]
   twoFactors         TwoFactor[]
+  dataExportRequests DataExportRequest[]
 
   @@index([role])
   @@index([status])
@@ -539,11 +567,11 @@ model StudentProfile {
 }
 
 model ParentProfile {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @unique @map("user_id") @db.Uuid
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
   walletBalance Int      @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0), H2
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id])
 
@@ -551,24 +579,24 @@ model ParentProfile {
 }
 
 model TeacherProfile {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId              String   @unique @map("user_id") @db.Uuid
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String         @unique @map("user_id") @db.Uuid
   bio                 String?
   subjects            String[] // DEPRECATED free text — superseded by teacher_subjects (education catalog)
   qualifications      String?
-  experienceYears     Int      @default(0) @map("experience_years")
-  photoUrl            String?  @map("photo_url")
-  lessonPrice         Int?     @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
-  ratingAvg           Float    @default(0) @map("rating_avg")
-  ratingCount         Int      @default(0) @map("rating_count")
-  walletBalance       Int      @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0), H2
+  experienceYears     Int            @default(0) @map("experience_years")
+  photoUrl            String?        @map("photo_url")
+  lessonPrice         Int?           @map("lesson_price") // piasters (PRD teacher_profiles.lesson_price)
+  ratingAvg           Float          @default(0) @map("rating_avg")
+  ratingCount         Int            @default(0) @map("rating_count")
+  walletBalance       Int            @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0), H2
   certificates        Json? // [{name, file_url, issued_by}]
-  onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
-  onboardingDraft     Json?    @map("onboarding_draft") // wizard auto-save (§9)
+  onboardingCompleted Boolean        @default(false) @map("onboarding_completed")
+  onboardingDraft     Json?          @map("onboarding_draft") // wizard auto-save (§9)
   // Step 6: global per-teacher check-in mode (approved decision #4).
   attendanceMode      AttendanceMode @default(counter_only) @map("attendance_mode")
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user        User                @relation(fields: [userId], references: [id])
   gradeLevels TeacherGradeLevel[]
@@ -1005,24 +1033,24 @@ enum RoomPricingMethod {
 }
 
 model Room {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId   String   @map("center_id") @db.Uuid
-  name       String
-  capacity   Int?
-  facilities String[]
-  photos     String[]
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId              String              @map("center_id") @db.Uuid
+  name                  String
+  capacity              Int?
+  facilities            String[]
+  photos                String[]
   // Room profile (center-managed). price = the center's hall price shown to
   // teachers when booking (piasters). It is NOT the revenue split — the split
   // (platform/teacher/center %) is superadmin-controlled (commission_settings).
-  price       Int?
-  description String?
+  price                 Int?
+  description           String?
   // Which pricing methods this room offers (center-set AVAILABILITY only — the
   // numbers behind each method stay superadmin-only). One value = forced; two
   // values = the teacher chooses at booking. DB CHECK rooms_methods_nonempty.
   allowedPricingMethods RoomPricingMethod[] @default([whole_room_percent]) @map("allowed_pricing_methods")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isActive              Boolean             @default(true) @map("is_active")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   center   Center    @relation(fields: [centerId], references: [id])
   courses  Course[]
@@ -1033,38 +1061,38 @@ model Room {
 }
 
 model Course {
-  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId      String?      @map("center_id") @db.Uuid // NULL = teacher-owned (teacher-direct, NO shadow centers)
-  teacherId     String       @map("teacher_id") @db.Uuid
-  defaultRoomId String?      @map("default_room_id") @db.Uuid
-  title         String
-  subject       String // DEPRECATED free text — superseded by subjectId (education catalog)
-  description   String?
-  gradeTag      String?      @map("grade_tag") // DEPRECATED free text — superseded by gradeLevelId
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId        String?            @map("center_id") @db.Uuid // NULL = teacher-owned (teacher-direct, NO shadow centers)
+  teacherId       String             @map("teacher_id") @db.Uuid
+  defaultRoomId   String?            @map("default_room_id") @db.Uuid
+  title           String
+  subject         String // DEPRECATED free text — superseded by subjectId (education catalog)
+  description     String?
+  gradeTag        String?            @map("grade_tag") // DEPRECATED free text — superseded by gradeLevelId
   // ---- Education catalog linkage: what makes "students see only their
   // grade/track content" queryable. trackId NULL = open to all tracks.
-  subjectId     String?      @map("subject_id") @db.Uuid
-  gradeLevelId  String?      @map("grade_level_id") @db.Uuid
-  trackId       String?      @map("track_id") @db.Uuid
-  daysOfWeek    Int[]        @map("days_of_week")
-  startTime     String       @map("start_time")
-  endTime       String       @map("end_time")
-  startDate     DateTime     @map("start_date") @db.Timestamptz(6)
-  endDate       DateTime?    @map("end_date") @db.Timestamptz(6)
-  price         Int // piasters — legacy full-course price (pre-subscriptions)
+  subjectId       String?            @map("subject_id") @db.Uuid
+  gradeLevelId    String?            @map("grade_level_id") @db.Uuid
+  trackId         String?            @map("track_id") @db.Uuid
+  daysOfWeek      Int[]              @map("days_of_week")
+  startTime       String             @map("start_time")
+  endTime         String             @map("end_time")
+  startDate       DateTime           @map("start_date") @db.Timestamptz(6)
+  endDate         DateTime?          @map("end_date") @db.Timestamptz(6)
+  price           Int // piasters — legacy full-course price (pre-subscriptions)
   // Subscription plan pricing (piasters). NULL = plan disabled for this course;
   // "at least one enabled" is enforced at the subscribe API, not by CHECK
   // (legacy courses may have neither until the owner configures plans).
-  pricePerMonth   Int?       @map("price_per_month")
-  pricePerSession Int?       @map("price_per_session")
+  pricePerMonth   Int?               @map("price_per_month")
+  pricePerSession Int?               @map("price_per_session")
   // Revenue-split SNAPSHOT — frozen at course creation for ROOM-BASED courses
   // (has a room). M4.5: settle at the split in effect at creation, never
   // retroactively re-rated when superadmin changes the config later. NULL on
   // no-room / teacher-direct courses (those use the Step 4.5 commission model).
   // All three set + sum to 10000 when present (DB CHECK course_split_shape).
-  splitPlatformBp Int?       @map("split_platform_bp")
-  splitTeacherBp  Int?       @map("split_teacher_bp")
-  splitCenterBp   Int?       @map("split_center_bp")
+  splitPlatformBp Int?               @map("split_platform_bp")
+  splitTeacherBp  Int?               @map("split_teacher_bp")
+  splitCenterBp   Int?               @map("split_center_bp")
   // Room pricing method SNAPSHOT (frozen at creation, like the split above —
   // M4.5: config changes never re-rate an existing course). NULL = legacy /
   // no-room / teacher-direct. whole_room_percent → the three split bps above.
@@ -1073,15 +1101,15 @@ model Course {
   // (bp of perSessionPrice per attending student); teacher gets the remainder.
   // Shape enforced by DB CHECK course_pricing_shape.
   pricingMethod   RoomPricingMethod? @map("pricing_method")
-  m2CenterFee     Int?       @map("m2_center_fee")
-  m2CenterBp      Int?       @map("m2_center_bp")
+  m2CenterFee     Int?               @map("m2_center_fee")
+  m2CenterBp      Int?               @map("m2_center_bp")
   location        String? // teacher-direct free-text venue ("own hall", "Online", ...)
-  maxStudents   Int          @map("max_students")
-  status        CourseStatus @default(active)
+  maxStudents     Int                @map("max_students")
+  status          CourseStatus       @default(active)
   // Demo/seed data marker — see User.isDemo.
-  isDemo        Boolean      @default(false) @map("is_demo")
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isDemo          Boolean            @default(false) @map("is_demo")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   center        Center?      @relation(fields: [centerId], references: [id])
   room          Room?        @relation(fields: [defaultRoomId], references: [id])
@@ -1464,20 +1492,20 @@ model BlacklistEntry {
 /// can be applied and lifted repeatedly, and each entry owns its own rows.
 /// Roster bookkeeping only — nothing here touches the money ledger.
 model BlacklistCascadeAction {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  entryId    String   @map("entry_id") @db.Uuid // BlacklistEntry that caused the removal
-  targetId   String   @map("target_id") @db.Uuid
-  entityType String   @map("entity_type") // 'enrollment' — the seam for future cascades
-  entityId   String   @map("entity_id") @db.Uuid
-  centerId   String?  @map("center_id") @db.Uuid // scope snapshot; NULL = teacher-direct course
-  courseId   String   @map("course_id") @db.Uuid
-  prevStatus String   @map("prev_status")
-  appliedAt  DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entryId    String    @map("entry_id") @db.Uuid // BlacklistEntry that caused the removal
+  targetId   String    @map("target_id") @db.Uuid
+  entityType String    @map("entity_type") // 'enrollment' — the seam for future cascades
+  entityId   String    @map("entity_id") @db.Uuid
+  centerId   String?   @map("center_id") @db.Uuid // scope snapshot; NULL = teacher-direct course
+  courseId   String    @map("course_id") @db.Uuid
+  prevStatus String    @map("prev_status")
+  appliedAt  DateTime  @default(now()) @map("applied_at") @db.Timestamptz(6)
   // NULL while outstanding — a lift only ever considers those, which is what
   // makes reversal idempotent and blacklist→lift→blacklist cycles independent.
   reversedAt DateTime? @map("reversed_at") @db.Timestamptz(6)
   reversal   String? // restored | restored_over_capacity | skipped_* (DB CHECK)
-  reversedBy String?  @map("reversed_by") @db.Uuid
+  reversedBy String?   @map("reversed_by") @db.Uuid
 
   @@unique([entryId, entityType, entityId])
   @@index([targetId, appliedAt(sort: Desc)])
@@ -1509,22 +1537,95 @@ model AuditLog {
 // DELETION REQUESTS (existing)
 // =============================================================================
 
+// ONE deletion queue, three origins. This table was born as the CENTER-raised
+// queue; the data-rights work (قانون 151/2020) added the SELF- and
+// GUARDIAN-raised paths to the SAME table rather than opening a second way to
+// disable an account. Approving is a soft delete + a PII scrub — the money
+// ledger is never touched (see the 20260802100100 migration header).
 model DeletionRequest {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String         @map("user_id") @db.Uuid
-  centerId    String?        @map("center_id") @db.Uuid
-  reason      String
-  status      DeletionStatus @default(pending)
-  requestedAt DateTime       @default(now()) @map("requested_at") @db.Timestamptz(6)
-  reviewedBy  String?        @map("reviewed_by") @db.Uuid
-  reviewedAt  DateTime?      @map("reviewed_at") @db.Timestamptz(6)
-  reviewNote  String?        @map("review_note")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  centerId      String?         @map("center_id") @db.Uuid
+  reason        String
+  status        DeletionStatus  @default(pending)
+  // Who raised it. NULL only on rows predating the column — all center-raised.
+  requestedBy   String?         @map("requested_by") @db.Uuid
+  origin        DeletionOrigin  @default(center)
+  requesterNote String?         @map("requester_note")
+  requestedAt   DateTime        @default(now()) @map("requested_at") @db.Timestamptz(6)
+  reviewedBy    String?         @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote    String?         @map("review_note")
+  // NULL on an approved row = soft-deleted but still carrying a name. The
+  // admin queue surfaces that state so a half-finished erasure cannot hide.
+  anonymizedAt  DateTime?       @map("anonymized_at") @db.Timestamptz(6)
+  anonymizedBy  String?         @map("anonymized_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([userId])
   @@index([centerId, status])
+  @@index([status, requestedAt(sort: Desc)])
+  // Plus (raw SQL — Prisma cannot express a partial unique): UNIQUE on
+  // user_id WHERE status = 'pending'. One open request per subject.
   @@map("deletion_requests")
+}
+
+// =============================================================================
+// MATURITY LAYER — feature flags, contact inbox, data exports (2026-08-02)
+// =============================================================================
+
+// Platform-global feature switches. DEFAULT-CLOSED: a key with no row here
+// reads as disabled, so a typo or an unseeded database fails to "off".
+model FeatureFlag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  description String?
+  enabled     Boolean  @default(false)
+  note        String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("feature_flags")
+}
+
+// `model ContactSubmission` is NOT here. The conversion layer landed the same
+// table independently (migration 20260802140000_contact_submissions, written
+// IF NOT EXISTS against the shape this branch had already applied to dev), and
+// its model is the one that survives — see the bottom of this file. Two models
+// mapping to `contact_submissions` would not compile, and the duplicate
+// deleted here was the younger of two identical definitions.
+//
+// The back-office READER for those rows is
+// apps/superadmin/src/lib/services/admin/contact-submissions.ts, in this
+// branch; the WRITER is apps/www POST /api/v1/contact, in theirs.
+
+// Self-serve data export. The payload lives INLINE and expires — there is no
+// file in object storage and therefore no public URL to leak.
+model DataExportRequest {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  // Equals userId for a self-serve request; a parent's id when a guardian
+  // exports a minor child's data.
+  requestedBy String           @map("requested_by") @db.Uuid
+  status      DataExportStatus @default(pending)
+  requestedAt DateTime         @default(now()) @map("requested_at") @db.Timestamptz(6)
+  startedAt   DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  expiresAt   DateTime?        @map("expires_at") @db.Timestamptz(6)
+  payload     Json?
+  byteSize    Int?             @map("byte_size")
+  error       String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, requestedAt(sort: Desc)])
+  @@index([status, requestedAt])
+  // Plus (raw SQL): UNIQUE on user_id WHERE status IN ('pending','processing').
+  @@map("data_export_requests")
 }
 
 // =============================================================================
@@ -1667,14 +1768,14 @@ enum GroupPostPolicy {
 }
 
 model ConversationGroup {
-  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  kind     GroupKind
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind      GroupKind
   // Exactly ONE source relation is set, matching `kind` (DB CHECK
   // conversation_groups_source_shape). This is what membership derives from.
-  courseId String?   @map("course_id") @db.Uuid
+  courseId  String?   @map("course_id") @db.Uuid
   // Scoped to one session of `courseId` when kind=session.
-  sessionId String?  @map("session_id") @db.Uuid
-  centerId  String?  @map("center_id") @db.Uuid
+  sessionId String?   @map("session_id") @db.Uuid
+  centerId  String?   @map("center_id") @db.Uuid
 
   // The principal that owns the channel: the course teacher, or a center admin
   // for center_announcement. Delegates (the teacher's assistants / the center's
@@ -1707,11 +1808,11 @@ model ConversationGroup {
 // Materialized membership snapshot — fanout + unread counters ONLY. Never the
 // authorization source (see assertGroupAccess).
 model GroupMember {
-  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  groupId  String   @map("group_id") @db.Uuid
-  userId   String   @map("user_id") @db.Uuid
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId  String    @map("group_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
   role     Role
-  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
   leftAt   DateTime? @map("left_at") @db.Timestamptz(6)
 
   lastReadAt  DateTime? @map("last_read_at") @db.Timestamptz(6)
@@ -1729,11 +1830,11 @@ model GroupMember {
 }
 
 model GroupMessage {
-  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  groupId  String @map("group_id") @db.Uuid
-  senderId String @map("sender_id") @db.Uuid
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId  String  @map("group_id") @db.Uuid
+  senderId String  @map("sender_id") @db.Uuid
   // Same authoritative ordering key as 1:1 messages.
-  seq      BigInt @default(autoincrement())
+  seq      BigInt  @default(autoincrement())
   body     String
   clientId String? @map("client_id")
 
@@ -1803,12 +1904,12 @@ model ConversationReport {
   groupId        String? @map("group_id") @db.Uuid
   messageId      String? @map("message_id") @db.Uuid
 
-  category ReportCategory
-  details  String?
-  status   ReportStatus   @default(open)
+  category      ReportCategory
+  details       String?
+  status        ReportStatus   @default(open)
   // Set when the reporter OR the reported user is a minor at filing time —
   // drives the super-admin queue's priority sort.
-  involvesMinor Boolean @default(false) @map("involves_minor")
+  involvesMinor Boolean        @default(false) @map("involves_minor")
 
   reviewedBy     String?   @map("reviewed_by") @db.Uuid
   reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
@@ -2146,21 +2247,21 @@ model PaymentIntent {
   subscriptionId String?              @map("subscription_id") @db.Uuid // Step 4: intent pays for a subscription
   centerId       String?              @map("center_id") @db.Uuid // snapshot from the course at initiate time (nullable for future teacher-direct)
   amount         Int // piasters — ALWAYS server-set from the course, never from the client
-  currency       String              @default("EGP")
+  currency       String               @default("EGP")
   method         PaymentIntentMethod
   gateway        PaymentGateway
-  status         PaymentIntentStatus @default(pending)
-  idempotencyKey String              @unique @map("idempotency_key") // dedupes initiate retries
-  gatewayOrderId String?             @unique @map("gateway_order_id") // webhook idempotency anchor
-  gatewayRef     String?             @map("gateway_ref")
-  failureReason  String?             @map("failure_reason")
-  webhookPayload Json?               @map("webhook_payload") // raw last webhook body, stored verbatim
-  paymentId      String?             @map("payment_id") @db.Uuid // settlement linkage -> payments.id
-  transactionId  String?             @map("transaction_id") @db.Uuid // settlement linkage -> transactions.id
-  expiresAt      DateTime            @map("expires_at") @db.Timestamptz(6)
-  paidAt         DateTime?           @map("paid_at") @db.Timestamptz(6)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status         PaymentIntentStatus  @default(pending)
+  idempotencyKey String               @unique @map("idempotency_key") // dedupes initiate retries
+  gatewayOrderId String?              @unique @map("gateway_order_id") // webhook idempotency anchor
+  gatewayRef     String?              @map("gateway_ref")
+  failureReason  String?              @map("failure_reason")
+  webhookPayload Json?                @map("webhook_payload") // raw last webhook body, stored verbatim
+  paymentId      String?              @map("payment_id") @db.Uuid // settlement linkage -> payments.id
+  transactionId  String?              @map("transaction_id") @db.Uuid // settlement linkage -> transactions.id
+  expiresAt      DateTime             @map("expires_at") @db.Timestamptz(6)
+  paidAt         DateTime?            @map("paid_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([studentId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
@@ -2191,21 +2292,21 @@ enum WalletEntryType {
 }
 
 model WalletLedger {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId      String          @map("student_id") @db.Uuid
-  type           WalletEntryType
-  delta          Int // signed piasters: +topup/refund, -payment
-  balanceAfter   Int             @map("balance_after") // running balance snapshot
-  method         PaymentMethod? // cash | online_paymob for top-ups; wallet for spends
-  refNumber      String?         @map("ref_number") // links the mirrored Transaction ref
-  paymentId      String?         @map("payment_id") @db.Uuid
-  paymentIntentId String?        @map("payment_intent_id") @db.Uuid
-  subscriptionId String?         @map("subscription_id") @db.Uuid
-  relatedTxnId   String?         @map("related_txn_id") @db.Uuid // the Transaction this mirrors
-  centerId       String?         @map("center_id") @db.Uuid // crediting center for cash top-ups (audit)
-  reason         String?
-  recordedBy     String?         @map("recorded_by") @db.Uuid // staff/actor who credited (audit)
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String          @map("student_id") @db.Uuid
+  type            WalletEntryType
+  delta           Int // signed piasters: +topup/refund, -payment
+  balanceAfter    Int             @map("balance_after") // running balance snapshot
+  method          PaymentMethod? // cash | online_paymob for top-ups; wallet for spends
+  refNumber       String?         @map("ref_number") // links the mirrored Transaction ref
+  paymentId       String?         @map("payment_id") @db.Uuid
+  paymentIntentId String?         @map("payment_intent_id") @db.Uuid
+  subscriptionId  String?         @map("subscription_id") @db.Uuid
+  relatedTxnId    String?         @map("related_txn_id") @db.Uuid // the Transaction this mirrors
+  centerId        String?         @map("center_id") @db.Uuid // crediting center for cash top-ups (audit)
+  reason          String?
+  recordedBy      String?         @map("recorded_by") @db.Uuid // staff/actor who credited (audit)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([studentId])
   @@index([studentId, createdAt(sort: Desc)])
@@ -2420,37 +2521,37 @@ enum CollaborationStatus {
 }
 
 model CollaborationRequest {
-  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  initiator           CollaborationInitiator
-  teacherId           String                 @map("teacher_id") @db.Uuid
-  centerId            String                 @map("center_id") @db.Uuid
-  subjectId           String                 @map("subject_id") @db.Uuid // catalog FK — no free text
-  gradeLevelId        String                 @map("grade_level_id") @db.Uuid
-  trackId             String?                @map("track_id") @db.Uuid
-  roomId              String?                @map("room_id") @db.Uuid // optional hall; must belong to centerId
-  daysOfWeek          Int[]                  @map("days_of_week")
-  startTime           String                 @map("start_time") // "HH:MM"
-  endTime             String                 @map("end_time")
-  startDate           DateTime               @map("start_date") @db.Timestamptz(6)
-  endDate             DateTime?              @map("end_date") @db.Timestamptz(6) // acceptance defaults +3 months
-  expectedStudents    Int?                   @map("expected_students") // OPTIONAL — zero-student teachers can apply
-  proposedCenterShare Int                    @map("proposed_center_share") // piasters; the money-engine centerShare
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  initiator             CollaborationInitiator
+  teacherId             String                 @map("teacher_id") @db.Uuid
+  centerId              String                 @map("center_id") @db.Uuid
+  subjectId             String                 @map("subject_id") @db.Uuid // catalog FK — no free text
+  gradeLevelId          String                 @map("grade_level_id") @db.Uuid
+  trackId               String?                @map("track_id") @db.Uuid
+  roomId                String?                @map("room_id") @db.Uuid // optional hall; must belong to centerId
+  daysOfWeek            Int[]                  @map("days_of_week")
+  startTime             String                 @map("start_time") // "HH:MM"
+  endTime               String                 @map("end_time")
+  startDate             DateTime               @map("start_date") @db.Timestamptz(6)
+  endDate               DateTime?              @map("end_date") @db.Timestamptz(6) // acceptance defaults +3 months
+  expectedStudents      Int?                   @map("expected_students") // OPTIONAL — zero-student teachers can apply
+  proposedCenterShare   Int                    @map("proposed_center_share") // piasters; the money-engine centerShare
   // Room pricing method proposed for a room-based request. Forced rooms carry
   // the forced value; both-methods rooms carry the TEACHER's choice (creation
   // for teacher-initiated requests, accept time for center-initiated ones —
   // NULL until then). Ignored when roomId is NULL.
-  proposedPricingMethod RoomPricingMethod?   @map("proposed_pricing_method")
-  message             String?
-  status              CollaborationStatus    @default(pending)
-  respondedAt         DateTime?              @map("responded_at") @db.Timestamptz(6)
-  respondedBy         String?                @map("responded_by") @db.Uuid
-  responseNote        String?                @map("response_note")
-  courseId            String?                @map("course_id") @db.Uuid // acceptance linkage
-  affiliationId       String?                @map("affiliation_id") @db.Uuid // acceptance linkage
-  expiresAt           DateTime               @map("expires_at") @db.Timestamptz(6) // pending TTL
-  createdBy           String                 @map("created_by") @db.Uuid
-  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  proposedPricingMethod RoomPricingMethod?     @map("proposed_pricing_method")
+  message               String?
+  status                CollaborationStatus    @default(pending)
+  respondedAt           DateTime?              @map("responded_at") @db.Timestamptz(6)
+  respondedBy           String?                @map("responded_by") @db.Uuid
+  responseNote          String?                @map("response_note")
+  courseId              String?                @map("course_id") @db.Uuid // acceptance linkage
+  affiliationId         String?                @map("affiliation_id") @db.Uuid // acceptance linkage
+  expiresAt             DateTime               @map("expires_at") @db.Timestamptz(6) // pending TTL
+  createdBy             String                 @map("created_by") @db.Uuid
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([teacherId, status])
   @@index([centerId, status])
@@ -2489,4 +2590,55 @@ model SessionSettlement {
   @@index([centerId, createdAt(sort: Desc)])
   @@index([courseId])
   @@map("session_settlements")
+}
+
+// =============================================================================
+// MARKETING / CONVERSION
+// =============================================================================
+
+enum ContactSubmissionStatus {
+  new
+  handled
+  spam
+
+  @@map("contact_submission_status")
+}
+
+/// Public «تواصل معنا» form submissions. Platform-scoped, NOT tenant data: a
+/// submission arrives before the sender has any account or center, so there is
+/// no center_id to isolate on and no RLS policy (same posture as
+/// commission_settings). Written by apps/www `POST /api/v1/contact`; read from
+/// the back office only.
+///
+/// Most columns are nullable because the table serves any future public form,
+/// not only this one — the CURRENT form's own requirements (a real name, a
+/// valid email, a bounded message, an enum subject) are enforced by the zod
+/// schema on the route, which is where a per-form rule belongs.
+model ContactSubmission {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  email       String?
+  phone       String?
+  /// Free text at the DB level; the website form constrains it to
+  /// demo | pricing | support | partnership | other so the queue can filter.
+  subject     String?
+  message     String
+  locale      Locale                  @default(ar)
+  /// Which public form produced the row, so a second one stays separable.
+  source      String?
+  /// Set only if a signed-in user happened to submit; the form does not need one.
+  userId      String?                 @map("user_id") @db.Uuid
+  ipAddress   String?                 @map("ip_address") @db.Inet
+  userAgent   String?                 @map("user_agent")
+  status      ContactSubmissionStatus @default(new)
+  handledBy   String?                 @map("handled_by") @db.Uuid
+  handledAt   DateTime?               @map("handled_at") @db.Timestamptz(6)
+  handledNote String?                 @map("handled_note")
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@index([email])
+  @@map("contact_submissions")
 }

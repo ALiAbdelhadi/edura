@@ -11,6 +11,13 @@ import sharedEn from "@/messages/en/shared.json";
 import catalogEn from "@/messages/en/catalog.json";
 import onboardingEn from "@/messages/en/onboarding.json";
 import landingEn from "@/messages/en/landing.json";
+import marketingEn from "@/messages/en/marketing.json";
+import activationEn from "@/messages/en/activation.json";
+// Maturity layer (receipt document, center audit viewer, data rights). A file
+// of its own rather than en.json, deliberately: BASE_KEYS is derived from
+// en.json's keys, so anything added there ships to EVERY page including the
+// login screen. None of these three namespaces is needed before sign-in.
+import maturityEn from "@/messages/en/maturity.json";
 import adminHomeAr from "@/messages/ar/admin-home.json";
 import adminManageAr from "@/messages/ar/admin-manage.json";
 import teacherAr from "@/messages/ar/teacher.json";
@@ -21,6 +28,9 @@ import sharedAr from "@/messages/ar/shared.json";
 import catalogAr from "@/messages/ar/catalog.json";
 import onboardingAr from "@/messages/ar/onboarding.json";
 import landingAr from "@/messages/ar/landing.json";
+import marketingAr from "@/messages/ar/marketing.json";
+import activationAr from "@/messages/ar/activation.json";
+import maturityAr from "@/messages/ar/maturity.json";
 
 export const LOCALES = ["ar", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -38,6 +48,9 @@ const enMerged = {
   catalog: catalogEn,
   onboarding: onboardingEn,
   landing: landingEn,
+  marketing: marketingEn,
+  activation: activationEn,
+  ...maturityEn,
 };
 
 export type Messages = typeof enMerged;
@@ -54,6 +67,9 @@ const arMerged = {
   catalog: catalogAr,
   onboarding: onboardingAr,
   landing: landingAr,
+  marketing: marketingAr,
+  activation: activationAr,
+  ...maturityAr,
 } as Messages;
 
 const dictionaries: Record<Locale, Messages> = { en: enMerged, ar: arMerged };

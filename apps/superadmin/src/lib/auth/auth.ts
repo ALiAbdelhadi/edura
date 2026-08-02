@@ -5,6 +5,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@repo/server-core/auth/passwords";
+import { send } from "@repo/notifications";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -99,6 +100,27 @@ export const auth = betterAuth({
     disableSignUp: true, // staff accounts are created by the back office only
     minPasswordLength: 1, // policy enforced at creation; sign-in accepts legacy
     password: { hash: hashPassword, verify: verifyPassword },
+    // `sendResetPassword` is DELIBERATELY NOT SET, exactly as in apps/www:
+    // better-auth's own reset writer does not bump `users.token_version`, so it
+    // would set a password without firing the `users_revoke_sessions` trigger
+    // and leave pre-existing sessions alive. Back-office resets go through
+    // `requestPasswordReset` (@repo/server-core/services/auth/password-reset),
+    // which the admin user directory already triggers.
+  },
+  emailVerification: {
+    // No competing implementation, so better-auth owns it. Setting this does
+    // NOT set `requireEmailVerification` — no sign-in behaviour changes.
+    sendVerificationEmail: async ({ user, url }) => {
+      await send(
+        "email_verification",
+        {
+          email: user.email,
+          locale: (user as { locale?: string | null }).locale,
+          userId: user.id,
+        },
+        { link: url, expiryHours: 1 },
+      );
+    },
   },
   rateLimit: {
     enabled: true,

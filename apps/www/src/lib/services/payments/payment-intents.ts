@@ -7,6 +7,11 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import type { Prisma } from "@repo/database";
 import type { SettleNotification } from "@repo/server-core/services/payments/notification-types";
+import {
+  receiptNumberFrom,
+  sendPaymentReceiptEmail,
+} from "@repo/server-core/services/payments/receipt-email";
+import { trackFirstPayment } from "@/lib/observability/funnel";
 import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
@@ -345,6 +350,22 @@ export async function processWebhookEvent(
       body: toNotify.body,
       data: toNotify.data,
     });
+
+    // Emailed receipt. Reads the receipt number the settler already recorded on
+    // the notification, so no settlement path changed to enable this. A wallet
+    // top-up carries none (it writes no Payment row) and correctly gets none.
+    const receiptNumber = receiptNumberFrom(toNotify.data);
+    if (receiptNumber) {
+      // Fire-and-forget: this runs after money has committed AND after the
+      // in-app notification, so nothing downstream is waiting on the SMTP
+      // round-trip. `sendPaymentReceiptEmail` never throws.
+      void sendPaymentReceiptEmail(receiptNumber, "card");
+
+      // Funnel step 4, attributed to the PAYEE — "did this center/teacher start
+      // collecting money?", not "did this student pay?". Never throws, and
+      // fires only on the payee's very first payment.
+      void trackFirstPayment(receiptNumber, "card");
+    }
   }
   return result;
 }

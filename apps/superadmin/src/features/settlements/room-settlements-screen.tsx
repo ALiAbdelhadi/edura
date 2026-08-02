@@ -16,7 +16,7 @@
 import { useMemo, useState } from "react";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, Info, RefreshCcw, Scale } from "lucide-react";
+import { AlertTriangle, Download, Info, RefreshCcw, Scale } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
@@ -129,6 +129,20 @@ export function RoomSettlementsScreen() {
           <Num.Figure value={total} locale={locale} />
           {t("settlementCount")}
         </span>
+
+        {/* A plain link, not a fetch-and-blob: the response is already an
+            attachment with its filename, and a link cannot leave a stalled
+            spinner behind if the download is slow. The filters travel with it
+            so the file always matches what is on screen. */}
+        <a
+          href={`/api/v1/admin/session-settlements/export?locale=${locale}${
+            method !== "all" ? `&pricingMethod=${method}` : ""
+          }`}
+          className="focus-ledger ms-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink-2 hover:text-ink"
+        >
+          <Download className="size-3.5" aria-hidden="true" />
+          {t("exportXlsx")}
+        </a>
       </div>
 
       {req.query.isLoading ? (
