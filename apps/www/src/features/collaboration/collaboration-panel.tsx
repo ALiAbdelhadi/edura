@@ -54,6 +54,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { amenityLabel } from "@/lib/rooms/amenities";
+import { asArray } from "@/lib/refine/as-array";
 
 const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   accepted: "success",
@@ -97,15 +98,6 @@ type GradeOption = {
 };
 type StageGroup = { key: string; nameAr: string; nameEn: string; grades: GradeOption[] };
 
-// useCustom result shapes differ between envelope/raw payloads — extract
-// arrays tolerantly (same trick as the useOne envelope tolerance).
-function asArray(res: unknown): any[] {
-  const d = (res as any)?.data ?? res;
-  if (Array.isArray(d)) return d;
-  if (Array.isArray((d as any)?.data)) return (d as any).data;
-  return [];
-}
-
 /**
  * Shared collaboration-requests panel (Step 5) — replaces ClassroomBooking and
  * the existing-teacher affiliation invite. role decides direction:
@@ -119,7 +111,7 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const rows = asArray(result) as CollabRow[];
+  const rows = asArray<CollabRow>(result?.data);
 
   const dayNames = [
     t("studentBrowse.sun"),
@@ -505,7 +497,7 @@ function CreateCollabDialog({
     },
     queryOptions: { enabled: open },
   });
-  const targets = asArray(targetsRes);
+  const targets = asArray<any>(targetsRes?.data);
 
   const { result: subjectsRes } = useCustom({
     url: "catalog/subjects",
@@ -513,7 +505,7 @@ function CreateCollabDialog({
     config: { query: { all: "1" } },
     queryOptions: { enabled: open },
   });
-  const subjects = asArray(subjectsRes);
+  const subjects = asArray<any>(subjectsRes?.data);
 
   const { result: treeRes } = useCustom({
     url: "catalog/tree",
@@ -524,7 +516,7 @@ function CreateCollabDialog({
   // grouped year picker. `grades` stays a flat list for the track lookup.
   const stageGroups: StageGroup[] = useMemo(() => {
     const out: StageGroup[] = [];
-    for (const sys of asArray(treeRes)) {
+    for (const sys of asArray<any>(treeRes?.data)) {
       for (const stage of sys.stages ?? []) {
         const gs: GradeOption[] = (stage.gradeLevels ?? []).map((g: any) => ({
           id: g.id,
@@ -575,7 +567,7 @@ function CreateCollabDialog({
     method: "get",
     queryOptions: { enabled: open && role === "teacher" },
   });
-  const mySubjects = asArray(mySubjectsRes);
+  const mySubjects = asArray<any>(mySubjectsRes?.data);
   const subjectOptions = role === "teacher" && mySubjects.length > 0 ? mySubjects : subjects;
 
   // Auto-select the sole specialization subject for a teacher.

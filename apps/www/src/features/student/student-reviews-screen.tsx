@@ -37,6 +37,7 @@ import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { Eyebrow, Num, PageTitle, Sheet } from "@/features/student/ledger";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { asArray } from "@/lib/refine/as-array";
 
 function StarRating({
   value,
@@ -108,9 +109,7 @@ export function StudentReviewsScreen() {
   const { mutate: createReview, mutation: createMutation } = useCreate();
   const { mutate: updateReview, mutation: updateMutation } = useUpdate();
 
-  const eligibleTeachers: any[] = Array.isArray(eligibleResult?.data)
-    ? (eligibleResult.data as any[])
-    : [];
+  const eligibleTeachers = asArray<any>(eligibleResult?.data);
   const reviews = (reviewsResult?.data ?? []) as any[];
 
   const schema = useMemo(

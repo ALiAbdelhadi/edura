@@ -38,6 +38,7 @@ import type { Locale } from "@repo/ui/lib/format";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { StatCardsSkeleton } from "@/components/ui/skeletons";
+import { asArray } from "@/lib/refine/as-array";
 
 type FinanceKpis = {
   platformCommission: number;
@@ -76,8 +77,8 @@ export function FinanceDashboard() {
   });
 
   const k = kpis?.data;
-  const alerts = alertsRes?.data?.alerts ?? [];
-  const series = rev?.data?.series ?? [];
+  const alerts = asArray<any>(alertsRes?.data?.alerts);
+  const series = asArray<any>(rev?.data?.series);
 
   const head = (title: string) => (
     <PageHeader

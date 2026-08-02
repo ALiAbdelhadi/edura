@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
 
 const PAYOUT_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   paid: "success",
@@ -63,8 +64,10 @@ export function TeacherWalletScreen() {
   const w = wallet?.data as
     | { balance: number; available: number; pendingPayouts: { count: number; amount: number } }
     | undefined;
-  const payouts = (payoutsRes?.data ?? []) as any[];
-  const transactions = ((txRes?.data as any)?.data ?? []) as any[];
+  const payouts = asArray<any>(payoutsRes?.data);
+  // The transactions endpoint answers `{ data: [...] }`; asArray unwraps that
+  // envelope as well, so both reads go through the same guard.
+  const transactions = asArray<any>(txRes?.data);
 
   const submitWithdraw = async () => {
     const egp = amountEgp.trim() === "" ? null : Number(amountEgp);

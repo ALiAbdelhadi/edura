@@ -39,6 +39,7 @@ import type { Locale } from "@repo/ui/lib/format";
 import { Eye, Home, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { asArray } from "@/lib/refine/as-array";
 
 type Split = { platformShareBp: number; teacherShareBp: number; centerShareBp: number };
 type ResolvedSplit = (Split & { source: "room" | "center" | "global" }) | null;
@@ -765,7 +766,7 @@ export function CentersScreen() {
   const t = useTranslations("centersAdmin");
   const [detailId, setDetailId] = useState<string | null>(null);
   const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });
-  const centers = useMemo(() => (result?.data as any[]) ?? [], [result]);
+  const centers = useMemo(() => asArray<any>(result?.data), [result]);
 
   return (
     <div className="space-y-6">

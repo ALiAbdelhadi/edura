@@ -1,10 +1,4 @@
 {
-  "notFoundTitle": "Page not found",
-  "notFoundBody": "The link you followed doesn't exist or has moved.",
-  "notFoundHome": "Back to home",
-  "errorTitle": "Something went wrong",
-  "errorBody": "Try refreshing the page — if it keeps happening, contact us.",
-  "errorRetry": "Try again",
   "msgEmpty": "No messages yet.",
   "msgUnknownUser": "Unknown User",
   "msgNoPreview": "No messages",

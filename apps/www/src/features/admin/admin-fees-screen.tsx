@@ -66,6 +66,7 @@ import {
   readApiError,
 } from "./ledger";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
+import { asArray } from "@/lib/refine/as-array";
 
 export function AdminFeesScreen() {
   const t = useTranslations();
@@ -133,7 +134,7 @@ export function AdminFeesScreen() {
   const centerWallet = walletRes?.data as
     | { balance: number; available: number; pendingPayouts?: { count: number; amount: number } }
     | undefined;
-  const centerPayouts = (centerPayoutsRes?.data ?? []) as any[];
+  const centerPayouts = asArray<any>(centerPayoutsRes?.data);
 
   /**
    * What the armed button will actually request, in piasters. An empty field
