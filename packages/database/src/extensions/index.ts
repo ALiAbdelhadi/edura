@@ -9,6 +9,12 @@ const IMMUTABLE_MODELS = new Set<string>([
   "WalletLedger",
   "ParentWalletLedger",
   "SessionSettlement",
+  // Off-system teachers: the conversion journal is the EVIDENCE that an
+  // external->enrolled flip moved no data, and the cash settlement record is a
+  // money statement. Both would be worthless if they could be edited after the
+  // fact, so both are append-only at runtime AND via SQL REVOKE.
+  "TeacherSystemStatusChange",
+  "ExternalTeacherSettlement",
 ]);
 
 const NO_HARD_DELETE_MODELS = new Set<string>(["Invoice", "Payout"]);

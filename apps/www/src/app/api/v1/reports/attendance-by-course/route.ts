@@ -3,6 +3,7 @@ import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseOrThrow } from "@/lib/validation/zod";
 import { getAttendanceByCourse } from "@/lib/services/reports/reports";
+import { parseProvenance } from "@/lib/http/provenance";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export const GET = centerStaff(
       querySchema,
       Object.fromEntries(url.searchParams.entries()),
     );
-    const result = await getAttendanceByCourse(user, query.from, query.to);
+    const result = await getAttendanceByCourse(user, query.from, query.to, parseProvenance(url));
     return ok(result);
   },
   { allow: MANAGER },

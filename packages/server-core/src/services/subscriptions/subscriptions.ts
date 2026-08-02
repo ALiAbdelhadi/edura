@@ -81,6 +81,12 @@ function subscriptionShell(
     price,
     source,
     createdBy: createdBy ?? null,
+    // Provenance is INHERITED FROM THE GROUP, exactly like subjectId and
+    // gradeLevelId above. Deriving it here rather than passing it in is what
+    // makes it reliable: a payment for an off-system teacher's group is labelled
+    // `manual` no matter which entry point took the money, and no caller has to
+    // remember to say so. Costs nothing — `course` is already in hand.
+    dataSource: course.dataSource,
   };
 }
 
@@ -134,6 +140,7 @@ async function activateSubscription(
         courseId: sub.courseId,
         centerId: sub.centerId,
         enrolledBy: opts.enrolledBy,
+        dataSource: sub.dataSource,
       },
     });
   }
@@ -249,6 +256,10 @@ async function settleSubscriptionMoney(
       receiptNumber,
       recordedBy,
       paidAt: new Date(),
+      // Carried from the subscription, which took it from the group. The whole
+      // chain group -> subscription -> payment -> ledger therefore agrees by
+      // construction rather than by three call sites remembering to match.
+      dataSource: sub.dataSource,
     },
   });
 
@@ -266,6 +277,7 @@ async function settleSubscriptionMoney(
         paymentMethod: method,
         gatewayRef,
         notes: `Subscription payment (${sub.plan}, subscription ${sub.id})`,
+        dataSource: sub.dataSource,
       },
     });
   } else {
@@ -290,6 +302,7 @@ async function settleSubscriptionMoney(
           paymentMethod: method,
           gatewayRef,
           notes: `Teacher-direct subscription payment (subscription ${sub.id})`,
+          dataSource: sub.dataSource,
         },
         {
           refNumber: feeRef,
@@ -300,6 +313,7 @@ async function settleSubscriptionMoney(
           centerId: null,
           status: "completed",
           notes: `Platform commission ${rate.teacherDirectCommissionBp / 100}% (${rate.source} setting) — subscription ${sub.id}`,
+          dataSource: sub.dataSource,
         },
       ],
     });
@@ -642,6 +656,7 @@ export async function createWalkInSubscription(
           centerId: course.centerId,
           status: "present",
           markedBy: user.id,
+          dataSource: course.dataSource,
         },
         update: { status: "present", markedBy: user.id, editedAt: new Date() },
       });

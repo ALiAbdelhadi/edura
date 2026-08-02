@@ -1,6 +1,7 @@
 import { centerStaff, ACCOUNTANT } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { getRevenueReport } from "@/lib/services/reports/reports";
+import { parseProvenance } from "@/lib/http/provenance";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const GET = centerStaff(
     const url = new URL(req.url);
     const from = url.searchParams.get("from") ?? undefined;
     const to = url.searchParams.get("to") ?? undefined;
-    const result = await getRevenueReport(user, from, to);
+    const result = await getRevenueReport(user, from, to, parseProvenance(url));
     return ok(result);
   },
   { allow: ACCOUNTANT },

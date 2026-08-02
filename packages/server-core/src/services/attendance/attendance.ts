@@ -126,6 +126,11 @@ export async function bulkMarkAttendance(
           status: entry.status,
           markedBy: adminId,
           editedAt: now,
+          // Provenance INHERITED FROM THE SESSION, which inherited it from the
+          // group. So an attendance row for an off-system teacher's lesson is
+          // labelled `manual` wherever it was entered from, and no caller has to
+          // pass anything. `session` is already loaded — this costs no query.
+          dataSource: session.dataSource,
         },
         update: {
           status: entry.status,

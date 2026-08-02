@@ -380,6 +380,20 @@ export async function listRosterTeachers(
     });
     const teacherMap = new Map(teachers.map((t) => [t.id, t]));
 
+    // Off-system teachers appear in this COMBINED list like everyone else —
+    // that is the point of the feature. What the list must not do is read their
+    // permanent `shell` account as a stalled invite, so the row carries the
+    // status and the UI badges on it. One extra indexed query for the page.
+    const profiles = teacherIds.length
+      ? await tx.teacherProfile.findMany({
+          where: { userId: { in: teacherIds } },
+          select: { userId: true, systemStatus: true },
+        })
+      : [];
+    // Default-enrolled: a teacher with no profile row predates this feature and
+    // is on-platform by definition.
+    const systemStatusById = new Map(profiles.map((p) => [p.userId, p.systemStatus]));
+
     const items = [];
     for (const a of affiliations) {
       const t = teacherMap.get(a.teacherId);
@@ -405,6 +419,7 @@ export async function listRosterTeachers(
         name: t?.name,
         email: t?.email,
         status: t?.status,
+        systemStatus: systemStatusById.get(a.teacherId) ?? "enrolled",
         subjects,
         coursesCount,
         rating,

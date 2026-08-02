@@ -84,6 +84,25 @@ export const inviteTokenPlugin = () => {
               });
               if (!link) return null;
             }
+            // An off-system teacher joining the platform. The live link that
+            // justified this invite is TWO facts, and both must still hold:
+            // the center still works with them (an active affiliation), and
+            // the center has not changed its mind and flipped them back to
+            // `external` — in which case the center owns data entry again and
+            // an outstanding link must stop working, exactly as a revoked
+            // assistant membership kills theirs.
+            if (spec.role === "teacher") {
+              const profile = await tx.teacherProfile.findUnique({
+                where: { userId: user.id },
+                select: { systemStatus: true },
+              });
+              if (!profile || profile.systemStatus !== "enrolled") return null;
+              const link = await tx.centerTeacherAffiliation.findFirst({
+                where: { teacherId: user.id, status: "active" },
+                select: { id: true },
+              });
+              if (!link) return null;
+            }
 
             // (2) atomic single-use: only one concurrent claim can flip usedAt.
             const consumed = await tx.inviteToken.updateMany({

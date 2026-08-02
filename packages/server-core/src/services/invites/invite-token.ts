@@ -21,7 +21,8 @@ import { generateOpaqueToken, hashToken } from "../../utils/random";
 export type ClaimPurpose =
   | "walk_in_onboarding"
   | "assistant_invite"
-  | "center_staff_invite";
+  | "center_staff_invite"
+  | "teacher_invite";
 
 export type ClaimSpec = {
   /** The ONE role a token of this purpose may ever resolve to. */
@@ -47,6 +48,15 @@ export const CLAIMABLE: Readonly<Record<ClaimPurpose, ClaimSpec>> = {
   center_staff_invite: {
     role: "center_staff",
     landing: "/dashboard/staff",
+    emailIsChosen: false,
+  },
+  // An off-system teacher joining the platform. They were invited AT an
+  // address the center holds for them, so the address is fixed — the same
+  // reasoning as an assistant or a staff hire, and the opposite of a phone-only
+  // walk-in student who has no inbox yet.
+  teacher_invite: {
+    role: "teacher",
+    landing: "/dashboard/teacher",
     emailIsChosen: false,
   },
 };

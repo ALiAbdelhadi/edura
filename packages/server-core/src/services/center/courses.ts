@@ -1,4 +1,4 @@
-import { Prisma } from "@repo/database";
+import { Prisma, type DataSource } from "@repo/database";
 import { scopedDb } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import { requireCenterScope } from "../../authz/center-scope";
@@ -67,6 +67,17 @@ export type CourseCreateInput = {
   price: number;
   maxStudents: number;
   pricingMethod?: "whole_room_percent" | "per_attending_student" | null;
+  // Subscription plan prices. Previously only settable by a follow-up PATCH,
+  // which left a freshly-created group unpayable until someone remembered the
+  // second step. Optional, so every existing caller is unchanged.
+  pricePerMonth?: number | null;
+  pricePerSession?: number | null;
+  /**
+   * Provenance (off-system teachers). Defaults to `system` at the column, so
+   * every existing caller writes exactly what it wrote before. The course's
+   * generated sessions inherit the same label.
+   */
+  dataSource?: DataSource;
 };
 
 export async function createCourse(acting: SessionUser, body: CourseCreateInput) {
@@ -79,6 +90,23 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
     });
     if (!affiliation) {
       throw new BusinessRuleError("Teacher does not have an active affiliation with this center");
+    }
+
+    // PROVENANCE IS DERIVED, NOT REMEMBERED. A group belonging to an off-system
+    // teacher is manual entry by definition — that teacher has no account and
+    // could not have created it. Deriving it here means the ordinary Classes
+    // screen labels such a group correctly without knowing this feature exists;
+    // leaving it to callers would mean the label is right only where someone
+    // remembered to pass it, which is the same as not having it. An explicit
+    // `body.dataSource` still wins, and a teacher with no profile row (predates
+    // this feature) resolves to `enrolled`, so nothing existing changes.
+    let dataSource = body.dataSource;
+    if (!dataSource) {
+      const profile = await tx.teacherProfile.findUnique({
+        where: { userId: body.teacherId },
+        select: { systemStatus: true },
+      });
+      if (profile?.systemStatus === "external") dataSource = "manual";
     }
 
     // The room must be the ACTING center's — an arbitrary roomId would freeze
@@ -112,8 +140,11 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
         startDate: body.schedulePattern.startDate,
         endDate: body.schedulePattern.endDate,
         price: body.price,
+        pricePerMonth: body.pricePerMonth ?? null,
+        pricePerSession: body.pricePerSession ?? null,
         maxStudents: body.maxStudents,
         status: "active",
+        ...(dataSource ? { dataSource } : {}),
         ...splitSnapshot,
       },
     });
@@ -125,6 +156,8 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
       teacherId: course.teacherId,
       defaultRoomId: course.defaultRoomId,
       schedulePattern: body.schedulePattern,
+      // Sessions inherit the group's provenance, derived or explicit.
+      ...(course.dataSource ? { dataSource: course.dataSource } : {}),
     },
     acting,
   );

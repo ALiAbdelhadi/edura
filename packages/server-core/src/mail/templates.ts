@@ -295,6 +295,55 @@ export function assistantInviteEmail(input: {
   });
 }
 
+/**
+ * Teacher invite — sent when an OFF-SYSTEM teacher decides to join the platform
+ * and the center converts their record.
+ *
+ * The copy leads with the one thing that actually matters to them, because it
+ * is the thing they were most likely refusing over: their history is already
+ * there. It is not a fresh account — their groups, attendance and money have
+ * been under this id the whole time, and signing in is the only thing changing.
+ */
+export function teacherInviteEmail(input: {
+  locale: MailLocale;
+  link: string;
+  teacherName: string;
+  centerName: string;
+  expiryDays: number;
+}): InviteEmail {
+  const { locale, teacherName, centerName } = input;
+  const title =
+    locale === "ar"
+      ? "حسابك على Edura جاهز — فعّله الآن"
+      : "Your Edura account is ready — activate it";
+
+  const lines =
+    locale === "ar"
+      ? [
+          `مرحبًا أ. ${teacherName}،`,
+          `كان مركز ${centerName} يسجّل مجموعاتك وحضور طلابك وحساباتك على منصة Edura نيابةً عنك. الآن يمكنك الدخول بنفسك.`,
+          "كل سجلاتك السابقة موجودة كما هي في حسابك — لن تبدأ من الصفر.",
+          "اضغط على الزر التالي لتعيين كلمة المرور الخاصة بك. أنت وحدك من سيعرفها — لا يمكن للمركز الاطلاع عليها.",
+        ]
+      : [
+          `Hi ${teacherName},`,
+          `${centerName} has been keeping your groups, attendance and accounts on Edura on your behalf. You can now sign in yourself.`,
+          "All of your existing records are already in this account — you are not starting from scratch.",
+          "Use the button below to set your own password. Only you will know it — the center cannot see it.",
+        ];
+
+  return inviteBody({
+    locale,
+    title,
+    lines,
+    cta: locale === "ar" ? "تعيين كلمة المرور" : "Set my password",
+    link: input.link,
+    expiry: expiryLine(input.expiryDays, locale),
+    ignore: IGNORE[locale],
+    footer: FOOTER[locale],
+  });
+}
+
 const STAFF_ROLE_LABEL = {
   ar: {
     receptionist: "موظف استقبال",

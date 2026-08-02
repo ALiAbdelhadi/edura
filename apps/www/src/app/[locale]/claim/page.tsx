@@ -18,6 +18,7 @@ const LANDING: Record<string, string> = {
   student: "/onboarding",
   assistant: "/dashboard/assistant",
   center_staff: "/dashboard/staff",
+  teacher: "/dashboard/teacher",
 };
 
 /**

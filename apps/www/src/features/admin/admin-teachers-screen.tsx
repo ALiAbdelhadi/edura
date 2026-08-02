@@ -137,6 +137,13 @@ export function AdminTeachersScreen() {
       id: "status",
       header: t("adminHome.teachers_status"),
       cell: (r) => {
+        // An OFF-SYSTEM teacher is not "pending an invite" — nobody is waiting
+        // for them to accept anything. Reading their shell account as a stalled
+        // invite is exactly the confusion this badge exists to prevent, so it
+        // is checked first and wins.
+        if (r.systemStatus === "external") {
+          return <Badge tone="neutral">{t("externalTeachers.badge")}</Badge>;
+        }
         const affiliationStatus = r.affiliation?.status;
         const status = affiliationStatus || r.status || "active";
         const pending = status === "pending" || r.status === "shell";

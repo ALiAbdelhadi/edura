@@ -1,0 +1,24 @@
+-- =============================================================================
+-- ROLLBACK for 20260803100000_teacher_invite_purpose.
+--
+-- POSTGRES CANNOT DROP AN ENUM VALUE. There is no `ALTER TYPE ... DROP VALUE`,
+-- and rewriting the type means recreating it and every column that uses it
+-- (invite_tokens.purpose) — a rewrite of a security-relevant table for the sake
+-- of removing one unused label.
+--
+-- So the honest rollback is: LEAVE THE VALUE IN PLACE. It is inert on its own —
+-- a purpose only does something when `CLAIMABLE` in
+-- packages/server-core/src/services/invites/invite-token.ts maps it to a role,
+-- and reverting that code is what actually closes the door. `isClaimPurpose`
+-- returns false for an unmapped purpose, so any token still carrying
+-- 'teacher_invite' stops being claimable the moment the code is reverted.
+--
+-- Only run this if you also want to kill outstanding links immediately:
+--
+--   UPDATE invite_tokens SET used_at = now()
+--     WHERE purpose = 'teacher_invite' AND used_at IS NULL;
+--
+-- Then drop the migration's row so the history matches the code:
+--
+--   DELETE FROM _prisma_migrations WHERE migration_name = '20260803100000_teacher_invite_purpose';
+-- =============================================================================
