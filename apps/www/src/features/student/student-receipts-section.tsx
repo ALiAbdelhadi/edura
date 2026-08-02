@@ -17,6 +17,7 @@ import {
   Tr,
 } from "@/features/student/ledger";
 import { PageSpinner } from "@/components/kit/spinner";
+import { asArray } from "@/lib/refine/as-array";
 
 type PaymentRow = {
   id: string;
@@ -48,7 +49,11 @@ export function StudentReceiptsSection() {
   const { formatDate } = useFormatters();
 
   const { query, result } = useCustom({ url: "payments", method: "get" });
-  const rows = ((result?.data as PaymentRow[] | undefined) ?? []).filter((r) => r.receiptNumber);
+
+  // `asArray`, not `?? []` — `result.data` is a frozen `{}` until the request
+  // resolves, so the old guard let a non-array through and `.filter` threw on
+  // the FIRST render, before the isLoading branch below could ever run.
+  const rows = asArray<PaymentRow>(result?.data).filter((r) => r.receiptNumber);
 
   return (
     <Sheet className="p-5">

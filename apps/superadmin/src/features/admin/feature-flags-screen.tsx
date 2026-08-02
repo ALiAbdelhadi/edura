@@ -33,6 +33,7 @@ import { formatDate, type Locale } from "@repo/ui/lib/format";
 
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { asArray } from "@/lib/refine/as-array";
 
 type FlagRow = {
   key: string;
@@ -53,7 +54,7 @@ export function FeatureFlagsScreen() {
   const { mutateAsync: save } = useCustomMutation();
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const flags = (result?.data as FlagRow[] | undefined) ?? [];
+  const flags = asArray<FlagRow>(result?.data);
 
   const toggle = async (flag: FlagRow) => {
     setBusyKey(flag.key);

@@ -33,6 +33,7 @@ import {
   Th,
   Tr,
 } from "@/features/student/ledger";
+import { asArray } from "@/lib/refine/as-array";
 
 /** How many ledger entries we ask for. The endpoint hard-caps at 200. */
 const HISTORY_LIMIT = 100;
@@ -87,7 +88,7 @@ export function StudentWalletScreen() {
   const { mutateAsync: mutate } = useCustomMutation();
 
   const wallet = (walletRes?.data as WalletInfo | undefined) ?? null;
-  const entries = ((histRes?.data as Entry[] | undefined) ?? []) as Entry[];
+  const entries = asArray<Entry>(histRes?.data);
 
   const [topupOpen, setTopupOpen] = useState(false);
   const [amountEgp, setAmountEgp] = useState("");

@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
 
 type WalletInfo = {
   balance: number;
@@ -70,7 +71,7 @@ export function ParentWalletScreen() {
   const { mutateAsync: mutate } = useCustomMutation();
 
   const wallet = (walletRes?.data as WalletInfo | undefined) ?? null;
-  const entries = ((histRes?.data as Entry[] | undefined) ?? []) as Entry[];
+  const entries = asArray<Entry>(histRes?.data);
 
   const [topupOpen, setTopupOpen] = useState(false);
   const [amountEgp, setAmountEgp] = useState("");

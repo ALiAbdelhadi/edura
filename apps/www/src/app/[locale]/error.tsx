@@ -14,7 +14,14 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const t = useTranslations("shared");
+  // `errorPage`, NOT `shared`. This boundary replaces the children of the
+  // [locale] layout, so it renders under THAT layout's provider — which ships
+  // only `baseMessages()` (the top-level keys of en.json). `shared` is mounted
+  // from its own file and reaches the client only under dashboard/layout.tsx,
+  // so every error outside the dashboard threw MISSING_MESSAGE here and the
+  // error page failed on top of the error it was reporting. `errorPage` lives
+  // in en.json, so BASE_KEYS carries it to every route by construction.
+  const t = useTranslations("errorPage");
   useEffect(() => {
     // Digest only in the log — the raw message may carry internals
     // (M4 discipline). Sentry gets the full error object, where it is scrubbed

@@ -4,7 +4,9 @@ import { SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export default function NotFound() {
-  const t = useTranslations("shared");
+  // `errorPage`, not `shared` — see the note in error.tsx: this renders under
+  // the [locale] layout, whose provider carries only en.json's top-level keys.
+  const t = useTranslations("errorPage");
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--paper)] px-6 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-[var(--indigo-soft)] text-[var(--indigo)]">

@@ -35,6 +35,7 @@ import { toast } from "@repo/ui/components/sonner";
 
 import { SectionHead } from "@/features/parent/ledger-kit";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
 
 type ExportRow = {
   id: string;
@@ -67,7 +68,7 @@ export function DataRightsCard() {
   const deletionReq = useCustom({ url: "me/data-rights/deletion", method: "get" });
   const { mutateAsync: post } = useCustomMutation();
 
-  const exports = (exportsReq.result?.data as ExportRow[] | undefined) ?? [];
+  const exports = asArray<ExportRow>(exportsReq.result?.data);
   const deletion = deletionReq.result?.data as DeletionState | undefined;
 
   const [busy, setBusy] = useState(false);

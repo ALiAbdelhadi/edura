@@ -281,6 +281,14 @@
     "title": "Edura — Educational Management System",
     "description": "Manage students, classes, attendance, fees, and reports for your education center."
   },
+  "errorPage": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The link you followed doesn't exist or has moved.",
+    "notFoundHome": "Back to home",
+    "errorTitle": "Something went wrong",
+    "errorBody": "Try refreshing the page — if it keeps happening, contact us.",
+    "errorRetry": "Try again"
+  },
   "affiliationInvite": {
     "loadError": "Could not load invitation",
     "title": "Teaching invitation",
