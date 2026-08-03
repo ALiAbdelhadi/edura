@@ -196,3 +196,70 @@ checked:
    `role: center_admin` and no personal fields.
 5. **Minor rule** — sign in as a student and confirm **no** `identify` call and
    no person profile is created (pageviews only).
+
+## Setup
+
+```bash
+bash packages/database/scripts/setup-observability-env.sh
+```
+
+Only `SENTRY_AUTH_TOKEN` is genuinely secret (it uploads source maps from CI).
+The Sentry DSN and the PostHog project key are **public by design** — they are
+compiled into the browser bundle and visible in devtools. They are write-only
+ingest identifiers, not credentials.
+
+`NEXT_PUBLIC_*` is inlined **at build time**, so setting a variable without
+redeploying changes nothing.
+
+### PostHog is www-only, deliberately
+
+The back office has eight staff accounts. Product analytics there measures
+nothing and would put internal admin behaviour into a third party for no
+benefit. Sentry runs in both apps — a crash in the back office still needs a
+stack trace.
+
+## Two traps that have already bitten, both found by real traffic
+
+### 1. `/ingest/e/` was being eaten by the locale middleware
+
+`/ingest/*` is reverse-proxied to PostHog so ad-blockers — which list
+`*.i.posthog.com` by name — cannot silently delete analytics. But next-intl's
+matcher claimed the path first and 307'd `POST /ingest/e/` to `/ar/ingest/e`.
+**No event ever reached PostHog.**
+
+It hid well: `/ingest/static/array.js` was already excluded by the matcher's
+`.*\..*` arm (it contains a dot), so the SDK loaded normally and only the
+dot-less capture endpoint was swallowed. *Analytics that loads but never records
+is indistinguishable from a product nobody uses.*
+
+Fixed by excluding `ingest` in `apps/www/src/proxy.ts`. Two follow-ons worth
+knowing:
+
+- The exclusion is anchored to a whole path segment (`(?:/|$)`). Without that,
+  `/ingestion-report` is excluded too and quietly loses its locale.
+- **`config.matcher` must be a literal.** Next *statically analyses* that file;
+  an imported constant is not resolved and the middleware falls back to matching
+  every path. Moving it to a shared constant broke the entire app while the unit
+  tests still passed. The literal is duplicated in `proxy.ts` with a drift
+  assertion in `tests/unit/ingest-proxy.test.ts`.
+
+**If events stop arriving, check `/ingest/e/` returns 200 and not 307 first.**
+
+### 2. Sentry was sending the exception message unscrubbed
+
+`beforeSend` redacted `event.message`, `extra`, `user` and breadcrumbs — but not
+`exception.values[].value`, which is where `captureException(new Error(msg))`
+actually puts the text and what Sentry renders as the headline.
+
+That is not hypothetical here: `sendMail` returns `"delivery to <address>
+failed"`, Prisma puts WHERE clauses in `.message`, and the invite/reset flows
+throw with the claim URL — token included — in the text.
+
+Six unit tests over `beforeSend` passed throughout, because every one of them
+set `event.message`, which the SDK never does. Fixed, plus `logentry.message`
+and `contexts`.
+
+> **The lesson both share:** these were found by pointing the real SDK at a mock
+> ingest server and grepping what went over the wire. Neither was reachable by a
+> test that constructs its own input, because in both cases the wrong assumption
+> lived in the test and the code equally.
