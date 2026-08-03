@@ -7,20 +7,22 @@ things the site is designed to live without.
 
 Last updated 2026-08-02, after the five role pages shipped.
 
-> **TWO apps/www SCREENS CRASH.** Found by the capture guard, which now refuses
-> to screenshot a page rendering the error boundary. Both return 200 and then
-> throw in the browser on a value that is not the array the component expects:
+> **Two apps/www screens were crashing — ALREADY FIXED upstream in 7e25b80.**
+> The capture guard caught them (it refuses to screenshot a page rendering the
+> error boundary) and I re-diagnosed the cause independently: refine's
+> `useCustom` defaults its payload to a frozen empty OBJECT, so `result.data` is
+> `{}` and the idiomatic `(… ?? []).filter` throws — `{}` is not nullish.
 >
 > | Screen | Error |
 > |---|---|
 > | `/dashboard/student/wallet` | `((intermediate value) ?? []).filter is not a function` |
 > | `/dashboard/admin/settings` | `o.find is not a function` |
 >
-> Neither is a showcase bug and neither is fixed here. The pages route around
-> them — the student wallet scene uses the ledger DIAGRAM (which states the
-> "balance is a sum" claim better than a screenshot of a total anyway) and the
-> /trust sessions scene runs copy-only. `student/wallet` is deliberately LEFT in
-> the capture manifest so every run keeps reporting it until it is fixed.
+> Both are fixed on main. The captures in this repo predate the fix, so
+> **re-run `bun run capture` to pick them up.** The pages currently route
+> around them, which is worth keeping on its own merits: the student wallet
+> scene uses the ledger DIAGRAM, and "the balance is a sum" is a claim a
+> diagram makes better than a screenshot of a total ever could.
 
 > **`/pricing` is no longer a showcase concern.** `apps/www` now publishes it,
 > computing every figure at request time from the live `commission_settings`
