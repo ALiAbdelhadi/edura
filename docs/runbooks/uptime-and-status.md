@@ -94,6 +94,67 @@ Configure each with:
   always the monitor's network, and an alert channel people learn to ignore is
   worse than none.
 
+### The rate-limiter monitor — a SEPARATE monitor, on purpose
+
+`/api/health` reports `"rateLimiter": "local"` when login limits have stopped
+being shared across instances (Redis down, or `REDIS_URL` unset in a
+deployment). Each instance then holds its own budget and each starts it full, so
+N instances multiply an attacker's login allowance by N.
+
+| Name | URL | Interval | Alert after |
+|---|---|---|---|
+| Edura — rate limiter | `https://app.edura.eg/api/health` | 5 min | 3 consecutive failures |
+
+- **Expect HTTP 200 AND the body to NOT contain `"rateLimiter":"local"`.**
+  (Better Stack: *Should not contain*. UptimeRobot: an inverted keyword check.)
+- **Email only. No SMS, no phone.** This is a security *degradation*, not an
+  outage — the app is serving normally throughout.
+- **Do NOT attach it to a status-page component.** No user-facing thing is down;
+  saying otherwise on the public page is a lie in the expensive direction.
+- **3 consecutive failures, not 2.** The limiter's circuit breaker retries every
+  30s, so a brief Redis blip can show `local` for one check and clear itself. At
+  a 5-minute interval, three in a row means ~15 minutes of genuinely unshared
+  limits, which is worth a human.
+
+**Why not just add the keyword to the existing "Edura — app" monitor?** Because
+that monitor drives the *Platform* component on the public status page and is on
+phone escalation. Folding this in would tell users the platform is down while it
+is serving perfectly, and would wake someone for a condition the code
+deliberately keeps out of the status code for exactly that reason (see
+`packages/server-core/src/http/health.ts`, rule 2).
+
+The back office runs the same limiter and can take an identical monitor against
+`https://<superadmin-domain>/api/health` if you want the coverage; the www one
+is the security-critical path, because that is where public login lives.
+
+Creating it via the Better Stack API (`keyword_absence` alerts when the keyword
+IS present, which is the inversion this needs — the monitor is UP while the
+string is absent). Export your own token; never commit one:
+
+```bash
+curl -X POST https://uptime.betterstack.com/api/v2/monitors \
+  -H "Authorization: Bearer $BETTERSTACK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "monitor_type": "keyword_absence",
+    "url": "https://app.edura.eg/api/health",
+    "required_keyword": "\"rateLimiter\":\"local\"",
+    "pronounceable_name": "Edura — rate limiter",
+    "check_frequency": 300,
+    "confirmation_period": 900,
+    "request_timeout": 15,
+    "email": true,
+    "sms": false,
+    "call": false
+  }'
+```
+
+**Confirm it on first run:** the monitor should read UP immediately, because a
+healthy response contains `"rateLimiter":"shared"`. If it reads DOWN straight
+away the keyword sense is inverted — swap `keyword_absence` for `keyword`. The
+exact substring matters: the endpoint serialises with no spaces, so
+`"rateLimiter":"local"` matches and `"rateLimiter": "local"` does not.
+
 ### Escalation
 
 - Email → always.
