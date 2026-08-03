@@ -97,6 +97,70 @@ function namespacedKey(key: string): string {
 // undefined = not yet initialised, null = disabled (no URL / init failed).
 let redisClient: Redis | null | undefined;
 
+// ---------------------------------------------------------------------------
+// Circuit breaker.
+//
+// "Fail fast to the in-memory fallback" was the stated intent, and it was NOT
+// what happened. ioredis queues commands while disconnected (enableOfflineQueue
+// defaults to true) and backs off between reconnects, so during an outage each
+// call waited for the retry budget to drain — measured against the real login
+// limits, eight consecutive checks took 13.9s and the per-call cost climbed
+// 176ms -> 3304ms without bound. Sign-in consumes TWO checks (IP, then email),
+// so a Redis outage stalled every login for seconds and got worse the longer it
+// lasted: an availability problem manufactured by the thing protecting
+// availability.
+//
+// After OPEN_AFTER consecutive failures the breaker opens and every call goes
+// straight to memory for COOLDOWN_MS — no socket, no wait. One call is allowed
+// through after the cooldown to test recovery; success closes it immediately.
+// ---------------------------------------------------------------------------
+const OPEN_AFTER = 3;
+const COOLDOWN_MS = 30_000;
+// Longest a caller will wait on the shared store before taking the local
+// answer. Comfortably above a warm round-trip (~50–200ms) and above the
+// measured cold connect (528–1260ms), so the normal path still uses Redis.
+const EVAL_DEADLINE_MS = 1_500;
+let consecutiveFailures = 0;
+let breakerOpenedAt = 0;
+
+function breakerIsOpen(): boolean {
+  if (breakerOpenedAt === 0) return false;
+  if (Date.now() - breakerOpenedAt >= COOLDOWN_MS) {
+    // Cooldown elapsed: let ONE call through to probe recovery.
+    breakerOpenedAt = 0;
+    consecutiveFailures = OPEN_AFTER - 1;
+    return false;
+  }
+  return true;
+}
+
+function recordFailure(): void {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= OPEN_AFTER && breakerOpenedAt === 0) {
+    breakerOpenedAt = Date.now();
+    // One line per outage, not one per request — an outage must be visible
+    // without drowning the log in the failures that define it.
+    console.error(
+      `[rate-limit] redis unavailable after ${consecutiveFailures} failures; ` +
+        `serving from per-process memory for ${COOLDOWN_MS / 1000}s. ` +
+        `Limits are NO LONGER shared across instances.`,
+    );
+  }
+}
+
+function recordSuccess(): void {
+  if (consecutiveFailures > 0 || breakerOpenedAt !== 0) {
+    if (breakerOpenedAt !== 0) console.error("[rate-limit] redis recovered; limits shared again.");
+    consecutiveFailures = 0;
+    breakerOpenedAt = 0;
+  }
+}
+
+/** Degraded = not using the shared store. For health checks and tests. */
+export function rateLimiterDegraded(): boolean {
+  return breakerOpenedAt !== 0;
+}
+
 async function getRedis(): Promise<Redis | null> {
   if (redisClient !== undefined) return redisClient;
   const url = process.env.REDIS_URL;
@@ -107,12 +171,19 @@ async function getRedis(): Promise<Redis | null> {
   try {
     const { default: RedisCtor } = await import("ioredis");
     const client = new RedisCtor(url, {
-      maxRetriesPerRequest: 2,
-      // Fail fast to the in-memory fallback rather than hang a request.
-      connectTimeout: 3000,
+      maxRetriesPerRequest: 1,
+      // The offline queue stays ON. Turning it off was tried and is WRONG: it
+      // rejects any command issued while the socket is still connecting, so
+      // every cold start failed its first calls and tripped the breaker — a
+      // freshly booted instance would skip Redis entirely for 30s. The queue is
+      // what makes a cold start work; the waiting is bounded below instead.
+      connectTimeout: 5000,
     });
     client.on("error", (e: Error) => {
-      console.error("[rate-limit] redis error:", e.message);
+      // Connection-level noise (resets, reconnect attempts) is expected and
+      // self-healing; the breaker above is what reports a real outage. Kept at
+      // debug volume so a single reset does not read as an incident.
+      if (process.env.RATE_LIMIT_DEBUG) console.error("[rate-limit] redis error:", e.message);
     });
     redisClient = client;
     return client;
@@ -121,6 +192,20 @@ async function getRedis(): Promise<Redis | null> {
     redisClient = null;
     return null;
   }
+}
+
+/**
+ * Release the shared client. The module-level client keeps the event loop
+ * alive, so anything short-lived that imports this (a script, a cron job) hangs
+ * on exit without it — and in `next dev` every module reload leaks a client
+ * whose abandoned socket the server later resets.
+ */
+export async function closeRateLimiter(): Promise<void> {
+  const client = redisClient;
+  redisClient = undefined;
+  consecutiveFailures = 0;
+  breakerOpenedAt = 0;
+  if (client) await client.quit().catch(() => client.disconnect());
 }
 
 /**
@@ -137,6 +222,10 @@ export async function checkRateLimit(
   // Namespaced once, here, so the Redis path and the in-memory fallback can
   // never disagree about which bucket a caller is consuming.
   const fullKey = namespacedKey(key);
+  // Breaker first: while it is open we must not touch the socket at all, which
+  // is the whole point — the cost being avoided is the waiting, not the bytes.
+  if (breakerIsOpen()) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
+
   const redis = await getRedis();
   if (!redis) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
 
@@ -144,13 +233,39 @@ export async function checkRateLimit(
   const now = Date.now();
   // Live long enough to fully refill, then it is safe to evict (back to full).
   const ttl = Math.max(60_000, Math.ceil(capacity / refillPerMs) * 2);
-  try {
-    const res = await redis.eval(BUCKET_LUA, 1, fullKey, capacity, refillPerMs, now, ttl);
-    return Number(res) === 1;
-  } catch (e) {
-    console.error("[rate-limit] redis eval failed, in-memory fallback:", (e as Error).message);
-    return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
-  }
+
+  // Bound the WAIT, not the queue. A warm Upstash round-trip is ~50–200ms; a
+  // cold connect is 528–1260ms and rides the offline queue. Past the deadline
+  // the caller gets the in-memory answer immediately, while the command is left
+  // to settle in the background purely so its outcome can feed the breaker.
+  //
+  // A deadline miss is NOT itself counted as a failure: on a cold start nothing
+  // is wrong, the socket is merely still opening. Only a real rejection counts,
+  // which is what distinguishes "slow" from "down" and is why an outage still
+  // opens the breaker after OPEN_AFTER of them.
+  const pending = redis
+    .eval(BUCKET_LUA, 1, fullKey, capacity, refillPerMs, now, ttl)
+    .then((res) => {
+      recordSuccess();
+      return Number(res) === 1;
+    })
+    .catch((e: Error) => {
+      recordFailure();
+      if (process.env.RATE_LIMIT_DEBUG) {
+        console.error("[rate-limit] redis eval failed, in-memory fallback:", e.message);
+      }
+      return null; // null = "no answer from the shared store"
+    });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), EVAL_DEADLINE_MS);
+  });
+
+  const res = await Promise.race([pending, deadline]);
+  if (timer) clearTimeout(timer);
+  if (res === null) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
+  return res;
 }
 
 /** The key `checkRateLimit` would use — for tests and operational tooling. */
@@ -162,6 +277,8 @@ export function rateLimitKey(key: string): string {
 export function __resetRateLimiterForTests(): void {
   if (redisClient) redisClient.disconnect();
   redisClient = undefined;
+  consecutiveFailures = 0;
+  breakerOpenedAt = 0;
   buckets.clear();
 }
 

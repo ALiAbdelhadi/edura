@@ -3,6 +3,7 @@ import {
   trustedClientIp,
   checkRateLimit,
   rateLimitKey,
+  rateLimiterDegraded,
   __resetRateLimiterForTests,
 } from "@/lib/rate-limit/token-bucket";
 
@@ -103,5 +104,63 @@ describe("M3 — per-environment key namespace", () => {
     // Production's bucket for the SAME logical key is untouched.
     vi.stubEnv("EDURA_ENV", "production");
     expect(await checkRateLimit(key, 2, 1)).toBe(true);
+  });
+});
+
+// A CLOSED port: "Redis is configured but unreachable", the outage case.
+const DEAD_REDIS = "redis://127.0.0.1:6399";
+
+/**
+ * The limiter is on the login path, which calls it TWICE (IP, then email). It
+ * had no bound on how long it would wait for an unreachable Redis: ioredis
+ * queues commands while disconnected and backs off between reconnects, so
+ * measured against the real login limits eight checks took 13.9s with the
+ * per-call cost climbing 176ms -> 3304ms without bound. A Redis outage
+ * therefore stalled every sign-in for seconds and worsened as it continued —
+ * an availability failure produced by the component protecting availability.
+ *
+ * Worse, the waiting corrupted the limit itself: the in-memory bucket refills
+ * with elapsed time, so seconds spent failing over handed the caller fresh
+ * tokens. A 6th attempt against a 5-attempt bucket was allowed purely because
+ * the failover had taken long enough to refill one.
+ */
+describe("M3 — Redis outage must fail fast, and must still enforce", () => {
+  it("bounds the wait, then serves from memory at no cost", async () => {
+    vi.stubEnv("REDIS_URL", DEAD_REDIS);
+    __resetRateLimiterForTests();
+    const key = "m3-breaker-" + Math.random().toString(36).slice(2);
+
+    // Drive it past the breaker threshold.
+    for (let i = 0; i < 4; i++) await checkRateLimit(key, 100, 6000);
+    expect(rateLimiterDegraded(), "breaker should be open after repeated failures").toBe(true);
+
+    // Once open, a call must not touch the socket at all.
+    const t = Date.now();
+    for (let i = 0; i < 10; i++) await checkRateLimit(key, 100, 6000);
+    const elapsed = Date.now() - t;
+    expect(elapsed, `10 degraded calls took ${elapsed}ms`).toBeLessThan(100);
+  }, 30_000);
+
+  it("still enforces the real login limit while degraded (5 allowed, then denied)", async () => {
+    vi.stubEnv("REDIS_URL", DEAD_REDIS);
+    __resetRateLimiterForTests();
+    const key = "m3-degraded-" + Math.random().toString(36).slice(2);
+
+    // Open the breaker on an UNRELATED key so the measured one starts full.
+    for (let i = 0; i < 4; i++) await checkRateLimit("warmup", 100, 6000);
+    expect(rateLimiterDegraded()).toBe(true);
+
+    // LOGIN_EMAIL_CAP / LOGIN_EMAIL_RATE from both apps' auth.ts.
+    const results: boolean[] = [];
+    for (let i = 0; i < 7; i++) results.push(await checkRateLimit(key, 5, 5));
+    expect(results).toEqual([true, true, true, true, true, false, false]);
+  }, 30_000);
+
+  it("reports degraded state, so an outage is observable rather than silent", async () => {
+    vi.stubEnv("REDIS_URL", ""); // no Redis configured at all
+    __resetRateLimiterForTests();
+    await checkRateLimit("m3-nodegrade", 5, 5);
+    // Unconfigured is not the same as broken: nothing to degrade FROM.
+    expect(rateLimiterDegraded()).toBe(false);
   });
 });
