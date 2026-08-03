@@ -83,11 +83,27 @@ describe("i18n parity", () => {
 
   it("no Arabic value contains Latin-script letters outside an allowlisted key", () => {
     // Catches copy that was half-translated — an Arabic sentence with an
-    // English word left inside it. Digits, punctuation and product names in
-    // Latin are legitimate, so this only looks at runs of 3+ Latin letters.
+    // English word left inside it.
+    //
+    // Technical identifiers are removed BEFORE the check rather than the whole
+    // string being allowlisted, so a genuine untranslated sentence around a
+    // legitimate term is still caught. CONSTITUTION.md §6.1 covers this case
+    // directly: a genuinely Latin string inside an Arabic page keeps the Latin
+    // form, "because the reason for the Latin form is the SCRIPT, not the
+    // language setting". Translating `PostgreSQL` or `REVOKE UPDATE, DELETE`
+    // would make the copy WRONG, not more Arabic.
+    const TECHNICAL = [
+      /REVOKE\s+UPDATE,\s*DELETE/g, // the actual SQL grant the claim rests on
+      /PostgreSQL/g,
+      /\bSQL\b/g,
+      /\bAPI\b/g,
+    ];
+    const stripTechnical = (v: string) =>
+      TECHNICAL.reduce((acc, re) => acc.replace(re, ""), v);
+
     const suspicious = [...arFlat]
       .filter(([k]) => !IDENTICAL_BY_DESIGN.has(k))
-      .filter(([, v]) => /[A-Za-z]{3,}/.test(v))
+      .filter(([, v]) => /[A-Za-z]{3,}/.test(stripTechnical(v)))
       .map(([k, v]) => `${k} = ${JSON.stringify(v)}`);
     expect(
       suspicious,

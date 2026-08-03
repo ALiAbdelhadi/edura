@@ -65,10 +65,11 @@ apps/showcase/playwright-report/
 apps/showcase/verify-out/
 apps/showcase/.flows-raw/
 
-# Showcase captures. The 2x PNGs are intermediates of `bun run capture`, and the
-# optimized AVIF/WebP are regenerated from them by `bun run optimize:shots` —
-# together ~42 MB that Phase D prunes to the handful the pages actually use.
-# The capture harness is committed and reproducible, so the bytes do not belong
-# in permanent history before we know which of them ship.
-apps/showcase/public/shots/
+# Showcase captures — the 2x PNG INTERMEDIATES only.
+#
+# `bun run capture` writes these, and `bun run optimize:shots` turns them into
+# the AVIF/WebP the site actually serves. Only the optimised output is
+# committed: it is what the pages reference, so it has to exist in a fresh
+# clone, while the ~25 MB of source PNGs can always be regenerated.
+apps/showcase/public/shots/**/*.png
 apps/showcase/.auth/

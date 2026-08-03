@@ -13,10 +13,13 @@ import path from "node:path";
  * ScrollTrigger never fires looks identical to a scene that has not been
  * scrolled to, so the failure is silent in every manual check.
  */
-// Phase 4 adds the role pages here; typed as string[] rather than a const
-// tuple so a single-entry list does not narrow `route` to a literal and make
-// the else-branch unreachable.
-const PAGES: string[] = ["/"];
+/**
+ * Every page on the site. Kept in step with `src/lib/site-map.ts` by hand,
+ * deliberately: this file is the CHECK, and a check that imports its
+ * expectations from the thing it is checking would pass for a page that was
+ * silently deleted from the nav.
+ */
+const PAGES: string[] = ["/", "/owners", "/teachers", "/students", "/parents", "/trust"];
 const LOCALES = ["ar", "en"] as const;
 const OUT = path.resolve(__dirname, "../../verify-out");
 

@@ -1,3 +1,5 @@
+import { SiteFooter } from "@/components/chrome/site-footer";
+import { SiteHeader } from "@/components/chrome/site-header";
 import { MotionBootstrap } from "@/lib/motion/motion-bootstrap";
 import { MotionProvider } from "@/lib/motion/motion-provider";
 import { isRtlLocale, routing } from "@/i18n/routing";
@@ -7,6 +9,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { IBM_Plex_Mono, IBM_Plex_Sans_Arabic, Noto_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import type { Locale } from "@/lib/i18n";
 import "../globals.css";
 
 // Same three faces as the product, same subsets. next/font self-hosts them,
@@ -91,7 +94,11 @@ export default async function LocaleLayout({
       </head>
       <body>
         <NextIntlClientProvider>
-          <MotionProvider isRtl={rtl}>{children}</MotionProvider>
+          <MotionProvider isRtl={rtl}>
+            <SiteHeader />
+            {children}
+            <SiteFooter locale={locale as Locale} />
+          </MotionProvider>
         </NextIntlClientProvider>
       </body>
     </html>

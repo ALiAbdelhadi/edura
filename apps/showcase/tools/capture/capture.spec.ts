@@ -104,6 +104,42 @@ for (const role of ROLES) {
 
             await settle(page);
 
+            // A 200 is not proof the screen WORKED. Next renders its error
+            // boundary inside a successful response, so a crashed screen looks
+            // identical to a healthy one at the HTTP layer — and the resulting
+            // screenshot went onto a marketing page showing a red warning
+            // triangle over the raw strings "shared.errorTitle /
+            // shared.errorBody / shared.errorRetry". Caught by eye, which is
+            // exactly the check that does not scale, hence this one.
+            const broken = await page.evaluate(() => {
+              // An unresolved next-intl key renders as its own dotted path and
+              // NOTHING ELSE — it is the entire text of the heading, paragraph
+              // or button that was meant to hold the copy. Matching the dotted
+              // shape anywhere in the body text instead flagged the demo email
+              // domain `edura.test` on every roster screen, so the check is
+              // anchored to a whole element's text and skips anything holding
+              // an `@`.
+              const KEY = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$/;
+              const rawKeys = [...document.querySelectorAll("h1,h2,h3,p,button,a,span,li")]
+                .map((el) => (el.textContent ?? "").trim())
+                .filter((t) => t.length > 0 && !t.includes("@") && KEY.test(t));
+
+              return {
+                rawKeys: [...new Set(rawKeys)].slice(0, 3),
+                errorBoundary: /Something went wrong|حصل خطأ غير متوقع/.test(
+                  document.body.innerText,
+                ),
+              };
+            });
+            expect(
+              broken.errorBoundary,
+              `${url} rendered the ERROR BOUNDARY — the screen crashed`,
+            ).toBe(false);
+            expect(
+              broken.rawKeys,
+              `${url} shows untranslated message keys: ${broken.rawKeys.join(", ")}`,
+            ).toEqual([]);
+
             const file = `${screen.key}.${locale}${device.suffix}.png`;
             await page.screenshot({
               path: path.join(dir, file),

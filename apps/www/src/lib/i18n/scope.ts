@@ -23,7 +23,22 @@ import en from "@/messages/en.json";
  * `theme.*` — which static analysis cannot see. Keeping all of en.json in the
  * base is what makes those safe.
  */
-const BASE_KEYS = Object.keys(en) as ReadonlyArray<string>;
+/**
+ * `shared` is added explicitly because it is NOT a top-level key of en.json —
+ * it is its own namespace file — and `app/[locale]/error.tsx` is a GLOBAL error
+ * boundary that calls `useTranslations("shared")`.
+ *
+ * Without it, the boundary rendered the raw key paths: a user who hit an error
+ * on any route with a narrower scope saw a page reading "shared.errorTitle /
+ * shared.errorBody / shared.errorRetry". The worst possible moment to lose the
+ * copy, and invisible in normal use because it only appears once something has
+ * already failed. Found by the showcase capture pipeline, which screenshotted
+ * it on /dashboard/student/wallet.
+ *
+ * Any namespace used by a component that can render on EVERY route belongs
+ * here for the same reason.
+ */
+const BASE_KEYS = [...Object.keys(en), "shared"] as ReadonlyArray<string>;
 
 function pick(
   messages: AbstractIntlMessages,

@@ -1,0 +1,4216 @@
+{
+  "widths": [
+    1440,
+    720
+  ],
+  "avif": {
+    "quality": 62,
+    "effort": 6
+  },
+  "webp": {
+    "quality": 82,
+    "effort": 6
+  },
+  "assets": [
+    {
+      "source": "assistant/grades.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19099,
+      "file": "shots/assistant/opt/grades.en.1440.avif"
+    },
+    {
+      "source": "assistant/grades.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 27140,
+      "file": "shots/assistant/opt/grades.en.1440.webp"
+    },
+    {
+      "source": "assistant/grades.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8506,
+      "file": "shots/assistant/opt/grades.en.720.avif"
+    },
+    {
+      "source": "assistant/grades.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9548,
+      "file": "shots/assistant/opt/grades.en.720.webp"
+    },
+    {
+      "source": "assistant/attendance.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 18509,
+      "file": "shots/assistant/opt/attendance.ar.1440.avif"
+    },
+    {
+      "source": "assistant/attendance.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 26586,
+      "file": "shots/assistant/opt/attendance.ar.1440.webp"
+    },
+    {
+      "source": "assistant/attendance.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7756,
+      "file": "shots/assistant/opt/attendance.ar.720.avif"
+    },
+    {
+      "source": "assistant/attendance.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9604,
+      "file": "shots/assistant/opt/attendance.ar.720.webp"
+    },
+    {
+      "source": "assistant/door.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 12533,
+      "file": "shots/assistant/opt/door.ar.1440.avif"
+    },
+    {
+      "source": "assistant/door.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 16268,
+      "file": "shots/assistant/opt/door.ar.1440.webp"
+    },
+    {
+      "source": "assistant/door.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 5110,
+      "file": "shots/assistant/opt/door.ar.720.avif"
+    },
+    {
+      "source": "assistant/door.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 5796,
+      "file": "shots/assistant/opt/door.ar.720.webp"
+    },
+    {
+      "source": "assistant/notes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 17998,
+      "file": "shots/assistant/opt/notes.ar.1440.avif"
+    },
+    {
+      "source": "assistant/notes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 23952,
+      "file": "shots/assistant/opt/notes.ar.1440.webp"
+    },
+    {
+      "source": "assistant/notes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7294,
+      "file": "shots/assistant/opt/notes.ar.720.avif"
+    },
+    {
+      "source": "assistant/notes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8374,
+      "file": "shots/assistant/opt/notes.ar.720.webp"
+    },
+    {
+      "source": "assistant/classes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34788,
+      "file": "shots/assistant/opt/classes.en.1440.avif"
+    },
+    {
+      "source": "assistant/classes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 49894,
+      "file": "shots/assistant/opt/classes.en.1440.webp"
+    },
+    {
+      "source": "assistant/classes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 13712,
+      "file": "shots/assistant/opt/classes.en.720.avif"
+    },
+    {
+      "source": "assistant/classes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 18344,
+      "file": "shots/assistant/opt/classes.en.720.webp"
+    },
+    {
+      "source": "assistant/materials.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21552,
+      "file": "shots/assistant/opt/materials.en.1440.avif"
+    },
+    {
+      "source": "assistant/materials.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 31796,
+      "file": "shots/assistant/opt/materials.en.1440.webp"
+    },
+    {
+      "source": "assistant/materials.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8993,
+      "file": "shots/assistant/opt/materials.en.720.avif"
+    },
+    {
+      "source": "assistant/materials.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11224,
+      "file": "shots/assistant/opt/materials.en.720.webp"
+    },
+    {
+      "source": "assistant/grades.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 17771,
+      "file": "shots/assistant/opt/grades.ar.1440.avif"
+    },
+    {
+      "source": "assistant/grades.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 24490,
+      "file": "shots/assistant/opt/grades.ar.1440.webp"
+    },
+    {
+      "source": "assistant/grades.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8075,
+      "file": "shots/assistant/opt/grades.ar.720.avif"
+    },
+    {
+      "source": "assistant/grades.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8766,
+      "file": "shots/assistant/opt/grades.ar.720.webp"
+    },
+    {
+      "source": "assistant/attendance.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 20648,
+      "file": "shots/assistant/opt/attendance.en.1440.avif"
+    },
+    {
+      "source": "assistant/attendance.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 30504,
+      "file": "shots/assistant/opt/attendance.en.1440.webp"
+    },
+    {
+      "source": "assistant/attendance.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8435,
+      "file": "shots/assistant/opt/attendance.en.720.avif"
+    },
+    {
+      "source": "assistant/attendance.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10942,
+      "file": "shots/assistant/opt/attendance.en.720.webp"
+    },
+    {
+      "source": "assistant/door.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 13774,
+      "file": "shots/assistant/opt/door.en.1440.avif"
+    },
+    {
+      "source": "assistant/door.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 18358,
+      "file": "shots/assistant/opt/door.en.1440.webp"
+    },
+    {
+      "source": "assistant/door.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 5328,
+      "file": "shots/assistant/opt/door.en.720.avif"
+    },
+    {
+      "source": "assistant/door.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 6510,
+      "file": "shots/assistant/opt/door.en.720.webp"
+    },
+    {
+      "source": "assistant/notes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 18508,
+      "file": "shots/assistant/opt/notes.en.1440.avif"
+    },
+    {
+      "source": "assistant/notes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 25596,
+      "file": "shots/assistant/opt/notes.en.1440.webp"
+    },
+    {
+      "source": "assistant/notes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7411,
+      "file": "shots/assistant/opt/notes.en.720.avif"
+    },
+    {
+      "source": "assistant/notes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9256,
+      "file": "shots/assistant/opt/notes.en.720.webp"
+    },
+    {
+      "source": "assistant/classes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30736,
+      "file": "shots/assistant/opt/classes.ar.1440.avif"
+    },
+    {
+      "source": "assistant/classes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 43564,
+      "file": "shots/assistant/opt/classes.ar.1440.webp"
+    },
+    {
+      "source": "assistant/classes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 12669,
+      "file": "shots/assistant/opt/classes.ar.720.avif"
+    },
+    {
+      "source": "assistant/classes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 16560,
+      "file": "shots/assistant/opt/classes.ar.720.webp"
+    },
+    {
+      "source": "assistant/materials.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19710,
+      "file": "shots/assistant/opt/materials.ar.1440.avif"
+    },
+    {
+      "source": "assistant/materials.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 27874,
+      "file": "shots/assistant/opt/materials.ar.1440.webp"
+    },
+    {
+      "source": "assistant/materials.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8388,
+      "file": "shots/assistant/opt/materials.ar.720.avif"
+    },
+    {
+      "source": "assistant/materials.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9826,
+      "file": "shots/assistant/opt/materials.ar.720.webp"
+    },
+    {
+      "source": "assistant/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19778,
+      "file": "shots/assistant/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "assistant/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 28304,
+      "file": "shots/assistant/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "assistant/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8154,
+      "file": "shots/assistant/opt/home.ar.720.avif"
+    },
+    {
+      "source": "assistant/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9832,
+      "file": "shots/assistant/opt/home.ar.720.webp"
+    },
+    {
+      "source": "assistant/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21982,
+      "file": "shots/assistant/opt/home.en.1440.avif"
+    },
+    {
+      "source": "assistant/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 31702,
+      "file": "shots/assistant/opt/home.en.1440.webp"
+    },
+    {
+      "source": "assistant/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8850,
+      "file": "shots/assistant/opt/home.en.720.avif"
+    },
+    {
+      "source": "assistant/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11166,
+      "file": "shots/assistant/opt/home.en.720.webp"
+    },
+    {
+      "source": "student/home.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35246,
+      "file": "shots/student/opt/home.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/home.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 60136,
+      "file": "shots/student/opt/home.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/home.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25941,
+      "file": "shots/student/opt/home.en.mobile.720.avif"
+    },
+    {
+      "source": "student/home.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 34514,
+      "file": "shots/student/opt/home.en.mobile.720.webp"
+    },
+    {
+      "source": "student/schedule.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26069,
+      "file": "shots/student/opt/schedule.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/schedule.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 44392,
+      "file": "shots/student/opt/schedule.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/schedule.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19355,
+      "file": "shots/student/opt/schedule.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/schedule.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25086,
+      "file": "shots/student/opt/schedule.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/courses.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26074,
+      "file": "shots/student/opt/courses.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/courses.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46608,
+      "file": "shots/student/opt/courses.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/courses.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20095,
+      "file": "shots/student/opt/courses.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/courses.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26990,
+      "file": "shots/student/opt/courses.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/grades.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26173,
+      "file": "shots/student/opt/grades.en.1440.avif"
+    },
+    {
+      "source": "student/grades.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 45172,
+      "file": "shots/student/opt/grades.en.1440.webp"
+    },
+    {
+      "source": "student/grades.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19376,
+      "file": "shots/student/opt/grades.en.720.avif"
+    },
+    {
+      "source": "student/grades.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25218,
+      "file": "shots/student/opt/grades.en.720.webp"
+    },
+    {
+      "source": "student/attendance.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34513,
+      "file": "shots/student/opt/attendance.ar.1440.avif"
+    },
+    {
+      "source": "student/attendance.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 61954,
+      "file": "shots/student/opt/attendance.ar.1440.webp"
+    },
+    {
+      "source": "student/attendance.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24147,
+      "file": "shots/student/opt/attendance.ar.720.avif"
+    },
+    {
+      "source": "student/attendance.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 36884,
+      "file": "shots/student/opt/attendance.ar.720.webp"
+    },
+    {
+      "source": "student/subjects.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28478,
+      "file": "shots/student/opt/subjects.en.1440.avif"
+    },
+    {
+      "source": "student/subjects.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51166,
+      "file": "shots/student/opt/subjects.en.1440.webp"
+    },
+    {
+      "source": "student/subjects.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21595,
+      "file": "shots/student/opt/subjects.en.720.avif"
+    },
+    {
+      "source": "student/subjects.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29484,
+      "file": "shots/student/opt/subjects.en.720.webp"
+    },
+    {
+      "source": "student/grades.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26173,
+      "file": "shots/student/opt/grades.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/grades.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 45172,
+      "file": "shots/student/opt/grades.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/grades.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19376,
+      "file": "shots/student/opt/grades.en.mobile.720.avif"
+    },
+    {
+      "source": "student/grades.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25218,
+      "file": "shots/student/opt/grades.en.mobile.720.webp"
+    },
+    {
+      "source": "student/wallet.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 8706,
+      "file": "shots/student/opt/wallet.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/wallet.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17330,
+      "file": "shots/student/opt/wallet.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/wallet.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6409,
+      "file": "shots/student/opt/wallet.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/wallet.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9580,
+      "file": "shots/student/opt/wallet.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/wallet.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 8707,
+      "file": "shots/student/opt/wallet.en.1440.avif"
+    },
+    {
+      "source": "student/wallet.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17330,
+      "file": "shots/student/opt/wallet.en.1440.webp"
+    },
+    {
+      "source": "student/wallet.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6406,
+      "file": "shots/student/opt/wallet.en.720.avif"
+    },
+    {
+      "source": "student/wallet.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9596,
+      "file": "shots/student/opt/wallet.en.720.webp"
+    },
+    {
+      "source": "student/courses.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26074,
+      "file": "shots/student/opt/courses.ar.1440.avif"
+    },
+    {
+      "source": "student/courses.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46608,
+      "file": "shots/student/opt/courses.ar.1440.webp"
+    },
+    {
+      "source": "student/courses.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20095,
+      "file": "shots/student/opt/courses.ar.720.avif"
+    },
+    {
+      "source": "student/courses.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26990,
+      "file": "shots/student/opt/courses.ar.720.webp"
+    },
+    {
+      "source": "student/materials.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 41501,
+      "file": "shots/student/opt/materials.en.1440.avif"
+    },
+    {
+      "source": "student/materials.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 70652,
+      "file": "shots/student/opt/materials.en.1440.webp"
+    },
+    {
+      "source": "student/materials.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 31101,
+      "file": "shots/student/opt/materials.en.720.avif"
+    },
+    {
+      "source": "student/materials.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 40456,
+      "file": "shots/student/opt/materials.en.720.webp"
+    },
+    {
+      "source": "student/subjects.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26074,
+      "file": "shots/student/opt/subjects.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/subjects.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46608,
+      "file": "shots/student/opt/subjects.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/subjects.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20095,
+      "file": "shots/student/opt/subjects.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/subjects.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26990,
+      "file": "shots/student/opt/subjects.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/grades.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22559,
+      "file": "shots/student/opt/grades.ar.1440.avif"
+    },
+    {
+      "source": "student/grades.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 39034,
+      "file": "shots/student/opt/grades.ar.1440.webp"
+    },
+    {
+      "source": "student/grades.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 16812,
+      "file": "shots/student/opt/grades.ar.720.avif"
+    },
+    {
+      "source": "student/grades.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 22286,
+      "file": "shots/student/opt/grades.ar.720.webp"
+    },
+    {
+      "source": "student/attendance.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 40528,
+      "file": "shots/student/opt/attendance.en.1440.avif"
+    },
+    {
+      "source": "student/attendance.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 71666,
+      "file": "shots/student/opt/attendance.en.1440.webp"
+    },
+    {
+      "source": "student/attendance.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 28252,
+      "file": "shots/student/opt/attendance.en.720.avif"
+    },
+    {
+      "source": "student/attendance.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 42488,
+      "file": "shots/student/opt/attendance.en.720.webp"
+    },
+    {
+      "source": "student/subjects.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26074,
+      "file": "shots/student/opt/subjects.ar.1440.avif"
+    },
+    {
+      "source": "student/subjects.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46608,
+      "file": "shots/student/opt/subjects.ar.1440.webp"
+    },
+    {
+      "source": "student/subjects.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20095,
+      "file": "shots/student/opt/subjects.ar.720.avif"
+    },
+    {
+      "source": "student/subjects.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26990,
+      "file": "shots/student/opt/subjects.ar.720.webp"
+    },
+    {
+      "source": "student/family.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32567,
+      "file": "shots/student/opt/family.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/family.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 59030,
+      "file": "shots/student/opt/family.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/family.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24732,
+      "file": "shots/student/opt/family.en.mobile.720.avif"
+    },
+    {
+      "source": "student/family.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 33476,
+      "file": "shots/student/opt/family.en.mobile.720.webp"
+    },
+    {
+      "source": "student/attendance.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 40528,
+      "file": "shots/student/opt/attendance.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/attendance.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 71666,
+      "file": "shots/student/opt/attendance.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/attendance.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 28252,
+      "file": "shots/student/opt/attendance.en.mobile.720.avif"
+    },
+    {
+      "source": "student/attendance.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 42488,
+      "file": "shots/student/opt/attendance.en.mobile.720.webp"
+    },
+    {
+      "source": "student/materials.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 38687,
+      "file": "shots/student/opt/materials.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/materials.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 63388,
+      "file": "shots/student/opt/materials.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/materials.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 28148,
+      "file": "shots/student/opt/materials.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/materials.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 36956,
+      "file": "shots/student/opt/materials.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/wallet.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 8706,
+      "file": "shots/student/opt/wallet.ar.1440.avif"
+    },
+    {
+      "source": "student/wallet.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17330,
+      "file": "shots/student/opt/wallet.ar.1440.webp"
+    },
+    {
+      "source": "student/wallet.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6409,
+      "file": "shots/student/opt/wallet.ar.720.avif"
+    },
+    {
+      "source": "student/wallet.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9580,
+      "file": "shots/student/opt/wallet.ar.720.webp"
+    },
+    {
+      "source": "student/materials.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 38687,
+      "file": "shots/student/opt/materials.ar.1440.avif"
+    },
+    {
+      "source": "student/materials.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 63388,
+      "file": "shots/student/opt/materials.ar.1440.webp"
+    },
+    {
+      "source": "student/materials.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 28148,
+      "file": "shots/student/opt/materials.ar.720.avif"
+    },
+    {
+      "source": "student/materials.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 36956,
+      "file": "shots/student/opt/materials.ar.720.webp"
+    },
+    {
+      "source": "student/courses.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28478,
+      "file": "shots/student/opt/courses.en.1440.avif"
+    },
+    {
+      "source": "student/courses.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51166,
+      "file": "shots/student/opt/courses.en.1440.webp"
+    },
+    {
+      "source": "student/courses.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21595,
+      "file": "shots/student/opt/courses.en.720.avif"
+    },
+    {
+      "source": "student/courses.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29484,
+      "file": "shots/student/opt/courses.en.720.webp"
+    },
+    {
+      "source": "student/family.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31175,
+      "file": "shots/student/opt/family.ar.1440.avif"
+    },
+    {
+      "source": "student/family.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 54078,
+      "file": "shots/student/opt/family.ar.1440.webp"
+    },
+    {
+      "source": "student/family.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23448,
+      "file": "shots/student/opt/family.ar.720.avif"
+    },
+    {
+      "source": "student/family.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30252,
+      "file": "shots/student/opt/family.ar.720.webp"
+    },
+    {
+      "source": "student/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35323,
+      "file": "shots/student/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "student/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58172,
+      "file": "shots/student/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "student/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25601,
+      "file": "shots/student/opt/home.ar.720.avif"
+    },
+    {
+      "source": "student/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32758,
+      "file": "shots/student/opt/home.ar.720.webp"
+    },
+    {
+      "source": "student/subjects.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28478,
+      "file": "shots/student/opt/subjects.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/subjects.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51166,
+      "file": "shots/student/opt/subjects.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/subjects.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21595,
+      "file": "shots/student/opt/subjects.en.mobile.720.avif"
+    },
+    {
+      "source": "student/subjects.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29484,
+      "file": "shots/student/opt/subjects.en.mobile.720.webp"
+    },
+    {
+      "source": "student/family.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31175,
+      "file": "shots/student/opt/family.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/family.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 54078,
+      "file": "shots/student/opt/family.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/family.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23448,
+      "file": "shots/student/opt/family.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/family.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30252,
+      "file": "shots/student/opt/family.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/attendance.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34513,
+      "file": "shots/student/opt/attendance.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/attendance.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 61954,
+      "file": "shots/student/opt/attendance.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/attendance.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24147,
+      "file": "shots/student/opt/attendance.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/attendance.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 36884,
+      "file": "shots/student/opt/attendance.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/materials.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 41501,
+      "file": "shots/student/opt/materials.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/materials.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 70652,
+      "file": "shots/student/opt/materials.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/materials.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 31101,
+      "file": "shots/student/opt/materials.en.mobile.720.avif"
+    },
+    {
+      "source": "student/materials.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 40456,
+      "file": "shots/student/opt/materials.en.mobile.720.webp"
+    },
+    {
+      "source": "student/schedule.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25927,
+      "file": "shots/student/opt/schedule.en.1440.avif"
+    },
+    {
+      "source": "student/schedule.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 43836,
+      "file": "shots/student/opt/schedule.en.1440.webp"
+    },
+    {
+      "source": "student/schedule.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19198,
+      "file": "shots/student/opt/schedule.en.720.avif"
+    },
+    {
+      "source": "student/schedule.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25312,
+      "file": "shots/student/opt/schedule.en.720.webp"
+    },
+    {
+      "source": "student/family.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32567,
+      "file": "shots/student/opt/family.en.1440.avif"
+    },
+    {
+      "source": "student/family.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 59030,
+      "file": "shots/student/opt/family.en.1440.webp"
+    },
+    {
+      "source": "student/family.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24732,
+      "file": "shots/student/opt/family.en.720.avif"
+    },
+    {
+      "source": "student/family.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 33476,
+      "file": "shots/student/opt/family.en.720.webp"
+    },
+    {
+      "source": "student/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35246,
+      "file": "shots/student/opt/home.en.1440.avif"
+    },
+    {
+      "source": "student/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 60136,
+      "file": "shots/student/opt/home.en.1440.webp"
+    },
+    {
+      "source": "student/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25941,
+      "file": "shots/student/opt/home.en.720.avif"
+    },
+    {
+      "source": "student/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 34514,
+      "file": "shots/student/opt/home.en.720.webp"
+    },
+    {
+      "source": "student/home.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35323,
+      "file": "shots/student/opt/home.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/home.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58172,
+      "file": "shots/student/opt/home.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/home.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25601,
+      "file": "shots/student/opt/home.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/home.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32758,
+      "file": "shots/student/opt/home.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/schedule.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25927,
+      "file": "shots/student/opt/schedule.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/schedule.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 43836,
+      "file": "shots/student/opt/schedule.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/schedule.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19198,
+      "file": "shots/student/opt/schedule.en.mobile.720.avif"
+    },
+    {
+      "source": "student/schedule.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25312,
+      "file": "shots/student/opt/schedule.en.mobile.720.webp"
+    },
+    {
+      "source": "student/courses.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28478,
+      "file": "shots/student/opt/courses.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/courses.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51166,
+      "file": "shots/student/opt/courses.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/courses.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21595,
+      "file": "shots/student/opt/courses.en.mobile.720.avif"
+    },
+    {
+      "source": "student/courses.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29484,
+      "file": "shots/student/opt/courses.en.mobile.720.webp"
+    },
+    {
+      "source": "student/grades.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22559,
+      "file": "shots/student/opt/grades.ar.mobile.1440.avif"
+    },
+    {
+      "source": "student/grades.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 39034,
+      "file": "shots/student/opt/grades.ar.mobile.1440.webp"
+    },
+    {
+      "source": "student/grades.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 16812,
+      "file": "shots/student/opt/grades.ar.mobile.720.avif"
+    },
+    {
+      "source": "student/grades.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 22286,
+      "file": "shots/student/opt/grades.ar.mobile.720.webp"
+    },
+    {
+      "source": "student/wallet.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 8707,
+      "file": "shots/student/opt/wallet.en.mobile.1440.avif"
+    },
+    {
+      "source": "student/wallet.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17330,
+      "file": "shots/student/opt/wallet.en.mobile.1440.webp"
+    },
+    {
+      "source": "student/wallet.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6406,
+      "file": "shots/student/opt/wallet.en.mobile.720.avif"
+    },
+    {
+      "source": "student/wallet.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9596,
+      "file": "shots/student/opt/wallet.en.mobile.720.webp"
+    },
+    {
+      "source": "student/schedule.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26069,
+      "file": "shots/student/opt/schedule.ar.1440.avif"
+    },
+    {
+      "source": "student/schedule.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 44392,
+      "file": "shots/student/opt/schedule.ar.1440.webp"
+    },
+    {
+      "source": "student/schedule.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19355,
+      "file": "shots/student/opt/schedule.ar.720.avif"
+    },
+    {
+      "source": "student/schedule.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25086,
+      "file": "shots/student/opt/schedule.ar.720.webp"
+    },
+    {
+      "source": "admin/fees.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26627,
+      "file": "shots/admin/opt/fees.en.1440.avif"
+    },
+    {
+      "source": "admin/fees.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 36734,
+      "file": "shots/admin/opt/fees.en.1440.webp"
+    },
+    {
+      "source": "admin/fees.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 10272,
+      "file": "shots/admin/opt/fees.en.720.avif"
+    },
+    {
+      "source": "admin/fees.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 12198,
+      "file": "shots/admin/opt/fees.en.720.webp"
+    },
+    {
+      "source": "admin/students.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 54646,
+      "file": "shots/admin/opt/students.en.1440.avif"
+    },
+    {
+      "source": "admin/students.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 71048,
+      "file": "shots/admin/opt/students.en.1440.webp"
+    },
+    {
+      "source": "admin/students.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20325,
+      "file": "shots/admin/opt/students.en.720.avif"
+    },
+    {
+      "source": "admin/students.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 24456,
+      "file": "shots/admin/opt/students.en.720.webp"
+    },
+    {
+      "source": "admin/notes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 23240,
+      "file": "shots/admin/opt/notes.ar.1440.avif"
+    },
+    {
+      "source": "admin/notes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 31080,
+      "file": "shots/admin/opt/notes.ar.1440.webp"
+    },
+    {
+      "source": "admin/notes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9368,
+      "file": "shots/admin/opt/notes.ar.720.avif"
+    },
+    {
+      "source": "admin/notes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10786,
+      "file": "shots/admin/opt/notes.ar.720.webp"
+    },
+    {
+      "source": "admin/classes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31480,
+      "file": "shots/admin/opt/classes.en.1440.avif"
+    },
+    {
+      "source": "admin/classes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 42426,
+      "file": "shots/admin/opt/classes.en.1440.webp"
+    },
+    {
+      "source": "admin/classes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 12217,
+      "file": "shots/admin/opt/classes.en.720.avif"
+    },
+    {
+      "source": "admin/classes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 15354,
+      "file": "shots/admin/opt/classes.en.720.webp"
+    },
+    {
+      "source": "admin/fees.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24172,
+      "file": "shots/admin/opt/fees.ar.1440.avif"
+    },
+    {
+      "source": "admin/fees.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 33186,
+      "file": "shots/admin/opt/fees.ar.1440.webp"
+    },
+    {
+      "source": "admin/fees.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9644,
+      "file": "shots/admin/opt/fees.ar.720.avif"
+    },
+    {
+      "source": "admin/fees.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11004,
+      "file": "shots/admin/opt/fees.ar.720.webp"
+    },
+    {
+      "source": "admin/students.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 51788,
+      "file": "shots/admin/opt/students.ar.1440.avif"
+    },
+    {
+      "source": "admin/students.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 66054,
+      "file": "shots/admin/opt/students.ar.1440.webp"
+    },
+    {
+      "source": "admin/students.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19169,
+      "file": "shots/admin/opt/students.ar.720.avif"
+    },
+    {
+      "source": "admin/students.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 22922,
+      "file": "shots/admin/opt/students.ar.720.webp"
+    },
+    {
+      "source": "admin/notes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 23631,
+      "file": "shots/admin/opt/notes.en.1440.avif"
+    },
+    {
+      "source": "admin/notes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 32540,
+      "file": "shots/admin/opt/notes.en.1440.webp"
+    },
+    {
+      "source": "admin/notes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9242,
+      "file": "shots/admin/opt/notes.en.720.avif"
+    },
+    {
+      "source": "admin/notes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11616,
+      "file": "shots/admin/opt/notes.en.720.webp"
+    },
+    {
+      "source": "admin/classes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30194,
+      "file": "shots/admin/opt/classes.ar.1440.avif"
+    },
+    {
+      "source": "admin/classes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 40456,
+      "file": "shots/admin/opt/classes.ar.1440.webp"
+    },
+    {
+      "source": "admin/classes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 12180,
+      "file": "shots/admin/opt/classes.ar.720.avif"
+    },
+    {
+      "source": "admin/classes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 14574,
+      "file": "shots/admin/opt/classes.ar.720.webp"
+    },
+    {
+      "source": "admin/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26806,
+      "file": "shots/admin/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "admin/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 36620,
+      "file": "shots/admin/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "admin/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 10854,
+      "file": "shots/admin/opt/home.ar.720.avif"
+    },
+    {
+      "source": "admin/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 13208,
+      "file": "shots/admin/opt/home.ar.720.webp"
+    },
+    {
+      "source": "admin/expenses.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 16051,
+      "file": "shots/admin/opt/expenses.en.1440.avif"
+    },
+    {
+      "source": "admin/expenses.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 22794,
+      "file": "shots/admin/opt/expenses.en.1440.webp"
+    },
+    {
+      "source": "admin/expenses.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6332,
+      "file": "shots/admin/opt/expenses.en.720.avif"
+    },
+    {
+      "source": "admin/expenses.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8026,
+      "file": "shots/admin/opt/expenses.en.720.webp"
+    },
+    {
+      "source": "admin/teachers.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 23984,
+      "file": "shots/admin/opt/teachers.en.1440.avif"
+    },
+    {
+      "source": "admin/teachers.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 34126,
+      "file": "shots/admin/opt/teachers.en.1440.webp"
+    },
+    {
+      "source": "admin/teachers.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9217,
+      "file": "shots/admin/opt/teachers.en.720.avif"
+    },
+    {
+      "source": "admin/teachers.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11244,
+      "file": "shots/admin/opt/teachers.en.720.webp"
+    },
+    {
+      "source": "admin/checkin.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 15078,
+      "file": "shots/admin/opt/checkin.en.1440.avif"
+    },
+    {
+      "source": "admin/checkin.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 22530,
+      "file": "shots/admin/opt/checkin.en.1440.webp"
+    },
+    {
+      "source": "admin/checkin.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6315,
+      "file": "shots/admin/opt/checkin.en.720.avif"
+    },
+    {
+      "source": "admin/checkin.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8058,
+      "file": "shots/admin/opt/checkin.en.720.webp"
+    },
+    {
+      "source": "admin/rooms.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24026,
+      "file": "shots/admin/opt/rooms.ar.1440.avif"
+    },
+    {
+      "source": "admin/rooms.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 32606,
+      "file": "shots/admin/opt/rooms.ar.1440.webp"
+    },
+    {
+      "source": "admin/rooms.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 10039,
+      "file": "shots/admin/opt/rooms.ar.720.avif"
+    },
+    {
+      "source": "admin/rooms.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 12148,
+      "file": "shots/admin/opt/rooms.ar.720.webp"
+    },
+    {
+      "source": "admin/reports.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25715,
+      "file": "shots/admin/opt/reports.en.1440.avif"
+    },
+    {
+      "source": "admin/reports.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 36062,
+      "file": "shots/admin/opt/reports.en.1440.webp"
+    },
+    {
+      "source": "admin/reports.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9873,
+      "file": "shots/admin/opt/reports.en.720.avif"
+    },
+    {
+      "source": "admin/reports.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11804,
+      "file": "shots/admin/opt/reports.en.720.webp"
+    },
+    {
+      "source": "admin/enrollment-requests.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 14498,
+      "file": "shots/admin/opt/enrollment-requests.ar.1440.avif"
+    },
+    {
+      "source": "admin/enrollment-requests.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 20102,
+      "file": "shots/admin/opt/enrollment-requests.ar.1440.webp"
+    },
+    {
+      "source": "admin/enrollment-requests.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6148,
+      "file": "shots/admin/opt/enrollment-requests.ar.720.avif"
+    },
+    {
+      "source": "admin/enrollment-requests.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7252,
+      "file": "shots/admin/opt/enrollment-requests.ar.720.webp"
+    },
+    {
+      "source": "admin/staff.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31512,
+      "file": "shots/admin/opt/staff.en.1440.avif"
+    },
+    {
+      "source": "admin/staff.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 44416,
+      "file": "shots/admin/opt/staff.en.1440.webp"
+    },
+    {
+      "source": "admin/staff.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 12385,
+      "file": "shots/admin/opt/staff.en.720.avif"
+    },
+    {
+      "source": "admin/staff.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 15136,
+      "file": "shots/admin/opt/staff.en.720.webp"
+    },
+    {
+      "source": "admin/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31823,
+      "file": "shots/admin/opt/home.en.1440.avif"
+    },
+    {
+      "source": "admin/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 44970,
+      "file": "shots/admin/opt/home.en.1440.webp"
+    },
+    {
+      "source": "admin/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 12508,
+      "file": "shots/admin/opt/home.en.720.avif"
+    },
+    {
+      "source": "admin/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 15590,
+      "file": "shots/admin/opt/home.en.720.webp"
+    },
+    {
+      "source": "admin/expenses.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 15157,
+      "file": "shots/admin/opt/expenses.ar.1440.avif"
+    },
+    {
+      "source": "admin/expenses.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 20864,
+      "file": "shots/admin/opt/expenses.ar.1440.webp"
+    },
+    {
+      "source": "admin/expenses.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6336,
+      "file": "shots/admin/opt/expenses.ar.720.avif"
+    },
+    {
+      "source": "admin/expenses.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7528,
+      "file": "shots/admin/opt/expenses.ar.720.webp"
+    },
+    {
+      "source": "admin/teachers.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22037,
+      "file": "shots/admin/opt/teachers.ar.1440.avif"
+    },
+    {
+      "source": "admin/teachers.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 30376,
+      "file": "shots/admin/opt/teachers.ar.1440.webp"
+    },
+    {
+      "source": "admin/teachers.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8780,
+      "file": "shots/admin/opt/teachers.ar.720.avif"
+    },
+    {
+      "source": "admin/teachers.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10338,
+      "file": "shots/admin/opt/teachers.ar.720.webp"
+    },
+    {
+      "source": "admin/checkin.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 14985,
+      "file": "shots/admin/opt/checkin.ar.1440.avif"
+    },
+    {
+      "source": "admin/checkin.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 20984,
+      "file": "shots/admin/opt/checkin.ar.1440.webp"
+    },
+    {
+      "source": "admin/checkin.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6494,
+      "file": "shots/admin/opt/checkin.ar.720.avif"
+    },
+    {
+      "source": "admin/checkin.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7846,
+      "file": "shots/admin/opt/checkin.ar.720.webp"
+    },
+    {
+      "source": "admin/rooms.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26766,
+      "file": "shots/admin/opt/rooms.en.1440.avif"
+    },
+    {
+      "source": "admin/rooms.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 36410,
+      "file": "shots/admin/opt/rooms.en.1440.webp"
+    },
+    {
+      "source": "admin/rooms.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 10482,
+      "file": "shots/admin/opt/rooms.en.720.avif"
+    },
+    {
+      "source": "admin/rooms.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 12876,
+      "file": "shots/admin/opt/rooms.en.720.webp"
+    },
+    {
+      "source": "admin/reports.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 23742,
+      "file": "shots/admin/opt/reports.ar.1440.avif"
+    },
+    {
+      "source": "admin/reports.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 32504,
+      "file": "shots/admin/opt/reports.ar.1440.webp"
+    },
+    {
+      "source": "admin/reports.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9950,
+      "file": "shots/admin/opt/reports.ar.720.avif"
+    },
+    {
+      "source": "admin/reports.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11092,
+      "file": "shots/admin/opt/reports.ar.720.webp"
+    },
+    {
+      "source": "admin/enrollment-requests.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 16442,
+      "file": "shots/admin/opt/enrollment-requests.en.1440.avif"
+    },
+    {
+      "source": "admin/enrollment-requests.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 23580,
+      "file": "shots/admin/opt/enrollment-requests.en.1440.webp"
+    },
+    {
+      "source": "admin/enrollment-requests.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6558,
+      "file": "shots/admin/opt/enrollment-requests.en.720.avif"
+    },
+    {
+      "source": "admin/enrollment-requests.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8354,
+      "file": "shots/admin/opt/enrollment-requests.en.720.webp"
+    },
+    {
+      "source": "admin/staff.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28902,
+      "file": "shots/admin/opt/staff.ar.1440.avif"
+    },
+    {
+      "source": "admin/staff.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 39508,
+      "file": "shots/admin/opt/staff.ar.1440.webp"
+    },
+    {
+      "source": "admin/staff.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 11602,
+      "file": "shots/admin/opt/staff.ar.720.avif"
+    },
+    {
+      "source": "admin/staff.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 14160,
+      "file": "shots/admin/opt/staff.ar.720.webp"
+    },
+    {
+      "source": "parent/home.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34509,
+      "file": "shots/parent/opt/home.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/home.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 61506,
+      "file": "shots/parent/opt/home.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/home.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25332,
+      "file": "shots/parent/opt/home.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/home.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 35514,
+      "file": "shots/parent/opt/home.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/pay.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32694,
+      "file": "shots/parent/opt/pay.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/pay.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 56738,
+      "file": "shots/parent/opt/pay.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/pay.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24919,
+      "file": "shots/parent/opt/pay.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/pay.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32554,
+      "file": "shots/parent/opt/pay.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/oversight.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 27259,
+      "file": "shots/parent/opt/oversight.ar.1440.avif"
+    },
+    {
+      "source": "parent/oversight.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47904,
+      "file": "shots/parent/opt/oversight.ar.1440.webp"
+    },
+    {
+      "source": "parent/oversight.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20392,
+      "file": "shots/parent/opt/oversight.ar.720.avif"
+    },
+    {
+      "source": "parent/oversight.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 27206,
+      "file": "shots/parent/opt/oversight.ar.720.webp"
+    },
+    {
+      "source": "parent/attendance.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 37171,
+      "file": "shots/parent/opt/attendance.ar.1440.avif"
+    },
+    {
+      "source": "parent/attendance.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 68074,
+      "file": "shots/parent/opt/attendance.ar.1440.webp"
+    },
+    {
+      "source": "parent/attendance.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 27033,
+      "file": "shots/parent/opt/attendance.ar.720.avif"
+    },
+    {
+      "source": "parent/attendance.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 39536,
+      "file": "shots/parent/opt/attendance.ar.720.webp"
+    },
+    {
+      "source": "parent/fees.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35411,
+      "file": "shots/parent/opt/fees.en.1440.avif"
+    },
+    {
+      "source": "parent/fees.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58380,
+      "file": "shots/parent/opt/fees.en.1440.webp"
+    },
+    {
+      "source": "parent/fees.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 26004,
+      "file": "shots/parent/opt/fees.en.720.avif"
+    },
+    {
+      "source": "parent/fees.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 33882,
+      "file": "shots/parent/opt/fees.en.720.webp"
+    },
+    {
+      "source": "parent/progress.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30845,
+      "file": "shots/parent/opt/progress.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/progress.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 53980,
+      "file": "shots/parent/opt/progress.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/progress.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23438,
+      "file": "shots/parent/opt/progress.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/progress.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30758,
+      "file": "shots/parent/opt/progress.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/wallet.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24924,
+      "file": "shots/parent/opt/wallet.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/wallet.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 45044,
+      "file": "shots/parent/opt/wallet.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/wallet.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 18869,
+      "file": "shots/parent/opt/wallet.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/wallet.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25824,
+      "file": "shots/parent/opt/wallet.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/pay.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 38516,
+      "file": "shots/parent/opt/pay.en.1440.avif"
+    },
+    {
+      "source": "parent/pay.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 69554,
+      "file": "shots/parent/opt/pay.en.1440.webp"
+    },
+    {
+      "source": "parent/pay.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 30254,
+      "file": "shots/parent/opt/pay.en.720.avif"
+    },
+    {
+      "source": "parent/pay.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 40202,
+      "file": "shots/parent/opt/pay.en.720.webp"
+    },
+    {
+      "source": "parent/wallet.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24808,
+      "file": "shots/parent/opt/wallet.en.1440.avif"
+    },
+    {
+      "source": "parent/wallet.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47792,
+      "file": "shots/parent/opt/wallet.en.1440.webp"
+    },
+    {
+      "source": "parent/wallet.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20844,
+      "file": "shots/parent/opt/wallet.en.720.avif"
+    },
+    {
+      "source": "parent/wallet.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 28374,
+      "file": "shots/parent/opt/wallet.en.720.webp"
+    },
+    {
+      "source": "parent/oversight.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32986,
+      "file": "shots/parent/opt/oversight.en.1440.avif"
+    },
+    {
+      "source": "parent/oversight.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58780,
+      "file": "shots/parent/opt/oversight.en.1440.webp"
+    },
+    {
+      "source": "parent/oversight.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25078,
+      "file": "shots/parent/opt/oversight.en.720.avif"
+    },
+    {
+      "source": "parent/oversight.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 34116,
+      "file": "shots/parent/opt/oversight.en.720.webp"
+    },
+    {
+      "source": "parent/oversight.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32986,
+      "file": "shots/parent/opt/oversight.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/oversight.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58780,
+      "file": "shots/parent/opt/oversight.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/oversight.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25078,
+      "file": "shots/parent/opt/oversight.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/oversight.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 34116,
+      "file": "shots/parent/opt/oversight.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/attendance.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 42432,
+      "file": "shots/parent/opt/attendance.en.1440.avif"
+    },
+    {
+      "source": "parent/attendance.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 78650,
+      "file": "shots/parent/opt/attendance.en.1440.webp"
+    },
+    {
+      "source": "parent/attendance.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 31617,
+      "file": "shots/parent/opt/attendance.en.720.avif"
+    },
+    {
+      "source": "parent/attendance.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 46226,
+      "file": "shots/parent/opt/attendance.en.720.webp"
+    },
+    {
+      "source": "parent/fees.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34862,
+      "file": "shots/parent/opt/fees.ar.1440.avif"
+    },
+    {
+      "source": "parent/fees.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 56240,
+      "file": "shots/parent/opt/fees.ar.1440.webp"
+    },
+    {
+      "source": "parent/fees.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24843,
+      "file": "shots/parent/opt/fees.ar.720.avif"
+    },
+    {
+      "source": "parent/fees.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32298,
+      "file": "shots/parent/opt/fees.ar.720.webp"
+    },
+    {
+      "source": "parent/fees.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34862,
+      "file": "shots/parent/opt/fees.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/fees.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 56240,
+      "file": "shots/parent/opt/fees.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/fees.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24843,
+      "file": "shots/parent/opt/fees.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/fees.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32298,
+      "file": "shots/parent/opt/fees.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/attendance.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 42432,
+      "file": "shots/parent/opt/attendance.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/attendance.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 78650,
+      "file": "shots/parent/opt/attendance.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/attendance.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 31617,
+      "file": "shots/parent/opt/attendance.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/attendance.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 46226,
+      "file": "shots/parent/opt/attendance.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/pay.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32694,
+      "file": "shots/parent/opt/pay.ar.1440.avif"
+    },
+    {
+      "source": "parent/pay.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 56738,
+      "file": "shots/parent/opt/pay.ar.1440.webp"
+    },
+    {
+      "source": "parent/pay.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24919,
+      "file": "shots/parent/opt/pay.ar.720.avif"
+    },
+    {
+      "source": "parent/pay.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32554,
+      "file": "shots/parent/opt/pay.ar.720.webp"
+    },
+    {
+      "source": "parent/wallet.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24924,
+      "file": "shots/parent/opt/wallet.ar.1440.avif"
+    },
+    {
+      "source": "parent/wallet.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 45044,
+      "file": "shots/parent/opt/wallet.ar.1440.webp"
+    },
+    {
+      "source": "parent/wallet.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 18869,
+      "file": "shots/parent/opt/wallet.ar.720.avif"
+    },
+    {
+      "source": "parent/wallet.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 25824,
+      "file": "shots/parent/opt/wallet.ar.720.webp"
+    },
+    {
+      "source": "parent/children.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 29156,
+      "file": "shots/parent/opt/children.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/children.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51836,
+      "file": "shots/parent/opt/children.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/children.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 22334,
+      "file": "shots/parent/opt/children.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/children.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30446,
+      "file": "shots/parent/opt/children.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/oversight.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 27259,
+      "file": "shots/parent/opt/oversight.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/oversight.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47904,
+      "file": "shots/parent/opt/oversight.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/oversight.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20392,
+      "file": "shots/parent/opt/oversight.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/oversight.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 27206,
+      "file": "shots/parent/opt/oversight.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31443,
+      "file": "shots/parent/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "parent/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 55186,
+      "file": "shots/parent/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "parent/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23109,
+      "file": "shots/parent/opt/home.ar.720.avif"
+    },
+    {
+      "source": "parent/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 31726,
+      "file": "shots/parent/opt/home.ar.720.webp"
+    },
+    {
+      "source": "parent/children.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 29156,
+      "file": "shots/parent/opt/children.en.1440.avif"
+    },
+    {
+      "source": "parent/children.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51836,
+      "file": "shots/parent/opt/children.en.1440.webp"
+    },
+    {
+      "source": "parent/children.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 22334,
+      "file": "shots/parent/opt/children.en.720.avif"
+    },
+    {
+      "source": "parent/children.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30446,
+      "file": "shots/parent/opt/children.en.720.webp"
+    },
+    {
+      "source": "parent/progress.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24861,
+      "file": "shots/parent/opt/progress.ar.1440.avif"
+    },
+    {
+      "source": "parent/progress.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 43898,
+      "file": "shots/parent/opt/progress.ar.1440.webp"
+    },
+    {
+      "source": "parent/progress.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 18809,
+      "file": "shots/parent/opt/progress.ar.720.avif"
+    },
+    {
+      "source": "parent/progress.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 24518,
+      "file": "shots/parent/opt/progress.ar.720.webp"
+    },
+    {
+      "source": "parent/attendance.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 37171,
+      "file": "shots/parent/opt/attendance.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/attendance.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 68074,
+      "file": "shots/parent/opt/attendance.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/attendance.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 27033,
+      "file": "shots/parent/opt/attendance.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/attendance.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 39536,
+      "file": "shots/parent/opt/attendance.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/fees.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 35411,
+      "file": "shots/parent/opt/fees.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/fees.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 58380,
+      "file": "shots/parent/opt/fees.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/fees.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 26004,
+      "file": "shots/parent/opt/fees.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/fees.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 33882,
+      "file": "shots/parent/opt/fees.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/children.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 27570,
+      "file": "shots/parent/opt/children.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/children.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47048,
+      "file": "shots/parent/opt/children.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/children.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19957,
+      "file": "shots/parent/opt/children.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/children.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26322,
+      "file": "shots/parent/opt/children.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 34509,
+      "file": "shots/parent/opt/home.en.1440.avif"
+    },
+    {
+      "source": "parent/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 61506,
+      "file": "shots/parent/opt/home.en.1440.webp"
+    },
+    {
+      "source": "parent/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 25332,
+      "file": "shots/parent/opt/home.en.720.avif"
+    },
+    {
+      "source": "parent/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 35514,
+      "file": "shots/parent/opt/home.en.720.webp"
+    },
+    {
+      "source": "parent/home.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31443,
+      "file": "shots/parent/opt/home.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/home.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 55186,
+      "file": "shots/parent/opt/home.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/home.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23109,
+      "file": "shots/parent/opt/home.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/home.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 31726,
+      "file": "shots/parent/opt/home.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/pay.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 38516,
+      "file": "shots/parent/opt/pay.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/pay.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 69554,
+      "file": "shots/parent/opt/pay.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/pay.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 30254,
+      "file": "shots/parent/opt/pay.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/pay.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 40202,
+      "file": "shots/parent/opt/pay.en.mobile.720.webp"
+    },
+    {
+      "source": "parent/children.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 27570,
+      "file": "shots/parent/opt/children.ar.1440.avif"
+    },
+    {
+      "source": "parent/children.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47048,
+      "file": "shots/parent/opt/children.ar.1440.webp"
+    },
+    {
+      "source": "parent/children.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19957,
+      "file": "shots/parent/opt/children.ar.720.avif"
+    },
+    {
+      "source": "parent/children.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26322,
+      "file": "shots/parent/opt/children.ar.720.webp"
+    },
+    {
+      "source": "parent/progress.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24861,
+      "file": "shots/parent/opt/progress.ar.mobile.1440.avif"
+    },
+    {
+      "source": "parent/progress.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 43898,
+      "file": "shots/parent/opt/progress.ar.mobile.1440.webp"
+    },
+    {
+      "source": "parent/progress.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 18809,
+      "file": "shots/parent/opt/progress.ar.mobile.720.avif"
+    },
+    {
+      "source": "parent/progress.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 24518,
+      "file": "shots/parent/opt/progress.ar.mobile.720.webp"
+    },
+    {
+      "source": "parent/progress.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30845,
+      "file": "shots/parent/opt/progress.en.1440.avif"
+    },
+    {
+      "source": "parent/progress.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 53980,
+      "file": "shots/parent/opt/progress.en.1440.webp"
+    },
+    {
+      "source": "parent/progress.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 23438,
+      "file": "shots/parent/opt/progress.en.720.avif"
+    },
+    {
+      "source": "parent/progress.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 30758,
+      "file": "shots/parent/opt/progress.en.720.webp"
+    },
+    {
+      "source": "parent/wallet.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 24808,
+      "file": "shots/parent/opt/wallet.en.mobile.1440.avif"
+    },
+    {
+      "source": "parent/wallet.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 47792,
+      "file": "shots/parent/opt/wallet.en.mobile.1440.webp"
+    },
+    {
+      "source": "parent/wallet.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 20844,
+      "file": "shots/parent/opt/wallet.en.mobile.720.avif"
+    },
+    {
+      "source": "parent/wallet.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 28374,
+      "file": "shots/parent/opt/wallet.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/home.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30771,
+      "file": "shots/staff/opt/home.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/home.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 55594,
+      "file": "shots/staff/opt/home.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/home.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24253,
+      "file": "shots/staff/opt/home.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/home.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32234,
+      "file": "shots/staff/opt/home.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/notes.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 40729,
+      "file": "shots/staff/opt/notes.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/notes.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 68300,
+      "file": "shots/staff/opt/notes.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/notes.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 30023,
+      "file": "shots/staff/opt/notes.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/notes.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 38948,
+      "file": "shots/staff/opt/notes.ar.mobile.720.webp"
+    },
+    {
+      "source": "staff/students.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31045,
+      "file": "shots/staff/opt/students.en.1440.avif"
+    },
+    {
+      "source": "staff/students.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 54394,
+      "file": "shots/staff/opt/students.en.1440.webp"
+    },
+    {
+      "source": "staff/students.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 22331,
+      "file": "shots/staff/opt/students.en.720.avif"
+    },
+    {
+      "source": "staff/students.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 31214,
+      "file": "shots/staff/opt/students.en.720.webp"
+    },
+    {
+      "source": "staff/notes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 40729,
+      "file": "shots/staff/opt/notes.ar.1440.avif"
+    },
+    {
+      "source": "staff/notes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 68300,
+      "file": "shots/staff/opt/notes.ar.1440.webp"
+    },
+    {
+      "source": "staff/notes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 30023,
+      "file": "shots/staff/opt/notes.ar.720.avif"
+    },
+    {
+      "source": "staff/notes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 38948,
+      "file": "shots/staff/opt/notes.ar.720.webp"
+    },
+    {
+      "source": "staff/rooms.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25380,
+      "file": "shots/staff/opt/rooms.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/rooms.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 37596,
+      "file": "shots/staff/opt/rooms.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/rooms.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 16288,
+      "file": "shots/staff/opt/rooms.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/rooms.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 21184,
+      "file": "shots/staff/opt/rooms.ar.mobile.720.webp"
+    },
+    {
+      "source": "staff/reports.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 10026,
+      "file": "shots/staff/opt/reports.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/reports.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 18340,
+      "file": "shots/staff/opt/reports.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/reports.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6705,
+      "file": "shots/staff/opt/reports.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/reports.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9530,
+      "file": "shots/staff/opt/reports.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/students.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30594,
+      "file": "shots/staff/opt/students.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/students.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51958,
+      "file": "shots/staff/opt/students.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/students.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21954,
+      "file": "shots/staff/opt/students.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/students.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29476,
+      "file": "shots/staff/opt/students.ar.mobile.720.webp"
+    },
+    {
+      "source": "staff/students.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30594,
+      "file": "shots/staff/opt/students.ar.1440.avif"
+    },
+    {
+      "source": "staff/students.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51958,
+      "file": "shots/staff/opt/students.ar.1440.webp"
+    },
+    {
+      "source": "staff/students.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21954,
+      "file": "shots/staff/opt/students.ar.720.avif"
+    },
+    {
+      "source": "staff/students.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 29476,
+      "file": "shots/staff/opt/students.ar.720.webp"
+    },
+    {
+      "source": "staff/notes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 42538,
+      "file": "shots/staff/opt/notes.en.1440.avif"
+    },
+    {
+      "source": "staff/notes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 72346,
+      "file": "shots/staff/opt/notes.en.1440.webp"
+    },
+    {
+      "source": "staff/notes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 32242,
+      "file": "shots/staff/opt/notes.en.720.avif"
+    },
+    {
+      "source": "staff/notes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 41454,
+      "file": "shots/staff/opt/notes.en.720.webp"
+    },
+    {
+      "source": "staff/checkin.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21055,
+      "file": "shots/staff/opt/checkin.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/checkin.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 38000,
+      "file": "shots/staff/opt/checkin.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/checkin.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 15582,
+      "file": "shots/staff/opt/checkin.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/checkin.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 21102,
+      "file": "shots/staff/opt/checkin.ar.mobile.720.webp"
+    },
+    {
+      "source": "staff/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28905,
+      "file": "shots/staff/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "staff/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 50618,
+      "file": "shots/staff/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "staff/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21869,
+      "file": "shots/staff/opt/home.ar.720.avif"
+    },
+    {
+      "source": "staff/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 28916,
+      "file": "shots/staff/opt/home.ar.720.webp"
+    },
+    {
+      "source": "staff/checkin.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21297,
+      "file": "shots/staff/opt/checkin.en.1440.avif"
+    },
+    {
+      "source": "staff/checkin.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 40056,
+      "file": "shots/staff/opt/checkin.en.1440.webp"
+    },
+    {
+      "source": "staff/checkin.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 17171,
+      "file": "shots/staff/opt/checkin.en.720.avif"
+    },
+    {
+      "source": "staff/checkin.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 22778,
+      "file": "shots/staff/opt/checkin.en.720.webp"
+    },
+    {
+      "source": "staff/rooms.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25380,
+      "file": "shots/staff/opt/rooms.ar.1440.avif"
+    },
+    {
+      "source": "staff/rooms.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 37596,
+      "file": "shots/staff/opt/rooms.ar.1440.webp"
+    },
+    {
+      "source": "staff/rooms.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 16288,
+      "file": "shots/staff/opt/rooms.ar.720.avif"
+    },
+    {
+      "source": "staff/rooms.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 21184,
+      "file": "shots/staff/opt/rooms.ar.720.webp"
+    },
+    {
+      "source": "staff/reports.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 10026,
+      "file": "shots/staff/opt/reports.en.1440.avif"
+    },
+    {
+      "source": "staff/reports.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 18340,
+      "file": "shots/staff/opt/reports.en.1440.webp"
+    },
+    {
+      "source": "staff/reports.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6705,
+      "file": "shots/staff/opt/reports.en.720.avif"
+    },
+    {
+      "source": "staff/reports.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9530,
+      "file": "shots/staff/opt/reports.en.720.webp"
+    },
+    {
+      "source": "staff/checkin.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21297,
+      "file": "shots/staff/opt/checkin.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/checkin.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 40056,
+      "file": "shots/staff/opt/checkin.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/checkin.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 17171,
+      "file": "shots/staff/opt/checkin.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/checkin.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 22778,
+      "file": "shots/staff/opt/checkin.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 30771,
+      "file": "shots/staff/opt/home.en.1440.avif"
+    },
+    {
+      "source": "staff/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 55594,
+      "file": "shots/staff/opt/home.en.1440.webp"
+    },
+    {
+      "source": "staff/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 24253,
+      "file": "shots/staff/opt/home.en.720.avif"
+    },
+    {
+      "source": "staff/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 32234,
+      "file": "shots/staff/opt/home.en.720.webp"
+    },
+    {
+      "source": "staff/home.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 28905,
+      "file": "shots/staff/opt/home.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/home.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 50618,
+      "file": "shots/staff/opt/home.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/home.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 21869,
+      "file": "shots/staff/opt/home.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/home.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 28916,
+      "file": "shots/staff/opt/home.ar.mobile.720.webp"
+    },
+    {
+      "source": "staff/notes.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 42538,
+      "file": "shots/staff/opt/notes.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/notes.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 72346,
+      "file": "shots/staff/opt/notes.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/notes.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 32242,
+      "file": "shots/staff/opt/notes.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/notes.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 41454,
+      "file": "shots/staff/opt/notes.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/checkin.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21055,
+      "file": "shots/staff/opt/checkin.ar.1440.avif"
+    },
+    {
+      "source": "staff/checkin.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 38000,
+      "file": "shots/staff/opt/checkin.ar.1440.webp"
+    },
+    {
+      "source": "staff/checkin.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 15582,
+      "file": "shots/staff/opt/checkin.ar.720.avif"
+    },
+    {
+      "source": "staff/checkin.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 21102,
+      "file": "shots/staff/opt/checkin.ar.720.webp"
+    },
+    {
+      "source": "staff/rooms.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26151,
+      "file": "shots/staff/opt/rooms.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/rooms.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46156,
+      "file": "shots/staff/opt/rooms.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/rooms.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19093,
+      "file": "shots/staff/opt/rooms.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/rooms.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26212,
+      "file": "shots/staff/opt/rooms.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/rooms.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26151,
+      "file": "shots/staff/opt/rooms.en.1440.avif"
+    },
+    {
+      "source": "staff/rooms.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 46156,
+      "file": "shots/staff/opt/rooms.en.1440.webp"
+    },
+    {
+      "source": "staff/rooms.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 19093,
+      "file": "shots/staff/opt/rooms.en.720.avif"
+    },
+    {
+      "source": "staff/rooms.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 26212,
+      "file": "shots/staff/opt/rooms.en.720.webp"
+    },
+    {
+      "source": "staff/reports.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 9615,
+      "file": "shots/staff/opt/reports.ar.1440.avif"
+    },
+    {
+      "source": "staff/reports.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17190,
+      "file": "shots/staff/opt/reports.ar.1440.webp"
+    },
+    {
+      "source": "staff/reports.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6516,
+      "file": "shots/staff/opt/reports.ar.720.avif"
+    },
+    {
+      "source": "staff/reports.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9222,
+      "file": "shots/staff/opt/reports.ar.720.webp"
+    },
+    {
+      "source": "staff/students.en.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 31045,
+      "file": "shots/staff/opt/students.en.mobile.1440.avif"
+    },
+    {
+      "source": "staff/students.en.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 54394,
+      "file": "shots/staff/opt/students.en.mobile.1440.webp"
+    },
+    {
+      "source": "staff/students.en.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 22331,
+      "file": "shots/staff/opt/students.en.mobile.720.avif"
+    },
+    {
+      "source": "staff/students.en.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 31214,
+      "file": "shots/staff/opt/students.en.mobile.720.webp"
+    },
+    {
+      "source": "staff/reports.ar.mobile.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 9615,
+      "file": "shots/staff/opt/reports.ar.mobile.1440.avif"
+    },
+    {
+      "source": "staff/reports.ar.mobile.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17190,
+      "file": "shots/staff/opt/reports.ar.mobile.1440.webp"
+    },
+    {
+      "source": "staff/reports.ar.mobile.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6516,
+      "file": "shots/staff/opt/reports.ar.mobile.720.avif"
+    },
+    {
+      "source": "staff/reports.ar.mobile.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9222,
+      "file": "shots/staff/opt/reports.ar.mobile.720.webp"
+    },
+    {
+      "source": "teacher/grades.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 20424,
+      "file": "shots/teacher/opt/grades.en.1440.avif"
+    },
+    {
+      "source": "teacher/grades.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 28944,
+      "file": "shots/teacher/opt/grades.en.1440.webp"
+    },
+    {
+      "source": "teacher/grades.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8952,
+      "file": "shots/teacher/opt/grades.en.720.avif"
+    },
+    {
+      "source": "teacher/grades.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10074,
+      "file": "shots/teacher/opt/grades.en.720.webp"
+    },
+    {
+      "source": "teacher/attendance.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19840,
+      "file": "shots/teacher/opt/attendance.ar.1440.avif"
+    },
+    {
+      "source": "teacher/attendance.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 28244,
+      "file": "shots/teacher/opt/attendance.ar.1440.webp"
+    },
+    {
+      "source": "teacher/attendance.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8273,
+      "file": "shots/teacher/opt/attendance.ar.720.avif"
+    },
+    {
+      "source": "teacher/attendance.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10080,
+      "file": "shots/teacher/opt/attendance.ar.720.webp"
+    },
+    {
+      "source": "teacher/door.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 13931,
+      "file": "shots/teacher/opt/door.ar.1440.avif"
+    },
+    {
+      "source": "teacher/door.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 17826,
+      "file": "shots/teacher/opt/door.ar.1440.webp"
+    },
+    {
+      "source": "teacher/door.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 5567,
+      "file": "shots/teacher/opt/door.ar.720.avif"
+    },
+    {
+      "source": "teacher/door.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 6378,
+      "file": "shots/teacher/opt/door.ar.720.webp"
+    },
+    {
+      "source": "teacher/notes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19299,
+      "file": "shots/teacher/opt/notes.ar.1440.avif"
+    },
+    {
+      "source": "teacher/notes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 25716,
+      "file": "shots/teacher/opt/notes.ar.1440.webp"
+    },
+    {
+      "source": "teacher/notes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7720,
+      "file": "shots/teacher/opt/notes.ar.720.avif"
+    },
+    {
+      "source": "teacher/notes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8966,
+      "file": "shots/teacher/opt/notes.ar.720.webp"
+    },
+    {
+      "source": "teacher/classes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 36335,
+      "file": "shots/teacher/opt/classes.en.1440.avif"
+    },
+    {
+      "source": "teacher/classes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 51708,
+      "file": "shots/teacher/opt/classes.en.1440.webp"
+    },
+    {
+      "source": "teacher/classes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 14205,
+      "file": "shots/teacher/opt/classes.en.720.avif"
+    },
+    {
+      "source": "teacher/classes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 19024,
+      "file": "shots/teacher/opt/classes.en.720.webp"
+    },
+    {
+      "source": "teacher/wallet.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25451,
+      "file": "shots/teacher/opt/wallet.en.1440.avif"
+    },
+    {
+      "source": "teacher/wallet.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 35254,
+      "file": "shots/teacher/opt/wallet.en.1440.webp"
+    },
+    {
+      "source": "teacher/wallet.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9592,
+      "file": "shots/teacher/opt/wallet.en.720.avif"
+    },
+    {
+      "source": "teacher/wallet.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11956,
+      "file": "shots/teacher/opt/wallet.en.720.webp"
+    },
+    {
+      "source": "teacher/materials.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22885,
+      "file": "shots/teacher/opt/materials.en.1440.avif"
+    },
+    {
+      "source": "teacher/materials.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 33616,
+      "file": "shots/teacher/opt/materials.en.1440.webp"
+    },
+    {
+      "source": "teacher/materials.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9500,
+      "file": "shots/teacher/opt/materials.en.720.avif"
+    },
+    {
+      "source": "teacher/materials.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11628,
+      "file": "shots/teacher/opt/materials.en.720.webp"
+    },
+    {
+      "source": "teacher/grades.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19064,
+      "file": "shots/teacher/opt/grades.ar.1440.avif"
+    },
+    {
+      "source": "teacher/grades.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 26122,
+      "file": "shots/teacher/opt/grades.ar.1440.webp"
+    },
+    {
+      "source": "teacher/grades.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8545,
+      "file": "shots/teacher/opt/grades.ar.720.avif"
+    },
+    {
+      "source": "teacher/grades.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9250,
+      "file": "shots/teacher/opt/grades.ar.720.webp"
+    },
+    {
+      "source": "teacher/attendance.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22043,
+      "file": "shots/teacher/opt/attendance.en.1440.avif"
+    },
+    {
+      "source": "teacher/attendance.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 32410,
+      "file": "shots/teacher/opt/attendance.en.1440.webp"
+    },
+    {
+      "source": "teacher/attendance.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 9010,
+      "file": "shots/teacher/opt/attendance.en.720.avif"
+    },
+    {
+      "source": "teacher/attendance.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11290,
+      "file": "shots/teacher/opt/attendance.en.720.webp"
+    },
+    {
+      "source": "teacher/door.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 15453,
+      "file": "shots/teacher/opt/door.en.1440.avif"
+    },
+    {
+      "source": "teacher/door.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 20208,
+      "file": "shots/teacher/opt/door.en.1440.webp"
+    },
+    {
+      "source": "teacher/door.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 5786,
+      "file": "shots/teacher/opt/door.en.720.avif"
+    },
+    {
+      "source": "teacher/door.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7158,
+      "file": "shots/teacher/opt/door.en.720.webp"
+    },
+    {
+      "source": "teacher/notes.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 19876,
+      "file": "shots/teacher/opt/notes.en.1440.avif"
+    },
+    {
+      "source": "teacher/notes.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 27406,
+      "file": "shots/teacher/opt/notes.en.1440.webp"
+    },
+    {
+      "source": "teacher/notes.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7955,
+      "file": "shots/teacher/opt/notes.en.720.avif"
+    },
+    {
+      "source": "teacher/notes.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 9690,
+      "file": "shots/teacher/opt/notes.en.720.webp"
+    },
+    {
+      "source": "teacher/classes.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 32143,
+      "file": "shots/teacher/opt/classes.ar.1440.avif"
+    },
+    {
+      "source": "teacher/classes.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 45240,
+      "file": "shots/teacher/opt/classes.ar.1440.webp"
+    },
+    {
+      "source": "teacher/classes.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 13143,
+      "file": "shots/teacher/opt/classes.ar.720.avif"
+    },
+    {
+      "source": "teacher/classes.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 17452,
+      "file": "shots/teacher/opt/classes.ar.720.webp"
+    },
+    {
+      "source": "teacher/wallet.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 22380,
+      "file": "shots/teacher/opt/wallet.ar.1440.avif"
+    },
+    {
+      "source": "teacher/wallet.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 30124,
+      "file": "shots/teacher/opt/wallet.ar.1440.webp"
+    },
+    {
+      "source": "teacher/wallet.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8778,
+      "file": "shots/teacher/opt/wallet.ar.720.avif"
+    },
+    {
+      "source": "teacher/wallet.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10382,
+      "file": "shots/teacher/opt/wallet.ar.720.webp"
+    },
+    {
+      "source": "teacher/materials.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 21058,
+      "file": "shots/teacher/opt/materials.ar.1440.avif"
+    },
+    {
+      "source": "teacher/materials.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 29548,
+      "file": "shots/teacher/opt/materials.ar.1440.webp"
+    },
+    {
+      "source": "teacher/materials.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 8842,
+      "file": "shots/teacher/opt/materials.ar.720.avif"
+    },
+    {
+      "source": "teacher/materials.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 10408,
+      "file": "shots/teacher/opt/materials.ar.720.webp"
+    },
+    {
+      "source": "teacher/home.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 25004,
+      "file": "shots/teacher/opt/home.ar.1440.avif"
+    },
+    {
+      "source": "teacher/home.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 33976,
+      "file": "shots/teacher/opt/home.ar.1440.webp"
+    },
+    {
+      "source": "teacher/home.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 10653,
+      "file": "shots/teacher/opt/home.ar.720.avif"
+    },
+    {
+      "source": "teacher/home.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 11844,
+      "file": "shots/teacher/opt/home.ar.720.webp"
+    },
+    {
+      "source": "teacher/team.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 14174,
+      "file": "shots/teacher/opt/team.ar.1440.avif"
+    },
+    {
+      "source": "teacher/team.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 19656,
+      "file": "shots/teacher/opt/team.ar.1440.webp"
+    },
+    {
+      "source": "teacher/team.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 5866,
+      "file": "shots/teacher/opt/team.ar.720.avif"
+    },
+    {
+      "source": "teacher/team.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 6900,
+      "file": "shots/teacher/opt/team.ar.720.webp"
+    },
+    {
+      "source": "teacher/centers.ar.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 16589,
+      "file": "shots/teacher/opt/centers.ar.1440.avif"
+    },
+    {
+      "source": "teacher/centers.ar.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 23608,
+      "file": "shots/teacher/opt/centers.ar.1440.webp"
+    },
+    {
+      "source": "teacher/centers.ar.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6576,
+      "file": "shots/teacher/opt/centers.ar.720.avif"
+    },
+    {
+      "source": "teacher/centers.ar.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7712,
+      "file": "shots/teacher/opt/centers.ar.720.webp"
+    },
+    {
+      "source": "teacher/home.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 26815,
+      "file": "shots/teacher/opt/home.en.1440.avif"
+    },
+    {
+      "source": "teacher/home.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 37028,
+      "file": "shots/teacher/opt/home.en.1440.webp"
+    },
+    {
+      "source": "teacher/home.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 11006,
+      "file": "shots/teacher/opt/home.en.720.avif"
+    },
+    {
+      "source": "teacher/home.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 12674,
+      "file": "shots/teacher/opt/home.en.720.webp"
+    },
+    {
+      "source": "teacher/team.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 14978,
+      "file": "shots/teacher/opt/team.en.1440.avif"
+    },
+    {
+      "source": "teacher/team.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 22180,
+      "file": "shots/teacher/opt/team.en.1440.webp"
+    },
+    {
+      "source": "teacher/team.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 6000,
+      "file": "shots/teacher/opt/team.en.720.avif"
+    },
+    {
+      "source": "teacher/team.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 7672,
+      "file": "shots/teacher/opt/team.en.720.webp"
+    },
+    {
+      "source": "teacher/centers.en.png",
+      "width": 1440,
+      "format": "avif",
+      "bytes": 18778,
+      "file": "shots/teacher/opt/centers.en.1440.avif"
+    },
+    {
+      "source": "teacher/centers.en.png",
+      "width": 1440,
+      "format": "webp",
+      "bytes": 27484,
+      "file": "shots/teacher/opt/centers.en.1440.webp"
+    },
+    {
+      "source": "teacher/centers.en.png",
+      "width": 720,
+      "format": "avif",
+      "bytes": 7283,
+      "file": "shots/teacher/opt/centers.en.720.avif"
+    },
+    {
+      "source": "teacher/centers.en.png",
+      "width": 720,
+      "format": "webp",
+      "bytes": 8912,
+      "file": "shots/teacher/opt/centers.en.720.webp"
+    }
+  ]
+}

@@ -115,7 +115,7 @@ export const SCREENS: Record<Role, Screen[]> = {
     {
       key: "wallet",
       path: "/dashboard/student/wallet",
-      note: "Zero balance until a top-up flow is run by hand.",
+      note: "CRASHES — see ASSETS-TODO. Kept so the guard keeps reporting it.",
     },
   ],
 
