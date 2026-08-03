@@ -380,3 +380,28 @@ re-seeded, so it held **0 transactions and 0 payments**. The money-ledger check
 therefore passed *vacuously* — it proved the tables restore and are readable,
 not that a large ledger round-trips intact. The first production run will be the
 first real exercise of that check.
+
+## Test-branch credentials went stale
+
+Symptom: `bun run --filter edura test:db` fails before any test runs, with
+`password authentication failed` for `edura_app` **and** `neondb_owner`. Both
+roles failing on a host that still answers means the branch is alive and only
+the passwords moved — which is what recreating a Neon branch does.
+
+```bash
+bash packages/database/scripts/fix-test-db-credentials.sh
+```
+
+It prompts for the three URLs (hidden), connects to each, and **refuses to write
+anything not labelled `edura-env:test`**.
+
+That refusal is the reason the script exists. The DB suites truncate tables, so
+a production URL pasted into `.env.test` — one wrong click in a Neon console
+that lists every branch side by side — turns the next `test:db` run into a
+production wipe. `db-guard.ts` is the backstop at run time; this is the earlier
+gate, catching it while you are still looking at the screen.
+
+Verified 2026-08-03: refuses a dev-labelled database, an unreachable URL and a
+non-postgres string (writing nothing in all three cases), and on the success
+path rewrites all three `.env.test` files — following the worktree symlinks —
+while leaving every other variable intact.
