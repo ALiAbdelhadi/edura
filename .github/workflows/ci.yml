@@ -114,6 +114,46 @@ jobs:
           echo "    COMMENT ON DATABASE neondb IS 'edura-env:test';"
           echo "The runner refuses any database not carrying that label."
 
+      # ======================================================================
+      # A SKIPPED PROOF SUITE MUST NOT LOOK LIKE A PASSING ONE.
+      #
+      # Skipping produced a GREEN run, so the 51 money / RLS / auth suites
+      # could stop running on every push and the dashboard would still show a
+      # tick. Worse, deploy.yml fires on `workflow_run` with
+      # conclusion == 'success', so that same green ships to production —
+      # exactly what "refuse to ship ahead of the database" was meant to stop.
+      #
+      # Same posture as backup.yml: absent protection is reported honestly
+      # rather than quietly.
+      #
+      # PUSHES TO MAIN ONLY, deliberately. Pull requests still skip with the
+      # notice above, because a fork PR cannot read repository secrets and
+      # failing it would blame a contributor for something only a maintainer
+      # can fix.
+      #
+      # There is NO opt-out flag. A "temporarily allow skipping" switch gets
+      # set once during an incident and is never unset, which recreates the
+      # silence this exists to remove. To turn it off, fix the secrets:
+      #     packages/database/scripts/fix-test-db-credentials.sh   (local)
+      #     gh secret set TEST_DATABASE_URL --repo ALiAbdelhadi/edura
+      # ======================================================================
+      - name: Fail if the DB suites were skipped on main
+        if: >-
+          steps.gate.outputs.ok != 'true'
+          && github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+        run: |
+          echo "::error title=DB suites did not run on main::TEST_DATABASE_URL / TEST_ADMIN_URL are not set, so 51 money, RLS and auth suites were skipped. A green tick here would have meant nothing."
+          echo
+          echo "Set the repo secrets against a Neon branch labelled edura-env:test:"
+          echo "    gh secret set TEST_DATABASE_URL --repo ALiAbdelhadi/edura"
+          echo "    gh secret set TEST_DIRECT_URL   --repo ALiAbdelhadi/edura"
+          echo "    gh secret set TEST_ADMIN_URL    --repo ALiAbdelhadi/edura"
+          echo
+          echo "Label the branch (as the database owner) if it is not already:"
+          echo "    COMMENT ON DATABASE neondb IS 'edura-env:test';"
+          exit 1
+
       - uses: actions/checkout@v4
         if: steps.gate.outputs.ok == 'true'
 
