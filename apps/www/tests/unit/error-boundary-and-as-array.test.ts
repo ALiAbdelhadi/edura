@@ -76,11 +76,21 @@ const BOUNDARY_KEYS = {
 
 describe("error + not-found boundaries", () => {
   /**
-   * Both files render as the CHILDREN of [locale]/layout.tsx, whose provider
-   * ships `baseMessages()` only. A namespace mounted from a separate file (as
-   * `shared` is) reaches the client under dashboard/layout.tsx and nowhere
-   * else, so reading one here throws MISSING_MESSAGE — and an error page that
-   * throws while reporting an error hides the original failure completely.
+   * ONLY error.tsx was actually broken, and the distinction is worth stating
+   * because it is the whole mechanism:
+   *
+   *   error.tsx      "use client" → reads NextIntlClientProvider → the
+   *                  `baseMessages()` subset → `shared` absent → MISSING_MESSAGE
+   *   not-found.tsx  server component → reads i18n/request.ts → the whole
+   *                  merged dictionary → `shared` was always available
+   *
+   * And error.tsx failed for EVERY error, not just ones outside /dashboard: the
+   * boundary replaces the children of [locale]/layout.tsx, so it takes the
+   * place of the dashboard segment and the fuller provider mounted with it.
+   *
+   * The assertions below hold both files to the client-side constraint anyway.
+   * That is deliberately stricter than today's reality — it is what keeps the
+   * bug from coming back the day not-found.tsx gains "use client".
    */
   it.each(LOCALES)("resolves every boundary string from baseMessages (%s)", (locale) => {
     const shipped = baseMessages(getMessages(locale)) as Record<string, any>;
@@ -91,6 +101,7 @@ describe("error + not-found boundaries", () => {
     }
   });
 
+  // Stricter than required for not-found.tsx (a server component) — see above.
   it.each(Object.keys(BOUNDARY_KEYS))("%s reads a namespace the base layout ships", (file) => {
     const src = readFileSync(path.join(APP, file), "utf8");
     const ns = /useTranslations\("([^"]+)"\)/.exec(src)?.[1];

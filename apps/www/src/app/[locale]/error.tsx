@@ -14,13 +14,17 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // `errorPage`, NOT `shared`. This boundary replaces the children of the
-  // [locale] layout, so it renders under THAT layout's provider — which ships
-  // only `baseMessages()` (the top-level keys of en.json). `shared` is mounted
-  // from its own file and reaches the client only under dashboard/layout.tsx,
-  // so every error outside the dashboard threw MISSING_MESSAGE here and the
-  // error page failed on top of the error it was reporting. `errorPage` lives
-  // in en.json, so BASE_KEYS carries it to every route by construction.
+  // `errorPage`, NOT `shared`. This is a CLIENT component, so it reads the
+  // NextIntlClientProvider — and it replaces the children of the [locale]
+  // layout, which means an error thrown ANYWHERE, including under /dashboard,
+  // unmounts that segment together with the fuller provider mounted by
+  // dashboard/layout.tsx. Whatever threw, this boundary renders under the BASE
+  // provider, which ships only `baseMessages()` (the top-level keys of
+  // en.json). `shared` is mounted from its own file and never reaches that
+  // subset, so EVERY error rendered MISSING_MESSAGE here — the error page
+  // failing on top of the error it was reporting, hiding the original.
+  // `errorPage` lives in en.json, so BASE_KEYS carries it everywhere by
+  // construction rather than by anyone remembering to.
   const t = useTranslations("errorPage");
   useEffect(() => {
     // Digest only in the log — the raw message may carry internals
