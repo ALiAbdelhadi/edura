@@ -33,3 +33,27 @@ export function asRecord<T = unknown>(value: unknown): T | undefined {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
   return Object.keys(value).length === 0 ? undefined : (value as T);
 }
+
+/**
+ * The SHAPE-AGNOSTIC variant, for a generic passthrough that does not know
+ * whether its endpoint answers with an object or a list — `useAdminGet` is the
+ * only such caller here, and it is typed `<DeletionRow[]>` at some call sites
+ * and `<{ rooms: RoomRow[] }>` at others.
+ *
+ * Use `asRecord` when the payload IS an object: it rejects an array, which is a
+ * useful assertion at a site that expects one shape. Use `asData` when both are
+ * legitimate — passing an array to `asRecord` yields `undefined`, which at a
+ * list endpoint means a successful response reads as "never loaded" and the
+ * screen renders permanently empty.
+ *
+ * Only the empty-object sentinel becomes `undefined`. An empty ARRAY is a real,
+ * complete answer — "this centre has no blacklist entries" — and is passed
+ * through untouched.
+ */
+export function asData<T = unknown>(value: unknown): T | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0) {
+    return undefined;
+  }
+  return value as T;
+}

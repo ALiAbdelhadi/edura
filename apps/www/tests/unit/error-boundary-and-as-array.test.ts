@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { asArray } from "@/lib/refine/as-array";
-import { asRecord } from "@/lib/refine/as-record";
+import { asData, asRecord } from "@/lib/refine/as-record";
 import { baseMessages } from "@/lib/i18n/scope";
 import { getMessages, LOCALES } from "@/lib/i18n";
 
@@ -190,5 +190,39 @@ describe("loading/error guards key on the payload, not on query flags", () => {
         /!\w*[Rr]es(ult)?\?\.data/,
       );
     }
+  });
+});
+
+/**
+ * asRecord REJECTS an array on purpose — at a site that expects one object
+ * shape that is a useful assertion. But a generic passthrough must not use it:
+ * superadmin's `useAdminGet` is typed `<DeletionRow[]>` at some call sites and
+ * `<{ rooms: RoomRow[] }>` at others, and routing a list through asRecord makes
+ * a SUCCESSFUL response read as "never loaded" — seventeen oversight tabs
+ * rendering permanently empty, with no error anywhere. That regression shipped
+ * and was caught by reading the call sites, not by a test. This is the test.
+ */
+describe("asData — the shape-agnostic variant", () => {
+  it("passes a real array through, where asRecord would drop it", () => {
+    const rows = [{ id: "a" }, { id: "b" }];
+    expect(asRecord(rows)).toBeUndefined(); // correct for asRecord, fatal for a list
+    expect(asData(rows)).toBe(rows);
+  });
+
+  it("passes an EMPTY array through — a complete answer, not a missing one", () => {
+    const empty: unknown[] = [];
+    expect(asData(empty)).toBe(empty);
+    expect(asData<unknown[]>(empty) ?? ["fallback"]).toEqual([]);
+  });
+
+  it("still treats the refine sentinel as not-loaded", () => {
+    expect(asData(REFINE_EMPTY_PAYLOAD)).toBeUndefined();
+    expect(asData(undefined)).toBeUndefined();
+    expect(asData(null)).toBeUndefined();
+  });
+
+  it("passes object payloads through untouched", () => {
+    const payload = { rooms: [{ id: "r1" }] };
+    expect(asData(payload)).toBe(payload);
   });
 });

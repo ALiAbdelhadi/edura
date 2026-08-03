@@ -1,7 +1,7 @@
 "use client";
 
 import { useCustom } from "@refinedev/core";
-import { asRecord } from "@/lib/refine/as-record";
+import { asData } from "@/lib/refine/as-record";
 
 /** Any GET under the admin API, with the same shape as `useOversight`. */
 export function useAdminGet<T = unknown>(
@@ -17,8 +17,11 @@ export function useAdminGet<T = unknown>(
   return {
     // `as T | undefined` was a lie: refine hands back a frozen `{}`, never
     // undefined, so every `if (!data)` written against this hook is dead code.
-    // asRecord makes the declared type true.
-    data: asRecord<T>(req.result?.data),
+    // asData makes the declared type true. It is the shape-agnostic variant
+    // deliberately — this hook is typed `<DeletionRow[]>` at some call sites
+    // and `<{ rooms: RoomRow[] }>` at others, and asRecord would turn every
+    // successful LIST response into `undefined`, i.e. a permanently empty tab.
+    data: asData<T>(req.result?.data),
     isLoading: req.query.isLoading,
     refetch: () => req.query.refetch(),
   };
