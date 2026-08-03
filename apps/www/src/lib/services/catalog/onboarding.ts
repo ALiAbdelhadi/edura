@@ -2,6 +2,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors/classes";
 import { Prisma } from "@repo/database";
+import { finalizeStudentCode } from "@repo/database/student-code-issue";
 
 
 export function getOnboardingState(user: SessionUser) {
@@ -164,7 +165,15 @@ export function completeStudentOnboarding(user: SessionUser, input: StudentOnboa
       },
       select: { onboardingCompleted: true, gradeLevelId: true, trackId: true },
     });
-    return updated;
+
+    // The student now has an education system, so this is the moment their
+    // Student ID stops being provisional. Same transaction as the write above:
+    // a student can never end up onboarded and still carrying the pending 'X'.
+    // Issuance is once-only and guarded inside finalizeStudentCode — calling
+    // this again (a re-run, a changed grade) never moves an issued code.
+    const code = await finalizeStudentCode(tx, user.id);
+
+    return { ...updated, studentCode: code?.studentCode ?? null };
   });
 }
 

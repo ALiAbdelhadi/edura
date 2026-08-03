@@ -564,8 +564,15 @@ model StudentProfile {
   // Welcome-email idempotency stamp: the sender claims it atomically
   // (updateMany WHERE null) so duplicate/retried sign-ups mail exactly once.
   onboardingEmailSentAt   DateTime?  @map("onboarding_email_sent_at") @db.Timestamptz(6)
-  // Step 6: typeable Student ID ("STU-000123") for counter check-in; DB default
-  // covers every creation site, migration backfilled existing rows.
+  // The Student ID a student is handed on a card and a receptionist types at
+  // the counter. v2 (20260803110000): eight characters, `G7K3M2QF` — education
+  // system letter + one-way body + CHECK CHARACTER, so a single mistyped
+  // character can no longer resolve to a different child. 'X' opens a PENDING
+  // code (the profile exists before onboarding picks a system); it is replaced
+  // exactly once by finalizeStudentCode(). The DB default still covers every
+  // creation site, and a CHECK constraint holds the alphabet and the check
+  // character so no writer can store a code the counter would reject.
+  // See packages/server-core/src/services/students/student-code.ts.
   studentCode             String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")
   entityType              EntityType @default(registered) @map("entity_type")
   inviteCode              String?    @unique @map("invite_code")
@@ -2167,6 +2174,12 @@ model ChatbotConversation {
 model EducationSystem {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code      String   @unique // 'general' | 'azhari' | 'bacc' | ...
+  // The letter that opens every student code in this system (G / A / B). It
+  // lives on the catalog rather than in application code so a system added
+  // later needs no deploy. NULLABLE: a system without a letter simply cannot
+  // finalize codes yet — its students keep the pending 'X', which is a working
+  // state. 'X' itself is refused by a CHECK; it means "not chosen yet".
+  codeLetter String? @unique @map("code_letter") @db.Char(1)
   nameAr    String   @map("name_ar")
   nameEn    String?  @map("name_en")
   iconKey   String?  @map("icon_key") // wizard card icon

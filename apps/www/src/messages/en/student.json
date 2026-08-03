@@ -185,5 +185,33 @@
   "studentNav": {
     "more": "More",
     "navigation": "Navigation"
+  },
+  "studentIdCard": {
+    "eyebrow": "Identity",
+    "title": "My ID",
+    "subtitle": "Your card on the platform — you check in to a lesson or at the centre desk with it.",
+    "cardTitle": "Student ID",
+    "codeLabel": "Student number",
+    "copyCode": "Copy number",
+    "copied": "Copied",
+    "copyFailed": "Could not copy the number",
+    "saveImage": "Save as image",
+    "shareImage": "Share card",
+    "imageFailed": "Could not create the image",
+    "print": "Print",
+    "cutHint": "Print it and cut it out — it is wallet size.",
+    "counterHint": "If the scanner will not read it, read {code} out to the desk.",
+    "pendingBody": "Your card is not ready yet: your number is set once you complete your academic details, so we do not hand you a card whose number changes in two days.",
+    "pendingAction": "Complete your details",
+    "completeEyebrow": "Your details",
+    "completeBody": "{done} of {total} complete. What is missing limits what you can do here.",
+    "fix": "Complete",
+    "checklist": {
+      "name": "Your full name",
+      "phone": "Your phone number",
+      "guardianEmail": "A guardian's email — without it you cannot message teachers",
+      "academic": "Your stage and track"
+    },
+    "openCard": "Open card"
   }
 }

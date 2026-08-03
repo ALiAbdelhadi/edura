@@ -7,6 +7,7 @@ import { ledgerMono, ledgerScope, ledgerShellScope } from "@/features/student/le
 
 const navItems = [
   { href: "/dashboard/student", icon: "home", label: "Dashboard" },
+  { href: "/dashboard/student/id", icon: "id-card", label: "Student ID" },
   {
     href: "/dashboard/student/subjects",
     icon: "book",
@@ -50,6 +51,7 @@ const BAR_ORDER = [
   "/dashboard/student/wallet",
   "/dashboard/student/grades",
   "/dashboard/student/attendance",
+  "/dashboard/student/id",
   "/dashboard/student/materials",
   "/dashboard/student/reviews",
   "/dashboard/student/family",

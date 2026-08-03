@@ -28,6 +28,7 @@
 
 import { Prisma } from "@repo/database";
 import { scopedDb, type TenantTx } from "../../db/scope";
+import { resolveStudentCode } from "@repo/database/student-code";
 import { BusinessRuleError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
@@ -108,7 +109,10 @@ export async function lookupStudentForManualEntry(
   const centerId = centerOf(acting);
   const phone = norm(input.phone);
   const nationalId = normalizeNationalId(input.nationalId);
-  const studentCode = norm(input.studentCode)?.toUpperCase() ?? null;
+  // Same rule as the counter: a code with a character wrong in it is NOT a
+  // key. Here it matters twice over — a bad match would hand this center a
+  // (masked) hit on a child who is not the one in front of them.
+  const studentCode = input.studentCode ? resolveStudentCode(input.studentCode) : null;
 
   if (!phone && !nationalId && !studentCode) {
     throw new BusinessRuleError("Provide a phone, a national ID or a student code");

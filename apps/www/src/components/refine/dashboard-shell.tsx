@@ -33,6 +33,7 @@ import {
   DollarSign,
   FileSearch,
   Home,
+  IdCard,
   LayoutGrid,
   LogOut,
   MessageSquare,
@@ -73,6 +74,7 @@ const NAV_KEY: Record<string, string> = {
   "Child Progress": "nav.childProgress",
   "Fees & Payments": "nav.feesPayments",
   Dashboard: "nav.dashboard",
+  "Student ID": "nav.studentId",
   Students: "nav.students",
   Teachers: "nav.teachers",
   "Off-system Teachers": "nav.externalTeachers",
@@ -122,6 +124,7 @@ const PORTAL_BASE: Record<string, string> = {
 
 const iconMap: Record<string, LucideIcon> = {
   home: Home,
+  "id-card": IdCard,
   calendar: Calendar,
   clipboard: ClipboardList,
   award: Award,

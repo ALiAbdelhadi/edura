@@ -32,6 +32,7 @@ import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
 import { ProfileImageCard } from "@/features/settings/profile-image-card";
 import { DataRightsCard } from "@/features/settings/data-rights-card";
 import { SessionsCard } from "@/features/settings/sessions-card";
+import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
 import { TwoFactorCard } from "@/features/settings/two-factor-card";
 import { Spinner } from "@/components/kit/spinner";
 import {
@@ -161,6 +162,8 @@ export function SettingsScreen() {
       {me?.role === "center_admin" ? (
         <ProfileImageCard variant="centerLogo" name={me?.name} />
       ) : null}
+      {/* The student's ID card, on the account screen it was asked for. */}
+      {me?.role === "student" ? <StudentIdSettingsCard /> : null}
       <section className="flex flex-col gap-3">
         <SectionHead title={t("shared.settingsProfile")} />
         <div className="rounded-xl border border-rule bg-sheet p-4">

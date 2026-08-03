@@ -53,6 +53,14 @@
       "types": "./src/queries/chat-protocol.ts",
       "default": "./src/queries/chat-protocol.ts"
     },
+    "./student-code": {
+      "types": "./src/queries/student-code.ts",
+      "default": "./src/queries/student-code.ts"
+    },
+    "./student-code-issue": {
+      "types": "./src/queries/student-code-issue.ts",
+      "default": "./src/queries/student-code-issue.ts"
+    },
     "./seed-ids": {
       "types": "./prisma/seed-ids.ts",
       "default": "./prisma/seed-ids.ts"
@@ -72,6 +80,7 @@
     "db:guard": "tsx scripts/db-guard.ts",
     "db:bootstrap-role": "tsx scripts/bootstrap-app-role.ts",
     "db:verify": "tsx scripts/verify-db.ts",
+    "db:finalize-codes": "tsx --env-file=.env scripts/finalize-student-codes.ts",
     "postinstall": "prisma generate",
     "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts",
     "seed:teamnotes-demo": "tsx --env-file=.env prisma/team-notes-demo-seed.ts",
@@ -82,7 +91,8 @@
     "db:restore-test": "tsx scripts/restore-test.ts",
     "seed:showcase-demo": "tsx --env-file=.env prisma/showcase-demo-seed.ts",
     "seed:extteachers-demo": "tsx --env-file=.env prisma/external-teachers-demo-seed.ts",
-    "db:check-pending": "tsx scripts/check-pending-migrations.ts"
+    "db:check-pending": "tsx scripts/check-pending-migrations.ts",
+    "seed:studentid-demo": "tsx --env-file=.env prisma/student-id-demo-seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

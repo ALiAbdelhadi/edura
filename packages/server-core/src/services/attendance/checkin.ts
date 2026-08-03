@@ -7,6 +7,7 @@ import {
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../../services/notifications/notify";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
+import { resolveStudentCode } from "@repo/database/student-code";
 
 // ---------------------------------------------------------------------------
 // Step 6 — counter + door check-in.
@@ -39,11 +40,17 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   const query = q.trim();
   if (query.length < 2) return [];
 
+  // A code only becomes a search term once its check character agrees. So a
+  // card scanned with one character misread contributes NOTHING to the OR
+  // instead of matching a different student outright — the receptionist gets
+  // "not found" and looks again, which is the honest answer.
+  const code = resolveStudentCode(query);
+
   return platformDb(async (tx) => {
     const profiles = await tx.studentProfile.findMany({
       where: {
         OR: [
-          { studentCode: { equals: query.toUpperCase() } },
+          ...(code ? [{ studentCode: code }] : []),
           { phone: { contains: query } },
           { fullName: { contains: query, mode: "insensitive" } },
           { user: { name: { contains: query, mode: "insensitive" } } },
@@ -361,8 +368,14 @@ export async function doorCheckin(
 
       let studentId = input.studentId;
       if (!studentId && input.studentCode) {
+        // The check character earns its keep here: a code typed one character
+        // wrong at the hall door must FAIL, not resolve to another child and
+        // mark them present. `resolveStudentCode` returns null for anything
+        // that is not a genuine code, so the lookup never runs on a guess.
+        const code = resolveStudentCode(input.studentCode);
+        if (!code) throw new NotFoundError("Student code not found");
         const profile = await tx.studentProfile.findFirst({
-          where: { studentCode: input.studentCode.trim().toUpperCase() },
+          where: { studentCode: code },
           select: { userId: true },
         });
         if (!profile?.userId) throw new NotFoundError("Student code not found");
