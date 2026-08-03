@@ -182,7 +182,13 @@ export function StudentIdScreen({
           <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
             {t("completeBody", { done: checklist.completed, total: checklist.total })}
           </p>
-          <Hairline className="my-4" />
+          {/* The rule takes its air from a wrapper, not from a prop: <Hairline>
+              is shared chrome and carries no className, so a screen that wants
+              space around it says so here rather than widening a component
+              five other portals render. */}
+          <div className="my-4">
+            <Hairline />
+          </div>
           {/* `min-h-8` is the height of the `sm` Button, so a row whose item
               has no fix link keeps the same rhythm as the rows that do —
               otherwise the list reads as three unequal bands. */}
