@@ -270,8 +270,13 @@ export function DoubleTotal({
   );
 }
 
-export function Hairline() {
-  return <div className={styles.hairline} />;
+/* A bare rule: `border-top` on a zero-height box, carrying NO margin of its
+   own. Separation is the caller's decision — a rule inside a dense table row
+   and one splitting a sheet in two want different air — so the space is passed
+   in rather than baked here. Without `className` there was no way to give it
+   any, and the rule butted against whatever sat on either side. */
+export function Hairline({ className }: { className?: string }) {
+  return <div className={cx(styles.hairline, className)} />;
 }
 
 /* ── Empty state ───────────────────────────────────────────────────────────
