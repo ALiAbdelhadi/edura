@@ -184,6 +184,34 @@ The exact substring matters: the endpoint serialises with no spaces, so
   maintenance window. Do not put the realtime monitor on phone escalation: chat
   being down is not worth waking someone.
 
+### Deploy drift — a CI check, not an uptime monitor
+
+`/api/health` cannot answer "is production serving main?" — rule 4 is that it
+leaks nothing, and the deployed commit SHA is exactly the kind of thing that
+rule exists to keep off an unauthenticated endpoint. So this one lives in CI:
+`.github/workflows/deploy-drift.yml`, every 3 hours, comparing `origin/main`
+against the latest READY production deployment on Vercel.
+
+It exists because on 2026-08-03 main sat **8.5 hours** ahead of production and
+nothing said so. CI was red on the DB suites and `deploy.yml` is gated on a
+successful CI run, so it correctly refused to ship — and then the day went on.
+The gate worked; the silence is what failed. A refusal nobody hears is
+indistinguishable from a deploy that happened.
+
+- **90-minute grace.** A deploy in flight, or CI still running, is not drift.
+  Raise it if it ever cries wolf during a normal deploy; do NOT raise it to
+  silence a real backlog.
+- **The commit SHA is preferred but not required.** Vercel documents `meta` only
+  as "metadata from the Git provider" and these deploys come from `vercel deploy`
+  in CI rather than a git integration, so a SHA may not be attached. When it is,
+  the comparison is exact; when it is not, deployment `createdAt` vs the commit
+  date is the fallback. Both are covered by the self-test.
+- **It proves its own logic before trusting its verdict** — the workflow runs
+  `--self-test` (9 cases, including the exact 2026-08-03 state) as a separate
+  step first. A decision function nobody has exercised is not a monitor.
+- **When it goes red**, the cause is almost always upstream: CI red on main, or
+  the deploy job failing. Check the Actions tab filtered to `branch:main`.
+
 ---
 
 ## 3. Public status page
