@@ -59,7 +59,8 @@
     "payForChild": "Pay for a Lesson",
     "teamNotes": "Team Notes",
     "auditLog": "Audit log",
-    "externalTeachers": "Off-system teachers"
+    "externalTeachers": "Off-system teachers",
+    "studentId": "My ID"
   },
   "roles": {
     "student": "Student",

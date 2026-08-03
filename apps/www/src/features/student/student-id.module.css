@@ -1,0 +1,23 @@
+/* The card's own type scale.
+   ══════════════════════════════════════════════════════════════════════════════
+   The Ledger's <Eyebrow> is a fixed 10px, which is right on a screen and wrong
+   on a card that has to be the same object at 320px wide on a phone and at 86mm
+   on paper. Everything here is sized in `cqw` against the card's own container,
+   so the whole card scales as one piece.
+
+   The marker rule from CONSTITUTION §6 still holds: mono and letter-spacing are
+   LATIN-ONLY — Arabic has no Plex Mono glyphs and breaks under tracking — so the
+   uppercase/mono treatment is applied by the component only when the label is
+   Latin. */
+
+.eyebrow {
+  font-size: clamp(7px, 1.55cqw, 11px);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.eyebrowLatin {
+  font-family: var(--ledger-mono), ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}

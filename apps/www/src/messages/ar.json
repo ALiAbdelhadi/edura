@@ -59,7 +59,8 @@
     "payForChild": "ادفع لدرس",
     "teamNotes": "ملاحظات الفريق",
     "auditLog": "سجل التدقيق",
-    "externalTeachers": "مدرسون خارج النظام"
+    "externalTeachers": "مدرسون خارج النظام",
+    "studentId": "بطاقتي"
   },
   "roles": {
     "student": "طالب",

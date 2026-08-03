@@ -23,6 +23,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link2, User } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -64,7 +65,7 @@ type ParentLink = {
   status?: string;
   initiatedBy?: string;
   createdAt?: string;
-  studentId?: { name?: string } | null;
+  studentId?: { id?: string; name?: string } | null;
 };
 
 export function ParentLinkingScreen() {
@@ -268,6 +269,15 @@ export function ParentLinkingScreen() {
 
         if (record.status === "approved") {
           return (
+            <div className="flex items-center gap-3">
+              {record.studentId?.id ? (
+                <Link
+                  href={`/dashboard/parent/children/${record.studentId.id}/id`}
+                  className="text-[12px] text-ink-2 underline underline-offset-4 hover:text-ink"
+                >
+                  {t("studentIdCard.title")}
+                </Link>
+              ) : null}
             <ConfirmDialog
               trigger={
                 <button
@@ -284,6 +294,7 @@ export function ParentLinkingScreen() {
               destructive
               onConfirm={() => handleRevoke(id)}
             />
+            </div>
           );
         }
 
