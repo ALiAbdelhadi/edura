@@ -1,4 +1,5 @@
 import { prisma } from "@repo/database";
+import { rateLimiterDegraded } from "../rate-limit/token-bucket";
 
 // =============================================================================
 // /api/health — the endpoint an external uptime monitor polls.
@@ -14,6 +15,15 @@ import { prisma } from "@repo/database";
 //    whose absence makes the app useless. SMTP, Redis and the realtime server
 //    are degradations, not outages — checking them here would page someone at
 //    3am because a mail relay hiccuped. They are deliberately not checked.
+//
+//    `rateLimiter` below does NOT breach this. It is not a probe: nothing is
+//    dialled, nothing can hang, nothing can fail. It reports a flag the process
+//    already set while serving real traffic, so it costs nothing and adds no
+//    dependency — the opposite of the 3am page rule 2 exists to prevent.
+//    It also leaves the status CODE alone. A limiter serving from local memory
+//    is worth seeing on a dashboard, but it is not a reason to pull an instance
+//    out of rotation, which is what a 503 here would do — and pulling instances
+//    during a Redis outage is how a degradation becomes an outage.
 //
 // 3. IT MUST BE BOUNDED. An unreachable database usually means a HANGING
 //    connection, not a fast refusal. Without the race below the health check
@@ -51,6 +61,21 @@ export type HealthBody = {
   status: HealthStatus;
   /** "up" when a trivial query returned within the timeout. */
   db: "up" | "down";
+  /**
+   * Where rate limits are currently being enforced.
+   *
+   * "shared" — the Redis store: one budget across every instance, which is what
+   * C2's login limits assume. "local" — per-process memory: each instance holds
+   * its OWN budget and each starts it full, so N instances multiply an
+   * attacker's allowance by N. That is the exact weakness M3 existed to close,
+   * and until now it could happen in production with nothing to see it by.
+   *
+   * "local" therefore means one of two things, and both are worth knowing:
+   * REDIS_URL is unset (expected on a laptop, a misconfiguration in a
+   * deployment), or it is set and the circuit breaker is open (Redis is down).
+   * Alert on it in production; ignore it in dev.
+   */
+  rateLimiter: "shared" | "local";
   time: string;
 };
 
@@ -81,9 +106,17 @@ async function checkDb(): Promise<boolean> {
  */
 export async function healthResponse(): Promise<Response> {
   const dbUp = await checkDb();
+  // Configured AND currently usable. Both halves matter: an unset REDIS_URL in
+  // a deployment is a misconfiguration that looks identical, from the outside,
+  // to Redis being down — in both cases the limits are not shared.
+  const limitsShared = Boolean(process.env.REDIS_URL) && !rateLimiterDegraded();
   const body: HealthBody = {
+    // DB only, deliberately (rule 2). A degraded limiter must not flip this:
+    // monitors keyword-check `status`, and doing so would page for a
+    // non-outage — the same mistake the 8s DB timeout was fixed to avoid.
     status: dbUp ? "ok" : "degraded",
     db: dbUp ? "up" : "down",
+    rateLimiter: limitsShared ? "shared" : "local",
     time: new Date().toISOString(),
   };
 

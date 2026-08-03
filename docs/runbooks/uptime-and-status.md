@@ -8,7 +8,7 @@
 | superadmin | `https://<superadmin-domain>/api/health` | Database reachable within 8s |
 
 ```json
-{ "status": "ok", "db": "up", "time": "2026-08-02T00:00:00.000Z" }
+{ "status": "ok", "db": "up", "rateLimiter": "shared", "time": "2026-08-02T00:00:00.000Z" }
 ```
 
 **The status code is the signal**, not the body:
@@ -26,6 +26,19 @@
   are *degradations*, not outages — including them would page someone at 3am
   because a mail relay hiccuped. If you add a dependency here, you are choosing
   to be woken up for it.
+- **`rateLimiter` is reported but never affects the status code.** It is not a
+  probe — nothing is dialled and it cannot hang or fail; it reports a flag the
+  process already set while serving real traffic, so it does not breach the rule
+  above. `"shared"` means limits are enforced in Redis, one budget across every
+  instance. `"local"` means per-process memory: each instance holds its OWN
+  budget and each starts it full, so N instances multiply an attacker's login
+  allowance by N — the exact weakness the shared store exists to close.
+  `"local"` means either REDIS_URL is unset (normal on a laptop, a
+  **misconfiguration** in a deployment) or Redis is down and the limiter's
+  circuit breaker has opened. **Alert on `"local"` in production; expect it in
+  dev.** It deliberately does not return 503: pulling instances out of rotation
+  because Redis is down turns a degradation into an outage, and during a Redis
+  outage it would do so to every instance at once.
 - **It is bounded at 8 seconds, and that number was measured.** An unreachable
   database usually *hangs* rather than refusing fast, so without a timeout the
   health check would hang exactly when it matters and the monitor would report a
@@ -132,7 +145,7 @@ curl -i http://localhost:3002/api/health
 
 Both paths were exercised on 2026-08-02:
 
-- **healthy** → `200`, `{"status":"ok","db":"up",...}`, `Cache-Control: no-store`,
+- **healthy** → `200`, `{"status":"ok","db":"up","rateLimiter":"shared",...}`, `Cache-Control: no-store`,
   96–550 ms warm (both apps)
 - **database refused** (bogus host) → `503`, `{"status":"degraded","db":"down",...}`,
   `Retry-After: 30`, in 55 ms, with no driver error in the body
