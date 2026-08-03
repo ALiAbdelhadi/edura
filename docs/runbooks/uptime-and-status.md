@@ -103,7 +103,7 @@ N instances multiply an attacker's login allowance by N.
 
 | Name | URL | Interval | Alert after |
 |---|---|---|---|
-| Edura — rate limiter | `https://app.edura.eg/api/health` | 5 min | 3 consecutive failures |
+| Edura — rate limiter | `https://edura-www.vercel.app/api/health` | 5 min | 3 consecutive failures |
 
 - **Expect HTTP 200 AND the body to NOT contain `"rateLimiter":"local"`.**
   (Better Stack: *Should not contain*. UptimeRobot: an inverted keyword check.)
@@ -137,7 +137,7 @@ curl -X POST https://uptime.betterstack.com/api/v2/monitors \
   -H "Content-Type: application/json" \
   -d '{
     "monitor_type": "keyword_absence",
-    "url": "https://app.edura.eg/api/health",
+    "url": "https://edura-www.vercel.app/api/health",
     "required_keyword": "\"rateLimiter\":\"local\"",
     "pronounceable_name": "Edura — rate limiter",
     "check_frequency": 300,
@@ -149,11 +149,33 @@ curl -X POST https://uptime.betterstack.com/api/v2/monitors \
   }'
 ```
 
-**Confirm it on first run:** the monitor should read UP immediately, because a
-healthy response contains `"rateLimiter":"shared"`. If it reads DOWN straight
-away the keyword sense is inverted — swap `keyword_absence` for `keyword`. The
-exact substring matters: the endpoint serialises with no spaces, so
+**Confirm the FIELD EXISTS before trusting the monitor.** This is the trap:
+`keyword_absence` goes green whenever the string is missing, and it is missing
+on any build that predates the field — so a deployment running older code makes
+this monitor **vacuously green**, reporting "limits are shared" about a build
+that cannot say either way. Checked on 2026-08-03, production was in exactly
+that state: `https://edura-www.vercel.app/api/health` answered
+`{"status":"ok","db":"up","time":...}` with no `rateLimiter` at all.
+
+So the first-run check is not "is it UP" but:
+
+```bash
+curl -s https://edura-www.vercel.app/api/health | grep -q '"rateLimiter":"shared"' \
+  && echo "field present — monitor is meaningful" \
+  || echo "NOT DEPLOYED YET — this monitor would be green for the wrong reason"
+```
+
+Only create the monitor once that prints the first line. After that, a DOWN
+reading means what it says. If it reads DOWN while the field says `shared`, the
+keyword sense is inverted — swap `keyword_absence` for `keyword`.
+
+The exact substring matters: the endpoint serialises with no spaces, so
 `"rateLimiter":"local"` matches and `"rateLimiter": "local"` does not.
+
+> **Domain.** `edura-www.vercel.app` is what is actually serving
+> (`APP_BASE_URL`). `app.edura.eg` (`APP_ORIGIN`/`APP_INTERNAL_URL`) does not
+> resolve yet — the custom domain is still outstanding for launch. Re-point every
+> monitor in this runbook when it lands.
 
 ### Escalation
 
