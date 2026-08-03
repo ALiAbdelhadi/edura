@@ -24,6 +24,7 @@ import {
   Sheet,
   SheetHead,
 } from "./ledger";
+import { asRecord } from "@/lib/refine/as-record";
 
 type DateRange = { from: Date | undefined; to?: Date | undefined };
 
@@ -63,12 +64,12 @@ export function AdminReportsScreen() {
     method: "get",
     config: { query: queryValues },
   });
-  const { query: trendQuery, result: trendResult } = useCustom({
+  const { result: trendResult } = useCustom({
     url: "reports/revenue-timeseries",
     method: "get",
     config: { query: queryValues },
   });
-  const { query: expensesQuery, result: expensesTimeseriesResult } = useCustom({
+  const { result: expensesTimeseriesResult } = useCustom({
     url: "reports/expenses-timeseries",
     method: "get",
     config: { query: queryValues },
@@ -83,16 +84,25 @@ export function AdminReportsScreen() {
     method: "get",
     config: { query: queryValues },
   });
-  const data = (result?.data as any) || null;
+  const data = asRecord<any>(result?.data) ?? null;
   const trendData = ((trendResult?.data as any)?.series ?? []) as any[];
   const expensesByCategory = ((expensesTimeseriesResult?.data as any)?.byCategory ?? []) as any[];
   const fillRates = ((fillRateResult?.data as any)?.items ?? []) as any[];
   const funnel = ((funnelResult?.data as any)?.items ?? []) as any[];
 
-  if ((query.isLoading || trendQuery.isLoading || expensesQuery.isLoading) && !result?.data) {
-    return <PageSpinner label={t("adminManage.reports.loadingReports")} />;
-  }
-
+  // GUARD ON THE PAYLOAD, NOT ON isLoading/isError — neither is reliable here.
+  // React Query PAUSES a retry when its online-heuristic says the network is
+  // down (`fetchStatus: "paused"`, observed live). Paused means `isFetching`
+  // false, so `isLoading` (= isPending && isFetching) is false; and the query
+  // never settles, so `isError` never becomes true either. Both guards were
+  // therefore unreachable on a first load that fails, and this screen rendered
+  // its success layout over a payload that does not exist — "0.00 EGP" revenue
+  // on a money screen, indistinguishable from a real zero.
+  //
+  // `data` is null unless a real object arrived (see asRecord), so keying on it
+  // covers pending, paused, backoff and error alike. This endpoint always
+  // answers with a shaped object, never `{}`, so `!data` cannot mean "loaded
+  // but empty".
   if (query.isError && !data) {
     return (
       <Sheet>
@@ -104,6 +114,10 @@ export function AdminReportsScreen() {
         />
       </Sheet>
     );
+  }
+
+  if (!data) {
+    return <PageSpinner label={t("adminManage.reports.loadingReports")} />;
   }
 
   const revenue = data?.revenue ?? 0;

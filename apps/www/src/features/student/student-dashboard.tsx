@@ -16,6 +16,7 @@ import {
   SectionHeading,
   Sheet,
 } from "@/features/student/ledger";
+import { asRecord } from "@/lib/refine/as-record";
 
 type SessionRow = { id: string; time: string; subject: string; date?: string };
 type SubjectRow = { id: string; subject: string; grade: string; percentage: number };
@@ -36,19 +37,26 @@ type SubjectRow = { id: string; subject: string; grade: string; percentage: numb
  */
 export function StudentDashboard() {
   const t = useTranslations();
-  const { query, result } = useCustom({ url: "dashboards/student", method: "get" });
+  const { result } = useCustom({ url: "dashboards/student", method: "get" });
   const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
 
-  const data = (result?.data ?? {}) as {
+  // The payload and the guard read the SAME value. `result.data` is refine's
+  // frozen `{}` until the request settles, and `{}` is truthy — so guarding on
+  // it directly skipped the skeleton and rendered an empty dashboard instead.
+  const payload = asRecord<{
     attendanceRate?: number;
     averageGrade?: string;
     todaySchedule?: SessionRow[];
     upcoming?: SessionRow[];
     subjectPerformance?: SubjectRow[];
-  };
-  const wallet = walletRes?.data as { balance?: number } | undefined;
+  }>(result?.data);
+  const data = payload ?? {};
+  const wallet = asRecord<{ balance?: number }>(walletRes?.data);
 
-  if (query.isLoading && !result?.data) return <PageSkeleton />;
+  // Keyed on the payload, not isLoading — a PAUSED retry leaves isLoading
+  // false while no data has arrived, which skipped the skeleton entirely.
+  // See admin-reports-screen for the full reasoning.
+  if (!payload) return <PageSkeleton />;
 
   const today = data.todaySchedule ?? [];
   const upcoming = data.upcoming ?? [];

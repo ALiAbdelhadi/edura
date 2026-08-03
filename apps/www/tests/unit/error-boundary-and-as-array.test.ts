@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { asArray } from "@/lib/refine/as-array";
+import { asRecord } from "@/lib/refine/as-record";
 import { baseMessages } from "@/lib/i18n/scope";
 import { getMessages, LOCALES } from "@/lib/i18n";
 
@@ -109,5 +110,85 @@ describe("error + not-found boundaries", () => {
 
     const shipped = baseMessages(getMessages("ar")) as Record<string, unknown>;
     expect(Object.keys(shipped), `${file} uses "${ns}", absent from baseMessages`).toContain(ns);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. asRecord — the same payload read as an OBJECT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `asArray` fixed the sites that CRASHED. These are the sites that stayed
+ * silent: `{}` is truthy, so every guard written against the loading state was
+ * dead code and the screen rendered its success layout over a payload that did
+ * not exist. A failed request showed zeros that read as real figures — wrong in
+ * the one direction a reader cannot detect.
+ */
+describe("asRecord — useCustom payloads", () => {
+  it("returns undefined for refine's frozen empty-object payload (the dead guard)", () => {
+    // The regression in one line: the sentinel is TRUTHY, so `!payload` never fired.
+    expect(REFINE_EMPTY_PAYLOAD).toBeTruthy();
+    expect(asRecord(REFINE_EMPTY_PAYLOAD)).toBeUndefined();
+    expect(!asRecord(REFINE_EMPTY_PAYLOAD)).toBe(true);
+  });
+
+  it("returns undefined for undefined, null, scalars and arrays", () => {
+    for (const v of [undefined, null, "", "text", 0, 7, true, [], [{ id: 1 }]]) {
+      expect(asRecord(v)).toBeUndefined();
+    }
+  });
+
+  it("passes a real object payload through untouched", () => {
+    const payload = { revenue: 1200, expenses: 300 };
+    expect(asRecord(payload)).toBe(payload);
+  });
+
+  it("keeps a falsy-valued but present payload — only EMPTINESS means not-loaded", () => {
+    expect(asRecord({ revenue: 0 })).toEqual({ revenue: 0 });
+  });
+});
+
+/**
+ * The guard must key on the PAYLOAD, not on `isLoading` / `isError`.
+ *
+ * React Query pauses a retry when its online-heuristic says the network is
+ * down — observed live as `fetchStatus: "paused"`, `status: "pending"`,
+ * `isLoading: false`, `isError: false`. In that state BOTH of the original
+ * guards were unreachable, so the screen rendered its success layout over a
+ * payload that did not exist. On the reports screen that is a money figure:
+ * "0.00 EGP" revenue, indistinguishable from a real zero.
+ *
+ * Deriving with asRecord is necessary but NOT sufficient — it makes the payload
+ * honestly null; the guard still has to read it.
+ */
+const GUARDED_SCREENS = [
+  ["features/admin/admin-reports-screen.tsx", "data"],
+  ["features/student/student-dashboard.tsx", "payload"],
+  ["features/teacher/teacher-dashboard.tsx", "payload"],
+] as const;
+
+describe("loading/error guards key on the payload, not on query flags", () => {
+  it.each(GUARDED_SCREENS)("%s guards on `%s`", (file, derived) => {
+    const src = readFileSync(path.join(__dirname, "..", "..", "src", file), "utf8");
+
+    // The payload must be derived with asRecord — otherwise `{}` reaches it.
+    expect(src, `${file} should derive its payload with asRecord`).toMatch(
+      new RegExp(`const ${derived} = asRecord`),
+    );
+
+    // There must be an early return keyed on the payload being absent.
+    expect(src, `${file} needs an early return on !${derived}`).toMatch(
+      new RegExp(`if \\(!${derived}\\)`),
+    );
+
+    // And no guard may hang off isLoading: it is false while a retry is paused,
+    // which is exactly the state that used to slip through.
+    const guards = src.match(/if \([^)]*\)/g) ?? [];
+    for (const guard of guards) {
+      expect(guard, `${file}: guard keyed on isLoading`).not.toMatch(/isLoading/);
+      expect(guard, `${file}: guard reads the raw sentinel`).not.toMatch(
+        /!\w*[Rr]es(ult)?\?\.data/,
+      );
+    }
   });
 });

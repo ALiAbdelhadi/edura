@@ -1,6 +1,7 @@
 "use client";
 
 import { useCustom } from "@refinedev/core";
+import { asRecord } from "@/lib/refine/as-record";
 
 /** Any GET under the admin API, with the same shape as `useOversight`. */
 export function useAdminGet<T = unknown>(
@@ -14,7 +15,10 @@ export function useAdminGet<T = unknown>(
     queryOptions: { enabled: opts.enabled ?? true },
   });
   return {
-    data: req.result?.data as T | undefined,
+    // `as T | undefined` was a lie: refine hands back a frozen `{}`, never
+    // undefined, so every `if (!data)` written against this hook is dead code.
+    // asRecord makes the declared type true.
+    data: asRecord<T>(req.result?.data),
     isLoading: req.query.isLoading,
     refetch: () => req.query.refetch(),
   };

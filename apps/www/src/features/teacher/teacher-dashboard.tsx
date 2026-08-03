@@ -11,14 +11,18 @@ import { scoreDistributionBarData, teacherAttendanceLineSeries, teacherGradeLoad
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSkeleton } from "@/components/ui/skeletons";
+import { asRecord } from "@/lib/refine/as-record";
 
 export function TeacherDashboard() {
   const t = useTranslations();
   const { formatPercent } = useFormatters();
-  const { query, result } = useCustom({ url: "dashboards/teacher", method: "get" });
-  const data = (result?.data as any) ?? {};
+  const { result } = useCustom({ url: "dashboards/teacher", method: "get" });
+  // The payload and the guard read the SAME value — see student-dashboard.
+  const payload = asRecord<any>(result?.data);
+  const data = payload ?? {};
 
-  if (query.isLoading && !result?.data) {
+  // Keyed on the payload, not isLoading — see student-dashboard.
+  if (!payload) {
     return <PageSkeleton />;
   }
 
