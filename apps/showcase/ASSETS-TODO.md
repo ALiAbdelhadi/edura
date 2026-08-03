@@ -5,7 +5,22 @@ device frames) is produced by the Phase 2 pipeline from a seeded local app. This
 lists only what that pipeline **cannot** produce, split into things that block a page and
 things the site is designed to live without.
 
-Last updated 2026-08-02, after merging `main` and re-capturing.
+Last updated 2026-08-02, after the five role pages shipped.
+
+> **TWO apps/www SCREENS CRASH.** Found by the capture guard, which now refuses
+> to screenshot a page rendering the error boundary. Both return 200 and then
+> throw in the browser on a value that is not the array the component expects:
+>
+> | Screen | Error |
+> |---|---|
+> | `/dashboard/student/wallet` | `((intermediate value) ?? []).filter is not a function` |
+> | `/dashboard/admin/settings` | `o.find is not a function` |
+>
+> Neither is a showcase bug and neither is fixed here. The pages route around
+> them — the student wallet scene uses the ledger DIAGRAM (which states the
+> "balance is a sum" claim better than a screenshot of a total anyway) and the
+> /trust sessions scene runs copy-only. `student/wallet` is deliberately LEFT in
+> the capture manifest so every run keeps reporting it until it is fixed.
 
 > **`/pricing` is no longer a showcase concern.** `apps/www` now publishes it,
 > computing every figure at request time from the live `commission_settings`

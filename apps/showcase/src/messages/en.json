@@ -18,7 +18,11 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "switchToArabic": "العربية",
-    "switchToEnglish": "English"
+    "switchToEnglish": "English",
+    "help": "Help",
+    "faq": "FAQ",
+    "changelog": "Changelog",
+    "contact": "Contact"
   },
   "home": {
     "hero": {
@@ -36,6 +40,202 @@
     "company": "Company",
     "privacy": "Privacy",
     "terms": "Terms",
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "resources": "Resources"
+  },
+  "cta": {
+    "title": "Put your center in one ledger.",
+    "body": "Create an account and set up your first hall, teacher and group. Nothing to install."
+  },
+  "owners": {
+    "eyebrow": "Center owners",
+    "title": "The money settles itself — and you can see every step",
+    "body": "Cash at the counter and card online land in one book. Each lesson splits between you, the teacher and the platform the moment it completes.",
+    "nav": {
+      "counter": "The counter",
+      "settlement": "Settlement",
+      "halls": "Halls & rates",
+      "ledger": "The ledger",
+      "team": "Team & audit"
+    },
+    "counter": {
+      "eyebrow": "The counter",
+      "title": "A student arrives. You have their code, and a queue behind them.",
+      "body": "Search by code, phone or name. If they aren't covered for this lesson, the cash step happens in the same flow — not a second screen with a modal in between."
+    },
+    "settlement": {
+      "eyebrow": "Settlement",
+      "title": "One lesson, split three ways, exactly once",
+      "body": "When a lesson completes, the engine claims it with a single conditional write. A lesson cannot be settled twice, and the arithmetic is the same one this diagram draws.",
+      "note": "Rates below are the platform's published defaults, read live from commission settings."
+    },
+    "halls": {
+      "eyebrow": "Halls and rates",
+      "title": "Your hall, your rate — up to the published ceiling",
+      "body": "Price a hall as a share of the whole room, or per attending student. The teacher sees that rate on the hall card before booking, so nothing is discovered at settlement."
+    },
+    "ledger": {
+      "eyebrow": "The record",
+      "title": "The book cannot be edited or deleted",
+      "body": "Transactions, points, settlements and the audit log all carry REVOKE UPDATE, DELETE at the database. A correction is a new, reversing entry — never a quiet edit."
+    },
+    "team": {
+      "eyebrow": "Team",
+      "title": "Staff accounts with preset permissions, and a name on every action",
+      "body": "Receptionist, manager and accountant each get their own scope. What a role cannot do is absent from their screen, not greyed out — and every write records who did it."
+    }
+  },
+  "teachers": {
+    "eyebrow": "Teachers",
+    "title": "Take the register in a minute — even with no signal",
+    "body": "Your groups, your schedule, your grades and your wallet in one place. Marks taken offline queue on the device and sync themselves when the connection returns.",
+    "nav": {
+      "register": "The register",
+      "offline": "Offline",
+      "door": "Door check-in",
+      "wallet": "Your wallet",
+      "assistants": "Assistants"
+    },
+    "register": {
+      "eyebrow": "The register",
+      "title": "Open the lesson, mark the room",
+      "body": "Every session for your groups, with the ones already completed clearly behind you."
+    },
+    "offline": {
+      "eyebrow": "Offline",
+      "title": "The connection drops. The register does not.",
+      "body": "Marks are stored on the device with their own commit state, so you can see per record whether it reached the server. Conflicts resolve server-wins on sync."
+    },
+    "door": {
+      "eyebrow": "Two stages",
+      "title": "A second check-in at the hall door",
+      "body": "Turn it on and a student who passed the front desk but never reached the room shows as counter-only — visibly not present, and not counted in the lesson's split."
+    },
+    "wallet": {
+      "eyebrow": "Earnings",
+      "title": "Your wallet moves with every completed lesson",
+      "body": "Teaching independently settles the moment the student pays, minus the platform's commission. Teaching in a hall settles when the lesson completes."
+    },
+    "assistants": {
+      "eyebrow": "Delegation",
+      "title": "An assistant who can do everything except touch your money",
+      "body": "Attendance, grades, materials and schedules. Never your wallet, your payouts or your financial settings — and every action is recorded as theirs, on your behalf."
+    }
+  },
+  "students": {
+    "eyebrow": "Students",
+    "title": "Your year, your track, your subjects — already filled in",
+    "body": "Pick your academic year and track once. Your subjects come from the real Egyptian catalog, not a list somebody typed.",
+    "nav": {
+      "subjects": "Subjects",
+      "plans": "Paying",
+      "wallet": "Wallet",
+      "schedule": "Schedule",
+      "points": "Points"
+    },
+    "subjects": {
+      "eyebrow": "Onboarding",
+      "title": "Choose a track, get your subjects",
+      "body": "Systems, stages, grades and tracks come from the seeded catalog. Browse everything when you need to; your own subjects are the default."
+    },
+    "plans": {
+      "eyebrow": "Paying",
+      "title": "By the month, or by the lesson",
+      "body": "Each course sets which plans it offers. Pay online, from your wallet, or in cash at the center counter."
+    },
+    "wallet": {
+      "eyebrow": "Wallet",
+      "title": "Your balance is a sum, not a stored number",
+      "body": "Every top-up and every payment is an entry in an append-only ledger, and the balance is what those entries add up to. The database refuses to let it go negative."
+    },
+    "schedule": {
+      "eyebrow": "Schedule",
+      "title": "Your week, on your phone",
+      "body": "Sessions, halls and teachers, with attendance and grades recorded against each one."
+    },
+    "points": {
+      "eyebrow": "Points",
+      "title": "Points for showing up and keeping up",
+      "body": "Attendance, paying online, booking and rating all award points from the platform's own rules. The points ledger cannot be edited either."
+    }
+  },
+  "parents": {
+    "eyebrow": "Guardians",
+    "title": "Minor by default — protection is on before anyone sets it",
+    "body": "A student counts as an adult only with a verified date of birth showing 18 or over. Missing or unverified means minor, and oversight is already active.",
+    "nav": {
+      "safety": "Child safety",
+      "oversight": "Oversight",
+      "pay": "Paying",
+      "follow": "Following along"
+    },
+    "safety": {
+      "eyebrow": "The default",
+      "title": "The gate is closed until a guardian can be reached",
+      "body": "A minor with no guardian email cannot message teachers, assistants or center staff. A phone number is not enough — email is the only channel we can actually deliver on today."
+    },
+    "narrow": {
+      "eyebrow": "What the lock locks",
+      "title": "Classes, materials, grades and the wallet all keep working",
+      "body": "Only adult-facing conversations are closed, and the child can always reach their own guardian. The account is never suspended by this rule, and the deadline escalates a reminder — it never punishes."
+    },
+    "oversight": {
+      "eyebrow": "Oversight",
+      "title": "Read-only, and the limits are the feature",
+      "body": "Approved links, minor children, adult threads only — and a banner both sides can see. It never marks a message read and has no write path in the interface or the API."
+    },
+    "pay": {
+      "eyebrow": "Paying",
+      "title": "Pay for your child's lesson from your own wallet",
+      "body": "Who paid is recorded on the payment. Where the money goes does not change, so every split, statement and payout behaves exactly as it would have."
+    },
+    "follow": {
+      "eyebrow": "Following along",
+      "title": "Attendance, progress and fees per child",
+      "body": "Notifications when an absence is marked, a grade is entered or a payment is recorded."
+    }
+  },
+  "trust": {
+    "eyebrow": "Trust & safety",
+    "title": "The interface tells the truth about what the software guarantees",
+    "body": "Every claim on this page points at a mechanism in the database or the code, not at a policy document.",
+    "nav": {
+      "append": "Append-only",
+      "isolation": "Isolation",
+      "minors": "Minors",
+      "sessions": "Sessions",
+      "analytics": "Analytics"
+    },
+    "append": {
+      "eyebrow": "Append-only",
+      "title": "Seven tables the application cannot rewrite",
+      "body": "Transactions, points, the audit log and settlements are INSERT and SELECT only. Invoices, payouts and the blacklist journal cannot be deleted. Not even a super admin is exempt — both apps connect as the same restricted database role."
+    },
+    "isolation": {
+      "eyebrow": "Isolation",
+      "title": "One center cannot read another's rows",
+      "body": "Enforced by row-level security policies in PostgreSQL, not by an if-statement in application code. A query that forgets its filter returns nothing rather than everything."
+    },
+    "minors": {
+      "eyebrow": "Minors",
+      "title": "Default-minor, everywhere it matters",
+      "body": "One positive condition decides adulthood, so a missing field, an unverified date or a new column can never silently unlock a child's account."
+    },
+    "sessions": {
+      "eyebrow": "Sessions",
+      "title": "Deactivation ends a session in the same statement",
+      "body": "A database trigger deletes a user's sessions whenever their status changes, they are soft-deleted, or their token version bumps — so it holds even for SQL that never goes through the application."
+    },
+    "analytics": {
+      "eyebrow": "Analytics",
+      "title": "IDs only, and minors are never identified at all",
+      "body": "No name, email, phone or anything a human typed reaches an analytics vendor. Session replay and autocapture are off, and single-use tokens are redacted before an error ever leaves the browser."
+    },
+    "links": {
+      "title": "Read the real thing",
+      "privacy": "Privacy policy",
+      "terms": "Terms",
+      "help": "Help center"
+    }
   }
 }
