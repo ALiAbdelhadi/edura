@@ -62,6 +62,13 @@
     "externalTeachers": "مدرسون خارج النظام",
     "studentId": "بطاقتي"
   },
+  "gradeBands": {
+    "excellent": "ممتاز",
+    "very_good": "جيد جدًا",
+    "good": "جيد",
+    "pass": "مقبول",
+    "weak": "ضعيف"
+  },
   "roles": {
     "student": "طالب",
     "teacher": "معلم",

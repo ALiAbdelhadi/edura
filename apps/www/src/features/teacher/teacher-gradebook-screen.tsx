@@ -46,6 +46,7 @@ import { StatusBadge } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { BarChart } from "@/components/charts";
+import { GRADE_BANDS, bandForOrdinal } from "@repo/database/grading-scale";
 
 interface RawGrade {
   id: string;
@@ -57,17 +58,14 @@ interface RawGrade {
   scores: Array<{ studentId: string; score: number }>;
 }
 
-const LETTER_OPTIONS = [
-  { label: "A", value: 4 },
-  { label: "B", value: 3 },
-  { label: "C", value: 2 },
-  { label: "D", value: 1 },
-  { label: "F", value: 0 },
-];
-
-function numericToLetter(n: number): string {
-  return { 4: "A", 3: "B", 2: "C", 1: "D", 0: "F" }[n] ?? String(n);
-}
+/*
+ * A تقدير assessment stores 0–4 in `grades.score` with `maxScore: 4`. That
+ * has NOT changed — this is the same five buckets, named the way an Egyptian
+ * teacher and parent name them (ممتاز … ضعيف) instead of A–F. `GRADE_BANDS`
+ * carries the ordinal, so the picker is generated FROM the ladder rather than
+ * repeating it, and no stored row changes meaning.
+ */
+const BAND_OPTIONS = [...GRADE_BANDS].sort((a, b) => b.ordinal - a.ordinal);
 
 interface RawStudent {
   _id: string;
@@ -359,14 +357,18 @@ export function TeacherGradebookScreen() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LETTER_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={String(o.value)}>
-                      {o.label}
+                  {BAND_OPTIONS.map((b) => (
+                    <SelectItem key={b.ordinal} value={String(b.ordinal)}>
+                      {t(`gradeBands.${b.id}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <div className="text-[11px] text-muted-foreground">{numericToLetter(activeScore)}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {bandForOrdinal(activeScore)
+                  ? t(`gradeBands.${bandForOrdinal(activeScore)!.id}`)
+                  : String(activeScore)}
+              </div>
             </div>
           );
         }

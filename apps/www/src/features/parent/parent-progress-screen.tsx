@@ -7,9 +7,17 @@
 //
 // Grades are rendered as plain mono ink, NOT as coloured status badges. In this
 // system colour carries a fixed meaning — teal money confirmed, amber waiting,
-// red irreversible — and a child's B− is none of those. Tinting it would spend
-// a semantic on decoration, and would quietly editorialise about the child on
-// their parent's screen. The percentage bar carries the at-a-glance signal.
+// red irreversible — and a child's تقدير is none of those. Tinting it would
+// spend a semantic on decoration, and would quietly editorialise about the
+// child on their parent's screen. The percentage bar carries the at-a-glance
+// signal, which is why `GradeBand.tone` is deliberately not read here.
+//
+// THE SCALE IS `@repo/database/grading-scale`, NOT A COPY. This screen used to
+// hold its own A–F ladder plus a 4.0 GPA; the ladder had already drifted from
+// the two other copies (it floored at "D", so a child at 12% and one at 61%
+// read the same), and the GPA averaged letters that were themselves derived
+// from percentages — two lossy conversions to reach a number that means
+// nothing to an Egyptian family. Percentage + تقدير now, from the one table.
 import { useList, useCustom } from "@refinedev/core";
 import { Users } from "lucide-react";
 import { Progress } from "@repo/ui/components/progress";
@@ -22,6 +30,7 @@ import {
 } from "@/components/ui/child-selector";
 import { BarChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
+import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
 
@@ -38,37 +47,6 @@ const SERIES = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
-
-function percentageToGrade(pct: number): string {
-  if (pct >= 97) return "A+";
-  if (pct >= 93) return "A";
-  if (pct >= 90) return "A-";
-  if (pct >= 87) return "B+";
-  if (pct >= 83) return "B";
-  if (pct >= 80) return "B-";
-  if (pct >= 77) return "C+";
-  if (pct >= 73) return "C";
-  if (pct >= 70) return "C-";
-  return "D";
-}
-
-function letterToGPA(letter: string): number {
-  const map: Record<string, number> = {
-    "A+": 4.0,
-    A: 4.0,
-    "A-": 3.7,
-    "B+": 3.3,
-    B: 3.0,
-    "B-": 2.7,
-    "C+": 2.3,
-    C: 2.0,
-    "C-": 1.7,
-    "D+": 1.3,
-    D: 1.0,
-    F: 0.0,
-  };
-  return map[letter] ?? 0;
-}
 
 export function ParentProgressScreen() {
   const t = useTranslations();
@@ -122,22 +100,29 @@ export function ParentProgressScreen() {
   const rows = Array.from(courseMap.entries()).map(([courseId, data], i) => {
     const totalScore = data.scores.reduce((a, b) => a + b.score, 0);
     const totalMax = data.scores.reduce((a, b) => a + b.max, 0);
-    const pct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+    const pct = percentOf(totalScore, totalMax);
     return {
       courseId,
       name: data.name,
       subject: data.subject,
       pct,
-      grade: percentageToGrade(pct),
+      band: bandForPercent(pct),
       entries: data.scores.length,
       color: SERIES[i % SERIES.length],
     };
   });
 
-  const gpa =
+  // Each subject row is المجموع ÷ المجموع الكلي (see `percentOf` above), so a
+  // 50-mark final already outweighs a 10-mark quiz WITHIN a subject. The
+  // headline then averages the SUBJECT percentages rather than pooling every
+  // mark in the child's record — otherwise a subject that happens to run more
+  // assessments would quietly dominate the figure a parent reads as "how is my
+  // child doing". Same rule in the student dashboard route, so the two agree.
+  const overallPct =
     rows.length > 0
-      ? (rows.reduce((a, b) => a + letterToGPA(b.grade), 0) / rows.length).toFixed(1)
-      : "—";
+      ? Math.round(rows.reduce((a, b) => a + b.pct, 0) / rows.length)
+      : 0;
+  const overallBand = bandForPercent(overallPct);
   const best = rows.reduce<(typeof rows)[0] | null>(
     (best, r) => (!best || r.pct > best.pct ? r : best),
     null,
@@ -190,10 +175,10 @@ export function ParentProgressScreen() {
         <span className="block text-end">{t("parentProgress.grade")}</span>
       ),
       cell: ({ row }) => (
-        <span className="block text-end">
-          <Figure className="text-[13px] font-semibold text-ink">
-            {row.original.grade}
-          </Figure>
+        // Not a <Figure>: التقدير is a word, and Figure is the mono numeral
+        // face this design system reserves for figures.
+        <span className="block text-end text-[13px] font-semibold text-ink">
+          {t(`gradeBands.${row.original.band.id}`)}
         </span>
       ),
     },
@@ -215,13 +200,20 @@ export function ParentProgressScreen() {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Metric
-              label={t("parentProgress.overallGpa")}
-              value={<Figure>{String(gpa)}</Figure>}
-              reason={t("parentProgress.gpaReason", { count: rows.length })}
+              label={t("parentProgress.overallPercent")}
+              value={<Figure>{formatPercent(overallPct)}</Figure>}
+              reason={
+                rows.length > 0
+                  ? t("parentProgress.overallReason", {
+                      band: t(`gradeBands.${overallBand.id}`),
+                      count: rows.length,
+                    })
+                  : t("parentProgress.noGradesYet")
+              }
             />
             <Metric
               label={t("parentProgress.topSubject")}
-              value={<Figure>{best ? best.grade : "—"}</Figure>}
+              value={<Figure>{best ? formatPercent(best.pct) : "—"}</Figure>}
               reason={best ? best.subject || best.name : undefined}
             />
             <Metric

@@ -62,6 +62,13 @@
     "externalTeachers": "Off-system teachers",
     "studentId": "My ID"
   },
+  "gradeBands": {
+    "excellent": "Excellent",
+    "very_good": "Very good",
+    "good": "Good",
+    "pass": "Pass",
+    "weak": "Weak"
+  },
   "roles": {
     "student": "Student",
     "teacher": "Teacher",
