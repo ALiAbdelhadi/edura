@@ -17,9 +17,20 @@ import {
   Sheet,
 } from "@/features/student/ledger";
 import { asRecord } from "@/lib/refine/as-record";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { bandForPercent, type GradeBandId } from "@repo/database/grading-scale";
 
 type SessionRow = { id: string; time: string; subject: string; date?: string };
-type SubjectRow = { id: string; subject: string; grade: string; percentage: number };
+type SubjectRow = { id: string; subject: string; band: GradeBandId; percentage: number };
+
+/** Band tone → this portal's chip vocabulary. Same table as grades-screen. */
+const CHIP_TONE = {
+  success: "teal",
+  info: "indigo",
+  neutral: "neutral",
+  warning: "amber",
+  danger: "red",
+} as const;
 
 /**
  * The student dashboard, answering *what is next* rather than *how much exists*.
@@ -37,6 +48,7 @@ type SubjectRow = { id: string; subject: string; grade: string; percentage: numb
  */
 export function StudentDashboard() {
   const t = useTranslations();
+  const { formatPercent } = useFormatters();
   const { result } = useCustom({ url: "dashboards/student", method: "get" });
   const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
 
@@ -45,7 +57,8 @@ export function StudentDashboard() {
   // it directly skipped the skeleton and rendered an empty dashboard instead.
   const payload = asRecord<{
     attendanceRate?: number;
-    averageGrade?: string;
+    averagePercent?: number;
+    averageBand?: GradeBandId;
     todaySchedule?: SessionRow[];
     upcoming?: SessionRow[];
     subjectPerformance?: SubjectRow[];
@@ -201,10 +214,14 @@ export function StudentDashboard() {
               {t("studentDashboard.averageGrade")}
             </p>
             <Num style={{ fontSize: 30, fontWeight: 600, color: "var(--ink)" }}>
-              {data.averageGrade ?? "—"}
+              {typeof data.averagePercent === "number"
+                ? formatPercent(data.averagePercent)
+                : "—"}
             </Num>
             <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
-              {t("studentDashboard.gradeTraceHint")}
+              {data.averageBand
+                ? t(`gradeBands.${data.averageBand}`)
+                : t("studentDashboard.gradeTraceHint")}
             </p>
           </Sheet>
         </Link>
@@ -259,8 +276,8 @@ export function StudentDashboard() {
                   <span className="min-w-0 flex-1 truncate" style={{ color: "var(--ink)" }}>
                     {s.subject}
                   </span>
-                  <Chip tone={s.percentage >= 85 ? "teal" : s.percentage >= 60 ? "indigo" : "amber"}>
-                    {s.grade}
+                  <Chip tone={CHIP_TONE[bandForPercent(s.percentage).tone]}>
+                    {t(`gradeBands.${s.band}`)}
                   </Chip>
                   <Num
                     style={{ color: "var(--ink-2)", fontSize: 13, minWidth: 44, textAlign: "end" }}

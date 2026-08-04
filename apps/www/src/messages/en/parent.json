@@ -64,7 +64,7 @@
     "entries": "Entries",
     "overall": "Overall",
     "grade": "Grade",
-    "overallGpa": "Overall GPA",
+    "overallPercent": "Overall percentage",
     "topSubject": "Top Subject",
     "attendanceRate": "Attendance Rate",
     "subjects": "Subjects",
@@ -73,7 +73,8 @@
     "averagePercent": "Average %",
     "noComparison": "No subject comparison data yet.",
     "noGrades": "No grade data available.",
-    "gpaReason": "across {count} subjects",
+    "overallReason": "{band} · across {count} subjects",
+    "noGradesYet": "No grades recorded yet",
     "attendanceReason": "across all recorded sessions",
     "subjectsReason": "with recorded grades",
     "breakdownEyebrow": "By subject"

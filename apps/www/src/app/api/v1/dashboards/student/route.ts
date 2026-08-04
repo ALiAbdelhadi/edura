@@ -2,6 +2,7 @@ import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { scopedDb } from "@/lib/db/scope";
+import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import {
   getStudentGradeTrend,
 } from "@/lib/services/reports/reports";
@@ -75,27 +76,35 @@ export const GET = withErrors(async () => {
   const attendanceRate =
     base.attendanceTotal > 0 ? Math.round((base.attendancePresent / base.attendanceTotal) * 100) : 0;
 
+  // A subject's percentage is المجموع ÷ المجموع الكلي — the marks summed, then
+  // divided — NOT the average of each assessment's own percentage. That is how
+  // an Egyptian report is computed, and it is the difference between a 50-mark
+  // final counting as a final and counting as one quiz.
+  //
+  // It also removes a discrepancy that was live: this route averaged
+  // percentages while the parent's progress screen summed marks, so the same
+  // child in the same subject read 75% to themselves and 82% to their parent.
   const subjectPerformance = courses.map((course) => {
     const courseGrades = grades.filter((g) => g.courseId === course.id);
-    let totalPct = 0;
-    let count = 0;
+    let totalScore = 0;
+    let totalMax = 0;
     for (const g of courseGrades) {
       const myScore = g.scores[0];
       if (myScore !== undefined) {
-        totalPct += (myScore.score / g.maxScore) * 100;
-        count++;
+        totalScore += myScore.score;
+        totalMax += g.maxScore;
       }
     }
-    const percentage = count > 0 ? Math.round(totalPct / count) : 0;
-    const grade = percentageToGrade(percentage);
-    return { id: course.id, subject: course.title, grade, percentage };
+    const percentage = percentOf(totalScore, totalMax);
+    return {
+      id: course.id,
+      subject: course.title,
+      percentage,
+      // The BAND ID, not a translated word: this is an API, and the language
+      // belongs to whoever renders it.
+      band: bandForPercent(percentage).id,
+    };
   });
-
-  const gradePoints = subjectPerformance.map((s) => letterToGPA(s.grade));
-  const gpa =
-    gradePoints.length > 0
-      ? Math.round((gradePoints.reduce((a, b) => a + b, 0) / gradePoints.length) * 10) / 10
-      : 0;
 
   const avgPct =
     subjectPerformance.length > 0
@@ -103,14 +112,18 @@ export const GET = withErrors(async () => {
           subjectPerformance.reduce((a, b) => a + b.percentage, 0) / subjectPerformance.length,
         )
       : 0;
-  const averageGrade = percentageToGrade(avgPct);
+  const averageBand = bandForPercent(avgPct).id;
 
   const gradeTrend = await getStudentGradeTrend(user);
 
   return ok({
     attendanceRate,
-    averageGrade,
-    gpa,
+    // `averageGrade` (a US letter) and `gpa` (a 4.0 average of those letters)
+    // were removed here, not renamed: nothing an Egyptian family reads is
+    // expressed in either, and the GPA was two lossy conversions away from the
+    // marks it claimed to summarise. The percentage is the record.
+    averagePercent: avgPct,
+    averageBand,
     unreadMessages: 0,
     todaySchedule: todaySessions.map((s) => ({
       id: s.id,
@@ -131,28 +144,3 @@ export const GET = withErrors(async () => {
     },
   });
 });
-
-function percentageToGrade(pct: number): string {
-  if (pct >= 97) return "A+";
-  if (pct >= 93) return "A";
-  if (pct >= 90) return "A-";
-  if (pct >= 87) return "B+";
-  if (pct >= 83) return "B";
-  if (pct >= 80) return "B-";
-  if (pct >= 77) return "C+";
-  if (pct >= 73) return "C";
-  if (pct >= 70) return "C-";
-  if (pct >= 67) return "D+";
-  if (pct >= 60) return "D";
-  return "F";
-}
-
-function letterToGPA(letter: string): number {
-  const map: Record<string, number> = {
-    "A+": 4.0, A: 4.0, "A-": 3.7,
-    "B+": 3.3, B: 3.0, "B-": 2.7,
-    "C+": 2.3, C: 2.0, "C-": 1.7,
-    "D+": 1.3, D: 1.0, F: 0.0,
-  };
-  return map[letter] ?? 0;
-}

@@ -53,6 +53,10 @@
       "types": "./src/queries/chat-protocol.ts",
       "default": "./src/queries/chat-protocol.ts"
     },
+    "./grading-scale": {
+      "types": "./src/queries/grading-scale.ts",
+      "default": "./src/queries/grading-scale.ts"
+    },
     "./student-code": {
       "types": "./src/queries/student-code.ts",
       "default": "./src/queries/student-code.ts"

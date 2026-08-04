@@ -64,7 +64,7 @@
     "entries": "الإدخالات",
     "overall": "الإجمالي",
     "grade": "التقدير",
-    "overallGpa": "المعدل التراكمي العام",
+    "overallPercent": "النسبة العامة",
     "topSubject": "أفضل مادة",
     "attendanceRate": "معدل الحضور",
     "subjects": "المواد",
@@ -73,7 +73,8 @@
     "averagePercent": "المتوسط ٪",
     "noComparison": "لا توجد بيانات مقارنة للمواد بعد.",
     "noGrades": "لا توجد بيانات درجات متاحة.",
-    "gpaReason": "عبر {count} مادة",
+    "overallReason": "{band} · عبر {count} مادة",
+    "noGradesYet": "لا توجد درجات بعد",
     "attendanceReason": "لكل الجلسات المسجّلة",
     "subjectsReason": "بها درجات مسجّلة",
     "breakdownEyebrow": "بالمادة"

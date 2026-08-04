@@ -2,6 +2,7 @@
 
 import { useList } from "@refinedev/core";
 import { useTranslations } from "next-intl";
+import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSpinner } from "@/components/kit/spinner";
 import {
@@ -29,32 +30,31 @@ type GradeRow = {
 type CourseRow = { id?: string; _id?: string; title?: string; subject?: string };
 
 /**
+ * The band's semantic tone, spelled in this portal's chip vocabulary. The
+ * mapping lives here rather than in the scale module because "teal/indigo/
+ * amber" are the Ledger's paint names and mean nothing to the domain — but
+ * it is ONE mapping, so the thresholds cannot drift from the ladder again
+ * (they had: this chip used to switch at 85/60, which matched none of the
+ * bands it sat next to).
+ */
+const CHIP_TONE = {
+  success: "teal",
+  info: "indigo",
+  neutral: "neutral",
+  warning: "amber",
+  danger: "red",
+} as const;
+
+/**
  * Grades — the record, with the entries behind each figure.
  *
- * NOTE ON THE SCALE: `percentageToGrade` emits a US letter scale, duplicated
- * from api/v1/dashboards/student/route.ts, and the old screen also derived a
- * 4.0 GPA from it. Egyptian K-12 reports percentages. Changing the grading
- * vocabulary is a product decision affecting student, parent and teacher, so it
- * is filed in design/REQUESTS.md rather than decided here. The letter is kept,
- * but the percentage now carries the weight — it is the figure the entries
- * actually support. The GPA card is gone: a 4.0 average of letter buckets
- * derived from percentages is two lossy conversions away from the record.
+ * THE SCALE IS `@repo/database/grading-scale`. This screen used to carry its
+ * own copy of a US A–F ladder, duplicated from the dashboard route and the
+ * parent screen — three copies that had already drifted. Egyptian K-12 reports
+ * a percentage and a تقدير, so that is what the one shared table returns, and
+ * the percentage keeps the weight: it is the figure the entries actually
+ * support. There is no GPA, and there is no letter.
  */
-function percentageToGrade(pct: number): string {
-  if (pct >= 97) return "A+";
-  if (pct >= 93) return "A";
-  if (pct >= 90) return "A-";
-  if (pct >= 87) return "B+";
-  if (pct >= 83) return "B";
-  if (pct >= 80) return "B-";
-  if (pct >= 77) return "C+";
-  if (pct >= 73) return "C";
-  if (pct >= 70) return "C-";
-  if (pct >= 67) return "D+";
-  if (pct >= 60) return "D";
-  return "F";
-}
-
 export function GradesScreen() {
   const t = useTranslations();
   const { formatPercent } = useFormatters();
@@ -89,13 +89,13 @@ export function GradesScreen() {
   const rows = Array.from(courseMap.entries()).map(([courseId, data]) => {
     const totalScore = data.scores.reduce((a, b) => a + b.score, 0);
     const totalMax = data.scores.reduce((a, b) => a + b.max, 0);
-    const pct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+    const pct = percentOf(totalScore, totalMax);
     return {
       courseId,
       name: data.name,
       subject: data.subject,
       pct,
-      grade: percentageToGrade(pct),
+      band: bandForPercent(pct),
       entries: data.scores.length,
       totalScore,
       totalMax,
@@ -181,8 +181,8 @@ export function GradesScreen() {
                     </div>
                   </Td>
                   <Td align="end">
-                    <Chip tone={r.pct >= 85 ? "teal" : r.pct >= 60 ? "indigo" : "amber"}>
-                      {r.grade}
+                    <Chip tone={CHIP_TONE[r.band.tone]}>
+                      {t(`gradeBands.${r.band.id}`)}
                     </Chip>
                   </Td>
                 </Tr>
