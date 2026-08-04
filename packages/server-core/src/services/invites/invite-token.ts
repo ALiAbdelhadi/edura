@@ -16,6 +16,7 @@
 import type { InvitePurpose, Role } from "@repo/database";
 import { platformDb } from "../../db/scope";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
+import { authBaseUrl } from "../../auth/auth-env";
 
 /** The purposes this claim flow serves. Other InvitePurpose values are NOT ours. */
 export type ClaimPurpose =
@@ -75,7 +76,7 @@ export function inviteTtlMs(): number {
 }
 
 export function appBaseUrl(): string {
-  return (process.env.NEXTAUTH_URL ?? "http://localhost:3002").replace(/\/$/, "");
+  return (authBaseUrl() ?? "http://localhost:3002").replace(/\/$/, "");
 }
 
 export function claimLink(token: string, locale: "ar" | "en" = "ar"): string {

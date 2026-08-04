@@ -13,6 +13,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin, twoFactor } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
+import { authBaseUrl, authSecret, superadminAuthSecret } from "@repo/server-core/auth/auth-env";
 
 // ============================================================================
 // better-auth instance — apps/superadmin (replaces NextAuth v4, 2026-08).
@@ -39,16 +40,14 @@ const LOGIN_IP_RATE = 10;
 const LOGIN_EMAIL_CAP = 5;
 const LOGIN_EMAIL_RATE = 1;
 
-const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+const baseURL = authBaseUrl() ?? "http://localhost:3001";
 const useSecureCookies = baseURL.startsWith("https://");
 
 // Distinct signing secret (M2-style separation). Dev may fall back to the
-// shared NEXTAUTH_SECRET; production must set SUPERADMIN_NEXTAUTH_SECRET.
+// shared app secret; production must set the back office's own.
 export const superadminSecret =
-  process.env.SUPERADMIN_NEXTAUTH_SECRET ??
-  (process.env.NODE_ENV !== "production"
-    ? process.env.NEXTAUTH_SECRET
-    : undefined);
+  superadminAuthSecret() ??
+  (process.env.NODE_ENV !== "production" ? authSecret() : undefined);
 
 export const auth = betterAuth({
   appName: "Edura Back Office",
@@ -57,7 +56,7 @@ export const auth = betterAuth({
   secret: superadminSecret,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Dev-only extra: the preview server in .claude/launch.json may run this
-  // app on an alternate localhost port while NEXTAUTH_URL stays 3004.
+  // app on an alternate localhost port while the configured base URL stays 3004.
   trustedOrigins: [
     baseURL,
     ...(process.env.NODE_ENV !== "production"

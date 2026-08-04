@@ -16,6 +16,7 @@ import { nextCookies } from "better-auth/next-js";
 import { twoFactor } from "better-auth/plugins";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 import { inviteTokenPlugin } from "./invite-token-plugin";
+import { authBaseUrl, authSecret } from "@repo/server-core/auth/auth-env";
 
 // ============================================================================
 // better-auth instance — apps/www (replaces the NextAuth v4 options, 2026-08).
@@ -58,17 +59,17 @@ const LOGIN_IP_RATE = 20;
 const LOGIN_EMAIL_CAP = 5;
 const LOGIN_EMAIL_RATE = 5;
 
-const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+const baseURL = authBaseUrl() ?? "http://localhost:3000";
 const useSecureCookies = baseURL.startsWith("https://");
 
 export const auth = betterAuth({
   appName: "Edura",
   baseURL,
   basePath: "/api/auth",
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: authSecret(),
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Dev-only extras: the preview/dev servers in .claude/launch.json run this
-  // app on alternate localhost ports while NEXTAUTH_URL stays 3002.
+  // app on alternate localhost ports while the configured base URL stays 3002.
   trustedOrigins: [
     baseURL,
     ...(process.env.NODE_ENV !== "production"

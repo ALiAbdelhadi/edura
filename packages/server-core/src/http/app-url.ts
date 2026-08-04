@@ -1,3 +1,4 @@
+import { authBaseUrl } from "../auth/auth-env";
 /**
  * The public origin of the www app — the single source of truth for every
  * externally-visible absolute URL: emailed password-reset links, invite links,
@@ -28,7 +29,7 @@ export function appBaseUrl(): string {
   const base =
     process.env.APP_BASE_URL ||
     (vercel ? `https://${vercel}` : "") ||
-    process.env.NEXTAUTH_URL ||
+    authBaseUrl() ||
     "http://localhost:3002";
   // Trailing slashes would produce `//path` once callers append a segment.
   return base.replace(/\/+$/, "");

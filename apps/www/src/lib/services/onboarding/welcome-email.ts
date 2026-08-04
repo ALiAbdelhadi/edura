@@ -17,14 +17,15 @@ import { prisma } from "@repo/database";
 import { groupFamilyCode, send } from "@repo/notifications";
 import { SignJWT, jwtVerify } from "jose";
 import { appBaseUrl, inviteTtlMs } from "@/lib/services/invites/invite-token";
+import { authSecret } from "@repo/server-core/auth/auth-env";
 
 export { groupFamilyCode };
 
 const TOKEN_PURPOSE = "student_onboarding";
 
 function secretKey(): Uint8Array {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) throw new Error("NEXTAUTH_SECRET is required to sign onboarding links");
+  const secret = authSecret();
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required to sign onboarding links");
   return new TextEncoder().encode(secret);
 }
 
