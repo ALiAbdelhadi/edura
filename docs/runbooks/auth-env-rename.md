@@ -37,6 +37,10 @@ half-migrated.
 
 1. **Add the new names alongside the old ones.** Do not remove anything yet.
 
+   ```bash
+   bash scripts/add-better-auth-env-to-vercel.sh
+   ```
+
    | Old | New |
    |---|---|
    | `NEXTAUTH_SECRET` | `BETTER_AUTH_SECRET` |
@@ -47,6 +51,20 @@ half-migrated.
    every live session, which is the outage you are avoiding. Keep the back
    office's secret DIFFERENT from www's; that separation is deliberate (M2), so
    a leak of one cannot mint the other's sessions.
+
+   > **Copy from VERCEL, not from `.env.production`.** The script does, and the
+   > reason is concrete: `.env.production` holds
+   > `NEXTAUTH_URL=https://app.edura.eg`, a domain that does not resolve
+   > (checked 2026-08-03 — the connection fails; the custom domain is still
+   > outstanding). Production serves from `edura-www.vercel.app`, whose live
+   > sign-in door answers `401 USER_NOT_FOUND` rather than `403 INVALID_ORIGIN`,
+   > so Vercel is NOT holding the local file's value. Since the code prefers the
+   > new name, copying the local one would move `baseURL` — and `trustedOrigins`
+   > with it — onto a dead domain and fail every sign-in.
+
+   Railway needs nothing: `apps/realtime` never reads an auth secret in
+   production (`dedicatedSecret()` returns `REALTIME_JWT_SECRET` on its first
+   line and throws before the fallback; that path is dev-only).
 
 2. **Deploy.** The new names now win; the old ones sit unused.
 
