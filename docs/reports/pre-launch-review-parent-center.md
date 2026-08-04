@@ -52,6 +52,9 @@ Merged to main as `2d2ec33`.
 **Severity: highest in this report.** Cross-tenant exposure of minors' contact
 details.
 
+> **FIXED — 2026-08-04.** See "How it was fixed" at the end of this section. The
+> description below is kept in the past tense as the record of what was found.
+
 - **Screen:** center counter check-in search box.
 - **Step:** a receptionist types any name fragment.
 - **Expected:** results scoped to this center's students, plus a student
@@ -93,11 +96,61 @@ specific, unguessable and check-summed — is ORed together with **name** and
 returns a list of children across every center on the platform with their
 numbers attached.
 
-**Suggested shape of a fix** (not applied): let the *code* match platform-wide,
-and scope the name/phone predicates to this center's roster; or keep the
-platform-wide name match but return no `phone` and no `fullName` for a row where
-`onOurRoster` is false. There is no comment in the file claiming the current
-breadth is deliberate.
+### How it was fixed
+
+The project already held the right answer twenty lines away. The sibling lookup
+`lookupStudentForManualEntry` — the dedup check run before a manual student
+registration — documents exactly this policy and implements it:
+
+> "The disclosure is tiered inside the service: a student already on this
+> center's roster comes back in full … and one who exists elsewhere comes back
+> MASKED with no id — enough for a human to say 'yes, that's him', not enough to
+> build a directory out of."
+
+The counter search now obeys the same rule, from the same code rather than a
+second copy of it. `maskName` / `maskPhone` moved to
+`packages/server-core/src/services/students/disclosure.ts`; both lookups import
+them.
+
+**Reach is split by what the query proves.** A student code whose check
+character agrees, or a phone number given in full (≥ 8 digits, no letters), is
+something the person at the desk supplied — those still reach the whole
+platform, because a walk-in carrying another center's card has to resolve.
+A name, or a short run of digits, proves nothing and now searches **this
+center's roster only**.
+
+**Disclosure is then tiered.** Our own student comes back in full. A student
+reached by identifier but not held by this center comes back with a masked name
+and a last-4 phone; `studentId` is still returned, because unlike the
+manual-entry lookup this one must be able to check them in. Their `studentCode`
+is echoed only when it is the code that was searched with — reached by phone
+instead, the code would be new information about a child this center does not
+have.
+
+**Writing the proof found a second hole in the original masking.** `maskName`
+returned a single-token name *unmasked* (`if (parts.length === 1) return
+parts[0]`), so every mononym — and every `full_name` a receptionist typed as one
+word, which is common — came back in the clear from the path whose whole job is
+to prevent that. It affected `lookupStudentForManualEntry` too, and had been
+live there since that feature shipped. Single tokens now mask to `أ.`.
+
+Proof: `apps/www/tests/db/student-id-card.test.ts` §5b — free text finds a
+roster student and **nobody** off it; a 5-digit fragment resolves nobody; a
+valid code still reaches a student at another center but reads masked; a full
+phone reaches them with the code withheld. Suite **52/52**; the sibling suite
+`external-teachers.test.ts` **102/102**.
+
+**Left as it was, deliberately:** `otherCenters` still returns the *names* of
+the other centers a student attends. That is deliberate and user-facing — the
+check-in screen shows a `crossCenterNote` warning built from it — and it is a
+far smaller disclosure than a phone number.
+
+**Not addressed here:** the endpoint is a `GET` with the query in the URL, so
+names and phone numbers reach server logs and browser history. The sibling
+endpoint is a `POST` for exactly that reason ("the identifiers are personal data
+and must not end up in a URL, a server log or a browser history"). Making the
+counter search POST is a client-and-route change beyond this fix, and is the
+obvious follow-on.
 
 ---
 

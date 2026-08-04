@@ -32,6 +32,10 @@ import { resolveStudentCode } from "@repo/database/student-code";
 import { BusinessRuleError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
+// The masking these two lines apply is shared with the counter search, which
+// until recently applied none. One implementation, so the two lookups cannot
+// disagree about how much of a child a center may read.
+import { maskName, maskPhone } from "../students/disclosure";
 import { assertManagedExternalTeacher, writeExternalTeacherAudit } from "./external-teachers";
 
 function centerOf(acting: SessionUser): string {
@@ -57,18 +61,6 @@ function normalizeNationalId(value: string | null | undefined): string | null {
     throw new BusinessRuleError("National ID must be 14 digits");
   }
   return digits;
-}
-
-/** "أحمد محمد علي" -> "أحمد م."  — enough to recognise, not enough to harvest. */
-function maskName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[1].charAt(0)}.`;
-}
-
-function maskPhone(phone: string | null): string | null {
-  if (!phone || phone.length < 4) return null;
-  return `${"•".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`;
 }
 
 // ---------------------------------------------------------------------------

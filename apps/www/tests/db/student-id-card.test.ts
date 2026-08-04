@@ -154,9 +154,18 @@ async function main() {
       data: { parentId: revokedParent.id, studentId: student.id, status: "revoked", initiatedBy: "parent" },
     });
 
+    // A real center with a real roster, so the counter search can be asked the
+    // question that matters: does free text stay inside it?
+    const center = await tx.center.create({
+      data: { name: `${tag}-center`, shortId: `${tag}`.slice(0, 20), receiptSeq: 0 },
+    });
+    await tx.centerStudentRoster.create({
+      data: { centerId: center.id, studentId: other.id },
+    });
+
     return {
       student, other, parent, pendingParent, revokedParent, strangerParent,
-      teacher, gone,
+      teacher, gone, center,
       profileId: sp.id,
       systemLetter: system.codeLetter,
     };
@@ -357,6 +366,72 @@ async function main() {
       "the code as PRINTED on the card (grouped) resolves too",
     );
 
+    // ========== 5b. THE COUNTER REACHES FURTHER THAN IT READS ==========
+    // The lookup runs platform-wide on purpose — a walk-in carrying another
+    // center's card has to resolve. What it must NOT be is a directory: free
+    // text used to reach every center on the platform and every row came back
+    // with a phone number, to the least privileged center role there is.
+    console.log("\n-- the counter does not leak other centers' children --");
+
+    const desk = su({ id: fx.teacher.id, role: "center_admin", centerId: fx.center.id });
+    const strangerPhone = fx.student.phone as string;
+
+    // `other` is on this desk's roster; `student` is not. Both names carry the
+    // tag, so one free-text query asks the whole question at once.
+    const byName = await lookupStudents(tag, desk);
+    assert(
+      byName.some((m) => m.studentId === fx.other.id),
+      "free text finds a student on THIS center's roster",
+    );
+    assert(
+      !byName.some((m) => m.studentId === fx.student.id),
+      "…and finds NOBODY off it — a name fragment is evidence of nothing",
+    );
+    const ours = byName.find((m) => m.studentId === fx.other.id)!;
+    assert(
+      ours.name?.includes(tag) === true && ours.phone !== null,
+      "our own student comes back in full — the center already holds that data",
+    );
+
+    // A digit fragment is the enumeration vector: it must behave like a name.
+    const fragment = strangerPhone.slice(0, 5);
+    const byFragment = await lookupStudents(fragment, desk);
+    assert(
+      !byFragment.some((m) => m.studentId === fx.student.id),
+      `a ${fragment.length}-digit fragment resolves nobody off-roster`,
+    );
+
+    // The identifiers still reach — that is the walk-in — but they now read
+    // masked.
+    const byCode = await lookupStudents(CODE, desk);
+    const stranger = byCode.find((m) => m.studentId === fx.student.id);
+    assert(stranger !== undefined, "a valid code still reaches a student at another center");
+    assert(
+      stranger!.name !== null && !stranger!.name.includes(tag),
+      `their name comes back MASKED (${stranger!.name})`,
+    );
+    assert(
+      stranger!.phone !== null && !stranger!.phone.includes(strangerPhone.slice(0, -4)),
+      `their phone comes back as last-4 only (${stranger!.phone})`,
+    );
+    assert(
+      stranger!.phone!.endsWith(strangerPhone.slice(-4)),
+      "…keeping the last four, which is what a human confirms against",
+    );
+    assert(
+      stranger!.studentCode === CODE,
+      "the code IS echoed back — they typed it, so it discloses nothing new",
+    );
+    assert(stranger!.onOurRoster === false, "and the row is labelled as not ours");
+
+    const byPhone = await lookupStudents(strangerPhone, desk);
+    const viaPhone = byPhone.find((m) => m.studentId === fx.student.id);
+    assert(viaPhone !== undefined, "a full phone number also reaches them — the dedup case");
+    assert(
+      viaPhone!.studentCode === null,
+      "…but their CODE is withheld: reached by phone, the code would be new information",
+    );
+
     // ================= 6. THE DATABASE HOLDS THE SHAPE =================
     console.log("\n-- the CHECK constraint --");
 
@@ -387,6 +462,8 @@ async function main() {
     );
     assert(after!.studentCode === CODE, "…and the real code survived every attempt");
   } finally {
+    await admin.query(`DELETE FROM center_student_rosters WHERE student_id = ANY($1::uuid[])`, [U]);
+    await admin.query(`DELETE FROM centers WHERE id = $1`, [fx.center.id]);
     await admin.query(`DELETE FROM parent_student_links WHERE parent_id = ANY($1::uuid[]) OR student_id = ANY($1::uuid[])`, [U]);
     await admin.query(`DELETE FROM parent_profiles WHERE user_id = ANY($1::uuid[])`, [U]);
     await admin.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [U]);

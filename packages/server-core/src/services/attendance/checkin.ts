@@ -8,6 +8,8 @@ import type { SessionUser } from "../../auth/types";
 import { notify } from "../../services/notifications/notify";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
 import { resolveStudentCode } from "@repo/database/student-code";
+import { Prisma } from "@repo/database";
+import { maskName, maskPhone } from "../students/disclosure";
 
 // ---------------------------------------------------------------------------
 // Step 6 — counter + door check-in.
@@ -35,6 +37,60 @@ export const resolveAssistantTeacher = resolveActingTeacher;
 // Counter: lookup + suggest + check-in (center front desk)
 // ---------------------------------------------------------------------------
 
+/**
+ * Is what was typed a PHONE NUMBER, rather than a fragment that happens to
+ * contain digits? Any letter disqualifies it, and it must carry enough digits
+ * to be the number itself — a person reads their whole number out at a counter,
+ * they do not read out three digits of it.
+ *
+ * The threshold is 8 rather than Egypt's full 11 so that a number typed without
+ * its leading zero, or a landline, still resolves. Below that it is not an
+ * identifier, it is a prefix, and a prefix is how you enumerate.
+ */
+const PHONE_IDENTIFIER_MIN_DIGITS = 8;
+
+function asPhoneIdentifier(query: string): string | null {
+  if (/[^\d\s+()\-]/.test(query)) return null;
+  const digits = query.replace(/\D/g, "");
+  return digits.length >= PHONE_IDENTIFIER_MIN_DIGITS ? digits : null;
+}
+
+/**
+ * The counter search — "who is standing in front of me?"
+ *
+ * ── REACHING A STUDENT AND READING ONE ARE DIFFERENT PERMISSIONS ────────────
+ *
+ * This lookup runs under `platformDb`, deliberately: a walk-in carrying another
+ * center's card must resolve, which is the whole reason the result carries
+ * `onOurRoster` and `otherCenters` for the UI to warn about. But the query used
+ * to OR the student code together with `contains` matches on name and phone,
+ * all of them platform-wide, and return every hit's phone number. Two typed
+ * characters therefore listed children from every center on the platform with
+ * their numbers attached — to `RECEPTION`, the least privileged center role.
+ *
+ * So the reach is split by what the query actually proves:
+ *
+ *   IDENTIFIER  — a student code whose check character agrees, or a phone
+ *                 number given in full. Both are things the person at the desk
+ *                 supplied; supplying one is evidence you are dealing with that
+ *                 child. These reach the whole platform.
+ *
+ *   FREE TEXT   — a name, or a short run of digits. Evidence of nothing:
+ *                 "محمد" matches thousands. This searches THIS CENTER'S ROSTER
+ *                 and nothing else.
+ *
+ * ── AND THE DISCLOSURE IS THEN TIERED ──────────────────────────────────────
+ *
+ * The same tiering `lookupStudentForManualEntry` already applies, from the same
+ * `maskName`/`maskPhone`: our own student comes back in full, because the center
+ * holds that data already; a student reached by identifier but not held by this
+ * center comes back with a masked name and a last-4 phone. The receptionist
+ * scanning a card can already read the full name off the card in their hand, so
+ * masking costs them nothing and stops the response being a directory entry.
+ *
+ * `studentId` IS still returned for that student — unlike the manual-entry
+ * lookup, this one has to be able to check them in.
+ */
 export async function lookupStudents(q: string, admin: SessionUser) {
   const centerId = admin.centerId as string;
   const query = q.trim();
@@ -45,17 +101,47 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   // instead of matching a different student outright — the receptionist gets
   // "not found" and looks again, which is the honest answer.
   const code = resolveStudentCode(query);
+  const phone = asPhoneIdentifier(query);
 
   return platformDb(async (tx) => {
+    // Read once: it bounds the free-text search AND decides, below, how much of
+    // each row may be disclosed.
+    const ourRoster = await tx.centerStudentRoster.findMany({
+      where: { centerId, leftAt: null },
+      select: { studentId: true },
+    });
+    const ourStudentIds = ourRoster.map((r) => r.studentId);
+
+    const reach: Prisma.StudentProfileWhereInput[] = [
+      ...(code ? [{ studentCode: code }] : []),
+      ...(phone
+        ? [
+            { phone: { contains: phone } },
+            { user: { phone: { contains: phone } } },
+          ]
+        : []),
+      ...(ourStudentIds.length
+        ? [
+            {
+              userId: { in: ourStudentIds },
+              OR: [
+                { phone: { contains: query } },
+                { fullName: { contains: query, mode: "insensitive" as const } },
+                { user: { name: { contains: query, mode: "insensitive" as const } } },
+                { user: { phone: { contains: query } } },
+              ],
+            },
+          ]
+        : []),
+    ];
+
+    // No identifier and an empty roster: there is nothing this center may
+    // legitimately match on, and an empty `OR` in Prisma matches EVERY row.
+    if (reach.length === 0) return [];
+
     const profiles = await tx.studentProfile.findMany({
       where: {
-        OR: [
-          ...(code ? [{ studentCode: code }] : []),
-          { phone: { contains: query } },
-          { fullName: { contains: query, mode: "insensitive" } },
-          { user: { name: { contains: query, mode: "insensitive" } } },
-          { user: { phone: { contains: query } } },
-        ],
+        OR: reach,
         user: { status: { in: ["active", "shell"] } },
       },
       select: {
@@ -86,13 +172,23 @@ export async function lookupStudents(q: string, admin: SessionUser) {
       .filter((p) => p.userId)
       .map((p) => {
         const mine = rosters.filter((r) => r.studentId === p.userId);
+        const onOurRoster = mine.some((r) => r.centerId === centerId);
+        const name = p.user?.name ?? p.fullName;
+        const contact = p.user?.phone ?? p.phone;
         return {
           studentId: p.userId as string,
-          name: p.user?.name ?? p.fullName,
-          studentCode: p.studentCode,
-          phone: p.user?.phone ?? p.phone,
+          name: onOurRoster ? name : maskName(name),
+          // Echoed back only when it is the code they searched with — that
+          // discloses nothing they did not already hold in their hand. Reached
+          // by phone instead, the code would be new information about a child
+          // this center does not have.
+          studentCode:
+            onOurRoster || (code !== null && code === p.studentCode)
+              ? p.studentCode
+              : null,
+          phone: onOurRoster ? contact : maskPhone(contact),
           isShell: p.user?.status === "shell",
-          onOurRoster: mine.some((r) => r.centerId === centerId),
+          onOurRoster,
           otherCenters: mine
             .filter((r) => r.centerId !== centerId)
             .map((r) => centerNames.get(r.centerId) ?? "?"),

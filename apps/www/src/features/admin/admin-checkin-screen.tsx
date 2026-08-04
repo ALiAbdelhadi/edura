@@ -30,7 +30,11 @@ import {
 type Match = {
   studentId: string;
   name: string | null;
-  studentCode: string;
+  /**
+   * Null for a student this center does not hold who was reached by phone
+   * rather than by their code — see `lookupStudents`. Withheld, not missing.
+   */
+  studentCode: string | null;
   phone: string | null;
   isShell: boolean;
   onOurRoster: boolean;
@@ -594,7 +598,7 @@ export function AdminCheckinScreen() {
                 >
                   <RowIdentity
                     name={m.name ?? "—"}
-                    meta={`${m.studentCode}${m.phone ? ` · ${m.phone}` : ""}`}
+                    meta={[m.studentCode, m.phone].filter(Boolean).join(" · ")}
                   />
                   <span className="flex flex-col items-end gap-1">
                     {m.onOurRoster ? (
@@ -618,7 +622,7 @@ export function AdminCheckinScreen() {
       {student ? (
         <Sheet>
           <div className="flex items-center justify-between gap-3 border-b border-[var(--rule)] p-4">
-            <RowIdentity name={student.name ?? "—"} meta={student.studentCode} />
+            <RowIdentity name={student.name ?? "—"} meta={student.studentCode ?? ""} />
             {student.isShell ? (
               <Button variant="outline" className="h-11" disabled={busy} onClick={resendWhatsApp}>
                 {t("shared.checkin.resendWhatsApp")}
