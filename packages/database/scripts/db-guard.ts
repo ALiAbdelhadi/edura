@@ -81,13 +81,61 @@ export async function readDbEnv(url = guardUrl()): Promise<DbEnv | null> {
 }
 
 /**
+ * OPT-IN WIDENING — `EDURA_ALLOW_DB_ENVS=dev`.
+ *
+ * The 52 DB suites, the runner and `pretest:db` all name `["test"]` explicitly,
+ * which is right: the default must be the narrow one, and it stays narrow for
+ * everyone who does not opt in. But running the suites against the DEV database
+ * is a legitimate local choice (Ali, 2026-08-03), and the alternative was
+ * editing 54 call sites — a permanent repo-wide loosening, in git, to express
+ * one person's local setup.
+ *
+ * So the widening lives in ONE place, is opt-in, and is set where it belongs:
+ * a `.env.test` file, which is not in git.
+ *
+ * PRODUCTION CAN NEVER BE ADDED THIS WAY. Naming it here is not a wider
+ * permission, it is a mistake or an attack, and it fails loudly rather than
+ * being quietly dropped — a silently ignored `production` would leave someone
+ * believing they had a permission they do not have.
+ */
+function widenedAllowList(allowed: readonly DbEnv[]): readonly DbEnv[] {
+  const raw = (process.env.EDURA_ALLOW_DB_ENVS ?? "").trim();
+  if (!raw) return allowed;
+
+  const requested = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (requested.includes("production")) {
+    throw new Error(
+      "db-guard: EDURA_ALLOW_DB_ENVS names 'production'. The production database " +
+        "is never widenable — this variable exists to let the suites run against " +
+        "dev, not to unlock the live database. Remove it.",
+    );
+  }
+
+  const unknown = requested.filter((r) => !(VALID as readonly string[]).includes(r));
+  if (unknown.length) {
+    throw new Error(
+      `db-guard: EDURA_ALLOW_DB_ENVS contains unknown value(s): ${unknown.join(", ")}. ` +
+        `Valid: ${VALID.filter((v) => v !== "production").join(", ")}.`,
+    );
+  }
+
+  const extra = requested as readonly DbEnv[];
+  return [...new Set([...allowed, ...extra])];
+}
+
+/**
  * Throws unless the reached database is labelled as one of `allowed`.
  * `intent` is echoed in the error so the message names what was about to run.
  */
 export async function assertDbEnv(
-  allowed: readonly DbEnv[],
+  allowedInput: readonly DbEnv[],
   opts: { intent?: string } = {},
 ): Promise<DbEnv> {
+  const allowed = widenedAllowList(allowedInput);
   const url = guardUrl();
   const where = describe(url);
   const intent = opts.intent ? ` [${opts.intent}]` : "";

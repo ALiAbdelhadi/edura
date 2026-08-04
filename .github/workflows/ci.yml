@@ -213,11 +213,19 @@ jobs:
                   out.append(line)
           open(p, "w", encoding="utf-8").write("".join(out))
           PY
+            # Opt in to running the suites against the DEV database (Ali,
+            # 2026-08-03). The suites and the runner all default to test-only;
+            # this single variable widens it, and db-guard REFUSES to let it
+            # name 'production'. Appended here rather than added to the
+            # committed .env.test.example, so a developer copying the template
+            # still gets the narrow default unless they choose otherwise.
+            printf '\nEDURA_ALLOW_DB_ENVS=dev\n' >> "$app/.env.test"
           done
           echo "wrote apps/www/.env.test and apps/superadmin/.env.test (values not echoed)"
 
-      # Fails loudly if the secret points anywhere but a test-labelled database.
-      - name: Assert the target database is labelled 'test'
+      # Fails loudly if the secret points anywhere but a test- or dev-labelled
+      # database. Production is refused whatever EDURA_ALLOW_DB_ENVS says.
+      - name: Assert the target database is labelled 'test' or 'dev'
         if: steps.gate.outputs.ok == 'true'
         run: bun run --filter edura pretest:db
 

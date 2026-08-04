@@ -101,6 +101,39 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   (Ali's decision, 2026-07-31). No Node install instructions, `engines.node`,
   or Node references may appear anywhere user-facing; `engines` declare Bun only.
 
+## The DB suites run against DEV (decided 2026-08-03, Ali)
+
+The `test` Neon branch was unreachable — `ep-shiny-waterfall-as6cxn8n` refused
+BOTH roles, and the other endpoint on disk (`ep-dry-shape-asv1ah7y`) was an
+empty, UNLABELLED database. CLAUDE.md had recorded the credential failure since
+2026-08-02; what changed is `f7555a4`, which stopped letting a SKIPPED DB suite
+pass as green. So a long-silent breakage became a deploy blocker, and Ali chose
+to point the suites at **dev** rather than rebuild the test branch.
+
+- **The default is still test-only.** All 52 suites, `run-db-suites.ts` and
+  `pretest:db` name `["test"]` explicitly and were NOT edited — a repo-wide
+  loosening in git to express one local setup would have been the wrong trade.
+  The widening is a single opt-in read in `db-guard.ts`:
+  `EDURA_ALLOW_DB_ENVS=dev`, set in the three (ungitted) `.env.test` files and
+  appended by CI's materialise step.
+- **PRODUCTION IS NEVER WIDENABLE.** Naming `production` in that variable is a
+  hard error, not a wider permission — it fails loudly rather than being quietly
+  dropped, because a silently ignored value leaves someone believing they hold a
+  permission they do not. Proven: production is refused both with
+  `EDURA_ALLOW_DB_ENVS=dev` and with `=production`.
+- **Dev keeps its `edura-env:dev` label.** Relabelling it `test` was rejected:
+  the label is what `db:wipe` keys on (dev/test only), so a dev database wearing
+  a test label quietly becomes wipeable, and every environment claim in this file
+  would start lying.
+- **[dev, measured 2026-08-03]** residue is far smaller than the 2026-07-26
+  history suggests — that is what `test-cleanup.ts` was written to fix. `l1`
+  (13 assertions) left the census byte-identical; `wallet` + `wallet-no-cap`
+  (27 assertions, real money paths) left **one extra `audit_logs` row** and
+  nothing else. `audit_logs` is append-only, so such rows accumulate slowly and
+  permanently. Run `bun run test:db:sweep` if fixtures ever do pile up.
+- CI needs `TEST_DATABASE_URL` / `TEST_DIRECT_URL` / `TEST_ADMIN_URL` repointed
+  at the DEV branch for this to take effect there.
+
 ## Conventions
 
 > **STATE CLAIMS MUST NAME THEIR ENVIRONMENT (binding, added 2026-07-26).**
