@@ -46,7 +46,7 @@ import { StatusBadge } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { BarChart } from "@/components/charts";
-import { GRADE_BANDS, bandForOrdinal } from "@repo/database/grading-scale";
+import { GRADE_BANDS } from "@repo/database/grading-scale";
 
 interface RawGrade {
   id: string;
@@ -350,9 +350,12 @@ export function TeacherGradebookScreen() {
                 value={String(activeScore)}
                 onValueChange={(val) => handleGradeChange(record.studentId, e._id, val)}
               >
+                {/* w-24, not the w-16 this was while the options were "A"…"F":
+                    a تقدير is a word, and "جيد جدًا" clipped to "جيـ" in the
+                    trigger. Sized to the longest band, not to the current one. */}
                 <SelectTrigger
                   size="sm"
-                  className={cn("w-16", isEdited && "border-info ring-1 ring-info")}
+                  className={cn("w-24", isEdited && "border-info ring-1 ring-info")}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -364,11 +367,10 @@ export function TeacherGradebookScreen() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="text-[11px] text-muted-foreground">
-                {bandForOrdinal(activeScore)
-                  ? t(`gradeBands.${bandForOrdinal(activeScore)!.id}`)
-                  : String(activeScore)}
-              </div>
+              {/* No caption. The numeric branch below captions its box with the
+                  percentage — information the box itself does not carry. Here
+                  the trigger already IS the تقدير, so a caption under it just
+                  printed the same word twice (it did with the letters too). */}
             </div>
           );
         }
