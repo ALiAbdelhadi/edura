@@ -189,5 +189,20 @@
   "modeCounterOnlyDesc": "The front-desk check-in alone marks the student present.",
   "modeCounterAndDoor": "Counter + door",
   "modeCounterAndDoorDesc": "Your assistant confirms students at the classroom door; counter alone shows as \"at center — didn't attend class\" and does NOT count as present.",
-  "statusCounterOnly": "At center — didn't attend class"
+  "statusCounterOnly": "At center — didn't attend class",
+  "durationMins": "{mins} min",
+  "createGroup": "Create group",
+  "groupName": "Group name",
+  "groupNamePlaceholder": "e.g. Math — Grade 12",
+  "gradeOptional": "Grade (optional)",
+  "locationOptional": "Location (optional)",
+  "locationPlaceholder": "Your own venue or online",
+  "endDate": "End date",
+  "maxStudents": "Max students",
+  "priceMonth": "Monthly price (EGP)",
+  "priceSession": "Per-session price (EGP)",
+  "planNote": "Set at least one plan price — monthly or per-session.",
+  "groupCreated": "Group created",
+  "groupCreatedSessions": "Group created — {count} sessions generated",
+  "fillRequired": "Fill the required fields"
 }

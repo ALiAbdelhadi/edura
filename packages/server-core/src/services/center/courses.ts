@@ -165,6 +165,79 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
   return { course: withSchedulePattern(course), sessionsGenerated: sessionIds.length };
 }
 
+export type TeacherDirectCourseInput = {
+  title: string;
+  subject: string;
+  description?: string;
+  gradeTag?: string;
+  /** Free-text venue ("قاعتي الخاصة", "أونلاين", …) — decision #2. */
+  location?: string;
+  schedulePattern: SchedulePattern;
+  maxStudents: number;
+  pricePerMonth?: number | null;
+  pricePerSession?: number | null;
+};
+
+/**
+ * Teacher-owned group (decision #2): `centerId` stays NULL — no shadow
+ * centers. Money deliberately takes the OTHER rail: settlement happens at
+ * subscription-payment time (price − platform commission → teacher wallet),
+ * and distribution skips NULL-center courses (the double-pay guard), so no
+ * center/hall pricing snapshot is resolved here — there is nobody to split
+ * with. Teacher only, not delegated to assistants: plan prices are financial
+ * settings, which Step 8 excludes from delegation.
+ */
+export async function createTeacherDirectCourse(
+  acting: SessionUser,
+  body: TeacherDirectCourseInput,
+) {
+  if (acting.role !== "teacher") throw new ForbiddenError("Teacher only");
+  if ((body.pricePerMonth ?? 0) <= 0 && (body.pricePerSession ?? 0) <= 0) {
+    throw new BusinessRuleError(
+      "At least one plan price (monthly or per-session) must be set",
+    );
+  }
+
+  const course = await scopedDb(acting, (tx) =>
+    tx.course.create({
+      data: {
+        centerId: null,
+        teacherId: acting.id,
+        defaultRoomId: null,
+        title: body.title,
+        subject: body.subject,
+        description: body.description,
+        gradeTag: body.gradeTag,
+        location: body.location ?? null,
+        daysOfWeek: body.schedulePattern.daysOfWeek,
+        startTime: body.schedulePattern.startTime,
+        endTime: body.schedulePattern.endTime,
+        startDate: body.schedulePattern.startDate,
+        endDate: body.schedulePattern.endDate,
+        // Legacy full-course price column (NOT NULL): mirror the monthly plan
+        // so old readers see a sane figure; coverage checks use the plans.
+        price: body.pricePerMonth ?? body.pricePerSession ?? 0,
+        pricePerMonth: body.pricePerMonth ?? null,
+        pricePerSession: body.pricePerSession ?? null,
+        maxStudents: body.maxStudents,
+        status: "active",
+      },
+    }),
+  );
+
+  const sessionIds = await generateSessions(
+    {
+      id: course.id,
+      teacherId: course.teacherId,
+      defaultRoomId: null,
+      schedulePattern: body.schedulePattern,
+    },
+    acting,
+  );
+
+  return { course: withSchedulePattern(course), sessionsGenerated: sessionIds.length };
+}
+
 export type CoursePatch = {
   title?: string;
   description?: string;

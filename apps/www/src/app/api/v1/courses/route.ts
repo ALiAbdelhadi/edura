@@ -8,7 +8,10 @@ import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moneySchema, isNotPastDate } from "@/lib/validation/common";
-import { createCourse } from "@repo/server-core/services/center/courses";
+import {
+  createCourse,
+  createTeacherDirectCourse,
+} from "@repo/server-core/services/center/courses";
 import { trackFirstGroup } from "@/lib/observability/funnel";
 
 export const dynamic = "force-dynamic";
@@ -175,7 +178,36 @@ const createSchema = z.object({
   pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),
 });
 
+const teacherDirectSchema = z
+  .object({
+    title: z.string().trim().min(1),
+    subject: z.string().trim().min(1),
+    description: z.string().optional(),
+    gradeTag: z.string().optional(),
+    location: z.string().trim().max(200).optional(),
+    schedulePattern: schedulePatternSchema,
+    maxStudents: z.number().int().positive().max(10000),
+    pricePerMonth: moneySchema.nullish(),
+    pricePerSession: moneySchema.nullish(),
+  })
+  .strict();
+
 export const POST = withErrors(async (req) => {
+  const session = await getSessionUser();
+  if (session?.role === "teacher") {
+    // Teacher-direct group (decision #2): the schema has NO teacherId field,
+    // so the owner is always the caller and cannot be spoofed. Teacher only —
+    // plan prices are financial settings, which Step 8 excludes from
+    // assistant delegation, so this branch is not `delegated()`.
+    const body = await parseJson(req, teacherDirectSchema);
+    const { course, sessionsGenerated } = await createTeacherDirectCourse(session, body);
+    await trackFirstGroup(session, { centerId: null, teacherId: course.teacherId });
+    return ok(
+      { ...course, course, sessionsGenerated, sessionCount: sessionsGenerated },
+      { status: 201 },
+    );
+  }
+
   const user = await requireRole("center_admin");
   const body = await parseJson(req, createSchema);
   // The create logic (affiliation check, room ownership, frozen pricing

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useList, useCustomMutation } from "@refinedev/core";
 import dayjs from "dayjs";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, AlertTriangle } from "lucide-react";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -21,6 +21,7 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Progress } from "@repo/ui/components/progress";
 import { cn } from "@repo/ui/lib/utils";
+import { TeacherCreateGroupDialog } from "@/features/teacher/teacher-create-group-dialog";
 
 type Session = Record<string, any>;
 
@@ -33,7 +34,20 @@ const statusTones: Record<string, StatusTone> = {
 
 export function TeacherClassesScreen() {
   const t = useTranslations();
+  const locale = useLocale();
+  const listSeparator = locale === "ar" ? "، " : ", ";
   const { formatDate } = useFormatters();
+  const dayNames = [
+    t("studentBrowse.sun"),
+    t("studentBrowse.mon"),
+    t("studentBrowse.tue"),
+    t("studentBrowse.wed"),
+    t("studentBrowse.thu"),
+    t("studentBrowse.fri"),
+    t("studentBrowse.sat"),
+  ];
+  const courseLabel = (c: any) =>
+    c.title || [c.subject, c.gradeTag].filter(Boolean).join(" — ");
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
     filters: [{ field: "teacherId", operator: "eq", value: "me" }],
@@ -278,11 +292,22 @@ export function TeacherClassesScreen() {
   }
 
   if (classes.length === 0) {
-    return <EmptyState icon={BookOpen} title={t("teacher.noClasses")} />;
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
+        </div>
+        <EmptyState icon={BookOpen} title={t("teacher.noClasses")} />
+      </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
       <div className="flex flex-col gap-2 lg:col-span-1">
         {classes.map((c: any, i: number) => {
           const isSelected = selectedId === (c.id || c._id);
@@ -302,9 +327,7 @@ export function TeacherClassesScreen() {
               <div className="flex items-center gap-2">
                 <BookOpen className="size-4 shrink-0 text-primary" />
                 <div>
-                  <div className="font-semibold">
-                    {c.subject} - {c.gradeTag}
-                  </div>
+                  <div className="font-semibold">{courseLabel(c)}</div>
                   <div className="text-xs text-muted-foreground">
                     <span dir="ltr">
                       {c.enrolledStudentsCount || 0}/{c.maxStudents}
@@ -322,9 +345,7 @@ export function TeacherClassesScreen() {
         <Card>
           <CardContent className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-base font-bold">
-                {selectedCourse.subject} - {selectedCourse.gradeTag}
-              </span>
+              <span className="text-base font-bold">{courseLabel(selectedCourse)}</span>
               <StatusBadge
                 tone={selectedCourse.status === "active" ? "success" : "neutral"}
               >
@@ -334,8 +355,9 @@ export function TeacherClassesScreen() {
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span>{selectedCourse.roomName || t("teacher.tbd")}</span>
               <span>
-                {selectedCourse.schedulePattern?.daysOfWeek?.join(", ") ||
-                  t("teacher.tbd")}{" "}
+                {selectedCourse.schedulePattern?.daysOfWeek
+                  ?.map((d: number) => dayNames[d] ?? d)
+                  .join(listSeparator) || t("teacher.tbd")}{" "}
                 ·{" "}
                 <span dir="ltr">
                   {selectedCourse.schedulePattern?.startTime} -{" "}
@@ -382,6 +404,7 @@ export function TeacherClassesScreen() {
             )}
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

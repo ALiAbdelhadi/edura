@@ -213,6 +213,17 @@ export function TeacherGradebookScreen() {
 
   const studentGrades: StudentGradeRow[] = useMemo(() => {
     const studentMap = new Map<string, StudentGradeRow>();
+    // Every enrolled student gets a row up front — a fresh assessment has no
+    // score rows yet, and without the roster there is no way to enter the
+    // first grade at all.
+    for (const e of (enrollmentsResult?.data ?? []) as any[]) {
+      const sid = e.studentId.toString();
+      studentMap.set(sid, {
+        studentId: sid,
+        studentName: e.studentName ?? sid,
+        scores: {},
+      });
+    }
     for (const g of rawGrades) {
       for (const s of g.scores ?? []) {
         const sid = s.studentId.toString();
@@ -227,7 +238,7 @@ export function TeacherGradebookScreen() {
       }
     }
     return Array.from(studentMap.values());
-  }, [rawGrades, studentNameMap]);
+  }, [rawGrades, studentNameMap, enrollmentsResult]);
 
   const distributionData = useMemo(() => {
     const selectedEntry = entries.find((entry) => entry._id === selectedDistributionEntryId);
@@ -431,7 +442,7 @@ export function TeacherGradebookScreen() {
             <SelectContent>
               {courses.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {`${c.subject} - ${c.gradeTag}`}
+                  {c.title || [c.subject, c.gradeTag].filter(Boolean).join(" — ")}
                 </SelectItem>
               ))}
             </SelectContent>

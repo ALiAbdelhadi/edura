@@ -1,6 +1,7 @@
 import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
+import { localizedTitle } from "@/lib/i18n/page-metadata";
 
-export const metadata = { title: "Team Notes | Edura" };
+export const generateMetadata = localizedTitle("teamNotes");
 
 export default function AssistantTeamNotesPage() {
   return <TeamNotesBoard />;

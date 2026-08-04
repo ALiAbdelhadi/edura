@@ -219,7 +219,7 @@
     "noSessions": "لا توجد حصص اليوم",
     "session": "حصة",
     "atTheDoor": "عند الباب",
-    "codePlaceholder": "STU-000123",
+    "codePlaceholder": "مثال: G7K3M2QF",
     "confirm": "تأكيد",
     "confirmed": "تم تأكيد الباب — حاضر",
     "failed": "فشل تشيك-إن الباب",
@@ -235,7 +235,10 @@
     "noCounterHint": "لا يمكن تأكيده عند الباب قبل المرور بالكاونتر.",
     "rosterEyebrow": "القائمة",
     "scanEyebrow": "المسح",
-    "waiting": "في الانتظار"
+    "waiting": "في الانتظار",
+    "notFound": "كود الطالب غير موجود",
+    "counterFirst": "الطالب لم يمر بالكاونتر — تشيك-إن الباب يتطلب الكاونتر أولًا",
+    "counterOnlyNotice": "وضع الحضور لديك «كاونتر فقط» — تشيك-إن الكاونتر وحده يسجّل الحضور، وهذه الشاشة تُستخدم في وضع «كاونتر + باب»."
   },
   "notifUnreadLabel": "غير مقروء",
   "notifType_team_note_created": "ملاحظة فريق",

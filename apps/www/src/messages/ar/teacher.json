@@ -189,5 +189,20 @@
   "modeCounterOnlyDesc": "تشيك-إن الكاونتر وحده يسجّل الطالب حاضرًا.",
   "modeCounterAndDoor": "كاونتر + باب",
   "modeCounterAndDoorDesc": "المساعد يؤكّد الطلاب عند باب الفصل؛ الكاونتر وحده يظهر كـ\"في السنتر — لم يحضر الحصة\" ولا يُحتسب حضورًا.",
-  "statusCounterOnly": "في السنتر — لم يحضر الحصة"
+  "statusCounterOnly": "في السنتر — لم يحضر الحصة",
+  "durationMins": "{mins} دقيقة",
+  "createGroup": "إنشاء مجموعة",
+  "groupName": "اسم المجموعة",
+  "groupNamePlaceholder": "مثال: رياضيات — الصف الثالث الثانوي",
+  "gradeOptional": "الصف (اختياري)",
+  "locationOptional": "المكان (اختياري)",
+  "locationPlaceholder": "قاعتك الخاصة أو أونلاين",
+  "endDate": "تاريخ الانتهاء",
+  "maxStudents": "الحد الأقصى للطلاب",
+  "priceMonth": "السعر الشهري (ج.م)",
+  "priceSession": "سعر الحصة (ج.م)",
+  "planNote": "حدد سعرًا لخطة واحدة على الأقل — شهري أو لكل حصة.",
+  "groupCreated": "تم إنشاء المجموعة",
+  "groupCreatedSessions": "تم إنشاء المجموعة وتوليد {count} حصة",
+  "fillRequired": "أكمل الحقول المطلوبة"
 }

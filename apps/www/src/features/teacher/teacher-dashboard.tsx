@@ -28,7 +28,15 @@ export function TeacherDashboard() {
 
   const scheduleColumns: ColumnDef<any>[] = [
     { accessorKey: "time", header: t("teacher.time") },
-    { accessorKey: "duration", header: t("teacher.duration") },
+    {
+      id: "duration",
+      header: t("teacher.duration"),
+      cell: ({ row }) => {
+        const mins = row.original.durationMinutes;
+        if (mins) return t("teacher.durationMins", { mins });
+        return <span dir="ltr">{row.original.duration || "—"}</span>;
+      },
+    },
     { accessorKey: "subject", header: t("teacher.subject") },
     { accessorKey: "room", header: t("teacher.room") },
     {
