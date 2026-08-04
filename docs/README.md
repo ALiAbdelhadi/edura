@@ -45,6 +45,7 @@ Point-in-time verification runs. Each is a snapshot, not living documentation.
 |---|---|
 | [api-verification.md](reports/api-verification.md) | Live API sweep (2026-07-23) — real HTTP requests against the running apps and the live Neon database. Report-only; nothing was fixed during the sweep. |
 | [scale-proof.md](reports/scale-proof.md) | Load-test proof against PRD §9.1 — `EXPLAIN (ANALYZE, BUFFERS)` on the heaviest query shapes over a 400,000-row transaction ledger, with and without the composite index. |
+| [pre-launch-review-parent-center.md](reports/pre-launch-review-parent-center.md) | Pre-launch walkthrough (2026-08-04) of the parent and center portals, driven through the real UI against dev. Report-only, except the grading-scale fix it records as merged. Leads with a cross-center exposure in the counter lookup. |
 
 ## guides/
 
