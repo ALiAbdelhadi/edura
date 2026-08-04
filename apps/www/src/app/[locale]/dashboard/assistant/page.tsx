@@ -1,7 +1,8 @@
 import { ChatScreen } from "@/features/messaging/chat-screen";
 import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
+import { localizedTitle } from "@/lib/i18n/page-metadata";
 
-export const metadata = { title: "Messages | Edura" };
+export const generateMetadata = localizedTitle("messages");
 
 // Messaging is the assistant's primary job — the portal opens straight on it,
 // with the team's to-do notes pinned above (the assistant↔assistant/teacher

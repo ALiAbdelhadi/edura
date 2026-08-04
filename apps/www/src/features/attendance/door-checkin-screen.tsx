@@ -37,6 +37,32 @@ export function DoorCheckinScreen() {
   const [roster, setRoster] = useState<DoorRow[] | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [counterOnly, setCounterOnly] = useState(false);
+
+  // The server throws its errors in English; the toast must speak the UI's
+  // language, so the two known refusals are mapped onto i18n keys here.
+  const doorErrorMessage = (err: any) => {
+    const status = err?.statusCode ?? err?.response?.status;
+    const message: string = err?.message ?? "";
+    if (status === 404 || /not found/i.test(message)) return t("shared.door.notFound");
+    if (/counter/i.test(message)) return t("shared.door.counterFirst");
+    return message || t("shared.door.failed");
+  };
+
+  useEffect(() => {
+    // Teacher-only endpoint: an assistant opening this screen just gets no
+    // notice — the check is informational, never a gate.
+    (async () => {
+      try {
+        const res = await api
+          .get("teacher/attendance-mode")
+          .json<{ data: { attendanceMode?: string } }>();
+        setCounterOnly(res.data?.attendanceMode === "counter_only");
+      } catch {
+        setCounterOnly(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -77,7 +103,7 @@ export function DoorCheckinScreen() {
       setCode("");
       await loadRoster(sessionId);
     } catch (err: any) {
-      toast.error(err?.message || t("shared.door.failed"));
+      toast.error(doorErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -86,6 +112,12 @@ export function DoorCheckinScreen() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <PageHeader title={t("shared.door.title")} description={t("shared.door.description")} />
+
+      {counterOnly ? (
+        <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
+          {t("shared.door.counterOnlyNotice")}
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>

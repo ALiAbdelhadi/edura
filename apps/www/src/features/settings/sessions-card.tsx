@@ -19,6 +19,33 @@ type SessionRow = {
   userAgent?: string | null;
 };
 
+/**
+ * Better-auth stores IPv6 fully expanded ("0000:0000:…"), which is unreadable
+ * on the card. Compress it back to display form (:: / ::1 / 2001:db8::1).
+ */
+export function formatIp(ip: string | null | undefined): string {
+  if (!ip) return "—";
+  if (!ip.includes(":")) return ip;
+  const groups = ip.split(":").map((g) => g.replace(/^0+/, "") || "0");
+  if (groups.every((g) => g === "0")) return "::";
+  let best = { start: -1, len: 0 };
+  let i = 0;
+  while (i < groups.length) {
+    if (groups[i] === "0") {
+      let j = i;
+      while (j < groups.length && groups[j] === "0") j++;
+      if (j - i > best.len) best = { start: i, len: j - i };
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  if (best.len < 2) return groups.join(":");
+  const head = groups.slice(0, best.start).join(":");
+  const tail = groups.slice(best.start + best.len).join(":");
+  return `${head}::${tail}`;
+}
+
 /** Tiny UA heuristic — a label, not analytics. */
 export function deviceLabel(ua: string | null | undefined, fallback: string): {
   label: string;
@@ -148,7 +175,7 @@ export function SessionsCard() {
                       ) : null}
                     </p>
                     <p className="truncate text-[12px] text-ink-3" dir="ltr">
-                      {s.ipAddress || "—"} ·{" "}
+                      {formatIp(s.ipAddress)} ·{" "}
                       {t("security.lastActive")}{" "}
                       {format.dateTime(new Date(s.updatedAt), {
                         dateStyle: "medium",

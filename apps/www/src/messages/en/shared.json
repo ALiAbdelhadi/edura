@@ -219,7 +219,7 @@
     "noSessions": "No sessions today",
     "session": "Session",
     "atTheDoor": "At the door",
-    "codePlaceholder": "STU-000123",
+    "codePlaceholder": "e.g. G7K3M2QF",
     "confirm": "Confirm",
     "confirmed": "Door check-in confirmed — present",
     "failed": "Door check-in failed",
@@ -235,7 +235,10 @@
     "noCounterHint": "Cannot be confirmed at the door before passing the counter.",
     "rosterEyebrow": "Roster",
     "scanEyebrow": "Scan",
-    "waiting": "Waiting"
+    "waiting": "Waiting",
+    "notFound": "Student code not found",
+    "counterFirst": "Student has not been checked in at the counter — door check-in requires the counter first",
+    "counterOnlyNotice": "Your attendance mode is “counter only” — the counter check-in alone marks attendance; this screen is used in “counter + door” mode."
   },
   "notifUnreadLabel": "Unread",
   "notifType_team_note_created": "Team note",

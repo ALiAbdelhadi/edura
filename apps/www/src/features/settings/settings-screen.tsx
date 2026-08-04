@@ -299,9 +299,9 @@ export function SettingsScreen() {
         </div>
       </section>
       <PushNotificationsCard />
-      {/* Guided 2FA for center owners (optional but encouraged); everyone
-          gets the devices & sessions list. */}
-      {me?.role === "center_admin" ? <TwoFactorCard /> : null}
+      {/* Guided 2FA for center owners and teachers (optional but encouraged);
+          everyone gets the devices & sessions list. */}
+      {me?.role === "center_admin" || me?.role === "teacher" ? <TwoFactorCard /> : null}
       <SessionsCard />
       {/* Law 151/2020: export and erasure, on every role's settings screen.
           These are rights, not a feature for one portal. */}

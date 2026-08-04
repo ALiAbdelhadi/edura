@@ -1090,11 +1090,15 @@ export async function getTeacherDashboard(user: SessionUser) {
     const start = session.startTime ?? "";
     const end = session.endTime ?? "";
     let duration = "";
+    let durationMinutes: number | null = null;
     if (start && end) {
       const [sh, sm] = start.split(":").map(Number);
       const [eh, em] = end.split(":").map(Number);
       const mins = eh * 60 + em - (sh * 60 + sm);
-      if (mins > 0) duration = `${mins} min`;
+      if (mins > 0) {
+        duration = `${mins} min`;
+        durationMinutes = mins;
+      }
     }
     const roomId = session.roomId ?? course?.defaultRoomId ?? undefined;
     return {
@@ -1104,6 +1108,7 @@ export async function getTeacherDashboard(user: SessionUser) {
       endTime: end,
       time: start,
       duration,
+      durationMinutes,
       subject: course?.subject ?? "",
       room: roomId ? (roomMap.get(roomId) ?? "") : "",
       grade: course?.gradeTag ?? "",
