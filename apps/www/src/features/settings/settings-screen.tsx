@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { User, Phone, Save, CheckCircle2, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import {
@@ -34,6 +34,7 @@ import { DataRightsCard } from "@/features/settings/data-rights-card";
 import { SessionsCard } from "@/features/settings/sessions-card";
 import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
 import { TwoFactorCard } from "@/features/settings/two-factor-card";
+import { PasswordCard } from "@/features/settings/password-card";
 import { Spinner } from "@/components/kit/spinner";
 import {
   Figure,
@@ -92,6 +93,7 @@ function PushNotificationsCard() {
 
 export function SettingsScreen() {
   const t = useTranslations();
+  const locale = useLocale();
   const { query, result } = useCustom({ url: "me", method: "get" });
   const { mutateAsync: updateMe } = useCustomMutation();
   const [loading, setLoading] = useState(false);
@@ -302,6 +304,14 @@ export function SettingsScreen() {
       {/* Guided 2FA for center owners and teachers (optional but encouraged);
           everyone gets the devices & sessions list. */}
       {me?.role === "center_admin" || me?.role === "teacher" ? <TwoFactorCard /> : null}
+      {/* Changing your own password is a right EVERY role has, and the card is
+          role-agnostic. It is scoped to the teacher portal only because the
+          other portals are under pre-launch review in parallel and a new card
+          appearing mid-walkthrough is noise for that reviewer. Widening is this
+          condition, deleted. */}
+      {me?.role === "teacher" || me?.role === "assistant" ? (
+        <PasswordCard locale={locale} />
+      ) : null}
       <SessionsCard />
       {/* Law 151/2020: export and erasure, on every role's settings screen.
           These are rights, not a feature for one portal. */}
