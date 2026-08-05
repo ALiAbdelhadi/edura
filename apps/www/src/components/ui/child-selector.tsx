@@ -21,13 +21,22 @@ type ChildRecord = {
   name?: string | null;
 };
 
-const childKey = (c: ChildRecord): string | null => c.id ?? c._id ?? null;
+/**
+ * Exported because the pay screen needs the SAME answer to "which child is
+ * this row?". It was reading `c._id` on its own — the exact mistake documented
+ * above, still live there after it was fixed here — so the payment
+ * confirmation dialog never knew the child's name.
+ */
+export const childKey = (c: ChildRecord): string | null => c.id ?? c._id ?? null;
 
 type ChildSelectorContextValue = {
   children: ChildRecord[];
   childId: string | null;
   setChildId: (id: string | null) => void;
+  /** True until the list has actually arrived — including while a retry is paused. */
   isLoading: boolean;
+  /** The list could not be fetched. Distinct from "this parent has no children". */
+  failed: boolean;
 };
 
 const ChildSelectorContext = createContext<ChildSelectorContextValue>({
@@ -35,23 +44,47 @@ const ChildSelectorContext = createContext<ChildSelectorContextValue>({
   childId: null,
   setChildId: () => {},
   isLoading: false,
+  failed: false,
 });
 
 export function ChildSelectorProvider({ children: renderChildren }: { children: React.ReactNode }) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const { query, result } = useList({ resource: "me-children" });
+  const { query, result } = useList({
+    resource: "me-children",
+    queryOptions: {
+      // `networkMode: "always"` because the DEFAULT ("online") PAUSES a query
+      // whose first attempt failed until React Query believes the browser is
+      // back online — and a paused query reports `isLoading: false` with no
+      // data. Every screen below then read an empty list and told the parent
+      // they have no children, on the screen where they pay for one, with no
+      // way back but a full reload. Observed: one request timing out (the ky
+      // client gives up at 10s) put the list into `status:"pending",
+      // fetchStatus:"paused"` while `navigator.onLine` was true throughout.
+      //
+      // With "always" the request simply retries and, if it keeps failing,
+      // lands in `isError` — a state this provider can report honestly.
+      networkMode: "always",
+    },
+  });
   const children = (result?.data ?? []) as ChildRecord[];
   const childId =
     selectedChildId || (children[0] ? childKey(children[0]) : null);
+
+  // `isPending`, NOT `isLoading`. They differ in exactly the case that caused
+  // the bug: a paused or otherwise not-yet-resolved query is `isPending` but
+  // not `isLoading`, and reporting it as "loaded" is what turned a transport
+  // failure into a false statement about the family.
+  const isLoading = query.isPending;
 
   const value = useMemo(
     () => ({
       children,
       childId,
       setChildId: setSelectedChildId,
-      isLoading: query.isLoading,
+      isLoading,
+      failed: query.isError,
     }),
-    [children, childId, query.isLoading],
+    [children, childId, isLoading, query.isError],
   );
 
   return (

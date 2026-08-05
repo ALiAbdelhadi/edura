@@ -128,6 +128,7 @@
     "noTrackSubjects": "No subjects on this child's track yet",
     "noCoursesForSubject": "No classes available for this subject",
     "noLinkedChildren": "No approved children linked to your account yet",
+    "childrenUnavailable": "Could not load your children. Refresh and try again.",
     "noPlansConfigured": "Not available for online payment",
     "noCenter": "No center",
     "uncategorized": "Other classes",

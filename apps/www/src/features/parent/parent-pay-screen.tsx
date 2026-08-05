@@ -26,7 +26,7 @@ import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { ChildSelectorBar, useChildSelector } from "@/components/ui/child-selector";
+import { ChildSelectorBar, useChildSelector, childKey } from "@/components/ui/child-selector";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { cn } from "@repo/ui/lib/utils";
 
@@ -241,7 +241,12 @@ function SubjectCourses({
 export function ParentPayScreen() {
   const t = useTranslations();
   const { locale, formatEGP } = useFormatters();
-  const { childId, children, isLoading: childrenLoading } = useChildSelector();
+  const {
+    childId,
+    children,
+    isLoading: childrenLoading,
+    failed: childrenFailed,
+  } = useChildSelector();
 
   const [tab, setTab] = useState<"mine" | "all">("mine");
   const [search, setSearch] = useState("");
@@ -295,7 +300,12 @@ export function ParentPayScreen() {
 
   const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
 
-  const childName = children.find((c: any) => c._id === childId)?.name ?? "";
+  // `childKey`, not `c._id`. The payload from /api/v1/me/children carries `id`
+  // and has never carried `_id`, so this lookup never matched and the name was
+  // always "" — which is why the subject hint rendered as "مواد شعبة ." and the
+  // payment confirmation never named the child being paid for. Same helper the
+  // selector uses, so the two cannot disagree about identity again.
+  const childName = children.find((c) => childKey(c) === childId)?.name ?? "";
 
   // -------------------------------------------------------------------------
   // Checkout
@@ -375,6 +385,19 @@ export function ParentPayScreen() {
   // -------------------------------------------------------------------------
 
   if (childrenLoading) return <PageSpinner />;
+
+  // "We could not load your children" and "you have no children" are different
+  // sentences, and this screen used to print the second one for both. On the
+  // screen where a parent pays for a child, that is not a stale list — it is
+  // the app telling them their family does not exist.
+  if (childrenFailed) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("nav.payForChild")} description={t("parentPay.subtitle")} />
+        <EmptyState icon={Users} title={t("parentPay.childrenUnavailable")} />
+      </div>
+    );
+  }
 
   if (!childId) {
     return (
