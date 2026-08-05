@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,11 +22,27 @@ if (EDURA_ENV === "production") {
   }
 }
 
+// `env()` THROWS when the variable is absent, and this config is loaded by
+// every prisma invocation — including `prisma generate`, which is this
+// package's postinstall and therefore runs on every `bun install`. Generating
+// a client reads the schema and touches no database, so declaring the
+// datasource unconditionally made merely INSTALLING the repo require a
+// production-shaped connection string. Nothing in CI has one at install time:
+// the workflow supplies DIRECT_URL to the build step, so `bun install
+// --frozen-lockfile` failed on the first line of the first job, CI went red,
+// and the Deploy workflow — which only ships on green CI — skipped every run.
+// main carried code production never received. A fresh clone failed the same
+// way, for the same reason.
+//
+// So resolve it only when it is actually there. The commands that genuinely
+// need a connection (migrate, db, studio) still get it, and when it is missing
+// they fail with Prisma's own error naming the missing datasource rather than
+// this file throwing before the command is even chosen.
+const directUrl = process.env.DIRECT_URL;
+
 export default defineConfig({
   schema: path.join("prisma", "schema.prisma"),
-  datasource: {
-    url: env("DIRECT_URL"),
-  },
+  ...(directUrl ? { datasource: { url: directUrl } } : {}),
   migrations: {
     path: path.join("prisma", "migrations"),
     seed: "tsx prisma/seed.ts",
