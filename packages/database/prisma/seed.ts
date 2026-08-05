@@ -276,7 +276,7 @@ async function main() {
         create: {
           teacherId: teacher.id,
           assistantId: assistant.id,
-          title: "Senior assistant",
+          title: "مساعد أول",
         },
       });
 

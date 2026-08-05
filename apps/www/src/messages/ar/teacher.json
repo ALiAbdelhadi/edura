@@ -204,5 +204,6 @@
   "planNote": "حدد سعرًا لخطة واحدة على الأقل — شهري أو لكل حصة.",
   "groupCreated": "تم إنشاء المجموعة",
   "groupCreatedSessions": "تم إنشاء المجموعة وتوليد {count} حصة",
-  "fillRequired": "أكمل الحقول المطلوبة"
+  "fillRequired": "أكمل الحقول المطلوبة",
+  "notGraded": "غير مرصودة"
 }

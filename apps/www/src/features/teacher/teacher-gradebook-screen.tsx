@@ -282,6 +282,19 @@ export function TeacherGradebookScreen() {
   );
 
   const handleGradeChange = (studentId: string, entryId: string, value: string) => {
+    // Emptying the box drops the PENDING edit (back to the saved score, or to
+    // ungraded). Without this the field is controlled by state that never
+    // changes on an empty string, so the old number snaps back and the teacher
+    // cannot correct a typo. Deleting a SAVED grade is not offered — the
+    // scores endpoint replaces values, it has no delete.
+    if (value.trim() === "") {
+      setEditedGrades((prev) => {
+        const forStudent = { ...(prev[studentId] || {}) };
+        delete forStudent[entryId];
+        return { ...prev, [studentId]: forStudent };
+      });
+      return;
+    }
     const numValue = parseFloat(value);
     if (!isNaN(numValue)) {
       setEditedGrades((prev) => ({
@@ -349,7 +362,12 @@ export function TeacherGradebookScreen() {
       ),
       cell: ({ row }) => {
         const record = row.original;
-        const originalScore = record.scores?.[e._id] || 0;
+        // NOT `|| 0`. An ungraded student is ungraded — printing a 0 (or, on a
+        // تقدير assessment, the lowest band) states something false about a
+        // child. It stayed invisible while only already-scored students had
+        // rows; now that the roster carries every enrolled student, an empty
+        // cell is the only honest rendering.
+        const originalScore = record.scores?.[e._id];
         const editedScore = editedGrades[record.studentId]?.[e._id];
         const activeScore = editedScore !== undefined ? editedScore : originalScore;
         const isEdited = editedScore !== undefined;
@@ -358,7 +376,7 @@ export function TeacherGradebookScreen() {
           return (
             <div className="flex flex-col items-center gap-0.5">
               <Select
-                value={String(activeScore)}
+                value={activeScore !== undefined ? String(activeScore) : ""}
                 onValueChange={(val) => handleGradeChange(record.studentId, e._id, val)}
               >
                 {/* w-24, not the w-16 this was while the options were "A"…"F":
@@ -368,7 +386,11 @@ export function TeacherGradebookScreen() {
                   size="sm"
                   className={cn("w-24", isEdited && "border-info ring-1 ring-info")}
                 >
-                  <SelectValue />
+                  {/* An em-dash, not the words — "غير مرصودة" is longer than
+                      the longest band and clipped inside this trigger. The
+                      words go in the caption below, exactly as the numeric
+                      branch does it. */}
+                  <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
                   {BAND_OPTIONS.map((b) => (
@@ -378,10 +400,15 @@ export function TeacherGradebookScreen() {
                   ))}
                 </SelectContent>
               </Select>
-              {/* No caption. The numeric branch below captions its box with the
-                  percentage — information the box itself does not carry. Here
-                  the trigger already IS the تقدير, so a caption under it just
-                  printed the same word twice (it did with the letters too). */}
+              {/* No caption once a تقدير IS picked: the trigger already carries
+                  the word, and captioning it printed the same word twice (it
+                  did with the letters too). Ungraded is the one case the
+                  trigger cannot say by itself — a bare dash is not an answer. */}
+              {activeScore === undefined ? (
+                <div className="text-[11px] text-muted-foreground">
+                  {t("teacher.notGraded")}
+                </div>
+              ) : null}
             </div>
           );
         }
@@ -389,7 +416,8 @@ export function TeacherGradebookScreen() {
         return (
           <div className="flex flex-col items-center gap-0.5">
             <Input
-              value={activeScore}
+              value={activeScore ?? ""}
+              placeholder="—"
               onChange={(ev) => handleGradeChange(record.studentId, e._id, ev.target.value)}
               className={cn(
                 "h-8 w-16 text-center",
@@ -397,7 +425,9 @@ export function TeacherGradebookScreen() {
               )}
             />
             <div className="text-[11px] text-muted-foreground">
-              {Math.round((activeScore / e.maxScore) * 100)}%
+              {activeScore !== undefined
+                ? `${Math.round((activeScore / e.maxScore) * 100)}%`
+                : t("teacher.notGraded")}
             </div>
           </div>
         );
@@ -411,13 +441,19 @@ export function TeacherGradebookScreen() {
         let totalScore = 0;
         let totalMax = 0;
         entries.forEach((entry) => {
-          const originalScore = record.scores?.[entry._id] || 0;
+          const originalScore = record.scores?.[entry._id];
           const editedScore = editedGrades[record.studentId]?.[entry._id];
           const activeScore = editedScore !== undefined ? editedScore : originalScore;
+          // Only GRADED assessments count. Averaging an unmarked exam as zero
+          // drags a student's average down for work nobody has corrected yet.
+          if (activeScore === undefined) return;
           totalScore += activeScore;
           totalMax += entry.maxScore;
         });
-        const avg = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+        if (totalMax === 0) {
+          return <span className="text-muted-foreground">{t("teacher.notGraded")}</span>;
+        }
+        const avg = Math.round((totalScore / totalMax) * 100);
         const tone = avg >= 90 ? "success" : avg >= 75 ? "info" : "warning";
         return <StatusBadge tone={tone}>{avg}%</StatusBadge>;
       },
@@ -429,8 +465,12 @@ export function TeacherGradebookScreen() {
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           <span className="font-semibold">{t("teacher.course")}</span>
+          {/* `?? ""`, never `?? undefined`: the id is null on first paint, and
+              an undefined value makes the Select uncontrolled for one render,
+              then controlled — React warns, and the picker can drop the first
+              selection. */}
           <Select
-            value={selectedCourseId ?? undefined}
+            value={selectedCourseId ?? ""}
             onValueChange={(val) => {
               setSelectedCourseId(val);
               setEditedGrades({});
@@ -485,7 +525,7 @@ export function TeacherGradebookScreen() {
                 <CardTitle className="text-base">{t("teacher.scoreDistribution")}</CardTitle>
                 <CardAction className="self-center">
                   <Select
-                    value={selectedDistributionEntryId ?? undefined}
+                    value={selectedDistributionEntryId ?? ""}
                     onValueChange={setSelectedDistributionEntryId}
                   >
                     <SelectTrigger size="sm" className="min-w-56">
