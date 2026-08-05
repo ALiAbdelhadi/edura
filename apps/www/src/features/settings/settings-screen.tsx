@@ -304,14 +304,11 @@ export function SettingsScreen() {
       {/* Guided 2FA for center owners and teachers (optional but encouraged);
           everyone gets the devices & sessions list. */}
       {me?.role === "center_admin" || me?.role === "teacher" ? <TwoFactorCard /> : null}
-      {/* Changing your own password is a right EVERY role has, and the card is
-          role-agnostic. It is scoped to the teacher portal only because the
-          other portals are under pre-launch review in parallel and a new card
-          appearing mid-walkthrough is noise for that reviewer. Widening is this
-          condition, deleted. */}
-      {me?.role === "teacher" || me?.role === "assistant" ? (
-        <PasswordCard locale={locale} />
-      ) : null}
+      {/* Changing your own password is a right EVERY role has, so this card is
+          not role-gated. An account with no password yet (an unclaimed invite)
+          is refused by the service, not hidden here — the refusal explains
+          itself, a missing card does not. */}
+      <PasswordCard locale={locale} />
       <SessionsCard />
       {/* Law 151/2020: export and erasure, on every role's settings screen.
           These are rights, not a feature for one portal. */}
