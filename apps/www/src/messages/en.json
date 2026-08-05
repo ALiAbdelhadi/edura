@@ -626,7 +626,18 @@
     "useBackupCode": "Use a backup code instead",
     "useTotpCode": "Use an authenticator code instead",
     "backupPlaceholder": "Backup code",
-    "trustDevice": "Trust this device for 60 days"
+    "trustDevice": "Trust this device for 60 days",
+    "passwordTitle": "Password",
+    "passwordDesc": "Change your password. You will be signed out of every device — this one included — and sign in again with the new one.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePassword": "Change password",
+    "passwordMismatch": "The two passwords do not match",
+    "passwordChanged": "Password changed — please sign in again",
+    "passwordRules": "At least 8 characters, including a letter and a digit.",
+    "currentPasswordWrong": "Current password is incorrect",
+    "noPasswordSet": "This account has no password yet — use your invite link to set one."
   },
   "externalTeachers": {
     "title": "Off-system teachers",
