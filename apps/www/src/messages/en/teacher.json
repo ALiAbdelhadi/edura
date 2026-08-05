@@ -204,5 +204,6 @@
   "planNote": "Set at least one plan price — monthly or per-session.",
   "groupCreated": "Group created",
   "groupCreatedSessions": "Group created — {count} sessions generated",
-  "fillRequired": "Fill the required fields"
+  "fillRequired": "Fill the required fields",
+  "notGraded": "Not graded"
 }
