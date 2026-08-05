@@ -128,6 +128,7 @@
     "noTrackSubjects": "لا توجد مواد في شعبة هذا الابن حتى الآن",
     "noCoursesForSubject": "لا توجد حصص متاحة لهذه المادة",
     "noLinkedChildren": "لا يوجد أبناء مرتبطون بحسابك حتى الآن",
+    "childrenUnavailable": "تعذّر تحميل بيانات أبنائك. حدّث الصفحة وحاول تاني.",
     "noPlansConfigured": "غير متاح للدفع أونلاين",
     "noCenter": "بدون سنتر",
     "uncategorized": "حصص أخرى",

@@ -38,6 +38,7 @@ type Payload = { card: StudentCard; checklist: ProfileChecklist };
 export function StudentIdScreen({
   studentId,
   showChecklist = true,
+  audience = "student",
 }: {
   studentId?: string;
   /**
@@ -46,6 +47,14 @@ export function StudentIdScreen({
    * would be offering an action that is not theirs to take.
    */
   showChecklist?: boolean;
+  /**
+   * WHO IS READING. The screen is shared — a parent opens their child's card
+   * through the same component, on purpose, so there is one authorization path
+   * — but the copy was not: a parent was shown "بطاقتك الشخصية … بتسجّل
+   * حضورك", second person, about someone else's card. The heading and the
+   * refusal below are the only two things that differ.
+   */
+  audience?: "student" | "parent";
 }) {
   const t = useTranslations("studentIdCard");
   const locale = useLocale();
@@ -55,10 +64,27 @@ export function StudentIdScreen({
   const [busy, setBusy] = useState(false);
 
   const labels = { cardTitle: t("cardTitle"), codeLabel: t("codeLabel") };
+  const title = audience === "parent" ? t("parentTitle") : t("title");
+  const subtitle = audience === "parent" ? t("parentSubtitle") : t("subtitle");
   const query = studentId ? `?studentId=${studentId}` : "";
   const { query: q, result } = useCustom<Payload>({
     url: `me/student-card${query}`,
     method: "get",
+    queryOptions: {
+      // A 403 here is an ANSWER — "not an approved child of this parent" — and
+      // under React Query's defaults it was being treated as a transport
+      // failure: retried, then PAUSED (`status:"pending", fetchStatus:"paused"`,
+      // no error ever set) while `isLoading` read false. So the screen could
+      // not learn why it had nothing, which is how it came to render a blank
+      // rectangle. Measured on this exact route, not assumed.
+      networkMode: "always",
+      // Nothing about a refusal changes by asking again.
+      retry: (count, error) => {
+        const status = (error as { statusCode?: number } | null)?.statusCode ?? 0;
+        if (status >= 400 && status < 500) return false;
+        return count < 2;
+      },
+    },
   });
 
   // `result` is refine's placeholder `{ data: {} }` while the query is in
@@ -66,8 +92,27 @@ export function StudentIdScreen({
   // generic — the same trap that had DataRightsCard throwing on first paint.
   const payload = result?.data;
 
-  if (q.isLoading) return <PageSpinner />;
-  if (!payload?.card) return null;
+  if (q.isPending && !q.isError) return <PageSpinner />;
+
+  // `return null` used to stand here, so a parent opening the card of a child
+  // whose link is not approved got a correctly-refused request (403 "Not an
+  // approved child of this parent") and a BLANK RECTANGLE. The gate was doing
+  // its job; the screen simply had nowhere to put the answer, and a refusal
+  // that looks identical to a crash teaches people the app is broken.
+  if (!payload?.card) {
+    const forbidden = (q.error as { statusCode?: number } | null)?.statusCode === 403;
+    return (
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5">
+        <PageTitle eyebrow={t("eyebrow")} title={title} subtitle={subtitle} />
+        <Sheet blocking className="flex items-start gap-3 p-4">
+          <CircleAlert className="mt-[2px] size-4 shrink-0" style={{ color: "var(--red)" }} />
+          <p className="text-sm" style={{ color: "var(--ink)" }}>
+            {forbidden ? t("notYours") : t("unavailable")}
+          </p>
+        </Sheet>
+      </div>
+    );
+  }
 
   const { card, checklist } = payload;
 
@@ -121,7 +166,7 @@ export function StudentIdScreen({
 
   return (
     <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5">
-      <PageTitle eyebrow={t("eyebrow")} title={t("title")} subtitle={t("subtitle")} />
+      <PageTitle eyebrow={t("eyebrow")} title={title} subtitle={subtitle} />
 
       {card.isPending ? (
         // A pending code is real and works, but it is going to CHANGE the

@@ -3,8 +3,13 @@
 **Date:** 2026-08-04
 **Scope:** the parent portal and the center portal in `apps/www`, walked end to end
 against the **dev** database.
-**Status:** reported, not fixed — except §0, which was fixed and merged during the
-same session at Ali's instruction.
+**Status:** §0 and §1–§6 are **fixed and merged**. §7 and §8 are open, and both
+are open on purpose — see each.
+
+> **A note on how these were fixed.** §1 onwards were fixed under a constraint:
+> parallel sessions were reviewing the center, superadmin and teacher portals
+> against this same repository, so nothing shared with those surfaces was
+> touched. That is why §7 is still open despite being the smallest item here.
 
 **Method.** Both roles were driven through the real UI in a browser against a real
 dev server, signed in as real demo accounts. Every finding below was re-checked
@@ -156,6 +161,16 @@ obvious follow-on.
 
 ## 2. A single slow request leaves the parent's money screen saying they have no children
 
+> **FIXED — 2026-08-04.** The child list is fetched with
+> `networkMode: "always"`, so a failed attempt retries and, if it keeps
+> failing, lands in `isError` instead of pausing. The provider now reports
+> `isLoading` from `isPending` (a paused query is pending but NOT loading —
+> that gap is the whole bug) and exposes a `failed` flag, and the pay screen
+> prints «تعذّر تحميل بيانات أبنائك» for it rather than «لا يوجد أبناء
+> مرتبطون». Proven in the browser: with the page signalled offline the list
+> refetched and **succeeded** where it used to park at
+> `fetchStatus:"paused"`.
+
 - **Screen:** `/dashboard/parent/pay` («ادفع لدرس»).
 - **Step:** any request times out once (see §3), then navigate to the pay screen.
 - **Expected:** the child selector resolves and the subject list renders.
@@ -218,6 +233,15 @@ figure. The behaviour when a request *does* exceed the timeout is not.
 
 ## 4. A non-approved child's ID card renders a blank page
 
+> **FIXED — 2026-08-04.** `return null` is replaced by an explicit refusal.
+> Measuring it first showed the cause was deeper than a missing branch: the
+> 403 was being treated as a transport failure — retried, then PAUSED, with
+> **no error ever set** — so the screen could not have told the parent why
+> even if it had somewhere to print it. That query now runs
+> `networkMode: "always"` and does not retry a 4xx, because nothing about a
+> refusal changes by asking again. The screen reads «مش هتقدر تشوف البطاقة
+> دي. الربط بينك وبين الطالب لسه مش معتمد.»
+
 - **Screen:** `/dashboard/parent/children/<id>/id`.
 - **Step:** open the card for a child whose link is `pending`.
 - **Expected:** an explicit refusal.
@@ -249,6 +273,10 @@ renders fully — card, QR, guilloché, `GEC6-PVD2`, print route and PNG export.
 
 ## 5. The parent-pay screen reads `_id` on a payload that has `id`
 
+> **FIXED — 2026-08-04.** `childKey` is now exported from the child selector
+> and used here, so the two cannot disagree about identity again. The hint
+> reads «مواد شعبة مريم الطوخي.» and the confirmation dialog names the child.
+
 - **Screen:** `/dashboard/parent/pay`.
 - **Actual on screen:** the hint reads **«مواد شعبة .»** — the child's name is
   missing and the sentence ends on a bare full stop. The same value is used in the
@@ -275,6 +303,11 @@ payment is shown a dialog that does not name the child being paid for.
 
 ## 6. Parent screens address the student in the second person
 
+> **FIXED — 2026-08-04.** `StudentIdScreen` takes an explicit
+> `audience: "student" | "parent"`; the parent route passes `"parent"` and gets
+> «بطاقة الابن» / «بطاقة ابنك على المنصة — بيسجّل بيها حضوره…». The linking
+> screen's link label uses the same `parentTitle` key.
+
 - `parent-linking-screen.tsx:278` labels the child's card link with
   `t("studentIdCard.title")` → **«بطاقتي»** ("my card"), in the row for someone
   else's card.
@@ -288,6 +321,12 @@ adjusted with it.
 ---
 
 ## 7. The search box shows two clear buttons
+
+> **NOT FIXED — deliberately.** `SearchInput` is shared with seven
+> `apps/superadmin` screens and with `filter-bar`, and the superadmin portal
+> is under review in a parallel session. Changing it would alter a surface
+> someone else is walking through right now. It is one component and one
+> commit whenever that review is done.
 
 `SearchInput` renders its own clear affordance while the underlying element is
 `type="search"`, which the browser also decorates. On the pay screen's subject
@@ -356,6 +395,24 @@ the code **only if its check character agrees**:
 
 That last property is the point of the check character, and it holds at the one
 place it has to.
+
+---
+
+## The root cause behind §2 and §4, and what is still open
+
+Both were the same mechanism, found by measuring rather than by reading: React
+Query's default `networkMode: "online"` **pauses** a query whose attempt failed
+until it believes the browser is back online, and a paused query reports
+`isLoading: false` with no data and no error. Two different screens therefore
+turned a transport failure and a 403 refusal into confident false statements —
+"you have no children", and a blank rectangle.
+
+Each was fixed on its own query. **The default is still app-wide**, so any other
+screen that reads `isLoading` and then treats an empty result as fact has the
+same latent bug. Setting the policy once on the QueryClient — never pause, never
+retry a 4xx — is the real fix and was deliberately not attempted here: that file
+is shared with every role, including the three under review in parallel
+sessions.
 
 ---
 

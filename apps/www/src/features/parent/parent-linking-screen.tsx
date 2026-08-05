@@ -275,7 +275,7 @@ export function ParentLinkingScreen() {
                   href={`/dashboard/parent/children/${record.studentId.id}/id`}
                   className="text-[12px] text-ink-2 underline underline-offset-4 hover:text-ink"
                 >
-                  {t("studentIdCard.title")}
+                  {t("studentIdCard.parentTitle")}
                 </Link>
               ) : null}
             <ConfirmDialog

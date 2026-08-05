@@ -18,5 +18,5 @@ export default function Page({
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = use(params);
-  return <StudentIdScreen studentId={studentId} showChecklist={false} />;
+  return <StudentIdScreen studentId={studentId} showChecklist={false} audience="parent" />;
 }
