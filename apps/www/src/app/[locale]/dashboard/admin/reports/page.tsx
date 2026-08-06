@@ -1,3 +1,8 @@
-"use client";
 import { AdminReportsScreen } from "@/features/admin/admin-reports-screen";
-export default function Page() { return <AdminReportsScreen />; }
+import { localizedTitle } from "@/lib/i18n/page-metadata";
+
+export const generateMetadata = localizedTitle("reports");
+
+export default function Page() {
+  return <AdminReportsScreen />;
+}

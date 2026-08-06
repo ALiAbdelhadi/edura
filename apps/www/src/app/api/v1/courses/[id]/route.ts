@@ -6,7 +6,7 @@ import { platformDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
-import { moneySchema, isNotPastDate } from "@/lib/validation/common";
+import { moneySchema } from "@/lib/validation/common";
 import { updateCourse } from "@repo/server-core/services/center/courses";
 
 export const dynamic = "force-dynamic";
@@ -74,10 +74,11 @@ const schedulePatternSchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
   })
-  .refine((p) => isNotPastDate(p.startDate.toISOString().slice(0, 10)), {
-    message: "startDate cannot be in the past",
-    path: ["startDate"],
-  })
+  // No "startDate cannot be in the past" refine here, deliberately: this is
+  // the EDIT schema, and a course that already started legitimately carries a
+  // past startDate — the blanket refine made every historical course
+  // uneditable. updateCourse enforces the real rule instead: keeping the
+  // existing startDate is fine, MOVING it into the past is refused.
   .refine((p) => p.endDate >= p.startDate, {
     message: "endDate must be on or after startDate",
     path: ["endDate"],

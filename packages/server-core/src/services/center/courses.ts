@@ -5,7 +5,7 @@ import { requireCenterScope } from "../../authz/center-scope";
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../notifications/notify";
 import { startOfTodayUTC } from "../../validation/common";
-import { generateSessions, regenerateFutureSessions } from "../sessions/session-generator";
+import { generateSessions, regenerateFutureSessionsTx } from "../sessions/session-generator";
 import { resolveCoursePricingSnapshot } from "../finance/commission";
 
 // ---------------------------------------------------------------------------
@@ -299,6 +299,15 @@ export async function updateCourse(acting: SessionUser, id: string, body: Course
       }
     }
     if (newPattern) {
+      // A course that already started keeps its (past) startDate on edit —
+      // otherwise every historical course is uneditable. What stays refused is
+      // MOVING the start into the past: that would ask the generator to plan
+      // sessions nobody can attend.
+      const sameStart =
+        newPattern.startDate.getTime() === course.startDate.getTime();
+      if (!sameStart && newPattern.startDate < startOfTodayUTC()) {
+        throw new BusinessRuleError("startDate cannot be moved into the past");
+      }
       data.daysOfWeek = newPattern.daysOfWeek;
       data.startTime = newPattern.startTime;
       data.endTime = newPattern.endTime;
@@ -306,21 +315,29 @@ export async function updateCourse(acting: SessionUser, id: string, body: Course
       data.endDate = newPattern.endDate;
     }
 
-    return tx.course.update({ where: { id }, data });
-  });
+    const saved = await tx.course.update({ where: { id }, data });
 
-  if (newPattern) {
-    await regenerateFutureSessions(
-      {
-        id: updated.id,
-        teacherId: updated.teacherId,
-        defaultRoomId: updated.defaultRoomId,
-        schedulePattern: newPattern,
-      },
-      newPattern,
-      acting,
-    );
-  }
+    // Same transaction as the course-row change, deliberately: regeneration
+    // can refuse (schedule conflict with the teacher's other groups), and when
+    // it does the course edit must roll back with it — otherwise the course
+    // says one schedule while its sessions (what attendance and money run on)
+    // still say another.
+    if (newPattern) {
+      await regenerateFutureSessionsTx(
+        tx,
+        {
+          id: saved.id,
+          teacherId: saved.teacherId,
+          defaultRoomId: saved.defaultRoomId,
+          schedulePattern: newPattern,
+          ...(saved.dataSource ? { dataSource: saved.dataSource } : {}),
+        },
+        newPattern,
+      );
+    }
+
+    return saved;
+  });
 
   return withSchedulePattern(updated);
 }

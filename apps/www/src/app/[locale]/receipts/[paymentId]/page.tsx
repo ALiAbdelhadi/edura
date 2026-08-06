@@ -52,6 +52,22 @@ export default async function ReceiptPage({
     throw err;
   }
 
+  // The subscription engine writes its note in one machine shape —
+  // "Subscription (per_session, cash)" — which landed verbatim (in English) on
+  // Arabic receipts. The stored value stays untouched; only the DISPLAY
+  // translates it, and a note that is not that exact shape passes through as-is.
+  const noteMatch = doc.note?.match(
+    /^Subscription \((monthly|per_session), (cash|online)(, paid by parent)?\)$/,
+  );
+  if (noteMatch) {
+    const plan = t(noteMatch[1] === "monthly" ? "notePlanMonthly" : "notePlanPerSession");
+    const method = t(noteMatch[2] === "cash" ? "noteMethodCash" : "noteMethodOnline");
+    doc = {
+      ...doc,
+      note: t(noteMatch[3] ? "notePaidByParent" : "noteSubscription", { plan, method }),
+    };
+  }
+
   return (
     <ReceiptSheet
       doc={doc}

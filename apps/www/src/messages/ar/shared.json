@@ -163,7 +163,7 @@
   "checkin": {
     "title": "تشيك-إن الكاونتر",
     "description": "ابحث عن الطالب بالكود أو الهاتف أو الاسم — ثم اختر الحصة.",
-    "searchPlaceholder": "STU-000123 أو الهاتف أو الاسم…",
+    "searchPlaceholder": "G7K3M2QF أو الهاتف أو الاسم…",
     "searchFailed": "فشل البحث",
     "results": "النتائج",
     "noMatches": "لا يوجد طلاب — أنشئ طالبًا مؤقتًا بالأسفل",
@@ -179,6 +179,9 @@
     "checkIn": "تسجيل حضور",
     "collectAndCheckIn": "تحصيل {price} وتسجيل الحضور",
     "noSessionPrice": "لا يوجد سعر للحصة",
+    "noSessionPriceHint": "لا يوجد سعر للحصة — يحدده مالك السنتر من شاشة الفصول ليتفعّل التحصيل هنا",
+    "alreadyPresent": "حاضر اليوم",
+    "counterDoneBadge": "عدّى الكاونتر — باقي الباب",
     "cashCollected": "تم تسجيل الدفع النقدي",
     "present": "تم التسجيل — حاضر",
     "counterDone": "تم تشيك-إن الكاونتر — ما زال تشيك-إن الباب مطلوبًا",

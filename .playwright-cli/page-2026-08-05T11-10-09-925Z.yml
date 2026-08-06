@@ -1,0 +1,129 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e82]:
+    - generic [ref=f2e85]:
+      - generic [ref=f2e86]:
+        - generic [ref=f2e87]:
+          - img "Edura" [ref=f2e88]
+          - generic [ref=f2e89]: Edura
+        - generic [ref=f2e90]:
+          - generic [ref=f2e91]: DA
+          - generic [ref=f2e93]:
+            - paragraph [ref=f2e94]: Demo Admin
+            - paragraph [ref=f2e95]: مسؤول
+      - list [ref=f2e97]:
+        - listitem [ref=f2e98]:
+          - link "نظرة عامة" [ref=f2e99] [cursor=pointer]:
+            - /url: /ar/dashboard/admin
+        - listitem [ref=f2e106]:
+          - link "تسجيل الحضور" [ref=f2e107] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/checkin
+        - listitem [ref=f2e112]:
+          - link "الطلاب" [ref=f2e113] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/students
+        - listitem [ref=f2e120]:
+          - link "طلبات التسجيل" [ref=f2e121] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/enrollment-requests
+        - listitem [ref=f2e126]:
+          - link "المعلمون" [ref=f2e127] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/teachers
+        - listitem [ref=f2e132]:
+          - link "مدرسون خارج النظام" [ref=f2e133] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/external-teachers
+        - listitem [ref=f2e138]:
+          - link "الفصول" [ref=f2e139] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/classes
+        - listitem [ref=f2e143]:
+          - link "القاعات" [ref=f2e144] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/rooms
+        - listitem [ref=f2e149]:
+          - link "الرسوم" [ref=f2e150] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/fees
+        - listitem [ref=f2e154]:
+          - link "المصروفات" [ref=f2e155] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/expenses
+        - listitem [ref=f2e162]:
+          - link "التقارير" [ref=f2e163] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/reports
+        - listitem [ref=f2e170]:
+          - link "الموظفون" [ref=f2e171] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/staff
+        - listitem [ref=f2e178]:
+          - link "ملاحظات الفريق" [ref=f2e179] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/notes
+        - listitem [ref=f2e184]:
+          - link "سجل التدقيق" [ref=f2e185] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/audit
+        - listitem [ref=f2e190]:
+          - link "الرسائل" [ref=f2e191] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/messages
+        - listitem [ref=f2e195]:
+          - link "الإشعارات" [ref=f2e196] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/notifications
+        - listitem [ref=f2e201]:
+          - link "الإعدادات" [ref=f2e202] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/settings
+      - list [ref=f2e208]:
+        - listitem [ref=f2e209]:
+          - button "تسجيل الخروج" [ref=f2e210]
+    - main [ref=f2e215]:
+      - generic [ref=f2e216]:
+        - generic [ref=f2e217]:
+          - button "طيّ الشريط الجانبي" [expanded] [ref=f2e218]
+          - heading "الفصول" [level=1] [ref=f2e220]
+        - generic [ref=f2e221]:
+          - generic [ref=f2e222]:
+            - radiogroup "اللغة" [ref=f2e223]:
+              - radio "العربية" [checked] [ref=f2e224]
+              - radio "English" [ref=f2e225]
+            - radiogroup "السمة" [ref=f2e226]:
+              - radio "فاتح" [ref=f2e227]
+              - radio "داكن" [ref=f2e228]
+              - radio "تلقائي" [checked] [ref=f2e229]
+          - link "الإشعارات" [ref=f2e231] [cursor=pointer]:
+            - /url: /ar/dashboard/admin/notifications
+          - generic [ref=f2e232]: DA
+      - region "الفصول" [ref=f2e234]:
+        - generic [ref=f2e236]:
+          - generic [ref=f2e237]:
+            - generic [ref=f2e238]:
+              - heading "الفصول" [level=1] [ref=f2e239]
+              - paragraph [ref=f2e240]: الفصل بلا سعر لا يستطيع الطلاب الاشتراك فيه. حدّد السعر الشهري أو سعر الحصة ليصبح متاحًا.
+            - generic [ref=f2e242]:
+              - textbox "ابحث عن الفصول أو المعلمين" [ref=f2e244]
+              - generic [ref=f2e245]:
+                - button "عوامل التصفية" [ref=f2e246]
+                - button "إنشاء فصل" [ref=f2e247]
+          - table [ref=f2e253]:
+            - rowgroup [ref=f2e254]:
+              - row [ref=f2e255]:
+                - columnheader "الفصل" [ref=f2e256]
+                - columnheader [ref=f2e257]:
+                  - button "ترتيب حسب معلم" [ref=f2e258]: معلم
+                - columnheader "الجدول" [ref=f2e262]
+                - columnheader [ref=f2e263]:
+                  - button "ترتيب حسب القاعة" [ref=f2e264]: القاعة
+                - columnheader "السعر" [ref=f2e268]
+                - columnheader "السعة" [ref=f2e269]
+                - columnheader "الحالة" [ref=f2e270]
+                - columnheader "الإجراءات" [ref=f2e271]
+            - rowgroup [ref=f2e272]:
+              - row [ref=f2e273]:
+                - cell "Math — Grade 12" [ref=f2e274]
+                - cell "Hossam Aziz" [ref=f2e279]
+                - cell "الإثنين, الأربعاء · 16:00 - 18:00" [ref=f2e280]
+                - cell "يُحدد لاحقًا" [ref=f2e281]
+                - cell "100ج.م /حصة" [ref=f2e282]:
+                  - generic [ref=f2e384]:
+                    - generic [ref=f2e385]: 100ج.م
+                    - generic [ref=f2e386]: /حصة
+                - cell "2/30" [ref=f2e287]
+                - cell "نشط" [ref=f2e292]
+                - cell [ref=f2e294]:
+                  - generic [ref=f2e392]:
+                    - link "عرض" [ref=f2e393] [cursor=pointer]:
+                      - /url: /ar/courses/c0730f77-e329-4baa-a99d-a5f2cfc1b7ce
+                    - button "تعديل" [ref=f2e394]
+                    - button "إلغاء" [ref=f2e395]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f2e9] [cursor=pointer]
+  - alert [ref=f2e13]

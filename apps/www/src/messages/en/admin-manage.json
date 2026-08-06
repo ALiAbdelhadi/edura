@@ -41,6 +41,7 @@
     "gradeTagPlaceholder": "e.g. Grade 10",
     "term": "Term",
     "termDatesRequired": "Term dates are required",
+    "checkFields": "Not saved — review the highlighted fields",
     "priceEGP": "Price (EGP)",
     "priceRequired": "Price is required",
     "mustBeZeroOrMore": "Must be 0 or more",

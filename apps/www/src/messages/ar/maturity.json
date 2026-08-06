@@ -14,6 +14,12 @@
     "refunded": "المبلغ المسترد",
     "paid": "مدفوع",
     "note": "ملاحظة",
+    "noteSubscription": "اشتراك ({plan}، {method})",
+    "notePlanMonthly": "شهري",
+    "notePlanPerSession": "حصة واحدة",
+    "noteMethodCash": "نقدًا",
+    "noteMethodOnline": "أونلاين",
+    "notePaidByParent": "اشتراك ({plan}، {method}) — دفعها ولي الأمر",
     "systemGenerated": "مستند صادر عن النظام — لا يحتاج توقيعًا. الأرقام بالجنيه المصري.",
     "print": "طباعة / حفظ PDF",
     "download": "تحميل الإيصال"

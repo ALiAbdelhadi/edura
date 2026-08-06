@@ -1,3 +1,8 @@
-"use client";
 import { SettingsScreen } from "@/features/settings/settings-screen";
-export default function Page() { return <SettingsScreen />; }
+import { localizedTitle } from "@/lib/i18n/page-metadata";
+
+export const generateMetadata = localizedTitle("settings");
+
+export default function Page() {
+  return <SettingsScreen />;
+}

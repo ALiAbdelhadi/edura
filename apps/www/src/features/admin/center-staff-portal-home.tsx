@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import React, { useEffect, useState } from "react";
 import { Badge, PageHead, Sheet } from "./ledger";
+import { TeamNotesBoard } from "@/features/team-notes/team-notes-board";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 
@@ -111,6 +112,12 @@ export function CenterStaffPortalHome() {
           </p>
         </Sheet>
       ) : null}
+
+      {/* The team board, compact — the 2026-07-27 spec put it on the staff
+          home alongside the admin dashboard and assistant home, but it was
+          only ever wired on the assistant's. Listing the board is also what
+          registers the read receipt. */}
+      <TeamNotesBoard compact />
 
       <p className="m-0 text-xs text-[var(--ink-3)]">{t("centerStaff.auditNote")}</p>
     </div>

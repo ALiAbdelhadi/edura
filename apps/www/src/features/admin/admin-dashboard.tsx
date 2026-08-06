@@ -21,6 +21,8 @@ interface DashboardData {
   todaySessions: unknown[];
   feeDefaulters: number;
   pendingEnrollmentRequests: number;
+  /** Off-system (external-teacher) share — always sent by the API. */
+  external?: { teachers: number; courses: number; students: number; revenue: number };
   analytics?: {
     revenueVsExpenses?: Array<{ label: string; revenue: number; expenses: number; netProfit: number }>;
     sessionStatusMix?: Array<{ status: "scheduled" | "completed" | "cancelled" | "postponed"; count: number }>;
@@ -55,6 +57,11 @@ export function AdminDashboard() {
   }
 
   const totals = d?.totals ?? { students: 0, teachers: 0, activeCourses: 0, revenue: 0 };
+  // The off-system share the API always sends (reports.ts). Rendered whenever
+  // this center HAS off-system teachers — the split must sit beside the
+  // headline, not behind a filter; a center with none is spared the zero line.
+  const external = d?.external;
+  const hasExternal = !!external && (external.teachers > 0 || external.revenue > 0);
   const attendanceRate = d?.attendanceRate ?? 0;
   const todaySessions = d?.todaySessions?.length ?? 0;
   const feeDefaulters = d?.feeDefaulters ?? 0;
@@ -128,6 +135,14 @@ export function AdminDashboard() {
                   className="text-[27px] font-semibold tracking-[-0.01em] text-[var(--money)]"
                 />
               </p>
+              {hasExternal ? (
+                <p className="mt-1 mb-0 text-[12px] text-[var(--ink-3)]">
+                  {t("adminHome.queue_externalShare", {
+                    amount: formatShortEGP(external!.revenue),
+                    teachers: external!.teachers,
+                  })}
+                </p>
+              ) : null}
             </div>
             <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
             <div className="min-w-[180px]">
@@ -199,6 +214,10 @@ export function AdminDashboard() {
                   expenses: entry.expenses,
                   netProfit: entry.netProfit,
                 })),
+                {
+                  revenue: t("adminHome.chart_revenue"),
+                  expenses: t("adminHome.chart_expenses"),
+                },
               )}
               showArea
               yValueFormatter={(value) => formatShortEGP(value)}
@@ -210,7 +229,9 @@ export function AdminDashboard() {
           <SheetHead title={t("adminHome.dashboard_sessionStatusMix")} />
           <div className="p-[18px]">
             <DonutChart
-              data={sessionStatusDonutData(d?.analytics?.sessionStatusMix ?? [])}
+              data={sessionStatusDonutData(d?.analytics?.sessionStatusMix ?? [], (s) =>
+                t(`status.${s}` as Parameters<typeof t>[0]),
+              )}
               centerLabel={t("nav.sessions")}
               emptyText={t("adminHome.dashboard_noSessionStatus")}
             />

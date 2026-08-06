@@ -127,8 +127,13 @@ export function AdminClassesScreen() {
     maxStudents: z
       .number({ message: t("adminManage.classes.required") })
       .min(1, t("adminManage.classes.mustBeOneOrMore")),
-    pricePerMonth: z.number().optional(),
-    pricePerSession: z.number().optional(),
+    // Empty plan field = plan DISABLED (the placeholder promises exactly that),
+    // so the empty sentinel must be `undefined`, which `.optional()` accepts —
+    // it used to be NaN, which z.number() rejects with "expected number,
+    // received NaN" and silently blocked every save. handleEdit maps
+    // non-finite to null (plan disabled) on the wire.
+    pricePerMonth: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
+    pricePerSession: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
   };
   const createSchema = z.object({
     title: z.string().min(1, t("adminManage.classes.titleRequired")),
@@ -179,6 +184,28 @@ export function AdminClassesScreen() {
     },
   });
 
+  // A failed client-side validation used to be INVISIBLE: the errors rendered
+  // below the dialog's fold and the save button just "did nothing". Toast +
+  // make sure the field RHF focused is actually scrolled into view.
+  const surfaceInvalid = () => {
+    toast.error(t("adminManage.classes.checkFields"));
+    setTimeout(() => {
+      (document.activeElement as HTMLElement | null)?.scrollIntoView?.({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 50);
+  };
+
+  // Server-side rejections carry per-field messages (mapError puts them on
+  // `errors`) — show them instead of a bare "Validation failed".
+  const describeApiError = (err: unknown, fallback: string) => {
+    const e = err as { message?: string; errors?: Record<string, string[]> };
+    const fieldMsgs = e?.errors ? Object.values(e.errors).flat() : [];
+    const head = e?.message || fallback;
+    return fieldMsgs.length ? `${head}: ${fieldMsgs.join(" · ")}` : head;
+  };
+
   const handleCreate = (values: CreateValues) => {
     const payload = {
       title: values.title.trim(),
@@ -209,10 +236,7 @@ export function AdminClassesScreen() {
           invalidate({ resource: "courses", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error(
-            (err as { message?: string })?.message ||
-            t("adminManage.classes.failedCreate"),
-          );
+          toast.error(describeApiError(err, t("adminManage.classes.failedCreate")));
         },
       },
     );
@@ -249,12 +273,15 @@ export function AdminClassesScreen() {
       daysOfWeek: course.schedulePattern?.daysOfWeek ?? [],
       startTime: course.schedulePattern?.startTime || "",
       endTime: course.schedulePattern?.endTime || "",
-      startDate: course.schedulePattern?.startDate || "",
-      endDate: course.schedulePattern?.endDate || "",
+      // <input type="date"> only accepts yyyy-MM-dd — the API serializes these
+      // as full ISO timestamps, which the input silently displays as EMPTY, so
+      // every edit used to force re-typing the term dates from scratch.
+      startDate: String(course.schedulePattern?.startDate || "").slice(0, 10),
+      endDate: String(course.schedulePattern?.endDate || "").slice(0, 10),
       price: (course.price ?? 0) / 100,
       maxStudents: course.maxStudents ?? 1,
-      pricePerMonth: course.pricePerMonth ? course.pricePerMonth / 100 : NaN,
-      pricePerSession: course.pricePerSession ? course.pricePerSession / 100 : NaN,
+      pricePerMonth: course.pricePerMonth ? course.pricePerMonth / 100 : undefined,
+      pricePerSession: course.pricePerSession ? course.pricePerSession / 100 : undefined,
     });
   };
 
@@ -296,10 +323,7 @@ export function AdminClassesScreen() {
           invalidate({ resource: "courses", invalidates: ["list"] });
         },
         onError: (err) => {
-          toast.error(
-            (err as { message?: string })?.message ||
-            t("adminManage.classes.failedUpdate"),
-          );
+          toast.error(describeApiError(err, t("adminManage.classes.failedUpdate")));
         },
       },
     );
@@ -744,7 +768,7 @@ export function AdminClassesScreen() {
           <Form {...createForm}>
             <form
               id="create-course-form"
-              onSubmit={createForm.handleSubmit(handleCreate)}
+              onSubmit={createForm.handleSubmit(handleCreate, surfaceInvalid)}
               className="space-y-4"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1121,7 +1145,7 @@ export function AdminClassesScreen() {
           <Form {...editForm}>
             <form
               id="edit-course-form"
-              onSubmit={editForm.handleSubmit(handleEdit)}
+              onSubmit={editForm.handleSubmit(handleEdit, surfaceInvalid)}
               className="space-y-4"
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1367,7 +1391,7 @@ export function AdminClassesScreen() {
                           placeholder={t("adminManage.classes.planDisabled")}
                           value={Number.isFinite(field.value) ? (field.value as number) : ""}
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)
                           }
                           onBlur={field.onBlur}
                           name={field.name}
@@ -1392,7 +1416,7 @@ export function AdminClassesScreen() {
                           placeholder={t("adminManage.classes.planDisabled")}
                           value={Number.isFinite(field.value) ? (field.value as number) : ""}
                           onChange={(e) =>
-                            field.onChange(e.target.value === "" ? NaN : e.target.valueAsNumber)
+                            field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)
                           }
                           onBlur={field.onBlur}
                           name={field.name}

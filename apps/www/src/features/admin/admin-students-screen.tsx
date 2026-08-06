@@ -162,9 +162,16 @@ export function AdminStudentsScreen() {
       },
     },
     {
-      id: "userId",
-      header: t("adminHome.students_colUserId"),
-      cell: (r) => <CopyableText value={r.studentId || r.id || r._id} label="User ID" />,
+      // The printable student code, not the internal UUID: the code is what
+      // the card, the counter and the receipt all speak.
+      id: "studentCode",
+      header: t("adminHome.students_colCode"),
+      cell: (r) =>
+        r.studentCode ? (
+          <CopyableText value={r.studentCode} label={t("adminHome.students_colCode")} />
+        ) : (
+          <span className="text-[13px] text-[var(--ink-3)]">—</span>
+        ),
     },
     {
       id: "coursesCount",

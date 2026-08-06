@@ -1,3 +1,4 @@
+import path from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 import withSerwistInit from "@serwist/next";
 import { withSentryConfig } from "@sentry/nextjs";
@@ -72,6 +73,20 @@ const withSerwist = withSerwistInit({
 
 const nextConfig = {
   reactStrictMode: true,
+
+  // Pin the workspace root EXPLICITLY. Without it, Turbopack infers the root
+  // from "the directory of the nearest lockfile" — and inside a git WORKTREE
+  // (each carries its own bun.lock, and the main checkout's is also visible)
+  // it picked the MAIN checkout, warning "multiple lockfiles" on every boot.
+  // A root that points at a sibling repo where other dev servers are
+  // concurrently compiling is exactly the kind of cross-worktree interference
+  // that produced the one-off "every route 500s with a JSON.parse error until
+  // restart" boot (2026-08-04, center-role review). `import.meta.dirname` is
+  // apps/www; the monorepo root is two levels up — of THIS checkout, whichever
+  // worktree it is.
+  turbopack: {
+    root: path.resolve(import.meta.dirname, "../.."),
+  },
 
   experimental: {
     // Enables the `"use cache"` directive ONLY. This is deliberately NOT

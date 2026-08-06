@@ -1,3 +1,8 @@
-"use client";
 import { AdminEnrollmentRequestsScreen } from "@/features/admin/admin-enrollment-requests-screen";
-export default function Page() { return <AdminEnrollmentRequestsScreen />; }
+import { localizedTitle } from "@/lib/i18n/page-metadata";
+
+export const generateMetadata = localizedTitle("enrollmentRequests");
+
+export default function Page() {
+  return <AdminEnrollmentRequestsScreen />;
+}

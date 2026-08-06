@@ -1,3 +1,4 @@
+import path from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
 
@@ -41,6 +42,13 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+
+  // Same as apps/www: pin the workspace root so Turbopack never infers it from
+  // a SIBLING checkout's lockfile inside a git worktree (see the comment in
+  // apps/www/next.config.ts for the incident this prevents).
+  turbopack: {
+    root: path.resolve(import.meta.dirname, "../.."),
+  },
 
   // Cloud name only (public by construction — it is in every delivery URL);
   // the API key/secret stay server-side. Lets @repo/ui/lib/cloudinary build

@@ -326,7 +326,9 @@ export function AdminReportsScreen() {
           <SheetHead title={t("adminManage.reports.enrollmentFunnel")} />
           <div className="p-[18px]">
             <BarChart
-              data={enrollmentFunnelBarData(funnel)}
+              data={enrollmentFunnelBarData(funnel, (s) =>
+                t(`status.${s}` as Parameters<typeof t>[0]),
+              )}
               series={[
                 { key: "count", label: t("adminManage.reports.requests"), color: CHART.count },
               ]}
@@ -338,7 +340,9 @@ export function AdminReportsScreen() {
           <SheetHead title={t("adminManage.reports.sessionStatus")} />
           <div className="p-[18px]">
             <DonutChart
-              data={sessionStatusDonutData(sessionStatusMix)}
+              data={sessionStatusDonutData(sessionStatusMix, (s) =>
+                t(`status.${s}` as Parameters<typeof t>[0]),
+              )}
               centerLabel={t("adminManage.reports.sessions")}
               emptyText={t("adminHome.dashboard_noSessionStatus")}
             />
