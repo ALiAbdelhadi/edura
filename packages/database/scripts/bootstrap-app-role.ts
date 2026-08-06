@@ -31,6 +31,7 @@
  */
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 import { assertDbEnv } from "./db-guard";
 
 const ROLE = "edura_app";
@@ -62,7 +63,7 @@ async function main() {
     );
   }
 
-  const pool = new pg.Pool({ connectionString: adminUrl, max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(adminUrl), max: 1 });
   const client = await pool.connect();
 
   try {

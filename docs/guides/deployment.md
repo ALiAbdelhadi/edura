@@ -35,7 +35,7 @@ client is generated automatically during install — no extra build step needed.
 
 | Var | Value | Notes |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://edura_app:…@ep-…-pooler.…neon.tech/neondb?sslmode=require` | **Runtime role `edura_app` (NOBYPASSRLS) over the POOLED host.** RLS tenant isolation depends on this — never deploy with `neondb_owner`. |
+| `DATABASE_URL` | `postgresql://edura_app:…@ep-…-pooler.…neon.tech/neondb?sslmode=require` | **Runtime role `edura_app` (NOBYPASSRLS) over the POOLED host.** RLS tenant isolation depends on this — never deploy with `neondb_owner`. Paste Neon's string as-is: `pinSslMode` ([`packages/database/src/pg-ssl.ts`](../../packages/database/src/pg-ssl.ts)) rewrites its `sslmode=require` to the `verify-full` that mode already means, so a pg v9 bump cannot quietly downgrade this to unverified TLS. |
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` | Session JWT signing |
 | `NEXTAUTH_URL` | `https://<your-domain>` | Production URL |
 | `APP_BASE_URL` | `https://<your-domain>` | Links in emails |

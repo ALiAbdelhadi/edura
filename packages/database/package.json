@@ -17,6 +17,10 @@
       "types": "./src/types.ts",
       "default": "./src/types.ts"
     },
+    "./pg-ssl": {
+      "types": "./src/pg-ssl.ts",
+      "default": "./src/pg-ssl.ts"
+    },
     "./chat": {
       "types": "./src/queries/chat.ts",
       "default": "./src/queries/chat.ts"

@@ -55,6 +55,7 @@ const BAR_ORDER = [
   "/dashboard/admin/expenses",
   "/dashboard/admin/reports",
   "/dashboard/admin/staff",
+  "/dashboard/admin/audit",
   "/dashboard/admin/notifications",
   "/dashboard/admin/settings",
 ];

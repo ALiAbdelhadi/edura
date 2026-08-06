@@ -5,6 +5,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@repo/server-core/auth/passwords";
+import { devLocalhostOrigins } from "@repo/server-core/auth/dev-origins";
 import { send } from "@repo/notifications";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -57,13 +58,10 @@ export const auth = betterAuth({
   secret: superadminSecret,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Dev-only extra: the preview server in .claude/launch.json may run this
-  // app on an alternate localhost port while NEXTAUTH_URL stays 3004.
-  trustedOrigins: [
-    baseURL,
-    ...(process.env.NODE_ENV !== "production"
-      ? ["http://localhost:3004", "http://localhost:3037"]
-      : []),
-  ],
+  // app on an alternate localhost port while NEXTAUTH_URL stays 3004. Ports
+  // are NOT enumerated here — see dev-origins.ts; it returns [] in production,
+  // so baseURL stays the only trusted origin there.
+  trustedOrigins: [baseURL, ...devLocalhostOrigins()],
   advanced: {
     cookiePrefix: "edura-superadmin",
     useSecureCookies,

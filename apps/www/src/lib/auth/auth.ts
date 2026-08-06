@@ -8,6 +8,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@repo/server-core/auth/passwords";
+import { devLocalhostOrigins } from "@repo/server-core/auth/dev-origins";
 import { send } from "@repo/notifications";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -68,18 +69,11 @@ export const auth = betterAuth({
   secret: process.env.NEXTAUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Dev-only extras: the preview/dev servers in .claude/launch.json run this
-  // app on alternate localhost ports while NEXTAUTH_URL stays 3002.
-  trustedOrigins: [
-    baseURL,
-    ...(process.env.NODE_ENV !== "production"
-      ? [
-          "http://localhost:3002",
-          "http://localhost:3021",
-          "http://localhost:3022",
-          "http://localhost:3042",
-        ]
-      : []),
-  ],
+  // app on alternate localhost ports while NEXTAUTH_URL stays 3002. The ports
+  // are NOT enumerated here — that list drifted from launch.json and turned a
+  // valid sign-in into a 403 that looked like bad credentials. See
+  // dev-origins.ts; it returns [] in production, so baseURL stays alone there.
+  trustedOrigins: [baseURL, ...devLocalhostOrigins()],
   advanced: {
     cookiePrefix: "edura",
     useSecureCookies,

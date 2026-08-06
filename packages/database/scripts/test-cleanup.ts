@@ -58,6 +58,7 @@
  */
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 import { assertDbEnv } from "./db-guard";
 
 /**
@@ -285,7 +286,7 @@ export async function sweepTag(
   assertTagIsSafe(tag);
   const dbEnv = await assertDbEnv(["dev", "test"], { intent: `test-cleanup ${tag}` });
 
-  const pool = new pg.Pool({ connectionString: adminUrl(), max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(adminUrl()), max: 1 });
   const c = await pool.connect();
   const deleted: Record<string, number> = {};
   try {

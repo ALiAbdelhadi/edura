@@ -18,6 +18,7 @@
  */
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 
 const VALID = ["dev", "test", "production"] as const;
 
@@ -35,7 +36,7 @@ async function main() {
     );
   }
 
-  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(url), max: 1 });
   try {
     const { rows } = await pool.query<{ db: string; existing: string | null }>(
       `SELECT current_database() db,
