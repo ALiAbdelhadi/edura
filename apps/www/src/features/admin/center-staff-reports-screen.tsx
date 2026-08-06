@@ -56,6 +56,7 @@ export function CenterStaffReportsScreen() {
         {d.analytics.courseFillRates.length === 0 ? (
           <EmptyState title={t("shared.ledger.empty")} />
         ) : (
+          <div className="lg-scroll">
           <table className="lg-table">
             <thead>
               <tr>
@@ -86,6 +87,7 @@ export function CenterStaffReportsScreen() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Sheet>
     </div>

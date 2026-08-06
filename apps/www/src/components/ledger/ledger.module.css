@@ -1,24 +1,80 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   "الدفتر / The Ledger" — token layer, SCOPED TO THE STUDENT PORTAL.
+
+   WHY THIS FILE EXISTS, AND WHEN IT SHOULD STOP EXISTING
+   ------------------------------------------------------
+   The Ledger's real token layer belongs in `packages/ui/src/styles/globals.css`
+   and is the foundation session's work. It has not landed. `packages/ui` is
+   shared by five parallel portal sessions, so this session may not put it there
+   — re-pointing those tokens changes every portal at once.
+
+   So the values below are scoped to `.scope`, which is applied to the student
+   dashboard's content wrapper only. No other portal's appearance changes.
+
+   The values are NOT invented. They are transcribed verbatim from the design
+   handoff §2.2 (colour) and §2.4 (geometry), under the names the handoff uses.
+   That is deliberate: when the foundation lands the shared layer with the same
+   names, every consumer in this folder keeps working and this file is deleted
+   in one commit. It is a bridge, not a fork — but it IS a duplicate, and it
+   should not outlive the foundation's Part C.
+
+   The chrome (sidebar + header) is `DashboardShell`, which is shared and stays
+   on the old system until foundation Part D converts it.
+   ───────────────────────────────────────────────────────────────────────────*/
+
+/* ── The shell scope ───────────────────────────────────────────────────────
+   Wraps DashboardShell in the student layout. It does two things:
+
+   1. Defines the Ledger tokens (inherited by `.scope` inside it).
+   2. RE-POINTS the legacy semantic tokens onto them — the same
+      "re-point, don't rename" move the foundation will make globally, done
+      locally here. Because the shared chrome is built from `--sidebar*`,
+      `--background`, `--card`, `--border` and friends, re-pointing those
+      converts the entire shell without editing dashboard-shell.tsx, which is
+      shared with parent, teacher, admin and assistant.
+
+   Outside this wrapper nothing changes. When the foundation lands the real
+   token layer, this whole block is deleted and the shell keeps working.       */
 .shellScope {
   /* Surfaces */
   --paper: #f7f6f2;
   --sheet: #ffffff;
   --field: #fbfaf7;
+
+  /* Ink hierarchy */
   --ink: #1c2230;
   --ink-2: #5b6273;
   --ink-3: #8b91a1;
+
+  /* Rules */
   --rule: #e4e1d8;
   --rule-2: #efece4;
+
+  /* Brand / primary action */
   --indigo: #1a2f73;
   --indigo-soft: #eaecf6;
   --indigo-ink: #ffffff;
+
+  /* Money out / confirmed */
   --teal: #0d7d72;
   --teal-soft: #e2f2f0;
+
+  /* Awaiting only */
   --amber: #a35a06;
   --amber-soft: #fbf0dd;
+
+  /* Final / irreversible / blocking only */
   --red: #a81d1d;
   --red-soft: #fbe9e7;
+
+  /* Elevation — only two levels exist in this system. */
   --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
   --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22);
+
+  /* ── Legacy semantic tokens, re-pointed onto the Ledger ────────────────
+     This is what converts the shared chrome. The near-black sidebar slab is
+     gone: it read as a second app beside a light canvas and was the loudest
+     element on screen while carrying the least information.               */
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--sheet);
@@ -41,6 +97,7 @@
   --warning: var(--amber);
   --info: var(--indigo);
   --ring: var(--indigo);
+
   --sidebar: var(--sheet);
   --sidebar-foreground: var(--ink-2);
   --sidebar-border: var(--rule);
@@ -49,7 +106,11 @@
   --sidebar-primary: var(--indigo);
   --sidebar-primary-foreground: var(--indigo-ink);
   --sidebar-ring: var(--indigo);
+
+  /* Cards/panels 12px, not the 18px the old --radius produced. */
   --radius: 0.75rem;
+
+  /* Gradients and the glow are gone from the system entirely. */
   --primary-glow: transparent;
   --shadow-glow: none;
 
@@ -61,29 +122,41 @@
   --paper: #14161c;
   --sheet: #1b1e26;
   --field: #1f232b;
+
   --ink: #eceadf;
   --ink-2: #a3a49c;
   --ink-3: #7c7e78;
+
   --rule: #2a2d35;
   --rule-2: #22252c;
+
   --indigo: #93a4e6;
   --indigo-soft: #232840;
   --indigo-ink: #0d1330;
+
   --teal: #54c9bb;
   --teal-soft: #12302e;
+
   --amber: #e0a44a;
   --amber-soft: #33260f;
+
   --red: #ef6a6a;
   --red-soft: #361b1b;
+
   --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
   --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
+/* The content canvas. Tokens are inherited from `.shellScope` above it. */
 .scope {
   background: var(--paper);
   color: var(--ink);
 }
 
+/* ── The chrome, per handoff §3 ────────────────────────────────────────────
+   Structural values the token re-point cannot carry on its own. */
+
+/* Sidebar: 248px, sheet, hairline inline-end rule (no dark slab). */
 .shellScope [data-slot="sidebar"] [data-sidebar="sidebar"] {
   background: var(--sheet);
 }
@@ -92,7 +165,8 @@
   color: var(--ink-2);
   font-size: 14px;
 }
-
+/* Active nav: indigo on indigo-soft + a 3px inset side bar, inset 6px top and
+   bottom. Emphasis is a rule, not a background wash. */
 .shellScope [data-slot="sidebar-menu-button"][data-active="true"] {
   color: var(--indigo);
   background: var(--indigo-soft);
@@ -103,6 +177,8 @@
   box-shadow: inset -3px 0 0 var(--indigo);
 }
 
+/* Count badge: mono 11/600, amber on amber-soft, radius 5, with TEXT — never a
+   bare red dot. */
 .shellScope [data-slot="sidebar-menu-badge"] {
   font-family: var(--ledger-mono), ui-monospace, monospace;
   font-size: 11px;
@@ -113,6 +189,10 @@
   padding: 1px 6px;
 }
 
+/* Header: sheet, bottom rule, no backdrop blur — glass is not in this system.
+   Scoped to the dashboard shell's own header (the one inside SidebarInset).
+   A bare `.shellScope header` also matched the onboarding wizard's header and
+   the auth shells' brand bars, painting a white band across a paper canvas. */
 .shellScope [data-slot="sidebar-inset"] > header {
   background: var(--sheet);
   border-color: var(--rule);
@@ -123,18 +203,29 @@
   font-weight: 600;
 }
 
+/* On phone the bottom bar IS the navigation, so the sidebar trigger comes out
+   rather than offering two competing ways to the same destinations. The
+   sidebar itself is untouched and returns at md. */
 @media (max-width: 767px) {
   .shellScope [data-slot="sidebar-trigger"] {
     display: none;
   }
 }
 
+/* ── Mono ──────────────────────────────────────────────────────────────────
+   Every number, amount, date, ID, ref, email and code. The single
+   highest-signal device in the system, and the one the superseded design had
+   none of. Tabular so columns of figures align on the decimal.            */
 .num {
   font-family: var(--ledger-mono), ui-monospace, "SFMono-Regular", monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
+/* ── Eyebrow ───────────────────────────────────────────────────────────────
+   Mono, letterspaced, labels every section and table header. Uppercase is
+   applied by the component ONLY to Latin strings — Arabic must never receive
+   text-transform: uppercase.                                              */
 .eyebrow {
   font-family: var(--ledger-mono), ui-monospace, monospace;
   font-size: 10px;
@@ -146,6 +237,7 @@
   text-transform: uppercase;
 }
 
+/* ── Surfaces ──────────────────────────────────────────────────────────── */
 .sheet {
   background: var(--sheet);
   border: 1px solid var(--rule);
@@ -157,6 +249,8 @@
   background: var(--field);
 }
 
+/* ── The accountant's rule ─────────────────────────────────────────────────
+   Every "الإجمالي / net" line closes on this.                             */
 .doubleTotal {
   border-top: 2px double var(--ink);
 }
@@ -171,15 +265,20 @@
   border-bottom: 0;
 }
 
+/* Emphasis is an inset side bar, never a background wash. */
 .selected {
   background: var(--indigo-soft);
   box-shadow: inset 3px 0 0 var(--indigo);
 }
 
+/* Blocking cards carry a red border, not a red fill. */
 .blocking {
   border-color: var(--red);
 }
 
+/* ── Chips / badges ────────────────────────────────────────────────────────
+   Soft fill + strong text, radius 5, 12/600. Contrast pairs come straight
+   from the handoff; the foundation owns the formal sweep.                 */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -212,6 +311,9 @@
   background: var(--rule-2);
 }
 
+/* ── Identity ──────────────────────────────────────────────────────────────
+   The student portal is explicitly allowed to use the softs and the
+   initials-tile pattern generously, for orientation and warmth.           */
 .tile {
   display: inline-flex;
   align-items: center;
@@ -221,11 +323,25 @@
   flex-shrink: 0;
 }
 
+/* ── Focus ─────────────────────────────────────────────────────────────── */
 .scope :is(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--indigo);
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RE-SKIN OF THE SHARED PRIMITIVES, INSIDE THIS SCOPE ONLY
+
+   Every @repo/ui primitive carries a `data-slot`. Styling those slots under
+   `.scope` converts the screens that still compose with Card/Table/Badge onto
+   the Ledger surface WITHOUT editing packages/ui and without rewriting each
+   screen's markup. Outside `.scope` — every other portal — nothing changes.
+
+   This covers surface, rule, density and colour. It cannot cover the mono
+   figure device, because CSS cannot tell which cell holds a number; those are
+   applied per-figure with <Num> in the screens that were rewritten.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .scope [data-slot="card"] {
   background: var(--sheet);
@@ -243,7 +359,15 @@
   color: var(--ink-2);
 }
 
-.scope [data-slot="table-container"] {
+/* Tables: field-filled header, mono letterspaced column names, hairline row
+   dividers, `comfortable` density (th 42px / td 13px 14px) per the student
+   brief. */
+/* The border and the clipped corners belong to the FRAME, not to the scroller.
+ * They used to sit on [data-slot="table-container"], which is now the element
+ * that scrolls horizontally — and `overflow: hidden` here outranks Tailwind's
+ * `overflow-x-auto` (class+attribute beats a single class), so a table too wide
+ * for the screen was silently CLIPPED instead of scrolling. */
+.scope [data-slot="table-frame"] {
   border-radius: 12px;
   border: 1px solid var(--rule);
   overflow: hidden;
@@ -272,9 +396,11 @@
 .scope [data-slot="table-cell"] {
   padding: 13px 14px;
   color: var(--ink);
+  /* Figures in un-rewritten screens at least align on the decimal. */
   font-variant-numeric: tabular-nums;
 }
 
+/* Badges become chips: radius 5, 12/600, soft fill + strong text. */
 .scope [data-slot="badge"] {
   border-radius: 5px;
   padding: 2px 8px;
@@ -305,6 +431,8 @@
   border-radius: 6px;
 }
 
+/* The one animation in the system is the seal. Everything else is instant or
+   a ≤120ms colour transition, and reduced-motion removes even that. */
 @media (prefers-reduced-motion: reduce) {
   .scope * {
     transition-duration: 0.01ms !important;

@@ -360,6 +360,25 @@ html[data-portal="ledger"] header {
   text-align: end;
 }
 
+/* A cell never wraps. `th` already refused to; `td` did not, so a long subject name
+ * or a date silently became two lines on a narrow screen — and a wrapped amount
+ * reads as two amounts. The table is allowed to be wider than the phone; that is
+ * what .lg-scroll is for. Opt a specific cell out with data-wrap="true". */
+.led .lg-table td {
+  white-space: nowrap;
+}
+.led .lg-table td[data-wrap="true"] {
+  white-space: normal;
+}
+
+/* Every .lg-table needs one of these around it, or the table pushes the PAGE wide
+ * instead of scrolling inside its own card. */
+.lg-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
 .led[data-density="compact"] .lg-table th {
   height: 34px;
   padding: 0 12px;

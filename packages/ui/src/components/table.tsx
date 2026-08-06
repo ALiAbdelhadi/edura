@@ -4,16 +4,79 @@ import * as React from "react"
 
 import { cn } from "@repo/ui/lib/utils"
 
+/* A table never wraps a cell (see TableCell/TableHead below) — a wrapped row is a
+   row you cannot scan, and on a money screen a wrapped figure reads as two. The
+   consequence is that a table is WIDER than a phone, so horizontal scroll is the
+   intended behaviour, not a failure of one.
+
+   What is a failure is a scroll nobody can see. The overlays below fade in at
+   whichever edge still has content behind it, so "there is more to the start/end"
+   is visible rather than discovered by accident. They are `start`/`end` and use
+   `rtl:` gradient variants, so the Arabic side is not an afterthought. */
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  const scrollerRef = React.useRef<HTMLDivElement>(null)
+  const [edges, setEdges] = React.useState({ start: false, end: false })
+
+  React.useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth
+      if (max <= 1) {
+        setEdges((p) => (p.start || p.end ? { start: false, end: false } : p))
+        return
+      }
+      // RTL reports scrollLeft as negative (or reversed) depending on the engine;
+      // the distance from the START edge is what we actually want, in both.
+      const fromStart = Math.abs(el.scrollLeft)
+      const next = { start: fromStart > 1, end: fromStart < max - 1 }
+      setEdges((p) => (p.start === next.start && p.end === next.end ? p : next))
+    }
+
+    update()
+    el.addEventListener("scroll", update, { passive: true })
+    // Column widths change with the data, not only with the viewport.
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener("scroll", update)
+      observer.disconnect()
+    }
+  }, [])
+
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
+    <div data-slot="table-frame" className="relative w-full">
+      <div
+        ref={scrollerRef}
+        data-slot="table-container"
+        className="w-full overflow-x-auto overscroll-x-contain"
+      >
+        <table
+          data-slot="table"
+          className={cn("w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </div>
+
+      <span
+        aria-hidden="true"
+        data-slot="table-scroll-start"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 start-0 w-6 transition-opacity duration-200",
+          "from-ink/12 to-transparent ltr:bg-gradient-to-r rtl:bg-gradient-to-l",
+          edges.start ? "opacity-100" : "opacity-0"
+        )}
+      />
+      <span
+        aria-hidden="true"
+        data-slot="table-scroll-end"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 end-0 w-6 transition-opacity duration-200",
+          "from-ink/12 to-transparent ltr:bg-gradient-to-l rtl:bg-gradient-to-r",
+          edges.end ? "opacity-100" : "opacity-0"
+        )}
       />
     </div>
   )
