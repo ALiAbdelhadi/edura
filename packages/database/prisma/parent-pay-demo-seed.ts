@@ -1,54 +1,9 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * PARENT-PAY DEMO SEED — is_demo data so the parent pay + wallet screens are
- * populated, not empty
- * ============================================================================
- * Builds ONE family and one center around it:
- *
- *   ولي الأمر: أ. سامي عبد الرحمن   (parent, wallet pre-loaded with 750 EGP)
- *     ├── ابنه   : يوسف   (student, grade + track set, onboarding complete)
- *     └── ابنته  : ملك    (student, same, so the child selector has two pills)
- *
- *   مركز صدى العلم (PAYDEMOSADA)
- *     teacher : أ. منى فؤاد
- *     courses : 2, BOTH plans priced (monthly + per-session)
- *     sessions: 4 upcoming per course, so the "choose a lesson" picker is full
- *
- * WHAT IS DELIBERATELY *NOT* SEEDED, and why
- *   No paid subscription, no Payment, no Transaction, no points row. Those are
- *   append-only ledgers (IMMUTABLE_MODELS + DB REVOKEs) — seeding them would
- *   create demo rows that the purge below CANNOT remove, which is exactly the
- *   trap the is_demo contract exists to avoid. The preview is better without
- *   them anyway: open /dashboard/parent/pay and actually pay, by card (mock
- *   mode) or from the wallet, and watch the real engine run.
- *
- * THE ONE MONEY ROW IT DOES WRITE
- *   The parent's opening wallet balance: one parent_wallet_ledger row + the
- *   cached balance, through the SAME parentWalletCredit primitive the app uses.
- *   CLAUDE.md permits money rows for a feature that IS a money feature with an
- *   approved plan — this is that — and migration 20260727110100_parent_wallet
- *   deliberately left parent_wallet_ledger without a DB-level REVOKE precisely
- *   so is_demo preview rows stay purgeable. The purge removes it.
- *
- * SAFETY (same contract as the other demo seeds):
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *   • assertNotProduction guards both the seed and the purge.
- *
- * Idempotent: deterministic UUIDv5 ids, re-run safely.
- *
- *   Seed:  bunx tsx --env-file=.env prisma/parent-pay-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env prisma/parent-pay-demo-seed.ts --purge
- * ============================================================================
- */
-import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
+import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
-import type { Role } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
@@ -84,10 +39,8 @@ const CENTER_SHORT = "PAYDEMOSADA";
 const COURSE_A = did("course:algebra");
 const COURSE_B = did("course:physics");
 
-/** 750 EGP, in piasters — enough for several per-session passes below. */
 const OPENING_BALANCE = 75000;
 
-// ---------------------------------------------------------------------------
 
 async function purge() {
   console.log("Purging parent-pay demo data…");

@@ -1,18 +1,14 @@
 import { Container } from "@/components/kit/container";
 import { Link } from "@/i18n/navigation";
 import { appUrl, loginUrl, registerUrl } from "@/lib/app-links";
+import type { Locale } from "@/lib/i18n";
 import { ROLE_PAGES } from "@/lib/site-map";
 import { getTranslations } from "next-intl/server";
-import type { Locale } from "@/lib/i18n";
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = await getTranslations("nav");
   const f = await getTranslations("footer");
 
-  // Everything here except the role pages lives in apps/www. The showcase
-  // links; it does not restate. There is deliberately NO status-page link:
-  // main has `/api/health`, a JSON endpoint, and no public status page — a
-  // footer link to one would be an invented promise.
   const columns = [
     {
       title: f("product"),
@@ -51,14 +47,14 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
             <div className="mt-5 flex gap-2">
               <a
                 href={registerUrl(locale)}
-                className="focus-ledger inline-flex h-9 items-center rounded-[var(--radius-step-md)] px-4 text-sm font-semibold"
+                className="focus-ledger inline-flex h-9 items-center rounded-(--radius-step-md) px-4 text-sm font-semibold"
                 style={{ backgroundColor: "var(--indigo)", color: "var(--indigo-ink)" }}
               >
                 {t("register")}
               </a>
               <a
                 href={loginUrl(locale)}
-                className="focus-ledger inline-flex h-9 items-center rounded-[var(--radius-step-md)] border px-4 text-sm font-semibold"
+                className="focus-ledger inline-flex h-9 items-center rounded-(--radius-step-md) border px-4 text-sm font-semibold"
                 style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
               >
                 {t("login")}

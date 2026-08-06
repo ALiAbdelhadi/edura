@@ -1,24 +1,10 @@
-import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
 import { ReceiptSheet } from "@/features/receipts/receipt-sheet";
 import type { Locale } from "@repo/ui/lib/format";
+import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-/**
- * DEV-ONLY design preview of the receipt document. `notFound()` in production.
- *
- * It exists because of a real constraint, not for convenience: the project's
- * conventions forbid demo data from writing to the money tables, and a receipt
- * cannot be rendered without a `payments` row. So this renders the REAL
- * <ReceiptSheet> against a fabricated document — the same component, the same
- * design system, the same print CSS — with zero Payment, Transaction or ledger
- * rows created.
- *
- * That makes it the only way to review the receipt's Arabic shaping, RTL
- * layout and print output without either seeding money or paying for something
- * in the preview. Delete it the day demo payments are allowed.
- */
 export default async function ReceiptPreviewPage({
   params,
 }: {

@@ -1,7 +1,3 @@
-// Offline recipients get a push/in-app notification. All notification
-// machinery (web-push subscriptions, FCM, Notification rows, channel matrix)
-// lives in the Next.js app — so we bridge to it instead of duplicating it.
-// Fire-and-forget: a failed notification must never fail a message send.
 import { env } from "./env";
 
 export type OfflineNotifyInput = {

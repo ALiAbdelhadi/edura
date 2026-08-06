@@ -2,6 +2,7 @@
 
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
+import { Link } from "@/i18n/navigation";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
@@ -9,7 +10,6 @@ import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, UserCheck, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 

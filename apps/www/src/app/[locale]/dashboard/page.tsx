@@ -1,23 +1,16 @@
 "use client";
 
+import { useRouter } from "@/i18n/navigation";
 import { portalForRole, uiRoleForRole } from "@/lib/auth/portal";
 import { useEffect } from "react";
-import { useRouter } from "@/i18n/navigation";
 
 export default function DashboardIndexPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // The SERVER session decides where this user goes. `edura_state` used to be
-    // read first and trusted outright, so a cached role that disagreed with the
-    // live session sent the user to a portal whose RoleGuard bounced them right
-    // back here — an endless /dashboard <-> /dashboard/<role> ping-pong, which a
-    // shared device (student and parent on one phone) hits routinely.
     const resolvePortal = async () => {
       let r = await fetch("/api/v1/me", { cache: "no-store" });
       if (r.status === 401) {
-        // Tolerate the brief window right after sign-in where the freshly-set
-        // cookie is not yet visible to this request.
         await new Promise((res) => setTimeout(res, 1500));
         r = await fetch("/api/v1/me", { cache: "no-store" });
       }
@@ -34,8 +27,6 @@ export default function DashboardIndexPage() {
         return;
       }
 
-      // Refresh the display cache from the authoritative answer, so it can no
-      // longer describe someone other than the user who is actually signed in.
       try {
         localStorage.setItem(
           "edura_state",

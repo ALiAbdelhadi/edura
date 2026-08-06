@@ -14,8 +14,8 @@ function requireAdminUrl() {
   if (!url) {
     throw new Error(
       "apply-migrations: ADMIN_URL is required (the database OWNER connection " +
-        "string). The DIRECT_URL fallback was removed so an app-role URL cannot " +
-        "be silently accepted here. See docs/reports/feature-completeness.md \"FINDING 0\".",
+      "string). The DIRECT_URL fallback was removed so an app-role URL cannot " +
+      "be silently accepted here. See docs/reports/feature-completeness.md \"FINDING 0\".",
     );
   }
   return url;
@@ -33,16 +33,10 @@ const migrationsDir = join(
 );
 
 const pool = new Pool({
-  // OWNER ONLY, no fallback (2026-07-26, FINDING 0): this applies DDL.
   connectionString: requireAdminUrl(),
 });
 
 async function main() {
-  // DELIBERATELY NOT restricted to dev/test: applying migrations to production
-  // is this script's job, and guarding it shut would break the one bootstrap
-  // path that needs it. What it refuses is an UNLABELLED database — a target
-  // nobody has claimed is not a target we create schema on. The resolved label
-  // is printed so the operator sees which world they are about to migrate.
   const env = await assertDbEnv(["dev", "test", "production"], {
     intent: "apply-migrations",
   });

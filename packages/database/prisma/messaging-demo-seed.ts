@@ -1,59 +1,18 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * MESSAGING DEMO SEED — throwaway is_demo data for previewing the messaging UI
- * ============================================================================
- * Builds a small but REALISTIC two-center world so every messaging screen has
- * something in it, and so the scoping rules are visible by inspection:
- *
- *   Center ALPHA                          Center BETA
- *     admin  : Hoda (center_admin)          admin : Tarek (center_admin)
- *     staff  : Mona (receptionist)          teacher: Nabil  + assistant Rania
- *     teacher: Kamal + assistant Salma
- *     course : Physics — Grade 3 Secondary
- *     students: Youssef (MINOR, no DOB), Layla (VERIFIED ADULT, 19)
- *     parent : Amira -> approved link to Youssef
- *
- * The two centers exist precisely so the preview shows ISOLATION: nothing in
- * ALPHA can reach anything in BETA, and the contacts directory proves it by
- * simply not listing them.
- *
- * SAFETY (same contract as preview-seed.ts):
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true, and
- *     so are the conversations and channels themselves.
- *   • ZERO writes to any money / ledger / wallet table: no transactions,
- *     payments, payouts, invoices, expenses, points_ledger, subscriptions.
- *     wallet_balance / points_balance stay at their 0 default.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *
- * Idempotent: deterministic ids, re-run safely.
- *
- *   Seed:  bunx tsx --env-file=.env prisma/messaging-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env prisma/messaging-demo-seed.ts --purge
- * ============================================================================
- */
-import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
+import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
-import type { Role } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const MIN = 60 * 1000;
 
-/**
- * Deterministic UUID from a stable key -> idempotent upsert-by-id.
- * RFC 9562 UUIDv5 via the shared generator — see prisma/seed-ids.ts for why
- * this must not be hand-rolled here (H-03).
- */
 const did = seedId("edura-msgdemo:");
 const flc = (id: string) =>
   createHash("sha1").update("flc:" + id).digest("hex").slice(0, 10).toUpperCase();
 
-/** Minutes ago, so the demo threads read as a recent conversation. */
 const ago = (m: number) => new Date(Date.now() - m * MIN);
 
 type Person = { id: string; key: string; name: string; role: Role };
@@ -65,7 +24,6 @@ const P = (key: string, name: string, role: Role): Person => ({
   role,
 });
 
-// ---- the cast ------------------------------------------------------------
 const HODA = P("hoda", "هدى منصور", "center_admin");
 const MONA = P("mona", "منى عبد الله", "center_staff");
 const KAMAL = P("kamal", "أ. كمال الشناوي", "teacher");

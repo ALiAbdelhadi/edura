@@ -1,39 +1,8 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * STUDENT ID DEMO SEED — throwaway is_demo students for previewing the card.
- * ============================================================================
- * The card is the one screen you have to LOOK at to judge, and the two things
- * worth judging are the things a single student cannot show you:
- *
- *   1. THE SYSTEM LETTER. One student per education system, so the codes come
- *      out G…, A… and B… beside each other.
- *   2. THE ENGRAVING IS THEIRS. Six students, six patterns, drawn from their
- *      own ids — open two cards side by side and they should not look alike.
- *
- * One student is left WITHOUT an education system on purpose: their code stays
- * pending (X…), and their card screen shows the "finish your details first"
- * state rather than a card whose number is about to change.
- *
- * SAFETY (same contract as the other demo seeds):
- *   • Every root entity (User) is flagged isDemo = true.
- *   • ZERO writes to any money / ledger / wallet table.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real accounts are never touched.
- *
- * Idempotent: deterministic ids, re-run safely. Codes are issued through the
- * REAL `finalizeStudentCode`, so what you see in the preview is what a real
- * student gets — not a seed-only shortcut.
- *
- *   Seed:  bun run seed:studentid-demo
- *   Purge: bun run seed:studentid-demo --purge
- * ============================================================================
- */
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
-import { seedId } from "./seed-ids";
 import { finalizeStudentCode } from "../src/queries/student-code-issue";
+import { seedId } from "./seed-ids";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
@@ -43,9 +12,7 @@ const did = seedId("edura-studentiddemo:");
 type Kid = {
   key: string;
   name: string;
-  /** Catalog system code — null leaves them pending on purpose. */
   system: "general" | "azhari" | "bacc" | null;
-  /** Which stage of that system, by sort order (0 = first). */
   stageIndex?: number;
 };
 
@@ -55,7 +22,6 @@ const KIDS: Kid[] = [
   { key: "hana", name: "هنا عبد اللطيف", system: "azhari", stageIndex: 2 },
   { key: "mostafa", name: "مصطفى الجندي", system: "azhari", stageIndex: 1 },
   { key: "salma", name: "سلمى بدوي", system: "bacc", stageIndex: 0 },
-  // No system: stays pending, so the "not yet" state is visible too.
   { key: "ziad", name: "زياد الشربيني", system: null },
 ];
 
@@ -76,8 +42,7 @@ async function purge() {
     }
     await tx.notification.deleteMany({ where: { userId: { in: ids } } });
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
+
     const hardDeleted = await tx.$executeRaw`
       DELETE FROM users WHERE is_demo = true AND id = ANY(${ids}::uuid[])`;
     console.log("Purged:", { users: hardDeleted });
@@ -116,8 +81,6 @@ async function main() {
         },
       });
 
-      // Resolve the catalog chain by CODE and sort order — never by hardcoded
-      // ids, which differ per environment.
       let academic = {} as {
         educationSystemId?: string;
         stageId?: string;
@@ -162,8 +125,6 @@ async function main() {
         },
       });
 
-      // The REAL issuance path — a no-op for anyone already holding a final
-      // code, and a no-op for the deliberately-pending one.
       const res = await finalizeStudentCode(tx, id);
       issued.push({ name: kid.name, email: email(kid), code: res?.studentCode ?? "—" });
     }

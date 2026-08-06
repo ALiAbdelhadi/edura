@@ -1,19 +1,18 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "@/i18n/navigation";
-import { authClient } from "@/lib/auth/client";
-import { useTranslations } from "next-intl";
-import { KeyRound, CheckCircle2 } from "lucide-react";
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { Spinner } from "@/components/kit/spinner";
 import { LedgerButton } from "@/components/ledger";
+import { useRouter } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
+import { authClient } from "@/lib/auth/client";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
-import { Spinner } from "@/components/kit/spinner";
-import { api } from "@/lib/api/client";
+import { CheckCircle2, KeyRound } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
-/** Where each claimed role lands. Mirrors CLAIMABLE in services/invites. */
 const LANDING: Record<string, string> = {
   student: "/onboarding",
   assistant: "/dashboard/assistant",
@@ -21,15 +20,6 @@ const LANDING: Record<string, string> = {
   teacher: "/dashboard/teacher",
 };
 
-/**
- * Claim landing — opened from the one-time invite link (Step 7, generalized).
- * 1. POST /api/auth/invite-token/claim with the URL token (no password step);
- * 2. set a password — plus an email, but ONLY for a walk-in student, who has
- *    none yet. An assistant/staff member was invited AT an address, so theirs
- *    is fixed and shown read-only: the invite is proof of that address, and
- *    letting them retype it would turn a claim link into an email-change door.
- * 3. continue into the portal for their role.
- */
 function ClaimInner() {
   const t = useTranslations();
   const router = useRouter();

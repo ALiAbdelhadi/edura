@@ -53,8 +53,6 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  // No SessionProvider needed: better-auth's useSession (lib/auth/client) is
-  // a self-contained nanostore — no React context wrapper.
   return (
     <ThemeModeProvider>
       <DirectionProvider dir={dir}>

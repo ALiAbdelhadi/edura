@@ -1,15 +1,15 @@
 "use client";
 
 import { Container } from "@/components/kit/container";
-import { EASE, DURATION } from "@/lib/motion/runtime";
+import { Link } from "@/i18n/navigation";
+import { registerUrl } from "@/lib/app-links";
+import type { Locale } from "@/lib/i18n";
 import { reveal, unhide } from "@/lib/motion/reveal";
+import { DURATION, EASE } from "@/lib/motion/runtime";
 import { splitHeadline } from "@/lib/motion/split-text";
 import { useScene } from "@/lib/motion/use-scene";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { useLocale, useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
-import { registerUrl } from "@/lib/app-links";
-import type { Locale } from "@/lib/i18n";
 
 export function HomeHero() {
   const t = useTranslations("home.hero");
@@ -19,27 +19,16 @@ export function HomeHero() {
     const heading = q("[data-split]")[0];
     if (!heading) return;
 
-    // Words, never chars — Arabic shaping (D-046). The split is reverted by
-    // gsap.context() on unmount along with everything else.
     const split = splitHeadline(SplitText, heading, { mask: true });
 
-    // The <h1> was hidden only so the split could happen without the unsplit
-    // text flashing first. Its WORDS are what animate, so the element itself is
-    // simply released — not tweened.
     unhide(gsap, heading);
 
     const tl = gsap.timeline({ defaults: { ease: EASE.play } });
 
     tl.add(
-      // 12px from the START edge: left in English, right in Arabic. The
-      // eyebrow's marker rule sits at the start edge, so it arrives from behind
-      // it in both directions.
       reveal(gsap, q("[data-eyebrow]"), isRtl, { x: 12, from: "start" }),
     )
       .from(
-        // The words are inside the released <h1> and were never hidden by CSS,
-        // so `from` is safe here — and `mask: "words"` means they rise from
-        // behind a clipped edge rather than fading.
         split.targets,
         { yPercent: 110, duration: DURATION.slow, stagger: 0.045 },
         "-=0.35",
@@ -79,11 +68,9 @@ export function HomeHero() {
           </p>
 
           <div data-cta data-reveal className="mt-9 flex flex-wrap items-center gap-3">
-            {/* Cross-origin (own subdomain), so a plain anchor rather than the
-                next-intl <Link> — which would resolve against this app. */}
             <a
               href={registerUrl(locale)}
-              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] px-5 text-sm font-semibold"
+              className="focus-ledger inline-flex h-11 items-center rounded-(--radius-step-md) px-5 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--indigo)",
                 color: "var(--indigo-ink)",
@@ -93,7 +80,7 @@ export function HomeHero() {
             </a>
             <Link
               href="/owners"
-              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] border px-5 text-sm font-semibold"
+              className="focus-ledger inline-flex h-11 items-center rounded-(--radius-step-md) border px-5 text-sm font-semibold"
               style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
             >
               {t("ctaSecondary")}

@@ -3,11 +3,14 @@
 import { HeaderQuickSettings } from "@/components/ui/header-quick-settings";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Link, usePathname } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity, useList, useLogout } from "@refinedev/core";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
+import { BottomNav } from "@repo/ui/components/bottom-nav";
 import { Button } from "@repo/ui/components/button";
+import { Eyebrow } from "@repo/ui/components/eyebrow";
 import {
   Sidebar,
   SidebarContent,
@@ -21,7 +24,6 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@repo/ui/components/sidebar";
-import Image from "next/image";
 import {
   Award,
   BarChart3,
@@ -47,10 +49,8 @@ import {
   Wallet as WalletIcon,
   type LucideIcon,
 } from "lucide-react";
-import { Eyebrow } from "@repo/ui/components/eyebrow";
-import { BottomNav } from "@repo/ui/components/bottom-nav";
 import { useLocale, useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
+import Image from "next/image";
 import React from "react";
 
 const NAV_KEY: Record<string, string> = {
@@ -204,11 +204,6 @@ function HeaderSidebarToggle({ desktopOnly }: { desktopOnly: boolean }) {
   );
 }
 
-/**
- * Nav link that dismisses the mobile sidebar sheet after a selection — on
- * mobile the sidebar is an overlay, so it must get out of the way once the
- * user picks a destination. Desktop keeps its persistent rail.
- */
 function SidebarNavLink({
   href,
   onClick,
@@ -217,20 +212,10 @@ function SidebarNavLink({
 }: React.ComponentProps<typeof Link>) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
-    // `...props` is load-bearing, not tidiness. This sits inside two nested Radix
-    // Slots — <TooltipTrigger asChild> wrapping <SidebarMenuButton asChild> — and a
-    // Slot passes the parent's props DOWN to its child rather than rendering an
-    // element of its own. Everything the nav item is comes in through here:
-    // className (the entire menu-button style), data-active / data-slot /
-    // data-sidebar / data-size, the tooltip's aria wiring, and the ref.
-    // Without the spread they were all silently dropped and every nav item in every
-    // portal rendered as a bare inline <a> — unstyled, with no active state and no
-    // tooltip, and with its icon stacked above its label instead of beside it.
     <Link
       {...props}
       href={href}
       onClick={(event) => {
-        // Chain rather than replace: the Slot may have merged a handler in.
         onClick?.(event);
         if (isMobile) setOpenMobile(false);
       }}
@@ -240,13 +225,6 @@ function SidebarNavLink({
   );
 }
 
-/* Nav is GROUPED (Handoff I §3.1): sixteen flat items is a list, not a structure, and
-   the five money screens sitting as siblings among sixteen is why "Payments" and
-   "Payouts" could both read «المدفوعات» without anyone noticing.
-
-   `navGroups` and `navItems` are BOTH accepted so the six portal layouts can convert
-   one at a time — a portal session changes its own layout.tsx and nothing else. When
-   the last flat caller is gone, drop `navItems`. */
 export type NavGroup = { label: string; items: NavItem[] };
 
 export default function DashboardShell({
@@ -259,19 +237,6 @@ export default function DashboardShell({
   role: string;
   navItems?: NavItem[];
   navGroups?: NavGroup[];
-  /**
-   * Phone chrome. Student, parent and staff are mostly on phones; a sidebar there is
-   * a drawer you must open before you can navigate.
-   *
-   * Hrefs in BAR ORDER, drawn from navItems — the bar's own `maxVisible` decides
-   * how many get a slot and puts the remainder behind "more", so this is the full
-   * list, not the first four.
-   *
-   * LIST EVERY href IN `navItems`. Passing this hides the sidebar toggle on phones
-   * (see HeaderSidebarToggle), so an href left out of it is a destination a phone
-   * user cannot reach at all. Anything omitted here must be deliberately
-   * desktop-only.
-   */
   bottomNav?: string[];
   children: React.ReactNode;
 }) {
@@ -296,7 +261,6 @@ export default function DashboardShell({
   const roleName = roleLabels[role] || "User";
   const displayName = identity?.name || roleName;
 
-  // `usePathname` from @/i18n/navigation already strips the locale prefix.
   const path = pathname || "/";
   const selectedKey =
     flatNav.find((item) => path === item.href)?.href ||
@@ -308,9 +272,6 @@ export default function DashboardShell({
   const screenLabel =
     flatNav.find((item) => item.href === selectedKey)?.label || "Dashboard";
 
-  // Bottom nav is a SUBSET of the same nav, never a second information architecture —
-  // a destination that exists only on the phone is a destination desktop users cannot
-  // find. `bottomNav` names hrefs already present in the sidebar.
   const bottomNavItems = (bottomNav ?? [])
     .map((href) => flatNav.find((i) => i.href === href))
     .filter((i): i is NavItem => Boolean(i))
@@ -329,20 +290,8 @@ export default function DashboardShell({
       };
     });
 
-  // The one fact the header toggle needs, derived from what is ACTUALLY
-  // rendered rather than promised by a prop. A portal that renders its own bar
-  // as a child could claim one and be wrong; this cannot disagree with itself.
   const hasPhoneNav = bottomNavItems.length > 0;
 
-  // Hiding the toggle turns "this href is missing from `bottomNav`" from an
-  // ordering preference into a destination no phone can reach, across seven
-  // portals whose nav lists keep growing. A doc comment does not survive that —
-  // the parent bar had already drifted two entries behind its sidebar before
-  // anyone noticed. Dev-only: this is an authoring mistake, caught while the
-  // author is looking, and it must never cost anything in production.
-  // `flatNav`/`bottomNav` are rebuilt every render; their CONTENT is what
-  // decides this, so the effect keys on stable strings rather than on array
-  // identities that change on every keystroke.
   const navKey = flatNav.map((i) => i.href).join("|");
   const barKey = (bottomNav ?? []).join("|");
   React.useEffect(() => {
@@ -417,10 +366,6 @@ export default function DashboardShell({
                       </SidebarNavLink>
                     </SidebarMenuButton>
                     {isNotifications && unreadCount > 0 ? (
-                      // Amber on amber-soft: a count is WAITING, not an error. It was
-                      // red, which is reserved for irreversible or blocking. It also
-                      // carries its number as TEXT — the old red dot was aria-hidden
-                      // and had no screen-reader equivalent at all.
                       <SidebarMenuBadge className="num bg-amber-soft font-semibold text-amber">
                         {unreadCount}
                       </SidebarMenuBadge>
@@ -452,9 +397,6 @@ export default function DashboardShell({
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-sm supports-backdrop-filter:bg-background/70 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <HeaderSidebarToggle desktopOnly={hasPhoneNav} />
-            {/* The rule separates the toggle from the title, so it goes where
-                the toggle goes — left on its own it reads as a stray mark
-                floating before the screen name. */}
             <div
               className={`h-5 w-px shrink-0 bg-border ${hasPhoneNav ? "hidden md:block" : ""}`}
             />
@@ -484,7 +426,7 @@ export default function DashboardShell({
                 </Link>
               </Button>
               {unreadCount > 0 ? (
-                <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+                <span className="absolute -inset-e-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
                   {unreadCount}
                 </span>
               ) : null}
@@ -496,7 +438,6 @@ export default function DashboardShell({
             </Avatar>
           </div>
         </header>
-
         <div
           tabIndex={0}
           role="region"
@@ -505,9 +446,6 @@ export default function DashboardShell({
         >
           {children}
         </div>
-
-        {/* Phone chrome. Hidden at md+ by the component itself, so the sidebar remains
-            the only navigation on desktop and the two never coexist. */}
         {bottomNavItems.length ? (
           <BottomNav
             items={bottomNavItems}

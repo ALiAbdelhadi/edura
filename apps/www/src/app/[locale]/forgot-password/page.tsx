@@ -1,15 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { LedgerButton } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
-import { Eyebrow, LedgerButton } from "@/components/ledger";
+import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useState } from "react";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations();
@@ -78,7 +76,6 @@ export default function ForgotPasswordPage() {
           {t("auth.forgotSubtitle")}
         </p>
       </div>
-
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -98,7 +95,7 @@ export default function ForgotPasswordPage() {
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{t("auth.email")}</Label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute inset-y-0 inset-s-0 my-auto ms-3 size-4 text-muted-foreground" />
             <Input
               id="email"
               type="email"
@@ -116,7 +113,6 @@ export default function ForgotPasswordPage() {
           {t("auth.sendResetLink")}
         </LedgerButton>
       </form>
-
       <p className="mt-6 text-center text-sm">
         <Link
           href="/login"

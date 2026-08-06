@@ -1,28 +1,10 @@
 "use client";
 
-import { useScene } from "@/lib/motion/use-scene";
-import { EASE } from "@/lib/motion/runtime";
-import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { EASE } from "@/lib/motion/runtime";
+import { useScene } from "@/lib/motion/use-scene";
+import { useLocale } from "next-intl";
 
-/**
- * The child-safety scene — the site's second-most-expensive piece of motion,
- * and the one /parents leads with.
- *
- * It draws its own condition rather than asserting it. The shield's outline is
- * stroked by DrawSVG as the reader arrives, which is exactly the kind of motion
- * D-044 permits: the drawing IS the explanation of a rule that is otherwise a
- * paragraph.
- *
- * The rule it depicts is `isMinor()` in packages/database/src/queries/
- * chat-minors.ts, written as ONE positive condition so that a missing field can
- * never read as "adult":
- *
- *     adult = dateOfBirth AND dateOfBirthVerifiedAt AND age >= 18
- *
- * Everything else — the three conditions, the lock, the parent line staying
- * lit — is a rendering of that expression, not a decoration around it.
- */
 export function ShieldDiagram() {
   const locale = useLocale() as Locale;
   const ar = locale === "ar";
@@ -57,15 +39,13 @@ export function ShieldDiagram() {
 
   return (
     <div ref={ref} data-root className="mx-auto max-w-lg">
-      <svg viewBox="0 0 240 260" className="mx-auto block w-full max-w-[280px]" role="img"
+      <svg viewBox="0 0 240 260" className="mx-auto block w-full max-w-70" role="img"
         aria-label={
           ar
             ? "درع يوضّح شروط اعتبار الطالب بالغًا: تاريخ ميلاد موثّق و١٨ سنة أو أكتر."
             : "A shield showing the conditions for counting a student as an adult: a verified date of birth, and 18 or over."
         }
       >
-        {/* The shield outline. `pathLength` normalises the stroke so DrawSVG's
-            percentages are geometry-independent. */}
         <path
           data-shield
           d="M120 12 L214 46 V132 C214 186 172 226 120 248 C68 226 26 186 26 132 V46 Z"
@@ -86,19 +66,18 @@ export function ShieldDiagram() {
           <li
             key={c}
             data-cond
-            className="flex items-center gap-3 rounded-[var(--radius-step-md)] border px-4 py-3 text-sm"
+            className="flex items-center gap-3 rounded-(--radius-step-md) border px-4 py-3 text-sm"
             style={{ borderColor: "var(--rule)", backgroundColor: "var(--sheet)", color: "var(--ink)" }}
           >
             <span
-              aria-hidden
-              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              aria-hidden 
+              className="inline-block h-0.5 w-0.5 shrink-0 rounded-full"
               style={{ backgroundColor: "var(--teal)" }}
             />
             {c}
           </li>
         ))}
       </ul>
-
       <p className="mt-5 text-center text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
         {ar
           ? "لو أي شرط ناقص — الطالب قاصر، والحماية شغّالة."

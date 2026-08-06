@@ -23,6 +23,22 @@ const OLD_PW = "OldPassw0rd!";
 const NEW_PW = "FreshPassw0rd!";
 const SINK_PORT = 2598;
 
+/**
+ * The origin this run pins `APP_BASE_URL` to, and the one the link assertion
+ * checks against — ONE constant feeding both, because they were two separate
+ * literals that happened to agree. Editing the setup and forgetting the
+ * assertion (or the reverse) failed the suite with "link uses APP_BASE_URL"
+ * pointing at a link that did exactly that.
+ *
+ * It is deliberately NOT read from the environment. This suite proves that a
+ * reset link is built from `APP_BASE_URL` + the locale segment, so it has to
+ * OWN that value: reading whatever the ambient env happens to hold would make
+ * the assertion agree with the code by construction and prove nothing. Any
+ * absolute https origin works here — the production domain is incidental, and
+ * changing it does not touch this file.
+ */
+const APP_ORIGIN = "https://app.example.test";
+
 let pass = 0;
 let fail = 0;
 function assert(cond: boolean, msg: string) {
@@ -125,7 +141,7 @@ async function main() {
   process.env.SMTP_USER = "sink";
   process.env.SMTP_PASS = "sink";
   process.env.MAIL_FROM = "no-reply@edura.eg";
-  process.env.APP_BASE_URL = "https://app.edura.eg";
+  process.env.APP_BASE_URL = APP_ORIGIN;
 
   try {
     console.log("Password-reset mail delivery —", tag);
@@ -151,7 +167,10 @@ async function main() {
     //    token in the BODY is the one that actually resets the password.
     const link = linkFrom(msg.raw);
     assert(link !== null, "email body contains a reset link");
-    assert(link!.startsWith("https://app.edura.eg/ar/reset-password?token="), `link uses APP_BASE_URL + locale segment (${link})`);
+    assert(
+      link!.startsWith(`${APP_ORIGIN}/ar/reset-password?token=`),
+      `link uses APP_BASE_URL + locale segment (${link})`,
+    );
 
     const token = new URL(link!).searchParams.get("token")!;
     await resetPassword(token, NEW_PW);

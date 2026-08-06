@@ -1,15 +1,10 @@
-// Server↔server bridge: Next.js REST calls these endpoints (with the shared
-// internal secret) so messages/reads that happen over plain HTTP still fan out
-// to connected sockets. If this server is down, REST degrades gracefully —
-// messages persist and are swept to "delivered" on the recipient's next
-// connect; only the live push is lost.
+import * as chat from "@repo/database/chat";
+import * as proto from "@repo/database/chat-protocol";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Server } from "socket.io";
 import { z } from "zod";
-import * as chat from "@repo/database/chat";
-import * as proto from "@repo/database/chat-protocol";
-import { env } from "./env";
 import { chatDb } from "./db";
+import { env } from "./env";
 import type { PresenceRegistry } from "./presence";
 
 const messageViewSchema = z.object({
@@ -23,8 +18,6 @@ const messageViewSchema = z.object({
   deliveredAt: z.coerce.date().nullable(),
   readAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),
-  // Soft-delete marker (retention): optional so an older Next.js instance
-  // mid-deploy can still bridge messages to a newer realtime server.
   deleted: z.boolean().optional().default(false),
 });
 
@@ -91,7 +84,6 @@ export async function handleInternalRequest(
   const userRoom = (id: string) => `user:${id}`;
 
   try {
-    // REST-sent message → live fanout + delivered-marking.
     if (req.url === "/internal/message") {
       const parsed = bridgeMessageSchema.safeParse(payload);
       if (!parsed.success) return json(res, 400, { error: "bad payload" });

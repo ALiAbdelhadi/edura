@@ -1,3 +1,4 @@
+import path from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
 
@@ -41,6 +42,16 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+
+  // Pin the module-graph root to THIS workspace. Git worktrees live inside the
+  // repo at `<repo>/.claude/worktrees/*`, so an unpinned root makes a worktree's
+  // dev server walk up and adopt the MAIN checkout as its root — it then
+  // resolves a second copy of `next` and hands the browser two incompatible
+  // module-id namespaces on one origin ("module factory is not available").
+  // It also makes the server watch every sibling worktree.
+  turbopack: {
+    root: path.join(__dirname, "..", ".."),
+  },
 
   // Cloud name only (public by construction — it is in every delivery URL);
   // the API key/secret stay server-side. Lets @repo/ui/lib/cloudinary build

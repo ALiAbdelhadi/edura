@@ -25,18 +25,6 @@ const navItems = [
   { href: "/dashboard/teacher/settings", icon: "settings", label: "Settings" },
 ];
 
-/**
- * Phone bar order — deliberately NOT the sidebar's order.
- *
- * A teacher is on a phone while STANDING IN THE ROOM, and the four slots are
- * the loop that happens there: what am I teaching now (Dashboard), mark who
- * turned up (Attendance), open the class (Classes), enter the marks
- * (Gradebook). My Centers and Wallet are what a teacher opens once a month at
- * a desk, so they rank below Door Check-in and Messages in "more" rather than
- * taking a slot from the daily four.
- *
- * EVERY `navItems` href is listed — the bar is the phone's only navigation.
- */
 const BAR_ORDER = [
   "/dashboard/teacher",
   "/dashboard/teacher/attendance",

@@ -1,12 +1,6 @@
 /* eslint-disable no-console */
 import { withPlatformContext } from "../src/index";
 
-
-// `codeLetter` opens every student code issued under the system (G7K3-M2QF).
-// It is part of an identifier a student carries on a card for years, so these
-// letters are APPEND-ONLY in spirit: add one for a new system, never re-point
-// an existing one, or every code already issued starts naming the wrong system.
-// 'X' is reserved for "system not chosen yet" and the DB refuses it here.
 const SYSTEMS = [
   { code: "general", nameAr: "التعليم العام", nameEn: "General", iconKey: "school", sortOrder: 0, codeLetter: "G" },
   { code: "azhari", nameAr: "التعليم الأزهري", nameEn: "Azhari", iconKey: "moon-star", sortOrder: 1, codeLetter: "A" },

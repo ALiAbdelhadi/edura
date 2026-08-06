@@ -21,50 +21,19 @@
 }
 
 @layer components {
-  /* ---------------------------------------------------------------------
-     Motion foundations (D-044).
-
-     Every scroll-driven scene renders its FINAL state in plain CSS and is
-     then animated from it by GSAP. That ordering is what makes the
-     reduced-motion path free: when `data-motion="reduced"` is set on <html>
-     we simply never create the timeline, and the page is already correct.
-     Nothing here animates on its own.
-     --------------------------------------------------------------------- */
-
-  /* A reveal target is hidden ONLY while BOTH attributes are present, and both
-     are stamped by the bootstrap script synchronously before first paint — so
-     this rule beats the paint rather than chasing it.
-
-       - `[data-motion="full"]` — under reduced motion nothing is ever hidden,
-         because nothing will come along to reveal it.
-       - `[data-reveal-armed]` — the failsafe. The bootstrap removes it after a
-         timeout, so if the JS bundle never arrives the content appears anyway
-         instead of staying blank forever. By then GSAP has normally written its
-         own inline opacity, which outranks this rule, so removing the attribute
-         is a no-op in the healthy case.
-
-     Hiding content with CSS is genuinely risky and this is the narrow form of
-     it: opacity only, scoped to elements a scene has explicitly claimed, and
-     self-releasing on every failure path (no JS, slow JS, broken JS). */
   html[data-motion="full"][data-reveal-armed] [data-reveal] {
     opacity: 0;
   }
 
-  /* Applied by a scene to its own targets before the timeline runs. */
   .will-reveal {
     will-change: transform, opacity;
   }
-
-  /* A scene that pins needs a deterministic height that does not depend on
-     its children collapsing. */
   .scene-pin {
     min-height: 100svh;
     display: grid;
     align-content: center;
   }
 
-  /* Hairline frame used by every media surface on the site, so a screenshot,
-     a video and a diagram all sit in the same object. */
   .frame-sheet {
     background-color: var(--sheet);
     border: 1px solid var(--rule);
@@ -73,7 +42,6 @@
     overflow: hidden;
   }
 
-  /* DrawSVG scenes set stroke-dash* inline; this is only the resting look. */
   .diagram-stroke {
     fill: none;
     stroke: var(--ink);
@@ -84,9 +52,6 @@
   }
 }
 
-/* The OS-level guarantee. `data-motion` (set by the provider) is the
-   app-level one; both must hold, because a user can prefer reduced motion
-   without JS having run yet. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

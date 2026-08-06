@@ -1,53 +1,8 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * OFF-SYSTEM TEACHERS DEMO SEED — throwaway is_demo data for previewing the
- * off-system-teacher workbench (approved 2026-08-02).
- * ============================================================================
- * ONE center running a mixed roster, so every state the feature has is visible
- * on screen without anyone having to construct it by hand:
- *
- *   Center «سنتر النيل التعليمي»
- *     owner   : Mona   (center_admin)
- *     staff   : Rania  (receptionist — the person who does the manual entry)
- *
- *     ON-PLATFORM teacher  : أ. طارق (enrolled, signs in himself)
- *     OFF-SYSTEM teachers  : أ. حسن  (external — refuses the app)
- *                            أ. سلوى (external — has her own system)
- *
- *   Students, and the case that matters most:
- *     • يوسف studies with BOTH أ. حسن (off-system) and أ. طارق (on-platform).
- *       ONE user row, TWO enrollments — the shared-student case, visible in the
- *       teacher's student list as "also with another teacher".
- *     • مريم and عمر are أ. حسن's alone; أ. سلوى has a group with NO price and
- *       NO students, so the completeness report has something real to find.
- *
- *   Deliberately visible gaps (the point of the gaps report):
- *     - past lessons with no attendance and never completed,
- *     - a group with no price,
- *     - a group with no students,
- *     - an enrolled student with no coverage.
- *
- * SAFETY (same contract as the other demo seeds):
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true;
- *     children inherit demo-ness by ancestry (decision #6).
- *   • ZERO writes to any money / ledger / wallet / payment table. Pay and settle
- *     in the preview yourself — that IS the demo, and those rows are
- *     append-only, so a seeded one could never be purged.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *
- * Idempotent: deterministic ids, re-run safely.
- *
- *   Seed:  bunx tsx --env-file=.env prisma/external-teachers-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env prisma/external-teachers-demo-seed.ts --purge
- * ============================================================================
- */
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
+import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
-import type { Role } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");

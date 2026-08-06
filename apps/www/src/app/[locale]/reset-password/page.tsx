@@ -1,15 +1,13 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
-import { Eyebrow, LedgerButton } from "@/components/ledger";
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { Button } from "@repo/ui/components/button";
+import { LedgerButton } from "@/components/ledger";
+import { Link } from "@/i18n/navigation";
 import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 

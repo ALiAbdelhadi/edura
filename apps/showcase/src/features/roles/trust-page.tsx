@@ -8,15 +8,9 @@ import { PageHero } from "@/components/scene/page-hero";
 import { Scene } from "@/components/scene/scene";
 import { SubNav } from "@/components/scene/sub-nav";
 import { appUrl } from "@/lib/app-links";
-import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { useLocale, useTranslations } from "next-intl";
 
-/**
- * /trust — every claim points at a mechanism, and the page ends by linking the
- * REAL privacy policy, terms and help centre in apps/www rather than
- * paraphrasing them here. A marketing restatement of a legal document is a
- * second version of it, and the second version is the one that goes stale.
- */
 export function TrustPage() {
   const t = useTranslations("trust");
   const locale = useLocale() as Locale;
@@ -48,8 +42,6 @@ export function TrustPage() {
         body={t("append.body")}
         wide
         media={
-          // Counted from the migrations, not estimated: 7 REVOKE statements and
-          // 15 CREATE POLICY statements across packages/database/prisma/migrations.
           <Counters
             stats={[
               {
@@ -124,8 +116,6 @@ export function TrustPage() {
         body={t("analytics.body")}
         wide
       />
-
-      {/* The documents themselves. Linked, never paraphrased. */}
       <section className="py-16">
         <Container>
           <div className="mx-auto max-w-2xl text-center">

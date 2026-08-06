@@ -6,15 +6,6 @@ import {
   PHYSICAL,
 } from "../../src/lib/motion/direction";
 
-/**
- * Arabic is this product's PRIMARY language, so a mirrored animation is the
- * default case rather than an afterthought — and the sign errors are invisible
- * in code review (every value is just a number) but obvious on screen, where an
- * element enters from the edge the eye is leaving toward.
- *
- * The `filmstripTravel` direction was wrong in the first draft of this module.
- * These assertions are what caught it.
- */
 
 const LTR = false;
 const RTL = true;
@@ -47,8 +38,6 @@ describe("logicalX", () => {
   });
 
   it("leaves a zero offset at zero rather than producing -0", () => {
-    // -0 compares equal to 0 but serialises differently and has bitten
-    // snapshot assertions before.
     expect(Object.is(logicalX(0, "start", RTL), -0)).toBe(false);
   });
 });
@@ -79,9 +68,6 @@ describe("filmstripTravel", () => {
 
 describe("PHYSICAL", () => {
   it("is identity — it marks intent, it does not transform", () => {
-    // The seal's rotation, a chart's time axis and --lift shadows deliberately
-    // do NOT mirror (CONSTITUTION.md §6.4). Wrapping them documents that at the
-    // call site instead of leaving the omission to look like a bug.
     expect(PHYSICAL(-6)).toBe(-6);
     expect(PHYSICAL("rotate(-6deg)")).toBe("rotate(-6deg)");
   });

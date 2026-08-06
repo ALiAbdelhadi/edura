@@ -6,16 +6,6 @@ import { PHYSICAL } from "@/lib/motion/direction";
 import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/i18n";
 
-/**
- * Append-only, shown rather than stated: rows accumulate, then an attempt to
- * change one is refused.
- *
- * The refusal text is the DATABASE's, not a paraphrase — `permission denied` is
- * literally what PostgreSQL returns to `edura_app` for an UPDATE on
- * `transactions`, because the migrations REVOKE it. Softening that into
- * "changes aren't allowed" would lose the only detail that makes the claim
- * checkable.
- */
 export function LedgerDiagram() {
   const locale = useLocale() as Locale;
   const ar = locale === "ar";
@@ -43,23 +33,21 @@ export function LedgerDiagram() {
 
   const ROWS = ar
     ? [
-        { ref: "TRX-2026-0118", label: "اشتراك شهري", amount: "900.00" },
-        { ref: "TRX-2026-0119", label: "حصة مفردة", amount: "150.00" },
-        { ref: "TRX-2026-0120", label: "تسوية حصة", amount: "60.00" },
-      ]
+      { ref: "TRX-2026-0118", label: "اشتراك شهري", amount: "900.00" },
+      { ref: "TRX-2026-0119", label: "حصة مفردة", amount: "150.00" },
+      { ref: "TRX-2026-0120", label: "تسوية حصة", amount: "60.00" },
+    ]
     : [
-        { ref: "TRX-2026-0118", label: "Monthly subscription", amount: "900.00" },
-        { ref: "TRX-2026-0119", label: "Single lesson", amount: "150.00" },
-        { ref: "TRX-2026-0120", label: "Lesson settlement", amount: "60.00" },
-      ];
+      { ref: "TRX-2026-0118", label: "Monthly subscription", amount: "900.00" },
+      { ref: "TRX-2026-0119", label: "Single lesson", amount: "150.00" },
+      { ref: "TRX-2026-0120", label: "Lesson settlement", amount: "60.00" },
+    ];
 
   return (
     <div
       ref={ref}
       data-root
       className="frame-sheet mx-auto max-w-md p-5"
-      // `--lift` is directional light and does NOT mirror in RTL
-      // (CONSTITUTION.md §6.4) — marked so the omission reads as a decision.
       style={{ boxShadow: PHYSICAL("var(--lift)") }}
     >
       <ul>
@@ -91,7 +79,7 @@ export function LedgerDiagram() {
 
       <div
         data-denied
-        className="mt-5 rounded-[var(--radius-step-md)] border px-4 py-3"
+        className="mt-5 rounded-(--radius-step-md) border px-4 py-3"
         style={{ borderColor: "var(--red)", backgroundColor: "var(--red-soft)" }}
       >
         <p className="font-mono text-xs" style={{ color: "var(--red)" }} dir="ltr">

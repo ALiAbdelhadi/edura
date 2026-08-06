@@ -1,31 +1,11 @@
 "use client";
 
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { Eyebrow, Sheet, ledgerMono, ledgerShellScope } from "@/components/ledger";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { CalendarCheck, CreditCard, GraduationCap, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, type ReactNode } from "react";
 
-/**
- * The auth shell, under the Ledger.
- *
- * WHAT CHANGED AND WHY: the previous version was a 45%-wide gradient panel
- * (`gradient-primary`) carrying two blurred white orbs, glass-blur tiles, the
- * `.display` face and brand-teal accents. Every one of those devices is out of
- * this system — gradients and the glow are deleted, `.display` is an Ant-era
- * leftover, and a saturated slab beside a light form reads as two products.
- *
- * NOTHING WAS DELETED. The value column keeps all of its copy (tagline,
- * subtitle, the three features / three signup steps) and every i18n key stays
- * in use; it is re-expressed on paper, in ink, separated from the form by a
- * hairline rule instead of a colour boundary.
- *
- * NOTE ON OWNERSHIP: login and register are shared entry points for every
- * role, so unlike the student portal's screens this cannot be scoped — the
- * change is visible to center, teacher, parent, student and assistant alike.
- * Handoff §6 assigns login to the foundation session; this is that design,
- * landed early.
- */
 export function AuthShell({
   children,
   variant = "signin",
@@ -67,10 +47,6 @@ export function AuthShell({
 
       <main className="flex flex-1 items-center justify-center px-6 py-8">
         <div className="grid w-full max-w-4xl items-center gap-10 lg:grid-cols-2">
-          {/* The value column. Paper, ink, a hairline — no panel, no gradient.
-              Hidden on phone, where the form is the only thing that matters.
-              On signup it sits after the form so the first thing a new user
-              meets is the form itself. */}
           <aside
             className={`hidden lg:block ${isSignup ? "lg:order-2" : ""}`}
             style={{ color: "var(--ink-2)" }}
@@ -85,7 +61,6 @@ export function AuthShell({
             <p className="mt-3 max-w-[46ch] text-sm leading-relaxed">
               {isSignup ? t("auth.heroSubtitleSignup") : t("auth.heroSubtitle")}
             </p>
-
             <div className="mt-7 pt-6" style={{ borderTop: "1px solid var(--rule)" }}>
               {isSignup ? (
                 <>
@@ -125,14 +100,11 @@ export function AuthShell({
               )}
             </div>
           </aside>
-
-          {/* The form, on a single sheet card. */}
           <div className={`mx-auto w-full max-w-sm ${isSignup ? "lg:order-1" : ""}`}>
             <Sheet className="p-6 sm:p-7">{children}</Sheet>
           </div>
         </div>
       </main>
-
       <footer className="shrink-0 px-6 pb-6 text-center">
         <span
           dir="ltr"

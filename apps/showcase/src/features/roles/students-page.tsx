@@ -7,10 +7,9 @@ import { Counters } from "@/components/scene/counters";
 import { PageHero } from "@/components/scene/page-hero";
 import { Scene } from "@/components/scene/scene";
 import { SubNav } from "@/components/scene/sub-nav";
-import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { useLocale, useTranslations } from "next-intl";
 
-/** /students — opens on the track → subjects flow. */
 export function StudentsPage() {
   const t = useTranslations("students");
   const locale = useLocale() as Locale;
@@ -91,23 +90,13 @@ export function StudentsPage() {
           />
         }
       />
-
       <Scene
         id="wallet"
         eyebrow={t("wallet.eyebrow")}
         title={t("wallet.title")}
         body={t("wallet.body")}
-        // A DIAGRAM rather than a screenshot, for two reasons. The claim is
-        // "the balance is a sum, not a stored number", and entries adding up is
-        // exactly what a diagram can show and a screenshot of a total cannot.
-        // The wallet screen is also currently crashing in apps/www (see the
-        // capture guard), so there is no honest screenshot to use.
         media={<LedgerDiagram />}
       />
-
-      {/* Mobile capture in a phone frame — the student portal genuinely uses
-          bottom navigation on a phone (CONSTITUTION.md §4), so a desktop shot
-          squeezed into a phone outline would show a layout no student sees. */}
       <Scene
         id="schedule"
         eyebrow={t("schedule.eyebrow")}
@@ -131,7 +120,6 @@ export function StudentsPage() {
           </div>
         }
       />
-
       <Scene
         id="points"
         eyebrow={t("points.eyebrow")}
@@ -139,8 +127,6 @@ export function StudentsPage() {
         body={t("points.body")}
         wide
         media={
-          // The platform's own seeded points rules — packages/database/prisma/seed.ts
-          // POINTS_RULES. Not illustrative numbers.
           <Counters
             stats={[
               {

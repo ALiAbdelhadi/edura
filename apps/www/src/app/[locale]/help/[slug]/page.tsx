@@ -4,21 +4,15 @@ import { loadArticleMeta } from "@/features/marketing/help/load";
 import { routing } from "@/i18n/routing";
 import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
+import { notFound } from "next/navigation";
 
-/**
- * Every locale × slug is enumerated, so all 22 pages are prerendered at build
- * time. That is what makes the plain `fs` reads in help/load.ts safe: they run
- * on the build machine, never on a request.
- */
 export function generateStaticParams() {
   return routing.locales.flatMap((locale) =>
     HELP_ARTICLES.map((a) => ({ locale, slug: a.slug })),
   );
 }
 
-/** An unknown slug is a 404, not an empty page. */
 export const dynamicParams = false;
 
 export async function generateMetadata({

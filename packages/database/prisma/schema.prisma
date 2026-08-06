@@ -1,22 +1,3 @@
-// =============================================================================
-// Edura / EduConnect — Prisma schema (Neon Postgres, serverless)
-// -----------------------------------------------------------------------------
-// Reconciliation model: every existing Edura Mongoose model is preserved here
-// (so live MongoDB data ports 1:1 and the current 97 API routes keep working),
-// and the PRD's EduConnect layer (super_admin/accountant roles, platform-fee
-// ledger, points, payouts/invoices, blacklist, audit_logs, chatbot) is added
-// on top. AI/chatbot tables are MODELED ONLY — no AI logic wired (per scope).
-//
-// Conventions:
-//   - PKs: Postgres-generated UUID via gen_random_uuid() (pgcrypto).
-//   - Money: Int, minor units (piasters). Never Float/Decimal.
-//   - Columns: snake_case via @map; tables: snake_case plural via @@map.
-//   - Enums: native Postgres enums (DEVIATION from PRD raw-SQL VARCHAR — chosen
-//     for compile-time safety; flagged in the delivery summary).
-//   - Tenant scope: center_id + @@index on every center-scoped table; RLS
-//     policies + the remaining FK constraints live in a raw-SQL migration.
-// =============================================================================
-
 generator client {
   provider      = "prisma-client-js"
   output        = "../src/generated/client"
@@ -29,10 +10,6 @@ datasource db {
   // runtime client injects a Neon driver adapter (see src/client.ts); the CLI
   // (migrate/db push/studio) reads the DIRECT_URL datasource from prisma.config.ts.
 }
-
-// =============================================================================
-// ENUMS
-// =============================================================================
 
 enum Role {
   super_admin

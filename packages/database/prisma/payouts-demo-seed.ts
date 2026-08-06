@@ -1,49 +1,3 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * PAYOUTS DEMO SEED — so اليوم and مستحقات وصرف render populated
- * ============================================================================
- * Seeds withdraw requests against the beneficiaries the center-oversight demo
- * seed already created, so nothing new is invented and every root entity is
- * already `isDemo = true` (payouts inherit demo-ness by ancestry, per the
- * CLAUDE.md rule that only root entities carry the flag).
- *
- * MONEY — read this before adding to it:
- *
- *   The center-oversight seed deliberately writes ZERO money rows, because
- *   oversight only READS money. This seed is the documented exception: the
- *   payouts screen IS the money feature, and seeding it was approved
- *   explicitly. Even so it stays inside the tightest boundary that still
- *   produces a useful screen:
- *
- *   • WRITES ONLY to `payouts` — a withdraw REQUEST, not a settlement.
- *   • Writes NOTHING to transactions, points_ledger, session_settlements,
- *     payments or invoices. Those are append-only and REVOKEd; a seed has no
- *     business in them.
- *   • Seeds NO `paid` payout. A paid row with no ledger entry would be a lie:
- *     it claims money moved while the ledger says nothing happened, which is
- *     precisely the dishonesty the whole system is built to prevent. To see a
- *     paid row, APPROVE one in the UI — that runs the real settlement, writes
- *     the real Transaction, and is also the only honest way to exercise the
- *     two-step commit end to end.
- *   • Touches `wallet_balance` on the four demo beneficiaries ONLY, and the
- *     purge resets them to 0. That is deliberate, not decoration: the panel's
- *     clearance advisory reads the same balance `settlePayout`'s H2
- *     conditional decrement will read, so without a funded wallet every demo
- *     payout would show as blocked and the healthy path would be invisible.
- *     One beneficiary is left UNDERFUNDED on purpose so the «يوقف الصرف»
- *     blocking card and the red clearance line both render.
- *
- * SAFETY (same contract as the other demo seeds):
- *   • assertNotProduction guards both the seed and the purge.
- *   • Deterministic UUIDv5 ids — re-run is an upsert, never a duplicate.
- *   • Beneficiaries are resolved by their natural key (shortId / email), never
- *     by a hardcoded uuid, so this cannot bind to the wrong row.
- *
- *   Seed:  bunx tsx --env-file=.env.local prisma/payouts-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env.local prisma/payouts-demo-seed.ts --purge
- * ============================================================================
- */
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
@@ -53,13 +7,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const did = seedId("edura-payoutdemo:");
 const daysAgo = (d: number) => new Date(Date.now() - d * DAY);
 
-/** Egyptian pounds → integer piasters. Money is NEVER a float in this system. */
 const egp = (pounds: number) => Math.round(pounds * 100);
 
-/* The oversight demo's own people, by natural key. `أ. شريف الجندي` is the name
-   the design brief uses in its worked example of the metric card's row-3 fact
-   («أقدم طلب: ٣ أيام — أ. شريف الجندي»), so his request is the oldest here and
-   that line renders exactly as specified. */
 const TEACHERS = {
   sherif: "أ. شريف الجندي",
   dalia: "أ. داليا مرسي",
@@ -79,12 +28,10 @@ type Row = {
   ageDays: number;
   status: "pending" | "rejected";
   rejectionReason?: string;
-  /** Wallet funding for the beneficiary, in EGP. Below net ⇒ blocked. */
   fundEgp: number;
 };
 
 const ROWS: Row[] = [
-  // The spec's worked example: 45,000 gross − 15% = 38,250 net, oldest at 3 days.
   {
     key: "sherif-july",
     who: { kind: "teacher", name: TEACHERS.sherif },
@@ -127,8 +74,6 @@ const ROWS: Row[] = [
     status: "pending",
     fundEgp: 50_000,
   },
-  // Rejected rows carry their reason — a rejection with none cannot be
-  // explained to the beneficiary (D-026), and the badge renders it.
   {
     key: "mona-june",
     who: { kind: "teacher", name: TEACHERS.mona },
@@ -160,8 +105,6 @@ async function main() {
   console.log(`\n${PURGE ? "PURGING" : "SEEDING"} payouts demo  (db: ${env})\n`);
 
   await withPlatformContext(async (tx) => {
-    // Resolve every beneficiary by natural key first, so a missing prerequisite
-    // fails loudly here rather than writing half a fixture.
     const teacherNames = [...new Set(ROWS.flatMap((r) => (r.who.kind === "teacher" ? [r.who.name] : [])))];
     const centerShortIds = [...new Set(ROWS.flatMap((r) => (r.who.kind === "center" ? [r.who.shortId] : [])))];
 
@@ -179,7 +122,7 @@ async function main() {
     if (missingT.length || missingC.length) {
       throw new Error(
         `payouts-demo-seed: missing prerequisites — run center-oversight-demo-seed.ts first.\n` +
-          `  teachers: ${missingT.join(", ") || "ok"}\n  centers: ${missingC.join(", ") || "ok"}`,
+        `  teachers: ${missingT.join(", ") || "ok"}\n  centers: ${missingC.join(", ") || "ok"}`,
       );
     }
 
@@ -187,15 +130,14 @@ async function main() {
       w.kind === "teacher"
         ? { id: teachers.find((t) => t.name === w.name)!.id, label: w.name, centerId: null as string | null }
         : (() => {
-            const c = centers.find((x) => x.shortId === w.shortId)!;
-            return { id: c.id, label: c.name, centerId: c.id };
-          })();
+          const c = centers.find((x) => x.shortId === w.shortId)!;
+          return { id: c.id, label: c.name, centerId: c.id };
+        })();
 
     if (PURGE) {
       const ids = ROWS.map((r) => did(r.key));
       const del = await tx.payout.deleteMany({ where: { id: { in: ids } } });
 
-      // Restore the wallets this seed funded. They were 0 before it ran.
       for (const r of ROWS) {
         const b = resolve(r.who);
         if (r.who.kind === "teacher") {
@@ -247,9 +189,7 @@ async function main() {
           createdAt,
         },
       });
-
-      // Fund the beneficiary so the clearance advisory has something real to
-      // read. Demo beneficiaries only — see the money note in the header.
+      
       if (r.who.kind === "teacher") {
         await tx.teacherProfile.updateMany({
           where: { userId: b.id },
@@ -267,7 +207,7 @@ async function main() {
       else rejected++;
       console.log(
         `  ${r.status.padEnd(8)} ${b.label.padEnd(22)} net ${(net / 100).toLocaleString("en-EG")} EGP` +
-          (r.status === "pending" ? `  wallet ${covered ? "covers" : "SHORT — blocks disbursement"}` : ""),
+        (r.status === "pending" ? `  wallet ${covered ? "covers" : "SHORT — blocks disbursement"}` : ""),
       );
     }
 
@@ -278,9 +218,9 @@ async function main() {
   if (!PURGE) {
     console.log(
       `\nاليوم        → 4 payout decisions, oldest 3 days (أ. شريف الجندي), 1 blocked\n` +
-        `مستحقات وصرف → pills: بانتظار الصرف 4 · مدفوعة 0 · مرفوضة 2\n` +
-        `\nTo see a PAID row and the seal: approve one in the UI. That runs the real\n` +
-        `settlement and writes a real Transaction — the only honest way to get one.`,
+      `مستحقات وصرف → pills: بانتظار الصرف 4 · مدفوعة 0 · مرفوضة 2\n` +
+      `\nTo see a PAID row and the seal: approve one in the UI. That runs the real\n` +
+      `settlement and writes a real Transaction — the only honest way to get one.`,
     );
   }
 }

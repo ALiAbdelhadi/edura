@@ -1,10 +1,10 @@
 import { Cta } from "@/components/scene/cta";
 import { OwnersPage } from "@/features/roles/owners-page";
 import { routing } from "@/i18n/routing";
+import type { Locale } from "@/lib/i18n";
 import { pageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { setRequestLocale } from "next-intl/server";
-import type { Locale } from "@/lib/i18n";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

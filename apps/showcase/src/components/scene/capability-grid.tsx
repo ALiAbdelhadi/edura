@@ -3,20 +3,6 @@
 import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/i18n";
 
-/**
- * The assistant delegation boundary, drawn as TWO LISTS rather than one grid
- * with greyed-out rows.
- *
- * CONSTITUTION.md §7: "Excluded capabilities are absent, not disabled. A
- * disabled control teaches that the capability exists and is being withheld."
- * That rule governs the PRODUCT's screens — an assistant never sees a greyed
- * wallet button. Here on a marketing page the exclusion is the message, so it
- * is stated as its own column with its own heading, rather than smuggled in as
- * a row the reader has to notice is dimmed.
- *
- * Every entry is a real capability from `authz/acting-teacher.ts` and the Step 8
- * delegation decision — nothing is here for symmetry.
- */
 const CAN = {
   ar: ["الحضور والتحضير", "تشيك-إن باب القاعة", "الدرجات", "المواد", "الجداول", "طلبات التعاون", "ملاحظات الفريق"],
   en: [
@@ -43,7 +29,7 @@ export function CapabilityGrid() {
   return (
     <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
       <div
-        className="rounded-[var(--radius-step-lg)] border p-6"
+        className="rounded-(--radius-step-lg) border p-6"
         style={{ borderColor: "var(--rule)", backgroundColor: "var(--sheet)" }}
       >
         <p className="text-sm font-bold" style={{ color: "var(--teal)" }}>
@@ -57,9 +43,8 @@ export function CapabilityGrid() {
           ))}
         </ul>
       </div>
-
       <div
-        className="rounded-[var(--radius-step-lg)] border p-6"
+        className="rounded-(--radius-step-lg) border p-6"
         style={{ borderColor: "var(--rule)", backgroundColor: "var(--sheet)" }}
       >
         <p className="text-sm font-bold" style={{ color: "var(--red)" }}>

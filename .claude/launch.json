@@ -131,6 +131,15 @@
         "3037"
       ],
       "port": 3037
+    },
+    {
+      "name": "walk-student",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "NEXTAUTH_URL=http://localhost:3051 exec bun run --cwd apps/www next dev -p 3051"
+      ],
+      "port": 3051
     }
   ]
 }

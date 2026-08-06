@@ -2,24 +2,6 @@ import { describe, expect, it } from "vitest";
 import ar from "../../src/messages/ar.json";
 import en from "../../src/messages/en.json";
 
-/**
- * `CONSTITUTION.md` §8 lists "ar and en at string parity" under **Done means**,
- * but the requirement was never automated anywhere in this repo — apps/www has
- * sixteen unit tests and none of them check it. This is that test.
- *
- * The TYPE system already catches one direction: `Messages` is derived from the
- * English dictionary and the Arabic one is asserted against it, so a key that
- * exists in `en` and is missing from `ar` fails `check-types`. It cannot catch:
- *
- *   - a key in `ar` that never reached `en` (structurally invisible to a cast);
- *   - a key present in both but left as the English string in `ar`, which is
- *     untranslated copy shipping silently in the product's PRIMARY language;
- *   - an empty string, which renders as a blank element rather than an error.
- *
- * The runtime merge in `src/i18n/request.ts` deep-merges Arabic over English,
- * so every one of those failures degrades quietly to English rather than
- * throwing. That is the right runtime behaviour and exactly why it needs a test.
- */
 
 type Dict = Record<string, unknown>;
 
@@ -39,15 +21,7 @@ function flatten(obj: Dict, prefix = ""): Map<string, string> {
 const arFlat = flatten(ar as Dict);
 const enFlat = flatten(en as Dict);
 
-/**
- * Strings that are legitimately identical across locales. Each needs a reason —
- * the point of the allowlist is that adding to it is a decision, not a way to
- * silence the test.
- */
 const IDENTICAL_BY_DESIGN = new Set<string>([
-  // The language switcher labels each language in its OWN script, so the
-  // Arabic dictionary's "English" and the English dictionary's "العربية" are
-  // supposed to match across files.
   "nav.switchToArabic",
   "nav.switchToEnglish",
 ]);
@@ -82,18 +56,8 @@ describe("i18n parity", () => {
   });
 
   it("no Arabic value contains Latin-script letters outside an allowlisted key", () => {
-    // Catches copy that was half-translated — an Arabic sentence with an
-    // English word left inside it.
-    //
-    // Technical identifiers are removed BEFORE the check rather than the whole
-    // string being allowlisted, so a genuine untranslated sentence around a
-    // legitimate term is still caught. CONSTITUTION.md §6.1 covers this case
-    // directly: a genuinely Latin string inside an Arabic page keeps the Latin
-    // form, "because the reason for the Latin form is the SCRIPT, not the
-    // language setting". Translating `PostgreSQL` or `REVOKE UPDATE, DELETE`
-    // would make the copy WRONG, not more Arabic.
     const TECHNICAL = [
-      /REVOKE\s+UPDATE,\s*DELETE/g, // the actual SQL grant the claim rests on
+      /REVOKE\s+UPDATE,\s*DELETE/g,
       /PostgreSQL/g,
       /\bSQL\b/g,
       /\bAPI\b/g,

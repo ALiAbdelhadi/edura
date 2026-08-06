@@ -1,9 +1,5 @@
 import { defineConfig } from "@playwright/test";
 
-/**
- * Verification pass over apps/showcase (Phase 6). Points at the showcase's own
- * dev/prod server, not at apps/www.
- */
 export default defineConfig({
   testDir: ".",
   testMatch: /verify\.spec\.ts/,

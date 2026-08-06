@@ -57,6 +57,10 @@ const BAR_ORDER = [
   "/dashboard/admin/expenses",
   "/dashboard/admin/reports",
   "/dashboard/admin/staff",
+  // Desk work, like Staff above it: the audit log is something a center admin
+  // goes looking for at a keyboard, never mid-floor. Late in "more" — but
+  // listed, because an unlisted href is a screen no phone can open at all.
+  "/dashboard/admin/audit",
   "/dashboard/admin/notifications",
   "/dashboard/admin/settings",
 ];

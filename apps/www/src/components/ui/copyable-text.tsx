@@ -11,6 +11,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React from "react";
+
 type CopyableTextProps = {
   value?: string | number | null;
   label?: string;

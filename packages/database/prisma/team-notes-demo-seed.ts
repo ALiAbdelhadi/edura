@@ -1,45 +1,13 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * TEAM NOTES DEMO SEED — throwaway is_demo data for previewing the team-notes
- * board (the internal staff/assistant to-do board, approved 2026-07-27).
- * ============================================================================
- * Builds ONE center team and ONE teacher team so both board kinds render
- * populated, with every status + read-receipt state visible at a glance:
- *
- *   Center «سنتر المستقبل»                Teacher team
- *     owner   : Nadia (center_admin)        teacher   : Fathy
- *     staff   : Heba  (receptionist)        assistants: Dina, Karim
- *               Sayed (manager)
- *               Afaf  (center_accountant — read-only on the board)
- *
- *   Notes cover: pinned open, plain open, done (with statusChangedBy),
- *   declined, and mixed read receipts (some members have read, some haven't).
- *
- * SAFETY (same contract as messaging-demo-seed.ts):
- *   • Every ROOT entity (User / Center) is flagged isDemo = true; the notes
- *     inherit demo-ness by ancestry (decision #6 — no isDemo column needed).
- *   • ZERO writes to any money / ledger / wallet table.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *
- * Idempotent: deterministic ids, re-run safely.
- *
- *   Seed:  bunx tsx --env-file=.env prisma/team-notes-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env prisma/team-notes-demo-seed.ts --purge
- * ============================================================================
- */
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
+import type { Role, TeamNoteStatus } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
-import type { Role, TeamNoteStatus } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const MIN = 60 * 1000;
 
-// Deterministic UUIDv5 via the shared generator (H-03: never hand-rolled).
 const did = seedId("edura-teamnotesdemo:");
 const ago = (m: number) => new Date(Date.now() - m * MIN);
 
@@ -51,7 +19,6 @@ const P = (key: string, name: string, role: Role): Person => ({
   role,
 });
 
-// ---- the cast --------------------------------------------------------------
 const NADIA = P("nadia", "نادية عبد الرحمن", "center_admin");
 const HEBA = P("heba", "هبة سمير", "center_staff");
 const SAYED = P("sayed", "سيد فوزي", "center_staff");
@@ -62,7 +29,6 @@ const KARIM = P("karim", "كريم عادل", "assistant");
 
 const ALL = [NADIA, HEBA, SAYED, AFAF, FATHY, DINA, KARIM];
 
-// Natural keys — stable across any id-formula change (H-03 purge lesson).
 const email = (p: Person) => `teamnotesdemo-${p.key}@edura.test`;
 const EMAILS = ALL.map(email);
 const CENTER_SHORT_ID = "NOTESDEMO01";
@@ -71,7 +37,6 @@ const CENTER = did("center:notes");
 async function purge() {
   console.log("Purging team-notes demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve by NATURAL keys, not derived ids (see messaging-demo-seed purge).
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -82,7 +47,6 @@ async function purge() {
     });
     const centerIds = centers.map((c) => c.id);
 
-    // Notes of both boards (reads cascade via FK).
     const notes = await tx.teamNote.findMany({
       where: {
         OR: [
@@ -103,8 +67,6 @@ async function purge() {
     await tx.centerAdminProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -131,7 +93,6 @@ async function main() {
   console.log("Seeding team-notes demo…");
 
   await withPlatformContext(async (tx) => {
-    // ---- users -----------------------------------------------------------
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
@@ -149,7 +110,6 @@ async function main() {
       });
     }
 
-    // ---- the center team ---------------------------------------------------
     await tx.center.upsert({
       where: { id: CENTER },
       update: { isDemo: true },
@@ -179,7 +139,6 @@ async function main() {
       });
     }
 
-    // ---- the teacher team ----------------------------------------------------
     await tx.teacherProfile.upsert({
       where: { userId: FATHY.id },
       update: {},
@@ -199,7 +158,6 @@ async function main() {
       });
     }
 
-    // ---- notes: every state visible at a glance ---------------------------
     type NoteSpec = {
       key: string;
       centerId?: string;
@@ -251,7 +209,6 @@ async function main() {
         minutesAgo: 60 * 44,
         readers: [NADIA, SAYED],
       },
-      // Teacher board.
       {
         key: "t-pinned",
         teacherId: FATHY.id,
@@ -305,7 +262,6 @@ async function main() {
           createdAt: ago(n.minutesAgo),
         },
       });
-      // Read receipts: author + the listed readers.
       const readerIds = [n.author, ...n.readers].map((p) => p.id);
       await tx.teamNoteRead.createMany({
         data: readerIds.map((userId) => ({ noteId: id, userId })),

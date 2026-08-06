@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 import { StatCard } from "@/components/kit/stat-card";
 import { StatusBadge } from "@/components/kit/status-badge";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
@@ -28,9 +29,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
-import { useRouter } from "@/i18n/navigation";
 import type { ReactNode } from "react";
 
 function formatSchedule(

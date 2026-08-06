@@ -1,51 +1,13 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * SHOWCASE DEMO SEED — the center that appears in every marketing screenshot.
- * ============================================================================
- * Feeds `apps/showcase`'s Phase 2 asset pipeline: a single, coherent, populated
- * center that makes EVERY role's screens render with realistic content, in both
- * locales, so nothing on the marketing site is an empty state or a mockup.
- *
- * «سنتر النيل التعليمي» — six roles, three halls covering all three pricing
- * shapes, four courses, eight weeks of sessions (past AND upcoming), attendance
- * in every status the engine can produce, grades, materials, team notes and
- * parent links in every state.
- *
- * ── SAFETY (approved 2026-08-02, same contract as the other demo seeds) ──────
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true;
- *     children inherit demo-ness by ancestry (decision #6).
- *   • ZERO writes to any money / ledger / wallet table — no Transaction, no
- *     Payment, no Invoice, no Payout, no WalletLedger, no ParentWalletLedger,
- *     no PointsLedger, no SessionSettlement. Those tables are append-only, so a
- *     row written here could never be purged again.
- *     Consequence, and it is deliberate: the finance screens are EMPTY for this
- *     center until a real payment flow is run by hand in the preview. Every
- *     money figure that reaches the marketing site therefore came out of the
- *     real settlement engine, which is the entire claim the site is making.
- *   • Sessions are left `scheduled`/`completed` with `distributedAt` NULL —
- *     completing one through the API is what writes money, and that is a
- *     preview action, not a seed action.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *   • dev/test only — `assertNotProduction` refuses production by label.
- *
- * Idempotent: deterministic UUIDv5 ids, re-run safely.
- *
- *   Seed:  bun run seed:showcase-demo
- *   Purge: bun run seed:showcase-demo --purge
- * ============================================================================
- */
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
-import { prisma, withPlatformContext, type TenantTx } from "../src/index";
-import { seedId } from "./seed-ids";
 import type {
   AttendanceStatus,
   CenterStaffRole,
   Role,
   RoomPricingMethod,
 } from "../src/generated/client/index";
+import { prisma, withPlatformContext, type TenantTx } from "../src/index";
+import { seedId } from "./seed-ids";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
@@ -53,7 +15,6 @@ const PURGE = process.argv.includes("--purge");
 const DAY = 24 * 60 * 60 * 1000;
 const did = seedId("edura-showcasedemo:");
 
-/** Piasters. Kept as whole EGP × 100 so every figure reads cleanly on screen. */
 const EGP = (pounds: number) => Math.round(pounds * 100);
 
 const daysFromNow = (d: number) => new Date(Date.now() + d * DAY);
@@ -65,10 +26,6 @@ const P = (key: string, name: string, role: Role): Person => ({
   name,
   role,
 });
-
-// ── The cast ────────────────────────────────────────────────────────────────
-// Deliberately invented names. No real person, center or phone number appears
-// in this file, and none may be added to it.
 
 const OWNER = P("marwan", "مروان الشناوي", "center_admin");
 
@@ -122,16 +79,11 @@ const ALL: Person[] = [
   ...STUDENTS,
 ];
 
-// Natural keys — stable across any id-formula change (the H-03 purge lesson:
-// resolve fixtures by natural key, never by a derived id).
 const email = (p: Person) => `showcasedemo-${p.key}@edura.test`;
 const EMAILS = ALL.map(email);
 const CENTER_SHORT_ID = "SHOWCASE01";
 const CENTER = did("center:nile");
 
-// ── Halls ───────────────────────────────────────────────────────────────────
-// Three, chosen so the three pricing shapes are all visible on one screen:
-// whole-room %, per-attending-student, and a hall that permits both.
 const ROOMS: {
   key: string;
   name: string;
@@ -140,35 +92,32 @@ const ROOMS: {
   methods: RoomPricingMethod[];
   description: string;
 }[] = [
-  {
-    key: "nile",
-    name: "قاعة النيل",
-    capacity: 40,
-    price: EGP(600),
-    methods: ["whole_room_percent"],
-    description: "القاعة الكبرى — سبورة ذكية وتكييف مركزي.",
-  },
-  {
-    key: "amal",
-    name: "قاعة الأمل",
-    capacity: 24,
-    price: null,
-    methods: ["per_attending_student"],
-    description: "قاعة متوسطة بنظام المحاسبة لكل طالب حاضر.",
-  },
-  {
-    key: "teeba",
-    name: "قاعة طيبة",
-    capacity: 30,
-    price: EGP(450),
-    methods: ["whole_room_percent", "per_attending_student"],
-    description: "قاعة مرنة — المدرّس يختار طريقة الحساب وقت الحجز.",
-  },
-];
+    {
+      key: "nile",
+      name: "قاعة النيل",
+      capacity: 40,
+      price: EGP(600),
+      methods: ["whole_room_percent"],
+      description: "القاعة الكبرى — سبورة ذكية وتكييف مركزي.",
+    },
+    {
+      key: "amal",
+      name: "قاعة الأمل",
+      capacity: 24,
+      price: null,
+      methods: ["per_attending_student"],
+      description: "قاعة متوسطة بنظام المحاسبة لكل طالب حاضر.",
+    },
+    {
+      key: "teeba",
+      name: "قاعة طيبة",
+      capacity: 30,
+      price: EGP(450),
+      methods: ["whole_room_percent", "per_attending_student"],
+      description: "قاعة مرنة — المدرّس يختار طريقة الحساب وقت الحجز.",
+    },
+  ];
 
-// ── Courses ─────────────────────────────────────────────────────────────────
-// Catalog subject/grade are resolved by CODE at runtime so the seed follows the
-// real catalog rather than hard-coding ids that differ per environment.
 const COURSES = [
   {
     key: "physics-3sec",
@@ -177,7 +126,7 @@ const COURSES = [
     room: "nile",
     subjectCode: "physics",
     gradeCode: "general-secondary-3",
-    daysOfWeek: [6, 2], // Saturday, Tuesday
+    daysOfWeek: [6, 2],
     startTime: "16:00",
     endTime: "18:00",
     perMonth: EGP(900),
@@ -192,7 +141,7 @@ const COURSES = [
     room: "amal",
     subjectCode: "chemistry",
     gradeCode: "general-secondary-3",
-    daysOfWeek: [0, 3], // Sunday, Wednesday
+    daysOfWeek: [0, 3],
     startTime: "18:30",
     endTime: "20:00",
     perMonth: EGP(800),
@@ -207,7 +156,7 @@ const COURSES = [
     room: "teeba",
     subjectCode: "math",
     gradeCode: "general-secondary-2",
-    daysOfWeek: [1, 4], // Monday, Thursday
+    daysOfWeek: [1, 4],
     startTime: "15:00",
     endTime: "17:00",
     perMonth: EGP(750),
@@ -232,14 +181,6 @@ const COURSES = [
   },
 ];
 
-/**
- * Attendance pattern per student index within a completed session.
- *
- * `counter_only` is the one worth seeding deliberately: it is the student who
- * passed the front desk but never reached the hall, and the whole point of the
- * two-stage mode is that they are visibly NOT present. A screenshot that never
- * shows one would misrepresent the feature.
- */
 const ATTENDANCE_CYCLE: AttendanceStatus[] = [
   "present",
   "present",
@@ -278,7 +219,6 @@ async function purge() {
     });
     const sessionIds = sessions.map((s) => s.id);
 
-    // Children first — these carry FKs into the rows deleted below.
     await tx.attendanceRecord.deleteMany({ where: { sessionId: { in: sessionIds } } });
     await tx.gradeScore.deleteMany({ where: { studentId: { in: ids } } });
     await tx.grade.deleteMany({ where: { courseId: { in: courseIds } } });
@@ -310,9 +250,6 @@ async function purge() {
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
 
-    // Raw hard delete: `user.deleteMany` is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run) — the exact trap
-    // that made earlier demo purges silent no-ops.
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -328,19 +265,6 @@ async function purge() {
   });
 }
 
-/**
- * Each phase is its OWN transaction.
- *
- * The first draft did all of this in one `withPlatformContext`, which is how
- * the other demo seeds are written — and it died on Prisma's 20s interactive
- * transaction limit at ~300 sequential round trips against remote Neon. Raising
- * the timeout would have "fixed" it by holding write locks on a shared dev
- * database for minutes while other worktrees are running against it, so the
- * work is split instead and the bulk rows go in as batches.
- *
- * Phases are independently idempotent, so a failure part-way through is
- * resumable by re-running rather than by purging first.
- */
 async function phase<T>(name: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
   const started = Date.now();
   const result = await withPlatformContext(fn, { timeout: 30_000 });
@@ -358,8 +282,6 @@ async function main() {
 
   const hash = await bcrypt.hash(PASSWORD, 10);
   console.log("Seeding showcase demo…");
-
-  // ── catalog lookups (READ ONLY) ─────────────────────────────────────────
   const catalog = await phase("catalog", async (tx) => {
     const system = await tx.educationSystem.findFirst({ where: { code: "general" } });
     if (!system) throw new Error("Catalog missing: run `bun run seed` first.");
@@ -380,9 +302,6 @@ async function main() {
     return { system, gradeByCode, subjectByCode };
   });
 
-  // ── users ───────────────────────────────────────────────────────────────
-  // Upserted in slices: 33 users is already most of a transaction budget on
-  // its own when each row is a separate round trip.
   for (let i = 0; i < ALL.length; i += 12) {
     const slice = ALL.slice(i, i + 12);
     await phase(`users ${i + 1}–${i + slice.length}`, async (tx) => {
@@ -406,7 +325,6 @@ async function main() {
     });
   }
 
-  // ── center, staff, halls ────────────────────────────────────────────────
   const roomIds = await phase("center + staff + halls", async (tx) => {
     await tx.center.upsert({
       where: { id: CENTER },
@@ -469,8 +387,6 @@ async function main() {
     }
     return ids;
   });
-
-  // ── teachers, assistants, affiliations ──────────────────────────────────
   await phase("teachers + assistants", async (tx) => {
     for (const t of TEACHERS) {
       await tx.teacherProfile.upsert({
@@ -481,9 +397,6 @@ async function main() {
           bio: "مدرّس بخبرة في المرحلة الثانوية.",
           experienceYears: 8,
           onboardingCompleted: true,
-          // The two-stage door check-in is per-teacher, so ONE teacher runs it
-          // and the others do not — a screenshot set where everyone is
-          // identical would misrepresent the setting as global.
           attendanceMode: t.key === "hossam" ? "counter_and_door" : "counter_only",
           walletBalance: 0,
         },
@@ -517,12 +430,6 @@ async function main() {
     }
   });
 
-  // ── students ────────────────────────────────────────────────────────────
-  // Ages and guardian contacts are deliberately mixed: most are minors with an
-  // approved guardian, two have NO guardian email (so the child-safety gate is
-  // visibly ACTIVE on a real screen), one is a verified adult. A cohort where
-  // every student looks identical would hide the feature the /parents page is
-  // built around.
   const sec3 = catalog.gradeByCode.get("general-secondary-3")!;
   const sec2 = catalog.gradeByCode.get("general-secondary-2")!;
 
@@ -553,7 +460,6 @@ async function main() {
               ? `showcasedemo-guardian-${idx + 1}@edura.test`
               : null,
             guardianEmailAddedAt: hasGuardianEmail ? daysFromNow(-45) : null,
-            // Never reset by a re-send; only set when we learn there is none.
             guardianContactDueAt: hasGuardianEmail ? null : daysFromNow(6),
             pointsBalance: 0,
             walletBalance: 0,
@@ -574,10 +480,6 @@ async function main() {
     });
   }
 
-  // ── parents + links ─────────────────────────────────────────────────────
-  // Link states cover approved / pending / revoked, because parent oversight
-  // behaves differently in each and /parents presents those limits AS the
-  // feature rather than as restrictions.
   await phase("parents + links", async (tx) => {
     for (const p of PARENTS) {
       await tx.parentProfile.upsert({
@@ -611,12 +513,6 @@ async function main() {
     }
   });
 
-  // ── one transaction per course ──────────────────────────────────────────
-  // Course + enrollments + 8 weeks of sessions + attendance + gradebook +
-  // materials. The bulk rows are delete-then-createMany rather than N upserts:
-  // one round trip instead of ~90, which is what keeps a course inside the
-  // transaction budget. Safe because every row deleted is scoped to this
-  // course, which this seed owns outright.
   const totals = { sessions: 0, attendance: 0, grades: 0, materials: 0 };
 
   for (const c of COURSES) {
@@ -627,8 +523,6 @@ async function main() {
       const roomId = roomIds.get(c.room)!;
       const room = ROOMS.find((r) => r.key === c.room)!;
 
-      // A course carries ONE pricing method, snapshotted at creation —
-      // changing the hall's rate later never re-prices a running course.
       const pricingMethod: RoomPricingMethod = room.methods.includes("per_attending_student")
         ? "per_attending_student"
         : "whole_room_percent";
@@ -656,7 +550,6 @@ async function main() {
           pricePerMonth: c.perMonth,
           pricePerSession: c.perSession,
           pricingMethod,
-          // The 3-way split snapshot the settlement engine reads. Basis points.
           splitPlatformBp: 1000,
           splitTeacherBp: isPercent ? 6500 : null,
           splitCenterBp: isPercent ? 2500 : null,
@@ -683,8 +576,6 @@ async function main() {
         skipDuplicates: true,
       });
 
-      // Eight weeks: four already completed (so attendance history and the
-      // register render) and four upcoming (so the schedule renders).
       const sessions: {
         id: string;
         date: Date;
@@ -733,16 +624,10 @@ async function main() {
         .flatMap((s) =>
           students.map((student, n) => {
             const raw = ATTENDANCE_CYCLE[(n + s.weekOffset + 8) % ATTENDANCE_CYCLE.length]!;
-            // `counter_only` can only OCCUR in two-stage mode. In single-stage
-            // mode the counter check-in IS the attendance, so the same student
-            // resolves to present rather than to a status the engine could not
-            // have produced there.
             const status: AttendanceStatus =
               doorMode || raw !== "counter_only" ? raw : "present";
             const counterAt =
               status === "absent" ? null : new Date(s.date.getTime() - 15 * 60 * 1000);
-            // Two-stage `counter_only` is precisely "reached the desk, never
-            // reached the hall": a counter stamp and NO door stamp.
             const doorAt =
               doorMode && counterAt && status !== "counter_only"
                 ? new Date(s.date.getTime() - 2 * 60 * 1000)
@@ -767,9 +652,6 @@ async function main() {
       await tx.attendanceRecord.createMany({ data: attendance, skipDuplicates: true });
       totals.attendance += attendance.length;
 
-      // Gradebook. Scores are spread across the band on purpose: a column where
-      // every student sits at 90% shows nothing about the screen's actual job,
-      // which is making an outlier findable in a long list.
       const GRADES = [
         { key: "quiz1", name: "اختبار الباب الأول", max: 20, daysAgo: 28 },
         { key: "midterm", name: "امتحان منتصف الترم", max: 50, daysAgo: 14 },
@@ -817,8 +699,6 @@ async function main() {
           teacherId: c.teacher.id,
           title: m.title,
           type: m.type,
-          // `external`, not `cloudinary`: the seed must not imply an uploaded
-          // asset that does not exist in the media account.
           storageProvider: "external" as const,
           externalUrl: "https://example.invalid/showcase-demo.pdf",
           fileSizeBytes: 248_000,
@@ -829,7 +709,6 @@ async function main() {
     });
   }
 
-  // ── team notes (center board + teacher board) ───────────────────────────
   const NOTES = [
     {
       key: "c-pinned",
@@ -927,11 +806,6 @@ async function main() {
   console.log("Run a real payment flow in the preview to produce ledger figures.");
 }
 
-/**
- * The date of `dayOfWeek` in the week `weekOffset` weeks from this one, at
- * midday UTC. Midday avoids a session silently landing on the previous day
- * once Africa/Cairo's offset is applied.
- */
 function nextWeekday(dayOfWeek: number, weekOffset: number): Date {
   const base = new Date();
   base.setUTCHours(12, 0, 0, 0);

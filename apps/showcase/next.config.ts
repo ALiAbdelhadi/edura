@@ -1,3 +1,4 @@
+import path from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
@@ -43,6 +44,17 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@repo/ui"],
+
+  // Pin the module-graph root to THIS workspace. Git worktrees live inside the
+  // repo at `<repo>/.claude/worktrees/*`, so an unpinned root makes a worktree's
+  // dev server walk up and adopt the MAIN checkout as its root — it then
+  // resolves a second copy of `next` and hands the browser two incompatible
+  // module-id namespaces on one origin ("module factory is not available").
+  // It also makes the server watch every sibling worktree.
+  turbopack: {
+    root: path.join(__dirname, "..", ".."),
+  },
+
   images: {
     // Every image is local and pre-optimised by the Phase 2 pipeline; these
     // formats let next/image still serve the smaller variant per browser.

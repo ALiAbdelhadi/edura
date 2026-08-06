@@ -1,11 +1,3 @@
-/**
- * In-memory presence registry: userId → live socket ids. A user is "online"
- * while they have at least one connected socket (multi-tab safe).
- *
- * Single-instance by design for now. To scale horizontally, move this to the
- * Socket.IO Redis adapter + a shared presence hash — the interface below is
- * the only thing the rest of the server touches.
- */
 export class PresenceRegistry {
   private readonly sockets = new Map<string, Set<string>>();
 

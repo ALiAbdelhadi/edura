@@ -1,23 +1,15 @@
 "use client";
 
 import { Container } from "@/components/kit/container";
-import { DURATION } from "@/lib/motion/runtime";
+import type { Locale } from "@/lib/i18n";
 import { reveal, unhide } from "@/lib/motion/reveal";
+import { DURATION } from "@/lib/motion/runtime";
 import { splitHeadline } from "@/lib/motion/split-text";
 import { useScene } from "@/lib/motion/use-scene";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { useLocale } from "next-intl";
 import type { ReactNode } from "react";
-import type { Locale } from "@/lib/i18n";
 
-/**
- * The top of every role page.
- *
- * The headline is split by WORD and rises from behind a clipped edge — never by
- * character, which would break Arabic's cursive joins (D-046). The split
- * granularity is not a prop here; it is fixed in `splitHeadline`, so no page can
- * opt into the broken form.
- */
 export function PageHero({
   eyebrow,
   title,
@@ -29,7 +21,6 @@ export function PageHero({
   title: string;
   body: string;
   media?: ReactNode;
-  /** The role's colour, used for the rule above the eyebrow. */
   tone?: string;
 }) {
   const locale = useLocale() as Locale;
@@ -62,12 +53,11 @@ export function PageHero({
             <div data-eyebrow data-reveal className="flex items-center gap-3">
               <span
                 aria-hidden
-                className="inline-block h-5 w-[3px] rounded-full"
+                className="inline-block h-5 w-0.75 rounded-full"
                 style={{ backgroundColor: `var(${tone})` }}
               />
               <Eyebrow locale={locale}>{eyebrow}</Eyebrow>
             </div>
-
             <h1
               data-split
               data-reveal
@@ -76,7 +66,6 @@ export function PageHero({
             >
               {title}
             </h1>
-
             <p
               data-sub
               data-reveal
@@ -86,7 +75,6 @@ export function PageHero({
               {body}
             </p>
           </div>
-
           {media ? (
             <div data-media data-reveal>
               {media}

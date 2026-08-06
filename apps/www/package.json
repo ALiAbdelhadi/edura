@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
-    "dev:pwa": "SERWIST_DEV=1 next dev -p 3002 --webpack",
+    "dev": "next dev -p ${WWW_PORT:-3002}",
+    "dev:pwa": "SERWIST_DEV=1 next dev -p ${WWW_PORT:-3002} --webpack",
     "build": "next build --webpack",
     "start": "bun --bun next start -p 3003",
     "lint": "eslint .",

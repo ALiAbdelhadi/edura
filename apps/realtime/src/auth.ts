@@ -1,5 +1,5 @@
-import { jwtVerify } from "jose";
 import type { Role } from "@repo/database";
+import { jwtVerify } from "jose";
 import { env, JWT_AUDIENCE, JWT_ISSUER } from "./env";
 
 export type SocketUser = {
@@ -11,11 +11,6 @@ export type SocketUser = {
 
 const secretKey = new TextEncoder().encode(env.jwtSecret);
 
-/**
- * Verifies the short-lived handshake token minted by Next.js. Everything the
- * server trusts about the socket (identity, role) comes from HERE — never from
- * client-supplied payload fields.
- */
 export async function verifySocketToken(token: string): Promise<SocketUser> {
   const { payload } = await jwtVerify(token, secretKey, {
     audience: JWT_AUDIENCE,

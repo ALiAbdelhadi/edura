@@ -72,10 +72,6 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setNotFoundEmail(null);
-    // Drop any previous account's role hint BEFORE authenticating. Signing in
-    // as a different user on the same device (a student and a parent sharing a
-    // phone is routine here) otherwise leaves the old role in `edura_state`,
-    // and /dashboard routes off that hint without verifying it.
     try {
       localStorage.removeItem("edura_state");
     } catch {}
@@ -100,8 +96,6 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      // Password correct but TOTP enabled: the twoFactorClient plugin's
-      // onTwoFactorRedirect handles navigation — stop here.
       if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
         return;
       }
@@ -150,11 +144,8 @@ export default function LoginPage() {
           {t("auth.signInSubtitle")}
         </p>
       </div>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          {/* Not-registered is guidance, not failure: indigo panel, sign-up
-              CTA, the typed email carried into the register form. */}
           {notFoundEmail ? (
             <div
               role="status"
@@ -180,9 +171,6 @@ export default function LoginPage() {
               </Link>
             </div>
           ) : null}
-
-          {/* A failed sign-in is a blocking state, so it carries the red — but
-              bordered, not filled. */}
           {error ? (
             <p
               role="alert"
@@ -205,12 +193,10 @@ export default function LoginPage() {
               <FormItem>
                 <FormLabel style={{ color: "var(--ink-2)" }}>{t("auth.email")}</FormLabel>
                 <FormControl>
-                  {/* An email is Latin data: mono, isolated LTR, so it reads
-                      correctly inside an Arabic form. */}
                   <Input
                     type="email"
                     dir="ltr"
-                    className="font-[family-name:var(--ledger-mono)]"
+                    className="font-(family-name:--ledger-mono)"
                     placeholder={t("auth.emailPlaceholder")}
                     autoComplete="email"
                     {...field}

@@ -14,7 +14,6 @@ import { VIEWPORTS } from "./playwright.config";
 
 const OUT_ROOT = path.resolve(__dirname, "../../public/shots");
 
-/** Written alongside the PNGs so a reviewer can see what produced them. */
 const manifest: {
   role: Role;
   locale: Locale;
@@ -25,20 +24,10 @@ const manifest: {
   note?: string;
 }[] = [];
 
-/**
- * Screenshots race two things that are invisible in a passing run and obvious
- * in a bad asset: a skeleton that has not resolved, and a font that has not
- * swapped. Both are waited on explicitly rather than with a sleep.
- */
 async function settle(page: Page) {
   await page.waitForLoadState("networkidle").catch(() => {
-    // networkidle never fires on pages holding a socket open (messaging, and
-    // any screen rendering the chat panel). Falling through is correct — the
-    // data wait below is the real signal.
   });
   await page.evaluate(() => document.fonts.ready);
-  // Any remaining skeletons/spinners should be gone. Best-effort: a screen with
-  // no skeleton markup resolves immediately.
   await page
     .waitForFunction(
       () =>
@@ -59,7 +48,6 @@ const DEVICES = [
 for (const role of ROLES) {
   test.describe(`${role}`, () => {
     for (const device of DEVICES) {
-      // Only the phone-first portals get a mobile pass — see MOBILE_ROLES.
       if (device.name === "mobile" && !MOBILE_ROLES.includes(role)) continue;
 
       for (const locale of LOCALES) {
@@ -69,13 +57,10 @@ for (const role of ROLES) {
             height: device.viewport.height,
           },
           deviceScaleFactor: device.viewport.scale,
-          // Touch + mobile UA so the app takes its phone branch (bottom nav)
-          // rather than rendering the desktop layout at a narrow width.
           isMobile: device.name === "mobile",
           hasTouch: device.name === "mobile",
         });
 
-        // The saved session for this role, minted once by the setup project.
         test.use({ storageState: statePath(role) });
 
         test(`${role} · ${locale} · ${device.name}`, async ({ page }) => {
@@ -88,37 +73,17 @@ for (const role of ROLES) {
               waitUntil: "domcontentloaded",
             });
 
-            // A 4xx/5xx here means the manifest names a route that no longer
-            // exists — fail loudly rather than shipping a screenshot of an error
-            // page onto a marketing site.
             expect(
               response?.status() ?? 0,
               `${url} returned ${response?.status()}`,
             ).toBeLessThan(400);
 
-            // Landing back on /login means the session was lost mid-run; the
-            // resulting shot would be a login page filed under a role folder.
             expect(page.url(), `${url} bounced to login`).not.toMatch(
               /\/login/,
             );
 
             await settle(page);
-
-            // A 200 is not proof the screen WORKED. Next renders its error
-            // boundary inside a successful response, so a crashed screen looks
-            // identical to a healthy one at the HTTP layer — and the resulting
-            // screenshot went onto a marketing page showing a red warning
-            // triangle over the raw strings "shared.errorTitle /
-            // shared.errorBody / shared.errorRetry". Caught by eye, which is
-            // exactly the check that does not scale, hence this one.
             const broken = await page.evaluate(() => {
-              // An unresolved next-intl key renders as its own dotted path and
-              // NOTHING ELSE — it is the entire text of the heading, paragraph
-              // or button that was meant to hold the copy. Matching the dotted
-              // shape anywhere in the body text instead flagged the demo email
-              // domain `edura.test` on every roster screen, so the check is
-              // anchored to a whole element's text and skips anything holding
-              // an `@`.
               const KEY = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$/;
               const rawKeys = [...document.querySelectorAll("h1,h2,h3,p,button,a,span,li")]
                 .map((el) => (el.textContent ?? "").trim())
@@ -171,8 +136,6 @@ test.afterAll(async () => {
     path.join(OUT_ROOT, "manifest.json"),
     `${JSON.stringify(
       {
-        // Stamped by the runner, not by the script — Date is unavailable to
-        // workflow scripts and a checked-in timestamp would churn every run.
         source: "apps/showcase/tools/capture",
         viewports: VIEWPORTS,
         shots: manifest.sort(

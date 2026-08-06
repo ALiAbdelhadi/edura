@@ -6,30 +6,10 @@ import { useLocale } from "next-intl";
 import { useRef } from "react";
 import type { Locale } from "@/lib/i18n";
 
-/**
- * Figures that count up as they arrive.
- *
- * WHAT MAY AND MAY NOT APPEAR HERE (binding)
- * ----------------------------------------------------------------------------
- * Only values that are DERIVED — computed on screen from an arithmetic the
- * reader can follow, or counted from the seeded demo center. Never an adoption
- * claim ("10,000 students"), because no such number exists anywhere in this
- * repo to cite and inventing one is the single easiest way to make every other
- * claim on the site suspect.
- *
- * The count-up is the one animation D-044 buys here, and it buys it for a
- * reason: these figures are DERIVED, so watching them resolve is watching the
- * derivation happen. A number that was simply typed would not earn it.
- *
- * Figures use `<Num>` — Latin digits, IBM Plex Mono, tabular, direction-isolated
- * — because they are data, exactly as in the product (CONSTITUTION.md §6.3).
- */
 export type Stat = {
   value: number;
-  /** Rendered after the figure: «حصة», «ج.م», «%». */
   suffix?: string;
   label: string;
-  /** Where the number comes from. Shown small, so a reader can check it. */
   source?: string;
 };
 
@@ -49,9 +29,6 @@ export function Counters({ stats }: { stats: readonly Stat[] }) {
         ease: "power2.out",
         scrollTrigger: { trigger: root, start: "top 78%", once: true },
         onUpdate: () => {
-          // Written straight to textContent rather than through React state:
-          // sixty re-renders a second for a number that is not application
-          // state would be pure waste.
           el.textContent = Math.round(box.n).toLocaleString(
             locale === "ar" ? "ar-EG-u-nu-latn" : "en-US",
           );
@@ -71,9 +48,6 @@ export function Counters({ stats }: { stats: readonly Stat[] }) {
         >
           <p className="flex items-baseline gap-1">
             <Num className="text-3xl font-semibold" style={{ color: "var(--ink)" }}>
-              {/* Server-rendered as the FINAL value, so a reader with no JS —
-                  or with reduced motion, where no timeline is ever built —
-                  sees the real figure rather than a zero. */}
               <span
                 ref={(el) => {
                   valueRefs.current[i] = el;

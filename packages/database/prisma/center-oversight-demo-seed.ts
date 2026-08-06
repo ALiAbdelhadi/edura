@@ -1,52 +1,9 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * CENTER-OVERSIGHT DEMO SEED — is_demo data so every oversight tab is populated
- * ============================================================================
- * Builds TWO complete centers so the superadmin center picker has something to
- * switch between and the per-center scoping is visible by inspection:
- *
- *   مركز الأفق التعليمي  (OVSDEMOHRZN)          مركز النيل الحديث (OVSDEMONILE)
- *     admin   : هالة                              admin   : مصطفى
- *     staff   : reception / manager / accountant   staff   : reception
- *     teachers: أ. شريف, أ. داليا                  teachers: أ. عادل
- *     rooms   : قاعة النور, قاعة الفجر             rooms   : قاعة السلام
- *     students: 6 on the roster                    students: 3
- *     courses : 2 (+ sessions, enrollments,        courses : 1
- *               subscriptions, attendance)
- *     pending : 1 collaboration request            pending : —
- *
- * The pending collaboration request exists so the approve/reject control op
- * can be exercised in the preview without touching real data.
- *
- * MONEY — read this before "fixing" the empty Finance tab:
- *   This seed writes ZERO rows to transactions, points_ledger, wallet_ledger,
- *   session_settlements, payments, payouts, invoices or expenses, and never
- *   touches any wallet_balance. That is the CLAUDE.md rule for a feature that
- *   is not itself a money feature — center oversight only READS money.
- *   Subscriptions are therefore seeded as `pending_payment`: coverage that was
- *   never paid for, which is the only honest state without a ledger entry.
- *   The Finance tab for these two demo centers is legitimately empty; open a
- *   center that has real settlement history to see it populated.
- *
- * SAFETY (same contract as the other demo seeds):
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • Real staff accounts are never touched.
- *   • assertNotProduction guards both the seed and the purge.
- *
- * Idempotent: deterministic UUIDv5 ids, re-run safely.
- *
- *   Seed:  bunx tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts
- *   Purge: bunx tsx --env-file=.env.local prisma/center-oversight-demo-seed.ts --purge
- * ============================================================================
- */
-import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
+import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
-import type { Role } from "../src/generated/client/index";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");

@@ -3,6 +3,8 @@
 import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { LedgerButton } from "@/components/ledger";
+import { Link } from "@/i18n/navigation";
+import { authClient } from "@/lib/auth/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EGYPT_PHONE_RE } from "@repo/server-core/validation/common";
 import {
@@ -26,9 +28,7 @@ import {
   User,
   UserPlus,
 } from "lucide-react";
-import { authClient } from "@/lib/auth/client";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";

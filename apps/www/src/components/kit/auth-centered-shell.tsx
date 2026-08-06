@@ -1,18 +1,10 @@
 "use client";
 
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { Sheet, ledgerMono, ledgerShellScope } from "@/components/ledger";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { GraduationCap } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 
-/**
- * The single-column auth shell (password reset flows), under the Ledger.
- *
- * Paper canvas, one `--sheet` card, brand block above it. Same treatment as
- * AuthShell so a user who clicks "Forgot password?" does not cross a design
- * boundary mid-flow — which is exactly what would have happened had login been
- * converted and these left behind.
- */
 export function AuthCenteredShell({ children }: { children: ReactNode }) {
   return (
     <div
@@ -31,7 +23,6 @@ export function AuthCenteredShell({ children }: { children: ReactNode }) {
             Edura
           </span>
         </div>
-        {/* Suspense because the switcher reads useSearchParams(). */}
         <Suspense fallback={null}>
           <LanguageSwitcher />
         </Suspense>

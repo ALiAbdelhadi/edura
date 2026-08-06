@@ -4,6 +4,7 @@ import { DescriptionList } from "@/components/kit/description-list";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { StatCard } from "@/components/kit/stat-card";
 import { StatusBadge } from "@/components/kit/status-badge";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
@@ -21,11 +22,8 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
-import { useRouter } from "@/i18n/navigation";
 import { useState } from "react";
-
 function formatSchedule(
   pattern: any,
   formatWeekdayShort: (dayIndex: number) => string,
@@ -175,7 +173,6 @@ export default function CourseDetailPage() {
         <ArrowLeft className="size-4 rtl:-scale-x-100" />
         {t("common.back")}
       </Button>
-
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -194,14 +191,11 @@ export default function CourseDetailPage() {
                 <StatusBadge tone="info">{course.subject}</StatusBadge>
                 {course.gradeTag && <StatusBadge tone="neutral">{course.gradeTag}</StatusBadge>}
               </div>
-
               {course.description && (
                 <p className="leading-relaxed text-muted-foreground">{course.description}</p>
               )}
-
               <DescriptionList columns={2} items={detailItems} />
             </div>
-
             <div className="space-y-4">
               <StatCard
                 label={t("publicCourse.remainingSeats")}

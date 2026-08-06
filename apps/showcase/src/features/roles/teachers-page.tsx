@@ -2,14 +2,13 @@
 
 import { FlowVideo } from "@/components/media/flow-video";
 import { Shot } from "@/components/media/shot";
+import { CapabilityGrid } from "@/components/scene/capability-grid";
 import { PageHero } from "@/components/scene/page-hero";
 import { Scene } from "@/components/scene/scene";
 import { SubNav } from "@/components/scene/sub-nav";
-import { CapabilityGrid } from "@/components/scene/capability-grid";
-import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { useLocale, useTranslations } from "next-intl";
 
-/** /teachers — leads with the recorded register, per the storyboard. */
 export function TeachersPage() {
   const t = useTranslations("teachers");
   const locale = useLocale() as Locale;

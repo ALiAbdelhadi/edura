@@ -81,12 +81,6 @@ export default function FilterBar({ searchField, facets = [], onFilterChange }: 
   const hasFilters = Object.values(currentValues).some(Boolean);
 
   return (
-    /* No external margin on the root. It previously carried `mb-4`, and because its
-       only consumer renders it inside <PageHeader actions> — a flex row with
-       `items-center` — that 16px bottom margin was included in the centring, pushing
-       the search field and the status filter ~8px ABOVE the button beside them. A
-       component cannot know what it will sit next to, so spacing belongs to the layout
-       that places it, never to the component itself. */
     <div className="flex flex-wrap items-center gap-2">
       {searchField && (
         <SearchInput

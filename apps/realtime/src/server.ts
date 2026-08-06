@@ -1,45 +1,21 @@
-// =============================================================================
-// Edura realtime chat server.
-//
-// A long-running Node.js process — deliberately OUTSIDE Next.js, because
-// serverless functions are short-lived and cannot hold WebSocket connections.
-// Next.js keeps serving the frontend + REST; this process handles:
-//   - authenticated Socket.IO connections (short-lived JWT handshake)
-//   - message fanout + persistence to Neon (via @repo/database; set
-//     DATABASE_DRIVER=pg in production for a node-postgres pool instead of
-//     the per-call Neon serverless driver)
-//   - typing indicators, read receipts, presence
-//   - /internal/* HTTP bridge so REST-sent messages still fan out live
-// =============================================================================
-import { env, corsOrigin } from "./env"; // MUST be first — loads DATABASE_URL for @repo/database
-import { createServer } from "node:http";
-import { Server, type Socket } from "socket.io";
-import { z } from "zod";
 import * as chat from "@repo/database/chat";
 import * as proto from "@repo/database/chat-protocol";
 import { checkRateLimit } from "@repo/server-core/rate-limit/token-bucket";
+import { createServer } from "node:http";
+import { Server, type Socket } from "socket.io";
+import { z } from "zod";
 import { verifySocketToken, type SocketUser } from "./auth";
-import { PresenceRegistry } from "./presence";
 import { chatDb, disconnectDb } from "./db";
+import { corsOrigin, env } from "./env";
 import { handleInternalRequest } from "./internal";
 import { notifyOffline } from "./notify";
+import { PresenceRegistry } from "./presence";
 
 const presence = new PresenceRegistry();
 
-/**
- * The socket send path was previously the ONLY unlimited one — it is the
- * PRIMARY path (REST is the fallback) and it never touches Next.js middleware,
- * so the route-level limiter could not see it. The domain layer now demands a
- * limiter at the type level and this is the socket's injection point; it shares
- * the same Redis buckets as REST, so a spammer cannot get a fresh allowance by
- * switching transport mid-flood.
- */
 const limiter: chat.ChatLimiter = (key, capacity, perMinute) =>
   checkRateLimit(key, capacity, perMinute);
 
-// ---------------------------------------------------------------------------
-// HTTP server: /healthz + /internal/* bridge; Socket.IO attaches on /socket.io
-// ---------------------------------------------------------------------------
 const httpServer = createServer((req, res) => {
   if (req.url === "/healthz") {
     res.writeHead(200, { "content-type": "application/json" });
@@ -55,16 +31,11 @@ const httpServer = createServer((req, res) => {
 
 const io = new Server(httpServer, {
   cors: { origin: corsOrigin, credentials: true },
-  // Keep payloads sane; chat messages are capped far below this anyway.
   maxHttpBufferSize: 64 * 1024,
 });
 
 const userRoom = (userId: string) => `user:${userId}`;
 
-// ---------------------------------------------------------------------------
-// Socket authentication — the ONLY source of identity. Every action below
-// uses socket.data.user; a client-supplied senderId is never read.
-// ---------------------------------------------------------------------------
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
@@ -78,9 +49,6 @@ io.use(async (socket, next) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Payload schemas — never trust client input shape.
-// ---------------------------------------------------------------------------
 const sendSchema = z
   .object({
     conversationId: z.uuid().optional(),
@@ -104,16 +72,12 @@ type Ack = (response: proto.SendMessageAck) => void;
 io.on("connection", (socket: Socket) => {
   const user = socket.data.user as SocketUser;
   void socket.join(userRoom(user.id));
-
-  // Per-socket membership cache so typing indicators don't hit the DB on
-  // every keystroke. Entries are validated once per conversation per socket.
-  const membership = new Map<string, string>(); // conversationId → partnerId
+  const membership = new Map<string, string>(); 
 
   const cameOnline = presence.add(user.id, socket.id);
 
   void (async () => {
     try {
-      // 1. Presence: tell my partners I'm online, tell me who's online.
       const partnerIds = await chatDb(user.id, (tx) =>
         chat.listPartnerIds(tx, user.id),
       );
@@ -130,9 +94,6 @@ io.on("connection", (socket: Socket) => {
           io.to(userRoom(pid)).emit(proto.EV_PRESENCE_UPDATE, update);
         }
       }
-
-      // 2. Delivered-on-connect sweep: everything sent to me while I was
-      //    offline becomes "delivered"; each sender gets a receipt.
       const groups = await chatDb(user.id, (tx) =>
         chat.markDeliveredForUser(tx, user.id),
       );
@@ -149,9 +110,6 @@ io.on("connection", (socket: Socket) => {
     }
   })();
 
-  // -------------------------------------------------------------------------
-  // message:send — persist, fan out, delivery-mark, offline-notify.
-  // -------------------------------------------------------------------------
   socket.on(proto.EV_MESSAGE_SEND, async (raw: unknown, ack?: Ack) => {
     const respond: Ack = typeof ack === "function" ? ack : () => {};
     const parsed = sendSchema.safeParse(raw);
@@ -187,8 +145,7 @@ io.on("connection", (socket: Socket) => {
           message,
           sender: { id: user.id, name: user.name, role: user.role },
         };
-        // Recipient (all tabs) + sender's other tabs. The sending tab gets
-        // the ack; clients dedupe by id/clientId.
+
         io.to(userRoom(recipientId)).emit(proto.EV_MESSAGE_NEW, event);
         socket.to(userRoom(user.id)).emit(proto.EV_MESSAGE_NEW, event);
 
@@ -226,9 +183,6 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // conversation:read — zero my counter, mark partner messages read, receipt.
-  // -------------------------------------------------------------------------
   socket.on(proto.EV_CONVERSATION_READ, async (raw: unknown) => {
     const parsed = readSchema.safeParse(raw);
     if (!parsed.success) return;
@@ -242,7 +196,6 @@ io.on("connection", (socket: Socket) => {
         readerId: user.id,
         readAt: receipt.readAt.toISOString(),
       };
-      // Partner sees the read receipt; my other tabs clear their badge.
       io.to(userRoom(receipt.otherUserId)).emit(
         proto.EV_CONVERSATION_READ_FANOUT,
         event,
@@ -255,9 +208,6 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // typing — volatile (droppable) fanout to the conversation partner only.
-  // -------------------------------------------------------------------------
   socket.on(proto.EV_TYPING, async (raw: unknown) => {
     const parsed = typingSchema.safeParse(raw);
     if (!parsed.success) return;
@@ -299,7 +249,6 @@ io.on("connection", (socket: Socket) => {
   });
 });
 
-// ---------------------------------------------------------------------------
 httpServer.listen(env.port, () => {
   console.log(`[realtime] listening on :${env.port}`);
   console.log(`[realtime] allowed origins: ${env.allowedOrigins.join(", ")}`);

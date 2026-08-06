@@ -2,6 +2,7 @@
 
 import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
@@ -20,7 +21,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Link, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 

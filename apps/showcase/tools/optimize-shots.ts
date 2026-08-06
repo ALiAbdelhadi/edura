@@ -1,26 +1,3 @@
-/**
- * ============================================================================
- * SHOT OPTIMISER — PNG → AVIF + WebP, and the sizes that keep the perf gate.
- * ============================================================================
- * Playwright writes 2× PNGs (~200 KB each, ~20 MB for a full run). Shipping
- * those is how a marketing site quietly becomes the heavy thing it is selling
- * against, so every capture is re-encoded here and the PNGs are treated as
- * intermediates that never reach `next/image`.
- *
- * Two formats, in the order next/image will offer them:
- *   • AVIF — smallest, and what a modern browser takes.
- *   • WebP — the fallback, universally supported.
- * The PNG is deliberately NOT deleted: it is the losslessly-captured original,
- * and re-encoding from a lossy intermediate on the next tweak would compound
- * artefacts. `public/shots/**` is gitignored except the encoded outputs.
- *
- * Two widths per shot:
- *   • 1440 — the CSS width the shot was taken at, so a full-bleed scene is 1:1.
- *   • 720  — for cards, device frames and the mobile layout.
- * Anything larger would only ever be downscaled by the browser.
- *
- *   bun run optimize:shots
- */
 import sharp, { type Sharp } from "sharp";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -28,10 +5,6 @@ import path from "node:path";
 const SHOTS = path.resolve(import.meta.dirname, "../public/shots");
 const WIDTHS = [1440, 720] as const;
 
-// Screenshots are flat UI: large areas of one colour, hairline rules, and text.
-// Quality is set where the hairlines survive — an over-compressed `--rule` at
-// 1px is the first thing to vanish and it is the design system's structural
-// element, so this is not a knob to turn down for bytes.
 const AVIF = { quality: 62, effort: 6 } as const;
 const WEBP = { quality: 82, effort: 6 } as const;
 
@@ -70,9 +43,6 @@ async function main() {
       const input = await readFile(src);
 
       for (const width of WIDTHS) {
-        // `withoutEnlargement` matters: a 2× capture is 2880px wide, so 1440
-        // and 720 are both downscales — but a future narrower capture must not
-        // be upscaled into a blurry asset.
         const base = sharp(input).resize({ width, withoutEnlargement: true });
 
         for (const [ext, encode] of [

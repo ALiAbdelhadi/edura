@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3004",
+    "dev": "next dev -p ${SUPERADMIN_PORT:-3004}",
     "build": "next build",
     "start": "bun --bun next start -p 3006",
     "lint": "eslint .",

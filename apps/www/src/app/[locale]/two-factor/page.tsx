@@ -1,17 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { KeyRound, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
 import { AuthShell } from "@/components/kit/auth-shell";
 import { authClient } from "@/lib/auth/client";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { KeyRound, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 
-/**
- * Second factor after a correct password (better-auth twoFactorRedirect).
- * TOTP code by default, single-use backup code as the recovery path.
- */
 export default function TwoFactorPage() {
   const t = useTranslations();
   const [mode, setMode] = useState<"totp" | "backup">("totp");
@@ -77,7 +73,7 @@ export default function TwoFactorPage() {
               ? t("security.codePlaceholder")
               : t("security.backupPlaceholder")
           }
-          className="font-[family-name:var(--ledger-mono)] text-center text-lg tracking-[0.3em]"
+          className="font-(family-name:--ledger-mono) text-center text-lg tracking-[0.3em]"
           value={code}
           onChange={(e) =>
             setCode(

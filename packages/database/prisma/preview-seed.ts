@@ -1,35 +1,5 @@
-/* eslint-disable no-console */
-/**
- * ============================================================================
- * PREVIEW SEED — THROWAWAY is_demo DATA FOR VIEWING THE REFRESHED UI
- * ============================================================================
- * Purpose: the DB was wiped to catalog + config + real staff, so the refreshed
- * screens render empty. This script adds the MINIMUM demo data needed to see
- * the Track A visuals (student dashboard/assignments/grades + superadmin
- * dashboard/teachers), then can be cleanly removed.
- *
- * SAFETY (enforced by construction — see comments inline):
- *   • Every ROOT entity (User / Center / Course) is flagged isDemo = true.
- *     Children inherit demo-ness by ancestry (they have no is_demo column).
- *   • ZERO writes to any money / ledger / wallet table: no transactions,
- *     payments, payment_intents, payouts, invoices, expenses, points_ledger,
- *     subscriptions, or commission_settings. wallet_balance / points_balance
- *     stay at their 0 default; Session.distributedAt stays NULL.
- *   • The permanent Egyptian catalog is READ, never written.
- *   • The two real staff accounts (super_admin / accountant) are never touched.
- *
- * Idempotent: re-run safely (upserts on stable keys / deterministic ids).
- *
- *   Seed:   bunx tsx --env-file=.env prisma/preview-seed.ts
- *   Purge:  bunx tsx --env-file=.env prisma/preview-seed.ts --purge
- *
- * Purge removes ALL isDemo data (this preview data AND the pre-existing demo
- * login group) plus its child rows, returning the DB to catalog + config +
- * your 2 real staff. Your real accounts and the catalog are untouched.
- * ============================================================================
- */
-import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
@@ -39,10 +9,6 @@ const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const DAY = 24 * 60 * 60 * 1000;
 
-// Deterministic UUID from a stable key -> idempotent upsert-by-id.
-// RFC 9562 UUIDv5 via the shared generator — see prisma/seed-ids.ts for why
-// this must not be hand-rolled here (H-03: a raw SHA-1 slice is UUID-shaped but
-// not a UUID, and `z.uuid()` routes 400 on it).
 const did = seedId("edura-preview:");
 function flc(userId: string): string {
   return createHash("sha1").update("flc:" + userId).digest("hex").slice(0, 10).toUpperCase();
@@ -54,13 +20,6 @@ function at(daysFromNow: number, hhmm = "15:00"): Date {
   return d;
 }
 
-// Demo room profiles (presentation only — NEVER a ledger row). Photos use
-// picsum placeholders so the room-profile + teacher-booking screens render
-// populated. price is piasters (the center's hall price, not the split).
-// Which pricing methods each demo room offers (Room Pricing Methods):
-//   NILE → BOTH (teacher chooses at booking — exercises the method radio),
-//   ANDL → per-student ONLY (forced; teacher sees NO price),
-//   FUTR/others → percent only (the classic default).
 type DemoPricingMethod = "whole_room_percent" | "per_attending_student";
 const ROOM_METHODS: Record<string, DemoPricingMethod[]> = {
   NILE: ["whole_room_percent", "per_attending_student"],
@@ -72,9 +31,6 @@ const ROOM_PROFILES: Record<
   string,
   { capacity: number; price: number; facilities: string[]; photos: string[]; description: string }
 > = {
-  // facilities use canonical amenity KEYS (see apps/www/src/lib/rooms/amenities.ts)
-  // + optionally a free-text extra, so the room-profile screens render populated
-  // and localized.
   NILE: {
     capacity: 30,
     price: 60000,
@@ -108,11 +64,8 @@ const ROOM_PROFILES: Record<
   },
 };
 
-// The tx type withPlatformContext hands its callback (the real Prisma client).
 type SeedTx = Parameters<Parameters<typeof withPlatformContext>[0]>[0];
 
-// Upsert a split-only revenue-split override row (center or room scope).
-// CONFIG only (commission_settings) — never touches the money ledger.
 async function upsertSplit(
   tx: SeedTx,
   scope: { scope: "center"; centerId: string } | { scope: "room"; roomId: string },
@@ -130,9 +83,6 @@ async function upsertSplit(
   }
 }
 
-// Upsert a Method-2 per-attending-student rate onto the SAME scope row the
-// split uses (merging columns, exactly like superadmin's rate editor). CONFIG
-// only — never touches the money ledger.
 async function upsertM2Rate(
   tx: SeedTx,
   scope: { scope: "center"; centerId: string } | { scope: "room"; roomId: string },
@@ -150,16 +100,9 @@ async function upsertM2Rate(
   }
 }
 
-// ---------------------------------------------------------------------------
-// PURGE
-// ---------------------------------------------------------------------------
 async function purge() {
   await withPlatformContext(
     async (tx) => {
-      // Raw, because `user.findMany` is narrowed to `deletedAt: null` by the
-      // soft-delete extension — and a previous purge left demo users
-      // soft-deleted. Missing them here would leave their child rows behind and
-      // the hard delete below would then fail on a foreign key.
       const demoUsers = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM users WHERE is_demo = true`;
       const demoCenters = await tx.center.findMany({ where: { isDemo: true }, select: { id: true } });
       const demoCourses = await tx.course.findMany({ where: { isDemo: true }, select: { id: true } });
@@ -169,15 +112,9 @@ async function purge() {
 
       const grades = await tx.grade.findMany({ where: { courseId: { in: K } }, select: { id: true } });
       const G = grades.map((g) => g.id);
-
-      // Children first (FKs are mostly onDelete: Restrict), then roots.
       await tx.gradeScore.deleteMany({ where: { OR: [{ gradeId: { in: G } }, { studentId: { in: U } }] } });
       await tx.grade.deleteMany({ where: { courseId: { in: K } } });
       await tx.attendanceRecord.deleteMany({ where: { OR: [{ courseId: { in: K } }, { studentId: { in: U } }] } });
-      // NOTE: session_settlements rows are append-only (REVOKE + immutability
-      // extension) and only exist if a demo session was manually completed —
-      // like any demo-driven ledger rows, they are Step-9-wipe territory, not
-      // purge territory. Loose sessionId refs mean this delete never conflicts.
       await tx.session.deleteMany({ where: { courseId: { in: K } } });
       await tx.material.deleteMany({ where: { courseId: { in: K } } });
       await tx.review.deleteMany({ where: { OR: [{ studentId: { in: U } }, { teacherId: { in: U } }] } });
@@ -191,8 +128,6 @@ async function purge() {
       await tx.centerStaff.deleteMany({ where: { OR: [{ staffUserId: { in: U } }, { centerId: { in: C } }] } });
       await tx.teacherSubject.deleteMany({ where: { teacherId: { in: U } } });
       await tx.teacherGradeLevel.deleteMany({ where: { teacherId: { in: U } } });
-      // Revenue-split override rows (config, not ledger) by ancestry: per-center
-      // rows for demo centers + per-room rows for demo rooms.
       const demoRoomsForPurge = await tx.room.findMany({
         where: { centerId: { in: C } },
         select: { id: true },
@@ -211,29 +146,13 @@ async function purge() {
       await tx.course.deleteMany({ where: { isDemo: true } });
       await tx.centerAdminProfile.deleteMany({ where: { OR: [{ userId: { in: U } }, { centerId: { in: C } }] } });
       await tx.teacherProfile.deleteMany({ where: { userId: { in: U } } });
-      // Demo wallet-ledger rows: append-only, so the Prisma immutability
-      // extension blocks a normal delete — raw DELETE (wallet_ledger is not
-      // DB-REVOKEd for delete, by design, so demo data stays purgeable). Wallet
-      // balances vanish with the student profile below.
       for (const uid of U) {
         await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${uid}::uuid`;
       }
       await tx.studentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.parentProfile.deleteMany({ where: { userId: { in: U } } });
-      // The model is `UserPrefs` (table `user_prefs`) — `tx.userPref` is
-      // `undefined`, so the old line threw a TypeError *before* it produced a
-      // promise and the trailing `.catch()` could never see it. That aborted
-      // the whole purge transaction, which is why demo data accumulated.
       await tx.userPrefs.deleteMany({ where: { userId: { in: U } } });
       await tx.center.deleteMany({ where: { isDemo: true } });
-      // `user.deleteMany` is intercepted by the soft-delete extension and turns
-      // into `updateMany { deletedAt: now }` — the row (and its UNIQUE email)
-      // survives, so "purge" left the demo accounts behind and the next seed
-      // either collided on the email or silently upserted onto a dead row.
-      // Demo users must be genuinely purgeable (CLAUDE.md), so this is a raw
-      // hard delete — narrowed to `is_demo = true` in SQL, on a non-production
-      // database (assertNotProduction, above). Same escape hatch, and the same
-      // reasoning, as the wallet_ledger delete further up.
       const hardDeleted = await tx.$executeRaw`DELETE FROM users WHERE is_demo = true`;
 
       console.log("Purge complete: removed", {
@@ -247,9 +166,6 @@ async function purge() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// SEED
-// ---------------------------------------------------------------------------
 async function seed() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
@@ -269,7 +185,6 @@ async function seed() {
           create: { email, name, role, status, passwordHash, isDemo: true },
         });
 
-      // ---- CENTERS (root, isDemo). NILE upserts the existing demo center. ----
       const centerDefs = [
         { shortId: "NILE", name: "Nile Educational Academy", status: "active", area: "المعادي" },
         { shortId: "ANDL", name: "Al-Andalus Learning Center", status: "active", area: "مدينة نصر" },
@@ -568,12 +483,12 @@ async function seed() {
         const roomBased =
           ctr.id === nile.id
             ? {
-                defaultRoomId: did("room:NILE"),
-                pricingMethod: "whole_room_percent" as const,
-                splitPlatformBp: 2000,
-                splitTeacherBp: 6000,
-                splitCenterBp: 2000,
-              }
+              defaultRoomId: did("room:NILE"),
+              pricingMethod: "whole_room_percent" as const,
+              splitPlatformBp: 2000,
+              splitTeacherBp: 6000,
+              splitCenterBp: 2000,
+            }
             : {};
         await tx.course.upsert({
           where: { id },

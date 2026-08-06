@@ -5,16 +5,9 @@ import { Shot } from "@/components/media/shot";
 import { PageHero } from "@/components/scene/page-hero";
 import { Scene } from "@/components/scene/scene";
 import { SubNav } from "@/components/scene/sub-nav";
-import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { useLocale, useTranslations } from "next-intl";
 
-/**
- * /parents — LEADS with child safety, per the storyboard.
- *
- * The ordering is the argument. Monitoring and payments are useful, but a
- * guardian's first question is whether their child is safe, and the honest
- * answer is a rule that is already on rather than a feature they must enable.
- */
 export function ParentsPage() {
   const t = useTranslations("parents");
   const locale = useLocale() as Locale;

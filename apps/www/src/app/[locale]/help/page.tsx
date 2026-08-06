@@ -31,9 +31,6 @@ export default async function HelpPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  // Required for static rendering with next-intl: without it the page opts into
-  // dynamic rendering and the build-time filesystem reads in help/load.ts would
-  // move to request time.
   setRequestLocale(locale as Locale);
   return <HelpIndexScreen locale={locale as Locale} />;
 }

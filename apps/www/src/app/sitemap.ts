@@ -6,18 +6,6 @@ import type { MetadataRoute } from "next";
 
 const BASE_URL = appBaseUrl();
 
-/**
- * The public URL set, DERIVED rather than hand-listed.
- *
- * `MARKETING_LINKS` is the same table the header and footer render from, so a
- * page cannot be in the navigation and missing from the sitemap (or the
- * reverse) — which is how /terms and /privacy came to be reachable from exactly
- * one place. Help articles come from their own content index for the same
- * reason: writing an article publishes it.
- *
- * The auth entry points stay a separate list because they are not marketing
- * pages and deliberately do not appear in the nav table.
- */
 const AUTH_PATHS = ["/login", "/register", "/forgot-password"];
 
 function entry(path: string, priority: number): MetadataRoute.Sitemap[number] {

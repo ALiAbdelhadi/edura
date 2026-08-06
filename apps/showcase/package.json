@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3006",
+    "dev": "next dev -p ${SHOWCASE_PORT:-3006}",
     "build": "next build --webpack",
     "start": "bun --bun next start -p 3007",
     "lint": "eslint .",

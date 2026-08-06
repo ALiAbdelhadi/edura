@@ -7,16 +7,10 @@ import { Counters } from "@/components/scene/counters";
 import { PageHero } from "@/components/scene/page-hero";
 import { Scene } from "@/components/scene/scene";
 import { SubNav } from "@/components/scene/sub-nav";
-import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
+import { useLocale, useTranslations } from "next-intl";
 
-/**
- * /owners — the money story.
- *
- * Media ALTERNATES down the page: recorded flow → diagram → screenshot →
- * diagram → screenshot cluster. Five screenshots in a row would read as a
- * gallery rather than as an argument, and the argument is the point.
- */
+
 export function OwnersPage() {
   const t = useTranslations("owners");
   const locale = useLocale() as Locale;
@@ -181,10 +175,6 @@ export function OwnersPage() {
                 }
               />
             </div>
-
-            {/* Every figure here is COUNTED from the seeded demo center — see
-                packages/database/prisma/showcase-demo-seed.ts. None of them is
-                an adoption claim. */}
             <div className="mt-14">
               <Counters
                 stats={[

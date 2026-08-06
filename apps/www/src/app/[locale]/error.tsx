@@ -1,8 +1,7 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
-
 import { Button } from "@repo/ui/components/button";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
@@ -14,33 +13,19 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // `errorPage`, NOT `shared`. This is a CLIENT component, so it reads the
-  // NextIntlClientProvider — and it replaces the children of the [locale]
-  // layout, which means an error thrown ANYWHERE, including under /dashboard,
-  // unmounts that segment together with the fuller provider mounted by
-  // dashboard/layout.tsx. Whatever threw, this boundary renders under the BASE
-  // provider, which ships only `baseMessages()` (the top-level keys of
-  // en.json). `shared` is mounted from its own file and never reaches that
-  // subset, so EVERY error rendered MISSING_MESSAGE here — the error page
-  // failing on top of the error it was reporting, hiding the original.
-  // `errorPage` lives in en.json, so BASE_KEYS carries it everywhere by
-  // construction rather than by anyone remembering to.
   const t = useTranslations("errorPage");
   useEffect(() => {
-    // Digest only in the log — the raw message may carry internals
-    // (M4 discipline). Sentry gets the full error object, where it is scrubbed
-    // by beforeSend (@repo/observability) rather than by omission.
     console.error("[error-boundary]", error.digest ?? error.message);
     Sentry.captureException(error);
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--paper)] px-6 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--red-soft)] text-[var(--red)]">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-(--paper) px-6 text-center">
+      <div className="flex size-14 items-center justify-center rounded-full bg-destructive-foreground text-destructive">
         <AlertTriangle className="size-7" />
       </div>
-      <h1 className="text-2xl font-bold text-[var(--ink)]">{t("errorTitle")}</h1>
-      <p className="max-w-sm text-sm text-[var(--ink-2)]">{t("errorBody")}</p>
+      <h1 className="text-2xl font-bold text-(--ink)">{t("errorTitle")}</h1>
+      <p className="max-w-sm text-sm text-(--ink-2)">{t("errorBody")}</p>
       <Button onClick={reset} className="mt-2">
         {t("errorRetry")}
       </Button>

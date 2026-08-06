@@ -24,9 +24,6 @@ export default function OnboardingPage() {
   const editMode = params.get("edit") === "1";
   const emailToken = params.get("token");
   const [role, setRole] = useState<string | null>(null);
-  // The welcome-email deep link carries a signed 7-day JWT. It never logs
-  // anyone in — the session does that — but an expired/foreign token gets a
-  // friendly explainer + rate-limited resend instead of a silent wizard.
   const [tokenState, setTokenState] = useState<TokenState>(emailToken ? "checking" : "ok");
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
@@ -36,8 +33,6 @@ export default function OnboardingPage() {
       try {
         const meRes = await fetch("/api/v1/me");
         if (meRes.status === 401) {
-          // Preserve the tokenized deep link across login so the email button
-          // still lands here after the student signs in.
           const here = `${window.location.pathname}${window.location.search}`;
           return router.replace(`/login?next=${encodeURIComponent(here)}`);
         }
