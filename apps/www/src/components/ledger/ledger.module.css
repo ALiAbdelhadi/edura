@@ -362,7 +362,12 @@
 /* Tables: field-filled header, mono letterspaced column names, hairline row
    dividers, `comfortable` density (th 42px / td 13px 14px) per the student
    brief. */
-.scope [data-slot="table-container"] {
+/* The border and the clipped corners belong to the FRAME, not to the scroller.
+ * They used to sit on [data-slot="table-container"], which is now the element
+ * that scrolls horizontally — and `overflow: hidden` here outranks Tailwind's
+ * `overflow-x-auto` (class+attribute beats a single class), so a table too wide
+ * for the screen was silently CLIPPED instead of scrolling. */
+.scope [data-slot="table-frame"] {
   border-radius: 12px;
   border: 1px solid var(--rule);
   overflow: hidden;

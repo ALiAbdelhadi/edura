@@ -341,7 +341,7 @@ export function Th({
   return (
     <th
       scope="col"
-      className={cx(styles.eyebrow, "h-[42px] px-3.5 font-semibold")}
+      className={cx(styles.eyebrow, "h-[42px] px-3.5 font-semibold whitespace-nowrap")}
       style={{ textAlign: align }}
     >
       {children}
@@ -360,7 +360,9 @@ export function Td({
 }) {
   return (
     <td
-      className={cx("px-3.5 py-3", className)}
+      // Never wraps — the table is allowed to outgrow the phone and scroll inside
+      // LedgerTable's container; a wrapped amount reads as two amounts.
+      className={cx("px-3.5 py-3 whitespace-nowrap", className)}
       style={{ textAlign: align, color: "var(--ink)" }}
     >
       {children}

@@ -123,6 +123,7 @@ export function CenterStaffFinanceScreen() {
         {txns.length === 0 ? (
           <EmptyState title={t("shared.ledger.empty")} />
         ) : (
+          <div className="lg-scroll">
           <table className="lg-table">
             <thead>
               <tr>
@@ -160,6 +161,7 @@ export function CenterStaffFinanceScreen() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Sheet>
     </div>

@@ -71,6 +71,20 @@ const DENSITY: Record<DataTableDensity, { head: string; cell: string; text: stri
   touch: { head: "h-12 px-4", cell: "px-4 py-3 min-h-12", text: "text-base" },
 };
 
+/* ── What a table becomes on a 390px screen ───────────────────────────────────
+
+   `scroll`  the table stays a table and scrolls sideways, with the edge affordance
+             <Table> draws. Correct for the back office: an operator scanning 166
+             rows compares ACROSS rows, and a card list destroys that comparison.
+   `cards`   each row becomes a labelled card. Correct for www, where the reader is
+             a parent or a student on a phone reading ONE row at a time.
+
+   NOTHING WRAPS in either mode. A wrapped cell is unscannable and a wrapped figure
+   reads as two numbers, so a value that outgrows its card scrolls within its own
+   line rather than breaking. This is the whole reason the mode exists: the fix for
+   a narrow screen is a different LAYOUT, never a narrower column. */
+export type DataTableMobile = "scroll" | "cards";
+
 export type DataTableLabels = {
   rowsPerPage?: string;
   previousPage?: string;
@@ -81,6 +95,21 @@ export type DataTableLabels = {
 };
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+/* The card's field label. A column that renders no visible header still declares an
+   accessible name (`meta.srLabel`) — the same one the table header uses — so the card
+   shows it rather than inventing a second vocabulary. A header built as a FUNCTION is
+   chrome (a sort button, an <Eyebrow>) and cannot be rendered without a header
+   context, so those fall back to `srLabel` too. */
+function mobileLabelFor(column: {
+  columnDef: { header?: unknown; meta?: unknown };
+}): React.ReactNode {
+  const header = column.columnDef.header;
+  const srLabel = (column.columnDef.meta as { srLabel?: string } | undefined)?.srLabel;
+  if (typeof header === "string") return header.trim() ? header : (srLabel ?? null);
+  if (typeof header === "function" || header == null) return srLabel ?? null;
+  return header as React.ReactNode;
+}
 
 export function DataTable<TData, TValue>({
   columns,
@@ -96,6 +125,7 @@ export function DataTable<TData, TValue>({
   onSelectionChange,
   bulkActions,
   stickyFirstColumn = false,
+  mobile = "scroll",
   rowHref,
   rowDisabled,
   onRowClick,
@@ -117,6 +147,8 @@ export function DataTable<TData, TValue>({
   bulkActions?: (rows: TData[]) => React.ReactNode;
   /** The gradebook needs the student column pinned while marks scroll. */
   stickyFirstColumn?: boolean;
+  /** Below `md`. See DataTableMobile — www defaults to `cards` via its kit shim. */
+  mobile?: DataTableMobile;
   rowHref?: (row: TData) => string | undefined;
   rowDisabled?: (row: TData) => boolean;
   onRowClick?: (row: TData) => void;
@@ -197,7 +229,16 @@ export function DataTable<TData, TValue>({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]",
+          // <Table> owns the scrolling and its edge affordance; this frame only clips
+          // the corners. In `cards` mode the table itself is hidden below `md`.
+          mobile === "cards" && "max-md:hidden",
+        )}
+      >
+        {/* stickyFirstColumn stays per-cell below rather than on <Table>: the sticky
+            cell also needs the density padding and the selected-row fill. */}
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
@@ -343,6 +384,128 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
+
+      {mobile === "cards" ? (
+        <div className="flex flex-col gap-2 md:hidden">
+          {error ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-rule bg-sheet p-6 text-center text-sm font-semibold text-red shadow-[var(--lift)]"
+            >
+              {error}
+            </div>
+          ) : isLoading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border border-rule bg-sheet p-6 text-center text-sm text-ink-3 shadow-[var(--lift)]"
+            >
+              {emptyState ?? "…"}
+            </div>
+          ) : table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => {
+              const href = rowHref?.(row.original);
+              const disabled = rowDisabled?.(row.original) ?? false;
+              const selected = selectable && row.getIsSelected();
+              const cells = row.getVisibleCells();
+              const selectCell = cells.find((c) => c.column.id === "__select__");
+              const [titleCell, ...restCells] = cells.filter(
+                (c) => c.column.id !== "__select__",
+              );
+
+              return (
+                <div
+                  key={row.id}
+                  data-disabled={disabled || undefined}
+                  aria-disabled={disabled || undefined}
+                  onClick={
+                    disabled ? undefined : onRowClick ? () => onRowClick(row.original) : undefined
+                  }
+                  className={cn(
+                    "rounded-xl border border-rule bg-sheet px-3.5 py-3 shadow-[var(--lift)]",
+                    d.text,
+                    disabled && "opacity-50",
+                    !disabled && (href || onRowClick) && "cursor-pointer",
+                    selected &&
+                      "bg-indigo-soft shadow-[inset_3px_0_0_var(--indigo)] rtl:shadow-[inset_-3px_0_0_var(--indigo)]",
+                  )}
+                >
+                  <div className="flex items-start gap-2.5">
+                    {selectCell ? (
+                      <div className="pt-0.5">
+                        {flexRender(
+                          selectCell.column.columnDef.cell,
+                          selectCell.getContext(),
+                        )}
+                      </div>
+                    ) : null}
+                    {titleCell ? (
+                      // The identity column is the card's heading, not a labelled field.
+                      // `overflow-y-hidden` is REQUIRED, not tidying: setting overflow-x
+                      // alone makes overflow-y compute from `visible` to `auto`, which
+                      // painted a stray vertical scrollbar on every single value.
+                      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden font-semibold whitespace-nowrap">
+                        {href && !disabled ? (
+                          <a href={href} className="focus-ledger block">
+                            {flexRender(
+                              titleCell.column.columnDef.cell,
+                              titleCell.getContext(),
+                            )}
+                          </a>
+                        ) : (
+                          flexRender(titleCell.column.columnDef.cell, titleCell.getContext())
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {restCells.length ? (
+                    <dl className="mt-2.5 flex flex-col gap-1.5 border-t border-rule-2 pt-2.5">
+                      {restCells.map((cell) => {
+                        const label = mobileLabelFor(cell.column);
+                        const value = flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        );
+                        // A headerless column (the actions cell) is an control strip,
+                        // not a field — it takes the full width with no label.
+                        if (!label) {
+                          return (
+                            <dd
+                              key={cell.id}
+                              className="flex flex-wrap items-center gap-2 [&:empty]:hidden"
+                            >
+                              {value}
+                            </dd>
+                          );
+                        }
+                        return (
+                          <div
+                            key={cell.id}
+                            className="flex items-baseline justify-between gap-3"
+                          >
+                            <dt className="shrink-0 text-[10px] font-semibold text-ink-3">
+                              {label}
+                            </dt>
+                            {/* Never wrap. A long value scrolls on its own line. */}
+                            <dd className="min-w-0 overflow-x-auto overflow-y-hidden text-end whitespace-nowrap">
+                              {value}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  ) : null}
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-xl border border-rule bg-sheet p-6 text-center text-ink-3 shadow-[var(--lift)]">
+              {emptyState ?? "—"}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {table.getPageCount() > 1 || canControlPageSize ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rule bg-field px-3 py-2">
