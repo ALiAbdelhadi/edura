@@ -162,7 +162,30 @@ const nextConfig = {
 // publicly-served source map is a free copy of the entire server-side codebase,
 // which on this app includes the money engine.
 // ============================================================================
-export default withSentryConfig(withSerwist(withNextIntl(nextConfig)), {
+// Sentry's Next plugin instruments the WHOLE build — module wrapping plus the
+// widened client-file sweep below — and it does that whether or not Sentry is
+// actually configured. Production has no DSN set, so the build was paying the
+// entire cost for an integration that is inert at runtime.
+//
+// On Vercel's 2-core/8GB builder that was the difference between finishing and
+// not. Every www production deploy from `6a8fa73f` (the operational-layer
+// merge that introduced Sentry, 2026-08-02) onward died with
+// BUILD_EXCEEDED_MAXIMUM_TIME at the 45-minute ceiling — 36 failures — while
+// superadmin, which builds with Turbopack, was unaffected. Production served
+// 2026-08-02 code for four days and nothing said so.
+//
+// docs/runbooks/observability.md already promises this: "with none of them set,
+// Sentry and PostHog are inert". That was true of the runtime and false of the
+// build. Now it is true of both — no DSN, no plugin. Set NEXT_PUBLIC_SENTRY_DSN
+// (or SENTRY_DSN) and everything below applies exactly as before.
+const sentryEnabled = Boolean(
+  process.env.NEXT_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN,
+);
+
+const withOptionalSentry = <T,>(cfg: T) =>
+  sentryEnabled ? withSentryConfig(cfg, sentryBuildOptions) : cfg;
+
+const sentryBuildOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -187,4 +210,6 @@ export default withSentryConfig(withSerwist(withNextIntl(nextConfig)), {
   // We are on Vercel, but cron monitoring is not set up and the automatic
   // instrumentation would create check-ins nobody watches.
   automaticVercelMonitors: false,
-});
+};
+
+export default withOptionalSentry(withSerwist(withNextIntl(nextConfig)));
