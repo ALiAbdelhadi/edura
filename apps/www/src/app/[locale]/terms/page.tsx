@@ -1,7 +1,29 @@
 import { LegalPage } from "@/features/legal/legal-page";
+import { routing } from "@/i18n/routing";
+import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
+import { setRequestLocale } from "next-intl/server";
 
-export const metadata: Metadata = { title: "شروط الاستخدام — Edura" };
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const ar = locale === "ar";
+
+  return {
+    title: ar ? "شروط الاستخدام — Edura" : "Terms of Service — Edura",
+    alternates: {
+      canonical: `/${locale}/terms`,
+      languages: Object.fromEntries(routing.locales.map((l) => [l, `/${l}/terms`])),
+    },
+  };
+}
 
 /**
  * DRAFT terms of service — grounded in what the product actually does (roles,
@@ -9,12 +31,9 @@ export const metadata: Metadata = { title: "شروط الاستخدام — Edur
  * qualified Egyptian counsel before the official launch; the structure and the
  * factual claims about how the platform works are accurate today.
  */
-export default async function TermsPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function TermsPage({ params }: Props) {
   const { locale } = await params;
+  setRequestLocale(locale as Locale);
   const ar = locale === "ar";
   return (
     <LegalPage
