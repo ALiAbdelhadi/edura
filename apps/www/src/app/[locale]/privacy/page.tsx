@@ -1,7 +1,29 @@
 import { LegalPage } from "@/features/legal/legal-page";
+import { routing } from "@/i18n/routing";
+import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
+import { setRequestLocale } from "next-intl/server";
 
-export const metadata: Metadata = { title: "سياسة الخصوصية — Edura" };
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const ar = locale === "ar";
+
+  return {
+    title: ar ? "سياسة الخصوصية — Edura" : "Privacy Policy — Edura",
+    alternates: {
+      canonical: `/${locale}/privacy`,
+      languages: Object.fromEntries(routing.locales.map((l) => [l, `/${l}/privacy`])),
+    },
+  };
+}
 
 /**
  * DRAFT privacy policy — every claim here reflects how the system actually
@@ -9,12 +31,9 @@ export const metadata: Metadata = { title: "سياسة الخصوصية — Edur
  * soft-delete). Needs review by qualified Egyptian counsel before the official
  * launch.
  */
-export default async function PrivacyPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function PrivacyPage({ params }: Props) {
   const { locale } = await params;
+  setRequestLocale(locale as Locale);
   const ar = locale === "ar";
   return (
     <LegalPage
