@@ -345,7 +345,15 @@ async function main() {
 
     const hashBefore = (await q(`SELECT password_hash FROM users WHERE id=$1::uuid`, [student.id]))[0]
       .password_hash;
-    const sent = await sendPasswordReset(actor, student.id);
+    const resetNoReason = await rejects(
+      () => sendPasswordReset(actor, student.id),
+      /reason is required/i,
+    );
+    assert(
+      resetNoReason.threw && resetNoReason.matched,
+      "a reset with no reason is refused — every action on this screen records WHY",
+    );
+    const sent = await sendPasswordReset(actor, student.id, "user lost access");
     assert(sent.email === student.email, "the reset is addressed to the user");
     const tokenRows = await q(
       `SELECT count(*)::int n FROM password_reset_tokens WHERE user_id=$1::uuid AND used_at IS NULL`,
@@ -355,11 +363,16 @@ async function main() {
     const hashAfter = (await q(`SELECT password_hash FROM users WHERE id=$1::uuid`, [student.id]))[0]
       .password_hash;
     assert(hashAfter === hashBefore, "the password itself is UNCHANGED — the user chooses it");
-    assert((await auditRows(student.id, "user.password_reset_sent")).length === 1, "and it is audited");
+    const resetAudit = await auditRows(student.id, "user.password_reset_sent");
+    assert(resetAudit.length === 1, "and it is audited");
+    assert(
+      resetAudit[0]?.after_state?.reason === "user lost access",
+      "the audit row carries the reason, like every other action here",
+    );
 
     await setUserSuspended(actor, student.id, true, "temporarily off");
     const inactiveReset = await rejects(
-      () => sendPasswordReset(actor, student.id),
+      () => sendPasswordReset(actor, student.id, "still needed"),
       /only an active account/i,
     );
     assert(

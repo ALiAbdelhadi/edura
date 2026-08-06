@@ -94,7 +94,7 @@ type SessionRow = {
 
 type CenterRow = { id: string; name: string; status: string } | null;
 
-type ReasonAction = "suspend" | "reinstate" | "revokeAll" | "reset2fa";
+type ReasonAction = "suspend" | "reinstate" | "revokeAll" | "reset2fa" | "passwordReset";
 
 /** The body of the reason dialog. Mounted only while open, so it carries no
     reset logic — closing it discards the draft reason by construction. */
@@ -235,13 +235,20 @@ export function UserDetailScreen({ userId }: { userId: string }) {
           values: { reason },
         });
         toast.success(t("sessionsRevokedToast"));
-      } else {
+      } else if (action === "reset2fa") {
         await mutate({
           url: `admin/users/${userId}/reset-2fa`,
           method: "post",
           values: { reason },
         });
         toast.success(t("twoFactorResetToast"));
+      } else {
+        await mutate({
+          url: `admin/users/${userId}/password-reset`,
+          method: "post",
+          values: { reason },
+        });
+        toast.success(t("passwordResetToast"));
       }
       await req.query.refetch();
     } catch (e) {
@@ -267,18 +274,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
     }
   };
 
-  const sendPasswordReset = async () => {
-    setBusy(true);
-    try {
-      await mutate({ url: `admin/users/${userId}/password-reset`, method: "post", values: {} });
-      toast.success(t("passwordResetToast"));
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const impersonate = async () => {
     setBusy(true);
     try {
@@ -291,6 +286,10 @@ export function UserDetailScreen({ userId }: { userId: string }) {
       setBusy(false);
     }
   };
+
+  // Mirrors `IMPERSONATABLE` + the active check in admin-users.ts. The service
+  // stays the authority; this only decides whether to OFFER the action.
+  const canImpersonate = user?.role === "accountant" && user?.status === "active";
 
   if (req.query.isLoading) return <PageSpinner label={tg("common.loading")} />;
 
@@ -462,29 +461,32 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             {t("actionReset2fa")}
           </Button>
 
-          <ConfirmDialog
-            trigger={
-              <Button type="button" variant="outline" disabled={busy}>
-                <KeyRound className="size-4" aria-hidden="true" />
-                {t("actionPasswordReset")}
-              </Button>
-            }
-            title={t("confirm_passwordReset_title")}
-            description={t("confirm_passwordReset_body")}
-            onConfirm={() => void sendPasswordReset()}
-          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setReasonAction("passwordReset")}
+          >
+            <KeyRound className="size-4" aria-hidden="true" />
+            {t("actionPasswordReset")}
+          </Button>
 
-          <ConfirmDialog
-            trigger={
-              <Button type="button" variant="outline" disabled={busy}>
-                <UserRoundCog className="size-4" aria-hidden="true" />
-                {t("actionImpersonate")}
-              </Button>
-            }
-            title={t("confirm_impersonate_title")}
-            description={t("confirm_impersonate_body")}
-            onConfirm={() => void impersonate()}
-          />
+          {/* Impersonation only ever succeeds for a back-office account — the
+              service refuses every www role. Offering the button to a student
+              and failing after the confirm is a promise the app cannot keep. */}
+          {canImpersonate ? (
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="outline" disabled={busy}>
+                  <UserRoundCog className="size-4" aria-hidden="true" />
+                  {t("actionImpersonate")}
+                </Button>
+              }
+              title={t("confirm_impersonate_title")}
+              description={t("confirm_impersonate_body")}
+              onConfirm={() => void impersonate()}
+            />
+          ) : null}
         </div>
       </section>
 

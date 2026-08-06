@@ -64,6 +64,9 @@ const dayKey = (iso: string) => iso.slice(0, 10);
 
 export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   const t = useTranslations("auditLog");
+  // Roles live in the shared top-level namespace, not under auditLog — reusing it
+  // keeps one wording for a role across every screen.
+  const tRole = useTranslations("roles");
   const locale = useLocale() as Locale;
   const [action, setAction] = useState("");
   const [targetId, setTargetId] = useState("");
@@ -224,7 +227,7 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
                               </span>
                               {r.actorRole ? (
                                 <StatusBadge tone="neutral" className="ms-1.5">
-                                  {t(asKey(`roles.${r.actorRole}`))}
+                                  {tRole(asKey(r.actorRole))}
                                 </StatusBadge>
                               ) : null}
                               {r.onBehalfOf ? (

@@ -99,7 +99,8 @@
     "failed": "Failed",
     "pending_payment": "Pending Payment",
     "shell": "Invited",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "accepted": "Accepted"
   },
   "actions": {
     "add": "Add",
@@ -126,7 +127,7 @@
     "selectRow": "Select row",
     "sendInvite": "Send invite",
     "signIn": "Sign in",
-    "sortBy": "Sort by {column}"
+    "sortBy": "Sort by"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -401,7 +402,9 @@
     "anyStatus": "All statuses",
     "anyGateway": "All gateways",
     "anyMethod": "All methods",
-    "failureReason": "Failure reason"
+    "failureReason": "Failure reason",
+    "purpose_wallet_topup": "Student wallet top-up",
+    "purpose_parent_wallet_topup": "Parent wallet top-up"
   },
   "subscriptions": {
     "title": "Subscriptions",
@@ -1291,7 +1294,33 @@
     "deniedTitle": "Not permitted",
     "deniedBody": "Your account is not permitted to view centers.",
     "sharePerStudent": "Share per present student (EGP) — current:",
-    "hallPriceCurrent": "Hall price (EGP) — current:"
+    "hallPriceCurrent": "Hall price (EGP) — current:",
+    "overrideActive": "Override active",
+    "defaultBadge": "Default",
+    "inheriting": "Inheriting",
+    "pctOfLessonPerStudent": "% of lesson price per student",
+    "unitEgpPerStudent": "EGP / student",
+    "unitPctPerStudent": "% / student",
+    "saveRate": "Save rate",
+    "save": "Save",
+    "sumLabel": "Sum",
+    "mustEqual100": "(must equal 100)",
+    "roomsAndSplit": "Rooms & split",
+    "saveRateError": "Failed to save rate",
+    "clearError": "Failed to clear",
+    "perStudentUnitEgp": "EGP/student",
+    "perStudentUnitPct": "%/student",
+    "methodWholeRoom": "Whole-room %",
+    "methodPerStudent": "Per attending student",
+    "allowedPricingMethods": "Allowed pricing methods:",
+    "enterPctRange": "Enter a percentage between 0 and 100",
+    "enterValidEgp": "Enter a valid EGP amount",
+    "saveMethodsError": "Failed to save methods",
+    "saveSplitError": "Failed to save split",
+    "updateShareError": "Failed to update share",
+    "updatePriceError": "Failed to update price",
+    "centerFallback": "Center",
+    "saveMethods": "Save methods"
   },
   "navGroup": {
     "oversight": "Oversight",

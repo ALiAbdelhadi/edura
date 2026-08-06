@@ -40,6 +40,7 @@ import { Eye, Home, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { asArray } from "@/lib/refine/as-array";
+import { asKey } from "@/lib/i18n/keys";
 
 type Split = { platformShareBp: number; teacherShareBp: number; centerShareBp: number };
 type ResolvedSplit = (Split & { source: "room" | "center" | "global" }) | null;
@@ -91,7 +92,7 @@ function M2RateEditor({
 
   const save = async () => {
     if (!valid) {
-      toast.error(form === "bp" ? "Enter a percentage between 0 and 100" : "Enter a valid EGP amount");
+      toast.error(form === "bp" ? t("enterPctRange") : t("enterValidEgp"));
       return;
     }
     setBusy(true);
@@ -103,7 +104,7 @@ function M2RateEditor({
       );
       toast.success(t("rateSaved"));
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to save rate");
+      toast.error((e as { message?: string })?.message || t("saveRateError"));
     } finally {
       setBusy(false);
     }
@@ -115,24 +116,27 @@ function M2RateEditor({
       await onClear();
       toast.success(t("rateCleared"));
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to clear");
+      toast.error((e as { message?: string })?.message || t("clearError"));
     } finally {
       setBusy(false);
     }
   };
 
   const describe = (r: M2Rate) =>
-    r.fee != null ? `${(r.fee / 100).toFixed(2)} EGP/student` : `${(r.bp ?? 0) / 100}%/student`;
+    r.fee != null
+      ? `${(r.fee / 100).toFixed(2)} ${t("perStudentUnitEgp")}`
+      : `${(r.bp ?? 0) / 100}${t("perStudentUnitPct")}`;
 
   return (
     <div className="space-y-2 rounded-md border border-dashed p-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{label}</span>
         {override ? (
-          <Badge variant="default">{allowClear ? "Override active" : "Default"}</Badge>
+          <Badge variant="default">{allowClear ? t("overrideActive") : t("defaultBadge")}</Badge>
         ) : inherited ? (
           <Badge variant="secondary">
-            Inheriting{inherited.source ? ` (${inherited.source})` : ""}: {describe(inherited)}
+            {t("inheriting")}
+            {inherited.source ? ` (${inherited.source})` : ""}: {describe(inherited)}
           </Badge>
         ) : (
           <Badge variant="outline">{t("notConfigured")}</Badge>
@@ -147,12 +151,12 @@ function M2RateEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="fee">{t("egpPerStudent")}</SelectItem>
-              <SelectItem value="bp">% of lesson price per student</SelectItem>
+              <SelectItem value="bp">{t("pctOfLessonPerStudent")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <label className="text-xs">
-          {form === "fee" ? "EGP / student" : "% / student"}
+          {form === "fee" ? t("unitEgpPerStudent") : t("unitPctPerStudent")}
           <Input
             type="number"
             min={0}
@@ -166,7 +170,7 @@ function M2RateEditor({
       <div className="flex gap-2">
         <Button size="sm" onClick={save} disabled={busy || !valid}>
           {busy ? <Spinner /> : null}
-          Save rate
+          {t("saveRate")}
         </Button>
         {allowClear && override ? (
           <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
@@ -176,9 +180,11 @@ function M2RateEditor({
   );
 }
 
-const METHOD_LABELS: Record<PricingMethod, string> = {
-  whole_room_percent: "Whole-room %",
-  per_attending_student: "Per attending student",
+// Translation KEYS, not labels — the wording is resolved at render so this row
+// speaks the operator's language like the rest of the screen.
+const METHOD_LABEL_KEYS: Record<PricingMethod, string> = {
+  whole_room_percent: "methodWholeRoom",
+  per_attending_student: "methodPerStudent",
 };
 
 // The center-set availability, editable here for full-control oversight.
@@ -207,7 +213,7 @@ function RoomMethodsRow({
       await onSave(sel);
       toast.success(t("methodsSaved"));
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to save methods");
+      toast.error((e as { message?: string })?.message || t("saveMethodsError"));
     } finally {
       setBusy(false);
     }
@@ -215,8 +221,8 @@ function RoomMethodsRow({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span className="text-xs font-medium">Allowed pricing methods:</span>
-      {(Object.keys(METHOD_LABELS) as PricingMethod[]).map((m) => (
+      <span className="text-xs font-medium">{t("allowedPricingMethods")}</span>
+      {(Object.keys(METHOD_LABEL_KEYS) as PricingMethod[]).map((m) => (
         <div key={m} className="flex items-center gap-1.5 text-xs">
           <Checkbox
             id={`pricing-method-${m}`}
@@ -224,13 +230,13 @@ function RoomMethodsRow({
             onCheckedChange={() => toggle(m)}
           />
           <Label htmlFor={`pricing-method-${m}`} className="text-xs font-normal">
-            {METHOD_LABELS[m]}
+            {t(asKey(METHOD_LABEL_KEYS[m]))}
           </Label>
         </div>
       ))}
       <Button size="sm" variant="outline" onClick={save} disabled={busy || sel.length === 0}>
         {busy ? <Spinner /> : null}
-        Save methods
+        {t("saveMethods")}
       </Button>
     </div>
   );
@@ -286,7 +292,7 @@ function SplitEditor({
       });
       toast.success(t("splitSaved"));
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to save split");
+      toast.error((e as { message?: string })?.message || t("saveSplitError"));
     } finally {
       setBusy(false);
     }
@@ -298,7 +304,7 @@ function SplitEditor({
       await onClear();
       toast.success(t("overrideCleared"));
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to clear");
+      toast.error((e as { message?: string })?.message || t("clearError"));
     } finally {
       setBusy(false);
     }
@@ -309,9 +315,11 @@ function SplitEditor({
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{label}</span>
         {override ? (
-          <Badge variant="default">{allowClear ? "Override active" : "Default"}</Badge>
+          <Badge variant="default">{allowClear ? t("overrideActive") : t("defaultBadge")}</Badge>
         ) : inherited ? (
-          <Badge variant="secondary">Inheriting ({inherited.source})</Badge>
+          <Badge variant="secondary">
+            {t("inheriting")} ({inherited.source})
+          </Badge>
         ) : null}
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -323,12 +331,12 @@ function SplitEditor({
         </label>
       </div>
       <div className={`text-xs ${valid ? "text-ink-2" : "text-red"}`}>
-        Sum: {Number.isFinite(sum) ? sum : "—"}% {valid ? "" : "(must equal 100)"}
+        {t("sumLabel")}: {Number.isFinite(sum) ? sum : "—"}% {valid ? "" : t("mustEqual100")}
       </div>
       <div className="flex gap-2">
         <Button size="sm" onClick={save} disabled={busy || !valid}>
           {busy ? <Spinner /> : null}
-          Save
+          {t("save")}
         </Button>
         {allowClear && override ? (
           <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
@@ -395,7 +403,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
       toast.success(t("shareUpdated"));
       refetchAll();
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to update share");
+      toast.error((e as { message?: string })?.message || t("updateShareError"));
     }
   };
 
@@ -458,7 +466,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
       toast.success(t("priceUpdated"));
       refetchAll();
     } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to update price");
+      toast.error((e as { message?: string })?.message || t("updatePriceError"));
     }
   };
 
@@ -468,7 +476,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{splitData?.center?.name ?? roomsData?.center?.name ?? "Center"}</DialogTitle>
+          <DialogTitle>{splitData?.center?.name ?? roomsData?.center?.name ?? t("centerFallback")}</DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -764,6 +772,8 @@ function GlobalSplitCard() {
 
 export function CentersScreen() {
   const t = useTranslations("centersAdmin");
+  // Shared status namespace — the same wording every other screen uses.
+  const tStatus = useTranslations("status");
   const [detailId, setDetailId] = useState<string | null>(null);
   const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });
   const centers = useMemo(() => asArray<any>(result?.data), [result]);
@@ -795,7 +805,7 @@ export function CentersScreen() {
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.shortId}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{c.status}</Badge>
+                      <Badge variant="secondary">{tStatus(asKey(c.status))}</Badge>
                     </TableCell>
                     <TableCell className="text-end">
                       <div className="flex justify-end gap-2">
@@ -805,7 +815,7 @@ export function CentersScreen() {
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setDetailId(c.id)}>
                           <Home className="size-4" />
-                          Rooms &amp; split
+                          {t("roomsAndSplit")}
                         </Button>
                       </div>
                     </TableCell>

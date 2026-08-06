@@ -1,5 +1,7 @@
 import type { Role } from "@repo/database";
+import { trustedClientIp } from "@repo/server-core/rate-limit/token-bucket";
 import { requestPasswordReset } from "@repo/server-core/services/auth/password-reset";
+import { headers } from "next/headers";
 import type { SessionUser } from "@/lib/auth/session";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
@@ -37,7 +39,23 @@ import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/c
 
 const PAGE_MAX = 100;
 
-/** Every write here records who did it, to whom, and why. */
+/**
+ * WHERE the action came from. Resolved here rather than threaded through six
+ * service signatures and their routes — and it must never throw: the DB suites
+ * call these services directly, outside any request scope, and an audit row
+ * that fails to write is far worse than one missing its IP.
+ */
+async function callerIp(): Promise<string | null> {
+  try {
+    const h = await headers();
+    const ip = trustedClientIp((name) => h.get(name));
+    return ip === "unknown" ? null : ip;
+  } catch {
+    return null;
+  }
+}
+
+/** Every write here records who did it, to whom, from where, and why. */
 async function audit(
   tx: TenantTx,
   actorId: string,
@@ -54,6 +72,7 @@ async function audit(
       targetId,
       beforeState: (before ?? undefined) as never,
       afterState: (after ?? undefined) as never,
+      ipAddress: await callerIp(),
       // `on_behalf_of` means "assistant X acting for teacher Y" (Step 8).
       // A super admin acts as themselves.
       onBehalfOf: null,
@@ -376,7 +395,9 @@ export function resetTwoFactor(actor: SessionUser, userId: string, reason?: stri
  * (it consumes a token and asks nothing about who you are), so a back-office
  * account resets there and then signs in to the back office.
  */
-export async function sendPasswordReset(actor: SessionUser, userId: string) {
+export async function sendPasswordReset(actor: SessionUser, userId: string, reason?: string) {
+  // Same rule as every other action on this screen: the trail records WHY.
+  const why = requireReason(reason, "send a password reset");
   const target = await platformDb(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id: userId },
@@ -400,6 +421,7 @@ export async function sendPasswordReset(actor: SessionUser, userId: string) {
     (tx) =>
       audit(tx, actor.id, "user.password_reset_sent", userId, undefined, {
         email: target.email,
+        reason: why,
       }),
     { actorId: actor.id },
   );
