@@ -496,9 +496,19 @@ export function AdminStudentDetailScreen() {
       <Sheet>
         <div className="flex flex-wrap items-start gap-6 border-b border-[var(--rule)] p-[18px]">
           <div className="min-w-[160px]">
-            <Eyebrow>{t("adminHome.detail_colUserId")}</Eyebrow>
+            {/* The code the family actually holds — cards, counter and receipts
+                all speak it. The internal UUID stays available in the student
+                record table below. */}
+            <Eyebrow>{t("adminHome.students_colCode")}</Eyebrow>
             <div className="mt-1.5">
-              <CopyableText value={userId} label="User ID" />
+              {(record as any)?.studentCode ? (
+                <CopyableText
+                  value={(record as any).studentCode}
+                  label={t("adminHome.students_colCode")}
+                />
+              ) : (
+                <CopyableText value={userId} label="User ID" />
+              )}
             </div>
           </div>
           <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />

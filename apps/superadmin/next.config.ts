@@ -43,14 +43,11 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
 
-  // Pin the module-graph root to THIS workspace. Git worktrees live inside the
-  // repo at `<repo>/.claude/worktrees/*`, so an unpinned root makes a worktree's
-  // dev server walk up and adopt the MAIN checkout as its root — it then
-  // resolves a second copy of `next` and hands the browser two incompatible
-  // module-id namespaces on one origin ("module factory is not available").
-  // It also makes the server watch every sibling worktree.
+  // Same as apps/www: pin the workspace root so Turbopack never infers it from
+  // a SIBLING checkout's lockfile inside a git worktree (see the comment in
+  // apps/www/next.config.ts for the incident this prevents).
   turbopack: {
-    root: path.join(__dirname, "..", ".."),
+    root: path.resolve(import.meta.dirname, "../.."),
   },
 
   // Cloud name only (public by construction — it is in every delivery URL);
@@ -87,16 +84,7 @@ const nextConfig = {
 // Sentry wraps outermost. Source maps upload only when SENTRY_AUTH_TOKEN is
 // set (CI) and are deleted afterwards — a public source map of the back office
 // would hand out the whole admin surface. Identical policy to apps/www.
-// Same gate as apps/www: the plugin instruments the whole build even with no
-// DSN configured, and production has none. This app builds with Turbopack and
-// so never hit the 45-minute ceiling www did — the gate is here because the
-// two configs must not disagree about when Sentry is on, not because this
-// build was failing.
-const sentryEnabled = Boolean(
-  process.env.NEXT_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN,
-);
-
-const sentryBuildOptions = {
+export default withSentryConfig(withNextIntl(nextConfig), {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT_SUPERADMIN ?? process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -108,10 +96,4 @@ const sentryBuildOptions = {
   widenClientFileUpload: true,
   disableLogger: true,
   automaticVercelMonitors: false,
-};
-
-const baseConfig = withNextIntl(nextConfig);
-
-export default sentryEnabled
-  ? withSentryConfig(baseConfig, sentryBuildOptions)
-  : baseConfig;
+});

@@ -175,7 +175,15 @@ export function SessionsCard() {
                       ) : null}
                     </p>
                     <p className="truncate text-[12px] text-ink-3" dir="ltr">
-                      {formatIp(s.ipAddress)} ·{" "}
+                      {/* "::" / "—" is what localhost and missing IPs compress
+                          to — a meaningless glyph on the card, so drop the IP
+                          segment entirely rather than print noise. */}
+                      {(() => {
+                        const ip = formatIp(s.ipAddress);
+                        return ip !== "—" && ip !== "::" && ip !== "::1" && ip !== "127.0.0.1"
+                          ? `${ip} · `
+                          : null;
+                      })()}
                       {t("security.lastActive")}{" "}
                       {format.dateTime(new Date(s.updatedAt), {
                         dateStyle: "medium",

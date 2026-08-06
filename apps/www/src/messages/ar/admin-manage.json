@@ -41,6 +41,7 @@
     "gradeTagPlaceholder": "مثال: الصف العاشر",
     "term": "الفترة الدراسية",
     "termDatesRequired": "تواريخ الفترة الدراسية مطلوبة",
+    "checkFields": "لم يُحفَظ — راجع الحقول المظللة بالأحمر",
     "priceEGP": "السعر (ج.م)",
     "priceRequired": "السعر مطلوب",
     "mustBeZeroOrMore": "يجب أن يكون 0 أو أكثر",

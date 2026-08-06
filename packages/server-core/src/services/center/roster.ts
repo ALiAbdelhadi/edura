@@ -71,6 +71,17 @@ export async function listRosterStudents(
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
+    // The printable code (A1Y00HDG) is what a center actually holds a student
+    // by — the cards, the counter and the receipt all speak it. The list used
+    // to show the raw user UUID instead, which nobody can read over a counter.
+    const profiles = ids.length
+      ? await tx.studentProfile.findMany({
+          where: { userId: { in: ids } },
+          select: { userId: true, studentCode: true },
+        })
+      : [];
+    const codeMap = new Map(profiles.map((p) => [p.userId, p.studentCode]));
+
     // Courses per student = their ACTIVE ENROLLMENTS at THIS center. Enrollment
     // is the roster link, which is what a roster column means; a Subscription is
     // the payment coverage wrapping it and is deliberately NOT what is counted
@@ -105,6 +116,7 @@ export async function listRosterStudents(
         addedAt: r.addedAt,
         leftAt: r.leftAt,
         coursesCount: coursesByStudent.get(r.studentId) ?? 0,
+        studentCode: codeMap.get(r.studentId) ?? null,
         name: u?.name,
         email: u?.email,
         phone: u?.phone,
@@ -166,7 +178,12 @@ export async function getRosterStudent(acting: SessionUser, studentId: string) {
       select: { id: true, name: true, email: true, phone: true, status: true },
     });
 
-    return { ...roster, user: student };
+    const profile = await tx.studentProfile.findUnique({
+      where: { userId: studentId },
+      select: { studentCode: true },
+    });
+
+    return { ...roster, user: student, studentCode: profile?.studentCode ?? null };
   });
 }
 

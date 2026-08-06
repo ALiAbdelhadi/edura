@@ -26,27 +26,36 @@ const DEFAULT_COLORS = [
   "var(--chart-5)",
 ];
 
-export function revenueVsExpensesLineSeries(points: RevenueTimeseriesPoint[]) {
+// `labels` / `labelFor` exist because these strings land on ARABIC screens:
+// the hardcoded English defaults are only the fallback for callers that have
+// no translator in scope, never the intended display.
+export function revenueVsExpensesLineSeries(
+  points: RevenueTimeseriesPoint[],
+  labels?: { revenue: string; expenses: string },
+) {
   return [
     {
       id: "revenue",
-      label: "Revenue",
+      label: labels?.revenue ?? "Revenue",
       color: "var(--chart-1)",
       points: points.map((row) => ({ x: row.label, value: row.revenue })),
     },
     {
       id: "expenses",
-      label: "Expenses",
+      label: labels?.expenses ?? "Expenses",
       color: "var(--chart-3)",
       points: points.map((row) => ({ x: row.label, value: row.expenses })),
     },
   ];
 }
 
-export function sessionStatusDonutData(items: SessionStatusPoint[]) {
+export function sessionStatusDonutData(
+  items: SessionStatusPoint[],
+  labelFor?: (status: string) => string,
+) {
   return items.map((row, index) => ({
     id: row.status,
-    label: row.status[0].toUpperCase() + row.status.slice(1),
+    label: labelFor ? labelFor(row.status) : row.status[0].toUpperCase() + row.status.slice(1),
     value: row.count,
     color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
   }));
@@ -66,9 +75,12 @@ export function courseFillRateBarData(items: CourseFillRatePoint[]) {
   }));
 }
 
-export function enrollmentFunnelBarData(items: EnrollmentFunnelPoint[]) {
+export function enrollmentFunnelBarData(
+  items: EnrollmentFunnelPoint[],
+  labelFor?: (status: string) => string,
+) {
   return items.map((row) => ({
-    label: row.status[0].toUpperCase() + row.status.slice(1),
+    label: labelFor ? labelFor(row.status) : row.status[0].toUpperCase() + row.status.slice(1),
     count: row.count,
   }));
 }

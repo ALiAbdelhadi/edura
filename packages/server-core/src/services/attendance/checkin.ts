@@ -231,6 +231,16 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
     });
     const courseMap = new Map(courses.map((c) => [c.id, c]));
 
+    // What already happened today for THIS student — so the counter can show
+    // "already checked in" instead of offering the same commit again. The
+    // second press was always idempotent server-side; this makes the screen
+    // say so instead of leaving the operator guessing.
+    const attendance = await tx.attendanceRecord.findMany({
+      where: { studentId, sessionId: { in: sessions.map((s) => s.id) } },
+      select: { sessionId: true, status: true },
+    });
+    const attendanceMap = new Map(attendance.map((a) => [a.sessionId, a.status]));
+
     const enriched = [] as {
       sessionId: string;
       courseId: string;
@@ -239,6 +249,7 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
       endTime: string;
       covered: boolean;
       pricePerSession: number | null;
+      checkinStatus: string | null;
     }[];
     for (const s of sessions) {
       const covered = await coveredStudentIds(
@@ -254,6 +265,7 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
         endTime: s.endTime,
         covered: covered.has(studentId),
         pricePerSession: courseMap.get(s.courseId)?.pricePerSession ?? null,
+        checkinStatus: attendanceMap.get(s.id) ?? null,
       });
     }
     return {

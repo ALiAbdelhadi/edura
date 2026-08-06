@@ -127,23 +127,48 @@ export async function generateSessions(
   return scopedDb(user, (tx) => generateSessionsTx(tx, course));
 }
 
+// Exported as a Tx variant so updateCourse can run the course-row change and
+// the regeneration in ONE transaction. They used to run in two: a schedule
+// conflict then threw AFTER the course row had committed, leaving the course
+// saying "Tuesday 17:00" while its sessions still said "Monday 16:00" — the
+// plan students and attendance run on. Atomicity is the fix: a conflict now
+// rolls the course edit back too.
+export async function regenerateFutureSessionsTx(
+  tx: TenantTx,
+  course: CourseInput,
+  newPattern: SchedulePattern,
+): Promise<string[]> {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+
+  await tx.session.deleteMany({
+    where: {
+      courseId: course.id,
+      date: { gte: now },
+      status: "scheduled",
+      // A session someone already checked into is real-world state, not plan —
+      // deleting it would orphan (or refuse on) its attendance records. It
+      // survives the regeneration; generateSessionsTx skips its date via
+      // existingDates, so no duplicate is created either.
+      attendance: { none: {} },
+    },
+  });
+
+  // Regeneration only ever plans FORWARD: a course that already started
+  // carries a past startDate, and walking from it would invent past sessions
+  // in the holes between the ones that actually happened.
+  const effectiveStart = newPattern.startDate > now ? newPattern.startDate : now;
+
+  return generateSessionsTx(tx, {
+    ...course,
+    schedulePattern: { ...newPattern, startDate: effectiveStart },
+  });
+}
+
 export async function regenerateFutureSessions(
   course: CourseInput,
   newPattern: SchedulePattern,
   user: SessionUser,
 ): Promise<string[]> {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-
-  return scopedDb(user, async (tx) => {
-    await tx.session.deleteMany({
-      where: {
-        courseId: course.id,
-        date: { gte: now },
-        status: "scheduled",
-      },
-    });
-
-    return generateSessionsTx(tx, { ...course, schedulePattern: newPattern });
-  });
+  return scopedDb(user, (tx) => regenerateFutureSessionsTx(tx, course, newPattern));
 }

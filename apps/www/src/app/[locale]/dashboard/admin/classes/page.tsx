@@ -1,3 +1,8 @@
-"use client";
 import { AdminClassesScreen } from "@/features/admin/admin-classes-screen";
-export default function Page() { return <AdminClassesScreen />; }
+import { localizedTitle } from "@/lib/i18n/page-metadata";
+
+export const generateMetadata = localizedTitle("classes");
+
+export default function Page() {
+  return <AdminClassesScreen />;
+}

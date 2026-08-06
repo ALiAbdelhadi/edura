@@ -40,6 +40,10 @@ function navForRole(role: StaffRole) {
     items.push({ href: `${base}/messages`, icon: "message", label: "Messages" });
   }
   items.push(
+    // Team notes are for EVERY sub-role by design (2026-07-27): the read-only
+    // center_accountant still reads the board (receipts-on-GET counts them).
+    // The page existed but had no nav entry, so it was reachable only by URL.
+    { href: `${base}/notes`, icon: "clipboard", label: "Team Notes" },
     { href: `${base}/notifications`, icon: "bell", label: "Notifications" },
     { href: `${base}/settings`, icon: "settings", label: "Settings" },
   );

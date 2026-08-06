@@ -1,0 +1,61 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]: Edura
+      - radiogroup "اللغة" [ref=e10]:
+        - radio "العربية" [checked] [ref=e11]
+        - radio "English" [ref=e12]
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - complementary [ref=e15]:
+          - generic [ref=e16]: Edura
+          - heading "مستقبل التعليم الرقمي بين يديك." [level=2] [ref=e17]
+          - paragraph [ref=e18]: منصة تعليمية متكاملة تربط الطلاب وأولياء الأمور بالمعلمين والمراكز.
+          - list [ref=e20]:
+            - listitem [ref=e21]: حضور ومتابعة التقدّم
+            - listitem [ref=e26]: اشتراكات ومدفوعات آمنة
+            - listitem [ref=e30]: للطلاب وأولياء الأمور والمعلمين والمراكز
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - heading "تسجيل الدخول" [level=1] [ref=e40]
+            - paragraph [ref=e41]: مرحباً بك مجدداً، يرجى إدخال بياناتك للمتابعة.
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: البريد الإلكتروني
+              - textbox "البريد الإلكتروني" [ref=e45]:
+                - /placeholder: you@example.com
+            - generic [ref=e46]:
+              - generic [ref=e47]:
+                - generic [ref=e48]: كلمة المرور
+                - link "هل نسيت كلمة المرور؟" [ref=e49] [cursor=pointer]:
+                  - /url: /ar/forgot-password
+              - group [ref=e50]:
+                - textbox "كلمة المرور" [ref=e51]:
+                  - /placeholder: أدخل كلمة المرور
+                - group [ref=e52]:
+                  - button "إظهار كلمة المرور" [ref=e53]
+            - button "تسجيل الدخول" [ref=e54]
+          - generic [ref=e58]:
+            - generic [ref=e59]: تسجيل دخول تجريبي سريع
+            - generic [ref=e63]:
+              - button "مسؤول" [ref=e64]:
+                - generic [ref=e65]: م
+                - text: مسؤول
+              - button "معلم" [ref=e66]:
+                - generic [ref=e67]: م
+                - text: معلم
+              - button "طالب" [ref=e68]:
+                - generic [ref=e69]: ط
+                - text: طالب
+              - button "ولي أمر" [ref=e70]:
+                - generic [ref=e71]: و
+                - text: ولي أمر
+            - paragraph [ref=e72]: جميع الحسابات التجريبية تستخدم Passw0rd!
+          - paragraph [ref=e73]:
+            - text: ليس لديك حساب؟
+            - link "إنشاء حساب" [ref=e74] [cursor=pointer]:
+              - /url: /ar/register
+    - contentinfo [ref=e75]:
+      - generic [ref=e76]: © 2026 Edura
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e82] [cursor=pointer]

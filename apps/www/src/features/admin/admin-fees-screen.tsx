@@ -417,11 +417,16 @@ export function AdminFeesScreen() {
       ),
     },
     {
-      id: "studentId",
-      header: t("adminManage.fees.userId"),
+      // The printable student code, not the internal UUID — the code is what
+      // the receipt in the same row carries.
+      id: "studentCode",
+      header: t("adminHome.students_colCode"),
       enableSorting: false,
       cell: ({ row }) => (
-        <CopyableText value={row.original.studentId} label={t("adminManage.fees.userId")} />
+        <CopyableText
+          value={row.original.studentCode || row.original.studentId}
+          label={t("adminHome.students_colCode")}
+        />
       ),
     },
     {

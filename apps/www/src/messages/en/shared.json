@@ -163,7 +163,7 @@
   "checkin": {
     "title": "Counter check-in",
     "description": "Search a student by code, phone, or name — then pick the session.",
-    "searchPlaceholder": "STU-000123, phone, or name…",
+    "searchPlaceholder": "G7K3M2QF, phone, or name…",
     "searchFailed": "Search failed",
     "results": "Matches",
     "noMatches": "No students found — create a walk-in below",
@@ -179,6 +179,9 @@
     "checkIn": "Check in",
     "collectAndCheckIn": "Collect {price} & check in",
     "noSessionPrice": "No per-session price set",
+    "noSessionPriceHint": "No per-session price — the center owner sets it on the Classes screen to enable collection here",
+    "alreadyPresent": "Present today",
+    "counterDoneBadge": "Passed the counter — door pending",
     "cashCollected": "Cash payment recorded",
     "present": "Checked in — present",
     "counterDone": "Counter check-in done — door check-in still needed",

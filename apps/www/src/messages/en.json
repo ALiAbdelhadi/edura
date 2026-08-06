@@ -705,7 +705,7 @@
     "students_emptyHint": "Register their students here so you can record attendance and payments.",
     "gaps_title": "Gaps that need attention",
     "gaps_review": "Review",
-    "gaps_summary": "{count} thing(s) are missing and are holding up money or attendance.",
+    "gaps_summary": "{count, plural, one {# thing is missing and is holding up money or attendance.} other {# things are missing and are holding up money or attendance.}}",
     "gap_blocking": "Blocking",
     "gap_warning": "Warning",
     "gap_lesson_without_attendance": "Lesson ran with no attendance",

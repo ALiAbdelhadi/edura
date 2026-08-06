@@ -49,6 +49,8 @@ type SessionOption = {
   endTime: string;
   covered: boolean;
   pricePerSession: number | null;
+  /** Today's attendance for THIS student, if any — "present" / "counter_only". */
+  checkinStatus: string | null;
 };
 
 /**
@@ -450,7 +452,18 @@ export function AdminCheckinScreen() {
               </span>
             ) : null}
           </div>
-          {paying ? null : s.covered ? (
+          {paying ? null : s.checkinStatus === "present" ? (
+            // Already checked in today — say so instead of re-offering the
+            // same commit (which was idempotent server-side but read as
+            // "nothing happened yet" to the operator).
+            <Badge tone="done" icon={<CheckCircle2 className="size-3.5" />}>
+              {t("shared.checkin.alreadyPresent")}
+            </Badge>
+          ) : s.checkinStatus === "counter_only" ? (
+            <Badge tone="pending" icon={<DoorOpen className="size-3.5" />}>
+              {t("shared.checkin.counterDoneBadge")}
+            </Badge>
+          ) : s.covered ? (
             <Button size="lg" className="h-12 min-w-[132px]" disabled={busy} onClick={() => startCheckin(s)}>
               <CheckCircle2 className="size-4" />
               {t("shared.checkin.checkIn")}
@@ -467,8 +480,10 @@ export function AdminCheckinScreen() {
               {t("shared.checkin.collectAndCheckIn", { price: formatEGP(s.pricePerSession) })}
             </Button>
           ) : (
-            <span className="text-[13px] text-[var(--ink-3)]">
-              {t("shared.checkin.noSessionPrice")}
+            // A dead-end without guidance strands the operator mid-queue: name
+            // the fix and who can do it, not just the state.
+            <span className="max-w-[220px] text-[13px] leading-snug text-[var(--ink-3)]">
+              {t("shared.checkin.noSessionPriceHint")}
             </span>
           )}
         </div>

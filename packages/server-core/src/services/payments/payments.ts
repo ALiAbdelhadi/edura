@@ -140,7 +140,7 @@ export async function listPayments(
 
     const studentIds = [...new Set(payments.map((p) => p.studentId))];
     const courseIds = [...new Set(payments.map((p) => p.courseId).filter(Boolean) as string[])];
-    const [students, courses] = await Promise.all([
+    const [students, courses, profiles] = await Promise.all([
       tx.user.findMany({
         where: { id: { in: studentIds } },
         select: { id: true, name: true, email: true },
@@ -149,9 +149,15 @@ export async function listPayments(
         where: { id: { in: courseIds } },
         select: { id: true, title: true },
       }),
+      // The printable code — what the fees log shows instead of a raw UUID.
+      tx.studentProfile.findMany({
+        where: { userId: { in: studentIds } },
+        select: { userId: true, studentCode: true },
+      }),
     ]);
     const studentMap = new Map(students.map((s) => [s.id, s]));
     const courseMap = new Map(courses.map((c) => [c.id, c]));
+    const codeMap = new Map(profiles.map((p) => [p.userId, p.studentCode]));
 
     return payments.map((p) => {
       const s = studentMap.get(p.studentId);
@@ -160,6 +166,7 @@ export async function listPayments(
         ...p,
         studentName: s?.name ?? "",
         studentEmail: s?.email ?? "",
+        studentCode: codeMap.get(p.studentId) ?? null,
         courseName: c?.title ?? "",
       };
     });
