@@ -20,6 +20,7 @@
      not that it was logged but that the change itself is legible. */
 
 import { Fragment, useState } from "react";
+import { todayKey } from "@repo/server-core/lib/date-key";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Lock, RefreshCcw, ScrollText, TriangleAlert } from "lucide-react";
@@ -90,8 +91,9 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   }
 
   const dayLabel = (day: string) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Cairo wall-clock — see @repo/server-core/lib/date-key.
+    const today = todayKey();
+    const yesterday = todayKey(new Date(Date.now() - 86_400_000));
     if (day === today) return t("today");
     if (day === yesterday) return t("yesterday");
     return formatDate(day, locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });

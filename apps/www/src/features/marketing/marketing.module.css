@@ -35,6 +35,17 @@
   padding: 1.15rem 1.25rem;
 }
 
+/* Hover for the cards that are links (help index + related-articles list).
+   This CANNOT be a `hover:border-(--indigo)` utility on the element: this file
+   is unlayered, so its `border` shorthand beats anything Tailwind emits inside
+   `@layer utilities` — layer order outranks specificity. The utility was dead. */
+@media (hover: hover) {
+  a.card:hover,
+  a.cardMuted:hover {
+    border-color: var(--indigo);
+  }
+}
+
 /* ── Worked-example ledger rows ───────────────────────────────────────────
    A money row is label-left / figure-right in BOTH directions: `justify-between`
    plus logical padding does that under rtl and ltr without a mirrored rule. */

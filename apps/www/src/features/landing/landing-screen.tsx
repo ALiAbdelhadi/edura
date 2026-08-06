@@ -72,7 +72,7 @@ export async function LandingScreen() {
                   <Link href="/login">{t("hero.ctaSecondary")}</Link>
                 </LedgerButton>
               </div>
-              <div className={`${styles.trustRow} lg:justify-start`}>
+              <div className={styles.trustRow}>
                 <span className={styles.trustItem}>
                   <Smartphone className="size-3.5 shrink-0" aria-hidden />
                   {t("hero.trustMobile")}

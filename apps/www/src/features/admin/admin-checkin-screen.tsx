@@ -7,8 +7,9 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { SearchInput } from "@repo/ui/components/search-input";
 import { toast } from "@repo/ui/components/sonner";
-import { Banknote, CheckCircle2, DoorOpen, Search, UserPlus } from "lucide-react";
+import { Banknote, CheckCircle2, DoorOpen, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
@@ -482,24 +483,20 @@ export function AdminCheckinScreen() {
 
       <Sheet>
         <div className="flex flex-col gap-3 p-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute inset-inline-start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
-              <Input
-                // First focusable element on the screen, numeric-friendly.
-                autoFocus
-                inputMode="search"
-                className="num h-12 border-[var(--rule)] bg-[var(--field)] ps-9 text-base"
-                placeholder={t("shared.checkin.searchPlaceholder")}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
-              />
-            </div>
-            <Button size="lg" className="h-12 px-5" onClick={search} disabled={busy}>
-              {t("actions.search")}
-            </Button>
-          </div>
+          <SearchInput
+            // First focusable element on the screen, numeric-friendly. `num`
+            // sits on the group so the mono/tabular face inherits to the input —
+            // student IDs read as figures, not prose.
+            autoFocus
+            inputMode="search"
+            density="touch"
+            className="num border-[var(--rule)] bg-[var(--field)]"
+            placeholder={t("shared.checkin.searchPlaceholder")}
+            value={q}
+            onValueChange={setQ}
+            onSubmit={search}
+            action={{ label: t("actions.search"), onClick: search, busy }}
+          />
           <Button
             variant="ghost"
             className="h-11 self-start px-2 text-[13px]"

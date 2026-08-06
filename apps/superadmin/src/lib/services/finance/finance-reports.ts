@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import { NotFoundError } from "@/lib/errors/classes";
 
 function dateWhere(from?: string, to?: string) {
@@ -36,7 +37,7 @@ export function revenueReport(
       }
     >();
     for (const r of rows) {
-      const key = r.bucket.toISOString().slice(0, 10);
+      const key = toDateKey(r.bucket);
       const b = byPeriod.get(key) ?? {
         period: key,
         grossRevenue: 0,

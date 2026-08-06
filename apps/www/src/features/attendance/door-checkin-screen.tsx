@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { todayKey } from "@repo/server-core/lib/date-key";
 import { useCustomMutation } from "@refinedev/core";
 import { DoorOpen, CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -67,7 +68,10 @@ export function DoorCheckinScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10);
+        // Cairo's today, not the browser's UTC day: this screen stands at the
+        // classroom door, and a late session running past midnight local time
+        // would otherwise fetch the PREVIOUS day's list and show none of it.
+        const today = todayKey();
         const res = await api
           .get(`sessions?from=${today}&to=${today}`)
           .json<{ data: { items?: SessionRow[] } | SessionRow[] }>();

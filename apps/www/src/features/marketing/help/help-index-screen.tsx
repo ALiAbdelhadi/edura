@@ -61,7 +61,7 @@ export async function HelpIndexScreen({ locale }: { locale: Locale }) {
                   <li key={a.slug}>
                     <Link
                       href={`/help/${a.slug}`}
-                      className={`${styles.card} flex h-full flex-col transition-colors hover:border-(--indigo)`}
+                      className={`${styles.card} flex h-full flex-col transition-colors`}
                     >
                       <h3 className="text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
                         {a.title}

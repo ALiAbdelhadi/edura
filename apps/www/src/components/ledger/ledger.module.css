@@ -1,150 +1,32 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   "الدفتر / The Ledger" — token layer, SCOPED TO THE STUDENT PORTAL.
+   "الدفتر / The Ledger" — the shell scope for the student portal and the public
+   shells (landing, onboarding wizard, auth).
 
-   WHY THIS FILE EXISTS, AND WHEN IT SHOULD STOP EXISTING
-   ------------------------------------------------------
-   The Ledger's real token layer belongs in `packages/ui/src/styles/globals.css`
-   and is the foundation session's work. It has not landed. `packages/ui` is
-   shared by five parallel portal sessions, so this session may not put it there
-   — re-pointing those tokens changes every portal at once.
+   THE PALETTE IS NO LONGER HERE — IT LIVES IN packages/ui/src/styles/globals.css
+   ----------------------------------------------------------------------------
+   This file's original header called itself "a bridge, not a fork", to be
+   deleted "when the foundation lands the shared layer with the same names". The
+   foundation has landed: globals.css IS the Ledger token layer, under exactly
+   those names. So the ~110 lines of token copy that stood here are gone, and
+   everything inherits from :root.
 
-   So the values below are scoped to `.scope`, which is applied to the student
-   dashboard's content wrapper only. No other portal's appearance changes.
+   Keeping the copy was not free. It had drifted from globals on --ink-3 and
+   --teal, which is why a component could render differently inside this wrapper
+   than outside it. Only the two tokens nothing else defines remain.
 
-   The values are NOT invented. They are transcribed verbatim from the design
-   handoff §2.2 (colour) and §2.4 (geometry), under the names the handoff uses.
-   That is deliberate: when the foundation lands the shared layer with the same
-   names, every consumer in this folder keeps working and this file is deleted
-   in one commit. It is a bridge, not a fork — but it IS a duplicate, and it
-   should not outlive the foundation's Part C.
-
-   The chrome (sidebar + header) is `DashboardShell`, which is shared and stays
-   on the old system until foundation Part D converts it.
+   What is still here is what a token layer genuinely cannot carry: the
+   structural chrome rules (§3) that re-point sizing and layout on the shared
+   DashboardShell without editing it.
    ───────────────────────────────────────────────────────────────────────────*/
 
-/* ── The shell scope ───────────────────────────────────────────────────────
-   Wraps DashboardShell in the student layout. It does two things:
-
-   1. Defines the Ledger tokens (inherited by `.scope` inside it).
-   2. RE-POINTS the legacy semantic tokens onto them — the same
-      "re-point, don't rename" move the foundation will make globally, done
-      locally here. Because the shared chrome is built from `--sidebar*`,
-      `--background`, `--card`, `--border` and friends, re-pointing those
-      converts the entire shell without editing dashboard-shell.tsx, which is
-      shared with parent, teacher, admin and assistant.
-
-   Outside this wrapper nothing changes. When the foundation lands the real
-   token layer, this whole block is deleted and the shell keeps working.       */
 .shellScope {
-  /* Surfaces */
-  --paper: #f7f6f2;
-  --sheet: #ffffff;
-  --field: #fbfaf7;
-
-  /* Ink hierarchy */
-  --ink: #1c2230;
-  --ink-2: #5b6273;
-  --ink-3: #8b91a1;
-
-  /* Rules */
-  --rule: #e4e1d8;
-  --rule-2: #efece4;
-
-  /* Brand / primary action */
-  --indigo: #1a2f73;
-  --indigo-soft: #eaecf6;
-  --indigo-ink: #ffffff;
-
-  /* Money out / confirmed */
-  --teal: #0d7d72;
-  --teal-soft: #e2f2f0;
-
-  /* Awaiting only */
-  --amber: #a35a06;
-  --amber-soft: #fbf0dd;
-
-  /* Final / irreversible / blocking only */
-  --red: #a81d1d;
-  --red-soft: #fbe9e7;
-
-  /* Elevation — only two levels exist in this system. */
-  --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
-  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22);
-
-  /* ── Legacy semantic tokens, re-pointed onto the Ledger ────────────────
-     This is what converts the shared chrome. The near-black sidebar slab is
-     gone: it read as a second app beside a light canvas and was the loudest
-     element on screen while carrying the least information.               */
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--sheet);
-  --card-foreground: var(--ink);
-  --popover: var(--sheet);
-  --popover-foreground: var(--ink);
-  --border: var(--rule);
-  --input: var(--rule);
-  --muted: var(--field);
-  --muted-foreground: var(--ink-2);
-  --primary: var(--indigo);
-  --primary-foreground: var(--indigo-ink);
-  --secondary: var(--field);
-  --secondary-foreground: var(--ink);
-  --accent: var(--indigo-soft);
-  --accent-foreground: var(--indigo);
-  --destructive: var(--red);
-  --destructive-foreground: var(--indigo-ink);
-  --success: var(--teal);
-  --warning: var(--amber);
-  --info: var(--indigo);
-  --ring: var(--indigo);
-
-  --sidebar: var(--sheet);
-  --sidebar-foreground: var(--ink-2);
-  --sidebar-border: var(--rule);
-  --sidebar-accent: var(--indigo-soft);
-  --sidebar-accent-foreground: var(--indigo);
-  --sidebar-primary: var(--indigo);
-  --sidebar-primary-foreground: var(--indigo-ink);
-  --sidebar-ring: var(--indigo);
-
-  /* Cards/panels 12px, not the 18px the old --radius produced. */
-  --radius: 0.75rem;
-
-  /* Gradients and the glow are gone from the system entirely. */
+  /* Gradients and the glow are gone from the system entirely. Neither token is
+     defined anywhere else, so these two are genuinely this scope's. */
   --primary-glow: transparent;
   --shadow-glow: none;
 
   background: var(--paper);
   color: var(--ink);
-}
-
-:global([data-theme="dark"]) .shellScope {
-  --paper: #14161c;
-  --sheet: #1b1e26;
-  --field: #1f232b;
-
-  --ink: #eceadf;
-  --ink-2: #a3a49c;
-  --ink-3: #7c7e78;
-
-  --rule: #2a2d35;
-  --rule-2: #22252c;
-
-  --indigo: #93a4e6;
-  --indigo-soft: #232840;
-  --indigo-ink: #0d1330;
-
-  --teal: #54c9bb;
-  --teal-soft: #12302e;
-
-  --amber: #e0a44a;
-  --amber-soft: #33260f;
-
-  --red: #ef6a6a;
-  --red-soft: #361b1b;
-
-  --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
-  --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
 /* The content canvas. Tokens are inherited from `.shellScope` above it. */

@@ -1,5 +1,6 @@
 import type { DataSource } from "@repo/database";
 import { scopedDb, type TenantTx } from "../../db/scope";
+import { toDateKey } from "../../lib/date-key";
 import type { SessionUser } from "../../auth/types";
 import { ConflictError } from "../../errors/classes";
 import { checkConflicts } from "./conflict-detector";
@@ -61,7 +62,7 @@ export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Pro
     select: { originalDate: true },
   });
   const existingDates = new Set(
-    existing.map((s) => s.originalDate.toISOString().split("T")[0]),
+    existing.map((s) => toDateKey(s.originalDate)),
   );
 
   const toInsert: {
@@ -78,7 +79,7 @@ export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Pro
   const conflicts: object[] = [];
 
   for (const date of dates) {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = toDateKey(date);
     if (existingDates.has(dateStr)) continue;
 
     const clashes = await checkConflicts(tx, {

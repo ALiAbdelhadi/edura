@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 
 
 type InvoiceLike = {
@@ -17,7 +18,7 @@ type InvoiceLike = {
 const egp = (piasters: number | null | undefined) =>
   `${((piasters ?? 0) / 100).toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EGP`;
 
-const asDate = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString().slice(0, 10) : "—");
+const asDate = (v: Date | string | null | undefined) => (v ? toDateKey(v) : "—");
 
 export async function renderInvoicePdf(inv: InvoiceLike): Promise<Uint8Array> {
   const doc = await PDFDocument.create();

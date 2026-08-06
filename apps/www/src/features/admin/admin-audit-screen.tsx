@@ -22,6 +22,7 @@
      us. A tamper-proof record nobody knows is tamper-proof buys no trust. */
 
 import { Fragment, useEffect, useState } from "react";
+import { todayKey } from "@repo/server-core/lib/date-key";
 import { useCustom } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
@@ -29,6 +30,7 @@ import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 
+import { DateRangeField } from "@/components/kit/date-range-field";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
@@ -76,8 +78,10 @@ export function AdminAuditScreen() {
     const stamp = () => {
       const now = Date.now();
       setTodayKeys({
-        today: new Date(now).toISOString().slice(0, 10),
-        yesterday: new Date(now - 86_400_000).toISOString().slice(0, 10),
+        // Cairo wall-clock, so "Today" flips at local midnight rather than at
+        // 02:00/03:00 when the UTC day happens to roll over.
+        today: todayKey(new Date(now)),
+        yesterday: todayKey(new Date(now - 86_400_000)),
       });
     };
     stamp();
@@ -179,31 +183,16 @@ export function AdminAuditScreen() {
           </datalist>
         </label>
 
-        <label className="text-xs">
-          <span className="mb-1 block text-ink-2">{t("filterFrom")}</span>
-          <Input
-            type="date"
-            value={from}
-            className="w-40"
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-
-        <label className="text-xs">
-          <span className="mb-1 block text-ink-2">{t("filterTo")}</span>
-          <Input
-            type="date"
-            value={to}
-            className="w-40"
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
+        <DateRangeField
+          value={{ from, to }}
+          onChange={(next) => {
+            setFrom(next.from);
+            setTo(next.to);
+            setPage(1);
+          }}
+          formatDate={formatDate}
+          placeholder={t("filterFrom")}
+        />
 
         {hasFilters ? (
           <Button variant="ghost" size="sm" onClick={clear}>

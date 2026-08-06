@@ -1,4 +1,5 @@
 import { platformDb } from "@/lib/db/scope";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import { generateAndEmailInvoice } from "@/lib/services/finance/invoices";
 import { notify } from "@/lib/services/notifications/notify";
 
@@ -15,8 +16,8 @@ function lastMonthRange(now: Date): { start: Date; end: Date; label: string } {
 
 export async function runMonthEndStatements(now: Date) {
   const { start, end, label } = lastMonthRange(now);
-  const periodStart = start.toISOString().slice(0, 10);
-  const periodEnd = end.toISOString().slice(0, 10);
+  const periodStart = toDateKey(start);
+  const periodEnd = toDateKey(end);
 
   const { teachers, centers, done } = await platformDb(async (tx) => {
     const teachers = await tx.teacherProfile.findMany({

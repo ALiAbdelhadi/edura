@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "../../db/scope";
+import { toDateKey } from "../../lib/date-key";
 import { checkConflicts } from "../../services/sessions/conflict-detector";
 import { notify } from "../../services/notifications/notify";
 import {
@@ -164,7 +165,7 @@ export async function postponeSession(
       data: {
         sessionId,
         reason,
-        oldDate: oldDate.toISOString().split("T")[0],
+        oldDate: toDateKey(oldDate),
         oldStartTime,
         oldEndTime,
         newDate,

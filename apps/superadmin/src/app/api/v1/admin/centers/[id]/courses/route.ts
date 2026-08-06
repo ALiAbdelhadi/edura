@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/authz/require-role";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { adminCreateCourse } from "@/lib/services/admin/center-academic";
@@ -16,7 +17,7 @@ const schedulePatternSchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
   })
-  .refine((p) => isNotPastDate(p.startDate.toISOString().slice(0, 10)), {
+  .refine((p) => isNotPastDate(toDateKey(p.startDate)), {
     message: "startDate cannot be in the past",
     path: ["startDate"],
   })

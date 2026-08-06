@@ -1,3 +1,35 @@
+/* THE CASCADE ORDER FOR THE WHOLE APP. This statement must stay first.
+ *
+ * `@import "tailwindcss"` emits its own `@layer theme, base, components,
+ * utilities;`. A layer's position is fixed by the FIRST declaration that names
+ * it, and a later statement can only APPEND names it has not seen — so if
+ * `portal` were introduced by the portal stylesheet instead of here, it would
+ * land AFTER `utilities` and win over every utility, which is the opposite of
+ * the point. Declaring the full order before that import is what puts `portal`
+ * between `components` and `utilities`. A `@layer` statement is one of the few
+ * rules allowed to precede `@import`.
+ *
+ * WHY IT EXISTS: hand-written stylesheets here used to be UNLAYERED, and
+ * unlayered author styles outrank every layered rule regardless of specificity.
+ * So a Tailwind utility written on an element that also carried a class from
+ * one of those files silently did nothing — that is what killed a
+ * `lg:justify-start`, two `hover:border-(--indigo)`, and left the check-in
+ * search icon with no inset. Inside `portal`, utilities win, as every call site
+ * already assumed.
+ *
+ * ONLY `features/admin/ledger/ledger.css` IS IN THIS LAYER SO FAR. The three
+ * `*.module.css` files are still unlayered, NOT by choice: wrapping
+ * `components/ledger/ledger.module.css` in `@layer` makes Turbopack
+ * (Next 16.2.12) emit a malformed module and every route 500s with
+ * `SyntaxError: Unexpected non-whitespace character after JSON`. It reproduces
+ * on a clean `.next`, and bisects to that one file — `landing.module.css` and
+ * `marketing.module.css` both layer fine, so it is not `:global()` or CSS
+ * Modules in general. Until that is understood, those three keep the old
+ * hazard; `tests/unit/tailwind-dead-classes.test.ts` is what catches the
+ * symptom in the meantime.
+ */
+@layer theme, base, components, portal, utilities;
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../../../../../packages/ui/src/styles/globals.css";
