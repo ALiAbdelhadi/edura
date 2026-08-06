@@ -16,7 +16,6 @@ const navItems = [
   { href: "/dashboard/admin/students", icon: "users", label: "Students" },
   { href: "/dashboard/admin/enrollment-requests", icon: "bell", label: "Enrollment Requests" },
   { href: "/dashboard/admin/teachers", icon: "person", label: "Teachers" },
-  { href: "/dashboard/admin/external-teachers", icon: "person", label: "Off-system Teachers" },
   { href: "/dashboard/admin/classes", icon: "book", label: "Classes" },
   { href: "/dashboard/admin/rooms", icon: "home", label: "Rooms" },
   { href: "/dashboard/admin/fees", icon: "dollar", label: "Fees" },
@@ -50,16 +49,12 @@ const BAR_ORDER = [
   "/dashboard/admin/enrollment-requests",
   "/dashboard/admin/classes",
   "/dashboard/admin/teachers",
-  "/dashboard/admin/external-teachers",
   "/dashboard/admin/rooms",
   "/dashboard/admin/messages",
   "/dashboard/admin/notes",
   "/dashboard/admin/expenses",
   "/dashboard/admin/reports",
   "/dashboard/admin/staff",
-  // Desk work, like Staff above it: the audit log is something a center admin
-  // goes looking for at a keyboard, never mid-floor. Late in "more" — but
-  // listed, because an unlisted href is a screen no phone can open at all.
   "/dashboard/admin/audit",
   "/dashboard/admin/notifications",
   "/dashboard/admin/settings",

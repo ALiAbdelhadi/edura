@@ -20,6 +20,7 @@
  */
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 
 const WIPABLE = ["dev", "test"] as const;
 
@@ -38,7 +39,7 @@ async function main() {
     throw new Error("wipe-data: ADMIN_URL (database OWNER string) is required — TRUNCATE needs ownership.");
   }
 
-  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(url), max: 1 });
   try {
     const { rows: labelRows } = await pool.query<{ db: string; label: string | null }>(
       `SELECT current_database() db,

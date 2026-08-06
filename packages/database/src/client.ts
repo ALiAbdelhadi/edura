@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import ws from "ws";
 import { PrismaClient, Prisma } from "./generated/client/index";
 import { hardenNeonWebSockets, isNeonSocketDropError } from "./neon-ws";
+import { pinSslMode } from "./pg-ssl";
 import {
   sessionRevocationExtension,
   softDeleteExtension,
@@ -27,12 +28,17 @@ hardenNeonWebSockets();
 //
 // Everything here runs on FIRST QUERY, not at import (see `prisma` below).
 function createAdapter() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const rawConnectionString = process.env.DATABASE_URL;
+  if (!rawConnectionString) {
     throw new Error(
       "DATABASE_URL is not set. Point it at the Neon POOLED connection string.",
     );
   }
+  // Neon issues `?sslmode=require`, which pg treats as `verify-full` today and
+  // would treat as unverified TLS after pg v9. Pinned ABOVE the driver branch,
+  // not inside the pg one, so the driver switch below cannot change what TLS
+  // we get. See pg-ssl.ts.
+  const connectionString = pinSslMode(rawConnectionString);
 
   if (process.env.DATABASE_DRIVER === "pg") {
     return new PrismaPg({

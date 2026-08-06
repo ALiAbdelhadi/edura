@@ -5,6 +5,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@repo/server-core/auth/passwords";
+import { devLocalhostOrigins } from "@repo/server-core/auth/dev-origins";
 import { send } from "@repo/notifications";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -13,7 +14,6 @@ import { nextCookies } from "better-auth/next-js";
 import { admin, twoFactor } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
-import { authBaseUrl, authSecret, superadminAuthSecret } from "@repo/server-core/auth/auth-env";
 
 // ============================================================================
 // better-auth instance — apps/superadmin (replaces NextAuth v4, 2026-08).
@@ -40,14 +40,16 @@ const LOGIN_IP_RATE = 10;
 const LOGIN_EMAIL_CAP = 5;
 const LOGIN_EMAIL_RATE = 1;
 
-const baseURL = authBaseUrl() ?? "http://localhost:3001";
+const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
 const useSecureCookies = baseURL.startsWith("https://");
 
 // Distinct signing secret (M2-style separation). Dev may fall back to the
-// shared app secret; production must set the back office's own.
+// shared NEXTAUTH_SECRET; production must set SUPERADMIN_NEXTAUTH_SECRET.
 export const superadminSecret =
-  superadminAuthSecret() ??
-  (process.env.NODE_ENV !== "production" ? authSecret() : undefined);
+  process.env.SUPERADMIN_NEXTAUTH_SECRET ??
+  (process.env.NODE_ENV !== "production"
+    ? process.env.NEXTAUTH_SECRET
+    : undefined);
 
 export const auth = betterAuth({
   appName: "Edura Back Office",
@@ -56,13 +58,10 @@ export const auth = betterAuth({
   secret: superadminSecret,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Dev-only extra: the preview server in .claude/launch.json may run this
-  // app on an alternate localhost port while the configured base URL stays 3004.
-  trustedOrigins: [
-    baseURL,
-    ...(process.env.NODE_ENV !== "production"
-      ? ["http://localhost:3004", "http://localhost:3037"]
-      : []),
-  ],
+  // app on an alternate localhost port while NEXTAUTH_URL stays 3004. Ports
+  // are NOT enumerated here — see dev-origins.ts; it returns [] in production,
+  // so baseURL stays the only trusted origin there.
+  trustedOrigins: [baseURL, ...devLocalhostOrigins()],
   advanced: {
     cookiePrefix: "edura-superadmin",
     useSecureCookies,

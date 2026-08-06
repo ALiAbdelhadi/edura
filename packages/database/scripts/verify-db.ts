@@ -33,6 +33,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 
 const ROLE = "edura_app";
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -81,7 +82,7 @@ async function main() {
   }
   const writeBaseline = process.argv.includes("--write-baseline");
 
-  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(url), max: 1 });
   const q = async <T extends object>(sql: string, params: unknown[] = []) =>
     (await pool.query<T>(sql, params)).rows;
 

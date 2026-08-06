@@ -41,6 +41,7 @@ import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import "./load-env";
+import { pinSslMode } from "../src/pg-ssl";
 import { assertDbEnv, type DbEnv } from "./db-guard";
 import { pg, pgToolsMajor } from "./pg-tools";
 
@@ -103,7 +104,7 @@ function dumpUrl(): string {
 /** Ask the server what major version it is, for the pg_dump pre-flight below. */
 async function serverMajorVersion(): Promise<number> {
   const pg = await import("pg");
-  const pool = new pg.default.Pool({ connectionString: dumpUrl(), max: 1 });
+  const pool = new pg.default.Pool({ connectionString: pinSslMode(dumpUrl()), max: 1 });
   try {
     // `SELECT current_setting(...)`, not `SHOW server_version`: SHOW does not
     // support a column alias, so the result key is `server_version` and a

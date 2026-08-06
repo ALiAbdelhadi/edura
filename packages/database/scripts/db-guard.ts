@@ -31,6 +31,7 @@
  */
 import "./load-env";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 
 export type DbEnv = "dev" | "test" | "production";
 
@@ -62,7 +63,7 @@ function describe(url: string): string {
 
 /** Reads the `edura-env:` marker from the database the URL actually reaches. */
 export async function readDbEnv(url = guardUrl()): Promise<DbEnv | null> {
-  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(url), max: 1 });
   try {
     const { rows } = await pool.query<{ comment: string | null }>(
       `SELECT shobj_description(d.oid, 'pg_database') AS comment

@@ -46,6 +46,7 @@
 import "./load-env";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { pinSslMode } from "../src/pg-ssl";
 
 /** Public, unauthenticated, and reflects a row we can create: the center directory. */
 const PROBE_PATH = "/api/v1/search/centers";
@@ -91,7 +92,7 @@ export async function assertServerSharesDb(
 ): Promise<void> {
   const intent = opts.intent ? ` [${opts.intent}]` : "";
   const tag = `httpguard-${Math.floor(Math.random() * 1e9).toString(36)}`;
-  const pool = new pg.Pool({ connectionString: adminUrl(), max: 1 });
+  const pool = new pg.Pool({ connectionString: pinSslMode(adminUrl()), max: 1 });
   const sentinelUser = randomUUID();
   const sentinelCenter = randomUUID();
   const sentinelCourse = randomUUID();
