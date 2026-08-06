@@ -58,6 +58,11 @@ type IntentRow = {
   id: string;
   studentName: string | null;
   studentEmail: string | null;
+  /** Set whenever someone other than the student paid — e.g. a parent top-up. */
+  payerName: string | null;
+  payerEmail: string | null;
+  /** `subscription` | `wallet_topup` | `parent_wallet_topup`. */
+  purpose: string | null;
   courseTitle: string | null;
   centerName: string | null;
   amount: number;
@@ -222,13 +227,28 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
                   onClick={() => setDetailId(r.id)}
                 >
                   <TableCell className="px-3 py-[7px]">
+                    {/* A parent wallet top-up legitimately has NO student, course
+                        or center (see the nullable student_id + its CHECK). Falling
+                        back to the payer names the row instead of showing three
+                        dashes and an unattributable amount. */}
                     <IdentityCell
-                      initials={initialsOf(r.studentName ?? "—")}
-                      name={r.studentName ?? "—"}
-                      meta={r.studentEmail ? <Num.Code>{r.studentEmail}</Num.Code> : undefined}
+                      initials={initialsOf(r.studentName ?? r.payerName ?? "—")}
+                      name={r.studentName ?? r.payerName ?? "—"}
+                      meta={
+                        r.studentEmail ? (
+                          <Num.Code>{r.studentEmail}</Num.Code>
+                        ) : r.payerEmail ? (
+                          <Num.Code>{r.payerEmail}</Num.Code>
+                        ) : undefined
+                      }
                     />
                   </TableCell>
-                  <TableCell className="px-3 py-[7px] text-[13px]">{r.courseTitle ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-[7px] text-[13px]">
+                    {r.courseTitle ??
+                      (r.purpose && r.purpose !== "subscription"
+                        ? t(asKey(`paymentIntents.purpose_${r.purpose}`))
+                        : "—")}
+                  </TableCell>
                   <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
                   <TableCell className="px-3 py-[7px]">
                     <Num.Money

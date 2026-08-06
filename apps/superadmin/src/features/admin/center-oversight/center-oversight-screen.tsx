@@ -106,6 +106,8 @@ const GROUP_OF = new Map<string, string>(
 export function CenterOversightScreen({ centerId }: { centerId: string }) {
   const [tab, setTab] = useState<string>("overview");
   const t = useTranslations("oversight");
+  // Shared status namespace — same wording as every other screen.
+  const tStatus = useTranslations("status");
   const locale = useLocale() as Locale;
   const overview = useOversight<Overview>(centerId, "overview");
   const center = overview.data?.center;
@@ -123,7 +125,7 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
         title={
           <span className="flex flex-wrap items-center gap-2">
             {center.name}
-            <Badge variant="secondary">{center.status}</Badge>
+            <Badge variant="secondary">{tStatus(asKey(center.status))}</Badge>
             <Badge variant="outline">{center.shortId}</Badge>
             {center.isDemo ? <StatusBadge tone="neutral">{t("demo")}</StatusBadge> : null}
           </span>
@@ -274,10 +276,10 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
             columns={[
               { key: "studentName", label: t("colStudent") },
               { key: "courseTitle", label: t("colCourse") },
-              { key: "plan", label: t("colPlan") },
+              { key: "plan", label: t("colPlan"), enumNs: "plans" },
               { key: "price", label: t("colPrice"), money: true },
-              { key: "status", label: t("colStatus") },
-              { key: "paymentMethod", label: t("colMethod") },
+              { key: "status", label: t("colStatus"), enumNs: "status" },
+              { key: "paymentMethod", label: t("colMethod"), enumNs: "methods" },
               { key: "periodEnd", label: t("colCoversUntil"), date: true },
             ]}
           />
@@ -463,7 +465,17 @@ function CenterProfileCard({
 // Generic read-only table for the simple tabs.
 // ---------------------------------------------------------------------------
 
-type Col = { key: string; label: string; money?: boolean; date?: boolean };
+// `enumNs` names a SHARED top-level namespace (plans / status / sources / methods)
+// so an enum reads the same here as on the screen that owns it. Without it a cell
+// falls back to the raw column value, which is how `cash` / `per_session` reached
+// the operator.
+type Col = {
+  key: string;
+  label: string;
+  money?: boolean;
+  date?: boolean;
+  enumNs?: string;
+};
 
 function SimpleTable({
   centerId,
@@ -479,6 +491,11 @@ function SimpleTable({
   note?: string;
 }) {
   const t = useTranslations("oversight");
+  const tRoot = useTranslations();
+  // Fall back to the raw value when a key is missing. Printing the key path
+  // instead would be worse than the untranslated enum it replaced.
+  const tEnum = (key: string, raw: string) =>
+    tRoot.has(asKey(key)) ? tRoot(asKey(key)) : raw;
   const locale = useLocale() as Locale;
   const req = useOversight<Paged<Record<string, unknown>>>(centerId, tab, {
     enabled,
@@ -530,6 +547,8 @@ function SimpleTable({
                               options={{ dateStyle: "medium" }}
                               className="text-[11px] text-ink-3"
                             />
+                          ) : c.enumNs ? (
+                            tEnum(`${c.enumNs}.${String(v)}`, String(v))
                           ) : (
                             String(v)
                           )}

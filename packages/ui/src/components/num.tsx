@@ -148,7 +148,10 @@ function NumMoney({
     : formatEGP(magnitude, locale, { decimals });
 
   // U+2212 MINUS SIGN, not a hyphen: a hyphen is bidi-neutral and reads as a dash.
-  const prefix = !sign ? "" : tone === "out" ? "−" : tone === "in" ? "+" : "";
+  // Zero carries NO direction — "−0.00" reads as a debit that never happened,
+  // and "+0.00" would be just as untrue — so the sign is suppressed at zero.
+  const prefix =
+    !sign || magnitude === 0 ? "" : tone === "out" ? "−" : tone === "in" ? "+" : "";
 
   return (
     <NumRoot

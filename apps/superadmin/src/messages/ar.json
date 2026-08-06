@@ -99,7 +99,8 @@
     "failed": "فاشلة",
     "pending_payment": "في انتظار الدفع",
     "shell": "بانتظار القبول",
-    "deleted": "محذوف"
+    "deleted": "محذوف",
+    "accepted": "مقبول"
   },
   "actions": {
     "add": "إضافة",
@@ -126,7 +127,7 @@
     "selectRow": "تحديد الصف",
     "sendInvite": "إرسال دعوة",
     "signIn": "تسجيل الدخول",
-    "sortBy": "ترتيب حسب {column}"
+    "sortBy": "ترتيب حسب"
   },
   "auth": {
     "signInTitle": "تسجيل الدخول",
@@ -401,7 +402,9 @@
     "anyStatus": "كل الحالات",
     "anyGateway": "كل البوابات",
     "anyMethod": "كل الوسائل",
-    "failureReason": "سبب الفشل"
+    "failureReason": "سبب الفشل",
+    "purpose_wallet_topup": "شحن محفظة الطالب",
+    "purpose_parent_wallet_topup": "شحن محفظة ولي الأمر"
   },
   "subscriptions": {
     "title": "الاشتراكات",
@@ -1305,7 +1308,33 @@
     "deniedTitle": "غير مصرّح",
     "deniedBody": "حسابك لا يملك صلاحية الاطلاع على السناتر.",
     "sharePerStudent": "الحصة لكل طالب حاضر (ج.م) — الحالية:",
-    "hallPriceCurrent": "سعر القاعة (ج.م) — الحالي:"
+    "hallPriceCurrent": "سعر القاعة (ج.م) — الحالي:",
+    "overrideActive": "استثناء مفعّل",
+    "defaultBadge": "الافتراضي",
+    "inheriting": "موروث",
+    "pctOfLessonPerStudent": "% من سعر الحصة لكل طالب",
+    "unitEgpPerStudent": "ج.م / طالب",
+    "unitPctPerStudent": "% / طالب",
+    "saveRate": "حفظ الفئة",
+    "save": "حفظ",
+    "sumLabel": "المجموع",
+    "mustEqual100": "(يجب أن يساوي ١٠٠)",
+    "roomsAndSplit": "القاعات والتوزيع",
+    "saveRateError": "تعذّر حفظ الفئة",
+    "clearError": "تعذّرت إزالة الاستثناء",
+    "perStudentUnitEgp": "ج.م/طالب",
+    "perStudentUnitPct": "%/طالب",
+    "methodWholeRoom": "نسبة القاعة كاملة",
+    "methodPerStudent": "لكل طالب حاضر",
+    "allowedPricingMethods": "طرق التسعير المتاحة:",
+    "enterPctRange": "أدخل نسبة بين ٠ و ١٠٠",
+    "enterValidEgp": "أدخل مبلغًا صحيحًا بالجنيه",
+    "saveMethodsError": "تعذّر حفظ طرق التسعير",
+    "saveSplitError": "تعذّر حفظ التوزيع",
+    "updateShareError": "تعذّر تحديث الحصة",
+    "updatePriceError": "تعذّر تحديث السعر",
+    "centerFallback": "سنتر",
+    "saveMethods": "حفظ الطرق"
   },
   "navGroup": {
     "oversight": "الإشراف",

@@ -1,6 +1,7 @@
+import { localizedTitle } from "@/lib/i18n/page-metadata";
 import { CenterOversightScreen } from "@/features/admin/center-oversight/center-oversight-screen";
 
-export const metadata = { title: "Center oversight | Edura Back-office" };
+export const generateMetadata = localizedTitle("centers");
 
 export default async function CenterOversightPage({
   params,

@@ -84,9 +84,12 @@ const BAR_ORDER = [
   "/dashboard/superadmin/wallet",
   "/dashboard/superadmin/messaging",
   "/dashboard/superadmin/whatsapp",
+  "/dashboard/superadmin/contact",
   "/dashboard/superadmin/audit",
   "/dashboard/superadmin/catalog",
   "/dashboard/superadmin/security",
+  "/dashboard/superadmin/deletion-requests",
+  "/dashboard/superadmin/feature-flags",
 ];
 
 export default function SuperAdminLayout({

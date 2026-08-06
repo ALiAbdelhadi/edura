@@ -32,8 +32,9 @@
    `periodStart`/`periodEnd`/`lessonCount`, which is what the operator needs to know
    the figure is for. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
+import { asArray } from "@/lib/refine/as-array";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BanknoteArrowDown,
@@ -108,8 +109,17 @@ export function PayoutsScreen() {
     method: "get",
   });
 
-  const rows = result?.data ?? [];
-  const counts = countsResult?.data ?? {};
+  // `?? []` does NOT guard this: useCustom defaults its payload to a frozen
+  // empty OBJECT, which is not nullish, so `rows.find` threw on first paint and
+  // on every failed request. See @/lib/refine/as-array.
+  // Keyed on the PAYLOAD, not on `result` — refine hands back a fresh result
+  // wrapper every render, so `[result]` would re-run this and hand DataTable a
+  // new `data` reference each time. DataTable recomputes its selection from
+  // `data` and pushes it through onSelectionChange → setSelected → re-render,
+  // so an unstable array here is an infinite update loop. The old frozen `{}`
+  // was stable, which is why this only surfaced once `rows.find` was fixed.
+  const rows = useMemo(() => asArray<PayoutRow>(result?.data), [result?.data]);
+  const counts = (countsResult?.data ?? {}) as Record<string, number>;
   const open = rows.find((r) => r.id === openId) ?? null;
 
   // The panel must never outlive its subject: a filter change that removes the open

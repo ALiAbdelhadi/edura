@@ -81,8 +81,25 @@ export function formatDate(
   const d = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat(
     intlLocale(locale),
-    opts ?? { year: "numeric", month: "short", day: "numeric" },
+    resolveDateOptions(locale, opts ?? { year: "numeric", month: "short", day: "numeric" }),
   ).format(d);
+}
+
+/**
+ * `dateStyle: "medium"` means a NAMED month — "Aug 1, 2026" in English. Arabic
+ * CLDR resolves the same request to slash-separated numerals carrying U+200F
+ * marks ("01‏/08‏/2026"), which reorder into things like "012026/08/" when they
+ * sit beside Arabic text. Callers asking for `medium` want the readable form,
+ * so Arabic gets the named month it was asking for. Every other request — and
+ * every explicit field set — is passed through untouched.
+ */
+function resolveDateOptions(
+  locale: Locale,
+  opts: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormatOptions {
+  if (locale !== "ar" || opts.dateStyle !== "medium" || opts.timeStyle) return opts;
+  const { dateStyle: _dropped, ...rest } = opts;
+  return { ...rest, day: "numeric", month: "long", year: "numeric" };
 }
 
 export function formatWeekdayShort(dayIndex: number, locale: Locale): string {
