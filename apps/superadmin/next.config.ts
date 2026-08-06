@@ -87,7 +87,16 @@ const nextConfig = {
 // Sentry wraps outermost. Source maps upload only when SENTRY_AUTH_TOKEN is
 // set (CI) and are deleted afterwards — a public source map of the back office
 // would hand out the whole admin surface. Identical policy to apps/www.
-export default withSentryConfig(withNextIntl(nextConfig), {
+// Same gate as apps/www: the plugin instruments the whole build even with no
+// DSN configured, and production has none. This app builds with Turbopack and
+// so never hit the 45-minute ceiling www did — the gate is here because the
+// two configs must not disagree about when Sentry is on, not because this
+// build was failing.
+const sentryEnabled = Boolean(
+  process.env.NEXT_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN,
+);
+
+const sentryBuildOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT_SUPERADMIN ?? process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -99,4 +108,10 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   widenClientFileUpload: true,
   disableLogger: true,
   automaticVercelMonitors: false,
-});
+};
+
+const baseConfig = withNextIntl(nextConfig);
+
+export default sentryEnabled
+  ? withSentryConfig(baseConfig, sentryBuildOptions)
+  : baseConfig;
