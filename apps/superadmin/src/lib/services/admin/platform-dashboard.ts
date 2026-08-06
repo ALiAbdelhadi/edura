@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 
 /* ── The decision queue (اليوم) ────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ export function decisionQueue() {
         total: reserved + wallets + refunds,
       },
       ledger: ledger.map((r) => ({
-        day: r.day.toISOString().slice(0, 10),
+        day: toDateKey(r.day),
         gross: Number(r.gross),
         commission: Number(r.commission),
       })),
@@ -256,7 +257,7 @@ export function revenueChart(period: "weekly" | "monthly" = "monthly") {
        WHERE type = 'commission' AND status = 'completed'
        GROUP BY 1 ORDER BY 1 DESC LIMIT 24`;
     const series: Bucket[] = rows
-      .map((r) => ({ period: r.bucket.toISOString().slice(0, 10), value: Number(r.total) }))
+      .map((r) => ({ period: toDateKey(r.bucket), value: Number(r.total) }))
       .reverse();
     return { period, series };
   });
@@ -271,7 +272,7 @@ export function userGrowthChart() {
        GROUP BY 1, 2 ORDER BY 1 DESC LIMIT 120`;
     const byPeriod = new Map<string, { period: string; counts: Record<string, number> }>();
     for (const r of rows) {
-      const key = r.bucket.toISOString().slice(0, 10);
+      const key = toDateKey(r.bucket);
       const b = byPeriod.get(key) ?? { period: key, counts: {} };
       b.counts[r.role] = Number(r.total);
       byPeriod.set(key, b);

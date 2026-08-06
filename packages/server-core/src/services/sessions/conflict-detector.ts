@@ -1,4 +1,5 @@
 import type { TenantTx } from "../../db/scope";
+import { toDateKey } from "../../lib/date-key";
 
 // Moved here from apps/www so BOTH apps run the SAME scheduling conflict check.
 // apps/www/src/lib/services/sessions/conflict-detector.ts is a re-export shim.
@@ -58,7 +59,7 @@ export async function checkConflicts(
   return clashes.map((s) => ({
     sessionId: s.id,
     courseTitle: courseMap.get(s.courseId) ?? "Unknown",
-    date: s.date.toISOString().split("T")[0],
+    date: toDateKey(s.date),
     startTime: s.startTime,
     endTime: s.endTime,
   }));

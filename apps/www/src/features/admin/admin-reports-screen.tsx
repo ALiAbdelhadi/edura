@@ -2,15 +2,12 @@
 "use client";
 
 import { BarChart, DonutChart } from "@/components/charts";
+import { DateRangeField, EMPTY_RANGE, type DateKeyRange } from "@/components/kit/date-range-field";
 import { PageSpinner } from "@/components/kit/spinner";
 import { enrollmentFunnelBarData, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
-import { Calendar } from "@repo/ui/components/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
-import dayjs from "dayjs";
-import { Calendar as CalendarIcon, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React from "react";
 import {
@@ -24,8 +21,6 @@ import {
   Sheet,
   SheetHead,
 } from "./ledger";
-
-type DateRange = { from: Date | undefined; to?: Date | undefined };
 
 /**
  * التقارير — eight endpoints over a 977-line service with no test coverage.
@@ -44,15 +39,15 @@ export function AdminReportsScreen() {
   const t = useTranslations();
   const { formatShortEGP, formatDate, locale } = useFormatters();
   const fmtEGP = formatShortEGP;
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = React.useState<DateKeyRange>(EMPTY_RANGE);
   const [granularity, setGranularity] = React.useState<"week" | "month">("month");
 
-  const resetRange = () => setDateRange(undefined);
+  const resetRange = () => setDateRange(EMPTY_RANGE);
 
   const queryValues = React.useMemo(
     () => ({
-      ...(dateRange?.from ? { from: dayjs(dateRange.from).format("YYYY-MM-DD") } : {}),
-      ...(dateRange?.to ? { to: dayjs(dateRange.to).format("YYYY-MM-DD") } : {}),
+      ...(dateRange.from ? { from: dateRange.from } : {}),
+      ...(dateRange.to ? { to: dateRange.to } : {}),
       granularity,
     }),
     [dateRange, granularity],
@@ -121,12 +116,6 @@ export function AdminReportsScreen() {
     color: CATEGORICAL[index % CATEGORICAL.length],
   }));
 
-  const rangeLabel = dateRange?.from
-    ? dateRange.to
-      ? `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`
-      : formatDate(dateRange.from)
-    : t("adminManage.reports.pickDateRange");
-
   return (
     <div className="flex flex-col gap-5">
       <PageHead
@@ -134,28 +123,12 @@ export function AdminReportsScreen() {
         subtitle={t("adminManage.reports.subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="min-w-56 justify-start gap-2 border-[var(--rule)] bg-[var(--field)] font-normal"
-                >
-                  <CalendarIcon className="size-4 text-[var(--ink-3)]" />
-                  <Num className={dateRange?.from ? "text-[var(--ink)]" : "text-[var(--ink-3)]"}>
-                    {rangeLabel}
-                  </Num>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  defaultMonth={dateRange?.from}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
+            <DateRangeField
+              value={dateRange}
+              onChange={setDateRange}
+              formatDate={formatDate}
+              placeholder={t("adminManage.reports.pickDateRange")}
+            />
 
             {/* Status-pill filter row: each pill is its own control, the active
                 one carries indigo. Replaces the toggle-group, which read as a

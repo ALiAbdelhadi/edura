@@ -301,9 +301,7 @@ function ChildConversations({
                     onClick={() => void openThread(c)}
                     className={cn(
                       "flex w-full flex-col gap-1 border-b border-rule-2 px-4 py-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo",
-                      active?.id === c.id
-                        ? "row-selected"
-                        : "hover:bg-rule-2",
+                      active?.id === c.id ? "bg-indigo-soft" : "hover:bg-rule-2",
                     )}
                   >
                     <div className="flex items-baseline justify-between gap-2">

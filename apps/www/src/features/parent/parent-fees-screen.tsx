@@ -20,6 +20,7 @@
 //    When the model lands, the button goes where <PaymentRoute/> is documented
 //    below — not scattered through the table.
 import React, { useState } from "react";
+import { DateRangeField } from "@/components/kit/date-range-field";
 import { useList } from "@refinedev/core";
 import { Users } from "lucide-react";
 import { useChildSelector, ChildSelectorBar } from "@/components/ui/child-selector";
@@ -233,26 +234,11 @@ export function ParentFeesScreen() {
               title={t("parentFees.paymentHistory")}
               action={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    type="date"
-                    aria-label={t("parentFees.rangeStart")}
-                    value={range.start}
-                    onChange={(e) =>
-                      setRange((r) => ({ ...r, start: e.target.value }))
-                    }
-                    className="num w-auto"
-                  />
-                  <span aria-hidden className="text-ink-3">
-                    –
-                  </span>
-                  <Input
-                    type="date"
-                    aria-label={t("parentFees.rangeEnd")}
-                    value={range.end}
-                    onChange={(e) =>
-                      setRange((r) => ({ ...r, end: e.target.value }))
-                    }
-                    className="num w-auto"
+                  <DateRangeField
+                    value={{ from: range.start, to: range.end }}
+                    onChange={(next) => setRange({ start: next.from, end: next.to })}
+                    formatDate={formatDate}
+                    placeholder={t("parentFees.rangeStart")}
                   />
                   {filtered ? (
                     <Button

@@ -1,4 +1,5 @@
 import { withErrors } from "@/lib/errors/http";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import { requireSession } from "@/lib/auth/session";
 import { ok } from "@/lib/http/envelope";
 import { scopedDb } from "@/lib/db/scope";
@@ -62,7 +63,7 @@ export const GET = withErrors(async (req) => {
     else late++;
 
     return {
-      date: r.session?.date ? new Date(r.session.date).toISOString().slice(0, 10) : "",
+      date: r.session?.date ? toDateKey(r.session.date) : "",
       status,
       courseId: r.courseId,
     };

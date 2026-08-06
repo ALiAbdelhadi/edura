@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "../../db/scope";
+import { toDateKey } from "../../lib/date-key";
 import { NotFoundError, BusinessRuleError } from "../../errors/classes";
 import { sendMail } from "../../mail/send";
 import { nextInvoiceRef } from "./ref-numbers";
@@ -120,7 +121,7 @@ export async function renderInvoiceHtml(id: string): Promise<string> {
 h1{font-size:20px}table{width:100%;border-collapse:collapse;margin-top:16px}
 td{padding:8px 0;border-bottom:1px solid #eee}.r{text-align:right}.tot{font-weight:700;font-size:18px}</style></head>
 <body><h1>Edura — ${inv.type.replace(/_/g, " ")}</h1>
-<div>Invoice ${inv.invoiceNumber} · ${inv.status} · ${new Date(inv.createdAt).toISOString().slice(0, 10)}</div>
+<div>Invoice ${inv.invoiceNumber} · ${inv.status} · ${toDateKey(inv.createdAt)}</div>
 <table>
 <tr><td>Subtotal</td><td class="r">${egp(inv.subtotal)}</td></tr>
 <tr><td>Platform commission</td><td class="r">${egp(inv.commission)}</td></tr>

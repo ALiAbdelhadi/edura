@@ -4,6 +4,7 @@
 import { LineChart } from "@/components/charts";
 import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { DateRangeField, EMPTY_RANGE, type DateKeyRange } from "@/components/kit/date-range-field";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import CopyableText from "@/components/ui/copyable-text";
@@ -39,7 +40,6 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
-import dayjs, { type Dayjs } from "dayjs";
 import {
   BarChart3,
   DollarSign,
@@ -70,29 +70,18 @@ import { ReceiptLink } from "@/features/receipts/receipt-link";
 export function AdminFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate, locale } = useFormatters();
-  const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [startDraft, setStartDraft] = useState("");
-  const [endDraft, setEndDraft] = useState("");
+  // One <DateRangeField> replaces the pair of raw `<input type="date">` plus the
+  // separate reset button, and the three pieces of state they needed (two draft
+  // strings kept in sync with a dayjs tuple). The field speaks YYYY-MM-DD, which
+  // is already the query's language, so nothing is converted here at all.
+  const [range, setRange] = useState<DateKeyRange>(EMPTY_RANGE);
   const dateQuery = useMemo(
     () => ({
-      ...(range?.[0] ? { from: range[0].format("YYYY-MM-DD") } : {}),
-      ...(range?.[1] ? { to: range[1].format("YYYY-MM-DD") } : {}),
+      ...(range.from ? { from: range.from } : {}),
+      ...(range.to ? { to: range.to } : {}),
     }),
     [range],
   );
-
-  const applyRange = (start: string, end: string) => {
-    setStartDraft(start);
-    setEndDraft(end);
-    if (start && end) setRange([dayjs(start), dayjs(end)]);
-    else setRange(null);
-  };
-
-  const resetRange = () => {
-    setStartDraft("");
-    setEndDraft("");
-    setRange(null);
-  };
 
   const paymentFilters = useMemo(() => {
     const filters: Array<{ field: string; operator: "eq"; value: string }> = [];
@@ -518,25 +507,13 @@ export function AdminFeesScreen() {
         subtitle={t("adminManage.fees.subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="date"
-              dir="ltr"
-              aria-label={t("adminManage.fees.dateFrom")}
-              className="num w-40 border-[var(--rule)] bg-[var(--field)]"
-              value={startDraft}
-              onChange={(event) => applyRange(event.target.value, endDraft)}
+            <DateRangeField
+              value={range}
+              onChange={setRange}
+              formatDate={formatDate}
+              placeholder={t("adminManage.fees.pickDateRange")}
+              clearLabel={t("adminManage.fees.reset")}
             />
-            <Input
-              type="date"
-              dir="ltr"
-              aria-label={t("adminManage.fees.dateTo")}
-              className="num w-40 border-[var(--rule)] bg-[var(--field)]"
-              value={endDraft}
-              onChange={(event) => applyRange(startDraft, event.target.value)}
-            />
-            <Button variant="ghost" className="text-[13px] text-[var(--ink-2)]" onClick={resetRange}>
-              {t("adminManage.fees.reset")}
-            </Button>
           </div>
         }
       />

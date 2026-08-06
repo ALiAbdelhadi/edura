@@ -2,6 +2,23 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* THE PALETTE LIVES HERE, AND ONLY HERE.
+ *
+ * Both apps and every portal read these values. Three files used to carry their
+ * own copy of the palette — this one, `features/admin/ledger/ledger.css` and
+ * `components/ledger/ledger.module.css` — and they had silently drifted apart on
+ * --ink-3, --teal, --secondary, --muted, --chart-1/2 and --seal. The visible
+ * result was that the same component looked different in the center portal than
+ * in superadmin, for no reason anybody had decided.
+ *
+ * The other two files now declare ONLY tokens that are genuinely theirs
+ * (--money, --shadow-glow, --primary-glow, --sidebar-width) and inherit the rest
+ * from here. Do not reintroduce a palette copy in a portal stylesheet: to
+ * restyle one portal, point its component at an existing token
+ * (`.lg-seal { color: var(--money) }`) rather than redefining what the token
+ * means underneath everything else. `tests/unit/design-tokens.test.ts` fails if
+ * a portal file redeclares a token this file already owns.
+ */
 :root {
   --paper: #f7f6f2;
   --sheet: #ffffff;
@@ -15,7 +32,7 @@
   --indigo: #1a2f73;
   --indigo-soft: #eaecf6;
   --indigo-ink: #ffffff;
-  --teal: #0a7a6f;
+  --teal: #0d7d72;
   --teal-soft: #e2f2f0;
   --amber: #a35a06;
   --amber-soft: #fbf0dd;
@@ -54,6 +71,12 @@
   --popover-foreground: var(--ink);
   --primary: var(--indigo);
   --primary-foreground: var(--indigo-ink);
+  /* NOT var(--field), which is what both ledger files carried. `bg-secondary`
+     is the shadcn Button's secondary variant, and that variant is filled with
+     no border — --field #fbfaf7 on a --card #ffffff measures 1.04:1, i.e. an
+     invisible button. The ledger copies got away with it only because their own
+     LedgerButton is bordered-never-filled and ignores this token; the shadcn
+     variant is still used on 25 screens across both apps, including theirs. */
   --secondary: var(--indigo-soft);
   --secondary-foreground: var(--indigo);
   --muted: var(--field);

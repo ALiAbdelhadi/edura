@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toDateKey, todayKey } from "@repo/server-core/lib/date-key";
 import { requireSession } from "@/lib/auth/session";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
@@ -23,7 +24,7 @@ export const GET = withErrors(async (_req, ctx) => {
   const { id } = await ctx.params;
   const { payload, completedAt, userId } = await getDataExportPayload(user, id);
 
-  const stamp = (completedAt ?? new Date()).toISOString().slice(0, 10);
+  const stamp = completedAt ? toDateKey(completedAt) : todayKey();
   const body = JSON.stringify(payload, null, 2);
 
   return new NextResponse(body, {

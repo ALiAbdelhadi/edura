@@ -201,6 +201,16 @@
   color: var(--ink-3);
 }
 
+/* The hero switches from centered to start-aligned at lg. This lives HERE, not
+   as an `lg:justify-start` utility on the element: this file is unlayered, and
+   unlayered author styles beat everything in Tailwind's `@layer utilities`
+   regardless of specificity — so the utility was silently doing nothing. */
+@media (min-width: 1024px) {
+  .trustRow {
+    justify-content: flex-start;
+  }
+}
+
 .trustItem {
   display: inline-flex;
   align-items: center;

@@ -78,7 +78,7 @@ function GroupList({ ctl }: { ctl: GroupsController }) {
                 <div className="relative shrink-0 rounded-full bg-field p-2">
                   <Megaphone className="size-4 text-ink-2" />
                   {g.unreadCount > 0 ? (
-                    <span className="absolute -top-1 -inset-e-1 flex min-w-4 items-center justify-center rounded-md bg-red px-1 text-[10px] leading-4 font-medium text-red-foreground">
+                    <span className="absolute -top-1 -inset-e-1 flex min-w-4 items-center justify-center rounded-md bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground">
                       {g.unreadCount}
                     </span>
                   ) : null}

@@ -84,7 +84,7 @@ export async function HelpArticleScreen({
                   <li key={a.slug}>
                     <Link
                       href={`/help/${a.slug}`}
-                      className={`${styles.cardMuted} block h-full transition-colors hover:border-(--indigo)`}
+                      className={`${styles.cardMuted} block h-full transition-colors`}
                     >
                       <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
                         {a.title}

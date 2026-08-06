@@ -1,79 +1,66 @@
+/* This file is in the `portal` layer, declared in the app's globals.css and
+   ordered BETWEEN `components` and `utilities`.
+   ─────────────────────────────────────────────────────────────────────────────
+   It used to be unlayered, which meant every rule below outranked every Tailwind
+   utility regardless of specificity. That is not a detail: this file restyles
+   SHARED components by descendant selector (`[data-slot="sidebar-menu-button"]`,
+   `header`, …), so a utility written on one of those components inside these
+   routes silently did nothing, with no error anywhere.
+
+   Inside the layer, utilities win. The one place that changes what renders is
+   the shell header: dashboard-shell.tsx asks for `bg-background/85` +
+   `backdrop-blur-sm`, which this file's `background: var(--sidebar)` used to
+   override into flat opaque white — defeating a blur that had nothing left to
+   see through. Now the shell's frosted header comes through, which is what its
+   author wrote. A full computed-style diff over 1,138 elements across the
+   landing, help and dashboard pages found that header to be the ONLY change.
+
+   To restyle something here on purpose, keep doing it — but know that a plain
+   utility on the same element now beats you, so reach for a token
+   (`.lg-seal { color: var(--money) }`) rather than out-specifying the utility. */
+@layer portal {
 /*
- * الدفتر / The Ledger — token layer, scoped to the center admin + staff portals.
+ * الدفتر / The Ledger — the portion of the Ledger that is genuinely THIS portal's
+ * (center admin + staff routes), scoped by `.led` and the <html> portal marker.
  *
- * WHY THIS FILE EXISTS AND WHEN IT DIES
- * -------------------------------------
- * The Ledger tokens belong in packages/ui/src/styles/globals.css, replacing the
- * "Deep Trust" palette. That file is the foundation session's to change, and
- * four other portal sessions read it. So this session defines the same tokens
- * under a `.led` scope that only wraps /dashboard/admin/** and
- * /dashboard/staff/**. Nothing outside those routes sees a changed value.
+ * THE PALETTE IS NO LONGER HERE — IT LIVES IN packages/ui/src/styles/globals.css
+ * ---------------------------------------------------------------------------
+ * This file used to carry a full second copy of the palette under `.led`,
+ * because the global layer still held the superseded "Deep Trust" values. That
+ * migration is done: globals.css IS the Ledger token layer now, exactly as this
+ * file's original header said it eventually would be ("delete this file... the
+ * component classes below re-point to the global names unchanged").
  *
- * When the foundation session lands the global layer: delete this file, drop the
- * `.led` wrapper from the two layouts, and the component classes below re-point
- * to the global names unchanged — they already use the ledger vocabulary.
+ * The copy was not merely redundant, it had DRIFTED — on --ink-3, --teal,
+ * --muted, --secondary, --chart-1/2 and --seal. That drift is why the same
+ * component rendered differently here than in superadmin. Two of those were
+ * defects rather than choices: --ink-3 #8b91a1 measured 2.91:1 on --paper (below
+ * even the 3:1 large-text floor), and swapping --chart-1/--chart-2 contradicted
+ * packages/ui/src/lib/chart-tokens.ts, which documents chart-1 as teal.
  *
- * Values are verbatim from "00 - PROMPT for Claude Code.md" §2 and the hi-fi
- * reference. Do not tune them here; they are final and shared across six portals.
+ * What survives below is only what no other portal wants: the money accent, the
+ * sidebar width, the neutralised gradient/glow utilities, and the `.lg-*`
+ * component classes. Everything else inherits from :root.
+ *
+ * Do NOT reintroduce a palette copy here. To restyle one portal, point its
+ * component at an existing token — see `.lg-seal`, which asks for --money
+ * instead of redefining --seal for every portal that renders a receipt.
  */
 
-/* Defined at both scopes: `.led` for this portal's content, and the root marker
-   so the shared chrome around it (sidebar, header, <main>) can read the same
-   values. See the migration-shim block below. */
+/* `.led` covers this portal's own content; the root marker covers the shared
+   chrome around it (sidebar, header, <main>), so the canvas has no seam. */
 .led,
 html[data-portal="ledger"] {
-  --paper: #f7f6f2;
-  --sheet: #ffffff;
-  --field: #fbfaf7;
-  --ink: #1c2230;
-  --ink-2: #5b6273;
-  --ink-3: #8b91a1;
-  --rule: #e4e1d8;
-  --rule-2: #efece4;
-  --indigo: #1a2f73;
-  --indigo-soft: #eaecf6;
-  --indigo-ink: #ffffff;
-  --teal: #0d7d72;
-  --teal-soft: #e2f2f0;
-  --amber: #a35a06;
-  --amber-soft: #fbf0dd;
-  --red: #a81d1d;
-  --red-soft: #fbe9e7;
-  --seal: #0d7d72;
-  --lift: 0 1px 0 rgb(28 34 48 / 0.04), 0 1px 3px rgb(28 34 48 / 0.05);
-  --lift-2: 0 8px 24px -12px rgb(28 34 48 / 0.22);
-
   /* Money accent. Teal is "value actually moving"; the spec allows an indigo
      variant per surface via data-money. Center portals move real cash, so teal. */
   --money: var(--teal);
   --money-soft: var(--teal-soft);
 
+  /* Gradients and glows are gone from the system — hierarchy, not shine. */
+  --shadow-glow: none;
+
   background: var(--paper);
   color: var(--ink);
-}
-
-[data-theme="dark"] .led,
-html[data-portal="ledger"][data-theme="dark"] {
-  --paper: #14161c;
-  --sheet: #1b1e26;
-  --field: #1f232b;
-  --ink: #eceadf;
-  --ink-2: #a3a49c;
-  --ink-3: #7c7e78;
-  --rule: #2a2d35;
-  --rule-2: #22252c;
-  --indigo: #93a4e6;
-  --indigo-soft: #232840;
-  --indigo-ink: #0d1330;
-  --teal: #54c9bb;
-  --teal-soft: #12302e;
-  --amber: #e0a44a;
-  --amber-soft: #33260f;
-  --red: #ef6a6a;
-  --red-soft: #361b1b;
-  --seal: #54c9bb;
-  --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.35);
-  --lift-2: 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
 .led[data-money="indigo"] {
@@ -81,85 +68,8 @@ html[data-portal="ledger"][data-theme="dark"] {
   --money-soft: var(--indigo-soft);
 }
 
-/* ------------------------------------------------------- migration shim ----
- * The legacy "Deep Trust" token names, RE-POINTED to ledger values inside this
- * scope only.
- *
- * Every screen in this portal is built from shadcn utilities bound to these
- * names (`text-muted-foreground` → --muted-foreground, `border-border` →
- * --border, and so on). Without this block a screen reads the ledger palette
- * only where it has been hand-converted, and Deep Trust everywhere else — two
- * palettes on one page, which is the exact drift the redesign exists to end.
- *
- * Re-pointing rather than renaming is deliberate: renaming would touch every
- * call site across four portal sessions. This is the same shim strategy the
- * foundation brief prescribes, scoped to two routes instead of the whole app.
- *
- * EXIT PATH: as each screen converts to the ledger names, its aliases stop being
- * read. When the last one converts, delete this block. New code in this folder
- * uses the ledger names ONLY — never add a new usage of a name below.
- *
- * Values are raw channels because the shadcn utilities wrap them in color-mix()
- * and oklch() calls that require a bare color, not a var() indirection.
- */
-/*
- * Applied at BOTH scopes on purpose.
- *
- * `.led` covers this portal's own content. `html[data-portal="ledger"]` covers
- * the shared chrome around it — the shell's <main> paints `bg-background`, which
- * resolves above `.led` and so kept rendering the Deep Trust canvas as a border
- * around ledger content. Hoisting the aliases to the root fixes the seam.
- */
-.led,
-html[data-portal="ledger"] {
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--sheet);
-  --card-foreground: var(--ink);
-  --popover: var(--sheet);
-  --popover-foreground: var(--ink);
-  --primary: var(--indigo);
-  --primary-foreground: var(--indigo-ink);
-  --secondary: var(--field);
-  --secondary-foreground: var(--ink);
-  --muted: var(--rule-2);
-  --muted-foreground: var(--ink-2);
-  --accent: var(--indigo-soft);
-  --accent-foreground: var(--indigo);
-  --destructive: var(--red);
-  --destructive-foreground: #ffffff;
-  --border: var(--rule);
-  --input: var(--rule);
-  --ring: var(--indigo);
-
-  /* Semantic extensions the screens use directly. */
-  --success: var(--teal);
-  --warning: var(--amber);
-  --info: var(--indigo);
-  --brand-teal: var(--teal);
-
-  /* Charts. The 7-hue decorative palette collapses to the meaning-bearing set;
-     see chart-palette.ts for which series gets which. */
-  --chart-1: var(--indigo);
-  --chart-2: var(--teal);
-  --chart-3: var(--amber);
-  --chart-4: var(--ink-3);
-  --chart-5: var(--red);
-
-  /* Elevation: only two levels exist now. The old xs…lg scale collapses. */
-  --shadow-xs: var(--lift);
-  --shadow-sm: var(--lift);
-  --shadow-md: var(--lift);
-  --shadow-lg: var(--lift-2);
-  --shadow-glow: none;
-
-  /* Cards were 18px; the ledger is 12px. */
-  --radius: 0.75rem;
-}
-
-/* Gradients are gone from the system — the old gradient stat card is replaced
-   by hierarchy, not shine. Neutralise the utilities rather than hunting call
-   sites in four portals. */
+/* Neutralise the old gradient/glow utilities rather than hunting call sites in
+   four portals. */
 .led .gradient-primary {
   background: var(--sheet) !important;
   color: var(--ink) !important;
@@ -176,34 +86,15 @@ html[data-portal="ledger"] {
  * beside a light canvas read as two different apps, and it was the loudest
  * element on screen while carrying the least information.
  *
- * This is done ENTIRELY by re-pointing `--sidebar*` — dashboard-shell.tsx and
- * packages/ui/components/sidebar.tsx are untouched, because they are shared
- * with three other portal sessions. Values are literal rather than var()
- * references because these land on <html>, above the `.led` scope where the
- * ledger names are defined.
+ * The --sidebar* COLOURS used to be re-pointed here with literal hex, with the
+ * note that literals were needed because these land on <html>, above the `.led`
+ * scope. Both halves of that are now moot: :root owns the palette, and its
+ * values are identical to the literals that stood here. Only the width, which
+ * really is this portal's, remains.
  */
 html[data-portal="ledger"] {
-  --sidebar: #ffffff;
-  --sidebar-foreground: #5b6273;
-  --sidebar-primary: #1a2f73;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaecf6;
-  --sidebar-accent-foreground: #1a2f73;
-  --sidebar-border: #e4e1d8;
-  --sidebar-ring: #1a2f73;
   /* 248px per §3.1, replacing the shadcn default. */
   --sidebar-width: 248px;
-}
-
-html[data-portal="ledger"][data-theme="dark"] {
-  --sidebar: #1b1e26;
-  --sidebar-foreground: #a3a49c;
-  --sidebar-primary: #93a4e6;
-  --sidebar-primary-foreground: #0d1330;
-  --sidebar-accent: #232840;
-  --sidebar-accent-foreground: #93a4e6;
-  --sidebar-border: #2a2d35;
-  --sidebar-ring: #93a4e6;
 }
 
 /* A hairline, not a tonal shift — the rule IS the separation device. */
@@ -406,8 +297,15 @@ html[data-portal="ledger"] header {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--seal);
-  border: 1px solid var(--seal);
+  /* --money, NOT --seal. This portal's permanence stamp is teal because teal is
+     "value that actually moved"; the shared receipt seal (`text-seal` in
+     receipt-sheet.tsx) is red, and its print stylesheet pins --seal to #8f2727,
+     so the red is deliberate there. This file used to get its teal by
+     redefining --seal underneath everyone — which silently recoloured the
+     receipt seal too. Asking for --money says what is actually meant and leaves
+     --seal alone. */
+  color: var(--money);
+  border: 1px solid var(--money);
   border-radius: 4px;
   padding: 1px 5px;
   transform: rotate(-6deg);
@@ -450,4 +348,5 @@ html[data-portal="ledger"] header {
 .led ::-webkit-scrollbar-thumb {
   background: var(--rule);
   border-radius: 8px;
+}
 }

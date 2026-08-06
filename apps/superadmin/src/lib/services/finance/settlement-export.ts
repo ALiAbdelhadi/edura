@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { toDateKey, todayKey } from "@repo/server-core/lib/date-key";
 import { listSessionSettlements, type SettlementFilters } from "@/lib/services/admin/session-settlements";
 
 // ===========================================================================
@@ -134,7 +135,7 @@ export async function buildSettlementWorkbook(
 
   for (const s of settlements) {
     ws.addRow({
-      date: new Date(s.createdAt).toISOString().slice(0, 10),
+      date: toDateKey(s.createdAt),
       centerName: s.centerName ?? "—",
       teacherName: s.teacherName ?? "—",
       courseTitle: s.courseTitle ?? "—",
@@ -191,7 +192,7 @@ export async function buildSettlementWorkbook(
   }
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayKey();
 
   return {
     buffer,

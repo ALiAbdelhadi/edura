@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import { Prisma } from "@repo/database";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
@@ -145,7 +146,7 @@ const schedulePatternSchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
   })
-  .refine((p) => isNotPastDate(p.startDate.toISOString().slice(0, 10)), {
+  .refine((p) => isNotPastDate(toDateKey(p.startDate)), {
     message: "startDate cannot be in the past",
     path: ["startDate"],
   })
