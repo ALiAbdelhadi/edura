@@ -5,8 +5,11 @@ import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import {
+  Amiri,
+  Cormorant_Garamond,
   IBM_Plex_Mono,
   IBM_Plex_Sans_Arabic,
+  Lora,
   Noto_Sans,
 } from "next/font/google";
 import { notFound } from "next/navigation";
@@ -31,14 +34,40 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
 });
 
+// The display pair. Loaded here because the shared token sheet reads
+// --font-cormorant / --font-lora / --font-amiri unconditionally: an app that
+// imports the sheet without defining them would lose the whole font-family
+// declaration, not fall through to the next name. Subsets are per-script, so
+// neither locale downloads the other's display face.
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-cormorant",
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-lora",
+});
+
+const amiri = Amiri({
+  subsets: ["arabic"],
+  weight: ["400", "700"],
+  variable: "--font-amiri",
+});
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#5b76fe" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+    // --paper, both themes. Literals because the browser chrome reads this
+    // before any stylesheet exists. The previous pair (#5b76fe / #0b1020) was
+    // the retired EduConnect violet and matched nothing the app renders.
+    { media: "(prefers-color-scheme: light)", color: "#f3f2f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#191817" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -77,7 +106,7 @@ export default async function RootLayout({
       lang={locale}
       dir={dir}
       suppressHydrationWarning
-      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable}`}
+      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable}`}
     >
       <body>
         {/* Anti-FOUC theme init — `async` keeps it a React 19 hoistable

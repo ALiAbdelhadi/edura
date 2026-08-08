@@ -1245,6 +1245,123 @@ behaves exactly as before.
   `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_REGION`,
   `BACKUP_ALERT_EMAIL`, `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY`.
 
+## "Classical Ledger" redesign (built 2026-08-07 — awaiting review)
+
+The approved redesign from `design/handoff/` (README = the spec and the single
+source of truth for values; `Edura-Redesign.dc.html` = the full design document;
+`ledger-hero.js` = a vanilla reference of the hero). Editorial voice: hairline
+rules, colour as STROKE never fill, outlined buttons, serif display faces, ONE
+gold accent, and Arabic as CO-PRIMARY rather than adapted.
+
+1. **`design/CONSTITUTION.md` is retired as a VISUAL system and kept as a
+   FUNCTIONAL one.** All nine invariants survive untouched: `<Num>` vs
+   `<ProseCount>` as two components, two-step commit with amount-carrying confirm
+   buttons, the seal's exact stamp behaviour, `2px double var(--ink)` totals drawn
+   from `--ink` never `--rule`, every intermediate figure with an actor, per-record
+   commit state, three densities, four semantic colours, excluded capabilities
+   absent rather than disabled.
+2. **TOKENS WERE RE-POINTED, NOT RENAMED (binding).** The direction names
+   `--radius-sm/md/lg`, but those names are already GENERATED inside `@theme`
+   from `--radius-step-*`, and 33 call sites read `rounded-(--radius-step-md)`.
+   So the VALUES moved (`--radius-step-sm/md/lg` → 6/10/14px, `--radius-badge` →
+   12px) and the names did not. Shadows the same: `--elev-sm/md/lg` hold the new
+   values and `--lift`/`--lift-2` alias them, so ~70 `shadow-[var(--lift)]` call
+   sites in superadmin keep working. Adding the direction's names at `:root`
+   would have SHADOWED Tailwind's own scale.
+3. **`--ink-3` is `#6b6867`, NOT the source palette's `#7d7979`**, which fails AA
+   at body sizes. This is the one value the direction deliberately corrected, and
+   a revert would read as a harmless tidy-up in review — so it is held by a test
+   (below), not by a sentence.
+4. **Every font role token carries an in-line `var()` fallback.** An undefined
+   custom property inside a `font-family` list makes the whole declaration invalid
+   at computed-value time — the text loses its family entirely rather than falling
+   through to the next name. All five families are therefore loaded in ALL THREE
+   apps (www, superadmin, showcase), per-script subsets, because all three import
+   the token sheet.
+5. **THE MONO TRAP, three times.** IBM Plex Mono ships NO ARABIC GLYPHS, so
+   applying it to Arabic silently drops the text into another family with no
+   visible error — the trap `<Eyebrow>`'s header has always documented. The
+   direction specifies badges, table headers, the receipt's actor line and its
+   seal as mono, and every specimen in the design document is Latin. Resolution,
+   applied consistently: GEOMETRY is shared by both scripts, FAMILY switches.
+   `<StatusBadge script="latin">` is opt-in (defaults to the body face — the safe
+   direction); the table header's mono/0.12em treatment is applied per-table via
+   className and NOT globally; the hero splits its actor line so the NAME is body
+   face and the TIME is mono. Figures are mono, Latin-digit and bidi-isolated
+   everywhere, unchanged.
+6. **The shadcn `default` button was NOT flipped to solid ink.** The direction
+   says primary = solid `--ink` and is the only solid — but `default` is the
+   indigo primary on 25+ back-office screens, and the direction ALSO says the ERP
+   screens are not yet designed in this language and must not be reskinned ad
+   hoc. Flipping it would have done exactly that, invisibly, from one line of a
+   cva. The Classical set is ADDITIVE (`ledger` / `gold` / `ledger-ghost` /
+   `money`, sizes `ledger` / `ledger-money`) and every marketing surface uses it.
+   When the ERP is designed in this language, `default` becomes an alias of
+   `ledger` — that is a decision about the whole product, not about a cva.
+7. **Focus is a 2px `--indigo` outline at 2px offset, product-wide**, on Button
+   and Input, replacing shadcn's 3px translucent ring. An outline is drawn outside
+   the border box so it never reflows or clips, and unlike a box-shadow ring it
+   survives forced-colors mode rather than being dropped.
+8. **The showcase had NO theme mechanism at all** — it never set `data-theme`, so
+   the dark token block was dead there. Rather than add a THIRD copy of a file
+   `apps/www` and `apps/superadmin` already carried byte-identically, the provider
+   moved to `@repo/ui/components/theme-mode-provider` and both portals became
+   re-export shims (every import path and behaviour unchanged). The showcase
+   inlines the pre-paint bootstrap rather than fetching `/theme-init.js`: a
+   separate request can resolve AFTER first paint, which defeats its purpose.
+9. **The three.js notebook is GONE**, with its poster pipeline, its posters, the
+   `render:poster` script, `three` / `@react-three/fiber` / `@react-three/drei` /
+   `@types/three`, and the `.scene-pin` / `.will-reveal` styles that were only
+   ever its. It was the only three.js consumer. The hero that replaces it is a
+   localized React component on the showcase's EXISTING `loadMotion()` runtime —
+   not a second GSAP instance — and its static JSX **is** the final frame, so
+   SSR, `prefers-reduced-motion` and hydration all fall out of one code path
+   instead of three.
+
+**No database migration, no schema change, no API change.**
+
+Proofs: `apps/www/tests/unit/design-contrast.test.ts` **27/27** — parses the
+token sheet and asserts every text token holds 4.5:1 on ALL THREE grounds
+(paper/sheet/field, because meta text sits on all of them), every badge pair,
+and the dark-mode "seal is the most legible element in its row" check as an
+ORDERING. `apps/showcase/tools/redesign/capture.spec.ts` **8/8** in a real
+browser (`bun run --cwd apps/showcase capture:redesign`, dev server on :3006) —
+captures AR+EN landing in light+dark, the state sheet and the hero's final
+frame, and asserts the seal sits at −6° in RTL, that reduced motion is still
+byte-identical after 2s (i.e. no timeline exists), and that the loop stops
+advancing off-viewport. Screenshots land in `design/handoff/shots/`.
+Regressions green: `bun run check-types` 9/9, `bun run build` 3/3, www unit
+**394 pass / 1 skip**, showcase 16/16, and lint error-parity — the 14 www + 2
+superadmin errors are all pre-existing (terms/privacy/use-chat/sw.js/`Date.now`)
+and none are in a file this change touches. A repo-wide scan confirms no
+stylesheet redeclares any of the 171 tokens `globals.css` owns.
+
+> **`bun run build` DOES NOT CATCH CSS SYNTAX ERRORS in the showcase.** It builds
+> with `--webpack` while `next dev` uses Turbopack, and during this work a broken
+> comment in `globals.css` passed the build and was caught only by the dev
+> server. Treat a green build as insufficient evidence for a stylesheet change.
+
+**Dev-only surface:** `/{locale}/design-system` in the showcase is the component
+state sheet (every button/input/badge/table/empty state, both scripts, plus the
+RTL worst case — an Arabic name, a `TRX-` code and a 7-digit amount in one row).
+It `notFound()`s in production, gated the same way the portals gate quick-login.
+
+**Deliberately NOT done, and why:** the ERP screens were not reskinned (they do
+change appearance via token propagation, which the scope guard permits); no
+pricing section, footer legal line, testimonials, counters or stock photography
+were invented; no copy was rewritten — the landing uses `home.hero` and `owners`
+verbatim, and the three proof figures were added as new `home.proof` keys taken
+from the design document's own AR and EN landings. The footer's missing legal
+line (B3) has NO placeholder TODO in the markup on purpose: a visible
+placeholder on a public page is worse than its absence.
+
+**Open questions still open:** gold vs amber adjacency once a marketing page
+shows a live status badge; the B3 legal line; whether Amiri should serve 13px
+Arabic body copy (current spec: Plex Sans Arabic below display sizes); and the
+ERP design language — which now carries two concrete sub-questions, whether
+`default` should become solid ink (#6) and whether table headers should take the
+Latin mono treatment (#5).
+
 ## Stitch MCP design workflow (binding rules, added 2026-07-20)
 
 The Stitch MCP (Google's design tool) is connected. When working with designs

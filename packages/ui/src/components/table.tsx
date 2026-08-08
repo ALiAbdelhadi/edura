@@ -120,7 +120,10 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // Dividers are --rule-2, the 7%-of-ink hairline. --rule at 16% is the
+        // STRUCTURAL rule (the table's own edge); using it between every row
+        // turns a table into a grid and the rows stop reading as one object.
+        "border-b border-rule-2 transition-colors hover:bg-field has-aria-expanded:bg-field data-[state=selected]:bg-field",
         className
       )}
       {...props}
@@ -133,7 +136,12 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-start align-middle text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground uppercase [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]",
+        // 34px on --field — the compact density's header. The direction also
+        // specifies the LABEL as mono 10px/0.12em uppercase; that is applied
+        // per-table via className rather than here, because IBM Plex Mono ships
+        // no Arabic glyphs and most headers in this product are Arabic. See the
+        // header comment on <StatusBadge> for the same trap and the same rule.
+        "h-[34px] bg-field px-2 text-start align-middle text-xs font-semibold tracking-wide whitespace-nowrap text-ink-3 uppercase [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}
@@ -146,7 +154,9 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]",
+        // 7px vertical, the compact density. Horizontal stays 8px so a numeric
+        // column's end alignment does not sit flush against the table's edge.
+        "px-2 py-[7px] align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}

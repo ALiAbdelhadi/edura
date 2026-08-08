@@ -63,6 +63,14 @@ export type EyebrowProps = React.ComponentProps<"span"> & {
   script?: "latin" | "arabic";
   /** The marker rule. On by default — it is the shared invariant, not an ornament. */
   marker?: boolean;
+  /**
+   * Marker colour. `current` (default) keeps the in-app behaviour — the rule
+   * tracks the label. `gold` is the MARKETING form: the brand accent appears as
+   * a 2px stroke and nowhere else on the surface. The label itself never turns
+   * gold — `--gold` does not hold 4.5:1 at text sizes, which is what
+   * `--gold-deep` exists for.
+   */
+  tone?: "current" | "gold";
   /** Renders as `<div>` etc. when the eyebrow is a block-level group label. */
   asChild?: never;
 };
@@ -71,7 +79,9 @@ export function Eyebrow({
   locale,
   script,
   marker = true,
+  tone = "current",
   className,
+  style,
   children,
   ...props
 }: EyebrowProps) {
@@ -79,13 +89,19 @@ export function Eyebrow({
 
   return (
     <span
+      style={
+        tone === "gold"
+          ? ({ "--eyebrow-marker-color": "var(--gold)", ...style } as React.CSSProperties)
+          : style
+      }
       className={cn(
         "inline-flex items-center text-ink-3",
-        // The marker is drawn as a pseudo-element in currentColor so it tracks any
-        // colour override on the eyebrow itself, and sits at the START edge in both
-        // directions without a per-direction rule.
+        // The marker is drawn as a pseudo-element in --eyebrow-marker-color, which
+        // defaults to currentColor so it tracks any colour override on the eyebrow
+        // itself. It sits at the START edge in both directions without a
+        // per-direction rule.
         marker &&
-          "before:me-[7px] before:h-[9px] before:w-[2px] before:flex-none before:rounded-[1px] before:bg-current before:content-['']",
+          "before:me-[7px] before:h-[9px] before:w-[2px] before:flex-none before:rounded-[1px] before:bg-(--eyebrow-marker-color) before:content-['']",
         resolved === "latin"
           ? "num text-[10px] font-semibold uppercase tracking-[0.12em]"
           : // No uppercase, no tracking, no mono — see the header comment. Each of

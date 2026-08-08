@@ -25,7 +25,24 @@ import * as React from "react";
 
    The `tone` names are the LEGACY vocabulary (success/warning/info/danger/primary/
    neutral) plus the ledger vocabulary. Both are accepted so the 42 existing call sites
-   keep working; new code uses the ledger names. */
+   keep working; new code uses the ledger names.
+
+   ── Why the badge is not simply mono ──────────────────────────────────────────
+
+   The direction specifies badges as `IBM Plex Mono 11px/600`, and every badge in
+   the design document is Latin — `PAID`, `QUEUED · 2m`, `REVOKED`. This product's
+   badges are usually Arabic, and Plex Mono ships NO ARABIC GLYPHS: applying it
+   would silently drop the text into some other family with no visible error. That
+   is the same trap `<Eyebrow>` exists to document, so this component takes the
+   same resolution, defaulted the safe way round.
+
+     default          the body face. Correct in both scripts.
+     script="latin"   mono + 0.04em tracking, for genuinely Latin badges —
+                      `PAID`, `DRAFT`, `TRX-`.
+
+   The GEOMETRY (12px radius, 11px, 600, 4×9 padding) is shared by both, so the
+   badge is the same object in either script — only the family differs. The AGE is
+   always mono regardless: it is a figure, and figures are mono everywhere. */
 
 export type StatusTone =
   // ledger vocabulary — prefer these
@@ -46,7 +63,7 @@ const TONE: Record<StatusTone, string> = {
   paid: "bg-teal-soft text-teal",
   rejected: "bg-red-soft text-red",
   active: "bg-indigo-soft text-indigo",
-  neutral: "bg-rule-2 text-ink-2",
+  neutral: "bg-field text-ink-2",
   // aliases
   success: "bg-teal-soft text-teal",
   warning: "bg-amber-soft text-amber",
@@ -62,6 +79,11 @@ export function StatusBadge({
   age,
   /** Rejected only: rendered on its own line beneath, in --red. */
   reason,
+  /**
+   * `latin` switches the label to mono + tracking. Only for genuinely Latin
+   * content — see the header comment. Arabic must stay on the body face.
+   */
+  script,
   className,
   children,
 }: {
@@ -69,6 +91,7 @@ export function StatusBadge({
   icon?: LucideIcon;
   age?: React.ReactNode;
   reason?: React.ReactNode;
+  script?: "latin";
   className?: string;
   children: React.ReactNode;
 }) {
@@ -77,7 +100,8 @@ export function StatusBadge({
       data-slot="status-badge"
       data-tone={tone}
       className={cn(
-        "inline-flex w-fit items-center gap-1 rounded-[5px] px-2 py-0.5 text-xs font-semibold",
+        "inline-flex w-fit items-center gap-1.5 rounded-(--radius-badge) px-[9px] py-[4px] text-[11px] font-semibold",
+        script === "latin" && "num tracking-[0.04em]",
         TONE[tone],
         className,
       )}

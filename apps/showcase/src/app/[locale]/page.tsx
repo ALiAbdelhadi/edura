@@ -1,5 +1,5 @@
+import { FeatureRow } from "@/features/home/feature-row";
 import { HomeHero } from "@/features/home/home-hero";
-import { Notebook } from "@/features/home/notebook/notebook";
 import { ShotProof } from "@/features/home/shot-proof";
 import { routing } from "@/i18n/routing";
 import { setRequestLocale } from "next-intl/server";
@@ -18,8 +18,8 @@ export default async function HomePage({
 
   return (
     <main id="content">
-      <Notebook locale={locale as "ar" | "en"} />
       <HomeHero />
+      <FeatureRow />
       <ShotProof />
     </main>
   );

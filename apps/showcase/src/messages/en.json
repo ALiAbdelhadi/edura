@@ -32,6 +32,20 @@
       "ctaPrimary": "Create an account",
       "ctaSecondary": "See how it works",
       "scrollHint": "Scroll"
+    },
+    "proof": {
+      "tables": {
+        "figure": "7",
+        "label": "append-only tables"
+      },
+      "isolation": {
+        "figure": "100%",
+        "label": "row-level isolation"
+      },
+      "writes": {
+        "figure": "0",
+        "label": "unattributed writes"
+      }
     }
   },
   "footer": {

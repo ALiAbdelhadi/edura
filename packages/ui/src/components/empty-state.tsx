@@ -35,8 +35,13 @@ export function EmptyState({
     <Empty
       role={tone === "error" ? "alert" : undefined}
       className={cn(
-        "border border-dashed",
-        tone === "empty" && "border-rule bg-field",
+        "rounded-(--radius-step-lg) border",
+        // The BORDER carries the distinction, not just the words. A dashed box
+        // reads as an outline waiting to be filled — nothing is here yet. A
+        // SOLID filled box reads as a closed surface — something is here and it
+        // is not for you. Rendering "denied" dashed, as this did, told a user
+        // without permission that the shelf was empty.
+        tone === "empty" && "border-dashed border-rule bg-transparent",
         tone === "error" && "border-red/40 bg-red-soft/40",
         tone === "denied" && "border-rule bg-field",
         className,

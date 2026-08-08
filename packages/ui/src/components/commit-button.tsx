@@ -119,7 +119,11 @@ function CommitButton({
         aria-pressed={armed}
         data-armed={armed || undefined}
         className={cn(
-          "inline-flex h-[46px] w-full items-center justify-center gap-2 rounded-sm",
+          // 46px, not the direction's 42px inline money button: this is the
+          // touch-density money control (the counter, one-handed, with a queue),
+          // and 42 falls under the 48px-minimum-target rule it already sits
+          // close to. The RADIUS follows the new scale; the height does not.
+          "inline-flex h-[46px] w-full items-center justify-center gap-2 rounded-(--radius-step-md)",
           "text-sm font-semibold transition-colors duration-100",
           "disabled:cursor-not-allowed disabled:opacity-50",
           armed

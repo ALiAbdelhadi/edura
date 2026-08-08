@@ -5,6 +5,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { appUrl, loginUrl, registerUrl } from "@/lib/app-links";
 import type { Locale } from "@/lib/i18n";
 import { ROLE_PAGES } from "@/lib/site-map";
+import { Wordmark } from "@repo/ui/components/wordmark";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -25,7 +26,9 @@ export function SiteHeader() {
       className="sticky top-0 z-50 border-b backdrop-blur"
       style={{
         borderColor: "var(--rule)",
-        backgroundColor: "color-mix(in oklab, var(--paper) 88%, transparent)",
+        // --sheet, not --paper: the bar is a surface laid ON the page, and the
+        // hairline under it only reads as an edge if the two sides differ.
+        backgroundColor: "color-mix(in oklab, var(--sheet) 88%, transparent)",
       }}
     >
       <a
@@ -36,9 +39,9 @@ export function SiteHeader() {
         {t("skipToContent")}
       </a>
 
-      <Container className="flex h-14 items-center justify-between gap-4">
-        <Link href="/" className="focus-ledger text-base font-extrabold" style={{ color: "var(--ink)" }}>
-          {locale === "ar" ? "إدورا" : "Edura"}
+      <Container className="flex h-[60px] items-center justify-between gap-4">
+        <Link href="/" className="focus-ledger" aria-label="Edura">
+          <Wordmark locale={locale} size={21} />
         </Link>
 
         <nav aria-label={t("home")} className="hidden items-center gap-1 md:flex">
@@ -49,10 +52,15 @@ export function SiteHeader() {
                 key={p.href}
                 href={p.href}
                 aria-current={active ? "page" : undefined}
-                className="focus-ledger rounded-(--radius-step-sm) px-3 py-2 text-sm font-medium"
+                // The active page is marked by INK and a gold underline, not by
+                // a filled pill: colour is a stroke in this system, and a filled
+                // chip in the nav would be the second solid on a surface whose
+                // only solid is the primary CTA.
+                className="focus-ledger rounded-(--radius-step-sm) px-2.5 py-2 text-[15px] whitespace-nowrap"
                 style={{
-                  color: active ? "var(--indigo)" : "var(--ink-2)",
-                  backgroundColor: active ? "var(--indigo-soft)" : "transparent",
+                  color: active ? "var(--ink)" : "var(--ink-2)",
+                  fontWeight: active ? 600 : 400,
+                  boxShadow: active ? "inset 0 -2px 0 var(--gold)" : undefined,
                 }}
               >
                 {t(p.navKey)}
@@ -64,7 +72,7 @@ export function SiteHeader() {
             <a
               key={l.href}
               href={l.href}
-              className="focus-ledger rounded-(--radius-step-sm) px-3 py-2 text-sm font-medium"
+              className="focus-ledger rounded-(--radius-step-sm) px-2.5 py-2 text-[15px] whitespace-nowrap"
               style={{ color: "var(--ink-2)" }}
             >
               {l.label}
@@ -75,15 +83,16 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           <a
             href={loginUrl(locale)}
-            className="focus-ledger hidden rounded-(--radius-step-md) px-3 py-2 text-sm font-semibold sm:inline-flex"
-            style={{ color: "var(--ink)" }}
+            className="focus-ledger hidden rounded-(--radius-step-md) px-3 py-2 text-[15px] whitespace-nowrap sm:inline-flex"
+            style={{ color: "var(--ink-2)" }}
           >
             {t("login")}
           </a>
+          {/* The one solid button on the page. */}
           <a
             href={registerUrl(locale)}
-            className="focus-ledger inline-flex h-9 items-center rounded-(--radius-step-md) px-4 text-sm font-semibold"
-            style={{ backgroundColor: "var(--indigo)", color: "var(--indigo-ink)" }}
+            className="focus-ledger inline-flex h-[38px] items-center rounded-(--radius-step-md) px-[18px] text-sm font-medium whitespace-nowrap transition-colors hover:bg-ink-2"
+            style={{ backgroundColor: "var(--ink)", color: "var(--paper)" }}
           >
             {t("register")}
           </a>

@@ -7,16 +7,20 @@ node_modules
 
 # Local env files
 # NOTE: .env.test and .env.production hold real database credentials and MUST
-# stay ignored — the earlier list only covered the *.local variants, which would
-# have committed them. .env.example files are the committed, secret-free copies.
-.env
-.env.local
-.env.test
-.env.production
-.env.development.local
-.env.test.local
-.env.production.local
-.env.production.ready
+# stay ignored. .env.example files are the committed, secret-free copies.
+#
+# DENY EVERY VARIANT, THEN RE-ADMIT ONLY THE EXAMPLES. This used to be an
+# enumerated list of suffixes, and an enumerated list is wrong by construction:
+# it only ever covers the variants someone thought of. It missed the *.local
+# family once, then `.env.production.ready` was appended after a second miss —
+# and a timestamped backup still slipped through and WAS COMMITTED
+# (`packages/database/.env.test.bak-1785802267`, carrying Neon role passwords
+# that are shared across every branch of the project, production included).
+#
+# A backup is exactly when this matters: it is written by a tool, named after an
+# epoch nobody predicted, and created at the moment someone is editing secrets.
+# So the default is deny.
+.env*
 !.env.example
 !.env.*.example
 

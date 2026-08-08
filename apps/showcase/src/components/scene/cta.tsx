@@ -36,17 +36,21 @@ export async function Cta({ locale }: { locale: Locale }) {
             {t("body")}
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            {/* The site's CTA pair, shared by every role page. Kept identical to
+                the nav, hero and footer: one solid ink, one gold stroke. It is
+                shared marketing chrome, so leaving the retired indigo fill here
+                would have left the site visibly wearing two skins at once. */}
             <a
               href={registerUrl(locale)}
-              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] px-6 text-sm font-semibold"
-              style={{ backgroundColor: "var(--indigo)", color: "var(--indigo-ink)" }}
+              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] px-6 text-sm font-medium transition-colors hover:bg-ink-2"
+              style={{ backgroundColor: "var(--ink)", color: "var(--paper)" }}
             >
               {nav("register")}
             </a>
             <a
               href={appUrl("/pricing", locale)}
-              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] border px-6 text-sm font-semibold"
-              style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
+              className="focus-ledger inline-flex h-11 items-center rounded-[var(--radius-step-md)] border px-6 text-sm font-medium transition-colors hover:bg-gold-soft"
+              style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
             >
               {nav("pricing")}
             </a>

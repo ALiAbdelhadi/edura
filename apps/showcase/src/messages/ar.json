@@ -32,6 +32,20 @@
       "ctaPrimary": "أنشئ حسابك",
       "ctaSecondary": "شوف بيشتغل إزاي",
       "scrollHint": "انزل"
+    },
+    "proof": {
+      "tables": {
+        "figure": "7",
+        "label": "جداول ما بتتعدّلش"
+      },
+      "isolation": {
+        "figure": "100%",
+        "label": "عزل بيانات كل سنتر"
+      },
+      "writes": {
+        "figure": "0",
+        "label": "عملية من غير اسم"
+      }
     }
   },
   "footer": {

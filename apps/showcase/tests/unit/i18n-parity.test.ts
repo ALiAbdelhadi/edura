@@ -24,6 +24,14 @@ const enFlat = flatten(en as Dict);
 const IDENTICAL_BY_DESIGN = new Set<string>([
   "nav.switchToArabic",
   "nav.switchToEnglish",
+  // The landing's three proof FIGURES. A figure is not prose: the system renders
+  // every one in IBM Plex Mono with LATIN digits, tabular and bidi-isolated, in
+  // both locales — so `7`, `100%` and `0` are identical by the same rule that
+  // keeps `300.00` identical on a receipt. Their LABELS are translated, and this
+  // test still holds them to it.
+  "home.proof.tables.figure",
+  "home.proof.isolation.figure",
+  "home.proof.writes.figure",
 ]);
 
 describe("i18n parity", () => {

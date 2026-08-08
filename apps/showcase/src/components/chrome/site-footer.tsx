@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { appUrl, loginUrl, registerUrl } from "@/lib/app-links";
 import type { Locale } from "@/lib/i18n";
 import { ROLE_PAGES } from "@/lib/site-map";
+import { Wordmark } from "@repo/ui/components/wordmark";
 import { getTranslations } from "next-intl/server";
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
@@ -38,24 +39,25 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
       <Container className="py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
-              {locale === "ar" ? "إدورا" : "Edura"}
-            </p>
+            <Wordmark locale={locale} size={21} />
             <p className="mt-2 max-w-xs text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
               {f("tagline")}
             </p>
             <div className="mt-5 flex gap-2">
+              {/* Same pair as the hero and the nav: one solid ink, one gold
+                  stroke. It was an indigo fill beside a rule-outlined button —
+                  the retired skin's primary, and the second solid on the page. */}
               <a
                 href={registerUrl(locale)}
-                className="focus-ledger inline-flex h-9 items-center rounded-(--radius-step-md) px-4 text-sm font-semibold"
-                style={{ backgroundColor: "var(--indigo)", color: "var(--indigo-ink)" }}
+                className="focus-ledger inline-flex h-[38px] items-center rounded-(--radius-step-md) px-[18px] text-sm font-medium whitespace-nowrap transition-colors hover:bg-ink-2"
+                style={{ backgroundColor: "var(--ink)", color: "var(--paper)" }}
               >
                 {t("register")}
               </a>
               <a
                 href={loginUrl(locale)}
-                className="focus-ledger inline-flex h-9 items-center rounded-(--radius-step-md) border px-4 text-sm font-semibold"
-                style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
+                className="focus-ledger inline-flex h-[38px] items-center rounded-(--radius-step-md) border px-[18px] text-sm font-medium whitespace-nowrap transition-colors hover:bg-gold-soft"
+                style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
               >
                 {t("login")}
               </a>

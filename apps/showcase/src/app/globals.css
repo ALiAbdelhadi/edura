@@ -25,14 +25,9 @@
     opacity: 0;
   }
 
-  .will-reveal {
-    will-change: transform, opacity;
-  }
-  .scene-pin {
-    min-height: 100svh;
-    display: grid;
-    align-content: center;
-  }
+  /* `.will-reveal` and `.scene-pin` were the retired three.js notebook's — the
+     pinned full-height scroll stage and its will-change hint. Both went with it;
+     nothing else ever used either. */
 
   .frame-sheet {
     background-color: var(--sheet);
