@@ -56,6 +56,14 @@ export type BottomNavItem = {
   badgeLabel?: string;
   /** Optional group label (already localized) for the overflow sheet. */
   group?: string;
+  /**
+   * Optional `data-tour` id, so a guided tour can point at this destination on
+   * phones. Opt-in and inert. It must NOT be the same id the sidebar uses for
+   * the same destination: both navigations are in the DOM at once (this bar is
+   * `md:hidden`, the sidebar hides below `md`), so a shared id would be
+   * ambiguous and could resolve to the hidden one.
+   */
+  tour?: string;
 };
 
 const BAR_HEIGHT = 60;
@@ -111,6 +119,7 @@ export function BottomNav({
   moreDescription,
   navLabel,
   linkAs: Link = "a",
+  moreTour,
   className,
 }: {
   items: BottomNavItem[];
@@ -125,6 +134,8 @@ export function BottomNav({
   navLabel: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   linkAs?: React.ElementType<any>;
+  /** Optional `data-tour` id for the "more" trigger. */
+  moreTour?: string;
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -189,6 +200,7 @@ export function BottomNav({
                 <SheetTrigger asChild>
                   <button
                     type="button"
+                    data-tour={moreTour}
                     aria-haspopup="dialog"
                     // The rolled-up count is aria-hidden as a visual chip, so
                     // it has to reach the accessible name here or it is
@@ -290,6 +302,7 @@ function BottomNavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       aria-label={item.badgeLabel}
+      data-tour={item.tour}
       className={cn(
         "relative flex flex-col items-center justify-center gap-1 px-1 py-2",
         "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo",

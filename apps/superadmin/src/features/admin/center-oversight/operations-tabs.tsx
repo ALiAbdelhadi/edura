@@ -109,7 +109,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                     <TableCell>{s.teacherName ?? "—"}</TableCell>
                     <TableCell><Num.Date value={s.date} locale={locale} options={{ dateStyle: "medium" }} className="text-[11px] text-ink-3" /></TableCell>
                     <TableCell>
-                      {s.startTime}–{s.endTime}
+                      <Num.ClockRange start={s.startTime} end={s.endTime} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{s.status}</Badge>

@@ -1,0 +1,23 @@
+meta {
+  name: POST blocks
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/messages/blocks
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": "{{userId}}",
+    "reason": "",
+    "conversationId": "{{conversationId}}"
+  }
+}

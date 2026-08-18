@@ -58,7 +58,7 @@ Edura is a multi-tenant tutoring-centre management platform for the Egyptian sec
 | Role | Arabic | What they do |
 |---|---|---|
 | `center_admin` | مدير المركز | Manage students, teachers, courses, fees, reports |
-| `teacher` | معلم | View classes, take attendance, manage gradebook |
+| `teacher` | مدرّس | View classes, take attendance, manage gradebook |
 | `student` | طالب | View schedule, grades, attendance, enroll in courses |
 | `parent` | ولي أمر | Monitor child progress, attendance, fees |
 
@@ -612,7 +612,7 @@ useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
 ```
 1. User opens /           → redirects to /login (or /dashboard if cached)
-2. /login                 → POST /api/v1/auth/login
+2. /login                 → POST /api/auth/sign-in/email
 3. On success             → cookie set + localStorage.edura_state = {role, name, email}
                           → router.push("/dashboard")
 4. /dashboard             → reads localStorage for instant render
@@ -765,7 +765,7 @@ curl http://localhost:3002/api/v1/_ping
 # → {"data":"pong"}
 
 # 2. Login as admin
-curl -s -c cookies.txt -X POST http://localhost:3002/api/v1/auth/login \
+curl -s -c cookies.txt -X POST http://localhost:3002/api/auth/sign-in/email \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@nile-academy.eg","password":"Passw0rd!"}' | jq .
 

@@ -1,0 +1,19 @@
+meta {
+  name: POST restore
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/center/external-teachers/:teacherId/restore
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}

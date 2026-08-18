@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "edura-3002.session_token",
+      "value": "avX3VmHQ81bpK8XW5QReaHXX8K9LTwDq.MxEZRKaM%2Bu4imCGIqktZLumAf1p%2FaFsZUyJlsCDc8oI%3D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1789607830.706152,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3002",
+      "localStorage": [
+        {
+          "name": "edura_state",
+          "value": "{\"role\":\"teacher\",\"screen\":\"dashboard\",\"name\":\"أ. حسام الدين مرسي\",\"email\":\"showcasedemo-hossam@edura.test\"}"
+        }
+      ]
+    }
+  ]
+}

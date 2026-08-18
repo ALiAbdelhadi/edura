@@ -158,9 +158,26 @@ export function TwoStepCommit({
    (removing a draft, cancelling an unsent invite). Kept because the app has 12 call
    sites that are genuinely reversible.
 
-   If the action writes to the ledger, this is the wrong component. Use TwoStepCommit. */
+   If the action writes to the ledger, this is the wrong component. Use TwoStepCommit.
+
+   ── Two modes ────────────────────────────────────────────────────────────────
+
+   TRIGGER mode (`trigger` supplied) is the common one: the dialog owns its own
+   open state and the trigger is the button that opens it.
+
+   CONTROLLED mode (`open` + `onOpenChange`, no trigger) exists because some
+   destructive actions are reached from a DROPDOWN MENU or fired from a list
+   handler, where there is no single element to wrap — and where a Radix trigger
+   nested inside a Radix menu item fights over focus. Those call sites were using
+   `window.confirm`, which cannot be styled, cannot be translated (its OK/Cancel
+   are the browser's, in the browser's language, not the user's), and looks like
+   the operating system rather than the product. On an Arabic-first phone app
+   that is a jarring, trust-costing surface for the one class of action where
+   confidence matters most. */
 export function ConfirmDialog({
   trigger,
+  open,
+  onOpenChange,
   title,
   description,
   confirmText = "Confirm",
@@ -168,7 +185,11 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
 }: {
-  trigger: React.ReactNode;
+  /** Trigger mode. Omit when driving the dialog with `open`/`onOpenChange`. */
+  trigger?: React.ReactNode;
+  /** Controlled mode — supply both. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: React.ReactNode;
   description?: React.ReactNode;
   confirmText?: React.ReactNode;
@@ -177,8 +198,8 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {trigger ? <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger> : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

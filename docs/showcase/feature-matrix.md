@@ -11,6 +11,17 @@ schema, and i18n-dictionary crawl. Every row below cites a file that exists toda
 > "coming soon" dressed as shipped. Where a feature is real but *partly* mocked
 > (Paymob, WhatsApp), the row says so and the site copy must not overstate it.
 
+> **HISTORICAL — read as a record of 2026-08-02, not as current state (noted 2026-08-11).**
+> Two things it describes are gone: the three.js notebook it budgets spectacle for was
+> deleted along with its poster pipeline, and the Ledger visual system it defers to
+> (`--paper`/`--sheet`/`--ink`, the mono figures, the hairlines) is retired — the showcase
+> is being redesigned from scratch. Its §0.1 "Decision needed" also points at
+> `design/DECISIONS.md`, which no longer exists; that sentence is left as written because
+> it records what was asked at the time, and editing it would misrepresent the document.
+> **The rule in the box above is the part that still binds** — every claim on the public
+> site must trace to a file that implements it. The feature rows below remain a useful
+> audit of what is real; verify any row against the code before quoting it.
+
 ---
 
 ## 0. What the audit found before anything else — four things that need your ruling

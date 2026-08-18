@@ -108,5 +108,21 @@
   "timeHour_many": "hours ago",
   "timeDay_one": "day ago",
   "timeDay_many": "days ago",
-  "notifUnread": "Unread"
+  "notifUnread": "Unread",
+  "commandPalette": "Search",
+  "commandPalettePlaceholder": "Search people, centers, payments, screens…",
+  "commandPaletteEmpty": "Nothing found",
+  "searchDestinations": "Screens",
+  "searchSearching": "Searching…",
+  "searchTruncated": "Keep typing to narrow this down",
+  "searchMasked": "Name hidden",
+  "searchKind_student": "Students",
+  "searchKind_teacher": "Teachers",
+  "searchKind_parent": "Parents",
+  "searchKind_assistant": "Assistants",
+  "searchKind_centerAdmin": "Center owners",
+  "searchKind_staff": "Center staff",
+  "searchKind_backOffice": "Back office",
+  "searchKind_center": "Centers",
+  "searchKind_paymentIntent": "Online payments"
 }

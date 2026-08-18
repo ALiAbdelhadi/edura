@@ -5,7 +5,10 @@ import { requireCenterScope } from "../../authz/center-scope";
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../notifications/notify";
 import { startOfTodayUTC } from "../../validation/common";
-import { generateSessions, regenerateFutureSessionsTx } from "../sessions/session-generator";
+import {
+  generateSessionsTx,
+  regenerateFutureSessionsTx,
+} from "../sessions/session-generator";
 import { resolveCoursePricingSnapshot } from "../finance/commission";
 
 // ---------------------------------------------------------------------------
@@ -84,7 +87,16 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
   if (!acting.centerId) throw new ForbiddenError("Actor has no center scope");
   const centerId = acting.centerId;
 
-  const course = await scopedDb(acting, async (tx) => {
+  // ONE TRANSACTION — the course row and its sessions commit or roll back
+  // together. They used to run in two: `generateSessions` opened its own
+  // transaction AFTER the course had committed, so a schedule conflict threw
+  // 409 at the caller while leaving a committed course with ZERO sessions
+  // behind — a group nobody can attend, nothing can settle, and which still
+  // shows up in the center's Classes list. This is the same defect that was
+  // already fixed on the EDIT path (see updateCourse / the note on
+  // regenerateFutureSessionsTx); create was simply never brought along.
+  // Collaboration-request acceptance has always done it this way.
+  const { course, sessionIds } = await scopedDb(acting, async (tx) => {
     const affiliation = await tx.centerTeacherAffiliation.findFirst({
       where: { teacherId: body.teacherId, status: "active", centerId },
     });
@@ -125,7 +137,7 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
       requestedMethod: body.pricingMethod ?? null,
     });
 
-    return tx.course.create({
+    const created = await tx.course.create({
       data: {
         centerId,
         teacherId: body.teacherId,
@@ -148,19 +160,18 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
         ...splitSnapshot,
       },
     });
-  });
 
-  const sessionIds = await generateSessions(
-    {
-      id: course.id,
-      teacherId: course.teacherId,
-      defaultRoomId: course.defaultRoomId,
+    const ids = await generateSessionsTx(tx, {
+      id: created.id,
+      teacherId: created.teacherId,
+      defaultRoomId: created.defaultRoomId,
       schedulePattern: body.schedulePattern,
       // Sessions inherit the group's provenance, derived or explicit.
-      ...(course.dataSource ? { dataSource: course.dataSource } : {}),
-    },
-    acting,
-  );
+      ...(created.dataSource ? { dataSource: created.dataSource } : {}),
+    });
+
+    return { course: created, sessionIds: ids };
+  });
 
   return { course: withSchedulePattern(course), sessionsGenerated: sessionIds.length };
 }
@@ -198,8 +209,10 @@ export async function createTeacherDirectCourse(
     );
   }
 
-  const course = await scopedDb(acting, (tx) =>
-    tx.course.create({
+  // ONE TRANSACTION, for the same reason as createCourse above: a conflicting
+  // schedule must leave no orphan course behind.
+  const { course, sessionIds } = await scopedDb(acting, async (tx) => {
+    const created = await tx.course.create({
       data: {
         centerId: null,
         teacherId: acting.id,
@@ -222,18 +235,17 @@ export async function createTeacherDirectCourse(
         maxStudents: body.maxStudents,
         status: "active",
       },
-    }),
-  );
+    });
 
-  const sessionIds = await generateSessions(
-    {
-      id: course.id,
-      teacherId: course.teacherId,
+    const ids = await generateSessionsTx(tx, {
+      id: created.id,
+      teacherId: created.teacherId,
       defaultRoomId: null,
       schedulePattern: body.schedulePattern,
-    },
-    acting,
-  );
+    });
+
+    return { course: created, sessionIds: ids };
+  });
 
   return { course: withSchedulePattern(course), sessionsGenerated: sessionIds.length };
 }
@@ -245,6 +257,8 @@ export type CoursePatch = {
   price?: number;
   pricePerMonth?: number | null;
   pricePerSession?: number | null;
+  /** What one lesson is worth for this group — see resolveLessonPrice. */
+  settlementBasis?: "course_price" | "session_price" | "subscription";
   maxStudents?: number;
   defaultRoomId?: string;
   schedulePattern?: SchedulePattern;
@@ -265,6 +279,10 @@ export async function updateCourse(acting: SessionUser, id: string, body: Course
     if (body.price !== undefined) data.price = body.price;
     if (body.pricePerMonth !== undefined) data.pricePerMonth = body.pricePerMonth;
     if (body.pricePerSession !== undefined) data.pricePerSession = body.pricePerSession;
+    // Changing the basis re-prices FUTURE lessons only. Lessons already settled
+    // are untouched: the ledger is append-only and M4.5 forbids re-rating, so
+    // this is a forward-looking decision, never a retroactive correction.
+    if (body.settlementBasis !== undefined) data.settlementBasis = body.settlementBasis;
     if (body.maxStudents !== undefined) data.maxStudents = body.maxStudents;
     if (body.defaultRoomId !== undefined && body.defaultRoomId !== course.defaultRoomId) {
       // The room is part of the money arrangement: the pricing method + rate

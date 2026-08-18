@@ -323,7 +323,11 @@ async function settleSubscriptionMoney(
     });
   }
 
-  await awardPoints(tx, sub.studentId, "online_payment", {
+  // The EVENT follows the method, not just the reason text: a walk-in paying
+  // cash at the counter was landing in the points ledger as `online_payment`
+  // with a reason that said "(cash)" — the row contradicted itself, and the
+  // ledger is append-only, so it could never be corrected afterwards.
+  await awardPoints(tx, sub.studentId, method === "cash" ? "cash_payment" : "online_payment", {
     reason: method === "cash" ? "Subscription paid (cash)" : "Subscription paid (online)",
   });
 

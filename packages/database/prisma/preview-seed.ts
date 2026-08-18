@@ -804,18 +804,43 @@ async function seed() {
       await notify(student.id, "n5", "admin_broadcast", "إعلان من الإدارة", "أهلًا بك في المنصة — تصفّح موادك وجدولك.", true);
       await notify(hossam.id, "n1", "student_added_to_roster", "طالب جديد", "انضم طالب جديد إلى مجموعتك", false);
       await notify(hossam.id, "n2", "material_uploaded", "تم رفع مادة", "تم نشر مذكرة الوحدة الأولى", true);
-      await notify(hossam.id, "n3", "admin_broadcast", "إعلان", "تذكير باجتماع المعلمين الأسبوعي", true);
+      await notify(hossam.id, "n3", "admin_broadcast", "إعلان", "تذكير باجتماع المدرّسين الأسبوعي", true);
       await notify(admin.id, "n1", "enrollment_request_submitted", "طلب تسجيل جديد", "طلب انضمام بانتظار المراجعة", false);
       await notify(admin.id, "n2", "admin_broadcast", "إعلان", "تقرير الحضور الأسبوعي جاهز", true);
       await notify(parent.id, "n1", "grade_entered", "درجة جديدة لابنتك", "لينا حصلت على 17 / 20 في اختبار الوحدة الأولى", false);
       await notify(parent.id, "n2", "admin_broadcast", "إعلان", "موعد اجتماع أولياء الأمور الأسبوع القادم", true);
 
       // ---- REVIEW (rating 1..5) ----
-      await tx.review.upsert({
-        where: { studentId_teacherId: { studentId: student.id, teacherId: hossam.id } },
-        update: { rating: 5 },
-        create: { studentId: student.id, teacherId: hossam.id, centerId: nile.id, rating: 5, text: "شرح ممتاز ومبسّط، جزاه الله خيرًا." },
+      // NOT an upsert: `Review` deliberately has no `@@unique([studentId,
+      // teacherId])` any more. Uniqueness moved into two PARTIAL indexes
+      // (migration 20260818120000_review_per_lesson_unique) because a plain
+      // compound unique made `lessonId` unusable — the second lesson a student
+      // rated collided with the first. Prisma cannot express a `WHERE` on a
+      // unique index, so `studentId_teacherId` no longer exists as a key and
+      // the old upsert threw `Unknown argument studentId_teacherId`, taking the
+      // whole preview seed down with it.
+      //
+      // Idempotency is therefore application-level, matching exactly what
+      // services/reviews/reviews.ts does: an OVERALL review is the row with
+      // `lessonId: null`.
+      const existingReview = await tx.review.findFirst({
+        where: { studentId: student.id, teacherId: hossam.id, lessonId: null },
+        select: { id: true },
       });
+      if (existingReview) {
+        await tx.review.update({ where: { id: existingReview.id }, data: { rating: 5 } });
+      } else {
+        await tx.review.create({
+          data: {
+            studentId: student.id,
+            teacherId: hossam.id,
+            centerId: nile.id,
+            lessonId: null,
+            rating: 5,
+            text: "شرح ممتاز ومبسّط، جزاه الله خيرًا.",
+          },
+        });
+      }
 
       console.log("Preview seed complete:", {
         centers: centerDefs.map((c) => c.shortId),

@@ -4,6 +4,7 @@ import { sendMail } from "../../mail/send";
 import { pushToUser } from "../fcm/fcm-channel";
 import { webPushToUser } from "../webpush/web-push-channel";
 import { smsToUser } from "../sms/sms-channel";
+import { notificationUrlForRole } from "./deep-link";
 
 type NotifyInput = {
   recipients: string[];
@@ -101,13 +102,27 @@ export async function notify(
     await platformDb((tx) => tx.notification.createMany({ data: docs }));
   }
 
-  let contacts: { id: string; email: string | null; phone: string | null }[] =
-    [];
-  if ((ch.email || ch.sms) && recipients.length > 0) {
+  let contacts: {
+    id: string;
+    email: string | null;
+    phone: string | null;
+    role: string;
+    locale: string;
+  }[] = [];
+  // Push needs this read too, not only email/SMS: a deep link is portal- AND
+  // locale-specific (see deep-link.ts), and neither is knowable from the
+  // recipient id alone. One query serves all three channels.
+  if ((ch.email || ch.sms || ch.fcm) && recipients.length > 0) {
     contacts = await platformDb((tx) =>
       tx.user.findMany({
         where: { id: { in: recipients } },
-        select: { id: true, email: true, phone: true },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          role: true,
+          locale: true,
+        },
       }),
     );
   }
@@ -145,21 +160,32 @@ export async function notify(
     if (input.data) {
       for (const [k, v] of Object.entries(input.data)) fcmData[k] = String(v);
     }
-    await Promise.all([
-      ...recipients.map((uid) =>
-        pushToUser(uid.toString(), {
-          title: input.title,
-          body: input.body,
-          data: fcmData,
-        }).catch(() => {}),
-      ),
-      ...recipients.map((uid) =>
-        webPushToUser(uid.toString(), {
-          title: input.title,
-          body: input.body,
-          data: fcmData,
-        }).catch(() => {}),
-      ),
-    ]);
+    const byId = new Map(contacts.map((c) => [c.id, c]));
+
+    await Promise.all(
+      recipients.flatMap((uid) => {
+        const id = uid.toString();
+        const who = byId.get(id);
+        // Without a URL the service worker falls back to the app root, which is
+        // where every push landed before this: delivered, then dropped on the
+        // doorstep. A recipient we could not resolve keeps that fallback.
+        const url =
+          notificationUrlForRole(input.type, who?.role, who?.locale) ??
+          undefined;
+        return [
+          pushToUser(id, {
+            title: input.title,
+            body: input.body,
+            data: url ? { ...fcmData, url } : fcmData,
+          }).catch(() => {}),
+          webPushToUser(id, {
+            title: input.title,
+            body: input.body,
+            url,
+            data: fcmData,
+          }).catch(() => {}),
+        ];
+      }),
+    );
   }
 }

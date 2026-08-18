@@ -1,0 +1,16 @@
+# Design Brief — Edura showcase redesign (replaces Classical Ledger on apps/showcase)
+
+Deliverable   : marketing site redesign — apps/showcase (7 public pages + chrome)
+Brand owner   : Edura (Ali's own product) — no external brand skill; Phase 0 skipped
+Direction     : high-end-visual-design — premium modern SaaS ("bold & modern" × "minimal & premium" per Ali, 2026-08-12). One signature moment per page; restraint elsewhere.
+Risk taken    : ONE dual-script variable display face (Alexandria) carrying both Arabic and Latin at oversized weights — kills the per-script display split the old system needed 3 faces for.
+Palette       : OKLCH, showcase-scoped. Light: bg oklch(0.975 0.003 80) #f8f6f4 · surface #fff · fg oklch(0.16 0.012 270) #0b0d13 (18.1:1) · fg-muted oklch(0.45 0.02 270) (6.9:1) · border oklch(0.90 0.006 80) · accent oklch(0.51 0.23 275) #4948e5, white on it 6.3:1 · accent-as-text oklch(0.48 0.23 275) (6.7:1) · gold figure accent oklch(0.62 0.13 85) (3.4:1 — large/UI only).
+                Dark: bg oklch(0.145 0.008 270) #090a0e · surface oklch(0.185 0.009 270) lifted · fg oklch(0.95 0.006 80) (17.1:1) · fg-muted oklch(0.73 0.012 270) (8.3:1) · accent oklch(0.555 0.205 275) #565ee8, white on it 5.1:1 · accent-as-text oklch(0.75 0.14 275) (8.6:1) · gold oklch(0.80 0.14 90) (10.6:1).
+                Source: ui-ux-pro-max (trust+premium results) reconciled with the app's existing indigo primary — marketing funnels INTO an indigo app; continuity chosen over a new hue.
+Type          : display = Alexandria variable (wght 100–900, latin + arabic — verified coverage), negative tracking LATIN ONLY, Arabic branch has no letterSpacing property. body = Inter (latin) falling through to IBM Plex Sans Arabic (arabic). mono = IBM Plex Mono, Latin script only (known no-Arabic trap), figures + code. Fluid clamp() scale --text-xs..--text-6xl. 6 loaded families drop to 4.
+Tokens        : apps/showcase/src/app/showcase-tokens.css (NEW, showcase-owned) — overrides ON TOP of shared packages/ui sheet, which is NOT edited (www + superadmin consume it). Canonical names --color-* / --text-* / --space-* / --radius-* / --shadow-* / --ease-* per design-tokens skill.
+Motion        : emil-design-eng philosophy (restraint, invisible details). Bands per MOTION.md: press 100–160ms scale(0.97), reveals ≤200ms, page ≤400ms. Existing GSAP+lenis runtime kept (never mix with Motion). Signature: home hero product plate straightens from slight tilt on scroll; everything else quiet. Reduced-motion ships with each animation.
+Stack         : Next 16.3 app router, Tailwind v4, next-intl (ar/en), GSAP + lenis, @repo/ui (consume unstyled/functional only — Ledger-styled variants dropped)
+Constraints   : Arabic-first RTL co-primary · dark mode day one · shared token sheet untouched · trust-page drift-tested figures preserved · URLs/sitemap/meta preserved · logical properties only · shots re-captured + optimized (current 9.4MB/7 files is a defect)
+Logo          : gradient mark retired on this surface; flat single-ink treatment (accent indigo, currentColor-capable). Full re-brand NOT in scope — treatment proposal only, in sample.
+Out of scope  : apps/www + apps/superadmin UI, product screens, copy rewrites beyond hero-level, new brand mark design, backend/API

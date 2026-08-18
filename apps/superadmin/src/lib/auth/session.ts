@@ -1,9 +1,11 @@
 import { headers } from "next/headers";
 import type { Role } from "@repo/database";
+import { isSessionAmbiguous } from "@repo/server-core/auth/session-cookies";
 import type { SessionUser } from "@repo/server-core/auth/types";
-import { AuthError } from "@/lib/errors/classes";
+import { AuthError, SessionConflictError } from "@/lib/errors/classes";
 import { tagSentryUser } from "@/lib/observability/sentry-user";
 import { auth } from "./auth";
+import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 
 export type { SessionUser };
 
@@ -28,8 +30,29 @@ export function __setSessionOverrideForTests(fn: SessionOverride | null): void {
   testOverride = fn;
 }
 
+/**
+ * Did this request present more than one identity? Mirror of the www guard
+ * (apps/www/src/lib/auth/session.ts) — the two apps share the kernel, and the
+ * back office needs it MORE, not less: the roles behind this door can read
+ * every centre's money.
+ */
+async function requestIsAmbiguous(): Promise<boolean> {
+  try {
+    const h = await headers();
+    return isSessionAmbiguous(h.get("cookie"), SESSION_COOKIE_PREFIX);
+  } catch {
+    return false;
+  }
+}
+
 export async function getSessionUser(): Promise<SessionUser | null> {
   if (testOverride) return await testOverride();
+  // Two credentials means the resolved identity depends on cookie order. There
+  // is no honest answer to return, so return none.
+  if (await requestIsAmbiguous()) {
+    tagSentryUser(null);
+    return null;
+  }
   const res = await auth.api.getSession({ headers: await headers() });
   if (!res?.user?.id) {
     tagSentryUser(null);
@@ -60,6 +83,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function requireSession(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) throw new AuthError();
+  if (!user) {
+    if (await requestIsAmbiguous()) throw new SessionConflictError();
+    throw new AuthError();
+  }
   return user;
 }

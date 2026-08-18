@@ -1,0 +1,331 @@
+{
+  "emulator": {
+    "eyebrow": "Guided tour",
+    "title": "Try it yourself — a practice copy of Edura",
+    "progress": "Step {done} of {total}",
+    "stepEyebrow": "Step {n}",
+    "restart": "Start over",
+    "skip": "Skip",
+    "back": "Back",
+    "gotIt": "Got it",
+    "missHint": "Not that one — look for the control with the indigo outline and press it.",
+    "finishedTitle": "Tour complete 🎉",
+    "finishedBody": "You now know who you act for, how to take attendance, how to confirm students at the classroom door and refuse the one who never passed the counter, how to close a lesson so the teacher's share lands in THEIR wallet with your name on the action, and that you always write under your own name. Your real account works exactly the same way.",
+    "finishCta": "Start for real",
+    "sandboxNote": "Everything above is practice — the data and prices are invented, no attendance is recorded and no money moves. The real figures appear on your own screen before any closing.",
+    "firstRun": {
+      "title": "First time here? Take 3 minutes",
+      "body": "Before you start, let's walk through a practice copy step by step: take attendance, confirm at the classroom door, close the lesson, and reply to a parent. No real data changes.",
+      "reopenHint": "This tour opens by itself once only. You can reopen it any time from “Guided tour” in the menu.",
+      "start": "Start the tour",
+      "later": "Not now"
+    },
+    "nav": {
+      "label": "Practice sections",
+      "home": "Your account",
+      "attendance": "Attendance",
+      "door": "Door check-in",
+      "messages": "Messages",
+      "notes": "Team notes",
+      "noWalletNote": "There is no “Wallet” here — deliberate, not a fault."
+    },
+    "missions": {
+      "delegation": "Whose account is this?",
+      "attendance": "Take attendance",
+      "door": "Work the door",
+      "settle": "Close the lesson",
+      "voice": "Speak in your own name"
+    },
+    "screens": {
+      "homeTitle": "Your account and its limits",
+      "actingFor": "You act on behalf of",
+      "youAre": "and you are {name}",
+      "actingBody": "Everything you do here is recorded in the teacher's record and attributed to you by name: “assistant X on behalf of teacher Y”. That is not a restriction — it is what makes your work visibly yours.",
+      "todayLesson": "Today's lesson",
+      "live": "Live now",
+      "limitsEyebrow": "Things that are not yours — and you will not find them",
+      "limitWallet": "The teacher's wallet and payout requests: you never see them and never request from them.",
+      "limitAssistants": "Adding or removing assistants: the teacher's right alone.",
+      "limitAudit": "A capability that is not yours is absent from your screen entirely — not visible and disabled.",
+      "attendanceTitle": "Take attendance",
+      "open": "Open",
+      "markCta": "Mark attendance",
+      "roster": "Students",
+      "presentCount": "{n} of {total} present",
+      "counterOnly": "At center — didn't attend class",
+      "status_present": "Present",
+      "status_absent": "Absent",
+      "status_excused": "Excused",
+      "saveAttendance": "Save attendance",
+      "saved": "Attendance saved",
+      "settleEyebrow": "The step that pays the teacher",
+      "settleTitle": "Close the lesson and distribute it",
+      "settledChip": "Closed and distributed",
+      "settledBody": "The revenue was distributed and the teacher's share landed in {teacher}'s wallet — not in your account.",
+      "auditLine": "Recorded as: “{assistant} on behalf of {teacher}”.",
+      "blockedNoAttendance": "No attendance is saved yet. The card reads what is saved, so save it first.",
+      "blockedNoPresent": "Nobody is marked present, so there is nothing to distribute.",
+      "settlePresent": "Students present",
+      "settleLessonPrice": "Lesson price per student",
+      "perStudentShares": "Each party's share, per student",
+      "share_teacher": "Teacher",
+      "share_centre": "Centre",
+      "share_platform": "Platform",
+      "teacherTotal": "{teacher}'s total",
+      "settleAction": "Close the lesson and distribute EGP {amount} across {n} students",
+      "settleConfirm": "Final confirmation — press to distribute",
+      "settleHint": "The distribution is written to the ledger once, and cannot be undone.",
+      "settleArmedHint": "Written to the ledger in your name on behalf of the teacher, and credited to their wallet immediately.",
+      "doorTitle": "Door check-in",
+      "atTheDoor": "At the door",
+      "doorHint": "Confirm counter-checked students at the classroom door. Anyone who has not passed the counter cannot be confirmed here.",
+      "doorRoster": "Roster",
+      "awaitingDoor": "{n} awaiting door check-in",
+      "doorDone": "Present",
+      "waiting": "Waiting",
+      "noCounter": "No counter check-in",
+      "confirm": "Confirm",
+      "counterFirst": "Student has not been checked in at the counter — door check-in requires the counter first",
+      "messagesTitle": "Messages",
+      "you": "you",
+      "sendReply": "Reply to the parent",
+      "notesTitle": "Team notes",
+      "note_open": "Open",
+      "note_done": "Done",
+      "byWhom": "by {name}",
+      "readBy": "Read by {n}/{total}",
+      "markDone": "Mark done"
+    },
+    "steps": {
+      "welcome": {
+        "title": "Welcome — this is entirely a practice copy",
+        "body": "The screens ahead are exactly yours, with invented data: one teacher, one lesson, six students. Press “Got it” and let's go."
+      },
+      "actFor": {
+        "title": "You act on behalf of a teacher",
+        "body": "Your account was created by them, and every action you take is recorded in their record and attributed to you by name. That is not a restriction — it is what makes your work count as yours."
+      },
+      "noWallet": {
+        "title": "And some things you will simply never find",
+        "body": "There is no “Wallet” in your menu, and you cannot add assistants. If a colleague says “I can't find the wallet” — that is correct behaviour, not a fault."
+      },
+      "goAttendance": {
+        "title": "On to the work",
+        "body": "Press “Attendance” in the menu."
+      },
+      "pickLesson": {
+        "title": "Open today's lesson",
+        "body": "Press the lesson."
+      },
+      "roster": {
+        "title": "Six students",
+        "body": "Everyone arrives as “Present” by default. Note the two tagged “At center — didn't attend class”; we deal with them at the door in a moment."
+      },
+      "markAbsent": {
+        "title": "Mark an absence",
+        "body": "Salma is not here — press the absent control in her row."
+      },
+      "save": {
+        "title": "Save",
+        "body": "Press “Save attendance”."
+      },
+      "goDoor": {
+        "title": "Now the door",
+        "body": "Press “Door check-in” — your main job in “counter + door” mode."
+      },
+      "waiting": {
+        "title": "Mariam is waiting at the door",
+        "body": "She passed the counter but nobody confirmed her at the hall, so she is still “Waiting”. Without that confirmation she is not counted present and does not enter the distribution."
+      },
+      "confirmDoor": {
+        "title": "Confirm her",
+        "body": "Press “Confirm” in Mariam's row."
+      },
+      "refused": {
+        "title": "But Karim's case is different",
+        "body": "Karim never passed the counter — which usually means he has not paid. Try to confirm him and see what the screen says."
+      },
+      "toCounter": {
+        "title": "Press “Confirm” in Karim's row",
+        "body": "It will not work — and that is deliberate."
+      },
+      "refusedShown": {
+        "title": "The door refused, and it was right to",
+        "body": "“Student has not been checked in at the counter — door check-in requires the counter first.” Your job here is to send him to the counter, not to find a way round it. That kindness puts an unpaid student inside a lesson that then gets closed."
+      },
+      "backToAttendance": {
+        "title": "Back to attendance",
+        "body": "Press “Attendance” so we can close the lesson."
+      },
+      "settleCard": {
+        "title": "You are allowed to close the lesson",
+        "body": "Yes, it is your right. And closing is what distributes the lesson's revenue — without it the money stays pending."
+      },
+      "whoseMoney": {
+        "title": "But the money is not yours",
+        "body": "The teacher's share goes to their wallet and the centre's to its books. You have no share in this distribution — if anyone tells you otherwise, they are mistaken."
+      },
+      "pressSettle": {
+        "title": "Close the lesson",
+        "body": "Press the button carrying the amount."
+      },
+      "confirmSettle": {
+        "title": "Final confirmation",
+        "body": "The distribution is written to the ledger once and cannot be undone."
+      },
+      "settled": {
+        "title": "Closed — and in your name",
+        "body": "The money landed in the teacher's wallet, and the action was recorded as “assistant X on behalf of teacher Y”. If the teacher asks who closed Tuesday's lesson, the answer is there."
+      },
+      "goMessages": {
+        "title": "Last thing: your voice",
+        "body": "Press “Messages”."
+      },
+      "yourName": {
+        "title": "Reply to the parent",
+        "body": "Press “Reply to the parent”."
+      },
+      "identity": {
+        "title": "The message went out under YOUR name",
+        "body": "Not the teacher's. That is deliberate: most of our students are minors, and no adult may ever speak to one from behind another person's identity. You always speak as yourself."
+      },
+      "goNotes": {
+        "title": "And there is a board between you and the teacher",
+        "body": "Press “Team notes”."
+      },
+      "board": {
+        "title": "This is not a chat — these are tasks",
+        "body": "Every note has a status and a line saying who has read it. Anything urgent belongs in “Messages”, not here."
+      },
+      "markDone": {
+        "title": "Tick off what you finished",
+        "body": "Press “Mark done” on the teacher's note."
+      },
+      "done": {
+        "title": "You now know your job and its limits",
+        "body": "You took attendance, worked the door and refused the student who had to be refused, closed a lesson in your name for your teacher's benefit, and replied under your own name. Press “Got it” to finish."
+      }
+    }
+  },
+  "tour": {
+    "title": "A quick tour of Edura",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "On a phone: press “More” first — it's inside there.",
+    "steps": {
+      "welcome": {
+        "title": "Welcome 👋 you're a teacher's assistant",
+        "body": "That means you do the teacher's own classroom work — attendance, grades, materials, replying to students — and everything you do is recorded as yours “on behalf of” your teacher. This tour walks you through your day."
+      },
+      "messages": {
+        "title": "Messages — this is your main screen",
+        "body": "Your account opens on Messages rather than a wall of numbers, because this is the job: you are the first line of contact between the teacher and students and their parents.",
+        "how": {
+          "1": "Your account opens on “Messages”",
+          "2": "Press “New conversation”",
+          "3": "Pick the name — the list only shows people you're allowed to message",
+          "4": "Type your message and send"
+        },
+        "note": "You message as YOURSELF, not as the teacher. And if the student is under 18 their parent can read the conversation, with a clear notice shown to both sides."
+      },
+      "attendance": {
+        "title": "How to take attendance",
+        "body": "This is most of your work, and it decides who counts when the lesson's revenue is distributed.",
+        "how": {
+          "1": "Press “Attendance” in the menu",
+          "2": "Pick the lesson",
+          "3": "Mark each student: present / late / absent",
+          "4": "Press “Save attendance”"
+        },
+        "note": "If a student shows as “at the centre — did not attend the lesson”, they checked in at the counter but never entered the hall. That is not attendance and does not count in the distribution — even if they paid."
+      },
+      "closeLesson": {
+        "title": "And you can close the lesson too",
+        "body": "Yes — closing a lesson and distributing its revenue is allowed for you, not just the teacher. Without it, the teacher's wallet sees nothing from that lesson.",
+        "how": {
+          "1": "After saving attendance, press “Close the lesson and distribute its revenue”",
+          "2": "The button states the amount and the number of students before you press",
+          "3": "Check the teacher, centre and platform shares",
+          "4": "Press “Final confirmation — press to distribute”"
+        },
+        "note": "This moves money: it is written to the ledger once, cannot be undone, and is recorded as yours on behalf of your teacher. Check the attendance first."
+      },
+      "door": {
+        "title": "Door check-in",
+        "body": "If your teacher uses counter + door mode, you are the one doing the second check-in at the hall door.",
+        "how": {
+          "1": "Press “Door check-in” in the menu",
+          "2": "Pick the lesson",
+          "3": "Ask for the student's code or scan their card",
+          "4": "Check them in"
+        },
+        "note": "Without the door check-in in that mode the student stays “counter only”, is not counted as present, and is left out of the distribution."
+      },
+      "classes": {
+        "title": "Your teacher's classes",
+        "body": "Where you see the groups, their times, their students and their lessons.",
+        "how": {
+          "1": "Press “My Classes” in the menu",
+          "2": "Open the group",
+          "3": "Look at the students, lessons and times"
+        },
+        "note": "If you see a notice that a class has no price, tell your teacher — pricing isn't yours to do, and the lesson cannot be closed without it."
+      },
+      "grades": {
+        "title": "How to record grades",
+        "body": "You can add assessments and enter marks exactly as the teacher does.",
+        "how": {
+          "1": "Press “Gradebook” in the menu",
+          "2": "Pick the group",
+          "3": "Add an assessment and set its maximum score",
+          "4": "Enter the marks and save"
+        },
+        "note": "The student and their parent see the grade as soon as you save it."
+      },
+      "materials": {
+        "title": "How to upload a handout",
+        "body": "What you upload reaches that group's students only.",
+        "how": {
+          "1": "Press “Materials” in the menu",
+          "2": "Pick the group",
+          "3": "Upload the file and give it a clear name"
+        }
+      },
+      "notes": {
+        "title": "Team notes",
+        "body": "A to-do board between you and your teacher — not messages: these are things that get done and closed.",
+        "how": {
+          "1": "Press “Team Notes” in the menu",
+          "2": "Write the note",
+          "3": "Anyone on the team can mark it done or declined"
+        }
+      },
+      "limits": {
+        "title": "What isn't yours to do",
+        "body": "Worth knowing now, so you don't go looking for something that isn't there.",
+        "how": {
+          "1": "The teacher's wallet and payout requests — not in your menu",
+          "2": "Pricing groups — that's a financial setting, for the teacher or the centre",
+          "3": "Adding other assistants — the teacher only"
+        },
+        "note": "This isn't a lack of trust — it's that money has one door. Everything else in the classroom work is fully open to you."
+      },
+      "practice": {
+        "title": "And if you'd rather try it first",
+        "body": "There's a practice copy you can rehearse on without touching anything real.",
+        "how": {
+          "1": "Press “Practice” in the menu",
+          "2": "It walks you through your daily work step by step",
+          "3": "All the data is invented"
+        }
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Your work starts at “Messages” and “Attendance”. And if you'd rather rehearse first, “Practice” is in the menu."
+      }
+    }
+  }
+}

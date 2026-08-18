@@ -1,0 +1,79 @@
+
+run-db-suites — 23 suite(s) in superadmin/tests/db against a 'test' database
+
+  PASS  admin-users.test.ts                        54 passed, 0 failed        2.8s
+  PASS  c01-zero-wallet-refund.test.ts             9 passed, 0 failed         0.3s
+  FAIL  c02-payout-generation.test.ts              27 passed, 1 failed        2.5s
+        │         at async e.interpretNode (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:15:44663)
+        │         at async e.interpretNode (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:15:46559)
+        │         at async e.run (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:15:43609)
+        │         at async e.execute (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:61:815)
+        │         at async Ut.request (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:62:2421)
+        │         at async Object.singleLoader (/Users/ali/edura/packages/database/src/generated/client/runtime/client.js:69:6569) {
+        │       cause: [Object]
+        │     }
+        │   },
+        │   clientVersion: '7.9.0'
+        │ }
+        │   ✓ generation failed with a resumable error: "Payout generation stopped after 25 payout(s). Nothing partial was written — every generated payout is complete and re-running gene…"
+        │   ✓ the failing beneficiary got NO row
+        │   ✓ every payout written before the failure is complete and internally consistent (gross = net + commission)
+        │     25 of 60 beneficiaries were committed before the failure
+        │   ✓ exactly the 25 beneficiaries of the fully-committed chunks are present — the failing chunk (and everything after it) wrote NOTHING
+        │   ✓ the run really did stop midway (a genuine partial batch)
+        │   ✓ re-run generated exactly the 35 missing beneficiaries (35)
+        │   ✓ final state = all 60 beneficiaries reserved, none twice — identical to a clean single run
+        │   ✓ every beneficiary reserves exactly its wallet balance — no double-pay, no shortfall
+        │ 
+        │ (7) CLEANUP:
+        │   ✓ DB restored: {"users":0,"teachers":0,"centers":0,"payouts":0,"txns":0} == {"users":0,"teachers":0,"centers":0,"payouts":0,"txns":0}
+        │ 
+        │ C-02 PROOF FAIL ✗ — 27 passed, 1 failed
+  PASS  c03-status-revocation.test.ts              16 passed, 0 failed        2.2s
+  PASS  c04-login-boundary.test.ts                 29 passed, 0 failed        6.0s
+  PASS  center-academic.test.ts                    54 passed, 0 failed        0.5s
+  PASS  center-collab-create.test.ts               29 passed, 0 failed        0.6s
+  PASS  center-money.test.ts                       48 passed, 0 failed        0.6s
+  PASS  center-operations.test.ts                  50 passed, 0 failed        0.6s
+  PASS  center-oversight.test.ts                   122 passed, 0 failed       1.6s
+  PASS  center-people.test.ts                      66 passed, 0 failed        0.6s
+  PASS  center-platform.test.ts                    45 passed, 0 failed        1.5s
+  FAIL  center-share-admin.test.ts                 10 passed, 1 failed        0.4s
+        │ Center-share admin DB tests — shadm-arphx5
+        │ 
+        │ VP1 — listing surfaces the arrangement and whether it is live
+        │   ✓ arrangement listed at 0 (what acceptance creates)
+        │   ✓ …flagged as consumed by 1 hall-free course
+        │ 
+        │ VP2 — superadmin sets it; the no-room session settles at that value
+        │   ✗ settlement used the SUPERADMIN share (got undefined)
+        │   ✓ center wallet moved by share − platform fee (got 2300)
+        │   ✓ teacher wallet moved by price − fee − share (got 17300)
+        │   ✓ settled through the SAME ledger shape (3 rows, got 3)
+        │ 
+        │ VP3 — the write is audited
+        │   ✓ audit row records the acting superadmin
+        │   ✓ audit records before/after ({"after":2500,"before":0,"centerId":"cc1fe422-0dac-4adc-9c55-24deef1ca077","teacherId":"a57957fb-9ff2-4b08-8490-85a48064de38"})
+        │ 
+        │ VP4 — validation
+        │   ✓ a negative share is rejected (threw: The center share must be a whole number of piasters between 0 and 999,999)
+        │   ✓ an absurdly large share is rejected (threw: The center share must be a whole number of piasters between 0 and 999,999)
+        │   ✓ an affiliation belonging to another center is rejected (threw: Affiliation not found at this center)
+        │ 
+        │ 10 passed, 1 failed
+        │   ↳ test-cleanup shadm-arphx5: removed 17 rows
+  PASS  commission-audit.test.ts                   6 passed, 0 failed         0.4s
+  PASS  global-search.test.ts                      27 passed, 0 failed        0.5s
+  PASS  h2-payout-floor.test.ts                    7 passed, 0 failed         0.3s
+  PASS  h3-refund-race.test.ts                     6 passed, 0 failed         0.3s
+  PASS  maturity-layer.test.ts                     52 passed, 0 failed        0.4s
+  PASS  refund.test.ts                             13 passed, 0 failed        0.3s
+  PASS  room-pricing-methods.test.ts               79 passed, 0 failed        0.6s
+  PASS  room-revenue-split.test.ts                 22 passed, 0 failed        0.5s
+  PASS  wallet-refund.test.ts                      8 passed, 0 failed         0.4s
+  PASS  wallet-settings-admin.test.ts              15 passed, 0 failed        0.4s
+
+──────────────────────────────────────────────────────────────────────────────
+2 SUITE(S) FAILED ✗  —  23 suites, 794 assertions passed, 2 failed, 24.3s
+──────────────────────────────────────────────────────────────────────────────
+failed: c02-payout-generation.test.ts, center-share-admin.test.ts

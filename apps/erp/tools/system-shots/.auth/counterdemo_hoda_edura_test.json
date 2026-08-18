@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "edura-3002.session_token",
+      "value": "xsnw6Pc5OPS8ZSWFHwah0hUHKuC9cnLB.FZWBvrekNWkkOsTRESJDMXdoQi3cw%2FU0nGhEBFEaHNg%3D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1789610698.931722,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3002",
+      "localStorage": [
+        {
+          "name": "edura_state",
+          "value": "{\"role\":\"admin\",\"screen\":\"dashboard\",\"name\":\"هدى مصطفى\",\"email\":\"counterdemo-hoda@edura.test\"}"
+        }
+      ]
+    }
+  ]
+}

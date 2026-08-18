@@ -309,17 +309,18 @@ export async function acceptCollaborationRequest(
   opts: { pricingMethod?: RoomPricingMethodValue | null; as?: ResponderMode } = {},
 ) {
   const mode: ResponderMode = opts.as ?? "party";
-  const { request, course, counterpartRecipients } = await platformDb(
+  const outcome = await platformDb(
     async (tx) => {
       const request = await tx.collaborationRequest.findUnique({ where: { id: requestId } });
       if (!request) throw new NotFoundError("Collaboration request not found");
       assertResponder(request, user, mode);
       if (request.expiresAt < new Date() && request.status === "pending") {
-        await tx.collaborationRequest.update({
-          where: { id: requestId },
-          data: { status: "expired" },
-        });
-        throw new BusinessRuleError("This request has expired");
+        // RETURNED, not thrown: this whole callback runs inside ONE
+        // transaction, so writing `expired` here and then throwing would roll
+        // the write back — the request would stay `pending` forever, and the
+        // portal would keep offering an Accept button that can only ever
+        // error. The flip is committed by its own transaction below.
+        return { expired: true } as const;
       }
 
       // Claim: only one responder wins; replays/races fail cleanly.
@@ -384,12 +385,25 @@ export async function acceptCollaborationRequest(
           select: { nameAr: true, nameEn: true },
         }),
         request.trackId
-          ? tx.track.findUnique({ where: { id: request.trackId }, select: { nameEn: true } })
+          ? tx.track.findUnique({
+              where: { id: request.trackId },
+              select: { nameAr: true, nameEn: true },
+            })
           : null,
       ]);
       if (!subject || !grade) throw new NotFoundError("Catalog entries missing for this request");
-      const subjectName = subject.nameEn ?? subject.nameAr;
-      const gradeName = grade.nameEn ?? grade.nameAr;
+      // ARABIC IS THE PRODUCT'S PRIMARY SCRIPT, so the name a center and a
+      // teacher read on every screen is written in it. This used to prefer
+      // `nameEn`, which titled an Egyptian center's group "Mathematics —
+      // Secondary 1" while both parties, the catalog and the whole UI were in
+      // Arabic. `nameAr` is NOT NULL in the catalog, so the fallback is only a
+      // belt: it can never be the reason a group ends up unnamed.
+      const subjectName = subject.nameAr ?? subject.nameEn;
+      const gradeName = grade.nameAr ?? grade.nameEn;
+      // The track suffix read `nameEn` ALONE, so a track with no English name
+      // silently vanished from the title — two groups of the same subject and
+      // grade in different tracks then shared one name.
+      const trackName = track ? (track.nameAr ?? track.nameEn) : null;
 
       const endDate =
         request.endDate ??
@@ -452,7 +466,7 @@ export async function acceptCollaborationRequest(
           centerId: request.centerId,
           teacherId: request.teacherId,
           defaultRoomId: request.roomId,
-          title: `${subjectName} — ${gradeName}${track?.nameEn ? ` (${track.nameEn})` : ""}`,
+          title: `${subjectName} — ${gradeName}${trackName ? ` (${trackName})` : ""}`,
           subject: subjectName, // legacy free-text column
           subjectId: request.subjectId,
           gradeLevelId: request.gradeLevelId,
@@ -501,6 +515,7 @@ export async function acceptCollaborationRequest(
             ? [request.teacherId]
             : await resolveCenterAdmins(request.centerId);
       return {
+        expired: false as const,
         request: { ...request, courseId: course.id, affiliationId },
         course: { ...course, sessionsGenerated: sessionIds.length },
         counterpartRecipients,
@@ -508,6 +523,21 @@ export async function acceptCollaborationRequest(
     },
     { actorId: user.id },
   );
+
+  if (outcome.expired) {
+    // Own transaction, so it survives the error the caller is about to see.
+    // Conditional on `pending` — a concurrent decision wins over this sweep.
+    await platformDb(
+      (tx) =>
+        tx.collaborationRequest.updateMany({
+          where: { id: requestId, status: "pending" },
+          data: { status: "expired" },
+        }),
+      { actorId: user.id },
+    );
+    throw new BusinessRuleError("This request has expired");
+  }
+  const { request, course, counterpartRecipients } = outcome;
 
   await notify({
     recipients: counterpartRecipients,

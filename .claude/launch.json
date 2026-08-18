@@ -2,113 +2,34 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "edura-showcase",
+      "name": "edura-erp",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
         "run",
         "--cwd",
-        "apps/showcase",
-        "dev"
-      ],
-      "port": 3006
-    },
-    {
-      "name": "edura-www-prod-capture",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "-c",
-        "NEXTAUTH_URL=http://localhost:3021 exec bun run --cwd apps/www next start -p 3021"
-      ],
-      "port": 3021
-    },
-    {
-      "name": "edura-navfix-preview",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/www",
-        "next",
-        "dev",
-        "-p",
-        "3022"
-      ],
-      "port": 3022
-    },
-    {
-      "name": "edura-www",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/www",
+        "/Users/ali/edura/apps/erp",
         "dev"
       ],
       "port": 3002
     },
     {
-      "name": "edura-preview",
-      "runtimeExecutable": "bun",
+      "name": "edura-erp-clock",
+      "runtimeExecutable": "env",
       "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-clock",
+        "bun",
         "run",
         "--cwd",
-        "apps/www",
+        "/Users/ali/edura/apps/erp",
         "next",
         "dev",
         "-p",
-        "3021"
+        "3098"
       ],
-      "port": 3021
-    },
-    {
-      "name": "edura-sidebar-preview",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/www",
-        "next",
-        "dev",
-        "-p",
-        "3042"
-      ],
-      "port": 3042
-    },
-    {
-      "name": "edura-prod",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/www",
-        "start"
-      ],
-      "port": 3003
+      "port": 3098
     },
     {
       "name": "edura-superadmin",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/superadmin",
-        "dev"
-      ],
-      "port": 3004
-    },
-    {
-      "name": "edura-realtime",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "apps/realtime",
-        "dev"
-      ],
-      "port": 3005
-    },
-    {
-      "name": "superadmin-main-checkout",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
         "run",
@@ -119,27 +40,26 @@
       "port": 3004
     },
     {
-      "name": "edura-superadmin-preview",
+      "name": "edura-www",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
         "run",
         "--cwd",
-        "apps/superadmin",
-        "next",
-        "dev",
-        "-p",
-        "3037"
+        "/Users/ali/edura/apps/www",
+        "dev"
       ],
-      "port": 3037
+      "port": 3010
     },
     {
-      "name": "walk-student",
-      "runtimeExecutable": "sh",
+      "name": "edura-realtime",
+      "runtimeExecutable": "bun",
       "runtimeArgs": [
-        "-c",
-        "NEXTAUTH_URL=http://localhost:3051 exec bun run --cwd apps/www next dev -p 3051"
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/realtime",
+        "dev"
       ],
-      "port": 3051
+      "port": 3005
     }
   ]
 }

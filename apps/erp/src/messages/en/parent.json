@@ -1,0 +1,483 @@
+{
+  "parentDashboard": {
+    "attendanceLabel": "Attendance",
+    "gradePercentLabel": "Grade %",
+    "loadingDashboard": "Loading dashboard…",
+    "noChildren": "No children registered.",
+    "attendanceRate": "Attendance Rate",
+    "averageGrade": "Average Grade",
+    "feesPaid": "Fees Paid",
+    "feesDue": "Fees Due",
+    "recentGrades": "Recent Grades",
+    "noGrades": "No grades yet.",
+    "recentPayments": "Recent Payments",
+    "noPayments": "No payments yet.",
+    "payment": "Payment",
+    "paidVsDue": "Paid vs Due",
+    "paidCoverage": "Paid Coverage",
+    "paidLabel": "paid",
+    "dueLabel": "due",
+    "attendanceTrend": "Attendance Trend",
+    "noAttendanceTrend": "No attendance trend yet.",
+    "gradeTrend": "Grade Trend",
+    "noGradeTrend": "No grade trend yet.",
+    "latestEyebrow": "Latest",
+    "trendsEyebrow": "Trends",
+    "attendanceReason": "of {count} recorded sessions",
+    "gradeReason": "across {count} subjects",
+    "paidReason": "Total settled to date",
+    "dueReason": "across {count} active enrolments",
+    "openRecord": "Open {record}"
+  },
+  "parentFees": {
+    "cumulativePaid": "Cumulative Paid",
+    "cumulativeNet": "Cumulative Net",
+    "course": "Course",
+    "amount": "Amount",
+    "date": "Date",
+    "receipt": "Receipt #",
+    "status": "Status",
+    "refund": "Refund",
+    "loadingPayments": "Loading payments…",
+    "noChildren": "No children registered.",
+    "dateRange": "Date range:",
+    "reset": "Reset",
+    "paidTotal": "Paid (total)",
+    "refunds": "Refunds",
+    "netPaid": "Net Paid",
+    "paymentHistory": "Payment History",
+    "paymentTimeline": "Payment Timeline",
+    "noTimeline": "No payment timeline yet.",
+    "noPayments": "No payments recorded.",
+    "payingEyebrow": "Paying",
+    "payLimit": "You can pay for your child from the \"Pay for a lesson\" page — by card or from your wallet. Cash paid at the centre also appears here.",
+    "periodEyebrow": "Period",
+    "rangeStart": "From date",
+    "rangeEnd": "To date",
+    "paidReason": "across {count} entries",
+    "refundsReason": "Amounts returned",
+    "netReason": "Paid minus refunds",
+    "noPaymentsInRange": "No payments in this period."
+  },
+  "parentProgress": {
+    "noChildren": "No children registered.",
+    "subject": "Subject",
+    "entries": "Entries",
+    "overall": "Overall",
+    "grade": "Grade",
+    "overallPercent": "Overall percentage",
+    "topSubject": "Top Subject",
+    "attendanceRate": "Attendance Rate",
+    "subjects": "Subjects",
+    "subjectBreakdown": "Subject Breakdown",
+    "subjectComparison": "Subject Comparison",
+    "averagePercent": "Average %",
+    "noComparison": "No subject comparison data yet.",
+    "noGrades": "No grade data available.",
+    "overallReason": "{band} · across {count} subjects",
+    "noGradesYet": "No grades recorded yet",
+    "attendanceReason": "across all recorded sessions",
+    "subjectsReason": "with recorded grades",
+    "breakdownEyebrow": "By subject"
+  },
+  "parentLinking": {
+    "linkedSuccess": "Linked successfully.",
+    "failedLink": "Failed to link.",
+    "linkRequestSent": "Link request sent.",
+    "failedSendRequest": "Failed to send request.",
+    "linkApproved": "Link approved.",
+    "failedApprove": "Failed to approve.",
+    "linkRejected": "Link rejected.",
+    "failedReject": "Failed to reject.",
+    "linkRevoked": "Link revoked.",
+    "failedRevoke": "Failed to revoke.",
+    "student": "Student",
+    "unknown": "Unknown",
+    "status": "Status",
+    "revoked": "Revoked",
+    "initiatedBy": "Initiated By",
+    "you": "You",
+    "date": "Date",
+    "actionsColumn": "Actions",
+    "revokeConfirmTitle": "Revoke this link?",
+    "revokeConfirmDesc": "The parent will no longer have access to this student's data.",
+    "revoke": "Revoke",
+    "linkChild": "Link a Child",
+    "byFamilyCode": "By Family Code",
+    "enterFamilyCode": "Please enter a family code.",
+    "enterCode": "Enter code",
+    "linkInstantly": "Link Instantly",
+    "byEmailOrPhone": "By Email or Phone",
+    "studentEmailOrPhone": "Student Email or Phone",
+    "invalidEmail": "Invalid email address.",
+    "sendRequest": "Send Request",
+    "myChildren": "My Children",
+    "noLinkedChildren": "No linked children yet.",
+    "familyCodeLabel": "Family code",
+    "linkEyebrow": "Add",
+    "childrenEyebrow": "Linked"
+  },
+  "parentPay": {
+    "subtitle": "Activate and pay for a lesson for your child — from your card or your wallet.",
+    "childSubjectsTab": "Child's subjects",
+    "allSubjectsTab": "All subjects",
+    "childSubjectsHint": "The subjects of {child}'s academic track. Switch to \"All subjects\" to search the full catalog.",
+    "searchPlaceholder": "Search subjects…",
+    "loadingSubjects": "Loading subjects…",
+    "loadingCourses": "Loading classes…",
+    "noSubjectsFound": "No subjects match your search",
+    "noTrackSubjects": "No subjects on this child's track yet",
+    "noCoursesForSubject": "No classes available for this subject",
+    "noLinkedChildren": "No approved children linked to your account yet",
+    "childrenUnavailable": "Could not load your children. Refresh and try again.",
+    "noPlansConfigured": "Not available for online payment",
+    "noCenter": "No center",
+    "uncategorized": "Other classes",
+    "uncategorizedHint": "Classes not yet mapped to a catalog subject",
+    "pickSession": "Choose a lesson",
+    "pickSessionFirst": "Choose which lesson first",
+    "payMonthly": "Pay monthly",
+    "payLesson": "Pay for this lesson",
+    "confirmTitle": "Confirm payment",
+    "planMonthly": "Monthly subscription",
+    "planPerSession": "Single lesson",
+    "payByCard": "Pay by card",
+    "payFromWallet": "Pay from my wallet",
+    "insufficientWallet": "Your wallet balance is not enough — top it up or pay by card.",
+    "paidFromWallet": "Paid from your wallet. {child}'s lesson is active.",
+    "activated": "Payment received. {child}'s lesson is active.",
+    "paymentDeclined": "Payment declined",
+    "checkoutFailed": "Payment could not be completed",
+    "mockPrompt": "Test mode: simulate paying {amount}.",
+    "mockPay": "Simulate a successful payment",
+    "mockFail": "Simulate a decline",
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "parentWallet": {
+    "subtitle": "Your own balance — top it up, then pay for your children's lessons from it.",
+    "balance": "Wallet balance",
+    "topUp": "Top up",
+    "history": "Wallet history",
+    "noHistory": "No wallet activity yet",
+    "colDate": "Date",
+    "colType": "Type",
+    "colChild": "Child",
+    "colAmount": "Amount",
+    "colBalance": "Balance",
+    "type_topup": "Top-up",
+    "type_payment": "Payment",
+    "type_refund": "Refund",
+    "type_adjustment": "Adjustment",
+    "amountEgp": "Amount (EGP)",
+    "enterValidAmount": "Enter a valid amount",
+    "cardOnly": "Top-ups are by card only.",
+    "continue": "Continue",
+    "topupSuccess": "Your wallet has been topped up",
+    "topupDeclined": "Top-up declined",
+    "topupFailed": "Top-up could not be completed",
+    "mockPrompt": "Test mode: simulate paying {amount}.",
+    "mockPay": "Simulate a successful payment",
+    "mockFail": "Simulate a decline"
+  },
+  "parentOversight": {
+    "childrenFailed": "Couldn't load your children. Try again.",
+    "threadsFailed": "Couldn't load the conversations. Try again.",
+    "messagesFailed": "Couldn't load the messages. Try again.",
+    "retry": "Try again",
+    "privateEyebrow": "Private"
+  },
+  "parentEmulator": {
+    "eyebrow": "Practice",
+    "title": "Try it yourself — a practice copy of Edura",
+    "progress": "Step {done} of {total}",
+    "restart": "Start over",
+    "skip": "Skip",
+    "back": "Back",
+    "close": "Close",
+    "gotIt": "Got it",
+    "missHint": "Not that one — look for the control with the purple outline and press it.",
+    "finishedTitle": "You're done 🎉",
+    "finishedBody": "You can now follow your child, link your children, top up your wallet and pay from it, and you know exactly what you can and cannot see of their conversations. Your real account works the same way.",
+    "sandboxNote": "Everything above is practice — the data is invented, no real money moves, and nothing is saved to your account.",
+    "firstRun": {
+      "title": "Welcome — want to try it first?",
+      "body": "A short practice run on a copy of Edura: follow your child, link them to your account, top up your wallet and pay for a lesson — without spending anything or touching your account.",
+      "reopenHint": "You can reopen it any time from “Guided tour” in the menu.",
+      "start": "Let's try it",
+      "later": "Not now"
+    },
+    "nav": {
+      "label": "Practice navigation",
+      "dashboard": "Dashboard",
+      "children": "Children",
+      "wallet": "My Wallet",
+      "pay": "Pay for a Lesson",
+      "safety": "Child safety"
+    },
+    "missions": {
+      "board": "Follow your child",
+      "link": "Link your child",
+      "wallet": "Your wallet",
+      "pay": "Pay for a lesson",
+      "safety": "Child safety"
+    },
+    "screens": {
+      "todayShort": "Today",
+      "dashboardTitle": "Dashboard",
+      "myChildren": "My children",
+      "attendanceRate": "Attendance Rate",
+      "averageGrade": "Average Grade",
+      "childrenTitle": "Children",
+      "linkEyebrow": "Add",
+      "linkedEyebrow": "Linked",
+      "linkChild": "Link a child",
+      "byFamilyCode": "By family code",
+      "byFamilyCodeHint": "Your child finds this code in their account under “Family Code”. Linking is instant.",
+      "byEmailOrPhone": "By email or phone",
+      "byEmailOrPhoneHint": "You send a request, and your child approves it from their account.",
+      "linkInstantly": "Link instantly",
+      "linked": "Linked",
+      "approved": "Approved",
+      "notLinkedYet": "{name} is not linked yet.",
+      "walletTitle": "My Wallet",
+      "topUp": "Top up",
+      "balance": "Wallet balance",
+      "record": "Record",
+      "history": "Wallet history",
+      "kindTopUp": "Top-up",
+      "kindPayment": "Payment",
+      "noChild": "Wallet top-up",
+      "payTitle": "Pay for a Lesson",
+      "payFor": "Paying for {name}",
+      "payLesson": "Pay for this lesson",
+      "activated": "Activated",
+      "confirmTitle": "Confirm payment",
+      "confirmBody": "One lesson for {name}. Choose how to pay.",
+      "payFromWallet": "Pay from my wallet",
+      "payByCard": "Pay by card",
+      "insufficient": "Your wallet balance is short — top it up or pay by card.",
+      "safetyTitle": "Child safety",
+      "readOnlyEyebrow": "Read-only",
+      "readOnlyNotice": "Read-only view. Opening this does not mark anything as read for your child.",
+      "minorBadge": "Under 18",
+      "noReply": "There is no reply box here — and there isn't one in the real product either."
+    },
+    "steps": {
+      "welcome": {
+        "title": "Welcome — this is a practice copy of Edura",
+        "body": "The screen below is Edura exactly as it is, filled with an invented family. Press whatever you like — nothing here touches your account."
+      },
+      "children": {
+        "title": "Your children in one place",
+        "body": "Every child linked to your account appears here with their name and grade. If you have more than one, you see them all from the same account."
+      },
+      "record": {
+        "title": "And how each one is doing",
+        "body": "Attendance rate and average grade. Both are worked out from your child's actual attendance and the grades their teacher entered — nobody types these in."
+      },
+      "goChildren": {
+        "title": "First thing you must do: link your child",
+        "body": "Without a link, every screen in your account stays empty. Press “Children” in the menu."
+      },
+      "twoWays": {
+        "title": "There are two ways to link",
+        "body": "By family code — which links instantly — or by email or phone, where you send a request and your child approves it."
+      },
+      "byCode": {
+        "title": "Link by family code",
+        "body": "Your child finds this code in their own account. Press “Link instantly”."
+      },
+      "approved": {
+        "title": "A link has to be Approved",
+        "body": "A request that is still pending, or was rejected, or has been revoked gives you no access at all. Only “Approved” opens your child's data."
+      },
+      "openWallet": {
+        "title": "Before you pay, look at your wallet",
+        "body": "Press “My Wallet” in the menu."
+      },
+      "short": {
+        "title": "You only have 50 EGP",
+        "body": "And the lesson is 120. Paying from the wallet is **all or nothing** — if the balance is short the whole payment is refused and no part of it is taken."
+      },
+      "topUp": {
+        "title": "Top it up",
+        "body": "Press “Top up”. For real it asks the amount and takes you to pay by card — top-ups are by card only, never from another wallet."
+      },
+      "whichChild": {
+        "title": "The record tells you who you paid for",
+        "body": "Every payment line in your wallet carries the name of the child it was for. That is what lets you check your money when you have more than one."
+      },
+      "notChildWallet": {
+        "title": "Your wallet is not your child's wallet",
+        "body": "They are two entirely separate balances. You pay from your own money and cannot spend your child's — and they cannot spend yours either."
+      },
+      "openPay": {
+        "title": "Now let's pay",
+        "body": "Press “Pay for a Lesson” in the menu."
+      },
+      "pickLesson": {
+        "title": "Read the lesson before you pay",
+        "body": "The teacher, the times, the centre and the price are all in front of you before you press anything."
+      },
+      "payLesson": {
+        "title": "Choose the lesson",
+        "body": "Press “Pay for this lesson”."
+      },
+      "fromWallet": {
+        "title": "Pay from your wallet",
+        "body": "Press “Pay from my wallet”. If you would rather pay by card directly, that choice sits next to it."
+      },
+      "paid": {
+        "title": "The lesson is active",
+        "body": "The money left your wallet, the lesson is paid for your child, and a new line appeared in your wallet history with their name on it."
+      },
+      "openSafety": {
+        "title": "One important thing left: child safety",
+        "body": "Press “Child safety” in the menu."
+      },
+      "readOnly": {
+        "title": "Reading only — nothing more",
+        "body": "You can read your child's conversations with teachers, assistants and centre staff. **You cannot reply** and you cannot delete. And opening a conversation does not mark anything as read for them."
+      },
+      "childKnows": {
+        "title": "And your child knows",
+        "body": "A clear notice appears in the conversation, for them and for the other person, saying a parent can see it. This is not surveillance — it is disclosed to both sides."
+      },
+      "adultsOnly": {
+        "title": "Their chats with friends are not here",
+        "body": "You only see conversations with **adults**. And if your child is over 18 with a verified age, their conversations are entirely private and you cannot see them."
+      },
+      "done": {
+        "title": "That's everything",
+        "body": "Press “Got it” to finish."
+      }
+    }
+  },
+  "parentTour": {
+    "title": "A quick tour of Edura",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "On a phone: press “More” first — it's inside there.",
+    "steps": {
+      "welcome": {
+        "title": "Welcome to Edura 👋",
+        "body": "This is where you follow your children and pay for them. The tour shows you the things you'll actually do — and it won't just say “this is your wallet”, it will show you how, step by step. You can skip it at any point."
+      },
+      "linkChild": {
+        "title": "First: link your child",
+        "body": "Without a link, every screen in your account stays empty. There are two ways.",
+        "how": {
+          "1": "Press “Children” in the menu",
+          "2": "Ask your child for their family code — it's in their account under “Family Code”",
+          "3": "Enter the code and press “Link instantly”",
+          "4": "Or enter their email or phone and press “Send request” — then they approve it from their account"
+        },
+        "note": "A link has to be Approved. Pending, rejected or revoked gives you no access to your child's data at all."
+      },
+      "progress": {
+        "title": "How to follow how your child is doing",
+        "body": "Their marks per subject and their overall level.",
+        "how": {
+          "1": "Press “Progress” in the menu",
+          "2": "If you have more than one child, pick them from the bar at the top of the page",
+          "3": "Look through the subjects, percentages and bands"
+        },
+        "note": "The pass mark is 50%. Grades are entered by the teacher — if one is wrong, speak to the teacher or the centre."
+      },
+      "attendance": {
+        "title": "How to know whether your child attended",
+        "body": "The daily question: did they actually go today?",
+        "how": {
+          "1": "Press “Attendance” in the menu",
+          "2": "Pick the child if you have more than one",
+          "3": "At the top: present / late / absent",
+          "4": "Below it, a coloured day map showing their consistency"
+        },
+        "note": "If your child's group uses two check-ins, they must also check in at the hall door — without it the lesson is not counted as attended."
+      },
+      "fees": {
+        "title": "How to see what you owe",
+        "body": "What's outstanding per child, and what has been paid.",
+        "how": {
+          "1": "Press “Fees” in the menu",
+          "2": "See what's due per child and per group",
+          "3": "This is where you find out what to pay before going to the payment screen"
+        }
+      },
+      "wallet": {
+        "title": "How to top up your wallet",
+        "body": "Your own balance. Top it up once and pay for your children's lessons from it.",
+        "how": {
+          "1": "Press “My Wallet” in the menu",
+          "2": "Press “Top up”",
+          "3": "Enter the amount in pounds, confirm and pay by card"
+        },
+        "note": "Your wallet is entirely separate from your child's — you pay from your own money and cannot spend theirs. And wallet payments are all or nothing: if the balance is short the whole payment is refused."
+      },
+      "pay": {
+        "title": "How to pay for your child's lesson",
+        "body": "This is usually why you opened the account.",
+        "how": {
+          "1": "Press “Pay for a Lesson” in the menu",
+          "2": "Pick the child",
+          "3": "Pick the subject, then the group",
+          "4": "Press “Pay for this lesson” — or “Pay monthly” for the whole month",
+          "5": "Choose “Pay by card” or “Pay from my wallet”"
+        },
+        "note": "Your wallet history records the child's name next to every payment — that's what lets you check your money when you have more than one."
+      },
+      "messages": {
+        "title": "How to message the teacher or the centre",
+        "body": "If you have a question, you can write directly.",
+        "how": {
+          "1": "Press “Messages” in the menu",
+          "2": "Press “New conversation”",
+          "3": "Pick the name from the list",
+          "4": "Type your message and send"
+        }
+      },
+      "safety": {
+        "title": "How to see your child's conversations — and the limits",
+        "body": "You can read your child's conversations with teachers, assistants and centre staff.",
+        "how": {
+          "1": "Press “Child safety” in the menu",
+          "2": "Pick the child",
+          "3": "Tap a conversation to read it"
+        },
+        "note": "Read-only: you cannot reply and cannot delete. Your child knows — a notice appears in the conversation for both sides. Opening it does not mark anything as read for them. Their chats with friends never appear here, and if they're over 18 with a verified age their conversations are entirely private."
+      },
+      "notifications": {
+        "title": "How to get alerts",
+        "body": "So you know the moment your child misses a class, a grade is recorded, or a payment goes through.",
+        "how": {
+          "1": "Press “Notifications” in the menu to read what happened",
+          "2": "For alerts on your phone: open “Settings”",
+          "3": "Find the push notifications section and press “Enable”",
+          "4": "Your browser asks for permission — press “Allow”"
+        }
+      },
+      "practice": {
+        "title": "And if you'd rather try it first",
+        "body": "There's a full practice copy you can rehearse on without spending anything or touching your account.",
+        "how": {
+          "1": "Press “Practice” in the menu",
+          "2": "It walks you through it: link a child, top up, pay for a lesson, and view conversations",
+          "3": "All the data in it is invented"
+        }
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Start by linking your child from “Children” — that's what opens the rest of the account. And if you'd rather rehearse first, “Practice” is in the menu."
+      }
+    }
+  }
+}

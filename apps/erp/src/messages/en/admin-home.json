@@ -1,0 +1,746 @@
+{
+  "dashboard_totalStudents": "Total Students",
+  "dashboard_activeClasses": "Active Classes",
+  "dashboard_totalRevenue": "Total Revenue",
+  "dashboard_todaysSnapshot": "Today's Snapshot",
+  "dashboard_attendanceRate": "Attendance Rate",
+  "dashboard_activeSessions": "Active Sessions",
+  "dashboard_pendingActions": "Pending Actions",
+  "dashboard_feeDefaulters": "Fee Defaulters",
+  "dashboard_pendingEnrollmentRequests": "Pending Enrollment Requests",
+  "dashboard_revenueVsExpensesTrend": "Revenue vs Expenses Trend",
+  "dashboard_noFinancialTrend": "No financial trend data yet",
+  "dashboard_sessionStatusMix": "Session Status Mix",
+  "dashboard_noSessionStatus": "No session data yet",
+  "dashboard_attendanceByCourse": "Attendance by Course",
+  "dashboard_attendancePercent": "Attendance %",
+  "dashboard_noCourseAttendance": "No course attendance data yet",
+  "students_totalStudents": "Total Students",
+  "students_pendingRequests": "Pending Requests",
+  "students_searchPlaceholder": "Search by name or email",
+  "students_status": "Status",
+  "students_statusShell": "Shell",
+  "students_addStudent": "Add Student",
+  "students_noStudents": "No students found",
+  "students_inviteStudent": "Invite Student",
+  "students_inviteHint": "Send an invitation email so the student can join and set their password.",
+  "students_nameOptional": "Name (optional)",
+  "students_fullName": "Full name",
+  "students_emailRequired": "Email is required",
+  "students_invalidEmail": "Enter a valid email address",
+  "students_inviteSent": "Invitation sent to",
+  "students_inviteFailed": "Failed to send invitation",
+  "students_colStudent": "Student",
+  "students_colCourses": "Enrolled courses",
+  "students_colUserId": "User ID",
+  "students_colCode": "Student code",
+  "chart_revenue": "Revenue",
+  "chart_expenses": "Expenses",
+  "queue_externalShare": "Off-system share: {amount} · {teachers, plural, one {# teacher} other {# teachers}}",
+  "students_colJoined": "Joined",
+  "students_colActions": "Actions",
+  "students_reasonRequired": "Reason (required)",
+  "students_unblacklist": "Un-blacklist",
+  "students_unblacklistSuccess": "Student removed from the blacklist",
+  "students_unblacklistFailed": "Failed to update the student",
+  "students_blacklistSuccess": "Student blacklisted",
+  "students_blacklistFailed": "Failed to update the student",
+  "students_notAvailable": "N/A",
+  "detail_notAvailable": "N/A",
+  "detail_unnamedStudent": "Unnamed Student",
+  "detail_colUserId": "User ID",
+  "detail_colStudent": "Student",
+  "detail_colJoined": "Joined",
+  "detail_phone": "Phone",
+  "detail_status": "Status",
+  "detail_colClass": "Class",
+  "detail_untitledClass": "Untitled Class",
+  "detail_enrollmentId": "Enrollment ID",
+  "detail_enrolled": "Enrolled",
+  "detail_receiptNumber": "Receipt Number",
+  "detail_colCourse": "Course",
+  "detail_amount": "Amount",
+  "detail_paidColumn": "Paid",
+  "detail_loadingStudent": "Loading student…",
+  "detail_backToStudents": "Back to Students",
+  "detail_notFound": "Student not found",
+  "detail_unblacklistSuccess": "Student removed from the blacklist",
+  "detail_blacklistSuccess": "Student blacklisted",
+  "detail_actionFailed": "Action failed",
+  "detail_updateSuccess": "Student updated",
+  "detail_updateFailed": "Failed to update the student",
+  "detail_activeClasses": "Active Classes",
+  "detail_paidTotal": "Paid Total",
+  "detail_rosterId": "Roster ID",
+  "detail_added": "Added",
+  "detail_walletTopup": "Top up wallet",
+  "detail_walletTopupDesc": "Record a cash top-up to this student's wallet.",
+  "detail_walletAmount": "Amount (EGP)",
+  "detail_walletTopupConfirm": "Add to wallet",
+  "detail_walletTopupDone": "Wallet topped up",
+  "detail_walletInvalid": "Enter a valid amount",
+  "detail_operationalParent": "Operational Parent",
+  "detail_operationalParentPhone": "Operational Parent Phone",
+  "detail_blacklistReason": "Blacklist Reason",
+  "detail_noReason": "No reason provided",
+  "detail_studentRecord": "Student Record",
+  "detail_payments": "Payments",
+  "detail_noEnrollments": "No enrollments",
+  "detail_noPayments": "No payments",
+  "detail_blacklistStudent": "Blacklist Student",
+  "detail_blacklistConfirmPrefix": "You are about to blacklist ",
+  "detail_blacklistConfirmSuffix": ". They will lose access to the platform.",
+  "detail_blacklistWarning": "Blacklisting removes the student from active enrollments and blocks new sign-ups.",
+  "detail_reasonOptional": "Reason (optional)",
+  "detail_editStudent": "Edit Student",
+  "detail_name": "Name",
+  "detail_nameRequired": "Name is required",
+  "detail_studentNamePlaceholder": "Student name",
+  "detail_emailRequired": "Email is required",
+  "detail_invalidEmail": "Enter a valid email address",
+  "detail_phoneNumber": "Phone number",
+  "detail_unblacklist": "Un-blacklist",
+  "teachers_inviteSent": "Invitation sent",
+  "teachers_inviteFailed": "Failed to send invitation",
+  "teachers_removed": "Teacher removed",
+  "teachers_removeFailed": "Failed to remove teacher",
+  "teachers_subjects": "Subjects",
+  "teachers_rating": "Rating",
+  "teachers_noReviews": "No reviews",
+  "teachers_status": "Status",
+  "teachers_pendingInvite": "Pending Invite",
+  "teachers_actions": "Actions",
+  "teachers_reinvite": "Re-invite",
+  "teachers_emptyText": "No teachers yet",
+  "teachers_inviteTeacher": "Invite Teacher",
+  "teachers_invalidEmail": "Enter a valid email address",
+  "teachers_nameOptional": "Name (optional)",
+  "teachers_teacherNamePlaceholder": "Teacher name",
+  "awaitingReview": "awaiting review",
+  "grossLessonRevenue": "Gross lesson revenue",
+  "lessonsCompleted": "Lessons completed",
+  "platformRevenueChartTitle": "Platform revenue",
+  "platformRevenueSeriesLabel": "Platform revenue (EGP)",
+  "platformRevenue": "Platform revenue",
+  "queue_title": "{n, plural, one {# decision waiting today} other {# decisions waiting today}}",
+  "queue_titleNone": "No decisions waiting today",
+  "queue_subtitle": "Every money action here is written into the center's ledger immediately. Review, then approve.",
+  "queue_requestsLabel": "Enrolment requests awaiting a reply",
+  "queue_requestsFact": "Each one keeps a student out of their sessions.",
+  "queue_defaultersLabel": "Students behind on fees",
+  "queue_defaultersFact": "An unpaid student is not counted present until settled.",
+  "queue_defaultersChip": "Blocks attendance",
+  "queue_todayLabel": "Sessions today",
+  "queue_todayFact": "Open the counter to check in and collect.",
+  "queue_ledgerTitle": "Center ledger",
+  "queue_revenueLabel": "Total revenue",
+  "queue_rosterLabel": "On the roster",
+  "queue_studentsUnit": "students",
+  "queue_teachersUnit": "teachers",
+  "queue_coursesUnit": "classes",
+  "queue_todayTitle": "Today",
+  "queue_attendanceLabel": "Attendance rate",
+  "queue_sessionsLabel": "Scheduled sessions",
+  "queue_openDecisions": "Open decisions",
+  "queue_allClear": "Nothing is waiting on you. The record is up to date.",
+  "students_cascade_eyebrow": "Blacklist decision",
+  "students_cascade_title": "Blacklist {name} from the center?",
+  "students_cascade_whatHappens": "What this does",
+  "students_cascade_loading": "Working out the effect…",
+  "students_cascade_none": "No active enrolments — this only blocks future enrolment.",
+  "students_cascade_countLine": "The student will be withdrawn from {n, plural, one {# active enrolment} other {# active enrolments}} at your center:",
+  "students_cascade_reversible": "Every withdrawal is journalled. Lifting the blacklist restores exactly these enrolments — no more, no fewer.",
+  "students_cascade_moneyNote": "A blacklist touches no payment, subscription or wallet. Nothing is refunded and no subscription is cancelled.",
+  "students_cascade_reasonLabel": "Reason (required)",
+  "students_cascade_reasonPlaceholder": "e.g. repeated unexcused absence, conduct in class…",
+  "students_cascade_commit": "Blacklist and withdraw {n, plural, one {# enrolment} other {# enrolments}}",
+  "students_cascade_commitNone": "Blacklist student",
+  "students_cascade_armed": "Final confirm — apply the blacklist",
+  "students_cascade_hint": "Two steps: the first press arms the button, the second performs the withdrawal.",
+  "students_cascade_armedHint": "The next press withdraws the enrolments above and records the blacklist in your name.",
+  "students_cascade_unknownCourse": "Unknown class",
+  "students_cascade_finality": "On confirm the student loses their place in the sessions above immediately, and the blacklist is recorded in your name in the audit log.",
+  "students_import": "Import from file",
+  "students_importTitle": "Import students from a file",
+  "students_importHint": "Upload a CSV or TSV exported from your old system or from Excel. It needs a header row with a name column (e.g. \"name\"), plus optional phone, national ID, guardian name and guardian phone columns.",
+  "students_importPickFile": "Choose a file",
+  "students_importNoFile": "No file chosen yet",
+  "students_importPreview": "Preview",
+  "students_importPreviewing": "Checking…",
+  "students_importConfirm": "Confirm import",
+  "students_importDownload": "Download result",
+  "students_importDownloadHint": "Saves every row's outcome with the student code it was given — the only record that can reconcile this migration later, and it cannot be recovered once this dialog closes.",
+  "students_importing": "Importing…",
+  "students_importPreviewTitle": "Preview — nothing has been saved yet",
+  "students_importDoneTitle": "Import complete",
+  "students_importCreated": "New students",
+  "students_importReused": "Already known",
+  "students_importDuplicates": "Duplicated in file",
+  "students_importFailed": "Rejected rows",
+  "students_importTotal": "Total rows",
+  "students_importColLine": "Line",
+  "students_importColName": "Name",
+  "students_importColResult": "Result",
+  "students_importStatusCreated": "New student",
+  "students_importStatusReused": "Already known — linked",
+  "students_importStatusWouldCreate": "Will be created",
+  "students_importStatusWouldReuse": "Already known — will be linked",
+  "students_importStatusDuplicate": "Duplicate of line {line}",
+  "students_importStatusError": "Rejected",
+  "students_importMatchedPhone": "matched by phone",
+  "students_importMatchedNationalId": "matched by national ID",
+  "students_importNoMoney": "Importing only adds students to the center roster — no subscriptions, no payments, no group enrolment.",
+  "students_importReuseNote": "A student we already know is linked to this center rather than created twice, and their details are left untouched.",
+  "students_importFailedToRead": "Could not read the file",
+  "students_importFailedToast": "Import failed",
+  "students_importDoneToast": "Imported {created} new students and linked {reused}",
+  "students_importShowingFirst": "First {n} rows — the full totals are above",
+  "students_importErrNameRequired": "Name is required",
+  "students_importErrNationalId": "National ID must be 14 digits",
+  "students_importErrAlreadyExists": "This phone or national ID already exists — re-run the import to link them",
+  "centerEmulator": {
+    "eyebrow": "Guided tour",
+    "title": "Try it yourself — a practice copy of Edura",
+    "progress": "Step {done} of {total}",
+    "stepEyebrow": "Step {n}",
+    "restart": "Start over",
+    "skip": "Skip",
+    "back": "Back",
+    "gotIt": "Got it",
+    "missHint": "Not that one — look for the control with the indigo outline and press it.",
+    "finishedTitle": "Tour complete 🎉",
+    "finishedBody": "You can now read your day, price a class so the counter can collect, take cash and check a student in with one action, close the lesson so the centre's share is credited, and read your books — including what a refund really does. Your real centre works exactly the same way.",
+    "finishCta": "Start for real",
+    "sandboxNote": "Everything above is practice — the data and prices are invented, no real money moves and no receipt is recorded. The real platform and centre shares appear on your own screen before any closing.",
+    "firstRun": {
+      "title": "First time here? Take 3 minutes",
+      "body": "Before you open your centre, let's walk through a practice copy step by step: price a class, take cash at the counter and check the student in with one action, close the lesson so your share lands, and read your books. No real data changes.",
+      "reopenHint": "This tour opens by itself once only. You can reopen it any time from “Guided tour” in the menu.",
+      "start": "Start the tour",
+      "later": "Not now"
+    },
+    "nav": {
+      "label": "Practice sections",
+      "dashboard": "Overview",
+      "classes": "Classes",
+      "counter": "Counter",
+      "books": "Books"
+    },
+    "missions": {
+      "readDay": "Read your day",
+      "priceClass": "Price the class",
+      "counter": "Work the counter",
+      "settle": "Close the lesson",
+      "books": "Read your books"
+    },
+    "screens": {
+      "dashboardTitle": "The centre's day",
+      "totalStudents": "Total Students",
+      "activeClasses": "Active Classes",
+      "revenue": "Centre revenue",
+      "expenses": "Expenses",
+      "netProfit": "Net profit",
+      "attendanceRate": "Attendance rate",
+      "pendingActions": "Pending actions",
+      "pendingUnpriced": "A class with no price",
+      "pendingOpenLesson": "A finished lesson never closed",
+      "todaySnapshot": "Today's snapshot",
+      "live": "Live now",
+      "classesTitle": "Classes",
+      "priced": "Priced",
+      "unpricedChip": "No price",
+      "pricing": "Pricing",
+      "perSession": "Per-session price",
+      "pricedHint": "The price is fixed on the class and is what the counter charges. Changing it later does not re-price past lessons.",
+      "unpricedEyebrow": "This class is blocked",
+      "unpricedBody": "This class has no per-session price, so the counter cannot take money for it and students cannot subscribe. Setting that price is your job as the centre owner.",
+      "setPriceCta": "Set the lesson price — EGP {amount}",
+      "counterTitle": "Counter board",
+      "teacherLabel": "Teacher",
+      "noLessonHint": "Pick a teacher and a lesson above. Student search and new-student registration work either way.",
+      "tab_attended": "Checked in",
+      "tab_all": "All students",
+      "offRoster": "Not on this lesson's roster",
+      "checkedIn": "Checked in",
+      "awaiting": "Paid — not checked in",
+      "unpaid": "Unpaid",
+      "done": "Done",
+      "checkInCta": "Check in",
+      "collectCta": "Collect EGP {amount} and check in",
+      "collectConfirm": "Final confirmation — cash received",
+      "noPriceHint": "No lesson price — set it on the classes screen to enable collection here",
+      "settleEyebrow": "The step that credits the centre",
+      "settleTitle": "Close the lesson and distribute it",
+      "settledChip": "Closed and distributed",
+      "settledBody": "The lesson is closed and distributed: the centre's share is in your books and the teacher's is in their wallet. It cannot be closed again and its distribution cannot be edited.",
+      "blockedUnpriced": "This class has no price, so the lesson would distribute nothing. Set the class pricing first.",
+      "blockedNoPresent": "Nobody is checked in, so there is nothing to distribute. Check students in at the counter first.",
+      "settlePresent": "Checked in",
+      "perStudentShares": "Each party's share, per student",
+      "share_centre": "Centre",
+      "share_teacher": "Teacher",
+      "share_platform": "Platform",
+      "centreTotal": "Centre's total",
+      "settleAction": "Close the lesson and credit the centre EGP {amount} across {n} students",
+      "settleConfirm": "Final confirmation — press to distribute",
+      "settleHint": "The distribution is written to the ledger once, and cannot be undone.",
+      "settleArmedHint": "Written to the ledger in your name, and credited to the teacher's wallet and the centre's books immediately.",
+      "booksTitle": "The centre's books",
+      "receipts": "Receipts",
+      "receiptNo": "Receipt no.",
+      "student": "Student",
+      "amount": "Amount",
+      "refundCta": "Refund the last receipt",
+      "refundFinality": "A refund is a new ledger entry and is never deleted — the original receipt stays exactly as it is, with a negative entry added beneath it."
+    },
+    "steps": {
+      "welcome": {
+        "title": "Welcome — this is entirely a practice copy",
+        "body": "The screens ahead are exactly your centre's, with invented data: one teacher, one class, five students, and a lesson running right now. Press “Got it” and let's go."
+      },
+      "figures": {
+        "title": "The numbers you open on",
+        "body": "Your students, active classes, centre revenue and attendance rate. “Centre revenue” is YOUR share after distribution — not the cash that passed through the counter."
+      },
+      "pending": {
+        "title": "Pending actions are your backlog",
+        "body": "A class with no price, and a finished lesson never closed. Both genuinely hold money still, and this tour fixes both."
+      },
+      "goClasses": {
+        "title": "Start with the price",
+        "body": "Press “Classes” in the menu."
+      },
+      "openClass": {
+        "title": "Open the class",
+        "body": "Press the class card."
+      },
+      "unpriced": {
+        "title": "This is the most dangerous state for a centre",
+        "body": "The class has no price. It is not only that the teacher will not be paid — the counter itself cannot take cash from the student, and students cannot subscribe. The counter's own message names the centre owner as the person who sets it."
+      },
+      "setPrice": {
+        "title": "Price it",
+        "body": "Press the button to set the lesson price."
+      },
+      "priced": {
+        "title": "Now the counter can collect",
+        "body": "The price is fixed on the class, the counter charges it, and the lesson has become closable."
+      },
+      "goCounter": {
+        "title": "On to the counter",
+        "body": "Press “Counter” in the menu."
+      },
+      "pickTeacher": {
+        "title": "Pick the teacher first",
+        "body": "The counter starts from a teacher, then that teacher's lessons today. Press the teacher's name."
+      },
+      "pickLesson": {
+        "title": "Then pick the lesson",
+        "body": "The one running now is tagged “Live now”. Press it."
+      },
+      "tabs": {
+        "title": "Two tabs, and here is the difference",
+        "body": "“Checked in” holds the ones who are done; “All students” holds everyone — paid and not. The counts beside each tab move with every check-in."
+      },
+      "unpaidStudent": {
+        "title": "Look at Mariam — “Unpaid”",
+        "body": "Mariam is standing in front of you and has not paid. Her control is not “check in” — it is “collect and check in”, because both happen in one action."
+      },
+      "armCollect": {
+        "title": "The button carries the amount itself",
+        "body": "Not “confirm” on a figure you never read. Press it to take the cash."
+      },
+      "confirmCollect": {
+        "title": "A second confirmation, on purpose",
+        "body": "This writes a receipt and a ledger entry. Press “Final confirmation — cash received”."
+      },
+      "collected": {
+        "title": "Paid and checked in, in one step",
+        "body": "Her state is now “Checked in” and a numbered receipt was issued. There is no second step to forget — and that is the most important thing about this screen."
+      },
+      "offRoster": {
+        "title": "And Omar is not on the roster at all",
+        "body": "Tagged “Not on this lesson's roster” — a student who simply turned up today. The counter finds him by name or code and treats him with the same control."
+      },
+      "settleCard": {
+        "title": "The cash is not all yours",
+        "body": "EGP 120 was collected, but that is a gross amount waiting to be split. The centre's share is credited when the lesson is CLOSED — this step."
+      },
+      "readShares": {
+        "title": "Read the split before you press",
+        "body": "The centre's, the teacher's and the platform's share per student. Add them up — they must equal the lesson price exactly. These figures are practice ones; the real rates are set by the platform."
+      },
+      "pressSettle": {
+        "title": "Close the lesson",
+        "body": "Press the button carrying the centre's total."
+      },
+      "confirmSettle": {
+        "title": "Final confirmation",
+        "body": "The distribution is written to the ledger once and cannot be undone. Press to confirm."
+      },
+      "settled": {
+        "title": "The centre's share is credited",
+        "body": "The lesson is closed, your share entered your books, and the teacher's landed in their wallet at the same moment. If you never close lessons, the cash is collected and the books stay empty — the commonest reason a centre says “the numbers don't add up”."
+      },
+      "goBooks": {
+        "title": "Now the books",
+        "body": "Press “Books” in the menu."
+      },
+      "receipts": {
+        "title": "Every pound has a numbered receipt",
+        "body": "The receipt the counter issued is here with the student's name and its number. It is your proof and hers."
+      },
+      "netProfit": {
+        "title": "Revenue minus expenses",
+        "body": "“Centre revenue” is your share after distribution, expenses are what you recorded, and net profit is the difference. This figure moves when you CLOSE lessons — not when you take cash."
+      },
+      "refund": {
+        "title": "And if you collected by mistake?",
+        "body": "Press “Refund the last receipt” and watch what the ledger does."
+      },
+      "refunded": {
+        "title": "A refund is a new entry, not an erasure",
+        "body": "The original receipt stayed exactly where it was, a negative entry was added beneath it, and net profit dropped. The ledger tells the whole story rather than hiding it — which is what makes your figures provable."
+      },
+      "done": {
+        "title": "You have walked the centre's whole money path",
+        "body": "You priced, took cash and checked a student in with one action, closed the lesson, read your books and issued a refund. Press “Got it” to finish."
+      }
+    }
+  },
+  "tour": {
+    "title": "A quick tour of Edura",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "On a phone: press “More” first — it's inside there.",
+    "steps": {
+      "welcome": {
+        "title": "Welcome 👋 let's get your centre running",
+        "body": "This tour is ordered the way a centre actually comes to life — each step unlocks the next. And it won't just say “these are your classes”, it will show you how. You can skip at any point."
+      },
+      "teachers": {
+        "title": "1. Add your teachers",
+        "body": "No teacher, no classes. The invite goes by email and the teacher sets their own password.",
+        "how": {
+          "1": "Press “Teachers” in the menu",
+          "2": "Press add teacher and send the email invite",
+          "3": "They receive a link and set their own password"
+        },
+        "note": "You never set anyone's password. And for a teacher who won't use the platform at all there's “Off-system teachers” — you key in their work by hand and it still appears in your reports."
+      },
+      "rooms": {
+        "title": "2. Register your rooms",
+        "body": "A room isn't just a name — it's what prevents timetable clashes, and it carries your share of each lesson.",
+        "how": {
+          "1": "Press “Rooms” in the menu",
+          "2": "Add the room and its capacity",
+          "3": "Choose its pricing method: a share of the lesson, or an amount per attending student"
+        },
+        "note": "If you choose per-attending-student, the teacher sees that figure when booking — so set it correctly from the start."
+      },
+      "classes": {
+        "title": "3. Create the classes",
+        "body": "A class ties a teacher to a subject, a room and times — and the lessons generate themselves.",
+        "how": {
+          "1": "Press “Classes” in the menu",
+          "2": "Press create class",
+          "3": "Pick the subject, year, teacher and room",
+          "4": "Set the times — clashes are prevented for you"
+        }
+      },
+      "pricing": {
+        "title": "4. Price the class — without this there's no money",
+        "body": "An unpriced class can't be subscribed to, its lessons refuse to close, and the teacher is paid nothing.",
+        "how": {
+          "1": "From “Classes”, open the class and press edit",
+          "2": "Set the monthly price, the per-lesson price, or both",
+          "3": "Choose the settlement basis: class price, lesson price, or each student's own subscription",
+          "4": "Save"
+        },
+        "note": "You price your centre's classes — the teacher cannot. A class created by accepting a collaboration request starts at zero, so it needs pricing."
+      },
+      "counter": {
+        "title": "5. The counter — this is the daily work",
+        "body": "The screen the queue stands in front of: today's lessons for a teacher, who has checked in and who hasn't, and taking cash and marking attendance from the same place.",
+        "how": {
+          "1": "Press “Counter” in the menu",
+          "2": "Pick the teacher — whoever is teaching right now is already selected",
+          "3": "Pick the lesson from the strip",
+          "4": "Find the student by code or name, or scan their card",
+          "5": "If they're not subscribed: take the cash and check them in, in one step"
+        },
+        "note": "A student not on the roster is found by search and checked in normally. A brand-new student is registered from this same screen and receives a link to finish signing up."
+      },
+      "students": {
+        "title": "6. Your students",
+        "body": "The centre's full roster — and you can upload a list you already have instead of typing it in.",
+        "how": {
+          "1": "Press “Students” in the menu",
+          "2": "For one student: add student",
+          "3": "For a whole list: import from an Excel/CSV file",
+          "4": "Run the dry run first — it tells you how many would be added and how many already exist, before anything is written"
+        },
+        "note": "The import recognises an existing student by phone or national ID and reuses their account rather than creating a second one. And importing records no money — names only."
+      },
+      "requests": {
+        "title": "7. Enrolment requests",
+        "body": "Students who asked to join your classes are waiting for your answer here.",
+        "how": {
+          "1": "Press “Enrolment Requests” in the menu",
+          "2": "Check the student and the class",
+          "3": "Accept or reject"
+        }
+      },
+      "schedule": {
+        "title": "8. The schedule",
+        "body": "Every lesson in the centre in one place — and you can close a lesson from here.",
+        "how": {
+          "1": "Press “Schedule” in the menu",
+          "2": "See the week's lessons by room",
+          "3": "Open a lesson to cancel, postpone or close it"
+        },
+        "note": "Closing a lesson is what distributes its revenue to the teacher, the centre and the platform. It's written to the ledger once and cannot be undone."
+      },
+      "cash": {
+        "title": "9. Payments and subscriptions",
+        "body": "The record of every pound that came in — and where you record a cash subscription.",
+        "how": {
+          "1": "Press “Fees” in the menu",
+          "2": "Review the payments and subscriptions",
+          "3": "To record a cash subscription: pick the student, the class and the amount, and confirm"
+        },
+        "note": "Cash is written to exactly the same ledger as online payments, with a numbered receipt."
+      },
+      "reports": {
+        "title": "10. Reports",
+        "body": "Attendance, fill rates and net profit — and you can export them.",
+        "how": {
+          "1": "Press “Reports” in the menu",
+          "2": "Choose the period",
+          "3": "Press export to download a CSV or print"
+        },
+        "note": "The money reports are for the accountant or for you — a manager sees attendance and fill rates only, not revenue."
+      },
+      "expenses": {
+        "title": "11. Expenses",
+        "body": "For “net profit” to actually be net, your expenses have to be recorded.",
+        "how": {
+          "1": "Press “Expenses” in the menu",
+          "2": "Add the expense with its type, amount and date"
+        }
+      },
+      "staff": {
+        "title": "12. Your staff",
+        "body": "Not every staff member sees everything. You choose their tier and they set their own password.",
+        "how": {
+          "1": "Press “Staff” in the menu",
+          "2": "Add a staff member and choose their tier",
+          "3": "Receptionist: the counter, students and messages",
+          "4": "Manager: all that plus rooms and reports",
+          "5": "Accountant: money only — and no messaging"
+        },
+        "note": "They receive an email invite and set their own password — you never type it."
+      },
+      "audit": {
+        "title": "13. The audit log",
+        "body": "Every sensitive action in your centre is recorded: who did it and when.",
+        "how": {
+          "1": "Press “Audit log” in the menu",
+          "2": "Filter by staff member or by action type"
+        },
+        "note": "This log cannot be edited or deleted — not by you and not by anyone. That's what makes it evidence."
+      },
+      "practice": {
+        "title": "And if you'd rather try it first",
+        "body": "There's a full practice copy you can rehearse on without touching your centre.",
+        "how": {
+          "1": "Press “Practice” in the menu",
+          "2": "It walks you through the whole operating loop",
+          "3": "All the data is invented and no money moves"
+        }
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Start with teachers and rooms — without them there are no classes, and without a price there's no money. And “Your first steps” on your dashboard keeps track with you."
+      }
+    }
+  },
+  "staffTour": {
+    "title": "A quick tour of Edura",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "On a phone: press “More” first — it's inside there.",
+    "steps": {
+      "welcomeReception": {
+        "title": "Welcome 👋 you're on the counter",
+        "body": "This screen isn't a menu — it's where you work. From here you see who has arrived and who hasn't, and you take cash and mark attendance without leaving it. The tour is short and you can skip it."
+      },
+      "welcomeManager": {
+        "title": "Welcome 👋 you're the centre manager",
+        "body": "You have all the counter work, plus rooms and reports. This tour covers both, step by step."
+      },
+      "welcomeAccountant": {
+        "title": "Welcome 👋 you're the centre accountant",
+        "body": "Your account is for money only — deliberately. This tour is short because your work is in one place."
+      },
+      "boardTeacher": {
+        "title": "Start by picking the teacher and lesson",
+        "body": "It's the first row on the screen, and you do it once at the start of a shift.",
+        "how": {
+          "1": "Pick the teacher — whoever is teaching right now is already selected",
+          "2": "Pick the lesson from the strip below",
+          "3": "Once picked, the whole row collapses to one line",
+          "4": "Reopen it from “Change”"
+        },
+        "note": "Outside lesson hours nothing is picked for you — choose it yourself."
+      },
+      "boardTabs": {
+        "title": "The two tabs — this is what you work",
+        "body": "“Checked in” and “Not yet”. The number beside each tells you where you are in the queue.",
+        "how": {
+          "1": "“Not yet” = still owed",
+          "2": "“Checked in” = done",
+          "3": "Both together = the lesson's full roster"
+        },
+        "note": "Search covers the whole roster whichever tab is open — so nobody gets lost."
+      },
+      "boardSearch": {
+        "title": "How to find the student",
+        "body": "Every way of searching, on one row.",
+        "how": {
+          "1": "Type the student's code — fastest, and they know it",
+          "2": "Or their name or phone number",
+          "3": "Or press the camera and scan their card",
+          "4": "If they're not on this lesson's roster, press search and it looks across the whole centre"
+        },
+        "note": "The “search all of a student's lessons” button goes to the other screen — it answers a different question: “this student is in front of me, which lesson is theirs?”"
+      },
+      "boardCash": {
+        "title": "Take the cash and check them in — one step",
+        "body": "The most common case: the student is in front of you with the lesson's money.",
+        "how": {
+          "1": "If subscribed: press check in, done",
+          "2": "If not: choose the plan (single lesson or a month)",
+          "3": "Take the cash",
+          "4": "Press collect and check in — both happen at once"
+        },
+        "note": "A numbered receipt is issued and the payment is written to the ledger immediately — with exactly the same entries as an online payment."
+      },
+      "boardWalkIn": {
+        "title": "A new student who isn't in the system",
+        "body": "You register them from this same screen, and they get a link to finish signing up themselves.",
+        "how": {
+          "1": "Press “Register a new student”",
+          "2": "Enter their name and phone number",
+          "3": "Enter the guardian's email if available — otherwise their phone",
+          "4": "They get a student code immediately and you can take payment"
+        },
+        "note": "If that phone is already registered, the system reuses the existing account instead of creating a second one — so duplicates aren't a worry."
+      },
+      "students": {
+        "title": "The centre's student roster",
+        "body": "Every student, with their codes and numbers.",
+        "how": {
+          "1": "Press “Students” in the menu",
+          "2": "Search by name, code or phone",
+          "3": "Open a student to see their subscriptions and payments"
+        }
+      },
+      "importStudents": {
+        "title": "How to upload a whole roster",
+        "body": "If you have a list in Excel, upload it instead of typing it in.",
+        "how": {
+          "1": "From “Students” press import",
+          "2": "Upload an Excel or CSV file",
+          "3": "Run the dry run first — it tells you how many would be added and how many already exist",
+          "4": "If the numbers look right, run it"
+        },
+        "note": "Importing records no money and no subscriptions — names only. Existing students are recognised by phone or national ID."
+      },
+      "rooms": {
+        "title": "Rooms",
+        "body": "Add the room and its capacity; clashes are prevented for you.",
+        "how": {
+          "1": "Press “Rooms” in the menu",
+          "2": "Add the room and its capacity",
+          "3": "Set its pricing method"
+        }
+      },
+      "reports": {
+        "title": "The reports available to you",
+        "body": "Attendance and fill rates — and you can export them.",
+        "how": {
+          "1": "Press “Reports” in the menu",
+          "2": "Choose the period",
+          "3": "Press export to download a CSV or print"
+        },
+        "note": "Revenue reports are not in your tier — those are the accountant's or the owner's. Ask them if you need one."
+      },
+      "messages": {
+        "title": "Messages",
+        "body": "You message students and their parents.",
+        "how": {
+          "1": "Press “Messages” in the menu",
+          "2": "Press new conversation",
+          "3": "Pick the name — the list only shows who you're allowed to reach",
+          "4": "Type and send"
+        }
+      },
+      "finance": {
+        "title": "The money screen",
+        "body": "Every payment, subscription and receipt in one place.",
+        "how": {
+          "1": "Press “Finance” in the menu",
+          "2": "Review the payments and subscriptions",
+          "3": "Open any payment to see its receipt"
+        }
+      },
+      "exports": {
+        "title": "How to export the reports",
+        "body": "These figures come out as a file that opens in Excel.",
+        "how": {
+          "1": "On the reports screen pick the report and the period",
+          "2": "Press export — CSV or print",
+          "3": "The file opens with Arabic rendered correctly in Excel"
+        },
+        "note": "The numbers in the file are exactly the ones on screen — they come from the same source."
+      },
+      "noMessaging": {
+        "title": "Why you have no messaging",
+        "body": "Your tier has no messaging, and that's deliberate rather than an oversight: the accountant sees the money and does not correspond with students or parents.",
+        "how": {
+          "1": "If you need to reach someone, speak to the owner or the manager",
+          "2": "And to leave the team a note, use “Team Notes”"
+        }
+      },
+      "notes": {
+        "title": "Team notes",
+        "body": "A to-do board for the team — not messages: these are things that get done and closed.",
+        "how": {
+          "1": "Press “Team Notes” in the menu",
+          "2": "Write the note",
+          "3": "Anyone on the team can mark it done or declined"
+        },
+        "note": "Simply opening the board records that you read it — so the team knows who has seen what."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "body": "What happened while you weren't on the screen.",
+        "how": {
+          "1": "Press “Notifications” in the menu",
+          "2": "For phone alerts: enable push notifications in Settings"
+        }
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Your work starts on this screen — pick the teacher and the lesson and go."
+      }
+    }
+  }
+}

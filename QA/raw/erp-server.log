@@ -1,0 +1,28 @@
+▲ Next.js 16.3.0
+- Local:         http://localhost:3102
+- Network:       http://192.168.1.7:3102
+✓ Ready in 55ms
+⚠ `experimental.useCache` is deprecated. Please use the top-level `cacheComponents` option instead in next.config.ts.
+✓ Running next.config.ts took 295ms
+[mail] delivery to qa-susp-1787015564@x.io failed: getaddrinfo ENOTFOUND REPLACE
+[welcome-email] send failed for d1d8d1c0-6e96-4439-8b70-de18dc7942b9: email=getaddrinfo ENOTFOUND REPLACE
+prisma:error 
+Invalid `prisma.material.findUnique()` invocation:
+
+
+Invalid input value: invalid input syntax for type uuid: "not-a-uuid"
+prisma:error 
+Invalid `prisma.material.findUnique()` invocation:
+
+
+Invalid input value: invalid input syntax for type uuid: "not-a-uuid"
+prisma:error 
+Invalid `prisma.payment.findMany()` invocation:
+
+
+Invalid input value: invalid input syntax for type uuid: "1; DROP TABLE users--"
+prisma:error 
+Invalid `prisma.payment.findMany()` invocation:
+
+
+Invalid input value: invalid input syntax for type uuid: "1; DROP TABLE users--"

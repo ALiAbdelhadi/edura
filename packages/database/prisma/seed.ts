@@ -111,6 +111,12 @@ async function main() {
       const POINTS_RULES: { eventName: string; pointsValue: number }[] = [
         { eventName: "attendance", pointsValue: 10 },
         { eventName: "online_payment", pointsValue: 20 },
+        // Same value as the online rule ON PURPOSE: this row makes the ledger
+        // say `cash_payment` for cash without changing a single award, so it can
+        // be seeded into a live environment with no behavioural consequence.
+        // Until it exists, RULE_FALLBACK in points.ts borrows the online rule —
+        // so seeding is safe whenever, and skipping it is safe too.
+        { eventName: "cash_payment", pointsValue: 20 },
         { eventName: "first_booking", pointsValue: 50 },
         { eventName: "lesson_booking", pointsValue: 5 },
         { eventName: "teacher_rating", pointsValue: 15 },

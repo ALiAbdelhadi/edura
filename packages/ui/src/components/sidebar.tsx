@@ -153,6 +153,7 @@ function Sidebar({
   variant = "sidebar",
   collapsible = "offcanvas",
   className,
+  style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -170,6 +171,7 @@ function Sidebar({
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
           className,
         )}
+        style={style}
         {...props}
       >
         {children}
@@ -184,10 +186,21 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          // `className` and `style` are forwarded here and NOT only on the
+          // desktop branch below. They used to be dropped, which meant a caller
+          // that styled <Sidebar> got its styling on the rail and silently not
+          // on the phone drawer — one component, two appearances, and the kind
+          // of split a user finds rather than we do. The drawer renders through
+          // a Radix portal, so it inherits nothing from the shell's subtree
+          // either; forwarding is the only way anything reaches it.
+          className={cn(
+            "w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden",
+            className,
+          )}
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+              ...style,
             } as React.CSSProperties
           }
           side={side}
@@ -235,6 +248,7 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className,
         )}
+        style={style}
         {...props}
       >
         <div

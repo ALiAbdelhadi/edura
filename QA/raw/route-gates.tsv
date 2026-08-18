@@ -1,0 +1,526 @@
+erp	/api/auth/[...all]	GET	NONE			apps/erp/src/app/api/auth/[...all]/route.ts
+erp	/api/auth/[...all]	POST	NONE			apps/erp/src/app/api/auth/[...all]/route.ts
+erp	/api/health	GET	NONE			apps/erp/src/app/api/health/route.ts
+erp	/api/v1/%5Fping	GET	NONE			apps/erp/src/app/api/v1/%5Fping/route.ts
+erp	/api/v1/affiliations/[id]	DELETE	delegated			apps/erp/src/app/api/v1/affiliations/[id]/route.ts
+erp	/api/v1/affiliations/[id]/accept	POST	delegated			apps/erp/src/app/api/v1/affiliations/[id]/accept/route.ts
+erp	/api/v1/affiliations/[id]/decline	POST	delegated			apps/erp/src/app/api/v1/affiliations/[id]/decline/route.ts
+erp	/api/v1/attendance/[id]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/attendance/[id]/route.ts
+erp	/api/v1/auth/invite/accept	POST	NONE		RL	apps/erp/src/app/api/v1/auth/invite/accept/route.ts
+erp	/api/v1/auth/login	POST	NONE		RL	apps/erp/src/app/api/v1/auth/login/route.ts
+erp	/api/v1/auth/password/forgot	POST	NONE		RL	apps/erp/src/app/api/v1/auth/password/forgot/route.ts
+erp	/api/v1/auth/password/reset	POST	NONE		RL	apps/erp/src/app/api/v1/auth/password/reset/route.ts
+erp	/api/v1/auth/register/center	POST	NONE		RL	apps/erp/src/app/api/v1/auth/register/center/route.ts
+erp	/api/v1/auth/register/parent	POST	NONE		RL	apps/erp/src/app/api/v1/auth/register/parent/route.ts
+erp	/api/v1/auth/register/student	POST	NONE		RL	apps/erp/src/app/api/v1/auth/register/student/route.ts
+erp	/api/v1/auth/register/teacher	POST	NONE		RL	apps/erp/src/app/api/v1/auth/register/teacher/route.ts
+erp	/api/v1/catalog/subjects	GET	requireSession			apps/erp/src/app/api/v1/catalog/subjects/route.ts
+erp	/api/v1/catalog/tree	GET	requireSession			apps/erp/src/app/api/v1/catalog/tree/route.ts
+erp	/api/v1/center/audit-logs	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/center/audit-logs/route.ts
+erp	/api/v1/center/audit-logs/actors	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/center/audit-logs/actors/route.ts
+erp	/api/v1/center/blacklist	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/center/blacklist/route.ts
+erp	/api/v1/center/blacklist	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/blacklist/route.ts
+erp	/api/v1/center/blacklist/[id]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/center/blacklist/[id]/route.ts
+erp	/api/v1/center/checkin	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/checkin/route.ts
+erp	/api/v1/center/checkin/lookup	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/checkin/lookup/route.ts
+erp	/api/v1/center/checkin/suggest	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/checkin/suggest/route.ts
+erp	/api/v1/center/counter/roster	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/counter/roster/route.ts
+erp	/api/v1/center/counter/sessions	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/counter/sessions/route.ts
+erp	/api/v1/center/counter/teachers	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/counter/teachers/route.ts
+erp	/api/v1/center/external-teachers	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/center/external-teachers/route.ts
+erp	/api/v1/center/external-teachers	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]	GET	requireRole(center_admin)	MANAGER		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/convert	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/convert/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/grades	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/grades/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/grades	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/grades/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/grades/[gradeId]/scores	PUT	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/grades/[gradeId]/scores/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/invite	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/invite/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/restore	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/restore/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/settlements	GET	centerStaff			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/settlements/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/settlements	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/settlements/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/statement	GET	centerStaff			apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/statement/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/students	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/students	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/students/enroll	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/enroll/route.ts
+erp	/api/v1/center/external-teachers/[teacherId]/students/lookup	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/lookup/route.ts
+erp	/api/v1/center/external-teachers/balances	GET	centerStaff			apps/erp/src/app/api/v1/center/external-teachers/balances/route.ts
+erp	/api/v1/center/external-teachers/gaps	GET	centerStaff			apps/erp/src/app/api/v1/center/external-teachers/gaps/route.ts
+erp	/api/v1/center/staff	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/center/staff/route.ts
+erp	/api/v1/center/staff	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/staff/route.ts
+erp	/api/v1/center/staff/[id]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/center/staff/[id]/route.ts
+erp	/api/v1/center/staff/[id]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/center/staff/[id]/route.ts
+erp	/api/v1/center/staff/[id]/invite	POST	requireRole(center_admin)		RL	apps/erp/src/app/api/v1/center/staff/[id]/invite/route.ts
+erp	/api/v1/center/staff/me	GET	requireRole(center_staff)			apps/erp/src/app/api/v1/center/staff/me/route.ts
+erp	/api/v1/center/students/[id]/guardian-contact	GET	centerStaff	RECEPTION	RL	apps/erp/src/app/api/v1/center/students/[id]/guardian-contact/route.ts
+erp	/api/v1/center/students/[id]/guardian-contact	POST	centerStaff	RECEPTION	RL	apps/erp/src/app/api/v1/center/students/[id]/guardian-contact/route.ts
+erp	/api/v1/center/students/import	POST	centerStaff	MANAGER		apps/erp/src/app/api/v1/center/students/import/route.ts
+erp	/api/v1/center/subscriptions	GET	centerStaff			apps/erp/src/app/api/v1/center/subscriptions/route.ts
+erp	/api/v1/center/subscriptions	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/subscriptions/route.ts
+erp	/api/v1/center/temp-students	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/temp-students/route.ts
+erp	/api/v1/center/walk-in	POST	centerStaff	RECEPTION	RL	apps/erp/src/app/api/v1/center/walk-in/route.ts
+erp	/api/v1/center/walk-in/resend	POST	centerStaff	RECEPTION	RL	apps/erp/src/app/api/v1/center/walk-in/resend/route.ts
+erp	/api/v1/center/wallet	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/center/wallet/route.ts
+erp	/api/v1/center/wallet-topup	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/center/wallet-topup/route.ts
+erp	/api/v1/center/wallet/payout-request	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/center/wallet/payout-request/route.ts
+erp	/api/v1/center/wallet/payouts	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/center/wallet/payouts/route.ts
+erp	/api/v1/center/wallet/transactions	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/center/wallet/transactions/route.ts
+erp	/api/v1/centers/[id]	GET	NONE			apps/erp/src/app/api/v1/centers/[id]/route.ts
+erp	/api/v1/centers/[id]/rooms	GET	requireRole(teacher,assistant)			apps/erp/src/app/api/v1/centers/[id]/rooms/route.ts
+erp	/api/v1/centers/me	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/centers/me/route.ts
+erp	/api/v1/centers/me	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/centers/me/route.ts
+erp	/api/v1/centers/me/admins	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/centers/me/admins/route.ts
+erp	/api/v1/centers/me/admins/[userId]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/centers/me/admins/[userId]/route.ts
+erp	/api/v1/centers/me/admins/invite	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/centers/me/admins/invite/route.ts
+erp	/api/v1/centers/me/logo	DELETE	centerStaff	MANAGER		apps/erp/src/app/api/v1/centers/me/logo/route.ts
+erp	/api/v1/centers/me/logo	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/centers/me/logo/route.ts
+erp	/api/v1/centers/me/logo	POST	centerStaff	MANAGER		apps/erp/src/app/api/v1/centers/me/logo/route.ts
+erp	/api/v1/collaboration-requests	GET	delegatedWithCenter	MANAGER		apps/erp/src/app/api/v1/collaboration-requests/route.ts
+erp	/api/v1/collaboration-requests	POST	delegatedWithCenter	MANAGER		apps/erp/src/app/api/v1/collaboration-requests/route.ts
+erp	/api/v1/collaboration-requests/[id]/accept	POST	delegatedWithCenter	MANAGER		apps/erp/src/app/api/v1/collaboration-requests/[id]/accept/route.ts
+erp	/api/v1/collaboration-requests/[id]/cancel	POST	delegatedWithCenter	MANAGER		apps/erp/src/app/api/v1/collaboration-requests/[id]/cancel/route.ts
+erp	/api/v1/collaboration-requests/[id]/reject	POST	delegatedWithCenter	MANAGER		apps/erp/src/app/api/v1/collaboration-requests/[id]/reject/route.ts
+erp	/api/v1/contact	POST	NONE		RL	apps/erp/src/app/api/v1/contact/route.ts
+erp	/api/v1/courses	GET	getSessionUser			apps/erp/src/app/api/v1/courses/route.ts
+erp	/api/v1/courses	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/courses/route.ts
+erp	/api/v1/courses/[id]	GET	NONE			apps/erp/src/app/api/v1/courses/[id]/route.ts
+erp	/api/v1/courses/[id]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/courses/[id]/route.ts
+erp	/api/v1/courses/[id]/cancel	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/courses/[id]/cancel/route.ts
+erp	/api/v1/courses/[id]/reassign-teacher	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/courses/[id]/reassign-teacher/route.ts
+erp	/api/v1/cron/[job]	POST	NONE			apps/erp/src/app/api/v1/cron/[job]/route.ts
+erp	/api/v1/dashboards/admin	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/dashboards/admin/route.ts
+erp	/api/v1/dashboards/admin/checklist	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/dashboards/admin/checklist/route.ts
+erp	/api/v1/dashboards/student	GET	requireRole(student)			apps/erp/src/app/api/v1/dashboards/student/route.ts
+erp	/api/v1/dashboards/teacher	GET	delegated			apps/erp/src/app/api/v1/dashboards/teacher/route.ts
+erp	/api/v1/deletion-requests	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/deletion-requests/route.ts
+erp	/api/v1/deletion-requests/[id]/approve	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/deletion-requests/[id]/approve/route.ts
+erp	/api/v1/deletion-requests/[id]/reject	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/deletion-requests/[id]/reject/route.ts
+erp	/api/v1/door-checkin	GET	requireRole(assistant,teacher)			apps/erp/src/app/api/v1/door-checkin/route.ts
+erp	/api/v1/door-checkin	POST	requireRole(assistant,teacher)			apps/erp/src/app/api/v1/door-checkin/route.ts
+erp	/api/v1/enrollment-requests	GET	requireSession			apps/erp/src/app/api/v1/enrollment-requests/route.ts
+erp	/api/v1/enrollment-requests	POST	requireRole(student)			apps/erp/src/app/api/v1/enrollment-requests/route.ts
+erp	/api/v1/enrollment-requests/[id]	DELETE	requireRole(student)			apps/erp/src/app/api/v1/enrollment-requests/[id]/route.ts
+erp	/api/v1/enrollment-requests/[id]/approve	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/enrollment-requests/[id]/approve/route.ts
+erp	/api/v1/enrollment-requests/[id]/decline	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/enrollment-requests/[id]/decline/route.ts
+erp	/api/v1/enrollments	GET	requireSession			apps/erp/src/app/api/v1/enrollments/route.ts
+erp	/api/v1/enrollments	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/enrollments/route.ts
+erp	/api/v1/enrollments/[id]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/enrollments/[id]/route.ts
+erp	/api/v1/expenses	GET	requireRole(center_admin)	ACCOUNTANT		apps/erp/src/app/api/v1/expenses/route.ts
+erp	/api/v1/expenses	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/expenses/route.ts
+erp	/api/v1/expenses/[id]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/expenses/[id]/route.ts
+erp	/api/v1/expenses/[id]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/expenses/[id]/route.ts
+erp	/api/v1/grades	GET	delegated			apps/erp/src/app/api/v1/grades/route.ts
+erp	/api/v1/grades	POST	delegated			apps/erp/src/app/api/v1/grades/route.ts
+erp	/api/v1/grades/[id]	DELETE	delegated			apps/erp/src/app/api/v1/grades/[id]/route.ts
+erp	/api/v1/grades/[id]	GET	delegated			apps/erp/src/app/api/v1/grades/[id]/route.ts
+erp	/api/v1/grades/[id]	PATCH	delegated			apps/erp/src/app/api/v1/grades/[id]/route.ts
+erp	/api/v1/grades/[id]/scores	PUT	delegated			apps/erp/src/app/api/v1/grades/[id]/scores/route.ts
+erp	/api/v1/guardian/verify	POST	NONE		RL	apps/erp/src/app/api/v1/guardian/verify/route.ts
+erp	/api/v1/internal/chat-notify	POST	NONE			apps/erp/src/app/api/v1/internal/chat-notify/route.ts
+erp	/api/v1/materials	GET	delegated			apps/erp/src/app/api/v1/materials/route.ts
+erp	/api/v1/materials	POST	delegated			apps/erp/src/app/api/v1/materials/route.ts
+erp	/api/v1/materials/[id]	DELETE	delegated			apps/erp/src/app/api/v1/materials/[id]/route.ts
+erp	/api/v1/materials/[id]	PATCH	delegated			apps/erp/src/app/api/v1/materials/[id]/route.ts
+erp	/api/v1/materials/[id]/download	GET	requireSession			apps/erp/src/app/api/v1/materials/[id]/download/route.ts
+erp	/api/v1/me	GET	requireSession			apps/erp/src/app/api/v1/me/route.ts
+erp	/api/v1/me	PATCH	requireSession			apps/erp/src/app/api/v1/me/route.ts
+erp	/api/v1/me/affiliations	GET	delegated			apps/erp/src/app/api/v1/me/affiliations/route.ts
+erp	/api/v1/me/attendance	GET	requireSession			apps/erp/src/app/api/v1/me/attendance/route.ts
+erp	/api/v1/me/children	GET	requireRole(parent)			apps/erp/src/app/api/v1/me/children/route.ts
+erp	/api/v1/me/credentials	POST	requireSession		RL	apps/erp/src/app/api/v1/me/credentials/route.ts
+erp	/api/v1/me/data-rights/deletion	GET	requireSession			apps/erp/src/app/api/v1/me/data-rights/deletion/route.ts
+erp	/api/v1/me/data-rights/deletion	POST	requireSession			apps/erp/src/app/api/v1/me/data-rights/deletion/route.ts
+erp	/api/v1/me/data-rights/deletion/[id]	DELETE	requireSession			apps/erp/src/app/api/v1/me/data-rights/deletion/[id]/route.ts
+erp	/api/v1/me/data-rights/exports	GET	requireSession			apps/erp/src/app/api/v1/me/data-rights/exports/route.ts
+erp	/api/v1/me/data-rights/exports	POST	requireSession			apps/erp/src/app/api/v1/me/data-rights/exports/route.ts
+erp	/api/v1/me/data-rights/exports/[id]	DELETE	requireSession			apps/erp/src/app/api/v1/me/data-rights/exports/[id]/route.ts
+erp	/api/v1/me/data-rights/exports/[id]	GET	requireSession			apps/erp/src/app/api/v1/me/data-rights/exports/[id]/route.ts
+erp	/api/v1/me/delete-request	POST	requireSession			apps/erp/src/app/api/v1/me/delete-request/route.ts
+erp	/api/v1/me/device-tokens	POST	requireSession			apps/erp/src/app/api/v1/me/device-tokens/route.ts
+erp	/api/v1/me/device-tokens/[token]	DELETE	requireSession			apps/erp/src/app/api/v1/me/device-tokens/[token]/route.ts
+erp	/api/v1/me/family-code	GET	requireRole(student)			apps/erp/src/app/api/v1/me/family-code/route.ts
+erp	/api/v1/me/family-code/rotate	POST	requireRole(student)			apps/erp/src/app/api/v1/me/family-code/rotate/route.ts
+erp	/api/v1/me/guardian-contact	GET	requireSession		RL	apps/erp/src/app/api/v1/me/guardian-contact/route.ts
+erp	/api/v1/me/guardian-contact	POST	requireSession		RL	apps/erp/src/app/api/v1/me/guardian-contact/route.ts
+erp	/api/v1/me/guardian-verification	GET	requireRole(student)			apps/erp/src/app/api/v1/me/guardian-verification/route.ts
+erp	/api/v1/me/guardian-verification	POST	requireRole(student)		RL	apps/erp/src/app/api/v1/me/guardian-verification/route.ts
+erp	/api/v1/me/onboarding	GET	requireSession			apps/erp/src/app/api/v1/me/onboarding/route.ts
+erp	/api/v1/me/onboarding	PATCH	requireSession			apps/erp/src/app/api/v1/me/onboarding/route.ts
+erp	/api/v1/me/onboarding	POST	requireSession			apps/erp/src/app/api/v1/me/onboarding/route.ts
+erp	/api/v1/me/onboarding-email	GET	requireSession			apps/erp/src/app/api/v1/me/onboarding-email/route.ts
+erp	/api/v1/me/onboarding-email	POST	requireSession			apps/erp/src/app/api/v1/me/onboarding-email/route.ts
+erp	/api/v1/me/parent-wallet	GET	requireRole(parent)			apps/erp/src/app/api/v1/me/parent-wallet/route.ts
+erp	/api/v1/me/parent-wallet/history	GET	requireRole(parent)			apps/erp/src/app/api/v1/me/parent-wallet/history/route.ts
+erp	/api/v1/me/password	POST	requireSession		RL	apps/erp/src/app/api/v1/me/password/route.ts
+erp	/api/v1/me/points	GET	requireRole(student)			apps/erp/src/app/api/v1/me/points/route.ts
+erp	/api/v1/me/points/history	GET	requireRole(student)			apps/erp/src/app/api/v1/me/points/history/route.ts
+erp	/api/v1/me/prefs	GET	requireSession			apps/erp/src/app/api/v1/me/prefs/route.ts
+erp	/api/v1/me/prefs	PATCH	requireSession			apps/erp/src/app/api/v1/me/prefs/route.ts
+erp	/api/v1/me/profile-checklist	GET	requireSession			apps/erp/src/app/api/v1/me/profile-checklist/route.ts
+erp	/api/v1/me/push-subscription	DELETE	requireSession			apps/erp/src/app/api/v1/me/push-subscription/route.ts
+erp	/api/v1/me/push-subscription	POST	requireSession			apps/erp/src/app/api/v1/me/push-subscription/route.ts
+erp	/api/v1/me/roster/choice	POST	requireRole(student)			apps/erp/src/app/api/v1/me/roster/choice/route.ts
+erp	/api/v1/me/student-card	GET	requireSession			apps/erp/src/app/api/v1/me/student-card/route.ts
+erp	/api/v1/me/subject-requests	POST	requireRole(teacher)			apps/erp/src/app/api/v1/me/subject-requests/route.ts
+erp	/api/v1/me/subjects	GET	requireRole(teacher,assistant)			apps/erp/src/app/api/v1/me/subjects/route.ts
+erp	/api/v1/me/subscriptions	GET	requireRole(student,parent)			apps/erp/src/app/api/v1/me/subscriptions/route.ts
+erp	/api/v1/me/wallet	GET	requireRole(student)			apps/erp/src/app/api/v1/me/wallet/route.ts
+erp	/api/v1/me/wallet/history	GET	requireRole(student)			apps/erp/src/app/api/v1/me/wallet/history/route.ts
+erp	/api/v1/messages	POST	requireSession			apps/erp/src/app/api/v1/messages/route.ts
+erp	/api/v1/messages/blocks	DELETE	requireSession			apps/erp/src/app/api/v1/messages/blocks/route.ts
+erp	/api/v1/messages/blocks	GET	requireSession			apps/erp/src/app/api/v1/messages/blocks/route.ts
+erp	/api/v1/messages/blocks	POST	requireSession			apps/erp/src/app/api/v1/messages/blocks/route.ts
+erp	/api/v1/messages/contacts	GET	requireSession			apps/erp/src/app/api/v1/messages/contacts/route.ts
+erp	/api/v1/messages/conversations	GET	requireSession			apps/erp/src/app/api/v1/messages/conversations/route.ts
+erp	/api/v1/messages/conversations	POST	requireSession			apps/erp/src/app/api/v1/messages/conversations/route.ts
+erp	/api/v1/messages/conversations/[id]	GET	requireSession			apps/erp/src/app/api/v1/messages/conversations/[id]/route.ts
+erp	/api/v1/messages/conversations/[id]/read	POST	requireSession			apps/erp/src/app/api/v1/messages/conversations/[id]/read/route.ts
+erp	/api/v1/messages/groups	GET	requireSession			apps/erp/src/app/api/v1/messages/groups/route.ts
+erp	/api/v1/messages/groups	POST	requireSession			apps/erp/src/app/api/v1/messages/groups/route.ts
+erp	/api/v1/messages/groups/[id]	GET	requireSession			apps/erp/src/app/api/v1/messages/groups/[id]/route.ts
+erp	/api/v1/messages/groups/[id]	POST	requireSession			apps/erp/src/app/api/v1/messages/groups/[id]/route.ts
+erp	/api/v1/messages/groups/[id]/mute	POST	requireSession			apps/erp/src/app/api/v1/messages/groups/[id]/mute/route.ts
+erp	/api/v1/messages/groups/[id]/read	POST	requireSession			apps/erp/src/app/api/v1/messages/groups/[id]/read/route.ts
+erp	/api/v1/messages/reports	POST	requireSession			apps/erp/src/app/api/v1/messages/reports/route.ts
+erp	/api/v1/notifications	GET	requireSession			apps/erp/src/app/api/v1/notifications/route.ts
+erp	/api/v1/notifications/[id]/read	POST	requireSession			apps/erp/src/app/api/v1/notifications/[id]/read/route.ts
+erp	/api/v1/notifications/broadcast	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/notifications/broadcast/route.ts
+erp	/api/v1/notifications/read-all	POST	requireSession			apps/erp/src/app/api/v1/notifications/read-all/route.ts
+erp	/api/v1/parent-links	GET	requireRole(parent,student)			apps/erp/src/app/api/v1/parent-links/route.ts
+erp	/api/v1/parent-links	POST	requireRole(parent,student)			apps/erp/src/app/api/v1/parent-links/route.ts
+erp	/api/v1/parent-links/[id]	DELETE	requireRole(parent,student)			apps/erp/src/app/api/v1/parent-links/[id]/route.ts
+erp	/api/v1/parent-links/[id]/approve	POST	requireRole(parent,student)			apps/erp/src/app/api/v1/parent-links/[id]/approve/route.ts
+erp	/api/v1/parent-links/[id]/reject	POST	requireRole(parent,student)			apps/erp/src/app/api/v1/parent-links/[id]/reject/route.ts
+erp	/api/v1/parent/oversight/children	GET	requireRole(parent)			apps/erp/src/app/api/v1/parent/oversight/children/route.ts
+erp	/api/v1/parent/oversight/children/[studentId]/conversations	GET	requireRole(parent)			apps/erp/src/app/api/v1/parent/oversight/children/[studentId]/conversations/route.ts
+erp	/api/v1/parent/oversight/children/[studentId]/conversations/[id]	GET	requireRole(parent)			apps/erp/src/app/api/v1/parent/oversight/children/[studentId]/conversations/[id]/route.ts
+erp	/api/v1/payments	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/payments/route.ts
+erp	/api/v1/payments	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/payments/route.ts
+erp	/api/v1/payments/[id]	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/payments/[id]/route.ts
+erp	/api/v1/payments/[id]	PATCH	requireRole(center_admin)			apps/erp/src/app/api/v1/payments/[id]/route.ts
+erp	/api/v1/payments/[id]/receipt	GET	requireSession			apps/erp/src/app/api/v1/payments/[id]/receipt/route.ts
+erp	/api/v1/payments/initiate	POST	requireRole(student)		RL	apps/erp/src/app/api/v1/payments/initiate/route.ts
+erp	/api/v1/payments/intents/[id]	GET	requireRole(student,parent)			apps/erp/src/app/api/v1/payments/intents/[id]/route.ts
+erp	/api/v1/payments/intents/[id]/mock-complete	POST	requireRole(student,parent)			apps/erp/src/app/api/v1/payments/intents/[id]/mock-complete/route.ts
+erp	/api/v1/payments/parent-wallet-topup/initiate	POST	requireRole(parent)		RL	apps/erp/src/app/api/v1/payments/parent-wallet-topup/initiate/route.ts
+erp	/api/v1/payments/paymob/webhook	POST	NONE		RL	apps/erp/src/app/api/v1/payments/paymob/webhook/route.ts
+erp	/api/v1/payments/wallet-topup/initiate	POST	requireRole(student)		RL	apps/erp/src/app/api/v1/payments/wallet-topup/initiate/route.ts
+erp	/api/v1/realtime/token	GET	requireSession			apps/erp/src/app/api/v1/realtime/token/route.ts
+erp	/api/v1/reports/attendance-by-course	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/reports/attendance-by-course/route.ts
+erp	/api/v1/reports/course-fill-rates	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/reports/course-fill-rates/route.ts
+erp	/api/v1/reports/enrollment-funnel	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/reports/enrollment-funnel/route.ts
+erp	/api/v1/reports/expenses	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/reports/expenses/route.ts
+erp	/api/v1/reports/expenses-timeseries	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/reports/expenses-timeseries/route.ts
+erp	/api/v1/reports/export	GET	centerStaff			apps/erp/src/app/api/v1/reports/export/route.ts
+erp	/api/v1/reports/net-profit	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/reports/net-profit/route.ts
+erp	/api/v1/reports/revenue	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/reports/revenue/route.ts
+erp	/api/v1/reports/revenue-timeseries	GET	centerStaff	ACCOUNTANT		apps/erp/src/app/api/v1/reports/revenue-timeseries/route.ts
+erp	/api/v1/reviews	GET	requireSession			apps/erp/src/app/api/v1/reviews/route.ts
+erp	/api/v1/reviews	POST	requireRole(student)			apps/erp/src/app/api/v1/reviews/route.ts
+erp	/api/v1/reviews/[id]	PATCH	requireRole(student)			apps/erp/src/app/api/v1/reviews/[id]/route.ts
+erp	/api/v1/reviews/eligible	GET	requireRole(student)			apps/erp/src/app/api/v1/reviews/eligible/route.ts
+erp	/api/v1/rooms	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/rooms/route.ts
+erp	/api/v1/rooms	POST	centerStaff			apps/erp/src/app/api/v1/rooms/route.ts
+erp	/api/v1/rooms/[id]	DELETE	centerStaff			apps/erp/src/app/api/v1/rooms/[id]/route.ts
+erp	/api/v1/rooms/[id]	PATCH	centerStaff			apps/erp/src/app/api/v1/rooms/[id]/route.ts
+erp	/api/v1/rooms/[id]/photos	POST	centerStaff	MANAGER		apps/erp/src/app/api/v1/rooms/[id]/photos/route.ts
+erp	/api/v1/rooms/per-student-availability	GET	centerStaff	MANAGER		apps/erp/src/app/api/v1/rooms/per-student-availability/route.ts
+erp	/api/v1/roster/students	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/roster/students/route.ts
+erp	/api/v1/roster/students	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/roster/students/route.ts
+erp	/api/v1/roster/students/[studentId]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/roster/students/[studentId]/route.ts
+erp	/api/v1/roster/students/[studentId]	GET	centerStaff	RECEPTION		apps/erp/src/app/api/v1/roster/students/[studentId]/route.ts
+erp	/api/v1/roster/students/[studentId]	PATCH	requireRole(center_admin)	MANAGER		apps/erp/src/app/api/v1/roster/students/[studentId]/route.ts
+erp	/api/v1/roster/students/invite	POST	centerStaff	RECEPTION		apps/erp/src/app/api/v1/roster/students/invite/route.ts
+erp	/api/v1/roster/students/lookup	POST	centerStaff	RECEPTION	RL	apps/erp/src/app/api/v1/roster/students/lookup/route.ts
+erp	/api/v1/roster/teachers	GET	requireRole(center_admin)			apps/erp/src/app/api/v1/roster/teachers/route.ts
+erp	/api/v1/roster/teachers/[teacherId]	DELETE	requireRole(center_admin)			apps/erp/src/app/api/v1/roster/teachers/[teacherId]/route.ts
+erp	/api/v1/roster/teachers/invite	POST	requireRole(center_admin)			apps/erp/src/app/api/v1/roster/teachers/invite/route.ts
+erp	/api/v1/roster/teachers/lookup	POST	requireRole(center_admin)		RL	apps/erp/src/app/api/v1/roster/teachers/lookup/route.ts
+erp	/api/v1/search	GET	requireSession			apps/erp/src/app/api/v1/search/route.ts
+erp	/api/v1/search/centers	GET	NONE		RL	apps/erp/src/app/api/v1/search/centers/route.ts
+erp	/api/v1/search/courses	GET	getSessionUser		RL	apps/erp/src/app/api/v1/search/courses/route.ts
+erp	/api/v1/search/teachers	GET	NONE		RL	apps/erp/src/app/api/v1/search/teachers/route.ts
+erp	/api/v1/sessions	GET	requireSession			apps/erp/src/app/api/v1/sessions/route.ts
+erp	/api/v1/sessions/[id]	GET	requireSession			apps/erp/src/app/api/v1/sessions/[id]/route.ts
+erp	/api/v1/sessions/[id]/attendance	GET	requireSession			apps/erp/src/app/api/v1/sessions/[id]/attendance/route.ts
+erp	/api/v1/sessions/[id]/attendance	PUT	delegatedWithCenter			apps/erp/src/app/api/v1/sessions/[id]/attendance/route.ts
+erp	/api/v1/sessions/[id]/cancel	POST	delegatedWithCenter			apps/erp/src/app/api/v1/sessions/[id]/cancel/route.ts
+erp	/api/v1/sessions/[id]/complete	POST	delegatedWithCenter			apps/erp/src/app/api/v1/sessions/[id]/complete/route.ts
+erp	/api/v1/sessions/[id]/postpone	POST	delegatedWithCenter			apps/erp/src/app/api/v1/sessions/[id]/postpone/route.ts
+erp	/api/v1/sessions/[id]/settlement-preview	GET	delegatedWithCenter			apps/erp/src/app/api/v1/sessions/[id]/settlement-preview/route.ts
+erp	/api/v1/subjects	GET	NONE			apps/erp/src/app/api/v1/subjects/route.ts
+erp	/api/v1/subscriptions/[id]/cancel	POST	requireRole(student,parent)			apps/erp/src/app/api/v1/subscriptions/[id]/cancel/route.ts
+erp	/api/v1/subscriptions/checkout	POST	requireRole(student,parent)		RL	apps/erp/src/app/api/v1/subscriptions/checkout/route.ts
+erp	/api/v1/teacher/assistants	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/assistants/route.ts
+erp	/api/v1/teacher/assistants	POST	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/assistants/route.ts
+erp	/api/v1/teacher/assistants/[id]	DELETE	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/assistants/[id]/route.ts
+erp	/api/v1/teacher/assistants/[id]/invite	POST	requireRole(teacher)		RL	apps/erp/src/app/api/v1/teacher/assistants/[id]/invite/route.ts
+erp	/api/v1/teacher/attendance-mode	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/attendance-mode/route.ts
+erp	/api/v1/teacher/attendance-mode	PATCH	delegated			apps/erp/src/app/api/v1/teacher/attendance-mode/route.ts
+erp	/api/v1/teacher/attendance/sync	POST	requireRole(teacher,assistant)			apps/erp/src/app/api/v1/teacher/attendance/sync/route.ts
+erp	/api/v1/teacher/blacklist	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/blacklist/route.ts
+erp	/api/v1/teacher/blacklist	POST	delegated			apps/erp/src/app/api/v1/teacher/blacklist/route.ts
+erp	/api/v1/teacher/blacklist/[id]	DELETE	delegated			apps/erp/src/app/api/v1/teacher/blacklist/[id]/route.ts
+erp	/api/v1/teacher/temp-students	POST	delegated			apps/erp/src/app/api/v1/teacher/temp-students/route.ts
+erp	/api/v1/teacher/wallet	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/wallet/route.ts
+erp	/api/v1/teacher/wallet/payout-request	POST	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/wallet/payout-request/route.ts
+erp	/api/v1/teacher/wallet/payouts	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/wallet/payouts/route.ts
+erp	/api/v1/teacher/wallet/transactions	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teacher/wallet/transactions/route.ts
+erp	/api/v1/teachers/[teacherId]	GET	NONE			apps/erp/src/app/api/v1/teachers/[teacherId]/route.ts
+erp	/api/v1/teachers/me/photo	DELETE	requireRole(teacher)			apps/erp/src/app/api/v1/teachers/me/photo/route.ts
+erp	/api/v1/teachers/me/photo	GET	requireRole(teacher)			apps/erp/src/app/api/v1/teachers/me/photo/route.ts
+erp	/api/v1/teachers/me/photo	POST	requireRole(teacher)			apps/erp/src/app/api/v1/teachers/me/photo/route.ts
+erp	/api/v1/team-notes	GET	delegatedWithCenter	STAFF_ALL		apps/erp/src/app/api/v1/team-notes/route.ts
+erp	/api/v1/team-notes	POST	delegatedWithCenter	STAFF_ALL		apps/erp/src/app/api/v1/team-notes/route.ts
+erp	/api/v1/team-notes/[id]	DELETE	delegatedWithCenter	STAFF_ALL		apps/erp/src/app/api/v1/team-notes/[id]/route.ts
+erp	/api/v1/team-notes/[id]	PATCH	delegatedWithCenter	STAFF_ALL		apps/erp/src/app/api/v1/team-notes/[id]/route.ts
+erp	/api/v1/temp-students	POST	delegatedWithCenter			apps/erp/src/app/api/v1/temp-students/route.ts
+erp	/api/v1/temp-students/[id]/send-invite	POST	delegatedWithCenter			apps/erp/src/app/api/v1/temp-students/[id]/send-invite/route.ts
+erp	/api/v1/temp-students/claim	POST	requireRole(student)			apps/erp/src/app/api/v1/temp-students/claim/route.ts
+superadmin	/api/auth/[...all]	GET	NONE			apps/superadmin/src/app/api/auth/[...all]/route.ts
+superadmin	/api/auth/[...all]	POST	NONE			apps/superadmin/src/app/api/auth/[...all]/route.ts
+superadmin	/api/health	GET	NONE			apps/superadmin/src/app/api/health/route.ts
+superadmin	/api/v1/admin/accountants	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/accountants/route.ts
+superadmin	/api/v1/admin/audit-logs	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/audit-logs/route.ts
+superadmin	/api/v1/admin/audit-logs/actions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/audit-logs/actions/route.ts
+superadmin	/api/v1/admin/blacklist	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/blacklist/route.ts
+superadmin	/api/v1/admin/blacklist/[id]/remove	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/blacklist/[id]/remove/route.ts
+superadmin	/api/v1/admin/catalog/grade-levels	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/grade-levels/route.ts
+superadmin	/api/v1/admin/catalog/grade-levels	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/grade-levels/route.ts
+superadmin	/api/v1/admin/catalog/grade-levels/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/grade-levels/[id]/route.ts
+superadmin	/api/v1/admin/catalog/grade-tracks	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/grade-tracks/route.ts
+superadmin	/api/v1/admin/catalog/grade-tracks/[id]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/grade-tracks/[id]/route.ts
+superadmin	/api/v1/admin/catalog/offerings	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/offerings/route.ts
+superadmin	/api/v1/admin/catalog/offerings	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/offerings/route.ts
+superadmin	/api/v1/admin/catalog/offerings/[id]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/offerings/[id]/route.ts
+superadmin	/api/v1/admin/catalog/offerings/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/offerings/[id]/route.ts
+superadmin	/api/v1/admin/catalog/stages	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/stages/route.ts
+superadmin	/api/v1/admin/catalog/stages	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/stages/route.ts
+superadmin	/api/v1/admin/catalog/stages/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/stages/[id]/route.ts
+superadmin	/api/v1/admin/catalog/subject-requests	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subject-requests/route.ts
+superadmin	/api/v1/admin/catalog/subject-requests/[id]/approve	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subject-requests/[id]/approve/route.ts
+superadmin	/api/v1/admin/catalog/subject-requests/[id]/reject	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subject-requests/[id]/reject/route.ts
+superadmin	/api/v1/admin/catalog/subjects	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subjects/route.ts
+superadmin	/api/v1/admin/catalog/subjects	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subjects/route.ts
+superadmin	/api/v1/admin/catalog/subjects/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/subjects/[id]/route.ts
+superadmin	/api/v1/admin/catalog/systems	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/systems/route.ts
+superadmin	/api/v1/admin/catalog/systems	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/systems/route.ts
+superadmin	/api/v1/admin/catalog/systems/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/systems/[id]/route.ts
+superadmin	/api/v1/admin/catalog/tracks	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/tracks/route.ts
+superadmin	/api/v1/admin/catalog/tracks	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/tracks/route.ts
+superadmin	/api/v1/admin/catalog/tracks/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/catalog/tracks/[id]/route.ts
+superadmin	/api/v1/admin/centers	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/route.ts
+superadmin	/api/v1/admin/centers/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/route.ts
+superadmin	/api/v1/admin/centers/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/route.ts
+superadmin	/api/v1/admin/centers/[id]/admins	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/admins/route.ts
+superadmin	/api/v1/admin/centers/[id]/admins/[userId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/admins/[userId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/admins/invite	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/admins/invite/route.ts
+superadmin	/api/v1/admin/centers/[id]/affiliations	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/affiliations/route.ts
+superadmin	/api/v1/admin/centers/[id]/affiliations/[affiliationId]	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/affiliations/[affiliationId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/approve	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/approve/route.ts
+superadmin	/api/v1/admin/centers/[id]/attendance/[attendanceId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/attendance/[attendanceId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/blacklist	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/blacklist/route.ts
+superadmin	/api/v1/admin/centers/[id]/blacklist	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/blacklist/route.ts
+superadmin	/api/v1/admin/centers/[id]/blacklist/[entryId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/blacklist/[entryId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/broadcast	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/broadcast/route.ts
+superadmin	/api/v1/admin/centers/[id]/checkin	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/checkin/route.ts
+superadmin	/api/v1/admin/centers/[id]/checkin/lookup	GET	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/checkin/lookup/route.ts
+superadmin	/api/v1/admin/centers/[id]/checkin/suggest	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/checkin/suggest/route.ts
+superadmin	/api/v1/admin/centers/[id]/collaboration-requests	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/collaboration-requests/route.ts
+superadmin	/api/v1/admin/centers/[id]/courses	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/courses/route.ts
+superadmin	/api/v1/admin/centers/[id]/courses/[courseId]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/courses/[courseId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/courses/[courseId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/courses/[courseId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/courses/[courseId]/cancel	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/courses/[courseId]/cancel/route.ts
+superadmin	/api/v1/admin/centers/[id]/courses/[courseId]/reassign-teacher	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/courses/[courseId]/reassign-teacher/route.ts
+superadmin	/api/v1/admin/centers/[id]/dashboard	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/dashboard/route.ts
+superadmin	/api/v1/admin/centers/[id]/deletion-requests	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/deletion-requests/route.ts
+superadmin	/api/v1/admin/centers/[id]/deletion-requests/[requestId]/decide	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/deletion-requests/[requestId]/decide/route.ts
+superadmin	/api/v1/admin/centers/[id]/enrollment-requests	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/enrollment-requests/route.ts
+superadmin	/api/v1/admin/centers/[id]/enrollment-requests/[requestId]/decide	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/enrollment-requests/[requestId]/decide/route.ts
+superadmin	/api/v1/admin/centers/[id]/enrollments	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/enrollments/route.ts
+superadmin	/api/v1/admin/centers/[id]/enrollments	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/enrollments/route.ts
+superadmin	/api/v1/admin/centers/[id]/enrollments/[enrollmentId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/enrollments/[enrollmentId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/members/[userId]/status	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/members/[userId]/status/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/expenses	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/expenses/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/expenses	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/expenses/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/expenses/[expenseId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/expenses/[expenseId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/expenses/[expenseId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/expenses/[expenseId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payments	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payments/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payments	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payments/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payments/[paymentId]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payments/[paymentId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payments/[paymentId]/refund	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payments/[paymentId]/refund/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payout-request	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payout-request/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/payout-request	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/payout-request/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/subscriptions	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/subscriptions/route.ts
+superadmin	/api/v1/admin/centers/[id]/money/wallet-topup	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/money/wallet-topup/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/attendance	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/attendance/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/courses	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/courses/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/enrollments	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/enrollments/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/finance	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/finance/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/invoices	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/invoices/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/overview	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/overview/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/payments	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/payments/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/payouts	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/payouts/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/pending	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/pending/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/sessions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/sessions/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/settlements	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/settlements/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/staff	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/staff/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/statement	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/statement/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/students	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/students/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/subscriptions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/subscriptions/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/transactions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/transactions/route.ts
+superadmin	/api/v1/admin/centers/[id]/oversight/wallet	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/oversight/wallet/route.ts
+superadmin	/api/v1/admin/centers/[id]/per-student-rate	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/per-student-rate/route.ts
+superadmin	/api/v1/admin/centers/[id]/per-student-rate	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/per-student-rate/route.ts
+superadmin	/api/v1/admin/centers/[id]/reject	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/reject/route.ts
+superadmin	/api/v1/admin/centers/[id]/reports/[report]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/reports/[report]/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]/per-student-rate	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/per-student-rate/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]/per-student-rate	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/per-student-rate/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]/split	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/split/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]/split	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/split/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/[roomId]/status	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/[roomId]/status/route.ts
+superadmin	/api/v1/admin/centers/[id]/rooms/create	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/rooms/create/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students/[studentId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/[studentId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students/[studentId]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/[studentId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students/[studentId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/[studentId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students/invite	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/invite/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/students/lookup	POST	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/students/lookup/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/teachers	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/teachers/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/teachers/[teacherId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/teachers/[teacherId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/teachers/invite	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/teachers/invite/route.ts
+superadmin	/api/v1/admin/centers/[id]/roster/teachers/lookup	POST	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/roster/teachers/lookup/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/attendance	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/attendance/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/attendance	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/attendance/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/cancel	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/cancel/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/complete	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/complete/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/postpone	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/postpone/route.ts
+superadmin	/api/v1/admin/centers/[id]/sessions/[sessionId]/settlement-preview	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/sessions/[sessionId]/settlement-preview/route.ts
+superadmin	/api/v1/admin/centers/[id]/split	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/split/route.ts
+superadmin	/api/v1/admin/centers/[id]/split	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/split/route.ts
+superadmin	/api/v1/admin/centers/[id]/split	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/split/route.ts
+superadmin	/api/v1/admin/centers/[id]/staff	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/staff/route.ts
+superadmin	/api/v1/admin/centers/[id]/staff	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/staff/route.ts
+superadmin	/api/v1/admin/centers/[id]/staff/[linkId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/staff/[linkId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/staff/[linkId]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/staff/[linkId]/route.ts
+superadmin	/api/v1/admin/centers/[id]/staff/[linkId]/invite	POST	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/staff/[linkId]/invite/route.ts
+superadmin	/api/v1/admin/centers/[id]/status	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/status/route.ts
+superadmin	/api/v1/admin/centers/[id]/students/[studentId]/membership	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/students/[studentId]/membership/route.ts
+superadmin	/api/v1/admin/centers/[id]/temp-students	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/temp-students/route.ts
+superadmin	/api/v1/admin/centers/[id]/temp-students/[tempId]/invite	POST	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/temp-students/[tempId]/invite/route.ts
+superadmin	/api/v1/admin/centers/[id]/toggle	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/toggle/route.ts
+superadmin	/api/v1/admin/centers/[id]/walk-in	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/centers/[id]/walk-in/route.ts
+superadmin	/api/v1/admin/centers/[id]/walk-in/resend	POST	requireRole(super_admin)		RL	apps/superadmin/src/app/api/v1/admin/centers/[id]/walk-in/resend/route.ts
+superadmin	/api/v1/admin/collaboration-requests	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/collaboration-requests/route.ts
+superadmin	/api/v1/admin/collaboration-requests/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/collaboration-requests/[id]/route.ts
+superadmin	/api/v1/admin/collaboration-requests/[id]/decide	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/collaboration-requests/[id]/decide/route.ts
+superadmin	/api/v1/admin/commission-settings	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/commission-settings/route.ts
+superadmin	/api/v1/admin/commission-settings	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/commission-settings/route.ts
+superadmin	/api/v1/admin/contact-submissions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/contact-submissions/route.ts
+superadmin	/api/v1/admin/contact-submissions/[id]/status	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/contact-submissions/[id]/status/route.ts
+superadmin	/api/v1/admin/dashboard/decision-queue	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/dashboard/decision-queue/route.ts
+superadmin	/api/v1/admin/dashboard/kpis	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/dashboard/kpis/route.ts
+superadmin	/api/v1/admin/dashboard/revenue-chart	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/dashboard/revenue-chart/route.ts
+superadmin	/api/v1/admin/dashboard/user-growth-chart	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/dashboard/user-growth-chart/route.ts
+superadmin	/api/v1/admin/deletion-requests	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/deletion-requests/route.ts
+superadmin	/api/v1/admin/deletion-requests/[id]	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/deletion-requests/[id]/route.ts
+superadmin	/api/v1/admin/feature-flags	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/feature-flags/route.ts
+superadmin	/api/v1/admin/feature-flags	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/feature-flags/route.ts
+superadmin	/api/v1/admin/impersonation/stop	POST	getSessionUser			apps/superadmin/src/app/api/v1/admin/impersonation/stop/route.ts
+superadmin	/api/v1/admin/messaging/blocks	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/blocks/route.ts
+superadmin	/api/v1/admin/messaging/conversations	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/conversations/route.ts
+superadmin	/api/v1/admin/messaging/conversations/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/conversations/[id]/route.ts
+superadmin	/api/v1/admin/messaging/messages/[id]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/messages/[id]/route.ts
+superadmin	/api/v1/admin/messaging/reports	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/reports/route.ts
+superadmin	/api/v1/admin/messaging/reports/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/messaging/reports/[id]/route.ts
+superadmin	/api/v1/admin/notifications/history	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/notifications/history/route.ts
+superadmin	/api/v1/admin/payment-intents	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/payment-intents/route.ts
+superadmin	/api/v1/admin/payment-intents/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/payment-intents/[id]/route.ts
+superadmin	/api/v1/admin/platform/students/[studentId]/move	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/platform/students/[studentId]/move/route.ts
+superadmin	/api/v1/admin/platform/students/[studentId]/verify-dob	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/platform/students/[studentId]/verify-dob/route.ts
+superadmin	/api/v1/admin/platform/users/[userId]/force-logout	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/platform/users/[userId]/force-logout/route.ts
+superadmin	/api/v1/admin/points/rules	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/rules/route.ts
+superadmin	/api/v1/admin/points/rules	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/rules/route.ts
+superadmin	/api/v1/admin/points/rules/[id]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/rules/[id]/route.ts
+superadmin	/api/v1/admin/points/rules/[id]	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/rules/[id]/route.ts
+superadmin	/api/v1/admin/points/students/[id]/adjust	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/students/[id]/adjust/route.ts
+superadmin	/api/v1/admin/points/students/[id]/ledger	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/points/students/[id]/ledger/route.ts
+superadmin	/api/v1/admin/registrations	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/registrations/route.ts
+superadmin	/api/v1/admin/revenue-split	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/revenue-split/route.ts
+superadmin	/api/v1/admin/revenue-split	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/revenue-split/route.ts
+superadmin	/api/v1/admin/revenue-split/per-student-rate	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/revenue-split/per-student-rate/route.ts
+superadmin	/api/v1/admin/revenue-split/per-student-rate	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/revenue-split/per-student-rate/route.ts
+superadmin	/api/v1/admin/session-settlements	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/session-settlements/route.ts
+superadmin	/api/v1/admin/session-settlements/export	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/admin/session-settlements/export/route.ts
+superadmin	/api/v1/admin/students	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/students/route.ts
+superadmin	/api/v1/admin/students/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/students/[id]/route.ts
+superadmin	/api/v1/admin/students/[id]/blacklist	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/students/[id]/blacklist/route.ts
+superadmin	/api/v1/admin/students/[id]/link-parent	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/students/[id]/link-parent/route.ts
+superadmin	/api/v1/admin/students/[id]/unlink-parent	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/students/[id]/unlink-parent/route.ts
+superadmin	/api/v1/admin/subscriptions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/subscriptions/route.ts
+superadmin	/api/v1/admin/subscriptions/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/subscriptions/[id]/route.ts
+superadmin	/api/v1/admin/teachers	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/route.ts
+superadmin	/api/v1/admin/teachers/[id]/approve	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/approve/route.ts
+superadmin	/api/v1/admin/teachers/[id]/attendance-mode	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/attendance-mode/route.ts
+superadmin	/api/v1/admin/teachers/[id]/blacklist	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/blacklist/route.ts
+superadmin	/api/v1/admin/teachers/[id]/link-center	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/link-center/route.ts
+superadmin	/api/v1/admin/teachers/[id]/reject	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/reject/route.ts
+superadmin	/api/v1/admin/teachers/[id]/unlink-center	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/teachers/[id]/unlink-center/route.ts
+superadmin	/api/v1/admin/users	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/route.ts
+superadmin	/api/v1/admin/users/[id]	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/route.ts
+superadmin	/api/v1/admin/users/[id]/blacklist	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/blacklist/route.ts
+superadmin	/api/v1/admin/users/[id]/card	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/card/route.ts
+superadmin	/api/v1/admin/users/[id]/card	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/card/route.ts
+superadmin	/api/v1/admin/users/[id]/impersonate	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/impersonate/route.ts
+superadmin	/api/v1/admin/users/[id]/password-reset	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/password-reset/route.ts
+superadmin	/api/v1/admin/users/[id]/permissions	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/permissions/route.ts
+superadmin	/api/v1/admin/users/[id]/permissions	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/permissions/route.ts
+superadmin	/api/v1/admin/users/[id]/reset-2fa	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/reset-2fa/route.ts
+superadmin	/api/v1/admin/users/[id]/revoke-sessions	POST	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/revoke-sessions/route.ts
+superadmin	/api/v1/admin/users/[id]/sessions/[sessionId]	DELETE	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/sessions/[sessionId]/route.ts
+superadmin	/api/v1/admin/users/[id]/status	PATCH	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/users/[id]/status/route.ts
+superadmin	/api/v1/admin/wallet-settings	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/wallet-settings/route.ts
+superadmin	/api/v1/admin/wallet-settings	PUT	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/wallet-settings/route.ts
+superadmin	/api/v1/admin/whatsapp-messages	GET	requireRole(super_admin)			apps/superadmin/src/app/api/v1/admin/whatsapp-messages/route.ts
+superadmin	/api/v1/finance/alerts	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/alerts/route.ts
+superadmin	/api/v1/finance/commission-settings	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/commission-settings/route.ts
+superadmin	/api/v1/finance/dashboard	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/dashboard/route.ts
+superadmin	/api/v1/finance/dashboard/revenue-chart	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/dashboard/revenue-chart/route.ts
+superadmin	/api/v1/finance/invoices	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/invoices/route.ts
+superadmin	/api/v1/finance/invoices	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/invoices/route.ts
+superadmin	/api/v1/finance/invoices/[id]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/invoices/[id]/route.ts
+superadmin	/api/v1/finance/invoices/[id]/pdf	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/invoices/[id]/pdf/route.ts
+superadmin	/api/v1/finance/invoices/[id]/send-email	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/invoices/[id]/send-email/route.ts
+superadmin	/api/v1/finance/payment-intents	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payment-intents/route.ts
+superadmin	/api/v1/finance/payment-intents/[id]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payment-intents/[id]/route.ts
+superadmin	/api/v1/finance/payouts	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/route.ts
+superadmin	/api/v1/finance/payouts	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/route.ts
+superadmin	/api/v1/finance/payouts/[id]/approve	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/[id]/approve/route.ts
+superadmin	/api/v1/finance/payouts/[id]/receipt	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/[id]/receipt/route.ts
+superadmin	/api/v1/finance/payouts/[id]/reject	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/[id]/reject/route.ts
+superadmin	/api/v1/finance/payouts/bulk-approve	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/bulk-approve/route.ts
+superadmin	/api/v1/finance/payouts/counts	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/payouts/counts/route.ts
+superadmin	/api/v1/finance/refunds	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/refunds/route.ts
+superadmin	/api/v1/finance/refunds	POST	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/refunds/route.ts
+superadmin	/api/v1/finance/reports/center-statement/[centerId]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/reports/center-statement/[centerId]/route.ts
+superadmin	/api/v1/finance/reports/refunds	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/reports/refunds/route.ts
+superadmin	/api/v1/finance/reports/revenue	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/reports/revenue/route.ts
+superadmin	/api/v1/finance/reports/teacher-statement/[teacherId]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/reports/teacher-statement/[teacherId]/route.ts
+superadmin	/api/v1/finance/reports/trial-balance	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/reports/trial-balance/route.ts
+superadmin	/api/v1/finance/subscriptions	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/subscriptions/route.ts
+superadmin	/api/v1/finance/subscriptions/[id]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/subscriptions/[id]/route.ts
+superadmin	/api/v1/finance/transactions	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/transactions/route.ts
+superadmin	/api/v1/finance/transactions/[id]	GET	requireRole(accountant,super_admin)			apps/superadmin/src/app/api/v1/finance/transactions/[id]/route.ts
+superadmin	/api/v1/me	GET	requireSession			apps/superadmin/src/app/api/v1/me/route.ts
+superadmin	/api/v1/me	PATCH	requireSession			apps/superadmin/src/app/api/v1/me/route.ts
+superadmin	/api/v1/me/prefs	GET	requireSession			apps/superadmin/src/app/api/v1/me/prefs/route.ts
+superadmin	/api/v1/me/prefs	PATCH	requireSession			apps/superadmin/src/app/api/v1/me/prefs/route.ts
+superadmin	/api/v1/notifications	GET	requireSession			apps/superadmin/src/app/api/v1/notifications/route.ts
+superadmin	/api/v1/notifications/[id]/read	POST	requireSession			apps/superadmin/src/app/api/v1/notifications/[id]/read/route.ts
+superadmin	/api/v1/notifications/read-all	POST	requireSession			apps/superadmin/src/app/api/v1/notifications/read-all/route.ts
+superadmin	/api/v1/search	GET	requireRole(super_admin,accountant)			apps/superadmin/src/app/api/v1/search/route.ts
+www	/api/contact	POST	NONE			apps/www/src/app/api/contact/route.ts

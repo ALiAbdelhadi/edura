@@ -3,10 +3,31 @@ import { platformDb, type TenantTx } from "../../db/scope";
 export type PointsEvent =
   | "attendance"
   | "online_payment"
+  | "cash_payment"
   | "first_booking"
   | "lesson_booking"
   | "teacher_rating"
   | "streak_bonus";
+
+/**
+ * A rule an event may BORROW its value from when its own row is not seeded yet.
+ *
+ * `cash_payment` exists because cash taken at the counter was being written to
+ * the points ledger as `online_payment` — the reason text said "(cash)" while
+ * the event said the opposite, in an append-only ledger nobody can correct
+ * later. Naming it truthfully is a code change; the RULE ROW is data, and it
+ * only reaches dev / test / production when someone runs the seed. Without a
+ * fallback the honest name would silently stop awarding points on every already
+ * -seeded environment the moment this deploys — a real regression traded for a
+ * label. Borrowing keeps the awarded value byte-identical to today's until a
+ * `cash_payment` rule is seeded, at which point cash can be priced on its own.
+ *
+ * `ruleId` on the ledger row then points at the rule that actually PRICED the
+ * award, which is the honest record of how the number was arrived at.
+ */
+const RULE_FALLBACK: Partial<Record<PointsEvent, PointsEvent>> = {
+  cash_payment: "online_payment",
+};
 
 export async function awardPoints(
   tx: TenantTx,
@@ -14,9 +35,12 @@ export async function awardPoints(
   eventName: PointsEvent,
   opts?: { reason?: string; ruleOverride?: number },
 ): Promise<{ delta: number; balanceAfter: number } | null> {
-  const rule = await tx.pointsRule.findFirst({
-    where: { eventName, isActive: true },
-  });
+  const fallbackName = RULE_FALLBACK[eventName];
+  const rule =
+    (await tx.pointsRule.findFirst({ where: { eventName, isActive: true } })) ??
+    (fallbackName
+      ? await tx.pointsRule.findFirst({ where: { eventName: fallbackName, isActive: true } })
+      : null);
   if (!rule) return null;
 
   const profile = await tx.studentProfile.findUnique({

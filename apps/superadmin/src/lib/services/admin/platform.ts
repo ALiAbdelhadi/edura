@@ -418,10 +418,34 @@ export async function linkParent(studentUserId: string, parentUserId: string, ad
   }, { actorId: adminId });
 }
 
-export async function unlinkParent(linkId: string, adminId: string) {
+/**
+ * Revoke a parent-student link.
+ *
+ * `studentId` is the student named in the REQUEST PATH and is load-bearing, not
+ * decoration: the link used to be selected by `linkId` alone, so
+ * `DELETE /admin/students/<A>/unlink-parent?linkId=<B's link>` happily revoked
+ * B's link and then wrote an audit row for an action whose URL named A. That is
+ * not a privilege hole — a super_admin may unlink anything — but it makes the
+ * audit trail unable to reconstruct what was intended, and a parent link is
+ * exactly what the messaging guardian gate consults for a minor.
+ *
+ * A mismatch is reported as NOT FOUND rather than forbidden: from the caller's
+ * position that link does not exist under that student, and saying so avoids
+ * confirming the existence of a link belonging to someone else.
+ *
+ * NOTE: `revokedBy` is the `link_actor` enum, whose only values are `parent`
+ * and `student` — it cannot express "revoked by an admin", so an admin
+ * revocation is still recorded as `parent`. Widening that enum is a migration
+ * and needs its own approved plan; the `audit_logs` row written below is the
+ * accurate record of who acted.
+ */
+export async function unlinkParent(linkId: string, studentId: string, adminId: string) {
   return platformDb(async (tx) => {
     const link = await tx.parentStudentLink.findUnique({ where: { id: linkId } });
     if (!link || link.status !== "approved") throw new NotFoundError("Active parent link not found");
+    if (link.studentId !== studentId) {
+      throw new NotFoundError("Active parent link not found");
+    }
     const row = await tx.parentStudentLink.update({
       where: { id: linkId },
       data: { status: "revoked", revokedBy: "parent" },

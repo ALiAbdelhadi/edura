@@ -163,30 +163,73 @@ export async function generateSignedUrl(publicId: string, expiresInSeconds = 360
 }
 
 /**
+ * What a destroy actually did. Cloudinary answers a destroy with HTTP 200 even
+ * when it deleted NOTHING (`{"result":"not found"}`), so the status code alone
+ * is not evidence — the body has to be read.
+ */
+export type DeleteOutcome = "deleted" | "not_found" | "failed";
+
+/**
  * Delete an asset. `resourceType` MUST match the type it was uploaded under —
  * destroying an image with resource_type "raw" silently no-ops (Cloudinary
  * returns `not found`), which is how orphan images accumulate. Defaults to
  * "raw" to preserve the original materials caller's behaviour.
+ *
+ * NEVER THROWS, deliberately: every caller runs this after a committed write,
+ * where a stranded asset is a cost worth paying and a failed user request is
+ * not. What changed is that the failure is no longer INVISIBLE — this used to
+ * fire and forget, so a rotated key, a quota wall or a plain typo'd
+ * resource_type produced exactly the same silence as a successful delete, and
+ * the account would fill up with nothing anywhere to notice it. The outcome is
+ * returned for callers that can act on it, and logged for the ones that
+ * cannot.
  */
 export async function deleteResource(
   publicId: string,
   resourceType: CloudinaryResourceType = "raw",
-): Promise<void> {
-  const { cloud_name, api_key, api_secret } = getConfig();
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = signParams({ invalidate: "true", public_id: publicId, timestamp }, api_secret);
+): Promise<DeleteOutcome> {
+  try {
+    const { cloud_name, api_key, api_secret } = getConfig();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = signParams({ invalidate: "true", public_id: publicId, timestamp }, api_secret);
 
-  const form = new FormData();
-  form.append("public_id", publicId);
-  form.append("invalidate", "true");
-  form.append("api_key", api_key);
-  form.append("timestamp", String(timestamp));
-  form.append("signature", signature);
+    const form = new FormData();
+    form.append("public_id", publicId);
+    form.append("invalidate", "true");
+    form.append("api_key", api_key);
+    form.append("timestamp", String(timestamp));
+    form.append("signature", signature);
 
-  await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/destroy`, {
-    method: "POST",
-    body: form,
-  });
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/destroy`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      console.warn(
+        `[cloudinary] destroy ${resourceType}/${publicId} failed: HTTP ${res.status} ${await res
+          .text()
+          .catch(() => "")}`.trim(),
+      );
+      return "failed";
+    }
+    const body = (await res.json().catch(() => null)) as { result?: string } | null;
+    if (body?.result === "ok") return "deleted";
+    if (body?.result === "not found") {
+      // Legitimate whenever the asset was already gone (a repeated cleanup, an
+      // externally deleted asset). Logged at a lower key than a failure because
+      // it is also the signature of a WRONG resource_type — the trap this
+      // function's own docblock warns about.
+      console.warn(`[cloudinary] destroy ${resourceType}/${publicId}: not found (nothing deleted)`);
+      return "not_found";
+    }
+    console.warn(
+      `[cloudinary] destroy ${resourceType}/${publicId}: unexpected result ${JSON.stringify(body)}`,
+    );
+    return "failed";
+  } catch (err) {
+    console.warn(`[cloudinary] destroy ${resourceType}/${publicId} threw: ${String(err)}`);
+    return "failed";
+  }
 }
 
 /**

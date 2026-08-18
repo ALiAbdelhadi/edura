@@ -77,3 +77,6 @@ apps/showcase/.flows-raw/
 # clone, while the ~25 MB of source PNGs can always be regenerated.
 apps/showcase/public/shots/**/*.png
 apps/showcase/.auth/
+
+# QA audit local env (contains only throwaway local creds)
+QA/.env.qa

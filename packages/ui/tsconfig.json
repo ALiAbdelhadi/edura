@@ -7,7 +7,6 @@
     "noEmit": true,
     "noUncheckedIndexedAccess": false,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@repo/ui/*": ["./src/*"]
     }

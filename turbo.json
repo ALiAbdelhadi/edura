@@ -1,5 +1,5 @@
 {
-  "$schema": "https://v2-10-8.turborepo.dev/schema.json",
+  "$schema": "https://v2-10-10.turborepo.dev/schema.json",
   "ui": "tui",
   "tasks": {
     "build": {
@@ -28,6 +28,10 @@
         "SUPERADMIN_NEXTAUTH_SECRET",
         "APP_BASE_URL",
         "APP_ORIGIN",
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        "NEXT_PUBLIC_SITE_URL",
+        "NEXT_PUBLIC_APP_ORIGIN",
+        "MARKETING_SITE_URL",
         "APP_INTERNAL_URL",
         "REALTIME_INTERNAL_URL",
         "REALTIME_JWT_SECRET",

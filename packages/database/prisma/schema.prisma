@@ -313,6 +313,11 @@ enum InvitePurpose {
   // token. NOTE: the older `teacher_activation` value above is NOT this — it is
   // minted by roster.inviteTeacher and has never had a consumer.
   teacher_invite
+  // Child safety: proves the guardian address actually reaches someone.
+  // NOT claimable — a token of this purpose mints no session, it only flips
+  // guardian_email_verified_at. See CLAIMABLE in invite-token.ts.
+  guardian_email_verification
+
 
   @@map("invite_purpose")
 }
@@ -585,11 +590,32 @@ model StudentProfile {
   guardianPhone           String?    @map("guardian_phone")
   guardianEmailAddedAt    DateTime?  @map("guardian_email_added_at") @db.Timestamptz(6)
   guardianEmailAddedBy    String?    @map("guardian_email_added_by") @db.Uuid
+  // Verification: the stamp AND the exact address it was earned by. A reader
+  // must compare `guardianEmailVerifiedValue` against `guardianEmail` — an
+  // edited address is unverified again, however recent the stamp.
+  guardianEmailVerifiedAt    DateTime? @map("guardian_email_verified_at") @db.Timestamptz(6)
+  guardianEmailVerifiedValue String?   @map("guardian_email_verified_value")
   // Deadline for supplying the email. Purely an ESCALATION marker: passing it
   // never suspends the account (the student paid) and never unlocks messaging.
   // Before it, reminders are periodic; after it, the banner turns persistent
   // and the owning center is notified.
   guardianContactDueAt    DateTime?  @map("guardian_contact_due_at") @db.Timestamptz(6)
+  // ---- The ID card's QR credential (20260809140000).
+  // The QR is a SIGNED URL, not a picture of the code: the signature is derived
+  // as HMAC(STUDENT_QR_SECRET, code|version) and is never stored, so nothing
+  // here is secret material and a card can be re-rendered from this row alone.
+  // What must persist is which ISSUE is currently valid — raising `qrVersion`
+  // invalidates every card ever printed at the old version, at once, which is
+  // the whole answer to "the student lost their card".
+  // See packages/server-core/src/services/students/student-qr.ts.
+  qrVersion               Int        @default(1) @map("qr_version")
+  // NULL for every student who predates this column: we know when a card was
+  // REISSUED, and a first-issue date we never recorded would be invented.
+  qrIssuedAt              DateTime?  @map("qr_issued_at") @db.Timestamptz(6)
+  // Revoked = no card is valid until one is reissued. The reason is shown to
+  // whoever is holding the refused card, so a DB CHECK keeps the pair together.
+  qrRevokedAt             DateTime?  @map("qr_revoked_at") @db.Timestamptz(6)
+  qrRevokedReason         String?    @map("qr_revoked_reason")
   pointsBalance           Int        @default(0) @map("points_balance")
   // Student money wallet (piasters). Cached balance — the append-only
   // WalletLedger is the source of truth; reconciles as SUM(delta) == this ==
@@ -1182,6 +1208,22 @@ enum RoomPricingMethod {
   @@map("room_pricing_method")
 }
 
+/// What one lesson is worth, per course.
+///   course_price  — price / planned sessions (the pre-existing behaviour).
+///   session_price — pricePerSession, the value of one lesson by definition.
+///   subscription  — each PRESENT student settles at what their own coverage
+///                   paid for this lesson: a single-session pass at its price,
+///                   a monthly plan at its price over the lessons its period
+///                   actually contains. The only basis that can never
+///                   distribute money the platform did not collect.
+enum SettlementBasis {
+  course_price
+  session_price
+  subscription
+
+  @@map("settlement_basis")
+}
+
 model Room {
   id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId              String              @map("center_id") @db.Uuid
@@ -1253,6 +1295,13 @@ model Course {
   pricingMethod   RoomPricingMethod? @map("pricing_method")
   m2CenterFee     Int?               @map("m2_center_fee")
   m2CenterBp      Int?               @map("m2_center_bp")
+  // WHAT ONE LESSON IS WORTH — the choice made explicit instead of inferred.
+  // A course can carry `price` (legacy full-course, amortised over the planned
+  // schedule) AND `pricePerSession` (the drop-in pass); both are real and they
+  // routinely differ. `course_price` is the DEFAULT because it is exactly what
+  // the engine did before this column existed, so no live course re-rates.
+  // See resolveLessonPrice in @repo/server-core/services/finance/fees.
+  settlementBasis SettlementBasis    @default(course_price) @map("settlement_basis")
   location        String? // teacher-direct free-text venue ("own hall", "Online", ...)
   maxStudents     Int                @map("max_students")
   status          CourseStatus       @default(active)
@@ -1808,9 +1857,21 @@ model Review {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@unique([studentId, teacherId])
+  // UNIQUENESS LIVES IN TWO PARTIAL INDEXES, NOT HERE — Prisma cannot express
+  // a `WHERE` on a unique index, so they are created in the migration
+  // 20260818120000_review_per_lesson_unique and are invisible to this model:
+  //   reviews_one_overall_per_teacher  UNIQUE (student_id, teacher_id) WHERE lesson_id IS NULL
+  //   reviews_one_per_lesson           UNIQUE (student_id, lesson_id)  WHERE lesson_id IS NOT NULL
+  // The plain @@unique([studentId, teacherId]) that used to stand here made
+  // `lessonId` — documented on the column as "for per-lesson ratings" —
+  // impossible to use: the second lesson a student rated collided with the
+  // first. A three-column unique was rejected because NULLs are distinct in
+  // Postgres, which would have allowed unlimited overall reviews.
+  // Same pattern as commission_one_per_center and the one-refund-per-payment
+  // guard. Application-level duplicate checks live in services/reviews.
   @@index([teacherId])
   @@index([centerId])
+  @@index([lessonId])
   @@map("reviews")
 }
 

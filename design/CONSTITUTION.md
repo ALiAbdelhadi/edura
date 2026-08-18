@@ -3,8 +3,25 @@
 **Read this before writing a line of UI.** It is the first document every portal session
 opens. It assumes no prior conversation.
 
-Companions: [DECISIONS.md](./DECISIONS.md) (settled questions — do not re-litigate) and
-[REQUESTS.md](./REQUESTS.md) (how to ask for something you do not own).
+> **STATUS (2026-08-11): this document is FUNCTIONAL, not visual.**
+> The Ledger *visual* system it was written alongside is retired. Its palette, type
+> pairing, surface treatment and ornament no longer describe this product — the marketing
+> site is being redesigned from scratch, and the portals will follow. What survives, and
+> what this file is kept for, is the set of **behavioural invariants** governing how money
+> is shown and committed: the quoted figure equalling the ledger's (§1), the two-step
+> commit with an amount-carrying confirm button (§2), per-record commit state, every
+> intermediate figure naming its actor, and excluded capabilities being absent rather than
+> disabled. Those hold under any skin, and five files in the money path cite them.
+>
+> Read every colour, font and pixel value below as **historical**. Read every rule about
+> what the interface must *tell the reader* as **in force**.
+>
+> The companion documents (`DECISIONS.md`, `REQUESTS.md`, `HANDOFF.md` and the three
+> `DECISIONS-proposed-*.md`) were deleted on 2026-08-11 along with the visual system;
+> they recorded the coordination protocol for a five-session parallel build that has since
+> finished. Links to them below are dead and are left in place rather than rewritten,
+> because editing them away would misrepresent what this document said at the time.
+> They are recoverable from git history if a decision ever needs to be looked up.
 
 ---
 

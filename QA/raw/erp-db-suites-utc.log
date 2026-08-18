@@ -1,0 +1,138 @@
+
+run-db-suites — 40 suite(s) in erp/tests/db against a 'test' database
+
+  PASS  bulk-import-students.test.ts               43 passed, 0 failed        0.5s
+  FAIL  c01-lesson-settlement.test.ts              34 passed, 2 failed        1.5s
+        │ P5 — a CORRECTLY-CONFIGURED no-room course is byte-identical to the old math
+        │    price/session=11429 centerShare=1000 -> old teacherNet=10229, old centerNet=800
+        │   ✓ a properly configured no-room course completes -> 200
+        │   ✓ the old formula was already non-negative here, so no clamp should bite
+        │   ✓ teacher wallet delta is IDENTICAL to the pre-fix formula (10229 == 10229)
+        │   ✓ center wallet delta is IDENTICAL to the pre-fix formula (800 == 800)
+        │   ✓ no clamp note was written — the ledger text is unchanged for configured courses
+        │ 
+        │ P6 — the room-based (Method 1) branch is untouched
+        │    split snapshot {"p":2000,"t":6000,"c":2000} price/session=2857
+        │   ✓ the room-based course completes -> 200
+        │   ✓ teacher wallet delta follows the frozen split (1715 == 1715)
+        │   ✓ center wallet delta follows the frozen split (571 == 571)
+        │   ✓ CONSERVATION on the room path (1715+571+571 == 2857)
+        │ 
+        │ P4b — the H2 floor is STILL intact after all of the above
+        │   ✓ no wallet anywhere is negative (centers 0, teachers 0, students 0)
+        │   ✗ all 3 CHECKs remain present and validated (2/3) — the fix did NOT weaken H2
+        │ 
+        │ CLEANUP
+        │ AFTER: {"t":8,"p":0,"w":10,"s":0,"ss":0,"pi":1}
+        │   ✓ every MONEY table is back to baseline ({"t":8,"p":0,"w":10,"s":0,"ss":0,"pi":1} -> {"t":8,"p":0,"w":10,"s":0,"ss":0,"pi":1})
+        │   ✓ this test left NOTHING of its own behind ({"u":0,"c":0,"co":0,"t":0,"w":0})
+        │ 
+        │ FAIL — 34 passed, 2 failed
+  PASS  c03-status-revocation.test.ts              30 passed, 0 failed        3.2s
+  FAIL  c04-login-parity.test.ts                   74 passed, 2 failed        20.4s
+        │   ✓ H5: an ineligible role is generic — the typed unknown-email answer never leaks app membership
+        │   ✓ C2: the REST door 429s a per-IP burst at request #11 (withRateLimit intact)
+        │   ✓ C2: a throttled IP is refused even with the RIGHT password, and gets no cookie
+        │   ✓ C2: an unrelated IP is unaffected (the bucket is per-IP, not global)
+        │   ✓ C2: the per-email bucket keeps refusing after the burst (typed RATE_LIMITED)
+        │   ✓ C2: an unrelated account is unaffected (the bucket is per-email, not global)
+        │   ✓ L1: baseline login succeeds
+        │   ✓ L1: baseline session accepted
+        │   ✓ L1: a bumped token_version rejects the pre-existing session on the NEXT request
+        │   ✓ L1: the session rows are DELETED by the trigger (hard revocation)
+        │   ✓ L1: the REST door re-admits the user after the bump
+        │   ✓ L1: the re-issued REST session is accepted again (parity on revocation too)
+        │   ✓ C-03: baseline — the staff session is live
+        │   ✓ C-03: suspending the staff member kills the live session on the next request
+        │   ✓ C-03: the suspended staff member cannot log back in via REST (generic 401)
+        │   ✓ C-03: nor via the browser door (status gate on BOTH doors)
+        │   ✗ C-03 (typed): the CORRECT password on the suspended account earns ACCOUNT_INACTIVE — ownership proven, never revealed to a guesser
+        │   ✗ C-03 (typed): a WRONG password on the suspended account stays generic
+        │   ✓ guard intact: a passwordless shell account is refused by both password doors
+        │   ✓ walk-in: a valid token still claims the shell student
+        │   ✓ walk-in: the claim mints a REAL DB session accepted by the same per-request gate
+        │   ✓ walk-in: the token is single-use (second claim refused)
+        │   ✓ walk-in: a token pointed at a credentialed center_staff account is refused (role + password gates hold)
+        │ 
+        │ 74 passed, 2 failed
+  FAIL  catalog-onboarding.test.ts                 no count line (exit 1)     0.3s
+        │ 
+        │ 1) Catalog shape (بكالوريا track rules)
+        │ Error: `cacheTag()` is only available with the `cacheComponents` config.
+        │     at cacheTag (/Users/ali/edura/node_modules/.bun/next@16.3.0+b7a8ccea77567de4/node_modules/next/src/server/use-cache/cache-tag.ts:6:11)
+        │     at getCatalogTree (/Users/ali/edura/apps/erp/src/lib/services/catalog/catalog-read.ts:10:3)
+        │     at main (/Users/ali/edura/apps/erp/tests/db/catalog-onboarding.test.ts:132:24)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  PASS  center-directory-search.test.ts            7 passed, 0 failed         0.3s
+  PASS  center-share-governance.test.ts            6 passed, 0 failed         0.4s
+  PASS  center-staff-delegation.test.ts            55 passed, 0 failed        0.9s
+  PASS  counter-board.test.ts                      39 passed, 0 failed        0.3s
+  PASS  data-rights.test.ts                        55 passed, 0 failed        0.4s
+  PASS  external-teachers.test.ts                  104 passed, 0 failed       1.0s
+  PASS  global-search.test.ts                      33 passed, 0 failed        0.9s
+  PASS  guardian-verification.test.ts              51 passed, 0 failed        1.0s
+  FAIL  h03-seed-uuid-flows.test.ts                47 passed, 1 failed        1.4s
+        │   ✓ no "Invalid UUID" 400 on the seeded recipientId — got 201
+        │   ✓ student -> own teacher conversation opened: 201 
+        │   ✓ conversation id is a valid uuid: 6f90c3c0-c014-515b-b56b-84e7c28782cb
+        │   ✓ report against a SEEDED conversation id validates — got 201
+        │   ✓ report filed on the seeded thread: 201 {"data":{"id":"9840b9d7-f632-4a02-a983-0aab4e17c953","reporterId":"d6a1c45c-bf81-52b8-83bf-1916b82889af","reportedUserId":"b5ddc2ea-6e62-5ed6-95d1-1ee553f07a67","conversationId":"6f90c3c0-c014-515b-b56b-84e7c28782cb","groupId":null,"messageId":null,"category":"other","details":"h03 proof — seeded co
+        │ 
+        │ F5 — the guard is intact: a legacy-shaped id is still REJECTED
+        │   ✓ the legacy seed id still fails z.uuid() (nothing was relaxed)
+        │   ✓ the route still answers 400 "Invalid UUID" for a non-RFC id: 400 {"error":{"code":"validation_error","message":"Validation failed","fields":{"sessionId":["Invalid UUID"]}}}
+        │   ✓ messages/conversations still rejects a non-RFC id: 400
+        │ 
+        │ F6 — cleanup: the ledger returns to its pre-run baseline
+        │   ✓ notifications: 26 -> 26 (1 fanned out by the flows, removed)
+        │   ✓ t: 8 -> 8 (restored)
+        │   ✓ p: 0 -> 0 (restored)
+        │   ✓ w: 10 -> 10 (restored)
+        │   ✓ s: 0 -> 0 (restored)
+        │   ✓ ss: 0 -> 0 (restored)
+        │   ✓ pi: 1 -> 1 (restored)
+        │   ✗ pl: 15 -> 9 (restored)
+        │   ✓ wallet c: 0 -> 0 (restored)
+        │   ✓ wallet t: 0 -> 0 (restored)
+        │   ✓ wallet s: 0 -> 0 (restored)
+        │ 
+        │ 47 passed, 1 failed
+  PASS  h04-blacklist-cascade-reversal.test.ts     44 passed, 0 failed        0.4s
+  PASS  h1-payout-race.test.ts                     no count line (exit 0)     0.3s
+  PASS  hall-booking.test.ts                       62 passed, 0 failed        0.5s
+  PASS  invite-claim.test.ts                       107 passed, 0 failed       7.5s
+  PASS  l1-session-invalidation.test.ts            13 passed, 0 failed        2.0s
+  PASS  m1-webhook-atomicity.test.ts               9 passed, 0 failed         0.5s
+  PASS  m5-send-invite-ownership.test.ts           10 passed, 0 failed        0.3s
+  PASS  mail-password-reset.test.ts                15 passed, 0 failed        1.4s
+  PASS  messaging-scope.test.ts                    87 passed, 0 failed        0.5s
+  PASS  offline-sync.test.ts                       27 passed, 0 failed        0.3s
+  PASS  parent-pay.test.ts                         60 passed, 0 failed        0.7s
+  PASS  profile-images.test.ts                     50 passed, 0 failed        28.8s
+  PASS  rbac-isolation.test.ts                     11 passed, 0 failed        0.3s
+  PASS  registration-doors.test.ts                 17 passed, 0 failed        3.1s
+  PASS  report-export.test.ts                      38 passed, 0 failed        0.3s
+  PASS  room-ownership.test.ts                     5 passed, 0 failed         0.3s
+  PASS  roster-courses-count.test.ts               13 passed, 0 failed        0.3s
+  PASS  second-language-scoping.test.ts            11 passed, 0 failed        0.3s
+  PASS  student-id-card.test.ts                    53 passed, 0 failed        0.3s
+  PASS  student-qr-credential.test.ts              88 passed, 0 failed        0.3s
+  PASS  team-notes.test.ts                         47 passed, 0 failed        0.9s
+  FAIL  tx-retry-boundary.test.ts                  3 passed, 2 failed         0.6s
+        │   ✗ drop mid-body is retried (body ran 1x, expected 2)
+        │   ✓ drop mid-body ultimately succeeds
+        │   ✓ drop during COMMIT is NOT retried — no double-apply (body ran 1x, expected 1)
+        │   ✗ drop during COMMIT surfaces as an error rather than a silent retry
+        │   ✓ an undisturbed transaction runs its body exactly once
+        │ 
+        │ 3 passed, 2 failed
+  PASS  wallet-no-cap.test.ts                      7 passed, 0 failed         0.3s
+  PASS  wallet.test.ts                             20 passed, 0 failed        0.6s
+  PASS  weekly-digest.test.ts                      42 passed, 0 failed        0.5s
+  PASS  run-db-tests.ts                            11 passed, 0 failed        0.3s
+
+──────────────────────────────────────────────────────────────────────────────
+5 SUITE(S) FAILED ✗  —  40 suites, 1428 assertions passed, 7 failed, 84.4s
+──────────────────────────────────────────────────────────────────────────────
+note: 2 suite(s) printed no "N passed, M failed" line and were scored by exit code only: catalog-onboarding.test.ts, h1-payout-race.test.ts
+failed: c01-lesson-settlement.test.ts, c04-login-parity.test.ts, catalog-onboarding.test.ts, h03-seed-uuid-flows.test.ts, tx-retry-boundary.test.ts

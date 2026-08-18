@@ -11,10 +11,20 @@
        book and its spine only; the cap, tassel and stud are shapes at 200px and
        a smudge at the 16px this file actually renders at as a favicon.
 
-       Colours are LITERAL, not var(--ink)/var(--gold). A favicon, a manifest
+       Colours are LITERAL, never CSS custom properties. A favicon, a manifest
        icon and a push-notification badge are all rendered outside any document
        that has the token sheet, so a custom property here would resolve to
-       nothing. The embedded media query is what carries dark mode instead. -->
+       nothing. The embedded media query is what carries dark mode instead.
+
+       DO NOT WRITE A CUSTOM PROPERTY'S NAME IN THIS COMMENT. SVG is parsed as
+       XML, where a comment may not contain a double hyphen, and a custom
+       property's name begins with one. The line above used to spell two of
+       them out, which made this whole file fail to parse: Chrome reported
+       "EncodingError: The source image cannot be decoded", the sidebar mark
+       rendered as a broken image showing its alt text, and the favicon,
+       manifest icons and push badge were all served from the same unparseable
+       file. It fetched 200 with the correct content-type the entire time,
+       which is why it went unnoticed. -->
   <style>
     .ink { stroke: #201f1d; }
     .gold { stroke: #b68235; }

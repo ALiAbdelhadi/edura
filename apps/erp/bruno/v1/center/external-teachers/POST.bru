@@ -1,0 +1,28 @@
+meta {
+  name: POST external-teachers
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/center/external-teachers
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fullName": "",
+    "phone": "",
+    "email": "",
+    "bio": "",
+    "subjects": "",
+    "qualifications": "",
+    "lessonPrice": 0,
+    "centerShare": 0
+  }
+}

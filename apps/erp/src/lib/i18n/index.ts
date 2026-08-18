@@ -1,0 +1,87 @@
+import en from "@/messages/en.json";
+import ar from "@/messages/ar.json";
+
+import adminHomeEn from "@/messages/en/admin-home.json";
+import adminManageEn from "@/messages/en/admin-manage.json";
+import teacherEn from "@/messages/en/teacher.json";
+import studentEn from "@/messages/en/student.json";
+import studentClassEn from "@/messages/en/student-class.json";
+import parentEn from "@/messages/en/parent.json";
+import sharedEn from "@/messages/en/shared.json";
+import catalogEn from "@/messages/en/catalog.json";
+import onboardingEn from "@/messages/en/onboarding.json";
+import landingEn from "@/messages/en/landing.json";
+import marketingEn from "@/messages/en/marketing.json";
+import activationEn from "@/messages/en/activation.json";
+// Maturity layer (receipt document, center audit viewer, data rights). A file
+// of its own rather than en.json, deliberately: BASE_KEYS is derived from
+// en.json's keys, so anything added there ships to EVERY page including the
+// login screen. None of these three namespaces is needed before sign-in.
+import maturityEn from "@/messages/en/maturity.json";
+import assistantEn from "@/messages/en/assistant.json";
+import adminHomeAr from "@/messages/ar/admin-home.json";
+import adminManageAr from "@/messages/ar/admin-manage.json";
+import teacherAr from "@/messages/ar/teacher.json";
+import studentAr from "@/messages/ar/student.json";
+import studentClassAr from "@/messages/ar/student-class.json";
+import parentAr from "@/messages/ar/parent.json";
+import sharedAr from "@/messages/ar/shared.json";
+import catalogAr from "@/messages/ar/catalog.json";
+import onboardingAr from "@/messages/ar/onboarding.json";
+import landingAr from "@/messages/ar/landing.json";
+import marketingAr from "@/messages/ar/marketing.json";
+import activationAr from "@/messages/ar/activation.json";
+import maturityAr from "@/messages/ar/maturity.json";
+import assistantAr from "@/messages/ar/assistant.json";
+
+export const LOCALES = ["ar", "en"] as const;
+export type Locale = (typeof LOCALES)[number];
+export const DEFAULT_LOCALE: Locale = "ar";
+
+const enMerged = {
+  ...en,
+  ...studentEn,
+  ...parentEn,
+  adminHome: adminHomeEn,
+  adminManage: adminManageEn,
+  teacher: teacherEn,
+  assistant: assistantEn,
+  studentClass: studentClassEn,
+  shared: sharedEn,
+  catalog: catalogEn,
+  onboarding: onboardingEn,
+  landing: landingEn,
+  marketing: marketingEn,
+  activation: activationEn,
+  ...maturityEn,
+};
+
+export type Messages = typeof enMerged;
+
+const arMerged = {
+  ...ar,
+  ...studentAr,
+  ...parentAr,
+  adminHome: adminHomeAr,
+  adminManage: adminManageAr,
+  teacher: teacherAr,
+  assistant: assistantAr,
+  studentClass: studentClassAr,
+  shared: sharedAr,
+  catalog: catalogAr,
+  onboarding: onboardingAr,
+  landing: landingAr,
+  marketing: marketingAr,
+  activation: activationAr,
+  ...maturityAr,
+} as Messages;
+
+const dictionaries: Record<Locale, Messages> = { en: enMerged, ar: arMerged };
+
+export function getMessages(locale: Locale): Messages {
+  return dictionaries[locale] ?? dictionaries[DEFAULT_LOCALE];
+}
+
+export function isLocale(v: string | undefined): v is Locale {
+  return !!v && (LOCALES as readonly string[]).includes(v);
+}

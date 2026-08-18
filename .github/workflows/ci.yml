@@ -65,6 +65,16 @@ jobs:
       - name: Unit tests (www)
         run: bun run --filter edura test:unit
 
+      # Migration tools (migrations/tools) — stdlib Python, no install step, no
+      # database. They belong in `static` for one reason above the others: the
+      # suite carries a DRIFT GUARD comparing the column-alias table in
+      # `_common.py` against `student-csv.ts`, which the importer actually
+      # applies. That table is duplicated across two languages and cannot be
+      # merged, so an alias added on the TypeScript side otherwise goes
+      # unnoticed until a real client's column is silently skipped.
+      - name: Migration tool tests
+        run: python3 -m unittest discover -s migrations/tools -p 'test_*.py'
+
       # A build needs the public env vars present but not real. These are
       # placeholders — nothing here reaches a third party.
       - name: Build both apps

@@ -332,1035 +332,156 @@ Work stops after each step for review before the next begins.
     > payments recorded BEFORE Step 4 were never mirrored — see the Step 9
     > wipe note in decision #6.
 
-## Messaging (built 2026-07-22 — awaiting review)
+## Binding invariants
 
-Relationship-scoped messaging with a child-safety layer. Built ON TOP of the
-existing chat system (conversations/messages, apps/realtime Socket.IO, the
-shared ChatScreen) — nothing was rebuilt.
+Rules that hold across the whole product. Each was decided once, for a reason
+written down in the linked file — read that file before changing anything it
+governs. Violating one of these is never a local change.
 
-1. **ONE authorization module**: `packages/database/src/queries/chat-scope.ts`.
-   A single `EDGES` table defines every relationship, PARAMETERIZED rather than
-   duplicated: `narrowTo` set = "can this actor reach THIS user?" (the gate),
-   unset = "who can they reach?" (the directory). `assertCanReach` and
-   `listContacts` are the two consumers, so the auto-search can never offer
-   someone the gate would reject — a drift test asserts set-equality.
-   Gate order: matrix (chat-policy.ts) → relationship (EDGES) → **guardian
-   channel (chat-guardian.ts, added 2026-07-25)** → block → rate limit.
-   **Default-deny**: `EDGES[role] ?? []`, and a center-staff sub-role not
-   named on an edge cannot use it. New roles fail closed with no denylist.
-2. **Matrix change (reverses the old assistant-first rule).** Students and
-   parents now message their own teachers DIRECTLY (`student/parent → teacher`
-   were previously absent; `teacher → student/parent` were "escalation"). No
-   pair is escalation-mode any more. The assistant-first convention survives as
-   UI ordering only, not as an authorization rule.
-3. **center_staff got a messaging surface** (was an empty matrix row), scoped by
-   preset sub-role: receptionist → families, manager → the whole center scope,
-   **center_accountant → nobody** (that tier appears on no edge).
-4. **No impersonation in messaging.** Unlike Step 8's `delegated()`, an
-   assistant/staff member messages AS THEMSELVES, scoped by their principal —
-   an adult must never talk to a minor behind another identity.
-5. **DEFAULT-MINOR (binding).** `isMinor()` in `chat-minors.ts` is the single
-   implementation, written as one POSITIVE adult condition:
-   `adult = dateOfBirth AND dateOfBirthVerifiedAt AND age >= 18`. Missing,
-   unverified, or under-18 all mean MINOR with parent oversight ACTIVE. New
-   columns `student_profiles.date_of_birth` + `date_of_birth_verified_at/by`;
-   no backfill, so students default to minor — intended, not a gap.
-   **[dev, measured 2026-07-26]** this is no longer universal: of 230
-   `student_profiles`, **225 have a NULL `date_of_birth` and 3 carry a
-   verification stamp** — so a handful now resolve as ADULTS and sit outside
-   parent oversight. The default is still minor; "every existing student is a
-   minor", as this line previously read, is not. **[production]** the columns
-   exist but there are no student rows at all.
-6. **Parent oversight** = protective transparency, not surveillance:
-   strictly read-only (never touches unread counters or read receipts — proven),
-   no write path in UI or API, only MINOR children with an APPROVED link, only
-   threads with ADULTS, and a persistent disclosure banner shown to BOTH sides.
-7. **Retention**: append-only; soft-delete keeps the body (participants see
-   "message removed", the super-admin log does not). `/dashboard/superadmin/
-   messaging` = log search + read-only thread viewer + reports queue + blocks;
-   **opening a thread writes a `messaging.thread_viewed` audit row.**
-8. **Rate limiting**: `ChatLimiter` is a REQUIRED parameter on `appendMessage`/
-   `getOrCreateConversation`/`postGroupMessage`, so a transport that forgets one
-   fails to COMPILE. This closed a real gap — the socket path (the PRIMARY send
-   path) bypasses Next middleware and was previously unlimited. Buckets key on
-   USER id, not IP.
-9. **Block/report**: enforced inside `assertCanReach`, so no entry point can
-   bypass them. A block halts BOTH directions, deletes no history, and never
-   hides a thread from parent oversight or the super-admin log. An ADULT
-   blocking a MINOR auto-files a `safety_concern` report.
-10. **Groups**: `group_members` is a fanout CACHE only — `assertGroupAccess`
-    re-derives live per user, so a dropped student is denied even with a stale
-    cached row (proven). Announcement-shaped (`owner_only` default).
+**Money**
 
-Migration `20260722200000_messaging_scope_groups_safety` (additive only).
-Proofs: `apps/www/tests/db/messaging-scope.test.ts` **87/87**, unit
-`tests/unit/messaging-matrix.test.ts` 12/12. Regressions green: rbac-isolation
-11/11, center-staff-delegation 55/55, unit suite 85 pass/1 skip, typecheck 5/5,
-`bun run build` both apps. Demo data: `prisma/messaging-demo-seed.ts`
-(`--purge` to remove), two centers so isolation is visible in the preview.
+- **MONEY DIRECTION IS UNCHANGED BY WHO PAID.** A parent-funded subscription
+  still moves `student -> center/teacher` (`fromEntityId = studentId`); who paid
+  is recorded on `payments.payer_user_id` + `Subscription.createdBy`, never by
+  redirecting the ledger. → [parent-pays-lesson](docs/decisions/parent-pays-lesson.md)
+- **NO SECOND MONEY ENGINE.** Every new money path routes through the existing
+  primitives (`createWalkInSubscription`, `distributeSessionRevenue`, the H2
+  conditional decrement). → [external-teachers](docs/decisions/external-teachers.md)
+- **ONE DERIVATION OF WHAT A LESSON IS WORTH** — `resolveLessonPrice`. The
+  engine, the back-office preview and the www preview all call it. An unpriced
+  lesson REFUSES to complete rather than settling zero.
+  → [lesson-settlement](docs/decisions/lesson-settlement.md)
+- **MONEY IS READ-ONLY IN THE BACK OFFICE, and superadmin is NOT exempt.** The
+  DB-level REVOKEs bite for `super_admin` too; no GRANT and no second DB role
+  was added. → [superadmin-center-oversight](docs/decisions/superadmin-center-oversight.md)
+- **AN EXPORT RUNS THE SAME SERVICE FUNCTION THE SCREEN RUNS.** A report that
+  re-derives its own totals is a second set of books.
+  → [report-export](docs/decisions/report-export.md)
+- **THE COUNTER BOARD WRITES NOTHING OF ITS OWN** — three reads; every commit
+  goes through `counterCheckin` and the existing per-session subscription.
+  → [counter-board](docs/decisions/counter-board.md)
 
-## Student ID card + student code v2 (built 2026-08-02 — awaiting review)
+**Child safety and identity**
 
-Every student now carries a card: their own eight-character ID, a QR the counter
-can scan, a guilloché engraving unique to them, and two ways to take it with
-them (print → PDF, and a PNG for WhatsApp).
+- **DEFAULT-MINOR.** `isMinor()` is one POSITIVE adult condition:
+  `adult = dateOfBirth AND dateOfBirthVerifiedAt AND age >= 18`. Missing,
+  unverified, or under-18 all mean MINOR with parent oversight ACTIVE.
+  → [messaging](docs/decisions/messaging.md)
+- **CHILD-SAFETY GATE.** A MINOR with no guardian EMAIL has adult-facing
+  messaging LOCKED (`chat-guardian.ts`, the single rule). A guardian PHONE does
+  NOT satisfy it. The account is never suspended by this rule.
+  → [email-invites-guardian](docs/decisions/email-invites-guardian.md)
+- **THE STUDENT CODE CARRIES NO PERSONAL DATA.** Derived from a SHA-256 of the
+  student's own profile id — never from initials, birth date or phone. The check
+  character is the point: no single mistype and no adjacent transposition can
+  produce a valid code. → [student-id-card](docs/decisions/student-id-card.md)
+- **THE CARD QR MINTS NO SESSION.** `guardian_email_verification` and the card
+  credential are deliberately ABSENT from `CLAIMABLE`; a signed URL proves
+  authenticity and allows revocation, and grants nobody anything.
+  → [student-card-qr](docs/decisions/student-card-qr.md),
+  [guardian-email-verification](docs/decisions/guardian-email-verification.md)
+- **ONE DEFINITION OF "THE SAME CHILD"** — `findStudentByKeys` /
+  `normalizeNationalId`. No importer, counter or seed may hold a second one, and
+  there is no "create anyway" flag. → [bulk-student-import](docs/decisions/bulk-student-import.md)
 
-1. **THE CODE CARRIES NO PERSONAL DATA (binding).** The ask was for a code built
-   out of the student's initial, birth date and phone digits. It is NOT built
-   that way, for two reasons that only surface after launch: (a) inside eight
-   characters that space is small enough for two real children in one
-   governorate to COLLIDE, and this code is what attendance and cash run on;
-   (b) it is printed, scanned and read aloud across a counter, and nearly every
-   student here is a MINOR — a code you can read a child's birthday out of leaks
-   it to everyone handed the card. The body is instead DERIVED FROM THE STUDENT
-   (a SHA-256 of their own `student_profiles.id`) so it is theirs and
-   reproducible from their record, but one-way, and its input carries nothing
-   personal even if reversed.
-2. **THE CHECK CHARACTER IS THE POINT.** `G7K3M2QF` = system letter + 6-char
-   body + check character. Every old `STU-000123` neighboured another valid
-   code, so ONE mistyped digit at the counter resolved to a DIFFERENT CHILD,
-   silently. The alphabet is Crockford base32 minus Z — **31 symbols, and 31
-   being PRIME is the guarantee**: with weights 1..7 no single wrong character
-   and no swap of two neighbours can produce a valid code. Both classes are
-   ALWAYS caught, not usually caught.
-3. **The letter encodes the education SYSTEM, not the stage** (G/A/B from the
-   new `education_systems.code_letter`; `X` = not chosen yet). A student moves
-   from preparatory to secondary; they do not move from Azhari to General. A
-   stage letter would need re-issuing every couple of years — meaning either a
-   lying letter or a second table to keep old cards resolvable.
-4. **ISSUANCE IS ONCE-ONLY, and enforced, not intended.** The profile row exists
-   before onboarding picks a system, so a student is born with a pending `X`
-   code (real, valid, usable — a walk-in can pay cash on it). It becomes final
-   in `completeStudentOnboarding`, in the SAME transaction, via
-   `finalizeStudentCode`, whose update is written `WHERE student_code LIKE 'X%'`
-   — so no later call, from anywhere, can move an issued code.
-5. **TWO IMPLEMENTATIONS, HELD BY A PROOF.** `gen_student_code()` mints inside
-   the INSERT so no creation path (register, invite claim, walk-in, temp
-   student, manual student, every seed) changed; the TypeScript twin
-   (`@repo/database/student-code`, dependency-free so the browser and the
-   counter share it) verifies. A drift test generates 400 codes with the SQL
-   function and verifies every one in TypeScript. A CHECK constraint holds the
-   alphabet AND the check character, so no writer can store a code the counter
-   would reject.
-6. **THE CARD CARRIES THE LEAST THAT IS USEFUL** — name, code, system, grade,
-   track. No phone, email, date of birth, national ID or money; the proof
-   asserts the exact key set, because "we did not put the phone on it" is a
-   claim about the object, not about intent. **The QR holds the code and
-   nothing else** — no token, no URL — so a photographed card grants nobody
-   anything, and an ordinary keyboard-wedge barcode scanner works with zero
-   server change.
-7. **A GUILLOCHÉ, NOT A GRADIENT.** The request was "a different gradient per
-   student"; `design/CONSTITUTION.md` §4 forbids exactly that on student
-   surfaces ("fills and tiles — never a new hue, never a gradient"). Uniqueness
-   is carried by the engine-turned rosette instead — five varying axes rather
-   than one, drawn from the student's own id, in the three accents §4 already
-   permits "for orientation and identity". Deterministic and stored NOWHERE, so
-   a card printed today and one printed in two years are the same card.
-8. **Exports: both, from one layout.** PDF via a print route OUTSIDE /dashboard
-   (the receipt's pattern — the browser's own engine shapes Arabic correctly,
-   zero dependency, ID-1 at 85.6×54mm). PNG via `<canvas>` using the SAME
-   `rosettePoints` geometry and colours READ OFF the live card, with
-   `navigator.share` on phones — because on this platform the card's real
-   destination is WhatsApp.
-9. **Who may see it:** the student, and a parent with an APPROVED link — through
-   `assertApprovedChild`, the gate every parent money path already uses. No new
-   authorization logic. Center staff printing cards was NOT built.
-10. **THE ISSUER MARK IS THE EXISTING LOGO, ENGRAVED — not a second one.**
-    `public/edura-mark.svg` could not go on the card as it stands: it is a
-    violet→indigo GRADIENT on a filled tile plus `#00b473` and `#ffc6c6`, three
-    hues the Ledger palette does not contain and the one device §4 forbids on a
-    student surface — and a filled gradient tile fights an engraving anyway. So
-    `@repo/ui/lib/edura-mark.ts` re-draws the SAME logo in one ink at hairline
-    weight, the way an engraved document carries a crest rather than a
-    letterhead. It is **reduced to the open book and its spine**: the cap,
-    tassel and stud are shapes at 200px and a smudge at 30px, which is the size
-    a card's issuer mark actually renders at. It is drawn in `--indigo` for
-    EVERY student, deliberately not in the per-student accent — a logo that
-    changed colour per holder stops being a logo; the brand is constant, the
-    rosette is the identity. Path DATA, not markup, so the card's SVG feeds it
-    to `<path d>` and the PNG exporter feeds the same strings to `new Path2D()`
-    — one geometry, three surfaces. **Designing a new brand mark was NOT done:
-    that is a decision wider than this card, and a second logo beside the first
-    is a second answer to what the product looks like.**
+**Auth and authorization**
 
-Migration `20260803110000_student_code_v2` (adds `education_systems.code_letter`,
-rewrites the legacy `STU-` rows, adds the CHECK).
-**[dev, applied 2026-08-02] — 48 migrations, verify-db 27/27;
-`expected-db-shape.json` updated to 48.**
-**[production, APPLIED 2026-08-02] — 48 migrations, verify-db 27/27.** It was
-applied BEFORE this code deploys, which is the order the bootstrap lesson above
-exists to enforce. Production held exactly ONE student (`STU-000001`) with zero
-attendance, enrollments, subscriptions or money rows referencing it, so the
-rewrite touched one row nobody had used a code on; it is now `GV9H49TJ`. Checked
-after applying, against production: the code verifies in TypeScript, the catalog
-carries G/A/B, and the CHECK constraint actually REJECTS a wrong check character
-(23514) rather than merely existing.
-**[test] NOT applied — the test database refuses both roles on disk
-(`edura_app` and `neondb_owner` both fail password authentication in
-`apps/www/.env.test` and `packages/database/.env.test`). Pre-existing and
-unrelated to this change, but it means the db suite below has never run and
-`verify-db` against test will report 47 ≠ 48 until the credentials are
-refreshed.**
+- **ONE SUSPENSION MECHANISM.** Accounts are disabled through `users.status`
+  (+ the 3-level blacklist). better-auth's `banned` / `ban_reason` / `ban_expires`
+  columns are never written and `auth.api.banUser` is never called.
+  → [admin-user-directory](docs/decisions/admin-user-directory.md)
+- **`sendResetPassword` IS DELIBERATELY NOT SET, in both apps.** better-auth's
+  own reset writer does not bump `users.token_version` — the write that fires
+  `users_revoke_sessions` — so wiring it would silently undo L1. Reset stays on
+  `requestPasswordReset`. → [operational-layer](docs/decisions/operational-layer.md)
+- **AN EXTERNAL TEACHER IS A `users` ROW, NOT A NEW ENTITY** (role `teacher`,
+  `status='shell'`, `password_hash NULL`). No login is enforced by the door that
+  already exists. → [external-teachers](docs/decisions/external-teachers.md)
+- **GLOBAL SEARCH ADDS NO REACH.** Every provider reads what the caller's role
+  already reads through an existing route, under the same tier constant and the
+  same tenancy — and offers nothing the role cannot open.
+  → [global-search](docs/decisions/global-search.md)
 
-The rewrite lands rows on pending codes; `bun run db:finalize-codes --write`
-(idempotent, safe against any environment) issues the final letter for anyone
-already onboarded — 12 codes on dev, 1 on production.
+**Design and delivery**
 
-Proof: unit `student-code.test.ts` **14/14** (including every single-character
-mistype of five real codes — 1200 of them — and every adjacent transposition)
-and `student-identity.test.ts` **8/8** (determinism, 5000 seeds without a
-repeated pattern). `apps/www/tests/db/student-id-card.test.ts` is written but
-**NOT YET RUN — the test database rejects both roles on disk (`edura_app` and
-`neondb_owner`), a pre-existing credential problem unrelated to this change.**
-The SQL↔TypeScript agreement was proven against DEV read-only instead (1000
-`student_code_for()` codes, 0 rejected; 30,000 mutations, 0 slipped through).
-Regressions green: root `bun run check-types` 9/9, www unit **236 pass/1 skip**,
-`bun run build` both apps, lint error-parity (14 errors, all in files this
-change does not touch). Verified live in the browser on dev: card, PNG export,
-print route, account-page card, dark mode, and two students side by side with
-different letters and visibly different engravings.
+- **TOKENS ARE RE-POINTED, NOT RENAMED.** Values move; names stay, because they
+  are generated inside `@theme` and read by hundreds of call sites.
+  → [classical-ledger-redesign](docs/decisions/classical-ledger-redesign.md)
+- **ON-DEMAND READS — a DEFAULT, not a law.** A screen must not spend a query on
+  something the reader has not asked to see; but the primary thing a page exists
+  for still loads with the page. → [student-card-qr](docs/decisions/student-card-qr.md)
 
-Found while building this, FIXED ON MAIN, not here: `DataRightsCard` and the
-student/parent wallet screens threw on first paint (`exports.find is not a
-function`) because `useCustom` defaults its payload to a frozen empty OBJECT,
-so the idiomatic `?? []` never fires. Surfaced because the ID card lives on the
-settings screen. This branch carried a local narrowing for it and that was
-REVERTED once main's `7e25b80` turned out to already own the problem properly —
-one `asArray()` helper across every affected screen plus a unit test, rather
-than a hand-rolled `Array.isArray` per file. A second answer to a solved
-problem is worse than no answer; take main's on merge.
+## Environment state
 
-Demo data: `prisma/student-id-demo-seed.ts` (`bun run seed:studentid-demo`,
-`--purge` to remove) — six students, one per education system so the letters
-come out G…/A…/B… beside each other, plus one deliberately left without a system
-so the pending state is visible. Zero money rows.
+> Per the Conventions rule above, every claim here names its environment.
+> `packages/database/scripts/verify-db.ts` is read-only and safe against any
+> target: prefer running it over trusting a line written here.
 
-## Off-system ("external") teachers (built 2026-08-02 — awaiting review)
+- **[dev, 2026-08-09]** 52 migrations, 79 tables, verify-db 27/27.
+- **[production, 2026-08-09]** 52 migrations, verify-db 27/27. Bootstrapped
+  2026-07-31; the `centers_wallet_balance_nonneg` CHECK is VALIDATED. Bootstrap
+  order for a fresh environment: `label-db` → `bootstrap-app-role` →
+  `prisma migrate deploy` → `seed` → `verify-db`.
+- **[test] THERE IS NO TEST DATABASE.** Both `.env.test` files point at DEV, and
+  `db-guard` reports them as `labelled 'dev'` — the 2026-08-03 decision still
+  holding, not a gap. Do NOT read any `[test]` line in a decision doc as work
+  pending.
+- **`expected-db-shape.json`** is committed at 48 and bumped to 52 in the working
+  tree. A `verify-db` run against production reporting `expected 52, got 50` is a
+  shared-baseline artifact, not a production defect.
+- **[production Vercel, 2026-08-09]** `STUDENT_QR_SECRET` set on BOTH
+  `edura-www` and `edura-superadmin` with the SAME value. `APP_BASE_URL` pinned
+  to `https://app.edura.eg`, **which has no DNS record yet** — links emitted
+  after a deploy point at a host that does not resolve (Ali's call; no real users
+  yet). Takes effect only on REDEPLOY, since Vercel bakes env at build time.
+- **[production Vercel, 2026-08-10]** `edura-showcase` live at
+  `https://edura-showcase.vercel.app`. Vercel auto-detects Turbo and runs
+  `turbo run build`, which dies on this Bun-only repo (`env: 'node'` not found,
+  exit 127) — every project needs an explicit `buildCommand`.
+- **BACKUPS ARE NOT RUNNING.** The nightly schedule is DISABLED (no bucket, no
+  `BACKUP_*` secrets); **Neon PITR is the only protection currently in force.**
+  → [backup-restore runbook](docs/runbooks/backup-restore.md)
+- **NO SCHEDULED CRON JOB RUNS ANYWHERE.** Neither `CRON_BASE_URL` nor
+  `CRON_SECRET` is set as a repo secret (verified 2026-08-09 with
+  `gh secret list`). `CRON_SECRET` fails closed, so the schedule is inert rather
+  than dangerous — but do not read `.github/workflows/cron.yml` existing as jobs
+  being scheduled.
 
-A center runs on the platform while one or more of its teachers refuses to (or
-keeps their own system). The center keeps a 100% complete picture — students,
-groups, attendance, grades, money — by MANUAL ENTRY, and all of it lands in the
-center's ordinary reports beside everyone else.
+## Shipped work — awaiting review
 
-1. **AN EXTERNAL TEACHER IS A `users` ROW, NOT A NEW ENTITY** (binding). Role
-   `teacher`, `status='shell'`, `password_hash NULL`, plus
-   `teacher_profiles.system_status='external'` and `managed_by_center_id`.
-   Every operational table already keys on the teacher's USER id
-   (courses/sessions/subscriptions/session_settlements/transactions), so
-   supporting them changed NONE of them. Three consequences, each a
-   requirement: no login is enforced by the door that already exists (status +
-   no hash — no second gate, same reasoning as ONE SUSPENSION MECHANISM);
-   converting to `enrolled` is a flip of ONE column on the SAME id, so no row
-   is copied, re-pointed or re-parented and nothing CAN be lost; and
-   `access_level` models a future read-only tier without pretending to enforce
-   one (see #7).
-2. **THE SHARED STUDENT IS ONE ROW.** The same child studying with an
-   on-platform teacher AND an off-system one keeps ONE `users` row and gets a
-   second Enrollment. The student↔teacher relation is `enrollments -> courses.
-   teacher_id` — already many-to-many — so NO join table was added; a second
-   answer to "who teaches this child" could disagree with the one attendance
-   and money already run on. Dedup is two layers: `resolveOrCreateStudent`
-   looks up by phone then by the new `student_profiles.national_id` BEFORE
-   creating (and has no "create anyway" flag), and both keys are UNIQUE at the
-   DB level as the backstop under a race.
-3. **PROVENANCE IS INHERITED, NEVER PASSED BY HAND.** `data_source`
-   (`system` default | `manual`) is on courses, sessions, enrollments,
-   attendance_records, grades, payments, transactions, subscriptions, rosters
-   and affiliations. A group created for an external teacher derives `manual`
-   from the TEACHER (in `createCourse`), and subscription → payment → ledger →
-   enrollment → attendance each inherit from their parent. So the ordinary
-   Classes screen labels an off-system group correctly without knowing this
-   feature exists. `systemStatus` and `dataSource` are SEPARATE filters on
-   purpose: a teacher who joins keeps the groups the center keyed in, so those
-   rows stay `manual` while their teacher is now `enrolled`.
-4. **NO SECOND MONEY ENGINE.** Manual payments run through the existing
-   `createWalkInSubscription` (Payment + Transaction + receipt + points +
-   parent notification); lessons settle through the unchanged
-   `distributeSessionRevenue`, so the center's cut is whatever the group's own
-   pricing says (hall %, per-student rate, or the flat affiliation share) and
-   the teacher's wallet accrues what they are owed. The ONE addition is a
-   CENTER-side cash settlement (`settleWithTeacher`) — an external teacher has
-   no account to request a payout with — using the same H2 conditional
-   decrement every payout uses, writing a `payout` row to the same ledger, in
-   the same transaction as the append-only `external_teacher_settlements`
-   statement. It is NOT routed through the `payouts` queue: that is the
-   platform paying out of platform-held funds, this is a center paying out of
-   its own drawer.
-5. **MANUAL ENTRY FAILS SILENTLY, so `buildGapReport` complains.** Seven
-   findings (lesson without attendance, partial attendance, past lesson never
-   completed, enrolled-unpaid, group without schedule / price / students), each
-   naming the exact row to open and separated into blocking vs warning. The
-   `session_not_completed` finding is the one that matters most: an uncompleted
-   lesson never runs distribution, so the teacher is silently under-paid.
-6. **REPORTS COMBINE BOTH KINDS BY DEFAULT.** `?systemStatus=` / `?dataSource=`
-   narrow only when asked (one parser, `lib/http/provenance.ts`), and the center
-   home ALWAYS reports the off-system split beside the headline whether or not a
-   filter is set — a center that must change a setting to discover how much of
-   its business runs off-system will not think to look.
-7. **`access_level` IS MODELLED, NOT ENFORCED — stated plainly.** Taking a
-   teacher off-system closes their login through `users.status` (which fires
-   `sessionRevocationExtension` → the `users_revoke_sessions` trigger), and is
-   REFUSED when the teacher also works with another center. `read_only` is
-   where a future "let them look, not touch" goes; nothing writes it today,
-   because a column claiming a restriction nothing enforces is worse than no
-   column.
-8. **Grades are the ONE surface that needed new code.** `createGrade` demands
-   `course.teacherId === caller.id` — right for a teacher who signs in,
-   impossible for one who never will. That gate was NOT loosened; a narrow
-   center-side path (`manual-grades.ts`) can only reach a group belonging to an
-   off-system teacher this center manages, writes the assessment owned by the
-   TEACHER, and fires the same `grade_entered` notification. Everything else
-   (groups, schedules, enrolment, attendance, counter check-in, cash, session
-   completion) already worked for a center actor with zero changes.
-9. **Ownership never leans on RLS.** `teacher_profiles` has no `center_id`, so
-   `assertManagedExternalTeacher` demands BOTH the profile pointer and a live
-   affiliation, explicitly, on every entry point. The one function that runs
-   under platform context is `convertToExternal` — "does this teacher also work
-   with another center?" is inherently cross-tenant, and under `scopedDb` the
-   RLS policy hides exactly the rows that would answer yes.
+Full write-ups live in `docs/decisions/`. Each records what was built, why the
+alternative was rejected, its proofs, and what was deliberately NOT done. Read
+the relevant one before touching the system it describes — the reasoning is the
+point, not the changelog.
 
-Migrations (additive only): `20260803100000_teacher_invite_purpose` (enum value,
-own file — Postgres cannot USE a new enum value in the transaction that adds it)
-and `20260803100100_external_teachers` (3 new types, `data_source` columns with
-DEFAULT `'system'` so no existing row or write changes, `student_profiles.
-national_id` UNIQUE, and two append-only RLS tables:
-`teacher_system_status_changes` + `external_teacher_settlements`). Each ships a
-companion `rollback.sql` stating honestly what a reversal costs.
-**[dev + test, applied 2026-08-02] — 47 migrations, 79 tables, verify-db 27/27
-(the baseline in `expected-db-shape.json` and the `APPEND_ONLY` map in
-`verify-db.ts` were updated to match).
-[production, APPLIED — observed 2026-08-02] both migrations are present there
-(`_prisma_migrations` carries `20260803100000_teacher_invite_purpose` and
-`20260803100100_external_teachers`; production stood at 47 migrations / 79
-tables before the student-code migration landed on top). The line that used to
-stand here said "NOT applied" and was STALE — exactly the failure the
-environment-labelling convention at the top of this file exists to catch.**
-
-Proof: `apps/www/tests/db/external-teachers.test.ts` **102/102** (live DB, real
-center-actor authorization, real services, real money engine) — including the
-shared-student scenario and a conversion that asserts eight record counts are
-byte-identical before and after, against the counts the journal itself froze in
-the same transaction. Regressions green: full `test:db:ci` **27 suites / 839
-assertions**, root check-types 9/9, www unit 214 pass/1 skip, `bun run build`
-both apps, lint error-parity with main (the 12 errors are pre-existing
-privacy/terms/use-chat files). Verified live in the browser on dev: created an
-off-system teacher, re-typed the same phone and watched it REUSE the child,
-enrolled, took cash (receipt `RCP-NILE-2026-00002`), and read the statement,
-provenance labels and gap findings on screen in Arabic/RTL. Demo data:
-`prisma/external-teachers-demo-seed.ts` (`bun run seed:extteachers-demo`,
-`--purge` to remove) — one center, one on-platform + two off-system teachers, a
-child shared between two of them, and deliberately-broken groups so the gaps
-report has real findings. ZERO money rows seeded (per the Conventions rule):
-take a payment and settle it in the preview, which is the part worth seeing.
-
-## Team notes (built 2026-07-27 — awaiting review)
-
-Internal to-do board for ONE team — center owner + center_staff, or teacher +
-assistants — with status (open/done/declined), pinning, read receipts, and
-notifications. Approved 2026-07-27; fills the deliberate staff↔staff /
-assistant↔assistant hole WITHOUT touching the messaging matrix (chat-scope
-EDGES unchanged — notes are non-conversational, every participant is an adult
-staff role, so none of the child-safety machinery applies).
-
-1. **Schema**: `team_notes` (nullable `center_id` XOR `teacher_id`, DB CHECK
-   `team_notes_exactly_one_scope`; center rows RLS tenant-isolated like
-   `center_staff`, teacher rows app-guarded like `teacher_assistants`) +
-   `team_note_reads` (note_id+user_id unique; no center_id — reached only
-   through an already-authorized note). Migrations
-   `20260727100000_team_note_notification_types` (isolated enum ADD VALUEs:
-   `team_note_created`, `team_note_status_changed`) and
-   `20260727100100_team_notes`. **[dev + test, applied 2026-07-27] — 38
-   migrations. [production, applied 2026-08-02] — production is no longer
-   behind; it now stands at 43 migrations, verify-db 25/25.**
-2. **Membership IS the gate.** One route pair (`/api/v1/team-notes`,
-   `/team-notes/[id]`) wrapped in `delegatedWithCenter(..., {staffAllow: ALL
-   three sub-roles})`: the wrappers' live-link resolution already proves team
-   membership, and staff mutations get the on-behalf-of audit row for free.
-   Authors write as THEMSELVES (caller id) — no impersonation, same principle
-   as messaging.
-3. **Read receipts on GET, deliberately**: listing the board IS the read
-   (idempotent upsert), so the read-only `center_accountant` — whose mutations
-   the method gate rejects and who gets `me.canWrite=false` (composer hidden)
-   — still registers as having read. Each note shows "قرأها n/total — names".
-4. **To-do semantics**: ANY team member flips status (open→done/declined or
-   reopen); the author is notified when someone ELSE flips theirs, never on a
-   self-flip. Body edit = author only. Pin/delete = author or LEAD (center:
-   owner/manager; teacher side: teacher AND assistant per Step 8 full
-   delegation; receptionist is a member, not a lead). Soft-delete only.
-5. **Notifications**: two new `notification_type` values, CHANNEL_MATRIX rows
-   in-app+push only, fanout resolvers `resolveCenterTeamPeers` /
-   `resolveTeacherTeamPeers` in @repo/server-core (revocation-aware — a
-   soft-removed member drops out of the fanout immediately, proven). Deep link
-   `${portal}/notes` in the notifications screen. Side fix: the notifications
-   screen's deep-link base now derives from the pathname (the old `params.role`
-   read didn't exist on the fixed portal folders and always fell back to
-   "student", mislinking staff/assistant/admin deep links).
-6. **UI**: `TeamNotesBoard` (full + `compact`) — status-themed cards (done =
-   success + strikethrough, declined = destructive + strikethrough), pinned
-   first. Full board at `/dashboard/{admin,staff,teacher,assistant}/notes` +
-   nav items; compact panel on the staff home, center-admin dashboard, and
-   ABOVE the chat on the assistant home. i18n `teamNotes.*` ar/en.
-7. Proof: `apps/www/tests/db/team-notes.test.ts` **47/47** (live DB, real
-   center-actor + real resolveActingTeacher + real service; includes raw-RLS
-   cross-center peek and the CHECK rejections). Regressions green: root
-   check-types 6/6, www unit 111 pass/1 skip, rbac-isolation 11/11,
-   center-staff-delegation 55/55, messaging-scope 87/87, l1 12/12, `bun run
-   build` both apps. Demo data: `prisma/team-notes-demo-seed.ts`
-   (`bun run seed:teamnotes-demo`, `--purge` to remove) — one center team + one
-   teacher team, all states visible, zero money rows. Verified live in the
-   browser on dev (staff home panel + full board, create + fanout rows).
-
-## Superadmin center oversight (built 2026-07-25 — awaiting review)
-
-Cross-center read visibility + a CLOSED SET of audited control operations, in
-`apps/superadmin` only. Built on the existing systems; nothing was rebuilt.
-
-1. **Two modules, one boundary.** `center-oversight.ts` READS (no mutation, and
-   it imports nothing that mutates); `center-control.ts` ACTS. "Superadmin sees
-   all money but moves none" is checkable by reading one import list.
-2. **Read visibility** — pick any center, see rooms, teachers, students,
-   courses, sessions, enrollments, subscriptions, attendance, staff, pending
-   items, AND all six money ledgers scoped to it (transactions, payments,
-   payouts, session_settlements, invoices, wallet_ledger) plus the cached
-   wallet balance and the existing `centerStatement`. Rows with a NULL
-   `center_id` are teacher-direct and are never folded into a center's books.
-3. **Six control ops**, each mutating + writing ONE `audit_logs` row (actor,
-   action, target, center, before, after, ip, timestamp) in the SAME
-   transaction — so a write cannot commit without its audit row:
-   `center.activated/deactivated`, `user.activated/deactivated` (scoped to
-   members of that center), `center.student_removed/restored`,
-   `collaboration_request.approved/rejected`, `center.profile_updated`,
-   `center.room_created/updated/activated/deactivated`.
-   `on_behalf_of` is left NULL on purpose — that column means "assistant X for
-   teacher Y" (Step 8); a super admin acts as themselves.
-4. **MONEY IS READ-ONLY, and superadmin is NOT exempt.** Both apps connect as
-   the same `edura_app` role; `platformDb` only sets the `app.bypass_rls` GUC,
-   which RLS policies read and table GRANTs do not. So the existing REVOKEs
-   still bite: UPDATE/DELETE on `transactions`, `points_ledger`,
-   `session_settlements`, `audit_logs` and DELETE on `invoices`/`payouts` all
-   fail with `permission denied` for a super admin (proven). No GRANT, no
-   second DB role, no `$queryRawUnsafe` was added. `wallet_ledger` still has no
-   DB-level REVOKE (deliberate, see migration `20260722000100_student_wallet`)
-   — it is held by `immutableExtension` at runtime; the proof reports this
-   honestly rather than claiming a guarantee that is not there.
-5. **Revenue split / commission % are NOT editable here** (decided 2026-07-25).
-   The center-profile allowlist is `.strict()` and excludes them, plus
-   walletBalance / receiptSeq / status / shortId / entityType / isDemo /
-   ownerUserId. Splits keep their dedicated pricing flow with snapshot-on-create
-   + new-courses-only semantics — one money-sensitive number, one edit path.
-
-   > **AMENDED 2026-08-01 (Ali) — the CENTER now prices its own hall's
-   > per-attending-student rate.** Rationale: the center owns the hall. This
-   > splits the two numbers that used to be lumped together as "superadmin-only
-   > money config":
-   > - **whole-room revenue split %** (platform/teacher/center) — UNCHANGED,
-   >   still superadmin-only. That is the platform's cut.
-   > - **per-attending-student rate** (`center_per_student_fee|bp`) — the
-   >   center may now set it for its OWN halls, **bounded by the platform's
-   >   published rate (center > global), which is the CEILING**. The bound is
-   >   not optional politeness: a per-student-only hall deliberately shows NO
-   >   price to the teacher at booking (the cost depends on attendance), so an
-   >   unbounded center-set rate would take a share the teacher never saw and
-   >   only discovers at settlement. The center must also quote in the SAME
-   >   form the platform published (piasters vs basis points are not comparable
-   >   without a lesson price). The superadmin is NOT bounded — it sets the
-   >   ceiling.
-   >
-   > One implementation in `@repo/server-core/services/rooms/room-rate.ts`
-   > (shape rules, row layout, ceiling, ownership, audit); apps/superadmin
-   > re-exports the primitives so the two writers cannot drift, and the ONLY
-   > difference between them is the ceiling. The center writes through
-   > `POST/PATCH /api/v1/rooms` in the same transaction as the hall itself.
-   > Every center-set rate writes an `m2_rate.room.updated` audit row attributed
-   > to the center actor. Snapshot-on-create still holds: changing a hall's rate
-   > never re-prices an existing course. Proof: room-pricing-methods **73/73**
-   > (VP10).
-   >
-   > **The teacher SEES the rate at booking (added same day).** The asymmetry
-   > the ceiling only bounded is now closed: `GET /api/v1/centers/[id]/rooms`
-   > returns each hall's effective per-student rate (resolved room > center >
-   > global by `resolveMethod2RatesForRooms`, one query for all halls), and the
-   > collaboration panel shows it ON THE HALL CARD — so halls are compared on
-   > it, not just confirmed after picking — plus an explicit line at the moment
-   > the per-student method is chosen. `source` (room/center/global) is NOT
-   > exposed: the teacher needs the number, not where the center got it. The
-   > whole-room split % is still never sent to a teacher. A per-student-only
-   > hall still hides its whole-room `price` (meaningless there) — the rate is
-   > now what it shows instead. Proof: VP11 asserts the picker's batch resolver
-   > returns exactly what the per-room resolver (the settlement engine) returns
-   > at every precedence state, so a hall can never be quoted a price it does
-   > not settle at.
-   >
-   > Demo data: `prisma/room-rate-demo-seed.ts` (`bun run seed:roomrate-demo`,
-   > `--purge` to remove) — two centers whose six halls cover every state
-   > (own rate under the cap / at the cap / inheriting / no per-student method),
-   > one of them carrying a CENTER-level cap so `center > global` is visible,
-   > plus a teacher to browse them. Zero money rows; the GLOBAL rate is
-   > platform config, so the seed creates it only when missing and never
-   > overwrites one you set.
-6. **Deactivation reuses C-03**, not a new mechanism: the status write passes
-   through `sessionRevocationExtension`, so `token_version` bumps in the same
-   statement and the next request is unauthenticated. Enrollments are NOT
-   touched by a deactivation.
-7. **The only enrollment-removing op reuses H-04** — it routes through
-   `centerBlacklistStudent`, so `blacklist_cascade_actions` journals each
-   withdrawal and "restore" replays it. `centerBlacklistStudent` gained an
-   optional explicit `centerId` (superadmin has no session centerId); a
-   non-super_admin naming another center is refused in the service.
-8. **Shared-kernel move (pure, with shims).** `collaboration.ts` moved to
-   `@repo/server-core/services/collaboration` — same precedent as
-   `blacklist.ts` — along with `session-generator`, `conflict-detector`,
-   notification `fanout`, and `assertMethod2Enablable`. www re-exports all of
-   them, so every www import path and behaviour is unchanged. The ONE addition
-   is `opts.as = "platform_override"`, default-closed (defaults to `"party"`
-   and re-checks `role === "super_admin"` inside `assertResponder`).
-9. **Audit-log viewer** (roadmap decision #10, never built until now):
-   `/dashboard/superadmin/audit` + an Audit tab on each center. `audit_logs` is
-   REVOKEd UPDATE/DELETE, so the trail cannot be edited from any surface.
-
-**No database migration was required.** Proof: `apps/superadmin/tests/db/
-center-oversight.test.ts` **119/119** (live DB, real services + real NextAuth
-callbacks + real DB role). Regressions green: `bun run check-types` 5/5, `bun run
-build` both apps, www unit 111 pass/1 skip, rbac-isolation 11/11, h04 44/44,
-c03 www 26/26 + superadmin 15/15, c04 72/72 + 26/26, messaging-scope 87/87,
-center-staff-delegation 55/55, l1 12/12, refund 13/13, h2 7/7, h3 6/6,
-room-pricing-methods 47/47, center-share-admin 11/11. Demo data:
-`prisma/center-oversight-demo-seed.ts` (`--purge` to remove) — two centers, and
-**zero money rows** (per the Conventions rule), so the Finance tab is
-legitimately empty for demo centers.
-
-## Email invites + guardian channel (built 2026-07-25 — awaiting review)
-
-EMAIL is now the primary invite/credential-delivery channel for everyone.
-WhatsApp is DEMOTED, not deleted (no verified Meta number yet). Built on the
-Step 7 tokenized single-use claim — nothing was rebuilt.
-
-> **NOTE:** the mail layer is `@repo/server-core/mail/send.ts` — provider-agnostic
-> **nodemailer over SMTP** (`MAIL_PROVIDER=console|smtp`), NOT the Resend SDK.
-> It works with Resend's SMTP bridge; that is an env change, never a code one.
-
-1. **ONE claim kernel**: `apps/www/src/lib/services/invites/invite-token.ts`.
-   `CLAIMABLE` maps purpose → the exactly-one role it may resolve to
-   (`walk_in_onboarding`→student, `assistant_invite`→assistant,
-   `center_staff_invite`→center_staff). The NextAuth claim provider reads that
-   table, so a token minted for one role can never open another — a lookup, not
-   a branch someone can forget. Generalizing Step 7's provider LOOSENED NOTHING:
-   all five gates hold, plus two new ones (the account must not be soft-deleted;
-   the assistant/staff link must still be live, so revoking a membership kills
-   an outstanding invite without hunting for the token). Provider id
-   `invite-token`, with `walkin-token` kept as an alias so Step 7 callers and
-   proofs are untouched.
-2. **PART A — student invite is email-first.** Delivery channels are an env set
-   (`INVITE_CHANNELS`, default `email`); the WhatsApp leg is the same
-   `sendWhatsApp` call, just off by default, and returns `skipped` (not
-   `failed`) so "we chose not to" is distinguishable from "it broke".
-3. **Guardian contact, and where the invite goes.** Almost every student here is
-   a MINOR (default-minor), so "email the student" is the wrong default.
-   `resolveStudentInviteRecipient` resolves, strictest-trust first: approved
-   parent link with an email → `student_profiles.guardian_email` → the
-   student's own email **only if they are a VERIFIED adult** → nothing. There
-   is deliberately NO fallback to a minor's own inbox.
-   The walk-in counter captures guardian **email if available, else phone**
-   (kept for the record + a future SMS/WhatsApp channel). **Registration is
-   never blocked on either.**
-4. **Phone-only minor** ⇒ no email is sent at all; the API returns the copyable
-   one-time claim link for in-person handover (the guardian is standing at the
-   counter) plus `guardianEmailRequired`, and the student sees a required
-   "add a guardian email" notice on their dashboard.
-5. **CHILD-SAFETY GATE (binding).** `chat-guardian.ts` is the single rule: a
-   MINOR with no guardian EMAIL has adult-facing messaging LOCKED — teacher,
-   assistant, center_admin, center_staff (`ADULT_ROLES`). A guardian PHONE does
-   NOT satisfy it: email is the only guardian channel we can deliver on today.
-   The gate is enforced in `assertCanReach` AND filtered in `listContacts` from
-   the same predicate, so the directory can never offer what the gate refuses
-   (the drift proof still asserts set-equality), and in `assertGroupAccess` for
-   posting. **Everything else works normally** — paid classes, materials,
-   grades, wallet, login. The account is NEVER suspended by this rule.
-   Existing students with an APPROVED parent link carrying an email are
-   unaffected (that is why messaging-scope stayed 87/87).
-6. **Timeout ESCALATES, never punishes.** `guardian_contact_due_at`
-   (`GUARDIAN_EMAIL_GRACE_DAYS`, default 14) is set when we learn a minor has
-   no guardian email, and is NEVER reset by a re-send. Before it: periodic
-   reminders (cron `guardian-contact-reminders`, idempotent per window) and a
-   dismissable banner. After it: the banner becomes non-dismissable and the
-   owning CENTER is notified. Passing it never suspends the account and never
-   unlocks messaging.
-7. **PART B — assistants and center staff get the same invite/claim.** The
-   creator NO LONGER types a password (`password` removed from both create
-   APIs). The account is created `status: "shell"` + `passwordHash: NULL`,
-   an invite is emailed, and the invitee sets their OWN password via
-   `me/credentials` (still strictly set-once — that one condition is what makes
-   it safe for three roles instead of one; an invitee keeps the address they
-   were invited at, only a phone-only student chooses one). Both create/resend
-   responses return a **copyable fallback link**, because an email in spam must
-   not strand a hire. Invites are audited (`assistant.invited`,
-   `center_staff.invited`); the token itself is never written to any row.
-   Re-inviting an already-claimed account is REFUSED — that would be a
-   creator-controlled password-reset door.
-8. **The staff no-password bug, fixed at the source.** The old invariant
-   ("creator supplies a password") is replaced by: a staff/assistant account
-   has EITHER a password OR a live invite — never neither. `createStaff` /
-   `createAssistant` now accept `shell` as a legitimate existing state
-   (previously they threw "not active" at an unclaimed invitee, which is what
-   could strand one). Asserted, not commented.
-9. **Guardian email is stored, NOT verified.** A student could type a friend's
-   address. What we do enforce: it may not equal the student's own login email,
-   every set writes an audit row, and a self-supplied one notifies the center so
-   a human sees it. **Confirm-by-click verification of the guardian address is
-   the recommended follow-on and was deliberately NOT built.**
-
-Migrations (additive only): `20260725100000_invite_purposes_guardian_notice`
-(enum values, own file — Postgres cannot USE a new enum value in the transaction
-that adds it) and `20260725100100_guardian_contact` (5 nullable columns + index,
-no backfill).
-**[dev] APPLIED. [production, 2026-07-31] APPLIED — all 40 migrations deployed; production is no longer behind.** Consequence: `guardian_contact_due_at` does not exist there, so the
-`guardian-contact-reminders` cron job ERRORS on production rather than no-oping.
-Applying them is part of the production bootstrap. Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
-DB, real services + real NextAuth providers + the real me/credentials route).
-Regressions green: `bun run check-types` 5/5, `bun run build` both apps, www unit
-111 pass/1 skip, messaging-scope 87/87, c04 72/72, center-staff-delegation
-55/55, rbac-isolation 11/11, l1 12/12, m5 10/10.
-
-### Optional env vars added
-- `INVITE_CHANNELS` — `email` (default) | `email,whatsapp` | `whatsapp`.
-- `INVITE_TOKEN_TTL_HOURS` — default 168 (falls back to `WALKIN_TOKEN_TTL_HOURS`).
-- `GUARDIAN_EMAIL_GRACE_DAYS` — default 14.
-- `GUARDIAN_REMINDER_EVERY_DAYS` — default 3.
-
-## Parent pays for a child's lesson (built 2026-07-27 — awaiting review)
-
-A PARENT can activate and pay for a specific lesson (or a month) for their own
-child, from their own money. Built by WIDENING THE ACTOR on the Step 4
-subscription engine — not by adding a second money path. Nothing was rebuilt.
-
-1. **One gate, one implementation.** `assertApprovedChild` in
-   `packages/server-core/src/services/wallet/parent-wallet.ts` is the only place
-   "is this my child?" is decided; every parent money and browse path calls it.
-   `pending`, `rejected` and `revoked` links all fail — approval is the point of
-   the link, and a revoked one stops working immediately.
-2. **MONEY DIRECTION IS UNCHANGED BY WHO PAID (binding).** A parent-funded
-   subscription still moves `student -> center/teacher` in the Transaction
-   ledger (`fromEntityId = studentId`), so every split, statement, payout,
-   distribution and report behaves exactly as for a self-funded one. Who paid is
-   recorded on `payments.payer_user_id` + `Subscription.createdBy`, never by
-   redirecting the ledger. Proven, not asserted (proof 3).
-3. **Each wallet belongs to exactly one role, and neither reaches across.**
-   `payFrom: "wallet"` stays student-only — a parent spending their CHILD's
-   balance is not "paying for their child", it is spending the child's money, so
-   it is REFUSED. `payFrom: "parent_wallet"` is parent-only. Both directions are
-   proven (proof 8).
-4. **Parent wallet = the student wallet's deliberate MIRROR.** Same invariants:
-   append-only `parent_wallet_ledger` as source of truth (added to
-   `IMMUTABLE_MODELS`), `ParentProfile.walletBalance` as the reconciled cache,
-   H2 conditional decrement for all-or-nothing debits, DB `CHECK (>= 0)` floor,
-   `reconcileParentWallet`. A SIBLING table rather than a nullable owner on
-   `wallet_ledger`, whose `student_id` is NOT NULL and whose queries are proven
-   money code — widening it would have changed the meaning of every one of them.
-   One extra column the student ledger has no use for: `beneficiary_student_id`,
-   naming WHICH child a spend was for.
-5. **A parent top-up writes NO Payment row** — it is a float deposit by a
-   guardian, not a center/teacher receipt. Its receipt number lives on the
-   Transaction and the ledger row's `ref_number`. That is why
-   `payments.student_id` stayed NOT NULL while `payment_intents.student_id`
-   became nullable (guarded by CHECK `payment_intents_student_required` so the
-   NULL can only ever mean `purpose = 'parent_wallet_topup'`).
-6. **Ownership of an intent = who is PAYING it.** A student for their own, a
-   parent for the ones they funded. A parent is deliberately NOT given their
-   child's own checkout intents — that is the child's, and parent oversight is a
-   separate read surface with its own rules. Same rule in `getIntentForStudent`
-   and in `mock-complete`, so no entry point disagrees.
-7. **Browse widening is filtering, not authorization.** `search/courses` and
-   `catalog/subjects` accept `?studentId=` and resolve the CHILD's grade/track
-   after the link check; an unapproved id resolves NO scope, landing on the same
-   unnarrowed list an anonymous browser already sees. No course row exposes
-   anything new.
-8. **The student path is byte-for-byte unchanged** — `payerUserId` and
-   `createdBy` stay NULL on a self-checkout, and the existing suites confirm it
-   (proof 12 + wallet 20/20, m1 9/9).
-
-Migrations (additive only): `20260727110000_parent_wallet_topup_purpose` (enum
-value, own file — Postgres cannot USE a new enum value in the transaction that
-adds it) and `20260727110100_parent_wallet`.
-**[dev + test, verified 2026-07-27] APPLIED — 40 migrations. [production, 2026-07-31] APPLIED — bootstrap executed, 40 migrations, verify-db 25/25.**
-The `parent_profiles_wallet_balance_nonneg` CHECK is `convalidated = true` from
-birth in dev and test (every row was 0), unlike the centers wallet CHECK.
-
-Proof: `apps/www/tests/db/parent-pay.test.ts` **60/60** (live DB, real services,
-real webhook + HMAC path). Regressions green: `bun run build` both apps, www unit
-111 pass/1 skip, wallet 20/20, wallet-no-cap 7/7, m1-webhook-atomicity 9/9,
-c04-login-parity 72/72, messaging-scope 87/87, rbac-isolation 11/11 (206
-assertions across 6 suites). Typecheck is clean for every package this touched;
-the repo-wide `bun run check-types` fails only in the untracked
-`packages/ui/src/components/charts/` work in progress (`ChartLegendItem` expects
-`key`, line-chart passes `id`) — unrelated, and surfaced only because `recharts`
-was declared in `packages/ui/package.json` but never installed until now.
-
-Demo data: `prisma/parent-pay-demo-seed.ts` (`bun run seed:parentpay-demo`,
-`--purge` to remove) — one parent, two linked children, one center, two courses
-with BOTH plans priced and 8 upcoming sessions, and a 750 EGP opening parent
-wallet balance written through the REAL credit primitive so it reconciles like
-real data. It deliberately seeds NO paid subscription / Payment / Transaction:
-those are append-only and would be demo rows the purge cannot remove. Pay them
-yourself in the preview — that is the point.
-
-## Platform user directory + admin actions (built 2026-08-01 — awaiting review)
-
-The cross-role user surface roadmap decision #10 called for and that was never
-built. `apps/superadmin` ONLY (`/dashboard/superadmin/users`), super_admin only.
-Service: `apps/superadmin/src/lib/services/admin/admin-users.ts`.
-
-1. **ONE SUSPENSION MECHANISM (binding).** better-auth's admin plugin ships
-   `banned` / `ban_reason` / `ban_expires` columns and its own ban endpoints.
-   This app does NOT use them and `auth.api.banUser` is deliberately never
-   called. The platform already disables an account through `users.status`
-   (+ the 3-level blacklist), and C-03 wires that column to hard session
-   revocation. A second parallel way to disable an account is exactly the C-04
-   failure mode. The proof asserts the ban columns are STILL untouched after a
-   suspension, so the two can never drift.
-2. **Actions, each audited with actor + target + REQUIRED reason:** suspend /
-   reinstate (`user.suspended` / `user.reinstated`), revoke all sessions
-   (`user.sessions_revoked` — records `statusChanged:false, canSignInAgain:true`,
-   because it is the compromised-credential response, NOT a punishment), revoke
-   one device (`user.session_revoked`), reset 2FA (`user.two_factor_reset` —
-   also ends sessions, so it cannot keep a live session alive without a second
-   factor, and flags `mustReEnroll` for back-office accounts), send a password
-   reset (`user.password_reset_sent` — the admin NEVER sees or sets a password;
-   proven by asserting `password_hash` is unchanged). Self-targeting is refused;
-   suspending a blacklisted user is refused (the blacklist has its own H-04
-   reversal journal).
-3. **IMPERSONATION IS BOUNDED TO THE BACK OFFICE, on purpose.** www and
-   superadmin carry distinct cookie names AND distinct signing secrets, so a
-   session minted in the back office is unreadable by www BY CONSTRUCTION.
-   "Impersonate a teacher to see their portal" is therefore not a feature this
-   app can ship without breaking that separation, and it does not. What it does
-   allow: a super_admin viewing the finance portal as the `accountant` sees it —
-   same app, same cookie, audited on start AND stop, persistent banner, 1-hour
-   session. Refused: every www role, another super_admin (lateral privilege),
-   yourself, and any non-active account. The admin plugin's `impersonate-admins`
-   statement is deliberately NOT granted, so better-auth refuses admin targets
-   independently of our own check.
-4. **Money stays read-only** — the module imports no money service, and the
-   proof asserts that by reading its import list (same posture as
-   center-oversight).
-5. **Shared-kernel move (pure, with a shim):** password reset moved to
-   `@repo/server-core/services/auth/password-reset` so the back office triggers
-   the SAME implementation; `apps/www/src/lib/services/auth/password-reset.ts`
-   re-exports it, so every www import path and behaviour is unchanged (proven by
-   mail-password-reset 15/15). The one addition is an optional `linkBaseUrl`.
-   **Known limitation, stated honestly:** the reset PAGE lives in apps/www and is
-   role-agnostic, so a back-office account resets on the public domain and then
-   signs in to the back office. A superadmin-hosted reset page is the obvious
-   follow-on and was deliberately NOT built.
-6. Proof: `apps/superadmin/tests/db/admin-users.test.ts` **52/52** (live DB,
-   real services). NOTE for future suites: www roles cannot pass the superadmin
-   sign-in door at all (C-04), so a www user's live session is represented by a
-   planted `auth_sessions` row; back-office fixtures use the real door. No
-   database migration was required.
-
-## Auth: next-auth → better-auth migration (built 2026-08-01 — awaiting review)
-
-Both apps now run **better-auth 1.6.25** (DB-backed sessions); next-auth is
-REMOVED from both package.jsons. Full audit:
-[docs/architecture/better-auth-migration-audit.md](docs/architecture/better-auth-migration-audit.md);
-data-migration + rollback plan:
-[docs/architecture/better-auth-rollback.md](docs/architecture/better-auth-rollback.md).
-
-1. **The stable API surface (other workstreams code against THIS):**
-   server = `getSessionUser()` / `requireSession()` from `@/lib/auth/session`
-   (signatures and `SessionUser` shape UNCHANGED — the 58 existing call sites
-   did not change); client = `authClient` from `@/lib/auth/client`
-   (`signIn.email`, `signOut`, `useSession`, `listSessions`, `revokeSession`,
-   `twoFactor.*`, `admin.*` on superadmin). The better-auth instance itself is
-   `@/lib/auth/auth` (`auth.api.*` for server-side flows). Do NOT hand-fetch
-   `/api/auth/*`.
-2. **Schema (migration `20260801170000_better_auth`, additive):**
-   `auth_sessions` (NOT `sessions` — that is the live-class engine),
-   `auth_accounts`, `auth_verifications`, `two_factors` + user columns
-   `image`, `two_factor_enabled`, `banned`, `ban_reason`, `ban_expires`.
-   User IDs/rows untouched — better-auth maps onto the existing `users` table.
-   **[dev + test, applied 2026-08-01] — 42 migrations, verify-db 25/25.
-   [production, APPLIED 2026-08-02] — see the note below; production had been
-   running better-auth CODE against a database with NO auth tables, so every
-   sign-in returned 500. Applying this migration is what fixed it.
-   The expected-db-shape file now says 75 tables / 43 migrations (the extra
-   table + migration over 74/42 is `contact_submissions`).**
-3. **`users.password_hash` stays the SINGLE SOURCE OF TRUTH.** DB triggers
-   (`users_credential_sync_*`) mirror it into the better-auth credential row
-   both directions with IS-DISTINCT guards, so none of the ~10 existing
-   password writers (services, seeds, raw SQL) changed and bcrypt hashes
-   verify as-is — NO forced resets. Never write `auth_accounts.password`
-   directly.
-4. **L1 + C-03 became HARD revocation.** The `users_revoke_sessions` trigger
-   DELETES a user's `auth_sessions` rows in the same statement as any
-   deactivating write (`status` ≠ active, `deleted_at` set, or `token_version`
-   bump) — stronger than the old per-request JWT epoch re-read, and it holds
-   even for SQL that never touches Prisma. `token_version` and
-   `sessionRevocationExtension` stay (their bump is what fires the trigger).
-5. **One sign-in implementation per app** (before-hook in `lib/auth/auth.ts`):
-   C-04 `canSignIn` partition, C2 token buckets (same limits), H5 dummy-hash
-   timing, and the typed www codes (`USER_NOT_FOUND` / `ACCOUNT_INACTIVE` /
-   `RATE_LIMITED`; superadmin stays fully generic). The REST door
-   `POST /api/v1/auth/login` now FORWARDS to the same instance — it holds no
-   policy, so C-04 drift is structurally impossible. The Step 7 invite claim
-   is a better-auth plugin (`invite-token-plugin.ts`, endpoint
-   `/api/auth/invite-token/claim`) with the identical five gates; the
-   `walkin-token` provider-id alias was retired with NextAuth.
-6. **Sessions & devices UI ("الأجهزة والجلسات")** on every www settings screen
-   + superadmin/finance `security` pages: list devices, revoke one / all
-   others. **2FA (TOTP + backup codes):** REQUIRED for super_admin/accountant
-   (dashboard layout redirects to `/two-factor-setup` until enrolled), guided
-   optional enrollment for center owners (settings card), `/two-factor`
-   verify page in both apps.
-7. **Env: ZERO new vars.** `NEXTAUTH_SECRET` / `NEXTAUTH_URL` /
-   `SUPERADMIN_NEXTAUTH_SECRET` keep their names as the better-auth
-   secret/baseURL. Cookies are now `edura.session_token` /
-   `edura-superadmin.session_token` (old JWT cookies simply become inert —
-   everyone logs in once again; prod has only the 2 staff accounts).
-8. **Proofs (live test DB):** l1 13/13, c03 30/30, c04-parity 76/76,
-   invite-claim 107/107, registration-doors 17/17, c01 36/36, h03 48/48;
-   superadmin c03 16/16, c04-boundary 29/29, center-oversight 122/122,
-   center-platform 45/45, c02 28/28. Full sweeps green except
-   `catalog-onboarding` (pre-existing `cacheTag()` env failure, unrelated —
-   already excluded from `test:db:ci`). Root check-types 6/6, www unit 132/132
-   (+1 skip), `bun run build` both apps, lint error-parity with main.
-   Verified live in the browser: all six www roles sign in, teacher + center
-   admin portals, sessions card, full 2FA enroll→login cycle (real computed
-   TOTP), superadmin forced-2FA gate → dashboard → security page.
-   Demo helper: `demo-superadmin@edura.test` / `Passw0rd!` (is_demo, dev only).
-
-## Operational layer (built 2026-08-02 — awaiting review)
-
-Notifications, error tracking, product analytics, backups, health checks. Four
-new surfaces, two new packages, and NO schema migration.
-
-1. **`packages/notifications` is the single owner of transactional email.**
-   `send(template, to, data)`; NEVER THROWS (every call site is downstream of a
-   committed write). Templates are react-email, ar/en, RTL, each with a
-   hand-written `text/plain` part: `welcome`, `password_reset`,
-   `email_verification`, `payment_receipt`.
-   **The SMTP transport MOVED here** (`transport/smtp.ts`) so the package is a
-   LEAF — `@repo/server-core/mail/send` is now a re-export shim, and server-core
-   depends on notifications rather than the reverse. Without the move,
-   password-reset.ts calling a renderer that calls sendMail would be a cycle.
-   This also killed real drift: `welcome-email.ts` had a THIRD hand-rolled email
-   design (indigo, no shared layout) and now renders in the one shell.
-   > **Resend is an ENV change, not a code change** (`MAIL_PROVIDER=smtp`,
-   > `SMTP_HOST=smtp.resend.com`, API key as the password). No vendor SDK was
-   > added — the 2026-07-23 decision stands.
-   The three INVITE templates (student claim / assistant / staff) deliberately
-   stayed hand-written in `server-core/mail/templates.ts`: each is threaded
-   through a claim flow with heavy proofs, and the new shell is a VISUAL MATCH,
-   so porting them is a copy of their COPY constants with no design decision
-   left. **WhatsApp costs one file + one array entry + one env value** — proven
-   by a test that registers a synthetic channel and asserts the fan-out reaches
-   it, with zero dispatcher change.
-
-2. **better-auth: `sendResetPassword` is DELIBERATELY NOT SET, in both apps.**
-   better-auth ships a complete reset flow backed by its own
-   `auth_verifications` tokens, and its writer does NOT bump
-   `users.token_version` — the write that fires `users_revoke_sessions`. Wiring
-   it would give the app a second way to set a password that leaves every
-   pre-existing session alive, silently undoing L1. Reset stays on
-   `requestPasswordReset`. Only `emailVerification.sendVerificationEmail` is
-   wired (no competing implementation; does NOT set `requireEmailVerification`,
-   so no sign-in behaviour changed). Same reasoning as ONE SUSPENSION MECHANISM.
-
-3. **`packages/observability` is the ONE place that decides what Sentry and
-   PostHog may see.** Dependency-free (browser + node + edge import it).
-   **IDs only** — never a name, email, phone, or anything a human typed.
-   **`isMinorRole()` treats EVERY `student` as a minor**, deliberately stricter
-   than `chat-minors.ts` (which does read the verified DOB columns): analytics
-   does not get a birth-date read on the page-view path, and stricter is the
-   right direction for a third party. Session replay/recording and autocapture
-   are OFF (autocapture records clicked element TEXT — on a roster screen that
-   is a list of children's names). `beforeSend` deletes cookies/headers/bodies
-   and redacts the single-use TOKENS that ride in claim/reset/onboarding query
-   strings; if scrubbing itself throws it returns null and DROPS the event.
-   Proof: `apps/www/tests/unit/observability.test.ts` 26/26.
-
-4. **The PostHog funnel is the CENTER/TEACHER activation journey**, so the
-   minor rule costs it nothing — a student appears only as the OBJECT of "first
-   student added". `first_*` is COMPUTED (row count === 1), never assumed.
-   The funnel helpers live in `@repo/server-core/services/analytics` so the
-   WALLET and CASH rails (kernel code) report the same events; a helper in
-   apps/www could only ever have seen the gateway rail. PostHog is
-   reverse-proxied through `/ingest` because `*.i.posthog.com` is on every
-   ad-blocker list; Sentry is NOT proxied, because an error tracker must work
-   when this server is unhealthy.
-
-5. **`/api/health` in both apps** (not `/api/v1/` — infrastructure, not product
-   API). Status CODE is the signal: 200 / 503 + `Retry-After`. Only the DATABASE
-   affects status. **Bounded at 8s, and the number was measured:** 3s produced a
-   FALSE 503 on a Neon cold start (scale-to-zero; warm requests are 96–550ms).
-   Do not lower it without re-measuring a cold start. The pre-existing
-   `/api/v1/_ping` returns 200 even when the DB is unreachable — never point a
-   monitor at it.
-
-6. **Backups: `db:backup` + `db:restore-test`.** Encrypted (`age`, public-key)
-   `pg_dump -Fc` to any S3-compatible bucket, 7 daily + 4 weekly, label-guarded
-   by the same `edura-env:` marker, and it REFUSES to upload an unencrypted
-   dump. `.github/workflows/backup.yml` runs it nightly + a **weekly restore
-   test that pulls from the BUCKET** (so download and decrypt are exercised too).
-   > **[2026-08-02] THE SCHEDULE IS DISABLED — nothing is being backed up
-   > automatically.** No bucket and no `BACKUP_*` secrets exist yet, and the
-   > job fails LOUDLY rather than skipping quietly, so it was paused rather
-   > than training anyone to ignore a nightly red run. **Neon PITR is the only
-   > protection currently in force.** Re-enable with
-   > `packages/database/scripts/setup-backup-secrets.sh`, confirm a manual run
-   > passes, then restore the `schedule:` block (exact YAML is in the
-   > workflow's header comment — the key was REMOVED, not emptied, because
-   > GitHub rejects an empty schedule array).
-   > **PostgreSQL client major must be >= the server's.** Neon runs **18.4**;
-   > `pg_dump` 17 aborts outright. The scripts pre-flight this with an
-   > actionable error.
-   **[dev, VERIFIED 2026-08-02]** a real 0.32 MiB dump restored into a scratch
-   PostgreSQL 18.4 server: 8/8 checks — 78 tables, 44 applied migrations, 45
-   subjects / 27 grade levels, 38 users, 0 orphaned refunds/enrollments, 296
-   indexes / 45 FKs. Caveat recorded honestly in the runbook: dev held 0
-   transactions and 0 payments, so the money-ledger check passed VACUOUSLY.
-   **[production] never exercised.** A restored dump has NO `edura_app` role and
-   NO grants (`--no-owner --no-privileges`), so `db:bootstrap-role` + `db:verify`
-   after a restore is MANDATORY — otherwise the money ledger comes back
-   writable. Runbook: [docs/runbooks/backup-restore.md](docs/runbooks/backup-restore.md).
-
-Docs: [backup-restore.md](docs/runbooks/backup-restore.md),
-[uptime-and-status.md](docs/runbooks/uptime-and-status.md),
-[observability.md](docs/runbooks/observability.md).
-Proofs: unit 181 pass/1 skip (up from 132), check-types 8/8, `bun run build`
-both apps, mail-password-reset **15/15** and invite-claim **107/107** on the
-live test DB after the template re-point, lint error-parity with main.
-
-### Optional env vars added
-All are OPT-IN: with none of them set, Sentry and PostHog are inert and mail
-behaves exactly as before.
-- `NOTIFICATION_CHANNELS` (default `email`), `NOTIFICATIONS_PREVIEW`,
-  `NOTIFICATIONS_PREVIEW_DIR`.
-- `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`,
-  `NEXT_PUBLIC_SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE`; CI only:
-  `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_PROJECT_SUPERADMIN`,
-  `SENTRY_AUTH_TOKEN`.
-- `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` (use the EU region).
-- Backups (CI secrets): `BACKUP_DIRECT_URL`, `BACKUP_AGE_RECIPIENT`,
-  `BACKUP_AGE_IDENTITY`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`,
-  `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_REGION`,
-  `BACKUP_ALERT_EMAIL`, `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY`.
-
-## "Classical Ledger" redesign (built 2026-08-07 — awaiting review)
-
-The approved redesign from `design/handoff/` (README = the spec and the single
-source of truth for values; `Edura-Redesign.dc.html` = the full design document;
-`ledger-hero.js` = a vanilla reference of the hero). Editorial voice: hairline
-rules, colour as STROKE never fill, outlined buttons, serif display faces, ONE
-gold accent, and Arabic as CO-PRIMARY rather than adapted.
-
-1. **`design/CONSTITUTION.md` is retired as a VISUAL system and kept as a
-   FUNCTIONAL one.** All nine invariants survive untouched: `<Num>` vs
-   `<ProseCount>` as two components, two-step commit with amount-carrying confirm
-   buttons, the seal's exact stamp behaviour, `2px double var(--ink)` totals drawn
-   from `--ink` never `--rule`, every intermediate figure with an actor, per-record
-   commit state, three densities, four semantic colours, excluded capabilities
-   absent rather than disabled.
-2. **TOKENS WERE RE-POINTED, NOT RENAMED (binding).** The direction names
-   `--radius-sm/md/lg`, but those names are already GENERATED inside `@theme`
-   from `--radius-step-*`, and 33 call sites read `rounded-(--radius-step-md)`.
-   So the VALUES moved (`--radius-step-sm/md/lg` → 6/10/14px, `--radius-badge` →
-   12px) and the names did not. Shadows the same: `--elev-sm/md/lg` hold the new
-   values and `--lift`/`--lift-2` alias them, so ~70 `shadow-[var(--lift)]` call
-   sites in superadmin keep working. Adding the direction's names at `:root`
-   would have SHADOWED Tailwind's own scale.
-3. **`--ink-3` is `#6b6867`, NOT the source palette's `#7d7979`**, which fails AA
-   at body sizes. This is the one value the direction deliberately corrected, and
-   a revert would read as a harmless tidy-up in review — so it is held by a test
-   (below), not by a sentence.
-4. **Every font role token carries an in-line `var()` fallback.** An undefined
-   custom property inside a `font-family` list makes the whole declaration invalid
-   at computed-value time — the text loses its family entirely rather than falling
-   through to the next name. All five families are therefore loaded in ALL THREE
-   apps (www, superadmin, showcase), per-script subsets, because all three import
-   the token sheet.
-5. **THE MONO TRAP, three times.** IBM Plex Mono ships NO ARABIC GLYPHS, so
-   applying it to Arabic silently drops the text into another family with no
-   visible error — the trap `<Eyebrow>`'s header has always documented. The
-   direction specifies badges, table headers, the receipt's actor line and its
-   seal as mono, and every specimen in the design document is Latin. Resolution,
-   applied consistently: GEOMETRY is shared by both scripts, FAMILY switches.
-   `<StatusBadge script="latin">` is opt-in (defaults to the body face — the safe
-   direction); the table header's mono/0.12em treatment is applied per-table via
-   className and NOT globally; the hero splits its actor line so the NAME is body
-   face and the TIME is mono. Figures are mono, Latin-digit and bidi-isolated
-   everywhere, unchanged.
-6. **The shadcn `default` button was NOT flipped to solid ink.** The direction
-   says primary = solid `--ink` and is the only solid — but `default` is the
-   indigo primary on 25+ back-office screens, and the direction ALSO says the ERP
-   screens are not yet designed in this language and must not be reskinned ad
-   hoc. Flipping it would have done exactly that, invisibly, from one line of a
-   cva. The Classical set is ADDITIVE (`ledger` / `gold` / `ledger-ghost` /
-   `money`, sizes `ledger` / `ledger-money`) and every marketing surface uses it.
-   When the ERP is designed in this language, `default` becomes an alias of
-   `ledger` — that is a decision about the whole product, not about a cva.
-7. **Focus is a 2px `--indigo` outline at 2px offset, product-wide**, on Button
-   and Input, replacing shadcn's 3px translucent ring. An outline is drawn outside
-   the border box so it never reflows or clips, and unlike a box-shadow ring it
-   survives forced-colors mode rather than being dropped.
-8. **The showcase had NO theme mechanism at all** — it never set `data-theme`, so
-   the dark token block was dead there. Rather than add a THIRD copy of a file
-   `apps/www` and `apps/superadmin` already carried byte-identically, the provider
-   moved to `@repo/ui/components/theme-mode-provider` and both portals became
-   re-export shims (every import path and behaviour unchanged). The showcase
-   inlines the pre-paint bootstrap rather than fetching `/theme-init.js`: a
-   separate request can resolve AFTER first paint, which defeats its purpose.
-9. **The three.js notebook is GONE**, with its poster pipeline, its posters, the
-   `render:poster` script, `three` / `@react-three/fiber` / `@react-three/drei` /
-   `@types/three`, and the `.scene-pin` / `.will-reveal` styles that were only
-   ever its. It was the only three.js consumer. The hero that replaces it is a
-   localized React component on the showcase's EXISTING `loadMotion()` runtime —
-   not a second GSAP instance — and its static JSX **is** the final frame, so
-   SSR, `prefers-reduced-motion` and hydration all fall out of one code path
-   instead of three.
-
-**No database migration, no schema change, no API change.**
-
-Proofs: `apps/www/tests/unit/design-contrast.test.ts` **27/27** — parses the
-token sheet and asserts every text token holds 4.5:1 on ALL THREE grounds
-(paper/sheet/field, because meta text sits on all of them), every badge pair,
-and the dark-mode "seal is the most legible element in its row" check as an
-ORDERING. `apps/showcase/tools/redesign/capture.spec.ts` **8/8** in a real
-browser (`bun run --cwd apps/showcase capture:redesign`, dev server on :3006) —
-captures AR+EN landing in light+dark, the state sheet and the hero's final
-frame, and asserts the seal sits at −6° in RTL, that reduced motion is still
-byte-identical after 2s (i.e. no timeline exists), and that the loop stops
-advancing off-viewport. Screenshots land in `design/handoff/shots/`.
-Regressions green: `bun run check-types` 9/9, `bun run build` 3/3, www unit
-**394 pass / 1 skip**, showcase 16/16, and lint error-parity — the 14 www + 2
-superadmin errors are all pre-existing (terms/privacy/use-chat/sw.js/`Date.now`)
-and none are in a file this change touches. A repo-wide scan confirms no
-stylesheet redeclares any of the 171 tokens `globals.css` owns.
-
-> **`bun run build` DOES NOT CATCH CSS SYNTAX ERRORS in the showcase.** It builds
-> with `--webpack` while `next dev` uses Turbopack, and during this work a broken
-> comment in `globals.css` passed the build and was caught only by the dev
-> server. Treat a green build as insufficient evidence for a stylesheet change.
-
-**Dev-only surface:** `/{locale}/design-system` in the showcase is the component
-state sheet (every button/input/badge/table/empty state, both scripts, plus the
-RTL worst case — an Arabic name, a `TRX-` code and a 7-digit amount in one row).
-It `notFound()`s in production, gated the same way the portals gate quick-login.
-
-**Deliberately NOT done, and why:** the ERP screens were not reskinned (they do
-change appearance via token propagation, which the scope guard permits); no
-pricing section, footer legal line, testimonials, counters or stock photography
-were invented; no copy was rewritten — the landing uses `home.hero` and `owners`
-verbatim, and the three proof figures were added as new `home.proof` keys taken
-from the design document's own AR and EN landings. The footer's missing legal
-line (B3) has NO placeholder TODO in the markup on purpose: a visible
-placeholder on a public page is worse than its absence.
-
-**Open questions still open:** gold vs amber adjacency once a marketing page
-shows a live status badge; the B3 legal line; whether Amiri should serve 13px
-Arabic body copy (current spec: Plex Sans Arabic below display sizes); and the
-ERP design language — which now carries two concrete sub-questions, whether
-`default` should become solid ink (#6) and whether table headers should take the
-Latin mono treatment (#5).
+| Decision | What it covers |
+|---|---|
+| [messaging](docs/decisions/messaging.md) | Relationship-scoped messaging, one authorization module, parent oversight |
+| [team-notes](docs/decisions/team-notes.md) | Internal to-do board for center staff / teacher assistants |
+| [superadmin-center-oversight](docs/decisions/superadmin-center-oversight.md) | Cross-center read visibility + six audited control ops |
+| [email-invites-guardian](docs/decisions/email-invites-guardian.md) | Email-first invites, one claim kernel, guardian contact |
+| [parent-pays-lesson](docs/decisions/parent-pays-lesson.md) | Parent activates and pays for a child's lesson; parent wallet |
+| [admin-user-directory](docs/decisions/admin-user-directory.md) | Platform user directory + audited admin actions, bounded impersonation |
+| [better-auth-migration](docs/decisions/better-auth-migration.md) | next-auth → better-auth 1.6.25, DB sessions, hard revocation, 2FA |
+| [operational-layer](docs/decisions/operational-layer.md) | Notifications, Sentry/PostHog, health checks, backups |
+| [student-id-card](docs/decisions/student-id-card.md) | Student ID card + student code v2 (check character, guilloché) |
+| [student-card-qr](docs/decisions/student-card-qr.md) | The card QR as a signed credential; tiered scan page; on-demand reads |
+| [external-teachers](docs/decisions/external-teachers.md) | Off-system teachers a center runs by manual entry |
+| [classical-ledger-redesign](docs/decisions/classical-ledger-redesign.md) | The "Classical Ledger" visual language + the five role pages |
+| [counter-board](docs/decisions/counter-board.md) | The counter board — the center's first screen |
+| [lesson-settlement](docs/decisions/lesson-settlement.md) | Settlement trigger, price and basis; `settlement_basis` |
+| [bulk-student-import](docs/decisions/bulk-student-import.md) | CSV roster import, per-row transactions, dry run |
+| [report-export](docs/decisions/report-export.md) | Report export — CSV and the print route |
+| [weekly-center-digest](docs/decisions/weekly-center-digest.md) | The owner's Monday email; idempotency as an audit row |
+| [guardian-email-verification](docs/decisions/guardian-email-verification.md) | Proving a guardian address without minting a session |
+| [showcase-is-public-site](docs/decisions/showcase-is-public-site.md) | showcase = the public site, www = the app |
+| [global-search](docs/decisions/global-search.md) | The ⌘K palette finds records, in both apps |
+| [sidebar-ia](docs/decisions/sidebar-ia.md) | Sidebar information architecture across all 8 portals |
+| [typescript-7-next-16](docs/decisions/typescript-7-next-16.md) | TypeScript 7 + Next.js 16.3 upgrade (two TypeScripts on purpose) |
+| [portal-design-pass](docs/decisions/portal-design-pass.md) | Defect pass across student/parent/teacher/center portals |
+| [lesson-times-12h](docs/decisions/lesson-times-12h.md) | 12-hour clock with the day period in words |
+| [parent-portal-dedup](docs/decisions/parent-portal-dedup.md) | Parent portal de-duplication (no capability removed) |
+| [student-portal-dedup](docs/decisions/student-portal-dedup.md) | Student portal de-duplication (no capability removed) |
 
 ## Stitch MCP design workflow (binding rules, added 2026-07-20)
 
@@ -1479,6 +600,37 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
 - `INTERNAL_API_SECRET` — dedicated server↔server bridge secret (M2).
 - `CRON_SECRET` — guards `/api/v1/cron/[job]`; required in EVERY environment
   (endpoint fails closed / rejects all requests when unset, no bypass) (M7).
+- `STUDENT_QR_SECRET` — signs every student ID card's QR. Required in prod, no
+  fallback: a card signed with a guessable value is forgeable, and nobody finds
+  out until someone is marked present at a lesson they never attended. **Both
+  apps must be given the SAME value** — a card rendered in the back office has
+  to verify at a www counter. In development it falls back to a fixed literal
+  (deliberately NOT the app secret, whose value differs per app). Rotating it
+  invalidates every printed card at once; reissue is per-student and is the
+  intended tool.
 
 (Recommended once M3 lands: `REDIS_URL` for a shared rate-limit store across
 instances, `TRUSTED_PROXY_HOPS` matching the deploy's proxy depth.)
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- **Start EVERY task here.** Before reading, grepping, or planning anything in this
+  repo, orient with the graph first: run `graphify query "<the task in one
+  sentence>"` as the first tool call of the task. Only fall through to Grep/Read
+  after the graph has pointed at the files — or when you already know the exact
+  file and line you need to edit or debug. This applies to feature work, bug
+  fixes, reviews and questions alike, not only to "where is X" questions.
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- Every session opens with a ~400-token orientation digest (graph size, god nodes,
+  community hubs, and whether the graph is STALE vs `HEAD`), injected by the
+  `SessionStart` hook in `.claude/settings.json` →
+  `.claude/hooks/graphify-session-digest.sh`. The digest is deliberately NOT the
+  whole `GRAPH_REPORT.md` — that file is ~2.8k lines (~35k tokens) and injecting
+  it every session would cost far more than it saves. If the digest says STALE,
+  run `graphify update .` before trusting any query result.

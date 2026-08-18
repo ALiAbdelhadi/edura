@@ -1,0 +1,35 @@
+▲ Next.js 16.3.0
+- Local:         http://localhost:3104
+- Network:       http://192.168.1.7:3104
+✓ Ready in 58ms
+✓ Running next.config.ts took 117ms
+2026-08-18T01:42:55.541Z WARN [Better Auth]: Rate limiting could not determine a client IP and is falling back to a single shared per-path bucket. Ensure your runtime forwards a trusted client IP header, then set `advanced.ipAddress.ipAddressHeaders` or `advanced.ipAddress.trustedProxies` so the address can be resolved.
+[unhandled] [Error [APIError]: You are not impersonating anyone] {
+  status: 'BAD_REQUEST',
+  body: { message: 'You are not impersonating anyone' },
+  headers: {},
+  statusCode: 400
+}
+[unhandled] [Error [APIError]: You are not impersonating anyone] {
+  status: 'BAD_REQUEST',
+  body: { message: 'You are not impersonating anyone' },
+  headers: {},
+  statusCode: 400
+}
+[unhandled] [Error [APIError]: You are not impersonating anyone] {
+  status: 'BAD_REQUEST',
+  body: { message: 'You are not impersonating anyone' },
+  headers: {},
+  statusCode: 400
+}
+[unhandled] [Error [APIError]: You are not impersonating anyone] {
+  status: 'BAD_REQUEST',
+  body: { message: 'You are not impersonating anyone' },
+  headers: {},
+  statusCode: 400
+}
+2026-08-18T01:46:17.786Z WARN [Better Auth]: Invalid password
+2026-08-18T01:46:17.985Z WARN [Better Auth]: Invalid password
+2026-08-18T01:46:18.177Z WARN [Better Auth]: Invalid password
+2026-08-18T01:46:18.374Z WARN [Better Auth]: Invalid password
+2026-08-18T01:46:18.579Z WARN [Better Auth]: Invalid password

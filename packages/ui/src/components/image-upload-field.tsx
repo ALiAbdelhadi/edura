@@ -22,8 +22,35 @@ import { compressImage, formatBytes } from "@repo/ui/lib/image-compress"
  * passes translated text in.
  */
 
-const ACCEPTED = "image/jpeg,image/png,image/webp,image/avif"
-const DEFAULT_MAX_BYTES = 5 * 1024 * 1024
+/**
+ * MIRRORS `ACCEPTED_IMAGE_MIMES` in @repo/server-core/media/images, which is
+ * the authority — it is derived from the byte-sniffer's own table. Duplicated
+ * (not imported) because @repo/ui is a browser package and server-core pulls in
+ * Prisma; a unit test asserts the two lists are equal.
+ *
+ * `image/gif` belongs here: the server accepts animated GIFs and Cloudinary
+ * preserves their frames. Omitting it only hid them from the file picker, while
+ * drag-and-drop — which ignores this attribute — accepted them anyway.
+ */
+export const ACCEPTED_IMAGE_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+] as const
+const ACCEPTED = ACCEPTED_IMAGE_MIMES.join(",")
+/**
+ * MIRRORS `MAX_IMAGE_BYTES` in @repo/server-core/media/images, which is the
+ * authority — it is under the deployment's serverless request-body cap, so a
+ * file this control accepts can always physically reach the route.
+ *
+ * It is duplicated rather than imported because @repo/ui is a browser package
+ * and server-core pulls in Prisma. A unit test asserts the two are equal, so
+ * the copy cannot drift silently.
+ */
+export const UI_MAX_IMAGE_BYTES = 4 * 1024 * 1024
+const DEFAULT_MAX_BYTES = UI_MAX_IMAGE_BYTES
 
 export type ImageUploadFieldProps = {
   /** Currently stored image (public_id or URL). */
@@ -57,7 +84,7 @@ const DEFAULT_LABELS = {
   replace: "Replace",
   remove: "Remove",
   uploading: "Uploading…",
-  dropHint: "PNG, JPG or WebP — up to 5 MB",
+  dropHint: "PNG, JPG or WebP — up to 4 MB",
   tooLarge: "Image is too large",
   wrongType: "Only PNG, JPG, WebP or AVIF images are accepted",
   failed: "Upload failed. Please try again.",
@@ -92,6 +119,18 @@ function ImageUploadField({
 
   const shown = preview ?? value ?? null
 
+  // Dropping the local preview falls back to `value` — the image the server
+  // actually holds. EVERY exit from handleFile has to do this, including the
+  // rejection paths: a preview left behind after a refusal is a blob the
+  // browser cannot decode, so the control silently stopped showing the photo
+  // the user still has stored until they reloaded the page.
+  const clearPreview = React.useCallback(() => {
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old)
+      return null
+    })
+  }, [])
+
   const handleFile = React.useCallback(
     async (file: File) => {
       setError(null)
@@ -116,27 +155,22 @@ function ImageUploadField({
         const compressed = await compressImage(file, { maxEdge })
         if (compressed.size > maxBytes) {
           setError(`${t.tooLarge} (${formatBytes(compressed.size)})`)
+          clearPreview()
           return
         }
         await onUpload(compressed)
         // The parent has refetched by now; drop the local preview so the
         // Cloudinary-delivered (and therefore optimized) URL takes over.
-        setPreview((old) => {
-          if (old) URL.revokeObjectURL(old)
-          return null
-        })
+        clearPreview()
       } catch {
         setError(t.failed)
-        setPreview((old) => {
-          if (old) URL.revokeObjectURL(old)
-          return null
-        })
+        clearPreview()
       } finally {
         setBusy(false)
         if (inputRef.current) inputRef.current.value = ""
       }
     },
-    [maxBytes, maxEdge, onUpload, t.failed, t.tooLarge, t.wrongType]
+    [clearPreview, maxBytes, maxEdge, onUpload, t.failed, t.tooLarge, t.wrongType]
   )
 
   const handleRemove = React.useCallback(async () => {

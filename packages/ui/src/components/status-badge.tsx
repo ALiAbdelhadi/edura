@@ -100,7 +100,12 @@ export function StatusBadge({
       data-slot="status-badge"
       data-tone={tone}
       className={cn(
-        "inline-flex w-fit items-center gap-1.5 rounded-(--radius-badge) px-[9px] py-[4px] text-[11px] font-semibold",
+        // 12px on a phone, back to the specified 11px from `sm` up — the same
+        // one-step mobile bump `<Eyebrow>` takes, and for the same reason: a
+        // badge is a status a reader has to actually READ, and 11px at ~30cm
+        // was the smallest thing on the screen. The geometry, the tones and
+        // the Latin variant are untouched.
+        "inline-flex w-fit items-center gap-1.5 rounded-(--radius-badge) px-[9px] py-[4px] text-[12px] font-semibold sm:text-[11px]",
         script === "latin" && "num tracking-[0.04em]",
         TONE[tone],
         className,

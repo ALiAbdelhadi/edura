@@ -15,7 +15,7 @@ import {
   acceptCollaborationRequest,
   rejectCollaborationRequest,
 } from "@repo/server-core/services/collaboration/collaboration";
-import { deleteReplacedImage } from "@repo/server-core/media/images";
+import { deleteReplacedImage, imageSlot } from "@repo/server-core/media/images";
 import type { RoomPricingMethodValue } from "@/lib/services/finance/commission";
 import type { Prisma } from "@repo/database";
 
@@ -528,8 +528,15 @@ export async function updateCenterProfile(
   // Repointing `logoUrl` here leaves the center's uploaded logo with nothing
   // referencing it. Cleaned up after the audited write commits, and never
   // fatal — the edit and its audit row are already durable.
+  //
+  // `owned` confines the delete to THIS center's own slot. www no longer
+  // accepts a free-text `logoUrl` at all (upload only); this surface still
+  // does, so the guard is what keeps a pasted URL from destroying an asset
+  // belonging to another center — or to a teacher.
   if (result.changed.includes("logoUrl")) {
-    await deleteReplacedImage(previousLogoUrl, result.center?.logoUrl ?? null);
+    await deleteReplacedImage(previousLogoUrl, result.center?.logoUrl ?? null, {
+      owned: imageSlot("logo", centerId),
+    });
   }
   return result;
 }

@@ -1,81 +1,58 @@
-import { AppProviders } from "@/components/providers/app-providers";
-import { isRtlLocale, routing } from "@/i18n/routing";
-import { getSessionUser } from "@/lib/auth/session";
-import { baseMessages } from "@/lib/i18n/scope";
-import { AnalyticsProvider } from "@/lib/observability/analytics-provider";
-import { appBaseUrl } from "@repo/server-core/http/app-url";
-import type { Metadata, Viewport } from "next";
-import { NextIntlClientProvider, hasLocale } from "next-intl";
-import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   Amiri,
   Cormorant_Garamond,
   IBM_Plex_Mono,
   IBM_Plex_Sans_Arabic,
   Lora,
-  Noto_Sans,
 } from "next/font/google";
-import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
-import "./globals.css";
 
-const notoSans = Noto_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-noto-sans",
-});
+import "../globals.css";
+import { DEFAULT_LOCALE, LOCALES, dirOf, isLocale } from "@/i18n/config";
+import { getMessages } from "@/i18n/messages";
+import { siteOrigin } from "@/lib/site-origin";
+import { THEME_BOOTSTRAP } from "@/components/theme-toggle";
 
-const plexArabic = IBM_Plex_Sans_Arabic({
+
+const amiri = Amiri({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-arabic",
+  weight: ["400", "700"],
+  variable: "--font-amiri",
+  display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-mono",
-});
-
-// The display pair. Loaded here because the shared token sheet reads
-// --font-cormorant / --font-lora / --font-amiri unconditionally: an app that
-// imports the sheet without defining them would lose the whole font-family
-// declaration, not fall through to the next name. Subsets are per-script, so
-// neither locale downloads the other's display face.
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "600", "700"],
   variable: "--font-cormorant",
+  display: "swap",
 });
 
 const lora = Lora({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-lora",
+  display: "swap",
 });
 
-const amiri = Amiri({
-  subsets: ["arabic"],
-  weight: ["400", "700"],
-  variable: "--font-amiri",
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-arabic",
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
 });
 
 export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
+  return LOCALES.map((locale) => ({ locale }));
 }
-
-export const viewport: Viewport = {
-  themeColor: [
-    // --paper, both themes. Literals because the browser chrome reads this
-    // before any stylesheet exists. The previous pair (#5b76fe / #0b1020) was
-    // the retired EduConnect violet and matched nothing the app renders.
-    { media: "(prefers-color-scheme: light)", color: "#f3f2f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#191817" },
-  ],
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
 
 export async function generateMetadata({
   params,
@@ -83,68 +60,51 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({
-    locale: locale as (typeof routing.locales)[number],
-    namespace: "metadata",
-  });
-  const languages = Object.fromEntries(
-    routing.locales.map((l) => [l, `/${l}`]),
-  );
+  const t = getMessages(isLocale(locale) ? locale : DEFAULT_LOCALE);
+
   return {
-    metadataBase: new URL(appBaseUrl()),
-    title: t("title"),
-    description: t("description"),
+    // Every page below sets `alternates.languages` as ROOT-RELATIVE paths.
+    // Without a base, Next emits those into the HTML as-is, and a relative
+    // hreflang is invalid — a crawler needs an absolute URL to resolve one
+    // language version to another. This is what makes them absolute, for this
+    // page and for every page that inherits it.
+    metadataBase: new URL(siteOrigin()),
+    title: t.meta.title,
+    description: t.meta.description,
     alternates: {
       canonical: `/${locale}`,
-      languages: { ...languages, "x-default": `/${routing.defaultLocale}` },
+      languages: Object.fromEntries(LOCALES.map((l) => [l, `/${l}`])),
     },
-    appleWebApp: {
-      capable: true,
-      statusBarStyle: "default",
-      title: "Edura",
-    },
-    icons: {
-      icon: "/edura-mark.svg",
-      shortcut: "/edura-mark.svg",
-      apple: "/edura-mark.svg",
+    openGraph: {
+      title: t.meta.title,
+      description: t.meta.description,
+      locale,
+      type: "website",
     },
   };
 }
 
-export default async function RootLayout({
+export default async function LocaleLayout({
   children,
   params,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  if (!hasLocale(routing.locales, locale)) {
-    notFound();
-  }
-  setRequestLocale(locale);
-  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  const messages = baseMessages(await getMessages());
-  const actor = await getSessionUser();
-  const analyticsSession = actor
-    ? { id: actor.id, role: actor.role, centerId: actor.centerId ?? null }
-    : null;
+  if (!isLocale(locale)) notFound();
 
   return (
     <html
       lang={locale}
-      dir={dir}
+      dir={dirOf(locale)}
+      className={`${amiri.variable} ${cormorant.variable} ${lora.variable} ${plexArabic.variable} ${plexMono.variable}`}
       suppressHydrationWarning
-      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable}`}
     >
-      <body>
-        <script src="/theme-init.js" async />
-        <NextIntlClientProvider messages={messages}>
-          <AnalyticsProvider session={analyticsSession}>
-            <AppProviders>{children}</AppProviders>
-          </AnalyticsProvider>
-        </NextIntlClientProvider>
-      </body>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }

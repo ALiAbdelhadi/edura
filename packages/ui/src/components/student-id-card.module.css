@@ -1,0 +1,48 @@
+/* The card's own type scale.
+   ══════════════════════════════════════════════════════════════════════════════
+   The Ledger's <Eyebrow> is a fixed 10px, which is right on a screen and wrong
+   on a card that has to be the same object at 320px wide on a phone and at 86mm
+   on paper. Everything here is sized in `cqw` against the card's own container,
+   so the whole card scales as one piece.
+
+   The marker rule from CONSTITUTION §6 still holds: mono and letter-spacing are
+   LATIN-ONLY — Arabic has no Plex Mono glyphs and breaks under tracking — so the
+   uppercase/mono treatment is applied by the component only when the label is
+   Latin. */
+
+.eyebrow {
+  font-size: clamp(7px, 1.55cqw, 11px);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.eyebrowLatin {
+  font-family: var(--ledger-mono), var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The card's figure treatment — the same argument as `.eyebrow` above, and the
+   reason this is not `<Num>`.
+
+   `<Num>` exists in two places (www's Ledger layer and @repo/ui) and neither is
+   `cqw`-scaled, because neither has to be: a figure on a screen is sized in px.
+   The one figure on this card is the student code, which must grow with the
+   card from a phone to a printed 86mm sheet like everything else on it. So the
+   card carries its own, exactly as it already carries its own eyebrow — this is
+   the existing decision applied to the second element, not a new one.
+
+   Everything else about it is `<Num>`'s contract, unchanged and load-bearing:
+   Latin mono, tabular figures, and `unicode-bidi: isolate` so the code does not
+   reorder against the Arabic name beside it.
+
+   The font stack names `--ledger-mono` first (www defines it via next/font) and
+   falls through to `--font-mono` (apps/superadmin) — the card renders in both
+   apps and must not lose its face in either. */
+.figure {
+  font-family: var(--ledger-mono), var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  direction: ltr;
+  unicode-bidi: isolate;
+}

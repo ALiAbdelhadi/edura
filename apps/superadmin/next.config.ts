@@ -41,7 +41,21 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // Next 16.3 writes an AGENTS.md + CLAUDE.md into the app on every dev boot.
+  // This repo already carries its own agent instructions at the root, and a
+  // generated per-app CLAUDE.md is loaded on top of them; keep the upgrade
+  // behaviour-neutral and let those files stay authored, not emitted.
+  agentRules: false,
+
   reactStrictMode: true,
+
+  experimental: {
+    // TypeScript 7 (the native Go compiler) ships `tsc` and the new
+    // `typescript/unstable/*` API, not the classic JS compiler API Next
+    // reaches for. Without this flag `next build` refuses to start; with it,
+    // Next shells out to the `tsc` binary for the type check.
+    useTypeScriptCli: true,
+  },
 
   // Same as apps/www: pin the workspace root so Turbopack never infers it from
   // a SIBLING checkout's lockfile inside a git worktree (see the comment in

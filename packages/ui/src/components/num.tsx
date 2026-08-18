@@ -42,6 +42,7 @@ import * as React from "react";
 
 import { cn } from "@repo/ui/lib/utils";
 import {
+  clockParts,
   formatDate,
   formatEGP,
   formatNumber,
@@ -215,12 +216,113 @@ function NumTotal({ className, ...props }: NumMoneyProps) {
   );
 }
 
+/* ── Clock ─────────────────────────────────────────────────────────────────────
+   A lesson time — `4:00 عصرًا`, `4:00 عصرًا – 6:00 مساءً`.
+
+   THE FAMILY SWITCHES MID-FIGURE, and that is the whole reason this is a component
+   rather than a string in a <Num>. The numerals are data and set mono; `عصرًا` is a
+   WORD, and IBM Plex Mono ships no Arabic glyphs, so a period word inside the mono
+   island falls into another family silently. Same resolution as everywhere else this
+   trap appears: geometry shared, family switched.
+
+   The period is written once when both ends of a range share it, and on both when
+   they do not — `8:00 – 10:00 مساءً` but `10:00 صباحًا – 12:00 ظهرًا`. The whole thing
+   is `whitespace-nowrap`: a lesson time broken across two lines is two times.
+
+   ONE `ltr-island` around the WHOLE range, never one per time — this is a flex row,
+   and in an RTL page a row of two separately isolated times lays out right-to-left,
+   so `4:00 – 6:00` renders as `6:00 – 4:00`: a lesson that appears to end before it
+   starts. The inner figures therefore set `isolate={false}`; the wrapper is the
+   island. Same fix, same reason, as `formatClockRange`. */
+export type NumClockProps = Omit<NumProps, "children"> & {
+  /** A bare `HH:MM` wall-clock string. */
+  value: string | null | undefined;
+  locale: Locale;
+};
+
+function Period({ children }: { children: string }) {
+  return <span className="font-sans">{children}</span>;
+}
+
+const CLOCK_WRAP = "ltr-island inline-flex items-baseline gap-1 whitespace-nowrap";
+
+function NumClock({ value, locale, className, ...props }: NumClockProps) {
+  const parts = clockParts(value, locale);
+  // Not a clock string — show whatever the row actually holds rather than nothing.
+  if (!parts) return <NumRoot className={className} {...props}>{value ?? ""}</NumRoot>;
+  return (
+    <span className={cn(CLOCK_WRAP, className)}>
+      <NumRoot isolate={false} {...props}>
+        {parts.face}
+      </NumRoot>
+      <Period>{parts.period}</Period>
+    </span>
+  );
+}
+
+export type NumClockRangeProps = Omit<NumProps, "children"> & {
+  start: string | null | undefined;
+  end: string | null | undefined;
+  locale: Locale;
+};
+
+function NumClockRange({
+  start,
+  end,
+  locale,
+  className,
+  ...props
+}: NumClockRangeProps) {
+  const a = clockParts(start, locale);
+  const b = clockParts(end, locale);
+  if (!a || !b) {
+    return <NumClock value={a ? start : end} locale={locale} className={className} {...props} />;
+  }
+  return (
+    <span className={cn(CLOCK_WRAP, className)}>
+      <NumRoot isolate={false} {...props}>
+        {a.face}
+      </NumRoot>
+      {a.period === b.period ? null : <Period>{a.period}</Period>}
+      <span aria-hidden>–</span>
+      <NumRoot isolate={false} {...props}>
+        {b.face}
+      </NumRoot>
+      <Period>{b.period}</Period>
+    </span>
+  );
+}
+
+
+/** A joined literal — `"16:00 – 17:30"` — as the guided-tour worlds hold them. */
+function splitClockText(value: string | null | undefined) {
+  const [start, end, ...rest] = (value ?? "").split(/\s*[–—-]\s*/);
+  return rest.length > 0 ? { start: value, end: undefined } : { start, end };
+}
+
+export type NumClockTextProps = Omit<NumProps, "children"> & {
+  value: string | null | undefined;
+  locale: Locale;
+};
+
+function NumClockText({ value, ...props }: NumClockTextProps) {
+  const { start, end } = splitClockText(value);
+  return end ? (
+    <NumClockRange start={start} end={end} {...props} />
+  ) : (
+    <NumClock value={start} {...props} />
+  );
+}
+
 export const Num = Object.assign(NumRoot, {
   Money: NumMoney,
   Figure: NumFigure,
   Date: NumDate,
   Code: NumCode,
   Total: NumTotal,
+  Clock: NumClock,
+  ClockRange: NumClockRange,
+  ClockText: NumClockText,
 });
 
 /* ══════════════════════════════════════════════════════════════════════════════

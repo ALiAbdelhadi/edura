@@ -103,6 +103,13 @@ export async function setGuardianContact(
                 guardianEmail,
                 guardianEmailAddedAt: new Date(),
                 guardianEmailAddedBy: actor.id,
+                // A NEW address is unverified, always. Clearing the stamp here
+                // is what stops a proof earned by one inbox from carrying over
+                // to another nobody confirmed — the readers compare the stamped
+                // value against this one, and these two writes keep them honest
+                // together.
+                guardianEmailVerifiedAt: null,
+                guardianEmailVerifiedValue: null,
               }
             : {}),
           ...(guardianPhone ? { guardianPhone } : {}),

@@ -1,0 +1,57 @@
+@layer theme, base, components, portal, utilities;
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../../../../../packages/ui/src/styles/globals.css";
+/* The portal chrome's own layer — the 2026 direction, scoped to the shell.
+   Imported UNLAYERED and after the shared sheet on purpose: unlayered rules
+   outrank every layer, which is what lets `.chrome [data-slot="sidebar-menu-
+   button"]` beat the utility classes the sidebar primitive ships with. It
+   declares no token globals.css owns, so nothing outside the shell moves. */
+@import "../../../../../packages/ui/src/styles/chrome-2026.css";
+
+@layer base {
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--indigo-soft);
+    color: var(--indigo);
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--rule);
+    border-radius: var(--radius-xl);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer base {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

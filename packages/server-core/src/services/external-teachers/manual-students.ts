@@ -53,7 +53,7 @@ function norm(value: string | null | undefined): string | null {
  * dedup key — a mistyped one does not merely store badly, it permanently blocks
  * the real owner of that number from ever being entered.
  */
-function normalizeNationalId(value: string | null | undefined): string | null {
+export function normalizeNationalId(value: string | null | undefined): string | null {
   const v = norm(value);
   if (!v) return null;
   const digits = v.replace(/\D/g, "");
@@ -175,8 +175,15 @@ export async function lookupStudentForManualEntry(
  * and the create can never disagree about what counts as "the same child".
  * Order is by strength: a national ID identifies a person, a phone identifies a
  * household, a student code identifies a record we issued.
+ *
+ * Exported (additively) so the CENTER bulk-import path
+ * (`services/center/bulk-import-students.ts`) resolves "same child" through the
+ * exact same definition — a second implementation there could disagree with
+ * this one, which is the duplicate-record failure this whole module exists to
+ * prevent. `normalizeNationalId` is exported for the same reason: the importer
+ * must validate the dedup key identically or a race slips past the lookup.
  */
-async function findStudentByKeys(
+export async function findStudentByKeys(
   tx: TenantTx,
   keys: { phone: string | null; nationalId: string | null; studentCode: string | null },
 ) {

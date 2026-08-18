@@ -1,0 +1,309 @@
+@import "tailwindcss";
+
+@import "../../../../packages/ui/src/styles/globals.css";
+
+@source "../**/*.{ts,tsx}";
+
+/* ── ONE DERIVED VALUE, AND WHY IT EXISTS ───────────────────────────────────
+   `--teal` is the money vocabulary's `in` tone, and at text size it measures
+   4.30:1 on `--field` — under the 4.5:1 floor.
+
+   That is not theoretical. `[data-row]:hover` at the bottom of this file sets
+   the row ground to `--field`, and the settlement register's price row is the
+   one row on the site that carries `tone="in"`. So moving a mouse across the
+   hero's first row dropped its figure below AA, in the light theme, on the
+   page whose whole argument is that its figures are right.
+
+   THE SHARED PALETTE IS NOT THE PLACE TO FIX THIS. `--teal` lives in
+   packages/ui/src/styles/globals.css, which `erp` and `superadmin` also read;
+   re-pointing it here would change what a shared token MEANS underneath two
+   other apps, which is exactly the drift that file's header warns about. So
+   this declares a NEW name the shared layer does not own, derived from two
+   locked tokens — no new hue — and only `Figure`'s `in` tone reads it.
+
+   Measured after the change: 5.9:1 on --paper · 6.3:1 on --sheet ·
+   5.5:1 on --field. Every ground the tone can land on, including the hover.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --money-in: color-mix(in oklab, var(--teal) 80%, var(--ink));
+}
+
+[data-theme="dark"] {
+  /* Dark needs no correction: `--teal` #54c9bb already measures 7.30:1 on
+     `--field` there. Darkening it would only make the tone quieter for no
+     reason, so the dark theme keeps the palette's own value. */
+  --money-in: var(--teal);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-block-start: 6rem;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--ar-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  :root[lang="en"] body {
+    font-family: var(--lat-body);
+  }
+
+  ::selection {
+    background-color: var(--indigo-soft);
+    color: var(--indigo);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .display {
+    font-family: var(--ar-display);
+    font-weight: 700;
+  }
+
+  :root[lang="en"] .display {
+    font-family: var(--lat-display);
+    letter-spacing: var(--lat-display-track);
+  }
+  .khana {
+    border-inline-start: 1px solid var(--rule);
+  }
+  .total-rule {
+    border-block-start: 2px double var(--ink);
+  }
+  .figure {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1;
+    unicode-bidi: isolate;
+    direction: ltr;
+  }
+
+  .legal-copy section {
+    border-top: 1px solid var(--rule);
+    padding-block: 2rem;
+  }
+
+  .legal-copy h2 {
+    font-family: var(--ar-display);
+    font-weight: 700;
+    font-size: 1.375rem;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+
+  :root[lang="en"] .legal-copy h2 {
+    font-family: var(--lat-display);
+    letter-spacing: var(--lat-display-track);
+  }
+
+  .legal-copy h3 {
+    margin-block-start: 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .legal-copy p,
+  .legal-copy li {
+    max-width: 62ch;
+    font-size: 0.9375rem;
+    line-height: 1.8;
+    color: var(--ink-2);
+  }
+
+  .legal-copy p {
+    margin-block-start: 1rem;
+  }
+
+  .legal-copy ul {
+    margin-block-start: 1rem;
+    padding-inline-start: 1.25rem;
+    list-style: disc;
+  }
+
+  .legal-copy li + li {
+    margin-block-start: 0.5rem;
+  }
+
+  .legal-copy strong {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .tap {
+    position: relative;
+  }
+  .tap::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .rule-link {
+    position: relative;
+    color: var(--ink-2);
+    transition: color 140ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+  }
+
+  .rule-link::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: -3px;
+    block-size: 2px;
+    background-color: var(--gold);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  [dir="rtl"] .rule-link::after {
+    transform-origin: right center;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .rule-link:hover {
+      color: var(--ink);
+    }
+
+    .rule-link:hover::after {
+      transform: scaleX(1);
+    }
+  }
+  /* ── Stacked text links, on a thumb ─────────────────────────────────────
+     `.rule-link` is a text link, and WCAG 2.2 sizes those by SPACING rather
+     than by box — the footer's 18px links with 28px between them do conform.
+     But the footer columns and the "read next" lists are NAVIGATION set as
+     stacked text, and 18px is a small thing to hit while walking.
+
+     Widening the GAP would be the wrong fix: it adds dead space between
+     targets rather than target, so a thumb aimed slightly off still lands on
+     nothing. So the BOX grows — to 44px, the size this site already demands
+     of every other control — and the list's own gap is removed to pay for it,
+     which makes the pitch exactly the target so no two can overlap (the
+     failure `.tap` warns about above).
+
+     `(pointer: coarse)` only: a mouse is precise, and the footer keeps the
+     tight editorial rhythm it was designed with, unchanged. */
+  @media (pointer: coarse) {
+    .rule-link-row {
+      display: inline-block;
+      /* 18px of text + 2×13 = 44. */
+      padding-block: 0.8125rem;
+    }
+
+    /* The underline is positioned against the PADDING box, so without this it
+       would sit 13px below the text and stop reading as an underline at all.
+       Held to the same 3px it has everywhere else. */
+    .rule-link-row::after {
+      inset-block-end: calc(0.8125rem - 3px);
+    }
+  }
+
+  [data-nav-link][data-active] {
+    color: var(--ink);
+  }
+
+  [data-nav-link][data-active]::after {
+    transform: scaleX(1);
+  }
+  .theme-icon-light,
+  .theme-icon-dark {
+    grid-area: 1 / 1;
+  }
+
+  .theme-icon-dark {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .theme-icon-light {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .theme-icon-dark {
+    display: block;
+  }
+  .spine {
+    transform: scaleY(0);
+    transform-origin: top center;
+  }
+  .draw-inline {
+    transform-origin: left center;
+  }
+
+  [dir="rtl"] .draw-inline {
+    transform-origin: right center;
+  }
+
+  .tick {
+    transform: scaleX(0);
+  }
+  .seal-mark {
+    transform: rotate(-6deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spine {
+      transform: scaleY(1);
+    }
+
+    .tick {
+      transform: scaleX(1);
+    }
+  }
+  [data-row] {
+    transition: background-color 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  [data-row] .khana {
+    transition: border-color 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [data-row]:hover {
+      background-color: var(--field);
+    }
+
+    [data-row]:hover .khana {
+      border-inline-start-color: var(--gold);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .rule-link::after {
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+  }
+}

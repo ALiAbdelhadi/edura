@@ -3,6 +3,7 @@ import {
   isCloudinaryConfigured,
   publicIdFromUrl,
   uploadBuffer,
+  type DeleteOutcome,
   type UploadedAsset,
 } from "./cloudinary";
 
@@ -20,7 +21,36 @@ import {
  *     an orphan behind, so the Cloudinary account does not grow without bound.
  */
 
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+/**
+ * The serverless request-body cap the deployment enforces (Vercel: 4.5 MB).
+ *
+ * It is spent by the WHOLE request, not just the file: multipart boundaries,
+ * the filename and content-type parts, and the headers all ride along. A body
+ * over it is killed at the edge, BEFORE any code here runs — so the response is
+ * a platform HTML page, not our JSON envelope, and no `reason` code exists for
+ * a UI to translate. That is the failure this constant exists to make
+ * unreachable.
+ *
+ * NOTE: this is the DOCUMENTED figure, not one measured against this
+ * deployment. Lowering the image cap below it is what makes the exact number
+ * stop mattering; raising the image cap toward it is what would make measuring
+ * it a prerequisite.
+ */
+export const PLATFORM_BODY_LIMIT_BYTES = 4.5 * 1024 * 1024;
+
+/**
+ * The largest image we accept — deliberately UNDER the platform cap, with
+ * ~512 KB of headroom for the multipart envelope.
+ *
+ * It used to be 5 MB, i.e. ABOVE the cap: a file between 4.5 and 5 MB passed
+ * every client and server check and was then killed at the edge, surfacing as a
+ * generic "upload failed" with nothing in the logs. Client-side downscaling
+ * (`compressImage`, longest edge 1600) lands a phone photo at 100–300 KB, so
+ * the reduction costs real users nothing; what still reaches this ceiling is
+ * the path where compression declines to run — an animated GIF, or a browser
+ * without canvas — and those now get a translated refusal instead of a 413.
+ */
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB
 
 export type ImageMime = "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "image/avif";
 
@@ -31,6 +61,19 @@ const EXT_BY_MIME: Record<ImageMime, string> = {
   "image/gif": "gif",
   "image/avif": "avif",
 };
+
+/**
+ * Every type `detectImageType` will actually admit — the ONE list, derived from
+ * the table above rather than retyped, so it cannot claim to accept something
+ * the sniffer rejects (or omit something it allows).
+ *
+ * The browser's `accept=` attribute mirrors this. It used to omit `image/gif`
+ * while the server accepted it, which made the product disagree with itself
+ * depending on the route in: the file picker hid GIFs, drag-and-drop (which
+ * ignores `accept` entirely) let them through, and the server took them. A
+ * unit test now holds the two lists equal.
+ */
+export const ACCEPTED_IMAGE_MIMES: readonly ImageMime[] = Object.keys(EXT_BY_MIME) as ImageMime[];
 
 /** Sniff the real image type from the leading bytes. null = not an image. */
 export function detectImageType(buffer: Buffer): ImageMime | null {
@@ -126,6 +169,20 @@ export function imageFolder(kind: ImageKind): string {
   return KIND_CONFIG[kind].folder;
 }
 
+/** The public_id (WITHOUT the folder) an entity's image occupies. */
+function slotId(entityKey: string, variant?: string): string {
+  return variant ? `${entityKey}_${variant}` : entityKey;
+}
+
+/**
+ * The FULL public_id an entity's image occupies — the same string
+ * `uploadEntityImage` writes to, derived by the same code so the two cannot
+ * drift. This is what a caller passes as `owned` when deleting.
+ */
+export function imageSlot(kind: ImageKind, entityKey: string, variant?: string): string {
+  return `${KIND_CONFIG[kind].folder}/${slotId(entityKey, variant)}`;
+}
+
 /**
  * Upload an entity's image to its deterministic slot.
  *
@@ -138,10 +195,9 @@ export async function uploadEntityImage(
   opts: { kind: ImageKind; entityKey: string; variant?: string; tags?: string[] },
 ): Promise<UploadedAsset> {
   const { folder, storeTransform } = KIND_CONFIG[opts.kind];
-  const publicId = opts.variant ? `${opts.entityKey}_${opts.variant}` : opts.entityKey;
   return uploadBuffer(image.buffer, {
     folder,
-    public_id: publicId,
+    public_id: slotId(opts.entityKey, opts.variant),
     resource_type: "image",
     contentType: image.mime,
     filename: `${opts.kind}.${image.extension}`,
@@ -153,40 +209,75 @@ export async function uploadEntityImage(
 }
 
 /**
+ * The slot a caller is allowed to delete from.
+ *
+ * Either an EXACT public_id, for the singular images that live at a
+ * deterministic slot (`edura/logos/<centerId>`), or a folder PREFIX ending in
+ * `/` for the kinds that hold many (`edura/rooms/<roomId>/`, whose members get
+ * random ids from Cloudinary).
+ */
+export type OwnedSlot = { owned: string };
+
+function isOwned(publicId: string, owned: string): boolean {
+  return owned.endsWith("/") ? publicId.startsWith(owned) : publicId === owned;
+}
+
+/**
  * Best-effort delete of a previously stored image URL. Silently ignores
  * non-Cloudinary URLs (externally hosted, not ours to delete) and network
  * failures — an orphaned asset must never fail the user's request.
+ *
+ * `owned` is REQUIRED, and it is the whole point: every column that holds an
+ * image URL is writable by the entity that owns the row, and several of them
+ * accept a free-text URL. Without this check a center could point its own
+ * `logo_url` at ANOTHER entity's (publicly visible) delivery URL and then have
+ * us destroy that asset on its next edit — proven reachable before this
+ * existed. A caller that cannot name the slot it owns has no business
+ * deleting, so the parameter is not optional: forgetting it fails to COMPILE.
+ * Leaving a stranded asset in the account is strictly the cheaper mistake.
  */
-export async function deleteImageByUrl(url: string | null | undefined): Promise<void> {
-  if (!url || !isCloudinaryConfigured()) return;
+export async function deleteImageByUrl(
+  url: string | null | undefined,
+  { owned }: OwnedSlot,
+): Promise<DeleteOutcome | "skipped"> {
+  if (!url || !isCloudinaryConfigured()) return "skipped";
   const publicId = publicIdFromUrl(url);
-  if (!publicId) return;
-  await deleteResource(publicId, "image").catch(() => {});
+  if (!publicId) return "skipped";
+  if (!isOwned(publicId, owned)) {
+    // Not a failure — a refusal, and the interesting one: it means something
+    // asked us to delete an asset belonging to a different entity.
+    console.warn(`[media] refused to delete ${publicId}: outside the caller's slot (${owned})`);
+    return "skipped";
+  }
+  // `deleteResource` never throws and logs its own failures; the outcome is
+  // returned so a caller that can react has something to react to.
+  return deleteResource(publicId, "image");
 }
 
 /**
  * Delete the asset an image field used to point at, once it points elsewhere.
  *
  * Lives here, not in either app, because BOTH the upload services and the
- * plain `{ logoUrl }` PATCH endpoints have to apply the identical rule — and
- * the PATCH endpoints are exactly where it was missing, so a center could
- * strand its old logo in the account by pasting a new URL.
+ * admin PATCH endpoints have to apply the identical rule.
  *
- * Two cases must NOT delete:
+ * Three cases must NOT delete:
  *  - the URL did not actually change;
  *  - both URLs resolve to the same public_id (a re-upload overwrote the asset
  *    in place, or the new URL is just a transformed variant of the same one).
- *    Deleting there would erase the image the row now points at.
+ *    Deleting there would erase the image the row now points at;
+ *  - the previous URL was never this entity's to begin with (see `owned` on
+ *    `deleteImageByUrl`).
  */
 export async function deleteReplacedImage(
   previousUrl: string | null | undefined,
   nextUrl: string | null | undefined,
-): Promise<void> {
-  if (!previousUrl || previousUrl === nextUrl) return;
+  slot: OwnedSlot,
+): Promise<DeleteOutcome | "skipped"> {
+  if (!previousUrl || previousUrl === nextUrl) return "skipped";
   const previousId = publicIdFromUrl(previousUrl);
   const nextId = nextUrl ? publicIdFromUrl(nextUrl) : null;
-  if (previousId && previousId === nextId) return;
-  await deleteImageByUrl(previousUrl);
+  if (previousId && previousId === nextId) return "skipped";
+  return deleteImageByUrl(previousUrl, slot);
 }
 
-export { isCloudinaryConfigured, publicIdFromUrl };
+export { isCloudinaryConfigured, publicIdFromUrl, type DeleteOutcome };

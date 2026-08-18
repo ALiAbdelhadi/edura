@@ -10,6 +10,8 @@ import {
   formatPercent,
   formatDate,
   formatWeekdayShort,
+  formatClock,
+  formatClockRange,
 } from "./format";
 
 export function useFormatters() {
@@ -33,5 +35,11 @@ export function useFormatters() {
     ) => formatDate(v, locale, opts),
     formatWeekdayShort: (dayIndex: number) =>
       formatWeekdayShort(dayIndex, locale),
+    /* `HH:MM` wall-clock strings — 12-hour with the day period written out. */
+    formatClock: (v: string | null | undefined) => formatClock(v, locale),
+    formatClockRange: (
+      start: string | null | undefined,
+      end: string | null | undefined,
+    ) => formatClockRange(start, end, locale),
   };
 }

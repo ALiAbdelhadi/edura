@@ -1,0 +1,170 @@
+
+run-db-suites — 40 suite(s) in erp/tests/db against a 'test' database
+
+  PASS  bulk-import-students.test.ts               43 passed, 0 failed        0.5s
+  RETRY c01-lesson-settlement.test.ts              no count line (exit 1) — re-running once
+        │ C-01 PROOF — no-room lesson settlement vs the H2 wallet floor — c01-wht1m
+        │ BASELINE: {"t":0,"p":0,"w":0,"s":0,"ss":0,"pi":0}
+        │ FATAL TypeError: Cannot read properties of undefined (reading 'id')
+        │     at main (/Users/ali/edura/apps/erp/tests/db/c01-lesson-settlement.test.ts:273:104)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  FAIL  c01-lesson-settlement.test.ts              no count line (exit 1)     1.7s
+        │ C-01 PROOF — no-room lesson settlement vs the H2 wallet floor — c01-bjumc
+        │ BASELINE: {"t":0,"p":0,"w":0,"s":0,"ss":0,"pi":0}
+        │ FATAL TypeError: Cannot read properties of undefined (reading 'id')
+        │     at main (/Users/ali/edura/apps/erp/tests/db/c01-lesson-settlement.test.ts:273:104)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  PASS  c03-status-revocation.test.ts              30 passed, 0 failed        3.1s
+  FAIL  c04-login-parity.test.ts                   74 passed, 2 failed        18.6s
+        │   ✓ H5: an ineligible role is generic — the typed unknown-email answer never leaks app membership
+        │   ✓ C2: the REST door 429s a per-IP burst at request #11 (withRateLimit intact)
+        │   ✓ C2: a throttled IP is refused even with the RIGHT password, and gets no cookie
+        │   ✓ C2: an unrelated IP is unaffected (the bucket is per-IP, not global)
+        │   ✓ C2: the per-email bucket keeps refusing after the burst (typed RATE_LIMITED)
+        │   ✓ C2: an unrelated account is unaffected (the bucket is per-email, not global)
+        │   ✓ L1: baseline login succeeds
+        │   ✓ L1: baseline session accepted
+        │   ✓ L1: a bumped token_version rejects the pre-existing session on the NEXT request
+        │   ✓ L1: the session rows are DELETED by the trigger (hard revocation)
+        │   ✓ L1: the REST door re-admits the user after the bump
+        │   ✓ L1: the re-issued REST session is accepted again (parity on revocation too)
+        │   ✓ C-03: baseline — the staff session is live
+        │   ✓ C-03: suspending the staff member kills the live session on the next request
+        │   ✓ C-03: the suspended staff member cannot log back in via REST (generic 401)
+        │   ✓ C-03: nor via the browser door (status gate on BOTH doors)
+        │   ✗ C-03 (typed): the CORRECT password on the suspended account earns ACCOUNT_INACTIVE — ownership proven, never revealed to a guesser
+        │   ✗ C-03 (typed): a WRONG password on the suspended account stays generic
+        │   ✓ guard intact: a passwordless shell account is refused by both password doors
+        │   ✓ walk-in: a valid token still claims the shell student
+        │   ✓ walk-in: the claim mints a REAL DB session accepted by the same per-request gate
+        │   ✓ walk-in: the token is single-use (second claim refused)
+        │   ✓ walk-in: a token pointed at a credentialed center_staff account is refused (role + password gates hold)
+        │ 
+        │ 74 passed, 2 failed
+  RETRY catalog-onboarding.test.ts                 no count line (exit 1) — re-running once
+        │ 
+        │ 1) Catalog shape (بكالوريا track rules)
+        │ Error: `cacheTag()` is only available with the `cacheComponents` config.
+        │     at cacheTag (/Users/ali/edura/node_modules/.bun/next@16.3.0+b7a8ccea77567de4/node_modules/next/src/server/use-cache/cache-tag.ts:6:11)
+        │     at getCatalogTree (/Users/ali/edura/apps/erp/src/lib/services/catalog/catalog-read.ts:10:3)
+        │     at main (/Users/ali/edura/apps/erp/tests/db/catalog-onboarding.test.ts:132:24)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  FAIL  catalog-onboarding.test.ts                 no count line (exit 1)     0.7s
+        │ 
+        │ 1) Catalog shape (بكالوريا track rules)
+        │ Error: `cacheTag()` is only available with the `cacheComponents` config.
+        │     at cacheTag (/Users/ali/edura/node_modules/.bun/next@16.3.0+b7a8ccea77567de4/node_modules/next/src/server/use-cache/cache-tag.ts:6:11)
+        │     at getCatalogTree (/Users/ali/edura/apps/erp/src/lib/services/catalog/catalog-read.ts:10:3)
+        │     at main (/Users/ali/edura/apps/erp/tests/db/catalog-onboarding.test.ts:132:24)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  PASS  center-directory-search.test.ts            7 passed, 0 failed         0.3s
+  PASS  center-share-governance.test.ts            6 passed, 0 failed         0.4s
+  PASS  center-staff-delegation.test.ts            55 passed, 0 failed        0.8s
+  PASS  counter-board.test.ts                      39 passed, 0 failed        0.3s
+  PASS  data-rights.test.ts                        55 passed, 0 failed        0.4s
+  PASS  external-teachers.test.ts                  104 passed, 0 failed       1.0s
+  PASS  global-search.test.ts                      33 passed, 0 failed        0.9s
+  FAIL  guardian-verification.test.ts              46 passed, 5 failed        1.0s
+        │   ✓ the stamp is still on the row — it is a record of what WAS proven, not a boolean
+        │   ✓ …yet every reader sees UNVERIFIED, because the stamp names an address that is no longer the one on file
+        │   ✓ the previously-clicked link cannot confirm the new address
+        │   ✓ a fresh link to the NEW address re-verifies, and the stamp moves to it
+        │ 
+        │ [6] A resend leaves ONE live link
+        │   ✓ after a resend exactly one unused token remains
+        │   ✓ the superseded link no longer confirms
+        │   ✓ and the newest one does
+        │ 
+        │ [7] Nothing to verify, and nothing else granted
+        │   ✓ a student with no guardian address cannot be issued a link: "This student has no guardian email to verify"
+        │   ✓ …and no token row was created for them
+        │   ✓ a student that does not exist is a NotFound, not a minted token
+        │   ✓ verifying an address moved no money — not one row in any ledger
+        │   ✓ and no account's status changed — verification is not a gate on the account
+        │ 
+        │ [8] The number to watch before the messaging gate is flipped
+        │   ✓ stats counted the 4 fixture students with a guardian address (Δ 4)
+        │   ✗ …of which 3 ended verified (Δ 4) — students 1, 2 and 3
+        │   ✗ …and 1 is still unverified (Δ 0) — the expired link nobody could click
+        │   ✓ verified + unverified accounts for every student with an address — the count cannot hide anyone
+        │   ✓ teardown: every fixture row removed
+        │ 
+        │ 46 passed, 5 failed
+  RETRY h03-seed-uuid-flows.test.ts                no count line (exit 1) — re-running once
+        │ Missing seeded fixtures. Run:
+        │   bunx tsx --env-file=.env prisma/seed.ts
+        │   bunx tsx --env-file=.env prisma/preview-seed.ts
+        │   bunx tsx --env-file=.env prisma/messaging-demo-seed.ts
+  FAIL  h03-seed-uuid-flows.test.ts                no count line (exit 1)     1.4s
+        │ Missing seeded fixtures. Run:
+        │   bunx tsx --env-file=.env prisma/seed.ts
+        │   bunx tsx --env-file=.env prisma/preview-seed.ts
+        │   bunx tsx --env-file=.env prisma/messaging-demo-seed.ts
+  PASS  h04-blacklist-cascade-reversal.test.ts     44 passed, 0 failed        0.4s
+  PASS  h1-payout-race.test.ts                     no count line (exit 0)     0.3s
+  PASS  hall-booking.test.ts                       62 passed, 0 failed        0.6s
+  FAIL  invite-claim.test.ts                       106 passed, 1 failed       7.0s
+        │   ✓ [center_accountant] copyable fallback link returned to the owner
+        │   ✓ [center_accountant] claims their account
+        │   ✓ [center_accountant] the claimed session carries the center (C-04 resolver)
+        │   ✓ [center_accountant] sets their own password
+        │   ✓ [center_accountant] logs in via the C-04 password door
+        │   ✓ [center_accountant] as role=center_staff
+        │   ✓ [center_accountant] bound to exactly this center
+        │   ✓ [center_accountant] resolves to the correct center + sub-role scope
+        │ 
+        │ 7. SECURITY — the gates the purpose map buys us
+        │   ✓ a token whose purpose does not match the account's role is refused (purpose owns the role)
+        │   ✓ revoking the staff link kills the outstanding invite (no token hunt needed)
+        │   ✗ an EXPIRED token is refused
+        │   ✓ a token pointing at an account that HAS a password is refused (no takeover)
+        │   ✓ issuing a new invite invalidates the previous link
+        │   ✓ …and the newest link works
+        │   ✓ the raw token is never stored — only its SHA-256 hash
+        │   ✓ no audit row contains a claim token
+        │   ✓ no WhatsApp log row contains an unredacted token
+        │   ✓ the claim door is rate-limited per IP
+        │ 
+        │ 8. INVARIANT — no account can be stranded
+        │   ✓ every assistant/staff account has either a password or a LIVE invite (0 stranded)
+        │ 
+        │ 106 passed, 1 failed
+  PASS  l1-session-invalidation.test.ts            13 passed, 0 failed        1.8s
+  PASS  m1-webhook-atomicity.test.ts               9 passed, 0 failed         0.5s
+  PASS  m5-send-invite-ownership.test.ts           10 passed, 0 failed        0.3s
+  PASS  mail-password-reset.test.ts                15 passed, 0 failed        1.5s
+  PASS  messaging-scope.test.ts                    87 passed, 0 failed        0.7s
+  PASS  offline-sync.test.ts                       27 passed, 0 failed        0.3s
+  PASS  parent-pay.test.ts                         60 passed, 0 failed        0.8s
+  PASS  profile-images.test.ts                     50 passed, 0 failed        23.7s
+  PASS  rbac-isolation.test.ts                     11 passed, 0 failed        0.4s
+  PASS  registration-doors.test.ts                 17 passed, 0 failed        2.9s
+  PASS  report-export.test.ts                      38 passed, 0 failed        0.3s
+  PASS  room-ownership.test.ts                     5 passed, 0 failed         0.4s
+  PASS  roster-courses-count.test.ts               13 passed, 0 failed        0.3s
+  PASS  second-language-scoping.test.ts            11 passed, 0 failed        0.4s
+  PASS  student-id-card.test.ts                    53 passed, 0 failed        0.3s
+  PASS  student-qr-credential.test.ts              88 passed, 0 failed        0.3s
+  PASS  team-notes.test.ts                         47 passed, 0 failed        0.9s
+  FAIL  tx-retry-boundary.test.ts                  3 passed, 2 failed         0.6s
+        │   ✗ drop mid-body is retried (body ran 1x, expected 2)
+        │   ✓ drop mid-body ultimately succeeds
+        │   ✓ drop during COMMIT is NOT retried — no double-apply (body ran 1x, expected 1)
+        │   ✗ drop during COMMIT surfaces as an error rather than a silent retry
+        │   ✓ an undisturbed transaction runs its body exactly once
+        │ 
+        │ 3 passed, 2 failed
+  PASS  wallet-no-cap.test.ts                      7 passed, 0 failed         0.4s
+  PASS  wallet.test.ts                             20 passed, 0 failed        0.7s
+  PASS  weekly-digest.test.ts                      42 passed, 0 failed        0.6s
+  PASS  run-db-tests.ts                            11 passed, 0 failed        0.4s
+
+──────────────────────────────────────────────────────────────────────────────
+7 SUITE(S) FAILED ✗  —  40 suites, 1341 assertions passed, 10 failed, 78.1s
+──────────────────────────────────────────────────────────────────────────────
+note: 4 suite(s) printed no "N passed, M failed" line and were scored by exit code only: c01-lesson-settlement.test.ts, catalog-onboarding.test.ts, h03-seed-uuid-flows.test.ts, h1-payout-race.test.ts
+RETRIED (3): c01-lesson-settlement.test.ts [failed again], catalog-onboarding.test.ts [failed again], h03-seed-uuid-flows.test.ts [failed again]
+  ↳ each exited non-zero with no count line on its first attempt, which is an
+    infrastructure blip, not an assertion failure. Investigate if it recurs;
+    re-run with --no-retry to see the raw first-attempt result.
+failed: c01-lesson-settlement.test.ts, c04-login-parity.test.ts, catalog-onboarding.test.ts, guardian-verification.test.ts, h03-seed-uuid-flows.test.ts, invite-claim.test.ts, tx-retry-boundary.test.ts

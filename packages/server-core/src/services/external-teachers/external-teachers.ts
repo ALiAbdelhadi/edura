@@ -419,6 +419,17 @@ export async function listCenterTeachers(
       tx.user.findMany({
         where: {
           id: { in: teacherIds },
+          // `removeExternalTeacher` soft-deletes the user row as well as
+          // flagging the affiliation, and `softDeleteExtension` injects
+          // `deletedAt: null` into EVERY user.findMany. Without this line the
+          // removed teacher's user row is invisible here, the row is dropped by
+          // the `userMap.has` filter below, and `includeRemoved` silently
+          // returns nothing — which also made Restore unreachable from the UI,
+          // since the screen can only offer it on a row it can list.
+          // A key supplied by the caller wins (the extension spreads the
+          // caller's `where` OVER its default), and `undefined` is Prisma's
+          // "no filter" — so this asks for both kinds only when asked.
+          ...(filters.includeRemoved ? { deletedAt: undefined } : {}),
           ...(filters.q ? { name: { contains: filters.q, mode: "insensitive" as const } } : {}),
         },
         select: {

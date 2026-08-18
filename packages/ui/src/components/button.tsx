@@ -52,8 +52,11 @@ const buttonVariants = cva(
         // The money confirm. Heavier stroke (1.5px) than any other button in the
         // set, because weight is the only escalation available in a system where
         // colour is a stroke. Pair with `size="ledger-money"` and put the amount
-        // INSIDE the label in mono — see <CommitButton> for why the figure
-        // travels with the button rather than sitting above it.
+        // INSIDE the label in mono: the operator is authorising a specific
+        // number, not a row they happen to have selected, so the figure travels
+        // with the button rather than sitting above it where a changed
+        // selection can leave the two disagreeing. The two-step commit built on
+        // this is `TwoStepCommit` in apps/www (features/admin/ledger/commit.tsx).
         money:
           "border-[1.5px] border-red bg-transparent text-red hover:bg-red-soft disabled:opacity-45",
       },

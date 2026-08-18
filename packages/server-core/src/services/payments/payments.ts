@@ -87,7 +87,11 @@ export async function recordPayment(
     });
 
     if (data.amount > 0) {
-      await awardPoints(tx, data.studentId, "online_payment", { reason: "Payment recorded" });
+      // This writer is the CASH desk (paymentMethod: "cash" above), so the
+      // ledger says cash — it used to say `online_payment`.
+      await awardPoints(tx, data.studentId, "cash_payment", {
+        reason: "Cash payment recorded",
+      });
     }
 
     return { payment, receiptNumber };

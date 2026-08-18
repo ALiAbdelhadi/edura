@@ -100,11 +100,53 @@ export type PaymentReceiptData = {
   link?: string | null;
 };
 
+/**
+ * The weekly center digest.
+ *
+ * Every figure arrives ALREADY COMPUTED by the cron job, which reads them from
+ * the same report services the dashboard uses. The template formats and does
+ * not calculate — an email that derived its own revenue would be a second set
+ * of books.
+ */
+export type WeeklyDigestData = {
+  centerName: string;
+  /** YYYY-MM-DD, inclusive. */
+  periodStart: string;
+  periodEnd: string;
+  /** Piasters, formatted by the template so every surface agrees. */
+  revenuePiasters: number;
+  expensesPiasters: number;
+  netPiasters: number;
+  /** Whole percent, as the reports screen shows it. */
+  attendanceRatePct: number;
+  sessionsCount: number;
+  /** Blocking findings from the completeness report; 0 means nothing pending. */
+  gapsCount: number;
+  /** Reports screen behind the normal login. Never a token. */
+  link?: string | null;
+};
+
+/**
+ * Guardian email verification.
+ *
+ * Sent TO the guardian address. The link mints no session — it can only mark
+ * the address confirmed — and the copy says so, because an unexplained link to
+ * a parent is indistinguishable from phishing.
+ */
+export type GuardianVerificationData = {
+  /** The child, so a wrong recipient can tell it is not theirs. */
+  studentName: string;
+  link: string;
+  expiryDays: number;
+};
+
 export type TemplateDataMap = {
   welcome: WelcomeData;
   password_reset: PasswordResetData;
   email_verification: EmailVerificationData;
   payment_receipt: PaymentReceiptData;
+  weekly_digest: WeeklyDigestData;
+  guardian_verification: GuardianVerificationData;
 };
 
 export type TemplateId = keyof TemplateDataMap;

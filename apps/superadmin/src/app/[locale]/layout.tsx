@@ -5,10 +5,12 @@ import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import {
+  Alexandria,
   Amiri,
   Cormorant_Garamond,
   IBM_Plex_Mono,
   IBM_Plex_Sans_Arabic,
+  Inter,
   Lora,
   Noto_Sans,
 } from "next/font/google";
@@ -55,6 +57,27 @@ const amiri = Amiri({
   subsets: ["arabic"],
   weight: ["400", "700"],
   variable: "--font-amiri",
+});
+
+/* ── the portal chrome's two faces (see packages/ui/src/styles/chrome-2026.css)
+ *
+ * Alexandria is the whole reason the 2026 direction is affordable: ONE variable
+ * face carrying BOTH Arabic and Latin at display weights, where the retired
+ * system needed Amiri and Cormorant side by side and a branch to pick between
+ * them. No `weight` array — that is what requests the variable axis rather than
+ * a handful of static cuts.
+ *
+ * Inter is the chrome's body face, and loading it FIXES something: `--lat-body`
+ * is Lora, a serif, so every English nav label in the product has been
+ * rendering in a serif. */
+const alexandria = Alexandria({
+  subsets: ["arabic", "latin"],
+  variable: "--font-alexandria",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export function generateStaticParams() {
@@ -106,7 +129,7 @@ export default async function RootLayout({
       lang={locale}
       dir={dir}
       suppressHydrationWarning
-      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable}`}
+      className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable} ${alexandria.variable} ${inter.variable}`}
     >
       <body>
         {/* Anti-FOUC theme init — `async` keeps it a React 19 hoistable

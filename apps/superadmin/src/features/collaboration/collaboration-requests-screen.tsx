@@ -223,11 +223,15 @@ export function CollaborationRequestsScreen() {
                   <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
                   <TableCell className="px-3 py-[7px] text-[13px]">{r.subjectName ?? "—"}</TableCell>
                   <TableCell className="px-3 py-[7px]">
-                    {/* Times are data: one isolated mono run, so the en-dash cannot
-                        migrate to the wrong side inside an RTL row. */}
-                    <Num className="text-[11px] text-ink-2">
-                      {r.startTime}–{r.endTime}
-                    </Num>
+                    {/* Times are data: ONE isolated run around the whole range,
+                        so neither the en-dash nor the two times can migrate to
+                        the wrong side inside an RTL row. */}
+                    <Num.ClockRange
+                      start={r.startTime}
+                      end={r.endTime}
+                      locale={locale}
+                      className="text-[11px] text-ink-2"
+                    />
                   </TableCell>
                   <TableCell className="px-3 py-[7px]">
                     <Num.Money
@@ -286,9 +290,7 @@ export function CollaborationRequestsScreen() {
                 {d.subject?.nameEn ?? d.subject?.nameAr} — {d.grade?.nameEn ?? d.grade?.nameAr}
               </Row>
               <Row label={t("collabRequests.schedule")}>
-                <Num>
-                  {d.startTime}–{d.endTime}
-                </Num>
+                <Num.ClockRange start={d.startTime} end={d.endTime} locale={locale} />
                 <span aria-hidden="true" className="mx-1 text-ink-3">
                   ·
                 </span>

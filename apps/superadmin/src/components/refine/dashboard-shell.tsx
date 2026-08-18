@@ -3,52 +3,29 @@
 import { HeaderQuickSettings } from "@/components/ui/header-quick-settings";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, useRouter, usePathname } from "@/i18n/navigation";
+import { useGlobalSearch } from "@/lib/api/use-global-search";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity, useList, useLogout } from "@refinedev/core";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
-import { BottomNav } from "@repo/ui/components/bottom-nav";
-import { Button } from "@repo/ui/components/button";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  useSidebar,
-} from "@repo/ui/components/sidebar";
-import {
-  Award,
-  BarChart3,
-  Bell,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
-  ClipboardList,
-  DollarSign,
-  FileSearch,
-  Home,
-  LayoutGrid,
-  LogOut,
-  MessageSquare,
-  PanelLeft,
-  Search,
-  Settings,
-  ShieldCheck,
-  Star,
-  User,
-  Users,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
+  AppShell,
+  type NavGroup as ShellNavGroup,
+  type NavItem,
+} from "@repo/ui/components/app-shell";
+import { useLocale, useTranslations } from "next-intl";
 import React from "react";
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * This file used to BE the shell — 505 lines of it, beside a 489-line twin in
+ * apps/erp. They had already drifted where nobody diffs: this one drew its nav
+ * badge white-on-destructive and the other amber-on-amber-soft, and this one
+ * never remapped the guided tour's ids onto the phone bar.
+ *
+ * The chrome now lives once, in @repo/ui/components/app-shell. This is the seam
+ * that hands it what @repo/ui cannot import. The public shape is UNCHANGED, so
+ * both back-office layouts render as before with no edit.
+ * ════════════════════════════════════════════════════════════════════════════ */
 
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
@@ -101,145 +78,111 @@ const NAV_KEY: Record<string, string> = {
   "Feature flags": "nav.featureFlags",
   "Contact inbox": "nav.contactInbox",
   "Deletion requests": "nav.deletionQueue",
-};
-
-const iconMap: Record<string, LucideIcon> = {
-  home: Home,
-  calendar: Calendar,
-  clipboard: ClipboardList,
-  award: Award,
-  check: CheckCircle2,
-  message: MessageSquare,
-  book: BookOpen,
-  users: Users,
-  person: User,
-  dollar: DollarSign,
-  bell: Bell,
-  settings: Settings,
-  grid: LayoutGrid,
-  chart: BarChart3,
-  report: FileSearch,
-  star: Star,
-  search: Search,
-  wallet: Wallet,
-  shield: ShieldCheck,
-};
-
-type NavItem = {
-  href: string;
-  icon: string;
-  label: string;
+  // Group headings. The `@` prefix is not decoration — it keeps a heading from
+  // ever colliding with a destination label, so a screen called "Money" could
+  // not silently resolve to the money group's translation.
+  "@oversight": "navGroup.oversight",
+  "@money": "navGroup.money",
+  "@comms": "navGroup.comms",
+  "@governance": "navGroup.governance",
 };
 
 const roleLabels: Record<string, string> = {
-  student: "Student",
-  teacher: "Teacher",
-  assistant: "Assistant",
-  parent: "Parent",
-  admin: "Admin",
   superadmin: "Super Admin",
   finance: "Accountant",
 };
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+/**
+ * Search result kind → its heading key. Mirrors `SearchKind` in
+ * `@repo/server-core/services/search/global-search`; a kind missing here
+ * renders its raw key, which is deliberately ugly rather than invisible.
+ *
+ * Only the kinds THIS app's providers can emit are listed. The ERP's own kinds
+ * (rooms, groups, off-system teachers) are absent because no provider here
+ * returns one — a heading for a row that cannot arrive is dead config.
+ */
+const SEARCH_KIND_KEY: Record<string, string> = {
+  student: "shared.searchKind_student",
+  teacher: "shared.searchKind_teacher",
+  parent: "shared.searchKind_parent",
+  assistant: "shared.searchKind_assistant",
+  center_admin: "shared.searchKind_centerAdmin",
+  staff: "shared.searchKind_staff",
+  back_office: "shared.searchKind_backOffice",
+  center: "shared.searchKind_center",
+  payment_intent: "shared.searchKind_paymentIntent",
+};
+
+export type NavGroup = ShellNavGroup;
 
 /**
- * ONE navigation per viewport. Mirrors www's shell exactly — a portal that
- * ships a phone bar must not also ship the drawer behind this button, or a
- * phone gets two complete navigation systems and neither is authoritative.
- * `md` is the same 768px `useIsMobile` switches the sidebar to a drawer at, so
- * no width exists with neither.
+ * Counts for the nav entries that own them.
+ *
+ * Only ONE is wired, and only for the portal that holds it: the pending
+ * registrations queue. It is exact — `/admin/registrations` returns its whole
+ * set unpaginated, so the length IS the count — and it is the queue this
+ * portal exists to work through, which is why it earns the first badge.
+ *
+ * The query is skipped entirely when the role's nav does not carry that
+ * destination, so the accountant's portal does not spend a request per page
+ * load asking about a screen it will never show.
  */
-function HeaderSidebarToggle({ desktopOnly }: { desktopOnly: boolean }) {
-  const t = useTranslations();
-  const { toggleSidebar, isMobile, openMobile, state } = useSidebar();
-  const expanded = isMobile ? openMobile : state === "expanded";
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className={desktopOnly ? "hidden md:inline-flex" : undefined}
-      onClick={toggleSidebar}
-      aria-label={
-        expanded ? t("shared.collapseSidebar") : t("shared.expandSidebar")
-      }
-      aria-expanded={expanded}
-    >
-      <PanelLeft className="size-4 rtl:-scale-x-100" />
-    </Button>
+function useNavBadges(hrefs: Set<string>): Record<string, number> {
+  const registrationsHref = [...hrefs].find((h) =>
+    h.endsWith("/registrations"),
   );
-}
 
-/**
- * Nav link that dismisses the mobile sidebar sheet after a selection — on
- * mobile the sidebar is an overlay, so it must get out of the way once the
- * user picks a destination. Desktop keeps its persistent rail.
- */
-function SidebarNavLink({
-  href,
-  onClick,
-  children,
-  ...props
-}: React.ComponentProps<typeof Link>) {
-  const { isMobile, setOpenMobile } = useSidebar();
-  return (
-    // `...props` is load-bearing, not tidiness. This sits inside two nested Radix
-    // Slots — <TooltipTrigger asChild> wrapping <SidebarMenuButton asChild> — and a
-    // Slot passes the parent's props DOWN to its child rather than rendering an
-    // element of its own. Everything the nav item is comes in through here:
-    // className (the entire menu-button style), data-active / data-slot /
-    // data-sidebar / data-size, the tooltip's aria wiring, and the ref.
-    // Without the spread they were all silently dropped and every nav item in every
-    // portal rendered as a bare inline <a> — unstyled, with no active state and no
-    // tooltip, and with its icon stacked above its label instead of beside it.
-    <Link
-      {...props}
-      href={href}
-      onClick={(event) => {
-        // Chain rather than replace: the Slot may have merged a handler in.
-        onClick?.(event);
-        if (isMobile) setOpenMobile(false);
-      }}
-    >
-      {children}
-    </Link>
-  );
+  const { result } = useList({
+    resource: "admin-registrations",
+    filters: [{ field: "status", operator: "eq" as const, value: "pending" }],
+    queryOptions: { enabled: Boolean(registrationsHref) },
+  });
+
+  return React.useMemo(() => {
+    const map: Record<string, number> = {};
+    const count = result?.total ?? 0;
+    if (registrationsHref && count > 0) map[registrationsHref] = count;
+    return map;
+  }, [registrationsHref, result?.total]);
 }
 
 export default function DashboardShell({
   role,
   navItems,
+  navGroups,
   bottomNav,
   children,
 }: {
   role: string;
-  navItems: NavItem[];
+  /** Flat list. Pass this OR `navGroups`, never both. */
+  navItems?: NavItem[];
   /**
-   * Phone chrome. Hrefs in BAR ORDER, drawn from navItems — the bar's own
-   * `maxVisible` decides how many get a slot and puts the remainder behind
-   * "more", so this is the full list, not the first four.
-   *
-   * LIST EVERY href IN `navItems`. Passing this hides the sidebar toggle on
-   * phones, so an href left out is a destination a phone user cannot reach.
+   * Grouped list. Preferred once a portal outgrows ~8 destinations: an
+   * unbroken column of twenty is scanned linearly every single time, while
+   * four labelled runs are scanned by heading first.
+   */
+  navGroups?: NavGroup[];
+  /**
+   * Phone chrome. Hrefs in BAR ORDER. LIST EVERY href IN `navItems`: passing
+   * this hides the sidebar toggle on phones, so an href left out is a
+   * destination a phone user cannot reach.
    */
   bottomNav?: string[];
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
   const t = useTranslations();
+  const locale = useLocale() as "ar" | "en";
   const { dir } = useFormatters();
-  const tNav = (label: string) =>
-    NAV_KEY[label] ? t(NAV_KEY[label] as Parameters<typeof t>[0]) : label;
+  const pathname = usePathname();
+  const router = useRouter();
   const { data: identity } = useGetIdentity<MeResponse>();
   const { mutate: logout } = useLogout();
+
+  const tNav = React.useCallback(
+    (label: string) =>
+      NAV_KEY[label] ? t(NAV_KEY[label] as Parameters<typeof t>[0]) : label,
+    [t],
+  );
 
   const { result: unreadResult } = useList({
     resource: "notifications",
@@ -248,209 +191,96 @@ export default function DashboardShell({
   });
   const unreadCount = (unreadResult?.total ?? 0) as number;
 
-  const roleName = roleLabels[role] || "User";
-  const displayName = identity?.name || roleName;
+  const hrefs = React.useMemo(() => {
+    const groups = navGroups ?? [{ label: "", items: navItems ?? [] }];
+    return new Set(groups.flatMap((g) => g.items).map((i) => i.href));
+  }, [navGroups, navItems]);
+  const badges = useNavBadges(hrefs);
 
-  // `usePathname` from @/i18n/navigation already strips the locale prefix.
-  const path = pathname || "/";
-  const selectedKey =
-    navItems.find((item) => path === item.href)?.href ||
-    [...navItems]
-      .filter((item) => path === item.href || path.startsWith(item.href + "/"))
-      .sort((a, b) => b.href.length - a.href.length)[0]?.href ||
-    navItems[0]?.href;
+  const displayName = identity?.name || roleLabels[role] || "User";
 
-  const screenLabel =
-    navItems.find((item) => item.href === selectedKey)?.label || "Dashboard";
-
-  // Bottom nav is a SUBSET of the same nav, never a second information
-  // architecture — a destination that exists only on the phone is one desktop
-  // users cannot find. `bottomNav` names hrefs already present in the sidebar.
-  const bottomNavItems = (bottomNav ?? [])
-    .map((href) => navItems.find((i) => i.href === href))
-    .filter((i): i is NavItem => Boolean(i))
-    .map((i) => {
-      const Icon = iconMap[i.icon] || LayoutGrid;
-      const badge =
-        i.href.includes("notifications") && unreadCount > 0
-          ? unreadCount
-          : undefined;
-      return {
-        key: i.href,
-        href: i.href,
-        label: tNav(i.label),
-        icon: <Icon className="size-5" />,
-        ...(badge !== undefined
-          ? { badge, badgeLabel: `${tNav(i.label)} (${badge})` }
-          : {}),
-      };
-    });
-
-  const hasPhoneNav = bottomNavItems.length > 0;
-
-  // Same dev-only guard as www: hiding the toggle turns a missing href from an
-  // ordering preference into an unreachable destination, and this app's nav
-  // grows a screen at a time.
-  const navKey = navItems.map((i) => i.href).join("|");
-  const barKey = (bottomNav ?? []).join("|");
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === "production" || !barKey) return;
-    const bar = barKey.split("|");
-    const missing = navKey.split("|").filter((href) => !bar.includes(href));
-    if (missing.length) {
-      console.error(
-        `[DashboardShell] role="${role}": ${missing.length} destination(s) are in the sidebar but not in \`bottomNav\`, so they are UNREACHABLE on phones. Add them to the bar order:\n  ${missing.join("\n  ")}`,
-      );
-    }
-  }, [role, navKey, barKey]);
+  /* ── record search ──────────────────────────────────────────────────────
+   * The query lives here rather than in the shell because THIS is the layer
+   * that can fetch, and the kind → heading catalogue is the app's because
+   * @repo/ui has no message catalogue. Which records actually come back is the
+   * SERVER's decision, per role (`PROVIDERS[].roles` in admin/global-search.ts)
+   * — an accountant gets payment attempts and nothing else, and that is not
+   * expressed anywhere on this side. */
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const searchResults = useGlobalSearch(searchQuery);
+  const remote = React.useMemo(
+    () => ({
+      loading: searchResults.loading,
+      truncated: searchResults.truncated,
+      groups: searchResults.groups.map((g) => ({
+        kind: g.kind,
+        heading: SEARCH_KIND_KEY[g.kind]
+          ? t(SEARCH_KIND_KEY[g.kind] as Parameters<typeof t>[0])
+          : g.kind,
+        hits: g.hits,
+      })),
+    }),
+    [searchResults, t],
+  );
 
   return (
-    <SidebarProvider className="h-svh overflow-hidden">
-      <Sidebar side={dir === "rtl" ? "right" : "left"} collapsible="icon">
-        <SidebarHeader className="gap-0 border-b border-sidebar-border">
-          <div className="flex h-12 items-center gap-2 px-1">
-            <img
-              src="/edura-mark.svg"
-              alt="Edura"
-              className="size-9 shrink-0"
-            />
-            <span className="text-base font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-              Edura
-            </span>
-          </div>
-          <div className="flex items-center gap-2 px-1 pb-2">
-            <Avatar>
-              <AvatarFallback className="bg-indigo font-bold text-indigo-ink">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-semibold text-sidebar-foreground">
-                {displayName}
-              </p>
-              <p className="truncate text-xs text-sidebar-foreground/70">
-                {t(("roles." + role) as Parameters<typeof t>[0])}
-              </p>
-            </div>
-          </div>
-        </SidebarHeader>
-
-        <SidebarContent>
-          <SidebarMenu className="px-2 py-2">
-            {navItems.map((item) => {
-              const Icon = iconMap[item.icon] || LayoutGrid;
-              const isActive = item.href === selectedKey;
-              const isNotifications = item.href.includes("notifications");
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={tNav(item.label)}
-                  >
-                    <SidebarNavLink href={item.href}>
-                      <Icon />
-                      <span>{tNav(item.label)}</span>
-                    </SidebarNavLink>
-                  </SidebarMenuButton>
-                  {isNotifications && unreadCount > 0 ? (
-                    <SidebarMenuBadge className="bg-destructive text-white">
-                      {unreadCount}
-                    </SidebarMenuBadge>
-                  ) : null}
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
-        </SidebarContent>
-
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => logout()}
-                tooltip={t("actions.logout")}
-                className="text-red hover:bg-red-soft hover:text-red active:bg-red-soft active:text-red"
-              >
-                <LogOut />
-                <span>{t("actions.logout")}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-
-      <SidebarInset className="min-h-0">
-        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-sm supports-backdrop-filter:bg-background/70 sm:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <HeaderSidebarToggle desktopOnly={hasPhoneNav} />
-            {/* The rule separates the toggle from the title, so it goes where
-                the toggle goes. */}
-            <div
-              className={`h-5 w-px shrink-0 bg-border ${hasPhoneNav ? "hidden md:block" : ""}`}
-            />
-            <h1 className="truncate text-lg font-semibold tracking-tight text-ink">
-              {tNav(screenLabel)}
-            </h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-3 lg:flex">
-              <LanguageSwitcher />
-              <ThemeToggle />
-            </div>
-            <div className="lg:hidden">
-              <HeaderQuickSettings />
-            </div>
-            <div className="relative">
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                aria-label={`${t("nav.notifications")}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
-              >
-                <Link
-                  href={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}
-                >
-                  <Bell className="size-4" />
-                </Link>
-              </Button>
-              {unreadCount > 0 ? (
-                <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </div>
-            <Avatar>
-              <AvatarFallback className="bg-indigo font-bold text-indigo-ink">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </header>
-
-        <div
-          tabIndex={0}
-          role="region"
-          aria-label={tNav(screenLabel)}
-          className="min-h-70 min-w-0 flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
-        >
-          {children}
-        </div>
-
-        {/* Phone chrome. Hidden at md+ by the component itself, so the sidebar
-            remains the only navigation on desktop and the two never coexist. */}
-        {hasPhoneNav ? (
-          <BottomNav
-            items={bottomNavItems}
-            activeKey={selectedKey}
-            maxVisible={5}
-            linkAs={Link}
-            navLabel={t("nav.dashboard")}
-            moreLabel={t("nav.more")}
-            moreTitle={t("nav.allSections")}
-          />
-        ) : null}
-      </SidebarInset>
-    </SidebarProvider>
+    <AppShell
+      role={role}
+      roleLabel={t(("roles." + role) as Parameters<typeof t>[0])}
+      displayName={displayName}
+      {...(navGroups ? { groups: navGroups } : { navItems })}
+      bottomNav={bottomNav}
+      badges={badges}
+      unreadCount={unreadCount}
+      notificationsHref={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}
+      dir={dir === "rtl" ? "rtl" : "ltr"}
+      locale={locale}
+      // `usePathname` from @/i18n/navigation already strips the locale prefix.
+      pathname={pathname || "/"}
+      linkAs={Link}
+      translateNav={tNav}
+      onLogout={() => logout()}
+      onNavigate={(href) => router.push(href)}
+      logo={
+        // A bare <img> and not next/image: the optimizer REFUSES SVG unless
+        // `dangerouslyAllowSVG` is set, and there is nothing to optimise in
+        // 1.8 KB of vector rendered at a fixed 36px either way.
+        //
+        // `alt="Edura"`, because the shell no longer renders a wordmark beside
+        // it (Ali, 2026-08-14) — this mark is the only thing naming the product
+        // in the sidebar header. It was briefly `alt=""` while the wordmark was
+        // there, which was right then and wrong now: the alt describes what the
+        // reader is missing, so it follows what else is on screen.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/edura-mark.svg" alt="Edura" className="size-9 shrink-0" />
+      }
+      headerSettings={
+        <>
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </>
+      }
+      headerSettingsCompact={<HeaderQuickSettings />}
+      search={{ query: searchQuery, onQueryChange: setSearchQuery, remote }}
+      strings={{
+        collapseSidebar: t("shared.collapseSidebar"),
+        expandSidebar: t("shared.expandSidebar"),
+        logout: t("actions.logout"),
+        notifications: t("nav.notifications"),
+        dashboard: t("nav.dashboard"),
+        more: t("nav.more"),
+        allSections: t("nav.allSections"),
+        search: t("shared.commandPalette"),
+        searchPlaceholder: t("shared.commandPalettePlaceholder"),
+        searchEmpty: t("shared.commandPaletteEmpty"),
+        searchFallbackHeading: t("nav.dashboard"),
+        searchDestinationsHeading: t("shared.searchDestinations"),
+        searchSearching: t("shared.searchSearching"),
+        searchTruncated: t("shared.searchTruncated"),
+        searchMasked: t("shared.searchMasked"),
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }

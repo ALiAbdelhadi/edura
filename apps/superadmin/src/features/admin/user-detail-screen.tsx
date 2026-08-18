@@ -63,6 +63,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { deviceLabel } from "@/features/security/security-screen";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
+import { StudentCardPanel } from "./student-card-panel";
 import { STATUS_TONE } from "./users-screen";
 
 type UserDetail = {
@@ -94,7 +95,24 @@ type SessionRow = {
 
 type CenterRow = { id: string; name: string; status: string } | null;
 
-type ReasonAction = "suspend" | "reinstate" | "revokeAll" | "reset2fa" | "passwordReset";
+export type ReasonAction =
+  | "suspend"
+  | "reinstate"
+  | "revokeAll"
+  | "reset2fa"
+  | "passwordReset"
+  // The student ID card (2026-08-09). Both carry a reason for the same reason
+  // everything else on this screen does: a card refused at a counter with no
+  // recorded explanation is one nobody can safely un-refuse.
+  | "reissueCard"
+  | "revokeCard";
+
+/**
+ * The acts that GIVE something back rather than take it away. They take the
+ * default button, not the destructive one — a red "confirm" on reissuing a
+ * child's lost card tells the operator they are about to break something.
+ */
+const RESTORATIVE: ReadonlySet<ReasonAction> = new Set(["reinstate", "reissueCard"]);
 
 /** The body of the reason dialog. Mounted only while open, so it carries no
     reset logic — closing it discards the draft reason by construction. */
@@ -140,7 +158,7 @@ function ReasonForm({
         </Button>
         <Button
           type="button"
-          variant={action === "reinstate" ? "default" : "destructive"}
+          variant={RESTORATIVE.has(action) ? "default" : "destructive"}
           // The gate: no reason, no submit. The service refuses a blank one, so
           // an enabled button here would only produce a validation error.
           disabled={!ready || busy}
@@ -166,7 +184,7 @@ function ReasonForm({
 }
 
 /** A confirmation that cannot be given without saying why. */
-function ReasonDialog({
+export function ReasonDialog({
   action,
   onClose,
   onConfirm,
@@ -421,6 +439,12 @@ export function UserDetailScreen({ userId }: { userId: string }) {
           </div>
         </section>
       ) : null}
+
+      {/* The ID card — students only, and only fetched once expanded. Mounted
+          on the role rather than shown-and-empty for everyone: a teacher has no
+          card, and a collapsed panel promising one is a promise the app breaks
+          when it is opened. */}
+      {user.role === "student" ? <StudentCardPanel userId={userId} /> : null}
 
       {/* Actions */}
       <section className="rounded-xl border border-rule bg-sheet p-4">

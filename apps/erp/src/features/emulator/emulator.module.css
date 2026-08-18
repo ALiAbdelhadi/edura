@@ -1,0 +1,49 @@
+/* ── The emulator's two visual states ──────────────────────────────────────
+   SHARED by every role's emulator (student, teacher). It lived under
+   `features/student/emulator/` while the student was the only one; it moved
+   here unchanged the moment a second role needed it, rather than being copied
+   — two stylesheets for one highlight is how the highlight drifts.
+
+   Both states are drawn with `outline`, never a border or box-shadow ring: an
+   outline is painted OUTSIDE the border box, so lighting a control up never
+   reflows the layout. A control that shifts as it highlights is a control the
+   learner then mis-clicks — which is the one failure this whole surface
+   cannot afford. Same reasoning as the product's focus treatment. */
+
+.target {
+  border-radius: var(--radius-step-md);
+  transition: outline-color 140ms ease;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+}
+
+/* The control the current step wants pressed. */
+.target[data-active="1"] {
+  outline-color: var(--indigo);
+  animation: emuPulse 1.6s ease-in-out infinite;
+}
+
+/* A region the step is talking about but does not ask the learner to press. */
+.lit {
+  outline: 2px dashed var(--indigo);
+  outline-offset: 4px;
+  border-radius: var(--radius-step-md);
+}
+
+@keyframes emuPulse {
+  0%,
+  100% {
+    outline-color: var(--indigo);
+  }
+  50% {
+    outline-color: color-mix(in oklab, var(--indigo) 35%, transparent);
+  }
+}
+
+/* Motion is decoration here — the outline alone carries the meaning, so the
+   reduced-motion path drops the pulse and keeps the highlight. */
+@media (prefers-reduced-motion: reduce) {
+  .target[data-active="1"] {
+    animation: none;
+  }
+}

@@ -14,6 +14,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin, twoFactor } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
+import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 
 // ============================================================================
 // better-auth instance — apps/superadmin (replaces NextAuth v4, 2026-08).
@@ -63,7 +64,7 @@ export const auth = betterAuth({
   // so baseURL stays the only trusted origin there.
   trustedOrigins: [baseURL, ...devLocalhostOrigins()],
   advanced: {
-    cookiePrefix: "edura-superadmin",
+    cookiePrefix: SESSION_COOKIE_PREFIX,
     useSecureCookies,
     database: { generateId: false },
     ...(process.env.TRUSTED_CLIENT_IP_HEADER

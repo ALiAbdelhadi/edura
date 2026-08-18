@@ -1325,7 +1325,8 @@
   "navGroup": {
     "oversight": "Oversight",
     "money": "Money",
-    "comms": "Comms & oversight"
+    "comms": "Communication",
+    "governance": "Governance"
   },
   "security": {
     "sessionsTitle": "Devices & sessions",
@@ -1448,7 +1449,29 @@
     "confirm_impersonate_title": "View the app as this account?",
     "confirm_impersonate_body": "Your session becomes theirs until you stop, and both the start and the stop are audited. Only back-office accounts can be viewed this way.",
     "impersonatingAs": "You are viewing the back office as {name}",
-    "stopImpersonating": "Stop impersonating"
+    "stopImpersonating": "Stop impersonating",
+    "confirm_reissueCard_title": "Reissue the student's card",
+    "confirm_reissueCard_body": "Every card previously printed for this student stops working immediately and the new one becomes current. This also lifts any existing stop on the card.",
+    "confirm_revokeCard_title": "Stop the student's card",
+    "confirm_revokeCard_body": "The card cannot record attendance until it is reissued. The student's account, code and subscriptions are unaffected.",
+    "card": {
+      "title": "Student ID card",
+      "subtitle": "Loaded only when opened; viewing it is recorded in the audit log.",
+      "cardTitle": "Student card",
+      "codeLabel": "Student code",
+      "issue": "Issue",
+      "active": "Valid",
+      "revoked": "Stopped",
+      "revokedReason": "Reason:",
+      "reissue": "Reissue",
+      "revoke": "Stop card",
+      "reissueHint": "Reissuing invalidates every previously printed card. The student's code itself never changes — subscriptions, attendance and receipts all key on it.",
+      "reissuedToast": "A new card was issued",
+      "revokedToast": "The card was stopped",
+      "pendingCode": "This student has not finished onboarding, so their code is provisional and no card is printed.",
+      "unavailable": "The card could not be loaded.",
+      "failed": "The action could not be completed"
+    }
   },
   "featureFlags": {
     "title": "Feature flags",
@@ -1534,5 +1557,233 @@
     "totalSuffix": "requests",
     "prev": "Previous",
     "next": "Next"
+  },
+  "tour": {
+    "title": "A quick tour of the back office",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "",
+    "steps": {
+      "welcome": {
+        "title": "Welcome 👋 this is the platform back office",
+        "body": "From here you see every centre, every teacher and every pound on the platform. This tour is ordered by consequence rather than by the menu: what unblocks work first, then what touches money, then what touches people. It also tells you what you may NOT do from here."
+      },
+      "registrations": {
+        "title": "1. Registrations — nothing runs until these are approved",
+        "body": "A centre or teacher who signs up stays “under review” until you approve. Before that they cannot operate.",
+        "how": {
+          "1": "Press “Registrations” in the menu",
+          "2": "Open the request and check its details",
+          "3": "Accept or reject"
+        },
+        "note": "Rejecting closes the account immediately. A pending request can do nothing at all, so don't leave one waiting without a reason."
+      },
+      "users": {
+        "title": "2. Users — the only door for disabling an account",
+        "body": "Every user on the platform in one place: suspend, reinstate, or end sessions.",
+        "how": {
+          "1": "Press “Users” in the menu",
+          "2": "Search by name or email",
+          "3": "Open the user and choose the action",
+          "4": "Write the **reason** — it is required"
+        },
+        "note": "Suspending ends every session on that account in the same moment. And you never see or set anyone's password — you send a reset link and they set it themselves."
+      },
+      "centers": {
+        "title": "3. A centre's books — read-only",
+        "body": "Open any centre and see all of it: students, teachers, lessons, and all six money ledgers.",
+        "how": {
+          "1": "Press “Centers” in the menu",
+          "2": "Open the centre",
+          "3": "Move between the tabs: operations, money, staff, audit"
+        },
+        "note": "Rows with no centre (an independent teacher) are never folded into a centre's books — so if a figure isn't showing under a centre, that's usually why."
+      },
+      "moneyReadOnly": {
+        "title": "4. Money here is read, never moved",
+        "body": "The most important thing to know about this console: you see every pound and you move none of them.",
+        "how": {
+          "1": "Press “Student payments” in the menu",
+          "2": "Look at the payment, its receipt and the entries it wrote",
+          "3": "If something is wrong, the correction happens at the centre or as a new entry — never by editing the old one"
+        },
+        "note": "This is enforced by the database, not the interface: UPDATE and DELETE on the money ledger and the audit log are refused **for this role too**. So even a compromised console cannot erase an entry."
+      },
+      "payouts": {
+        "title": "5. Payouts and disbursement",
+        "body": "Teachers' and centres' withdrawal requests come through here.",
+        "how": {
+          "1": "Press “Payouts & disbursement” in the menu",
+          "2": "Check the request, the amount and the available balance",
+          "3": "Approve it, and mark it disbursed after the real transfer"
+        },
+        "note": "The amount is reserved from the moment of the request — which is why a teacher's “available” drops before you have paid anything."
+      },
+      "settlements": {
+        "title": "6. Room settlements",
+        "body": "The centre's share of each lesson, computed from the room's own settings.",
+        "how": {
+          "1": "Press “Room settlements” in the menu",
+          "2": "See the distribution per lesson",
+          "3": "Compare it against the room's percentage or per-student rate"
+        }
+      },
+      "commission": {
+        "title": "7. Commission — the one number you set",
+        "body": "The platform's share of every lesson. It's a global setting, and it can be specialised per centre.",
+        "how": {
+          "1": "Press “Commission” in the menu",
+          "2": "Set the global rate",
+          "3": "Or set a specific rate for one centre"
+        },
+        "note": "A change applies to NEW classes only. An existing class keeps the rate it was created with — so nobody finds their revenue changed retroactively."
+      },
+      "catalog": {
+        "title": "8. The education catalog",
+        "body": "Systems, stages, grades, tracks and subjects — what every student's choices are built from.",
+        "how": {
+          "1": "Press “Catalog” in the menu",
+          "2": "Move between system, stage and grade",
+          "3": "Review the subjects attached to each track"
+        },
+        "note": "This is permanent reference data, not demo data — editing it changes what every new student sees."
+      },
+      "messaging": {
+        "title": "9. Messaging — and opening a thread is recorded",
+        "body": "You can search the log, open any thread, and work the reports and blocks queue.",
+        "how": {
+          "1": "Press “Messaging” in the menu",
+          "2": "Search the log",
+          "3": "Open a thread to read it",
+          "4": "Work through the reports queue"
+        },
+        "note": "Opening a thread writes a row to the audit log in your name. That's deliberate: reading people's conversations should leave a trace like any other action."
+      },
+      "audit": {
+        "title": "10. The audit log",
+        "body": "Every sensitive action on the platform: who did it, to whom, and when.",
+        "how": {
+          "1": "Press “Audit log” in the menu",
+          "2": "Filter by actor, action type or centre"
+        },
+        "note": "This log cannot be edited or deleted — not by you, not by any role. That's what makes it evidence rather than notes."
+      },
+      "deletion": {
+        "title": "11. Account deletion requests",
+        "body": "A user who asked for their account to be deleted is waiting on your review.",
+        "how": {
+          "1": "Press “Deletion requests” in the menu",
+          "2": "Open the request and read the reason",
+          "3": "Check whether the account carries financial obligations",
+          "4": "Action or reject"
+        },
+        "note": "Deletion does not erase financial records — those are the centre's obligations. What is erased is the personal data."
+      },
+      "security": {
+        "title": "12. Your own account's security",
+        "body": "This is the most powerful account on the platform, so its security isn't optional.",
+        "how": {
+          "1": "Press “Security” in the menu",
+          "2": "Review the devices signed into your account",
+          "3": "End any session you don't recognise"
+        },
+        "note": "Two-factor is mandatory on your account — without it not a single screen opens. It isn't a setting you can turn off."
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Start with “Registrations” — that's what lets centres operate. And remember: money here is read, and the audit log sees you exactly as it sees everyone else."
+      }
+    }
+  },
+  "financeTour": {
+    "title": "A quick tour of the finance console",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "moreHint": "",
+    "steps": {
+      "welcome": {
+        "title": "Welcome 👋 this is the finance console",
+        "body": "Your account is scoped to money — no centres, no users, no catalog, deliberately. This tour follows the money itself: what comes in, what goes out, and the rate between them. It also tells you what you read without being able to change it."
+      },
+      "payments": {
+        "title": "1. Money in",
+        "body": "Every payment on the platform — online or cash — with its receipt and the entries it wrote.",
+        "how": {
+          "1": "Press “Student payments” in the menu",
+          "2": "Filter by period or centre",
+          "3": "Open a payment to see its receipt and its entries"
+        },
+        "note": "Cash and online are written to the same ledger with the same entries — so don't go looking for a second set of books."
+      },
+      "subscriptions": {
+        "title": "2. Subscriptions",
+        "body": "What sits behind each payment: who subscribed to what, monthly or single-lesson, and how long it runs.",
+        "how": {
+          "1": "Press “Subscriptions” in the menu",
+          "2": "Check the plan, the amount and the period",
+          "3": "Compare against the payment if something needs explaining"
+        }
+      },
+      "payouts": {
+        "title": "3. Money out — this is the daily work",
+        "body": "Teachers and centres request their earnings, and you review and approve.",
+        "how": {
+          "1": "Press “Payouts & disbursement” in the menu",
+          "2": "Check the request, the amount and the available balance",
+          "3": "Approve or reject — rejecting returns the amount to their available balance",
+          "4": "You can approve a batch of requests at once"
+        },
+        "note": "The amount is reserved from the moment of the request, which is why a teacher's “available” drops before anything is paid. The actual transfer happens outside the platform — you mark that it was made."
+      },
+      "refunds": {
+        "title": "4. Refunds",
+        "body": "If a lesson was cancelled or a payment taken in error, the refund happens here.",
+        "how": {
+          "1": "Open the payment from “Student payments”",
+          "2": "Choose refund",
+          "3": "Write the **reason** — it is required"
+        },
+        "note": "A refund is written as a NEW entry and the original payment stays visible. Nothing is erased — so what was taken and what came back both remain clear."
+      },
+      "commission": {
+        "title": "5. Commission — you read it, you don't set it",
+        "body": "The platform's share of each lesson. This screen is in your menu so you know the rate in force while checking any figure.",
+        "how": {
+          "1": "Press “Commission” in the menu",
+          "2": "See the global rate and any centre-specific rate"
+        },
+        "note": "There is no save button here, and that isn't an oversight: setting the rate is the super admin's. Ask them if it needs changing — and remember it applies to new classes only."
+      },
+      "ledgerIsFinal": {
+        "title": "6. The ledger is not editable",
+        "body": "The most important rule in this job: an entry that has been written is never changed and never deleted.",
+        "how": {
+          "1": "Corrections are made with a NEW entry — a refund or an adjustment",
+          "2": "The wrong entry stays visible beside its correction",
+          "3": "If a figure looks wrong, look for its source rather than for an edit button"
+        },
+        "note": "This is enforced by the database, not the interface — UPDATE and DELETE on the money ledger are refused for your account and for the super admin's alike."
+      },
+      "security": {
+        "title": "7. Your account's security",
+        "body": "Your account sees the whole platform's money, so its security isn't optional.",
+        "how": {
+          "1": "Press “Security” in the menu",
+          "2": "Review the devices signed into your account",
+          "3": "End any session you don't recognise"
+        },
+        "note": "Two-factor is mandatory on your account — without it no screen opens at all."
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. Your day starts at “Payouts & disbursement” — that's where people are waiting on you."
+      }
+    }
   }
 }

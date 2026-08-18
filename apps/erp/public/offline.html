@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Edura — غير متصل / Offline</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "IBM Plex Sans Arabic", sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100dvh; padding: 24px; text-align: center;
+        background: #f6f7fb; color: #0b1020;
+      }
+      @media (prefers-color-scheme: dark) { body { background: #0b1020; color: #e8eaf3; } }
+      .card { max-width: 420px; width: 100%; }
+      .logo { width: 88px; height: 88px; margin: 0 auto 20px; display: block; }
+      /* Literal colours, like the svg file's own: this page renders outside
+         any document carrying the token sheet. */
+      .logo .ink { stroke: #201f1d; }
+      .logo .gold { stroke: #b68235; }
+      @media (prefers-color-scheme: dark) {
+        .logo .ink { stroke: #f0eeea; }
+        .logo .gold { stroke: #d9a95e; }
+      }
+      h1 { font-size: 1.4rem; margin: 0 0 8px; font-weight: 700; }
+      p { margin: 0 0 6px; opacity: 0.72; line-height: 1.6; font-size: 0.98rem; }
+      .en { direction: ltr; opacity: 0.55; font-size: 0.9rem; margin-top: 4px; }
+      /* Solid ink, no gradient — the retired EduConnect button was a
+         violet-to-indigo gradient fill, the exact device CONSTITUTION §4
+         forbids. Primary = solid ink is the one solid the Ledger direction
+         allows; literal colours again, same reason as .logo above. */
+      button {
+        margin-top: 22px; border: 0; cursor: pointer;
+        background: #201f1d; color: #f3f2f2;
+        font-size: 1rem; font-weight: 600; padding: 12px 26px;
+        border-radius: 12px; font-family: inherit;
+      }
+      @media (prefers-color-scheme: dark) {
+        button { background: #f0eeea; color: #14161a; }
+      }
+      button:active { transform: translateY(1px); }
+      .status { margin-top: 18px; font-size: 0.85rem; opacity: 0.6; }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e5484d; margin-inline-end: 8px; vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <!-- INLINE, and it has to be. This page is shown when the network is
+           gone, and a subresource is a request: `/edura-mark.svg` is in the
+           precache, but an <img> request is claimed by the runtime image-cache
+           route before the precache is ever consulted, so the mark rendered as
+           a broken-image glyph on the one page a user only ever sees when
+           something is already wrong. Verified offline in a real browser
+           against a stopped server, before and after.
+
+           This is the mark's FOURTH copy — see public/edura-mark.svg and
+           packages/ui/src/lib/edura-mark.ts. Change a coordinate here, change
+           it there; `tests/unit/offline-page.test.ts` holds the geometry
+           identical to the svg and holds this page free of subresources. -->
+      <svg
+        class="logo"
+        viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        role="img"
+        aria-label="Edura"
+      >
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path class="ink" stroke-width="11" d="M100 52 L54 84 L54 150 L100 122 Z" />
+          <path class="ink" stroke-width="11" d="M100 52 L146 84 L146 150 L100 122 Z" />
+          <path class="gold" stroke-width="8" d="M100 52 L100 122" />
+        </g>
+      </svg>
+      <h1>أنت غير متصل بالإنترنت</h1>
+      <p>تحقق من اتصالك وحاول مرة أخرى. بعض الصفحات التي زرتها من قبل لا تزال متاحة.</p>
+      <p class="en">You're offline. Check your connection and try again — recently visited pages may still work.</p>
+      <button onclick="location.reload()">إعادة المحاولة · Retry</button>
+      <div class="status"><span class="dot"></span><span id="s">لا يوجد اتصال بالشبكة</span></div>
+    </div>
+    <script>
+      addEventListener("online", () => location.reload());
+      if (navigator.onLine) document.getElementById("s").textContent = "جارٍ إعادة الاتصال…";
+    </script>
+  </body>
+</html>

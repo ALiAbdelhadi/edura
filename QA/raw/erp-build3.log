@@ -1,0 +1,387 @@
+▲ Next.js 16.3.0 (webpack)
+- Environments: .env.production, .env
+⚠ `experimental.useCache` is deprecated. Please use the top-level `cacheComponents` option instead in next.config.ts.
+✓ Running next.config.ts took 207ms
+- Experiments (use with caution):
+  ✓ useCache
+
+  Creating an optimized production build ...
+✓ (serwist) Bundling the service worker script with the URL '/sw.js' and the scope '/'...
+⚠ Compiled with warnings in 13.7s
+
+../../node_modules/.bun/require-in-the-middle@8.0.1/node_modules/require-in-the-middle/index.js
+Critical dependency: require function is used in a way in which dependencies cannot be statically extracted
+
+Import trace for requested module:
+../../node_modules/.bun/require-in-the-middle@8.0.1/node_modules/require-in-the-middle/index.js
+../../node_modules/.bun/@opentelemetry+instrumentation@0.220.0+e40b0dfdd726a224/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+../../node_modules/.bun/@opentelemetry+instrumentation@0.220.0+e40b0dfdd726a224/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+../../node_modules/.bun/@opentelemetry+instrumentation@0.220.0+e40b0dfdd726a224/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+../../node_modules/.bun/@opentelemetry+instrumentation@0.220.0+e40b0dfdd726a224/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+../../node_modules/.bun/@sentry+node@10.69.0+50e9adb009a4d404/node_modules/@sentry/node/build/cjs/integrations/tracing/express.js
+../../node_modules/.bun/@sentry+node@10.69.0+50e9adb009a4d404/node_modules/@sentry/node/build/cjs/index.js
+../../node_modules/.bun/@sentry+nextjs@10.69.0+4966acb035d3ce77/node_modules/@sentry/nextjs/build/cjs/index.server.js
+./src/lib/observability/sentry-user.ts
+./src/lib/auth/session.ts
+./src/app/api/v1/catalog/tree/route.ts
+
+  Skipping validation of types
+  Finished TypeScript config validation in 3ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/281) ...
+  Generating static pages using 9 workers (70/281) 
+  Generating static pages using 9 workers (140/281) 
+  Generating static pages using 9 workers (210/281) 
+✓ Generating static pages using 9 workers (281/281) in 1348ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /_not-found
+├ ƒ /[locale]
+├ ƒ /[locale]/[...rest]
+├ ƒ /[locale]/[id]
+├ ƒ /[locale]/c/[payload]
+├ ƒ /[locale]/centers/[id]
+├ ƒ /[locale]/changelog
+├ ƒ /[locale]/claim
+├ ƒ /[locale]/contact
+├ ƒ /[locale]/courses/[id]
+├ ƒ /[locale]/dashboard
+├ ƒ /[locale]/dashboard/admin
+├ ƒ /[locale]/dashboard/admin/audit
+├ ƒ /[locale]/dashboard/admin/checkin
+├ ƒ /[locale]/dashboard/admin/classes
+├ ƒ /[locale]/dashboard/admin/counter
+├ ƒ /[locale]/dashboard/admin/enrollment-requests
+├ ƒ /[locale]/dashboard/admin/expenses
+├ ƒ /[locale]/dashboard/admin/external-teachers
+├ ƒ /[locale]/dashboard/admin/external-teachers/[teacherId]
+├ ƒ /[locale]/dashboard/admin/external-teachers/gaps
+├ ƒ /[locale]/dashboard/admin/fees
+├ ƒ /[locale]/dashboard/admin/messages
+├ ƒ /[locale]/dashboard/admin/notes
+├ ƒ /[locale]/dashboard/admin/notifications
+├ ƒ /[locale]/dashboard/admin/reports
+├ ƒ /[locale]/dashboard/admin/rooms
+├ ƒ /[locale]/dashboard/admin/schedule
+├ ƒ /[locale]/dashboard/admin/settings
+├ ƒ /[locale]/dashboard/admin/staff
+├ ƒ /[locale]/dashboard/admin/students
+├ ƒ /[locale]/dashboard/admin/students/[studentId]
+├ ƒ /[locale]/dashboard/admin/teachers
+├ ƒ /[locale]/dashboard/admin/tour
+├ ƒ /[locale]/dashboard/assistant
+├ ƒ /[locale]/dashboard/assistant/attendance
+├ ƒ /[locale]/dashboard/assistant/classes
+├ ƒ /[locale]/dashboard/assistant/collaborations
+├ ƒ /[locale]/dashboard/assistant/door
+├ ƒ /[locale]/dashboard/assistant/grades
+├ ƒ /[locale]/dashboard/assistant/materials
+├ ƒ /[locale]/dashboard/assistant/messages
+├ ƒ /[locale]/dashboard/assistant/notes
+├ ƒ /[locale]/dashboard/assistant/notifications
+├ ƒ /[locale]/dashboard/assistant/settings
+├ ƒ /[locale]/dashboard/assistant/tour
+├ ƒ /[locale]/dashboard/parent
+├ ƒ /[locale]/dashboard/parent/attendance
+├ ƒ /[locale]/dashboard/parent/children
+├ ƒ /[locale]/dashboard/parent/children/[studentId]/id
+├ ƒ /[locale]/dashboard/parent/fees
+├ ƒ /[locale]/dashboard/parent/messages
+├ ƒ /[locale]/dashboard/parent/notifications
+├ ƒ /[locale]/dashboard/parent/oversight
+├ ƒ /[locale]/dashboard/parent/pay
+├ ƒ /[locale]/dashboard/parent/progress
+├ ƒ /[locale]/dashboard/parent/settings
+├ ƒ /[locale]/dashboard/parent/tour
+├ ƒ /[locale]/dashboard/parent/wallet
+├ ƒ /[locale]/dashboard/staff
+├ ƒ /[locale]/dashboard/staff/checkin
+├ ƒ /[locale]/dashboard/staff/collaborations
+├ ƒ /[locale]/dashboard/staff/finance
+├ ƒ /[locale]/dashboard/staff/messages
+├ ƒ /[locale]/dashboard/staff/notes
+├ ƒ /[locale]/dashboard/staff/notifications
+├ ƒ /[locale]/dashboard/staff/reports
+├ ƒ /[locale]/dashboard/staff/rooms
+├ ƒ /[locale]/dashboard/staff/settings
+├ ƒ /[locale]/dashboard/staff/students
+├ ƒ /[locale]/dashboard/staff/students/[studentId]
+├ ƒ /[locale]/dashboard/student
+├ ƒ /[locale]/dashboard/student/attendance
+├ ƒ /[locale]/dashboard/student/courses
+├ ƒ /[locale]/dashboard/student/family
+├ ƒ /[locale]/dashboard/student/grades
+├ ƒ /[locale]/dashboard/student/id
+├ ƒ /[locale]/dashboard/student/materials
+├ ƒ /[locale]/dashboard/student/messages
+├ ƒ /[locale]/dashboard/student/notifications
+├ ƒ /[locale]/dashboard/student/practice
+├ ƒ /[locale]/dashboard/student/reviews
+├ ƒ /[locale]/dashboard/student/schedule
+├ ƒ /[locale]/dashboard/student/settings
+├ ƒ /[locale]/dashboard/student/subjects
+├ ƒ /[locale]/dashboard/student/wallet
+├ ƒ /[locale]/dashboard/teacher
+├ ƒ /[locale]/dashboard/teacher/attendance
+├ ƒ /[locale]/dashboard/teacher/centers
+├ ƒ /[locale]/dashboard/teacher/classes
+├ ƒ /[locale]/dashboard/teacher/door
+├ ƒ /[locale]/dashboard/teacher/grades
+├ ƒ /[locale]/dashboard/teacher/materials
+├ ƒ /[locale]/dashboard/teacher/messages
+├ ƒ /[locale]/dashboard/teacher/notes
+├ ƒ /[locale]/dashboard/teacher/notifications
+├ ƒ /[locale]/dashboard/teacher/reviews
+├ ƒ /[locale]/dashboard/teacher/settings
+├ ƒ /[locale]/dashboard/teacher/team
+├ ƒ /[locale]/dashboard/teacher/tour
+├ ƒ /[locale]/dashboard/teacher/wallet
+├ ƒ /[locale]/faq
+├ ƒ /[locale]/forgot-password
+├ ƒ /[locale]/guardian/verify
+├ ƒ /[locale]/help
+├ ƒ /[locale]/help/[slug]
+├ ƒ /[locale]/invite/accept
+├ ƒ /[locale]/login
+├ ƒ /[locale]/onboarding
+├ ƒ /[locale]/pricing
+├ ƒ /[locale]/privacy
+├ ƒ /[locale]/receipt-preview
+├ ƒ /[locale]/receipts/[paymentId]
+├ ƒ /[locale]/register
+├ ƒ /[locale]/reports/print
+├ ƒ /[locale]/reset-password
+├ ƒ /[locale]/student-id/print
+├ ƒ /[locale]/terms
+├ ƒ /[locale]/two-factor
+├ ƒ /[locale]/ui-preview
+├ ƒ /api/auth/[...all]
+├ ƒ /api/health
+├ ƒ /api/v1/_ping
+├ ƒ /api/v1/affiliations/[id]
+├ ƒ /api/v1/affiliations/[id]/accept
+├ ƒ /api/v1/affiliations/[id]/decline
+├ ƒ /api/v1/attendance/[id]
+├ ƒ /api/v1/auth/invite/accept
+├ ƒ /api/v1/auth/login
+├ ƒ /api/v1/auth/password/forgot
+├ ƒ /api/v1/auth/password/reset
+├ ƒ /api/v1/auth/register/center
+├ ƒ /api/v1/auth/register/parent
+├ ƒ /api/v1/auth/register/student
+├ ƒ /api/v1/auth/register/teacher
+├ ƒ /api/v1/catalog/subjects
+├ ƒ /api/v1/catalog/tree
+├ ƒ /api/v1/center/audit-logs
+├ ƒ /api/v1/center/audit-logs/actors
+├ ƒ /api/v1/center/blacklist
+├ ƒ /api/v1/center/blacklist/[id]
+├ ƒ /api/v1/center/checkin
+├ ƒ /api/v1/center/checkin/lookup
+├ ƒ /api/v1/center/checkin/suggest
+├ ƒ /api/v1/center/counter/roster
+├ ƒ /api/v1/center/counter/sessions
+├ ƒ /api/v1/center/counter/teachers
+├ ƒ /api/v1/center/external-teachers
+├ ƒ /api/v1/center/external-teachers/[teacherId]
+├ ƒ /api/v1/center/external-teachers/[teacherId]/convert
+├ ƒ /api/v1/center/external-teachers/[teacherId]/grades
+├ ƒ /api/v1/center/external-teachers/[teacherId]/grades/[gradeId]/scores
+├ ƒ /api/v1/center/external-teachers/[teacherId]/invite
+├ ƒ /api/v1/center/external-teachers/[teacherId]/restore
+├ ƒ /api/v1/center/external-teachers/[teacherId]/settlements
+├ ƒ /api/v1/center/external-teachers/[teacherId]/statement
+├ ƒ /api/v1/center/external-teachers/[teacherId]/students
+├ ƒ /api/v1/center/external-teachers/[teacherId]/students/enroll
+├ ƒ /api/v1/center/external-teachers/[teacherId]/students/lookup
+├ ƒ /api/v1/center/external-teachers/balances
+├ ƒ /api/v1/center/external-teachers/gaps
+├ ƒ /api/v1/center/staff
+├ ƒ /api/v1/center/staff/[id]
+├ ƒ /api/v1/center/staff/[id]/invite
+├ ƒ /api/v1/center/staff/me
+├ ƒ /api/v1/center/students/[id]/guardian-contact
+├ ƒ /api/v1/center/students/import
+├ ƒ /api/v1/center/subscriptions
+├ ƒ /api/v1/center/temp-students
+├ ƒ /api/v1/center/walk-in
+├ ƒ /api/v1/center/walk-in/resend
+├ ƒ /api/v1/center/wallet
+├ ƒ /api/v1/center/wallet-topup
+├ ƒ /api/v1/center/wallet/payout-request
+├ ƒ /api/v1/center/wallet/payouts
+├ ƒ /api/v1/center/wallet/transactions
+├ ƒ /api/v1/centers/[id]
+├ ƒ /api/v1/centers/[id]/rooms
+├ ƒ /api/v1/centers/me
+├ ƒ /api/v1/centers/me/admins
+├ ƒ /api/v1/centers/me/admins/[userId]
+├ ƒ /api/v1/centers/me/admins/invite
+├ ƒ /api/v1/centers/me/logo
+├ ƒ /api/v1/collaboration-requests
+├ ƒ /api/v1/collaboration-requests/[id]/accept
+├ ƒ /api/v1/collaboration-requests/[id]/cancel
+├ ƒ /api/v1/collaboration-requests/[id]/reject
+├ ƒ /api/v1/contact
+├ ƒ /api/v1/courses
+├ ƒ /api/v1/courses/[id]
+├ ƒ /api/v1/courses/[id]/cancel
+├ ƒ /api/v1/courses/[id]/reassign-teacher
+├ ƒ /api/v1/cron/[job]
+├ ƒ /api/v1/dashboards/admin
+├ ƒ /api/v1/dashboards/admin/checklist
+├ ƒ /api/v1/dashboards/student
+├ ƒ /api/v1/dashboards/teacher
+├ ƒ /api/v1/deletion-requests
+├ ƒ /api/v1/deletion-requests/[id]/approve
+├ ƒ /api/v1/deletion-requests/[id]/reject
+├ ƒ /api/v1/door-checkin
+├ ƒ /api/v1/enrollment-requests
+├ ƒ /api/v1/enrollment-requests/[id]
+├ ƒ /api/v1/enrollment-requests/[id]/approve
+├ ƒ /api/v1/enrollment-requests/[id]/decline
+├ ƒ /api/v1/enrollments
+├ ƒ /api/v1/enrollments/[id]
+├ ƒ /api/v1/expenses
+├ ƒ /api/v1/expenses/[id]
+├ ƒ /api/v1/grades
+├ ƒ /api/v1/grades/[id]
+├ ƒ /api/v1/grades/[id]/scores
+├ ƒ /api/v1/guardian/verify
+├ ƒ /api/v1/internal/chat-notify
+├ ƒ /api/v1/materials
+├ ƒ /api/v1/materials/[id]
+├ ƒ /api/v1/materials/[id]/download
+├ ƒ /api/v1/me
+├ ƒ /api/v1/me/affiliations
+├ ƒ /api/v1/me/attendance
+├ ƒ /api/v1/me/children
+├ ƒ /api/v1/me/credentials
+├ ƒ /api/v1/me/data-rights/deletion
+├ ƒ /api/v1/me/data-rights/deletion/[id]
+├ ƒ /api/v1/me/data-rights/exports
+├ ƒ /api/v1/me/data-rights/exports/[id]
+├ ƒ /api/v1/me/delete-request
+├ ƒ /api/v1/me/device-tokens
+├ ƒ /api/v1/me/device-tokens/[token]
+├ ƒ /api/v1/me/family-code
+├ ƒ /api/v1/me/family-code/rotate
+├ ƒ /api/v1/me/guardian-contact
+├ ƒ /api/v1/me/guardian-verification
+├ ƒ /api/v1/me/onboarding
+├ ƒ /api/v1/me/onboarding-email
+├ ƒ /api/v1/me/parent-wallet
+├ ƒ /api/v1/me/parent-wallet/history
+├ ƒ /api/v1/me/password
+├ ƒ /api/v1/me/points
+├ ƒ /api/v1/me/points/history
+├ ƒ /api/v1/me/prefs
+├ ƒ /api/v1/me/profile-checklist
+├ ƒ /api/v1/me/push-subscription
+├ ƒ /api/v1/me/roster/choice
+├ ƒ /api/v1/me/student-card
+├ ƒ /api/v1/me/subject-requests
+├ ƒ /api/v1/me/subjects
+├ ƒ /api/v1/me/subscriptions
+├ ƒ /api/v1/me/wallet
+├ ƒ /api/v1/me/wallet/history
+├ ƒ /api/v1/messages
+├ ƒ /api/v1/messages/blocks
+├ ƒ /api/v1/messages/contacts
+├ ƒ /api/v1/messages/conversations
+├ ƒ /api/v1/messages/conversations/[id]
+├ ƒ /api/v1/messages/conversations/[id]/read
+├ ƒ /api/v1/messages/groups
+├ ƒ /api/v1/messages/groups/[id]
+├ ƒ /api/v1/messages/groups/[id]/mute
+├ ƒ /api/v1/messages/groups/[id]/read
+├ ƒ /api/v1/messages/reports
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/notifications/broadcast
+├ ƒ /api/v1/notifications/read-all
+├ ƒ /api/v1/parent-links
+├ ƒ /api/v1/parent-links/[id]
+├ ƒ /api/v1/parent-links/[id]/approve
+├ ƒ /api/v1/parent-links/[id]/reject
+├ ƒ /api/v1/parent/oversight/children
+├ ƒ /api/v1/parent/oversight/children/[studentId]/conversations
+├ ƒ /api/v1/parent/oversight/children/[studentId]/conversations/[id]
+├ ƒ /api/v1/payments
+├ ƒ /api/v1/payments/[id]
+├ ƒ /api/v1/payments/[id]/receipt
+├ ƒ /api/v1/payments/initiate
+├ ƒ /api/v1/payments/intents/[id]
+├ ƒ /api/v1/payments/intents/[id]/mock-complete
+├ ƒ /api/v1/payments/parent-wallet-topup/initiate
+├ ƒ /api/v1/payments/paymob/webhook
+├ ƒ /api/v1/payments/wallet-topup/initiate
+├ ƒ /api/v1/realtime/token
+├ ƒ /api/v1/reports/attendance-by-course
+├ ƒ /api/v1/reports/course-fill-rates
+├ ƒ /api/v1/reports/enrollment-funnel
+├ ƒ /api/v1/reports/expenses
+├ ƒ /api/v1/reports/expenses-timeseries
+├ ƒ /api/v1/reports/export
+├ ƒ /api/v1/reports/net-profit
+├ ƒ /api/v1/reports/revenue
+├ ƒ /api/v1/reports/revenue-timeseries
+├ ƒ /api/v1/reviews
+├ ƒ /api/v1/reviews/[id]
+├ ƒ /api/v1/reviews/eligible
+├ ƒ /api/v1/rooms
+├ ƒ /api/v1/rooms/[id]
+├ ƒ /api/v1/rooms/[id]/photos
+├ ƒ /api/v1/rooms/per-student-availability
+├ ƒ /api/v1/roster/students
+├ ƒ /api/v1/roster/students/[studentId]
+├ ƒ /api/v1/roster/students/invite
+├ ƒ /api/v1/roster/students/lookup
+├ ƒ /api/v1/roster/teachers
+├ ƒ /api/v1/roster/teachers/[teacherId]
+├ ƒ /api/v1/roster/teachers/invite
+├ ƒ /api/v1/roster/teachers/lookup
+├ ƒ /api/v1/search
+├ ƒ /api/v1/search/centers
+├ ƒ /api/v1/search/courses
+├ ƒ /api/v1/search/teachers
+├ ƒ /api/v1/sessions
+├ ƒ /api/v1/sessions/[id]
+├ ƒ /api/v1/sessions/[id]/attendance
+├ ƒ /api/v1/sessions/[id]/cancel
+├ ƒ /api/v1/sessions/[id]/complete
+├ ƒ /api/v1/sessions/[id]/postpone
+├ ƒ /api/v1/sessions/[id]/settlement-preview
+├ ƒ /api/v1/subjects
+├ ƒ /api/v1/subscriptions/[id]/cancel
+├ ƒ /api/v1/subscriptions/checkout
+├ ƒ /api/v1/teacher/assistants
+├ ƒ /api/v1/teacher/assistants/[id]
+├ ƒ /api/v1/teacher/assistants/[id]/invite
+├ ƒ /api/v1/teacher/attendance-mode
+├ ƒ /api/v1/teacher/attendance/sync
+├ ƒ /api/v1/teacher/blacklist
+├ ƒ /api/v1/teacher/blacklist/[id]
+├ ƒ /api/v1/teacher/temp-students
+├ ƒ /api/v1/teacher/wallet
+├ ƒ /api/v1/teacher/wallet/payout-request
+├ ƒ /api/v1/teacher/wallet/payouts
+├ ƒ /api/v1/teacher/wallet/transactions
+├ ƒ /api/v1/teachers/[teacherId]
+├ ƒ /api/v1/teachers/me/photo
+├ ƒ /api/v1/team-notes
+├ ƒ /api/v1/team-notes/[id]
+├ ƒ /api/v1/temp-students
+├ ƒ /api/v1/temp-students/[id]/send-invite
+├ ƒ /api/v1/temp-students/claim
+├ ○ /manifest.webmanifest
+└ ○ /sitemap.xml
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -103,10 +103,25 @@ export function Eyebrow({
         marker &&
           "before:me-[7px] before:h-[9px] before:w-[2px] before:flex-none before:rounded-[1px] before:bg-(--eyebrow-marker-color) before:content-['']",
         resolved === "latin"
-          ? "num text-[10px] font-semibold uppercase tracking-[0.12em]"
+          ? // ONE STEP LARGER ON A PHONE, back to 10px from `sm` up.
+            //
+            // 10px is the specified size and it holds on a desktop, where the
+            // reader is ~60cm away and the label sits beside body text with
+            // room around it. Measured on a 390px phone it is the smallest
+            // text on every page of the marketing site — every section label,
+            // every footer column heading — at a viewing distance of ~30cm and
+            // often the only thing in its line. 11px costs the design nothing
+            // at that width and stops the ranking device being the hardest
+            // thing on the screen to read.
+            //
+            // The Arabic step below moves WITH it: the 10:12 relationship is
+            // an optical match (see the header — Latin caps have a ~7px cap
+            // band and Arabic needs more size to sit level with it), so
+            // raising one alone would tilt the hierarchy in one language.
+            "num text-[11px] font-semibold uppercase tracking-[0.12em] sm:text-[10px]"
           : // No uppercase, no tracking, no mono — see the header comment. Each of
             // the three is a silent failure in Arabic, not a no-op.
-            "text-[12px] font-bold [word-spacing:0.1em]",
+            "text-[13px] font-bold [word-spacing:0.1em] sm:text-[12px]",
         className,
       )}
       {...props}

@@ -1,0 +1,19 @@
+meta {
+  name: POST logo
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/centers/me/logo
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}

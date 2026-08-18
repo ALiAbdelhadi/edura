@@ -1,0 +1,36 @@
+{
+  "cuts": [
+    {
+      "name": "settlement",
+      "file": "page@8f15cfae031174164e196f21beb895f0.webm",
+      "start": 4.008,
+      "duration": 11.217,
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "assistant-door",
+      "file": "page@0dd009c0dc8aefbbd8845b9c1e3055db.webm",
+      "start": 3.8689999999999998,
+      "duration": 9.221,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "name": "walk-in",
+      "file": "page@9ffe1e48cf8a87a894c9981d2994649f.webm",
+      "start": 1.724,
+      "duration": 10.155,
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "counter-board",
+      "file": "page@7a6974d60bff69571bd3c0a262f6c80f.webm",
+      "start": 4.648,
+      "duration": 11.364,
+      "width": 1440,
+      "height": 900
+    }
+  ]
+}

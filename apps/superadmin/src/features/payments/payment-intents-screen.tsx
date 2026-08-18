@@ -43,6 +43,7 @@ import type { Locale } from "@repo/ui/lib/format";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { useParamSeed } from "@/lib/api/use-param-seed";
 import { asKey } from "@/lib/i18n/keys";
 
 const ANY = "__any__";
@@ -86,6 +87,10 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
   const [method, setMethod] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  // Arrived here from the global palette: seed the box it would have been typed
+  // into, so the list opens on the row the reader already picked.
+  useParamSeed("q", setQ);
 
   const resource = `${apiBase}/payment-intents`;
   const { query, result } = useList({

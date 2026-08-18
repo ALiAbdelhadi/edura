@@ -1,0 +1,21 @@
+meta {
+  name: POST exports
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/me/data-rights/exports
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "studentId": "{{studentId}}"
+  }
+}

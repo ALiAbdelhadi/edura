@@ -12,6 +12,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    // This package imports no node builtins — it only reads the `process`
+    // global — so it never pulls @types/node in through a module specifier.
+    // TypeScript 7 does not auto-discover it from the symlinked node_modules
+    // /@types here, so name it explicitly (same as packages/database).
+    "types": ["node"],
     // @repo/notifications is consumed as SOURCE (workspace packages export .ts
     // directly, no build step), and its email templates are .tsx. Without this
     // every consumer that typechecks server-core trips TS6142.

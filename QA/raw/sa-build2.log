@@ -1,0 +1,308 @@
+▲ Next.js 16.3.0 (Turbopack)
+- Environments: .env.production, .env
+✓ Running next.config.ts took 230ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.7s
+  Running TypeScript ...
+  Finished TypeScript in 1441ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/69) ...
+  Generating static pages using 9 workers (17/69) 
+  Generating static pages using 9 workers (34/69) 
+  Generating static pages using 9 workers (51/69) 
+✓ Generating static pages using 9 workers (69/69) in 489ms
+Turbopack build encountered 1 warning:
+./packages/notifications/src/preview.ts:60:17
+Warning: Dynamic filesystem access causes tracing of the whole project
+  [90m58 |[0m     [36mconst[0m { join, resolve } = [36mawait[0m [36mimport[0m([32m"node:path"[0m);
+  [90m59 |[0m
+[33m[1m>[0m [90m60 |[0m     [36mconst[0m dir = resolve(process.env.[33mNOTIFICATIONS_PREVIEW_DIR[0m ?? [33mPREVIEW_DIR_DEFAULT[0m);
+  [90m   |[0m                 [33m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m61 |[0m     [36mawait[0m mkdir(dir, { recursive: [36mtrue[0m });
+  [90m62 |[0m
+  [90m63 |[0m     [90m// Recipient in the filename, sanitized — it is what you scan for when you[0m
+
+Static analysis determined that this filesystem access causes the whole project to be traced and included in the output.
+This is usually unintentional and leads to all source files (including the public folder) to be deployed as part of the server code.
+This can slow down deployments or lead to failures when size limits are exceeded.
+To resolve this, you can
+- make sure the path is statically scoped to some subfolder, for example path.join(process.cwd(), 'data', bar), or
+- only use them in development, or
+- opt out by adding an ignore comment to the highlighted call: path.resolve(/*turbopackIgnore: true*/ ...), or
+- remove them.
+
+Import traces:
+  App Route:
+    ./packages/notifications/src/preview.ts
+    ./packages/notifications/src/channels/email.ts
+    ./packages/notifications/src/index.ts
+    ./apps/superadmin/src/lib/auth/auth.ts
+    ./apps/superadmin/src/app/api/v1/admin/impersonation/stop/route.ts
+
+  Server Component:
+    ./packages/notifications/src/preview.ts
+    ./packages/notifications/src/channels/email.ts
+    ./packages/notifications/src/index.ts
+    ./apps/superadmin/src/lib/auth/auth.ts
+    ./apps/superadmin/src/app/[locale]/dashboard/layout.tsx
+
+
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /_not-found
+├ ƒ /[locale]
+├ ƒ /[locale]/[...rest]
+├ ƒ /[locale]/dashboard
+├ ƒ /[locale]/dashboard/finance
+├ ƒ /[locale]/dashboard/finance/commission
+├ ƒ /[locale]/dashboard/finance/notifications
+├ ƒ /[locale]/dashboard/finance/payments
+├ ƒ /[locale]/dashboard/finance/payouts
+├ ƒ /[locale]/dashboard/finance/security
+├ ƒ /[locale]/dashboard/finance/subscriptions
+├ ƒ /[locale]/dashboard/superadmin
+├ ƒ /[locale]/dashboard/superadmin/audit
+├ ƒ /[locale]/dashboard/superadmin/catalog
+├ ƒ /[locale]/dashboard/superadmin/centers
+├ ƒ /[locale]/dashboard/superadmin/centers/[centerId]
+├ ƒ /[locale]/dashboard/superadmin/collaborations
+├ ƒ /[locale]/dashboard/superadmin/commission
+├ ƒ /[locale]/dashboard/superadmin/contact
+├ ƒ /[locale]/dashboard/superadmin/deletion-requests
+├ ƒ /[locale]/dashboard/superadmin/feature-flags
+├ ƒ /[locale]/dashboard/superadmin/messaging
+├ ƒ /[locale]/dashboard/superadmin/notifications
+├ ƒ /[locale]/dashboard/superadmin/payments
+├ ƒ /[locale]/dashboard/superadmin/payouts
+├ ƒ /[locale]/dashboard/superadmin/registrations
+├ ƒ /[locale]/dashboard/superadmin/security
+├ ƒ /[locale]/dashboard/superadmin/settlements
+├ ƒ /[locale]/dashboard/superadmin/subscriptions
+├ ƒ /[locale]/dashboard/superadmin/teachers
+├ ƒ /[locale]/dashboard/superadmin/users
+├ ƒ /[locale]/dashboard/superadmin/users/[id]
+├ ƒ /[locale]/dashboard/superadmin/wallet
+├ ƒ /[locale]/dashboard/superadmin/whatsapp
+├   /[locale]/login
+│ ├ ● /ar/login
+│ └ ● /en/login
+├   /[locale]/two-factor
+│ ├ ● /ar/two-factor
+│ └ ● /en/two-factor
+├   /[locale]/two-factor-setup
+│ ├ ● /ar/two-factor-setup
+│ └ ● /en/two-factor-setup
+├ ƒ /api/auth/[...all]
+├ ƒ /api/health
+├ ƒ /api/v1/admin/accountants
+├ ƒ /api/v1/admin/audit-logs
+├ ƒ /api/v1/admin/audit-logs/actions
+├ ƒ /api/v1/admin/blacklist
+├ ƒ /api/v1/admin/blacklist/[id]/remove
+├ ƒ /api/v1/admin/catalog/grade-levels
+├ ƒ /api/v1/admin/catalog/grade-levels/[id]
+├ ƒ /api/v1/admin/catalog/grade-tracks
+├ ƒ /api/v1/admin/catalog/grade-tracks/[id]
+├ ƒ /api/v1/admin/catalog/offerings
+├ ƒ /api/v1/admin/catalog/offerings/[id]
+├ ƒ /api/v1/admin/catalog/stages
+├ ƒ /api/v1/admin/catalog/stages/[id]
+├ ƒ /api/v1/admin/catalog/subject-requests
+├ ƒ /api/v1/admin/catalog/subject-requests/[id]/approve
+├ ƒ /api/v1/admin/catalog/subject-requests/[id]/reject
+├ ƒ /api/v1/admin/catalog/subjects
+├ ƒ /api/v1/admin/catalog/subjects/[id]
+├ ƒ /api/v1/admin/catalog/systems
+├ ƒ /api/v1/admin/catalog/systems/[id]
+├ ƒ /api/v1/admin/catalog/tracks
+├ ƒ /api/v1/admin/catalog/tracks/[id]
+├ ƒ /api/v1/admin/centers
+├ ƒ /api/v1/admin/centers/[id]
+├ ƒ /api/v1/admin/centers/[id]/admins
+├ ƒ /api/v1/admin/centers/[id]/admins/[userId]
+├ ƒ /api/v1/admin/centers/[id]/admins/invite
+├ ƒ /api/v1/admin/centers/[id]/affiliations
+├ ƒ /api/v1/admin/centers/[id]/affiliations/[affiliationId]
+├ ƒ /api/v1/admin/centers/[id]/approve
+├ ƒ /api/v1/admin/centers/[id]/attendance/[attendanceId]
+├ ƒ /api/v1/admin/centers/[id]/blacklist
+├ ƒ /api/v1/admin/centers/[id]/blacklist/[entryId]
+├ ƒ /api/v1/admin/centers/[id]/broadcast
+├ ƒ /api/v1/admin/centers/[id]/checkin
+├ ƒ /api/v1/admin/centers/[id]/checkin/lookup
+├ ƒ /api/v1/admin/centers/[id]/checkin/suggest
+├ ƒ /api/v1/admin/centers/[id]/collaboration-requests
+├ ƒ /api/v1/admin/centers/[id]/courses
+├ ƒ /api/v1/admin/centers/[id]/courses/[courseId]
+├ ƒ /api/v1/admin/centers/[id]/courses/[courseId]/cancel
+├ ƒ /api/v1/admin/centers/[id]/courses/[courseId]/reassign-teacher
+├ ƒ /api/v1/admin/centers/[id]/dashboard
+├ ƒ /api/v1/admin/centers/[id]/deletion-requests
+├ ƒ /api/v1/admin/centers/[id]/deletion-requests/[requestId]/decide
+├ ƒ /api/v1/admin/centers/[id]/enrollment-requests
+├ ƒ /api/v1/admin/centers/[id]/enrollment-requests/[requestId]/decide
+├ ƒ /api/v1/admin/centers/[id]/enrollments
+├ ƒ /api/v1/admin/centers/[id]/enrollments/[enrollmentId]
+├ ƒ /api/v1/admin/centers/[id]/members/[userId]/status
+├ ƒ /api/v1/admin/centers/[id]/money/expenses
+├ ƒ /api/v1/admin/centers/[id]/money/expenses/[expenseId]
+├ ƒ /api/v1/admin/centers/[id]/money/payments
+├ ƒ /api/v1/admin/centers/[id]/money/payments/[paymentId]
+├ ƒ /api/v1/admin/centers/[id]/money/payments/[paymentId]/refund
+├ ƒ /api/v1/admin/centers/[id]/money/payout-request
+├ ƒ /api/v1/admin/centers/[id]/money/subscriptions
+├ ƒ /api/v1/admin/centers/[id]/money/wallet-topup
+├ ƒ /api/v1/admin/centers/[id]/oversight/attendance
+├ ƒ /api/v1/admin/centers/[id]/oversight/courses
+├ ƒ /api/v1/admin/centers/[id]/oversight/enrollments
+├ ƒ /api/v1/admin/centers/[id]/oversight/finance
+├ ƒ /api/v1/admin/centers/[id]/oversight/invoices
+├ ƒ /api/v1/admin/centers/[id]/oversight/overview
+├ ƒ /api/v1/admin/centers/[id]/oversight/payments
+├ ƒ /api/v1/admin/centers/[id]/oversight/payouts
+├ ƒ /api/v1/admin/centers/[id]/oversight/pending
+├ ƒ /api/v1/admin/centers/[id]/oversight/sessions
+├ ƒ /api/v1/admin/centers/[id]/oversight/settlements
+├ ƒ /api/v1/admin/centers/[id]/oversight/staff
+├ ƒ /api/v1/admin/centers/[id]/oversight/statement
+├ ƒ /api/v1/admin/centers/[id]/oversight/students
+├ ƒ /api/v1/admin/centers/[id]/oversight/subscriptions
+├ ƒ /api/v1/admin/centers/[id]/oversight/transactions
+├ ƒ /api/v1/admin/centers/[id]/oversight/wallet
+├ ƒ /api/v1/admin/centers/[id]/per-student-rate
+├ ƒ /api/v1/admin/centers/[id]/reject
+├ ƒ /api/v1/admin/centers/[id]/reports/[report]
+├ ƒ /api/v1/admin/centers/[id]/rooms
+├ ƒ /api/v1/admin/centers/[id]/rooms/[roomId]
+├ ƒ /api/v1/admin/centers/[id]/rooms/[roomId]/per-student-rate
+├ ƒ /api/v1/admin/centers/[id]/rooms/[roomId]/split
+├ ƒ /api/v1/admin/centers/[id]/rooms/[roomId]/status
+├ ƒ /api/v1/admin/centers/[id]/rooms/create
+├ ƒ /api/v1/admin/centers/[id]/roster/students
+├ ƒ /api/v1/admin/centers/[id]/roster/students/[studentId]
+├ ƒ /api/v1/admin/centers/[id]/roster/students/invite
+├ ƒ /api/v1/admin/centers/[id]/roster/students/lookup
+├ ƒ /api/v1/admin/centers/[id]/roster/teachers
+├ ƒ /api/v1/admin/centers/[id]/roster/teachers/[teacherId]
+├ ƒ /api/v1/admin/centers/[id]/roster/teachers/invite
+├ ƒ /api/v1/admin/centers/[id]/roster/teachers/lookup
+├ ƒ /api/v1/admin/centers/[id]/sessions/[sessionId]/attendance
+├ ƒ /api/v1/admin/centers/[id]/sessions/[sessionId]/cancel
+├ ƒ /api/v1/admin/centers/[id]/sessions/[sessionId]/complete
+├ ƒ /api/v1/admin/centers/[id]/sessions/[sessionId]/postpone
+├ ƒ /api/v1/admin/centers/[id]/sessions/[sessionId]/settlement-preview
+├ ƒ /api/v1/admin/centers/[id]/split
+├ ƒ /api/v1/admin/centers/[id]/staff
+├ ƒ /api/v1/admin/centers/[id]/staff/[linkId]
+├ ƒ /api/v1/admin/centers/[id]/staff/[linkId]/invite
+├ ƒ /api/v1/admin/centers/[id]/status
+├ ƒ /api/v1/admin/centers/[id]/students/[studentId]/membership
+├ ƒ /api/v1/admin/centers/[id]/temp-students
+├ ƒ /api/v1/admin/centers/[id]/temp-students/[tempId]/invite
+├ ƒ /api/v1/admin/centers/[id]/toggle
+├ ƒ /api/v1/admin/centers/[id]/walk-in
+├ ƒ /api/v1/admin/centers/[id]/walk-in/resend
+├ ƒ /api/v1/admin/collaboration-requests
+├ ƒ /api/v1/admin/collaboration-requests/[id]
+├ ƒ /api/v1/admin/collaboration-requests/[id]/decide
+├ ƒ /api/v1/admin/commission-settings
+├ ƒ /api/v1/admin/contact-submissions
+├ ƒ /api/v1/admin/contact-submissions/[id]/status
+├ ƒ /api/v1/admin/dashboard/decision-queue
+├ ƒ /api/v1/admin/dashboard/kpis
+├ ƒ /api/v1/admin/dashboard/revenue-chart
+├ ƒ /api/v1/admin/dashboard/user-growth-chart
+├ ƒ /api/v1/admin/deletion-requests
+├ ƒ /api/v1/admin/deletion-requests/[id]
+├ ƒ /api/v1/admin/feature-flags
+├ ƒ /api/v1/admin/impersonation/stop
+├ ƒ /api/v1/admin/messaging/blocks
+├ ƒ /api/v1/admin/messaging/conversations
+├ ƒ /api/v1/admin/messaging/conversations/[id]
+├ ƒ /api/v1/admin/messaging/messages/[id]
+├ ƒ /api/v1/admin/messaging/reports
+├ ƒ /api/v1/admin/messaging/reports/[id]
+├ ƒ /api/v1/admin/notifications/history
+├ ƒ /api/v1/admin/payment-intents
+├ ƒ /api/v1/admin/payment-intents/[id]
+├ ƒ /api/v1/admin/platform/students/[studentId]/move
+├ ƒ /api/v1/admin/platform/students/[studentId]/verify-dob
+├ ƒ /api/v1/admin/platform/users/[userId]/force-logout
+├ ƒ /api/v1/admin/points/rules
+├ ƒ /api/v1/admin/points/rules/[id]
+├ ƒ /api/v1/admin/points/students/[id]/adjust
+├ ƒ /api/v1/admin/points/students/[id]/ledger
+├ ƒ /api/v1/admin/registrations
+├ ƒ /api/v1/admin/revenue-split
+├ ƒ /api/v1/admin/revenue-split/per-student-rate
+├ ƒ /api/v1/admin/session-settlements
+├ ƒ /api/v1/admin/session-settlements/export
+├ ƒ /api/v1/admin/students
+├ ƒ /api/v1/admin/students/[id]
+├ ƒ /api/v1/admin/students/[id]/blacklist
+├ ƒ /api/v1/admin/students/[id]/link-parent
+├ ƒ /api/v1/admin/students/[id]/unlink-parent
+├ ƒ /api/v1/admin/subscriptions
+├ ƒ /api/v1/admin/subscriptions/[id]
+├ ƒ /api/v1/admin/teachers
+├ ƒ /api/v1/admin/teachers/[id]/approve
+├ ƒ /api/v1/admin/teachers/[id]/attendance-mode
+├ ƒ /api/v1/admin/teachers/[id]/blacklist
+├ ƒ /api/v1/admin/teachers/[id]/link-center
+├ ƒ /api/v1/admin/teachers/[id]/reject
+├ ƒ /api/v1/admin/teachers/[id]/unlink-center
+├ ƒ /api/v1/admin/users
+├ ƒ /api/v1/admin/users/[id]
+├ ƒ /api/v1/admin/users/[id]/blacklist
+├ ƒ /api/v1/admin/users/[id]/card
+├ ƒ /api/v1/admin/users/[id]/impersonate
+├ ƒ /api/v1/admin/users/[id]/password-reset
+├ ƒ /api/v1/admin/users/[id]/permissions
+├ ƒ /api/v1/admin/users/[id]/reset-2fa
+├ ƒ /api/v1/admin/users/[id]/revoke-sessions
+├ ƒ /api/v1/admin/users/[id]/sessions/[sessionId]
+├ ƒ /api/v1/admin/users/[id]/status
+├ ƒ /api/v1/admin/wallet-settings
+├ ƒ /api/v1/admin/whatsapp-messages
+├ ƒ /api/v1/finance/alerts
+├ ƒ /api/v1/finance/commission-settings
+├ ƒ /api/v1/finance/dashboard
+├ ƒ /api/v1/finance/dashboard/revenue-chart
+├ ƒ /api/v1/finance/invoices
+├ ƒ /api/v1/finance/invoices/[id]
+├ ƒ /api/v1/finance/invoices/[id]/pdf
+├ ƒ /api/v1/finance/invoices/[id]/send-email
+├ ƒ /api/v1/finance/payment-intents
+├ ƒ /api/v1/finance/payment-intents/[id]
+├ ƒ /api/v1/finance/payouts
+├ ƒ /api/v1/finance/payouts/[id]/approve
+├ ƒ /api/v1/finance/payouts/[id]/receipt
+├ ƒ /api/v1/finance/payouts/[id]/reject
+├ ƒ /api/v1/finance/payouts/bulk-approve
+├ ƒ /api/v1/finance/payouts/counts
+├ ƒ /api/v1/finance/refunds
+├ ƒ /api/v1/finance/reports/center-statement/[centerId]
+├ ƒ /api/v1/finance/reports/refunds
+├ ƒ /api/v1/finance/reports/revenue
+├ ƒ /api/v1/finance/reports/teacher-statement/[teacherId]
+├ ƒ /api/v1/finance/reports/trial-balance
+├ ƒ /api/v1/finance/subscriptions
+├ ƒ /api/v1/finance/subscriptions/[id]
+├ ƒ /api/v1/finance/transactions
+├ ƒ /api/v1/finance/transactions/[id]
+├ ƒ /api/v1/me
+├ ƒ /api/v1/me/prefs
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/notifications/read-all
+└ ƒ /api/v1/search
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

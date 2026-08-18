@@ -1,0 +1,30 @@
+meta {
+  name: PATCH :id
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/courses/:id
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "",
+    "description": "",
+    "gradeTag": "",
+    "price": 0,
+    "pricePerMonth": 0,
+    "pricePerSession": 0,
+    "settlementBasis": "",
+    "maxStudents": "",
+    "defaultRoomId": "{{defaultRoomId}}",
+    "schedulePattern": ""
+  }
+}

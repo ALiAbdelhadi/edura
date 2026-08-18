@@ -7,7 +7,7 @@ import {
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../../services/notifications/notify";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
-import { resolveStudentCode } from "@repo/database/student-code";
+import { readStudentScan } from "../students/student-qr";
 import { Prisma } from "@repo/database";
 import { maskName, maskPhone } from "../students/disclosure";
 
@@ -100,7 +100,18 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   // card scanned with one character misread contributes NOTHING to the OR
   // instead of matching a different student outright — the receptionist gets
   // "not found" and looks again, which is the honest answer.
-  const code = resolveStudentCode(query);
+  //
+  // `readStudentScan` widens that by exactly one shape: the SIGNED URL the
+  // card's QR now carries. A keyboard-wedge barcode scanner — the cheap kind
+  // most centers own, which types what it reads into whatever field has focus
+  // — lands the whole `https://…/c/G7K3M2QF-1-<sig>` in this box, and the
+  // receptionist should not have to know that. A bad signature still yields
+  // the code (`forged`), because at a counter the receptionist is looking at
+  // the human, not at the square; refusing here would only send them to type
+  // the same eight characters by hand. Card AUTHENTICITY is answered on the
+  // scan route, where there is somewhere to show the answer.
+  const scan = readStudentScan(query);
+  const code = scan.kind === "unreadable" ? null : scan.code;
   const phone = asPhoneIdentifier(query);
 
   return platformDb(async (tx) => {
@@ -478,10 +489,14 @@ export async function doorCheckin(
       if (!studentId && input.studentCode) {
         // The check character earns its keep here: a code typed one character
         // wrong at the hall door must FAIL, not resolve to another child and
-        // mark them present. `resolveStudentCode` returns null for anything
-        // that is not a genuine code, so the lookup never runs on a guess.
-        const code = resolveStudentCode(input.studentCode);
-        if (!code) throw new NotFoundError("Student code not found");
+        // mark them present. `readStudentScan` returns `unreadable` for
+        // anything that is not a genuine code, so the lookup never runs on a
+        // guess — and it accepts the card's scanned QR URL as well as the
+        // eight characters, because the assistant at the hall door is holding
+        // a phone, not a keyboard.
+        const scan = readStudentScan(input.studentCode);
+        if (scan.kind === "unreadable") throw new NotFoundError("Student code not found");
+        const code = scan.code;
         const profile = await tx.studentProfile.findFirst({
           where: { studentCode: code },
           select: { userId: true },

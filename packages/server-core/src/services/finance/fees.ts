@@ -89,3 +89,57 @@ export function computeTeacherDirectSplit(price: number, commissionBp: number) {
   const commission = Math.round((price * commissionBp) / 10_000);
   return { teacherNet: price - commission, platformCommission: commission };
 }
+
+/**
+ * THE value of one lesson — the single derivation, so a screen can never quote
+ * a number the ledger will not settle.
+ *
+ * There were THREE copies of this before, and two of them disagreed. The
+ * settlement engine read `course.price / plannedSessions`; the back office's
+ * settlement PREVIEW read `pricePerSession` first. On dev, 13 of the 14 courses
+ * carrying both prices disagree — often by 2-3x (56.25 vs 150.00 EGP a lesson).
+ * So the operator was shown one amount on the confirm button and the ledger
+ * wrote another, which is exactly the lie `design/CONSTITUTION.md` §1 forbids
+ * ("the button carries its own amount"). One function, every caller.
+ *
+ * WHICH price is now the COURSE'S OWN CHOICE (`courses.settlement_basis`),
+ * because a course carrying both is genuinely ambiguous — a full-term enrolment
+ * amortises cheaper per lesson than a drop-in pass, and both numbers are real.
+ * Leaving that to whichever function read the row first is what produced the
+ * disagreement above.
+ *
+ *   • `course_price`  — `price / plannedSessions`. The DEFAULT, and exactly the
+ *     behaviour that predates the column, so no live course re-rates.
+ *     Falls back to `pricePerSession` when the legacy column is unset, which is
+ *     how a course born from an accepted collaboration request arrives — that
+ *     fallback is what stops such a lesson settling at zero.
+ *   • `session_price` — `pricePerSession`, the value of one lesson by
+ *     definition. Falls back to the amortised legacy price when unset, so the
+ *     basis can be chosen before the plan price is filled in without the lesson
+ *     silently becoming unsettleable.
+ *   • `subscription`  — NOT resolvable here: the answer differs per attending
+ *     student, so it is `resolveStudentLessonPrice` in the engine. This
+ *     function returns the course-level figure a screen shows as the headline,
+ *     and callers that can settle must not use it for that basis.
+ */
+export function resolveLessonPrice(
+  course: {
+    price: number;
+    pricePerSession?: number | null;
+    settlementBasis?: "course_price" | "session_price" | "subscription" | null;
+  },
+  plannedSessions: number,
+): number {
+  const amortised =
+    course.price > 0
+      ? plannedSessions > 0
+        ? Math.round(course.price / plannedSessions)
+        : course.price
+      : 0;
+  const perSession = course.pricePerSession ?? 0;
+
+  // `subscription` has no single course-level answer; the amortised figure is
+  // the closest honest headline, and the engine overrides it per student.
+  if (course.settlementBasis === "session_price") return perSession || amortised;
+  return amortised || perSession;
+}

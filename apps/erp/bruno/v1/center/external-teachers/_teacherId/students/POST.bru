@@ -1,0 +1,28 @@
+meta {
+  name: POST students
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/center/external-teachers/:teacherId/students
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fullName": "",
+    "phone": "",
+    "nationalId": "{{nationalId}}",
+    "guardianName": "",
+    "guardianPhone": "",
+    "guardianEmail": "",
+    "gradeLevelId": "{{gradeLevelId}}",
+    "courseId": "{{courseId}}"
+  }
+}

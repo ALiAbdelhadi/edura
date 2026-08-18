@@ -17,6 +17,7 @@ import {
   postponeSession,
 } from "@repo/server-core/services/session-actions/session-actions";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
+import { resolveLessonPrice } from "@repo/server-core/services/finance/fees";
 import { registerWalkIn, resendWalkIn } from "@repo/server-core/services/walk-in/walk-in";
 import {
   createTempStudent,
@@ -312,9 +313,16 @@ export async function adminSettlementPreview(
         },
       }),
     ]);
-    const perSessionPrice =
-      full?.pricePerSession ??
-      (plannedSessions > 0 ? Math.round(course.price / plannedSessions) : course.price);
+    // THE PREVIEW MUST QUOTE WHAT THE LEDGER WILL WRITE. This read
+    // `pricePerSession` FIRST while the settlement engine read
+    // `price / plannedSessions`, so on every course carrying both the confirm
+    // dialog showed one amount and the settlement wrote another — 13 of the 14
+    // such courses on dev disagree, often by 2-3x. Both now call the one
+    // derivation in the money kernel, so they cannot drift again.
+    const perSessionPrice = resolveLessonPrice(
+      { price: course.price, pricePerSession: full?.pricePerSession ?? null },
+      plannedSessions,
+    );
 
     return {
       sessionId,

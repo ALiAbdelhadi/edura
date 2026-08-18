@@ -1,0 +1,565 @@
+{
+  "studentDashboard": {
+    "loading": "Loading dashboard…",
+    "time": "Time",
+    "subject": "Subject",
+    "room": "Room",
+    "teacher": "Teacher",
+    "attendanceRate": "Attendance Rate",
+    "averageGrade": "Average Grade",
+    "unreadMessages": "Unread Messages",
+    "todaySchedule": "Today's Schedule",
+    "noClassesToday": "No classes today",
+    "subjectPerformance": "Subject Performance",
+    "noPerformanceData": "No performance data yet",
+    "gradeTrend": "Grade Trend",
+    "noGradeTrend": "No grade trend yet",
+    "subtitle": "Your attendance, assignments, and performance at a glance.",
+    "whatsNext": "What's next",
+    "whatsNextSubtitle": "Your upcoming sessions, your balance, and your record — as it has been written.",
+    "upNext": "Up next",
+    "noUpcoming": "No sessions scheduled for this week.",
+    "today": "Today",
+    "thisWeek": "This week",
+    "yourRecord": "Your record",
+    "viewAttendance": "Attendance record",
+    "allGrades": "All grades",
+    "openWallet": "Wallet",
+    "recordEyebrow": "record",
+    "scheduleEyebrow": "schedule",
+    "moneyEyebrow": "money",
+    "attendanceTraceHint": "Derived from your attendance entries.",
+    "gradeTraceHint": "Average across your graded subjects.",
+    "balanceTraceHint": "Closing balance of the latest entry in your wallet.",
+    "openRecord": "Open {record}"
+  },
+  "studentBrowse": {
+    "enrollmentSent": "Enrollment request sent",
+    "enrollmentFailed": "Failed to send enrollment request",
+    "searchPlaceholder": "Search courses…",
+    "hideFilters": "Hide filters",
+    "moreFilters": "More filters",
+    "subject": "Subject",
+    "allSubjects": "All subjects",
+    "priceRange": "Price range",
+    "loadingCourses": "Loading courses…",
+    "noCourses": "No courses found",
+    "requestEnrollment": "Request Enrollment",
+    "noDescription": "No description available",
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "price": "Price",
+    "seatsFilled": "seats filled"
+  },
+  "studentMaterials": {
+    "downloadFailed": "Failed to download material",
+    "title": "Title",
+    "course": "Course",
+    "type": "Type",
+    "size": "Size",
+    "uploaded": "Uploaded",
+    "actions": "Actions",
+    "types": {
+      "lecture": "Lecture",
+      "homework": "Homework",
+      "exam": "Exam",
+      "other": "Other"
+    },
+    "download": "Download",
+    "pageTitle": "Materials",
+    "noMaterials": "No materials available",
+    "subtitle": "Files your teachers have shared in your subjects."
+  },
+  "studentReviews": {
+    "reviewUpdated": "Review updated",
+    "reviewUpdateFailed": "Failed to update review",
+    "reviewSubmitted": "Review submitted",
+    "reviewSubmitFailed": "Failed to submit review",
+    "actions": "Actions",
+    "writeReview": "Write Review",
+    "unknown": "Unknown",
+    "rating": "Rating",
+    "comment": "Comment",
+    "noComment": "No comment",
+    "date": "Date",
+    "editReview": "Edit Review",
+    "reviewPrefix": "Review",
+    "myReviews": "My Reviews",
+    "eligibleTeachers": "Eligible Teachers",
+    "teachersToReview": "Teachers to Review",
+    "noEligibleTeachers": "No eligible teachers. You need at least one present attendance.",
+    "noReviewsYet": "You haven't submitted any reviews yet.",
+    "ratingRequired": "Please give a rating",
+    "shareExperience": "Share your experience…",
+    "update": "Update",
+    "submit": "Submit",
+    "subtitle": "What you think of your teachers — written by you, and yours to edit.",
+    "eligibilityHint": "A teacher appears here after your first recorded attendance with them.",
+    "ratingOutOf": "{rating} out of 5"
+  },
+  "studentFamilyCode": {
+    "revoked": "Revoked",
+    "codeRotated": "Family code rotated",
+    "codeRotateFailed": "Failed to rotate code",
+    "linkRequestSent": "Link request sent",
+    "linkRequestFailed": "Failed to send request",
+    "linkApproved": "Link approved",
+    "linkApproveFailed": "Failed to approve",
+    "linkRejected": "Link rejected",
+    "linkRejectFailed": "Failed to reject",
+    "unknown": "Unknown",
+    "status": "Status",
+    "initiatedBy": "Initiated By",
+    "you": "You",
+    "date": "Date",
+    "actions": "Actions",
+    "shareCodeHint": "Share this code with your parent to link instantly.",
+    "rotateCode": "Rotate Code",
+    "linkParent": "Link a Parent",
+    "parentEmailOrPhone": "Parent Email or Phone",
+    "invalidEmail": "Invalid email",
+    "sendRequest": "Send Request",
+    "linkRequests": "Link Requests",
+    "noLinkRequests": "No link requests.",
+    "subtitle": "Your parent can follow your attendance, grades and payments once you approve the link.",
+    "yourCode": "Your code",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "rotateHint": "Parents already linked stay linked — rotating only stops the old code being used to link again.",
+    "contactPlaceholder": "parent@example.com or 01xxxxxxxxx",
+    "contactRequired": "Enter your parent's email or phone",
+    "invalidContact": "Not a valid email or phone number",
+    "noLinkRequestsHint": "Share your code, or send a request above."
+  },
+  "studentSubjects": {
+    "myTab": "My subjects",
+    "allTab": "Browse all",
+    "myTabHint": "Subjects for your academic year and track. Tap a subject to see its available classes.",
+    "searchPlaceholder": "Search all subjects…",
+    "loadingSubjects": "Loading subjects…",
+    "noSubjectsFound": "No subjects match your search",
+    "noTrackSubjects": "No subjects are configured for your year/track yet",
+    "noCoursesForSubject": "No classes available for this subject right now",
+    "noCenter": "No center (online/direct)",
+    "uncategorized": "Uncategorized (legacy)",
+    "uncategorizedHint": "Older classes not yet linked to a catalog subject",
+    "subscribeMonthly": "Subscribe monthly",
+    "bookSession": "Book session",
+    "pickSession": "Pick a session…",
+    "pickSessionFirst": "Pick a session first",
+    "checkoutFailed": "Checkout failed",
+    "subscriptionActive": "Payment complete — subscription active",
+    "paymentDeclined": "Payment declined (simulated)",
+    "mockCheckoutTitle": "Mock checkout:",
+    "mockCheckoutHint": "no real gateway in mock mode — confirm or decline the payment",
+    "mockPay": "Complete payment",
+    "mockFail": "Simulate failure",
+    "seats": "Seats",
+    "noTrackSubjectsHint": "If your year or track is not set yet, ask your center — you can browse all subjects meanwhile."
+  },
+  "studentWallet": {
+    "subtitle": "Top up and pay for classes from your balance",
+    "topUp": "Top up",
+    "balance": "Wallet balance",
+    "history": "Transaction history",
+    "noHistory": "No wallet activity yet",
+    "colDate": "Date",
+    "colType": "Type",
+    "colAmount": "Amount",
+    "colBalance": "Balance",
+    "type_topup": "Top-up",
+    "type_payment": "Payment",
+    "type_refund": "Refund",
+    "type_adjustment": "Adjustment",
+    "enterValidAmount": "Enter a valid amount",
+    "amountEgp": "Amount (EGP)",
+    "cardOnly": "Pay online by card to add to your wallet.",
+    "cashHint": "You can also top up with cash at your center.",
+    "continue": "Continue",
+    "mockPrompt": "Mock gateway — add {amount} to your wallet?",
+    "mockPay": "Complete payment",
+    "mockFail": "Simulate failure",
+    "topupFailed": "Top-up failed",
+    "topupSuccess": "Wallet topped up",
+    "topupDeclined": "Payment declined",
+    "balanceUnknown": "Unavailable",
+    "derivedFrom": "Closing balance of the latest entry — {type} · {date}",
+    "noLineageYet": "No entries yet, so this balance has no recorded history behind it.",
+    "reconcileMismatch": "This balance does not match the latest ledger entry. Please check with your center.",
+    "historyCapped": "Showing the latest {count} entries.",
+    "colRef": "Reference",
+    "closingBalance": "Closing balance",
+    "testMode": "Test mode",
+    "topUpAction": "Top up {amount}"
+  },
+  "studentNav": {
+    "more": "More",
+    "navigation": "Navigation"
+  },
+  "studentIdCard": {
+    "eyebrow": "Identity",
+    "title": "My ID",
+    "subtitle": "Your card on the platform — you check in to a lesson or at the centre desk with it.",
+    "parentTitle": "Your child's ID",
+    "parentSubtitle": "Your child's card on the platform — they check in to a lesson or at the centre desk with it.",
+    "notYours": "This card is not available to you. The link to this student is not approved.",
+    "unavailable": "Could not load the card. Refresh and try again.",
+    "cardTitle": "Student ID",
+    "codeLabel": "Student number",
+    "copyCode": "Copy number",
+    "copied": "Copied",
+    "copyFailed": "Could not copy the number",
+    "saveImage": "Save as image",
+    "shareImage": "Share card",
+    "imageFailed": "Could not create the image",
+    "print": "Print",
+    "cutHint": "Print it and cut it out — it is wallet size.",
+    "counterHint": "If the scanner will not read it, read {code} out to the desk.",
+    "pendingBody": "Your card is not ready yet: your number is set once you complete your academic details, so we do not hand you a card whose number changes in two days.",
+    "pendingAction": "Complete your details",
+    "completeEyebrow": "Your details",
+    "completeBody": "{done} of {total} complete. What is missing limits what you can do here.",
+    "fix": "Complete",
+    "checklist": {
+      "name": "Your full name",
+      "phone": "Your phone number",
+      "guardianEmail": "A guardian's email — without it you cannot message teachers",
+      "academic": "Your stage and track"
+    },
+    "openCard": "Open card",
+    "showCard": "Show my card",
+    "showHint": "Your card is not loaded automatically — press to show it when you need it.",
+    "incompleteBody": "Your details are not complete yet, so no card has been issued.",
+    "incompleteHint": "Finish what is listed below and you will be able to show and print your card. Your code already works — the center can still check you in by name or phone."
+  },
+  "studentCardScan": {
+    "eyebrow": "Student card",
+    "valid": {
+      "title": "Valid card",
+      "body": "This card was issued by Edura and has not been stopped."
+    },
+    "revoked": {
+      "title": "Card stopped",
+      "body": "This card has been stopped and cannot be used to record attendance.",
+      "reason": "Reason:"
+    },
+    "superseded": {
+      "title": "Old card",
+      "body": "A newer card has been issued to this student. This one is no longer valid."
+    },
+    "invalid": {
+      "title": "Not a valid card",
+      "body": "This code was not issued by Edura."
+    },
+    "unreadable": {
+      "title": "Unreadable code",
+      "body": "This link is not a student card code."
+    },
+    "codeLabel": "Student code",
+    "systemLabel": "Education system",
+    "gradeLabel": "Grade",
+    "trackLabel": "Track",
+    "publicNotice": "Full student details are shown only to center staff who are signed in. This page confirms the card is genuine, nothing more.",
+    "signInCta": "Sign in to see the full record",
+    "counterCta": "Continue to the counter",
+    "doorCta": "Continue to door check-in",
+    "doorHint": "Door confirmation requires the student to pass the counter first.",
+    "notOnRoster": "This student is not on your center's roster.",
+    "foundCard": "Found this card? Please hand it in at the nearest branch."
+  },
+  "studentEmulator": {
+    "eyebrow": "Practice",
+    "title": "Try it yourself — a practice copy of Edura",
+    "progress": "Step {done} of {total}",
+    "restart": "Start over",
+    "gotIt": "Got it",
+    "missHint": "Not that one — look for the control with the purple outline and press it.",
+    "finishedTitle": "You're done 🎉",
+    "finishedBody": "You can now read your board, subscribe to a teacher, top up your wallet and pay from it, and get your ID card. Your real account works exactly the same way.",
+    "sandboxNote": "Everything above is practice — the data is invented, no real money moves, and nothing is saved to your account.",
+    "nav": {
+      "label": "Practice navigation",
+      "dashboard": "Dashboard",
+      "card": "My ID",
+      "subjects": "Subjects",
+      "wallet": "Wallet"
+    },
+    "missions": {
+      "readBoard": "Read your board",
+      "subscribe": "Subscribe to a teacher",
+      "money": "Wallet and paying",
+      "card": "Your card"
+    },
+    "screens": {
+      "whatsNext": "What's next",
+      "upNext": "Up next",
+      "today": "Today",
+      "todayShort": "Today",
+      "schedule": "Schedule",
+      "thisWeek": "This week",
+      "record": "Record",
+      "attendanceRate": "Attendance Rate",
+      "averageGrade": "Average Grade",
+      "subjectsTitle": "Subjects",
+      "myTab": "My subjects",
+      "allTab": "Browse all",
+      "subscribed": "Subscribed",
+      "full": "Full",
+      "subscribeMonthly": "Subscribe monthly",
+      "walletTitle": "Wallet",
+      "topUp": "Top up",
+      "balance": "Wallet balance",
+      "history": "Transaction history",
+      "kindTopUp": "Top-up",
+      "kindPayment": "Payment",
+      "receipts": "Receipts",
+      "receiptsBody": "Every payment you make produces a numbered receipt you can download here.",
+      "cardTitle": "My ID",
+      "cardHint": "Your card is not loaded automatically — press to show it.",
+      "showCard": "Show my card",
+      "cardEyebrow": "Student ID"
+    },
+    "steps": {
+      "welcome": {
+        "title": "Welcome — this is a practice copy of Edura",
+        "body": "The screen below is Edura exactly as it is, filled with the life of an invented student called Nour. Look around and press whatever you like — nothing here touches your account."
+      },
+      "upNext": {
+        "title": "The first thing you see: your next class",
+        "body": "At the very top, \"Up next\" — the subject and the time. That is the question you open the app to answer: where am I meant to be?"
+      },
+      "record": {
+        "title": "And underneath, your record",
+        "body": "Your attendance rate and your average grade. Both are worked out for you from the attendance actually recorded and the grades your teacher entered."
+      },
+      "goSubjects": {
+        "title": "Let's subscribe to a teacher",
+        "body": "Press \"Subjects\" in the menu on the side."
+      },
+      "openSubject": {
+        "title": "Open a subject",
+        "body": "These are the subjects the platform assigned from your grade and track. Press \"Chemistry\" to see the groups available."
+      },
+      "readGroup": {
+        "title": "Read the group before you join it",
+        "body": "Each group tells you the teacher, the times, the centre and how many students. Check them — those times become your schedule."
+      },
+      "fullGroup": {
+        "title": "And this one is full",
+        "body": "25 of 25 — no places left, so there is no subscribe button. When that happens you pick another group for the same subject."
+      },
+      "subscribe": {
+        "title": "Subscribe to the first group",
+        "body": "Press \"Subscribe monthly\". The price is on the button before you press it, so you know what you are paying."
+      },
+      "subscribed": {
+        "title": "You're subscribed",
+        "body": "The group now says \"Subscribed\", its lessons appeared in your schedule, and the money came out of your wallet. Let's go and look at that."
+      },
+      "openWallet": {
+        "title": "Go to your wallet",
+        "body": "Press \"Wallet\" in the menu."
+      },
+      "balance": {
+        "title": "This is your balance",
+        "body": "It is worked out from the record below it — every piastre has a line you can look at, rather than a figure written on top."
+      },
+      "topUp": {
+        "title": "Top it up",
+        "body": "Press \"Top up\". For real it asks you the amount and takes you to pay by card; here we will add 200 EGP straight away."
+      },
+      "afterTopUp": {
+        "title": "Look at the record",
+        "body": "The balance went up and a new line appeared. Notice the subscription you paid a moment ago is still there — the record is never erased."
+      },
+      "receipt": {
+        "title": "And every payment has a receipt",
+        "body": "The receipt is your proof that you paid. If anything goes wrong with the centre, its number is the first thing they will ask you for."
+      },
+      "openCard": {
+        "title": "One thing left: your card",
+        "body": "Press \"My ID\" in the menu."
+      },
+      "showCard": {
+        "title": "Show your card",
+        "body": "Press \"Show my card\"."
+      },
+      "readCode": {
+        "title": "This code is who you are at the centre",
+        "body": "Eight characters. Counter staff find you with it in a second instead of spelling your name out. Memorise it or photograph it."
+      },
+      "counter": {
+        "title": "How you use it",
+        "body": "You arrive at the centre, hand over the card or say the code, and staff check you in. Some teachers also ask for a second check-in at the hall door — without it your attendance is not counted."
+      },
+      "done": {
+        "title": "That's everything",
+        "body": "Press \"Got it\" to finish."
+      }
+    },
+    "invite": {
+      "title": "First time here? Practise first",
+      "body": "A practice copy of Edura with invented data that walks you through it step by step: subscribe to a teacher, top up your wallet, get your card — without spending anything or touching your account.",
+      "cta": "Start practising"
+    }
+  },
+  "studentTour": {
+    "title": "A quick tour of Edura",
+    "progress": "{done} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "finish": "Let's go",
+    "steps": {
+      "welcome": {
+        "title": "Welcome to Edura 👋",
+        "body": "Your account is ready. This tour shows you the things you'll actually do — and it won't just say “this is your wallet”, it will show you how, step by step. You can skip it at any point."
+      },
+      "upNext": {
+        "title": "Your next class",
+        "body": "The first thing you see each day: the subject and the time. If you just want to know where you're going, look here.",
+        "how": {
+          "1": "Open “Dashboard”",
+          "2": "At the top you'll find “Up next”",
+          "3": "If it says “no upcoming classes”, you haven't subscribed to a teacher yet"
+        }
+      },
+      "schedule": {
+        "title": "How to see a particular day",
+        "body": "The schedule shows your classes by day, and the details of each one when you tap it.",
+        "how": {
+          "1": "Press “Schedule” in the menu",
+          "2": "Pick the day from the strip at the top",
+          "3": "Tap the class itself",
+          "4": "You'll see the date, time, room and teacher"
+        }
+      },
+      "subscribe": {
+        "title": "How to subscribe to a teacher",
+        "body": "This is the important one — without it your schedule stays empty.",
+        "how": {
+          "1": "Press “Subjects” in the menu",
+          "2": "Tap the subject to expand it and show its groups",
+          "3": "Check the group's times, teacher and centre",
+          "4": "Press “Subscribe monthly” — or pick the lesson from the list first, then “Book session”",
+          "5": "Complete the payment, and the group appears in your schedule"
+        }
+      },
+      "payWallet": {
+        "title": "How to top up and pay from your wallet",
+        "body": "Top it up once and pay from it afterwards without entering card details each time.",
+        "how": {
+          "1": "Press “Wallet” in the menu",
+          "2": "Press “Top up” at the top",
+          "3": "Enter the amount in pounds, confirm and complete the payment",
+          "4": "When subscribing to a group, choose “pay from wallet” instead of a card"
+        },
+        "note": "Wallet payments are all or nothing: if your balance is short the whole payment is refused and no part of it is taken."
+      },
+      "receipts": {
+        "title": "How to get a receipt",
+        "body": "Every payment has a numbered receipt — your proof if anything goes wrong with the centre.",
+        "how": {
+          "1": "Press “Wallet” and scroll to the bottom",
+          "2": "You'll find the “Receipts” section",
+          "3": "Press “Download” next to the receipt",
+          "4": "On the receipt page press “Print”, or choose “Save as PDF” to send it on WhatsApp"
+        }
+      },
+      "card": {
+        "title": "How to get your card and use it",
+        "body": "It carries your eight-character code — what you give the counter staff every day to be checked in.",
+        "how": {
+          "1": "Press “My ID” in the menu",
+          "2": "Press “Show my card”",
+          "3": "Press “Print” to cut it out and keep it, or “Save as image” to send it on WhatsApp",
+          "4": "At the centre: say the code to the counter staff, or show them the card"
+        },
+        "note": "If the card doesn't appear, the screen tells you exactly what's missing — complete it and press “Show my card” again."
+      },
+      "attendance": {
+        "title": "How to check you were marked present",
+        "body": "You don't record attendance in the app — it happens at the centre, and this is where you check that it did.",
+        "how": {
+          "1": "Press “Attendance” in the menu",
+          "2": "At the top: present / late / absent",
+          "3": "Below it, a coloured day map showing your consistency",
+          "4": "If a lesson is missing, contact the centre with its date"
+        },
+        "note": "If your group uses two check-ins, the counter alone is not attendance — you must also check in at the hall door."
+      },
+      "grades": {
+        "title": "How to read your grades",
+        "body": "Every grade your teacher recorded, with your percentage and band per subject.",
+        "how": {
+          "1": "Press “Grades” in the menu",
+          "2": "Find the subject in the list",
+          "3": "Next to it: the number of entries, your score and your band"
+        },
+        "note": "The pass mark is 50%. If a grade is wrong, your teacher is the one who can change it."
+      },
+      "messages": {
+        "title": "How to message your teacher",
+        "body": "If you have a question outside class, you can write to your teacher or your centre.",
+        "how": {
+          "1": "Press “Messages” in the menu",
+          "2": "Press “New conversation”",
+          "3": "Pick the name from the list — it only shows people you're allowed to message",
+          "4": "Type in the box at the bottom and send"
+        }
+      },
+      "unlockMessaging": {
+        "title": "If messaging is locked — how to unlock it",
+        "body": "If you're under 18 with no guardian email on file, messaging teachers and centre staff is locked. It isn't a punishment — it's so a parent can see how you communicate with adults.",
+        "how": {
+          "1": "Press “Settings” in the menu",
+          "2": "Find the notice asking for a guardian email",
+          "3": "Enter your guardian's email — it must be theirs, not yours",
+          "4": "Press “Save” and messaging unlocks immediately"
+        },
+        "note": "A guardian phone number alone isn't enough. And everything else works normally while you're locked: your classes, grades and wallet."
+      },
+      "pushNotifications": {
+        "title": "How to turn on phone notifications",
+        "body": "So you're told the moment a grade is recorded or a payment goes through, even with Edura closed.",
+        "how": {
+          "1": "Press “Settings” in the menu",
+          "2": "Find the push notifications section",
+          "3": "Press “Enable”",
+          "4": "Your browser asks for permission — press “Allow”"
+        },
+        "note": "Add Edura to your phone's home screen first; notifications work better that way."
+      },
+      "family": {
+        "title": "How to link your parent",
+        "body": "Once linked, they can see your attendance and grades, and pay for you from their own money.",
+        "how": {
+          "1": "Press “Family Code” in the menu",
+          "2": "You'll find a code that belongs to you at the top",
+          "3": "Give that code to your parent — to them only",
+          "4": "When their request arrives, press “Approve”"
+        },
+        "note": "If you think the code reached someone it shouldn't have, press “Rotate Code” and the old one stops working immediately."
+      },
+      "practice": {
+        "title": "And if you'd rather try it first",
+        "body": "There's a full practice copy you can rehearse on without paying a piastre or touching your account.",
+        "how": {
+          "1": "Press “Practice” in the menu",
+          "2": "It walks you through it: read your board, subscribe to a teacher, top your wallet up and pay from it, and get your ID card",
+          "3": "All the data is invented and no money moves"
+        }
+      },
+      "finish": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. If you haven't subscribed to a teacher yet, start with “Subjects”. And if you'd rather practise first on a copy with no real money involved, open “Practice” in the menu."
+      }
+    },
+    "moreHint": "On a phone: press “More” first — it's inside there."
+  }
+}

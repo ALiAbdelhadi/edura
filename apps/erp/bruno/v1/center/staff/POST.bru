@@ -1,0 +1,25 @@
+meta {
+  name: POST staff
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/center/staff
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "",
+    "email": "",
+    "role": "",
+    "title": "",
+    "locale": ""
+  }
+}

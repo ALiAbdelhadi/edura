@@ -4,12 +4,17 @@ import { withPlatformContext } from "@repo/database";
 /**
  * THE single source of truth for "which app may this role sign in to".
  *
- * C-04: there are THREE login doors (apps/www NextAuth credentials, the manual
- * `POST /api/v1/auth/login` REST endpoint, apps/superadmin NextAuth) and each
- * used to declare its own copy of the allowlist. The www copies drifted —
+ * C-04: there used to be THREE login doors (apps/www NextAuth credentials, the
+ * manual `POST /api/v1/auth/login` REST endpoint, apps/superadmin NextAuth) and
+ * each declared its own copy of the allowlist. The www copies drifted —
  * `center_staff` was added to one and not the other, so every Center Staff
  * account got a 401 with the correct password on the REST door while NextAuth
  * let them in. Each door now asks THIS module instead of holding a list.
+ *
+ * The REST door was RETIRED on 2026-08-18 (no application code called it, and
+ * its per-IP throttle was defeated by a rotated X-Forwarded-For), so there are
+ * now TWO doors — one per app. This module stays the single source of truth for
+ * both, and for the same reason: a role belongs to exactly one app.
  *
  * The map is an exhaustive `Record<Role, LoginApp>` on purpose, not two
  * independent sets:

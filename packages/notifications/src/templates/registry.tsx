@@ -21,6 +21,16 @@ import {
   paymentReceiptSubject,
   paymentReceiptText,
 } from "./payment-receipt";
+import {
+  GuardianVerificationEmail,
+  guardianVerificationSubject,
+  guardianVerificationText,
+} from "./guardian-verification";
+import {
+  WeeklyDigestEmail,
+  weeklyDigestSubject,
+  weeklyDigestText,
+} from "./weekly-digest";
 import { WelcomeEmail, welcomeSubject, welcomeText } from "./welcome";
 
 // =============================================================================
@@ -82,6 +92,22 @@ export const TEMPLATES: Registry = {
       subject: paymentReceiptSubject,
       Body: (props) => <PaymentReceiptEmail {...props} />,
       text: paymentReceiptText,
+    },
+  },
+  weekly_digest: {
+    id: "weekly_digest",
+    email: {
+      subject: weeklyDigestSubject,
+      Body: (props) => <WeeklyDigestEmail {...props} />,
+      text: weeklyDigestText,
+    },
+  },
+  guardian_verification: {
+    id: "guardian_verification",
+    email: {
+      subject: guardianVerificationSubject,
+      Body: (props) => <GuardianVerificationEmail {...props} />,
+      text: guardianVerificationText,
     },
   },
 };

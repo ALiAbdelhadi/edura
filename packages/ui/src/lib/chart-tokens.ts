@@ -81,7 +81,6 @@ export const CHART_AXIS_TICK = {
 /**
  * Chart wrappers render inside `dir="ltr"` while the card around them stays
  * RTL — recharts' axis math assumes LTR, and a time axis reads left-to-right
- * for every reader because a chart is a diagram, not prose. See
- * design/DECISIONS.md D-11.
+ * for every reader because a chart is a diagram, not prose.
  */
 export const CHART_DIR = "ltr" as const

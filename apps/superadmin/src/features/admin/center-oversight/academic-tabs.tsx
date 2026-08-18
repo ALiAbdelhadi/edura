@@ -336,11 +336,21 @@ function CourseCreateDialog({
               </Select>
             </Labeled>
             <Labeled label={t("ac_priceEgp")}>
-              <Input type="number" value={f.price} onChange={(e) => set("price")(e.target.value)} />
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={f.price}
+                onChange={(e) => set("price")(e.target.value)}
+              />
             </Labeled>
             <Labeled label={t("ac_maxStudents")}>
               <Input
                 type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
                 value={f.maxStudents}
                 onChange={(e) => set("maxStudents")(e.target.value)}
               />
@@ -393,8 +403,16 @@ function CourseEditDialog({
   const [busy, setBusy] = useState(false);
 
   const open = !!course;
-  if (open && title === "" && course) {
-    // Seed once when the dialog opens.
+
+  /* SEEDED ON THE COURSE, NOT ON THE TITLE BEING EMPTY. The old condition was
+     `title === ""`, which is a state the OPERATOR can reach: select the title,
+     delete it to retype it, and the component re-seeded on the very next
+     render — restoring the old title and throwing away any edit already made
+     to max students or either plan price. Keying on the course id seeds once
+     per opening and never fights the person typing. */
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (course && seededFor !== course.id) {
+    setSeededFor(course.id);
     setTitle(course.title);
     setMaxStudents(String(course.maxStudents));
     setPerMonth(course.pricePerMonth != null ? String(course.pricePerMonth / 100) : "");
@@ -402,6 +420,7 @@ function CourseEditDialog({
   }
 
   const close = () => {
+    setSeededFor(null);
     setTitle("");
     onClose();
   };
@@ -410,7 +429,13 @@ function CourseEditDialog({
     if (!course) return;
     const patch: Record<string, unknown> = {};
     if (title.trim() && title.trim() !== course.title) patch.title = title.trim();
-    if (Number(maxStudents) !== course.maxStudents) patch.maxStudents = Number(maxStudents);
+    /* An EMPTY box is "I have not typed a number", not "zero". `Number("")` is
+       0, so clearing the field used to patch the course down to a capacity of
+       zero. A blank leaves max students alone. */
+    const nextMax = maxStudents.trim() === "" ? null : Number(maxStudents);
+    if (nextMax !== null && Number.isFinite(nextMax) && nextMax !== course.maxStudents) {
+      patch.maxStudents = nextMax;
+    }
     const pm = perMonth.trim() === "" ? null : Math.round(Number(perMonth) * 100);
     const ps = perSession.trim() === "" ? null : Math.round(Number(perSession) * 100);
     if (pm !== course.pricePerMonth) patch.pricePerMonth = pm;
@@ -453,17 +478,30 @@ function CourseEditDialog({
           <Labeled label={t("ac_maxStudents")}>
             <Input
               type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
               value={maxStudents}
               onChange={(e) => setMaxStudents(e.target.value)}
             />
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2">
             <Labeled label={t("ac_monthlyPlan")}>
-              <Input type="number" value={perMonth} onChange={(e) => setPerMonth(e.target.value)} />
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={perMonth}
+                onChange={(e) => setPerMonth(e.target.value)}
+              />
             </Labeled>
             <Labeled label={t("ac_perSessionPlan")}>
               <Input
                 type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
                 value={perSession}
                 onChange={(e) => setPerSession(e.target.value)}
               />
@@ -1035,10 +1073,24 @@ function RoomDialog({
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Labeled>
           <Labeled label={t("ac_capacity")}>
-            <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
           </Labeled>
           <Labeled label={t("ac_hallPriceEgp")}>
-            <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
           </Labeled>
         </div>
         <DialogFooter>
