@@ -417,18 +417,35 @@ governs. Violating one of these is never a local change.
 > `packages/database/scripts/verify-db.ts` is read-only and safe against any
 > target: prefer running it over trusting a line written here.
 
-- **[dev, 2026-08-09]** 52 migrations, 79 tables, verify-db 27/27.
-- **[production, 2026-08-09]** 52 migrations, verify-db 27/27. Bootstrapped
-  2026-07-31; the `centers_wallet_balance_nonneg` CHECK is VALIDATED. Bootstrap
-  order for a fresh environment: `label-db` → `bootstrap-app-role` →
-  `prisma migrate deploy` → `seed` → `verify-db`.
+- **[dev, 2026-08-18]** 53 migrations, 79 tables, verify-db 27/27.
+- **[production, 2026-08-18]** 53 migrations, 79 tables, verify-db 27/27 —
+  dev and production are now IDENTICAL in shape (79 tables / 6 sequences /
+  38 RLS tables / 59 policies / 53 migrations). Bootstrapped 2026-07-31; the
+  `centers_wallet_balance_nonneg` CHECK is VALIDATED. Bootstrap order for a
+  fresh environment: `label-db` → `bootstrap-app-role` → `prisma migrate deploy`
+  → `seed` → `verify-db`.
+  The 53rd is `20260818120000_review_per_lesson_unique`, applied to production
+  BEFORE the code that needs it shipped — the order the 2026-08-02 outage note
+  below demands. Pre-flight was read-only and is worth copying: `migrate status`
+  proved exactly ONE migration was pending (no sibling branch riding along), and
+  a SELECT proved `reviews` held 0 rows with no duplicate that either new index
+  could reject.
 - **[test] THERE IS NO TEST DATABASE.** Both `.env.test` files point at DEV, and
   `db-guard` reports them as `labelled 'dev'` — the 2026-08-03 decision still
   holding, not a gap. Do NOT read any `[test]` line in a decision doc as work
   pending.
-- **`expected-db-shape.json`** is committed at 48 and bumped to 52 in the working
-  tree. A `verify-db` run against production reporting `expected 52, got 50` is a
-  shared-baseline artifact, not a production defect.
+  **[dev, 2026-08-18] A CONSEQUENCE, MEASURED:** `hall-booking.test.ts` A4
+  ("a per-student hall with NO configured rate is refused at REQUEST time")
+  FAILS on dev, and it is the DATA, not the code — `commission_settings` on dev
+  carries a **`global`-scope row with `center_per_student_bp = 1500`**, which the
+  room → center → global chain resolves, so the "no rate" case cannot arise.
+  Reproduces identically against unmodified `HEAD`. Do not chase it as a code
+  defect.
+- **`expected-db-shape.json`** is committed at **53** and is ACCURATE for BOTH
+  dev and production as of 2026-08-18. The old caveat here — that a `verify-db`
+  run against production reporting `expected 52, got 50` was a shared-baseline
+  artifact rather than a defect — NO LONGER APPLIES and has been removed. A
+  shape mismatch reported today is a real mismatch: investigate it.
 - **[production Vercel, 2026-08-09]** `STUDENT_QR_SECRET` set on BOTH
   `edura-www` and `edura-superadmin` with the SAME value. `APP_BASE_URL` pinned
   to `https://app.edura.eg`, **which has no DNS record yet** — links emitted
