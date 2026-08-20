@@ -49,12 +49,17 @@ type AttendanceRecord = {
 
 const TONE = { present: "teal", late: "amber", absent: "red" } as const;
 
-export function StudentRecentAttendance({ studentId }: { studentId?: string } = {}) {
+export function StudentRecentAttendance() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
 
-  const url = studentId ? `me/attendance?studentId=${studentId}` : "me/attendance";
-  const { query, result } = useCustom({ url, method: "get" });
+  // No `studentId` prop, deliberately. One was added speculatively for a parent
+  // reading a child's record, and nothing ever passed it — but worse than
+  // unused, it would have been a lie: the course names come from the CALLER's
+  // own `enrollments`, and a parent's enrollments are not their child's. The
+  // prop would have offered a parent view returning the right dates against the
+  // wrong subjects.
+  const { query, result } = useCustom({ url: "me/attendance", method: "get" });
   const { result: enrollmentsResult } = useList({ resource: "enrollments" });
 
   const courseNames = useMemo(() => {
