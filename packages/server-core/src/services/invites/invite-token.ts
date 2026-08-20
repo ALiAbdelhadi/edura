@@ -16,7 +16,7 @@
 import type { InvitePurpose, Role } from "@repo/database";
 import { platformDb } from "../../db/scope";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
-import { authBaseUrl } from "../../auth/auth-env";
+import { appBaseUrl } from "../../http/app-url";
 
 /** The purposes this claim flow serves. Other InvitePurpose values are NOT ours. */
 export type ClaimPurpose =
@@ -75,9 +75,26 @@ export function inviteTtlMs(): number {
   return hours * 60 * 60 * 1000;
 }
 
-export function appBaseUrl(): string {
-  return (authBaseUrl() ?? "http://localhost:3002").replace(/\/$/, "");
-}
+/**
+ * Re-exported, NOT redefined.
+ *
+ * This file used to carry its own copy:
+ *
+ *     return (authBaseUrl() ?? "http://localhost:3002").replace(/\/$/, "");
+ *
+ * which never consulted APP_BASE_URL at all — it went straight to NEXTAUTH_URL
+ * and then to localhost. `http/app-url.ts` documents that this exact function
+ * "lived duplicated in five places, each with its own `?? http://localhost:3002`
+ * fallback" and was consolidated; this was the copy that survived, and it sat on
+ * the invite path — so every claim link (walk-in onboarding, guardian
+ * verification, welcome emails) ignored the one knob that exists to point public
+ * links at the real domain. On Vercel `APP_BASE_URL` is pinned to the production
+ * host precisely to stop links reading `localhost`, and these bypassed it.
+ *
+ * Kept as an export so the three existing importers do not have to change, but
+ * the resolution now happens in exactly one place.
+ */
+export { appBaseUrl };
 
 export function claimLink(token: string, locale: "ar" | "en" = "ar"): string {
   return `${appBaseUrl()}/${locale}/claim?token=${token}`;

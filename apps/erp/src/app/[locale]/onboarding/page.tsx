@@ -1,157 +1,88 @@
-"use client";
+import { redirect } from "next/navigation";
+import { portalForRole } from "@/lib/auth/portal";
+import { getSessionUser } from "@/lib/auth/session";
+import { getCatalogTree } from "@/lib/services/catalog/catalog-read";
+import {
+  getOnboardingState,
+  isOnboardingComplete,
+} from "@/lib/services/catalog/onboarding";
+import { verifyOnboardingToken } from "@/lib/services/onboarding/welcome-email";
+import OnboardingClient, {
+  type OnboardingTokenState,
+  type WizardRole,
+} from "./onboarding-client";
 
-import { CenterWizard } from "@/features/onboarding/center-wizard";
-import { StudentWizard } from "@/features/onboarding/student-wizard";
-import { TeacherWizard } from "@/features/onboarding/teacher-wizard";
-import { useRouter } from "@/i18n/navigation";
-import { Skeleton } from "@repo/ui/components/skeleton";
-import { useTranslations } from "next-intl";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
 
-const DASHBOARD_BY_ROLE: Record<string, string> = {
-  student: "/dashboard/student",
-  teacher: "/dashboard/teacher",
-  parent: "/dashboard/parent",
-  center_admin: "/dashboard/admin",
-};
+/** The three roles that have a wizard. Everyone else is sent to their portal. */
+const WIZARD_ROLES = new Set<string>(["student", "teacher", "center_admin"]);
 
-type TokenState = "checking" | "ok" | "expired" | "invalid" | "mismatch";
+/**
+ * Onboarding, decided on the SERVER.
+ *
+ * Every question this screen used to ask the network — who am I, may I be here,
+ * have I already finished, is this link still good, what does the catalog look
+ * like, what did I save last time — is answered in one server pass before any
+ * HTML is sent. The screen that arrives is the wizard, filled.
+ *
+ * The order matters and is fixed: identity, then role, then completion, then
+ * the link. Checking the token first would verify a link for a visitor who
+ * turns out to be signed out.
+ */
+export default async function OnboardingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { locale } = await params;
+  const query = await searchParams;
+  const editMode = query.edit === "1";
+  const emailToken = typeof query.token === "string" ? query.token : null;
 
-export default function OnboardingPage() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const editMode = params.get("edit") === "1";
-  const emailToken = params.get("token");
-  const [role, setRole] = useState<string | null>(null);
-  const [tokenState, setTokenState] = useState<TokenState>(emailToken ? "checking" : "ok");
-  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const meRes = await fetch("/api/v1/me");
-        if (meRes.status === 401) {
-          const here = `${window.location.pathname}${window.location.search}`;
-          return router.replace(`/login?next=${encodeURIComponent(here)}`);
-        }
-        const me = (await meRes.json()).data;
-        if (me.role !== "student" && me.role !== "teacher" && me.role !== "center_admin")
-          return router.replace(DASHBOARD_BY_ROLE[me.role] ?? "/dashboard/student");
-
-        const obRes = await fetch("/api/v1/me/onboarding");
-        const ob = (await obRes.json()).data;
-        if (ob?.onboardingCompleted && !editMode)
-          return router.replace(DASHBOARD_BY_ROLE[me.role] ?? "/");
-
-        if (emailToken) {
-          const tokRes = await fetch(
-            `/api/v1/me/onboarding-email?token=${encodeURIComponent(emailToken)}`,
-          );
-          const tok = (await tokRes.json()).data;
-          if (!cancelled) setTokenState((tok?.status as TokenState) ?? "invalid");
-        }
-
-        if (!cancelled) setRole(me.role);
-      } catch {
-        if (!cancelled) router.replace("/login");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, editMode, emailToken]);
-
-  const resend = async () => {
-    setResendState("sending");
-    try {
-      const res = await fetch("/api/v1/me/onboarding-email", { method: "POST" });
-      const data = res.ok ? (await res.json()).data : null;
-      setResendState(data?.sent ? "sent" : "failed");
-    } catch {
-      setResendState("failed");
-    }
-  };
-
-  if (role && emailToken && (tokenState === "expired" || tokenState === "invalid")) {
-    return (
-      <OnboardingTokenNotice
-        state={tokenState}
-        resendState={resendState}
-        onResend={resend}
-        onContinue={() => setTokenState("ok")}
-      />
-    );
+  const user = await getSessionUser();
+  if (!user) {
+    // Carry the whole address, token included, so signing in resumes the link
+    // rather than dropping the reader on a dashboard.
+    const back = emailToken
+      ? `/${locale}/onboarding?token=${encodeURIComponent(emailToken)}`
+      : `/${locale}/onboarding`;
+    redirect(`/${locale}/login?next=${encodeURIComponent(back)}`);
   }
 
-  if (role === "student") return <StudentWizard />;
-  if (role === "teacher") return <TeacherWizard />;
-  if (role === "center_admin") return <CenterWizard />;
-  return (
-    <div className="mx-auto grid max-w-2xl gap-4 px-4 py-16">
-      <Skeleton className="h-8 w-2/3" />
-      <Skeleton className="h-24" />
-      <Skeleton className="h-24" />
-    </div>
-  );
-}
+  const portal = portalForRole(user.role);
+  if (!WIZARD_ROLES.has(user.role)) {
+    redirect(`/${locale}${portal ?? "/dashboard"}`);
+  }
+  // `?edit=1` is how a finished user re-opens the wizard on purpose; without it
+  // a finished user has no business here.
+  if (!editMode && (await isOnboardingComplete(user))) {
+    redirect(`/${locale}${portal ?? "/dashboard"}`);
+  }
 
-function OnboardingTokenNotice({
-  state,
-  resendState,
-  onResend,
-  onContinue,
-}: {
-  state: "expired" | "invalid";
-  resendState: "idle" | "sending" | "sent" | "failed";
-  onResend: () => void;
-  onContinue: () => void;
-}) {
-  const t = useTranslations();
+  let tokenState: OnboardingTokenState = "ok";
+  if (emailToken) {
+    const check = await verifyOnboardingToken(emailToken);
+    tokenState =
+      check.status === "valid"
+        ? check.userId === user.id
+          ? "ok"
+          : "mismatch"
+        : (check.status as OnboardingTokenState);
+  }
+
+  const [tree, state] = await Promise.all([
+    getCatalogTree(),
+    getOnboardingState(user),
+  ]);
+
   return (
-    <div className="mx-auto max-w-md px-4 py-16">
-      <div
-        className="rounded-xl p-6"
-        style={{ background: "var(--sheet)", border: "1px solid var(--rule)" }}
-      >
-        <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
-          {state === "expired"
-            ? t("auth.onboardingLinkExpiredTitle")
-            : t("auth.onboardingLinkInvalidTitle")}
-        </h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--ink-2)" }}>
-          {t("auth.onboardingLinkHint")}
-        </p>
-        <div className="mt-5 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onContinue}
-            className="rounded-lg px-4 py-2 text-sm font-bold"
-            style={{ background: "var(--indigo)", color: "var(--paper)" }}
-          >
-            {t("auth.onboardingContinueCta")}
-          </button>
-          <button
-            type="button"
-            onClick={onResend}
-            disabled={resendState === "sending" || resendState === "sent"}
-            className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
-            style={{ color: "var(--indigo)", border: "1px solid var(--indigo)" }}
-          >
-            {resendState === "sending"
-              ? t("auth.onboardingResendSending")
-              : resendState === "sent"
-                ? t("auth.onboardingResendSent")
-                : t("auth.onboardingResendCta")}
-          </button>
-          {resendState === "failed" ? (
-            <p className="text-xs" style={{ color: "var(--red)" }}>
-              {t("auth.onboardingResendFailed")}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </div>
+    <OnboardingClient
+      role={user.role as WizardRole}
+      tokenState={tokenState}
+      tree={tree}
+      state={state}
+    />
   );
 }

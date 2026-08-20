@@ -18,14 +18,12 @@
 //      types into one box and the server does the matching.
 //
 // Nothing is mocked: the real searchCenters service runs against the live DB.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { searchCenters } from "@/lib/services/discovery/discovery";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

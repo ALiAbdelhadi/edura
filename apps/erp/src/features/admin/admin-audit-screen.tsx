@@ -246,9 +246,9 @@ export function AdminAuditScreen() {
                       )}
 
                       <div className="min-w-0 flex-1">
-                        <code className="num text-[12px] font-medium text-ink" dir="ltr">
-                          {r.action}
-                        </code>
+                        <span className="text-[12px] font-medium text-ink">
+                          {actionLabel(r.action, t)}
+                        </span>
                         <p className="mt-0.5 text-[12px] text-ink-2">
                           {/* NEVER blank. */}
                           {r.actorName ?? t("system")}
@@ -260,10 +260,15 @@ export function AdminAuditScreen() {
                           ) : null}
                         </p>
                         {r.targetId ? (
-                          <code className="num mt-0.5 block text-[11px] text-ink-3" dir="ltr">
-                            {r.targetType ? `${r.targetType} · ` : ""}
-                            {r.targetId}
-                          </code>
+                          <p className="mt-0.5 text-[11px] text-ink-3">
+                            {r.targetType ? entityLabel(r.targetType, t) : null}
+                            {r.targetType ? " · " : ""}
+                            {/* The id stays: an audit row has to identify the
+                                record it is about, and support reads it back.
+                                It is LTR-isolated so a hex string cannot
+                                reorder the Arabic around it. */}
+                            <code className="num" dir="ltr">{r.targetId}</code>
+                          </p>
                         ) : null}
                       </div>
 
@@ -327,4 +332,32 @@ export function AdminAuditScreen() {
       ) : null}
     </div>
   );
+}
+
+/**
+ * Turns an audit enum into words.
+ *
+ * The action and the target type are stored as machine strings —
+ * `points.adjusted`, `center.updated`, `pointsledger` — and this screen used to
+ * print them verbatim, in a monospace `<code>` forced to LTR, inside an
+ * otherwise entirely Arabic log. The person reading this screen is a centre
+ * owner checking who changed what, not the engineer who named the enum.
+ *
+ * THE FALLBACK NEVER SHOWS A RAW ENUM EITHER. New actions get added by code all
+ * the time and nobody will remember to come back here, so an untranslated one
+ * degrades to `entity — verb` with the separators removed rather than to
+ * `some_thing.was_done`. It is imperfect English in an Arabic table, which is a
+ * far smaller failure than a dotted identifier, and it is self-announcing:
+ * anything that reads oddly is a missing key.
+ */
+function actionLabel(action: string, t: ReturnType<typeof useTranslations<"centerAudit">>): string {
+  const key = `action_${action.replace(/\./g, "_")}` as never;
+  if (t.has(key)) return t(key);
+  return action.replace(/[._]/g, " ").trim();
+}
+
+function entityLabel(entity: string, t: ReturnType<typeof useTranslations<"centerAudit">>): string {
+  const key = `entity_${entity}` as never;
+  if (t.has(key)) return t(key);
+  return entity.replace(/[._]/g, " ").trim();
 }

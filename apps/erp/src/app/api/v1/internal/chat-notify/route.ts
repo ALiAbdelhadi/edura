@@ -1,3 +1,4 @@
+import { secretEquals } from "@repo/server-core/auth/secret-compare";
 import { z } from "zod";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
@@ -24,7 +25,8 @@ const schema = z.object({
 export const POST = withErrors(async (req) => {
   // M2: dedicated internal-bridge secret, required in production.
   const secret = requireDedicatedSecret("INTERNAL_API_SECRET");
-  if (req.headers.get("x-internal-secret") !== secret) {
+  // Constant-time; see @repo/server-core/auth/secret-compare.
+  if (!secretEquals(req.headers.get("x-internal-secret"), secret)) {
     throw new ForbiddenError("Invalid internal secret");
   }
 

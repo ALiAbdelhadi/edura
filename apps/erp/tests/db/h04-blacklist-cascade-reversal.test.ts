@@ -18,8 +18,7 @@
  * Run (this one only):        bun run --filter edura test:db:only h04-blacklist-cascade-reversal
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
 import {
   assertNotBlacklisted,
@@ -31,8 +30,7 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

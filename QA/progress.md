@@ -605,3 +605,509 @@ had changed from 5602 to 28944 — the user restarted it mid-session; untouched
 either way). Cluster stopped after confirming port 55432 from its own config,
 then removed. `QA/.env.qa`, cookie jars and /tmp scratch deleted. The user's
 `postgresql@17`/`@18` brew services remain `none`.
+
+---
+
+# PHASE 3 — FIX preview-seed (I-5) — DONE 2026-08-18 [VERIFIED]
+
+## Root cause — a stale call site, not a typo
+
+`Review` deliberately no longer has `@@unique([studentId, teacherId])`. Migration
+`20260818120000_review_per_lesson_unique` replaced it with two PARTIAL unique
+indexes (overall-per-teacher WHERE lesson_id IS NULL; one-per-lesson WHERE
+lesson_id IS NOT NULL), because a plain compound unique made the documented
+`lessonId` column unusable. Prisma cannot express a `WHERE` on a unique index, so
+`studentId_teacherId` ceased to exist as a generated key — and preview-seed's
+`review.upsert` still referenced it. The whole seed is ONE transaction, so that
+single call site destroyed every fixture it creates.
+
+**The migration is dated today and the DB now carries 53 migrations where
+CLAUDE.md records 52** — this regression landed during this session from sibling
+work, and nothing caught it because **no CI job runs the demo seeds**.
+
+## Fix
+
+`packages/database/prisma/preview-seed.ts` — replace the upsert with the pattern
+`services/reviews/reviews.ts` already uses for the same constraint:
+`findFirst({ studentId, teacherId, lessonId: null })` then update-or-create.
+Swept the repo for other `studentId_teacherId` / `review.upsert` call sites —
+this was the only one.
+
+## Verification [VERIFIED]
+
+- preview-seed completes: 4 centers / 5 teachers / 5 students / 5 courses / 7 sessions
+- **idempotent across three consecutive runs** (reviews stays 1, users stays 18) —
+  idempotency was the whole point of the original upsert, so it had to survive
+- the DB constraints behave as the migration intended: a duplicate OVERALL review
+  is refused by `reviews_one_overall_per_teacher`, while a PER-LESSON review for
+  the same student+teacher is allowed
+- suites unblocked by restored fixtures: `profile-images` now PASSES (was 2
+  failures), `c01` and `h03` now RUN instead of crashing
+- erp DB suites: **44 suites, 1407 assertions passed** (up from 1371 with the seed
+  broken); remaining failures are the known artifacts only
+
+## Worth raising separately — and CORRECTED
+
+I first wrote "no CI job runs the demo seeds". WRONG, and the truth is worse:
+`ci.yml`'s `db` job DOES run all four seeds, but the whole job is gated on
+`secrets.TEST_DATABASE_URL` / `TEST_ADMIN_URL`, which are not set. The seed step
+has therefore never executed on a PR. A guard that cannot run is not a guard.
+
+## ✅ TEARDOWN — DONE 2026-08-18 (after the seed fix)
+
+Shim clean (0 markers, 147 KB genuine, 0 backups); no QA port listening; the
+user's dev server (PID 28944 on :3002) still up and untouched; cluster stopped
+after confirming port 55432 from its own config, then removed; `QA/.env.qa`,
+jars and /tmp scratch deleted; brew services still `none`.
+
+
+---
+
+# PHASE 3 — CI SEED GUARD — DONE 2026-08-18 [VERIFIED]
+
+## What was actually wrong
+
+`ci.yml` already had a seed step (in the `db` job) — it just never ran, because
+that job is gated on `TEST_DATABASE_URL` / `TEST_ADMIN_URL` and those secrets are
+unset. So the fix is not "add a seed step" but "add one that does not depend on
+secrets".
+
+## Added
+
+**`seeds` job** in `.github/workflows/ci.yml` (+ `.github/scripts/db-census.sh`):
+
+- **no secrets** -> runs on every PR including forks;
+- **own Postgres 17 service container** -> cannot reach dev or production;
+- `DATABASE_DRIVER: pg` at job level, overriding the repo-wide `ws` default
+  (a plain container cannot answer Neon's WebSocket protocol);
+- real bootstrap order: label -> `bootstrap-app-role` -> `migrate deploy`, which
+  also exercises the guard refusing to grant on a populated schema;
+- BOTH paths: `seed --no-demo` (production bootstrap) and all four demo seeds;
+- the whole set AGAIN, then an exact 80-table census diff -> idempotence is
+  asserted with no magic numbers, so adding a fixture stays green while a
+  duplicating seed names its own table;
+- read-only `verify-db` last.
+
+## Why a census instead of row-count ceilings
+
+My first draft used ceilings (`reviews <= 5`, `centers <= 10`, `users <= 60`).
+Measured reality: reviews=1, centers=8, users=48 — so a review DOUBLING to 2
+would have slipped straight through a ceiling of 5. Exact before/after census is
+strictly better and needs no maintenance.
+
+## Verification [VERIFIED]
+
+Executed the job's exact command sequence locally against a throwaway cluster:
+- bootstrap -> migrate -> `--no-demo` -> 4 demo seeds -> second pass -> verify-db
+  **27/27**; census **byte-identical** across passes (80 tables), and a third
+  pass also added nothing;
+- `.github/scripts/db-census.sh` works standalone exactly as CI invokes it;
+- **decisive:** with the `review.upsert` bug reinstated, the seed step **exits 1**
+  with `Unknown argument studentId_teacherId` — the job catches the very
+  regression it was written for;
+- YAML parses; `seeds` job has 14 steps, no secret gate.
+
+## A slip worth recording
+
+Restoring the reverted file used a path relative to `packages/database` while the
+shell was already in that directory, so the `cp` silently failed and the BUG was
+briefly left in the working tree. Caught it by re-grepping the file rather than
+trusting the command's apparent success. Fixed with an absolute path and
+re-verified (0 revert markers, seed runs green, census unchanged).
+
+## TEARDOWN — DONE (final)
+
+Cluster stopped and `/Users/ali/.edura-qa-pg` removed (53 MB); port 55432 refuses
+connections. Shim verified clean BEFORE teardown (0 markers, genuine 147 KB
+files). `QA/.env.qa`, cookie jars and /tmp scratch gone. The user's brew
+`postgresql@17`/`@18` remain `none` — never started; their dev server on :3002 was
+never touched.
+
+---
+
+# PHASE 3 — FIX L-1 + L-2 — DONE 2026-08-18 [VERIFIED]
+
+## L-1 — wallet CHECK never validated on a fresh environment
+
+The `VALIDATE CONSTRAINT` in `20260720160000_wallet_nonneg_check` turned out to
+be **inside a comment** — a manual follow-up for after the Step 9 wipe removed
+the legacy -2600 row. Dev and production had it run by hand; nothing automated
+it, so every fresh environment inherited NOT VALID, and verify-db only ever
+asked whether constraints EXIST.
+
+Fixed both halves:
+- migration `20260818130000_validate_centers_wallet_check`, guarded by
+  `IF EXISTS (... AND NOT convalidated)` so it no-ops where the manual step
+  already ran and does not pay for a second scan under SHARE UPDATE EXCLUSIVE;
+- `verify-db` now asserts EVERY public CHECK is `convalidated` and names any
+  offender as `table.constraint`. `expected-db-shape.json` 53 -> 54.
+
+Verified on a fresh DB: `convalidated=t`, verify-db **28/28**; forcing it back
+to NOT VALID yields `1 of 28 CHECKS FAILED — NOT VALID:
+centers.centers_wallet_balance_nonneg`.
+
+**Independent confirmation it was real, not a test artifact:**
+`c01-lesson-settlement` asserts "all 3 CHECKs remain present and validated" and
+had been failing 2/3 on every fresh environment. It now passes **36/0** with no
+change to the suite.
+
+## L-2 — the suites could only ever run against Neon
+
+New `packages/database/scripts/test-pool.ts` — `testPool()`, the same
+`DATABASE_DRIVER` switch `createAdapter()` already uses, with `pinSslMode`
+applied on both branches so flipping the driver cannot change the TLS we get.
+`TestPool` is typed as node-postgres' `Pool`, the surface the suites already
+coded against, so no other line in them changed.
+
+49 of 50 suites rewritten by codemod. The 50th, `tx-retry-boundary.test.ts`,
+keeps its own Neon pool because its SUBJECT is the Neon driver — it now SKIPS
+loudly under `DATABASE_DRIVER=pg` instead of reporting "body ran 1x, expected 2"
+(which reads as a money-safety regression when nothing is wrong). The skip is
+narrow and named: on the real target it still runs and can still fail.
+
+Default unchanged: with `DATABASE_DRIVER` unset the Neon driver is used exactly
+as before.
+
+Verified with the GENUINE neon package installed and zero node_modules patching:
+- erp **44 suites / 1446 assertions passed**, 2 failing (both pre-existing:
+  catalog-onboarding cacheTag, h03 fixture residue)
+- superadmin **24 suites / 801 assertions passed**, same 2 known artifacts
+- both apps `tsc --noEmit` clean
+
+The shim is no longer needed by anything. `QA/shim/` stays only as the record of
+how this was originally proven.
+
+## Two pre-existing problems found while verifying — NOT mine, NOT fixed
+
+1. **`packages/database` does not typecheck.** Three demo seeds call
+   `assertNotProduction()` with no argument while the signature is
+   `assertNotProduction(intent: string)`:
+   `prisma/settled-lessons-demo-seed.ts:102`,
+   `prisma/showcase-live-demo-seed.ts:107`,
+   `prisma/showcase-payments-demo-seed.ts:79`.
+   Every other caller passes a name. One word each to fix; left alone because it
+   is outside L-1/L-2 and is the user's call.
+2. **erp i18n parity is red** — `tests/unit/i18n-parity.test.ts` fails 2 tests
+   over 9 missing `gapDetail_*` keys in
+   `features/admin/external-teacher-gaps-screen.tsx`. That file and the message
+   catalogues were already `M` in git status at session start, i.e. sibling
+   work-in-progress. Earlier in this session the erp unit run was fully green
+   (1172 passed), so this appeared after a concurrent edit. Not mine — none of
+   my files reference those keys.
+
+---
+
+# assertNotProduction typecheck errors — FIXED 2026-08-18 [VERIFIED]
+
+Three demo seeds called `assertNotProduction()` with no argument against
+`assertNotProduction(intent: string)`. 15 of the 18 call sites already pass the
+file's own basename, so the convention was unambiguous:
+
+- `prisma/settled-lessons-demo-seed.ts:102`
+- `prisma/showcase-live-demo-seed.ts:107`
+- `prisma/showcase-payments-demo-seed.ts:79`
+
+`intent` is not decoration — db-guard echoes it in the refusal message so it
+names what was about to run, so these three would also have produced an
+anonymous refusal.
+
+**Verified:** `packages/database` typechecks clean, and `bun run check-types`
+across the repo is **9/9 successful** — the whole monorepo is now type-clean.
+
+## What running them revealed — NEW FINDING L-8
+
+These are not pure DB seeds. They sign in to a running app and drive it over
+HTTP: `POST /api/v1/sessions/{id}/complete` (THE SETTLEMENT TRIGGER) and
+`POST /api/v1/center/subscriptions`. `BASE_URL` is
+`process.env.ERP_BASE_URL ?? "http://localhost:3002"`.
+
+So `assertNotProduction()` guards the DB connection while the writes go over
+HTTP to an unrelated target — the same class of hole the repo already closed
+once (see the historical note in `run-db-suites.ts` about the removed `_*.ts`
+probe scripts). Recorded as L-8 with a suggested fix: require `ERP_BASE_URL`
+and have the seed check `{BASE_URL}/api/health` before writing.
+
+They also have an undocumented ordering dependency: all three refuse unless
+`showcase-demo-seed` ran first (clean message, not a bug).
+
+## Disclosure — I crossed my own boundary
+
+Running those three without `ERP_BASE_URL` set sent one
+`POST /api/auth/sign-in/email` each to `localhost:3002` — Ali's dev server,
+backed by DEV. All three returned 403 and the seeds aborted before any money
+call, so the blast radius was three failed auth attempts and zero rows. It still
+breached the "never touch dev" rule I set for this audit; recorded rather than
+omitted. I stopped there rather than booting a server to complete the run.
+
+## Teardown
+
+Cluster stopped and removed; 55432 refuses connections; shim clean (0 markers,
+147 KB genuine); `QA/.env.qa` gone; Ali's dev server untouched.
+
+---
+
+# PHASE 3 — FIX L-8 — DONE 2026-08-18 [VERIFIED]
+
+New `packages/database/prisma/http-target-guard.ts`, wired into the sign-in
+helper of all three seeds so every call site inherits it:
+
+1. **`ERP_BASE_URL` required, no default.** The silent `?? localhost:3002` is
+   gone. Resolved lazily so `--dry-run` still needs nothing.
+2. **Nonce round-trip proves the app reads THIS database.** Write a random
+   notification for the showcase owner through the guarded connection, read
+   `GET /api/v1/notifications` back over HTTP as that signed-in user, refuse if
+   it is invisible. Probe deleted in a `finally`.
+
+## The design detail that mattered
+
+An id comparison would have proven nothing, and I confirmed it: `seedId()` mints
+deterministic UUIDv5, so two independently seeded databases returned the SAME
+owner id `5ade025b-…`. Only a freshly generated value distinguishes them.
+
+I did NOT use `/api/health` as I first suggested — it carries no environment
+label, and adding one would widen a public unauthenticated endpoint's
+disclosure. The notifications probe is caller-scoped and needs no product change.
+
+## Verification [VERIFIED]
+
+| Case | Result |
+|---|---|
+| ERP_BASE_URL unset | refuses with the "no default" explanation |
+| app on a DIFFERENT database | REFUSES before any settlement/subscription call |
+| app on the SAME database | passes the guard, proceeds to real work |
+| probe cleanup | 0 `seed-target-probe:%` rows in either database |
+
+`bun run check-types` 9/9.
+
+## Limitation — stated rather than glossed
+
+Cases 2 and 3 used a small local stub app (serving sign-in + notifications), one
+backed by a second throwaway database and one mirroring the first. The REAL Next
+app was not used: its production build would not complete here (repeated
+`socket hang up` retries during `next build`, 31 retry lines). The guard's logic
+and both verdicts are proven; integration against the real app is not.
+
+## Teardown
+
+Stub killed; both throwaway databases and the cluster removed; shim clean;
+`QA/.env.qa` gone; Ali's dev server untouched.
+
+---
+
+# PHASE 3 — FIX L-4 + L-5 — DONE 2026-08-18 [VERIFIED]
+
+## L-4 — constant-time secret comparison (THREE doors, not two)
+
+Phase 1 reported two call sites; the sweep had only covered the two Next apps.
+`apps/realtime/src/internal.ts:69` compares the same internal secret with `!==`.
+All three now route through one shared helper,
+`packages/server-core/src/auth/secret-compare.ts` (`secretEquals`,
+`bearerEquals`).
+
+Hash-then-compare rather than the length-guarded form used for the HMACs:
+`timingSafeEqual` throws on unequal lengths, and these secrets are arbitrary
+operator strings whose length cannot be guaranteed. SHA-256 on both sides makes
+the lengths equal by construction — no length leak, no throw.
+
+The existing fixed-width call sites (mock-driver HMAC, student-qr, guardian
+verification) were left alone: correct as written, each with its own proof, and
+rewriting money/child-safety paths for uniformity is risk without benefit.
+
+**Proof:** new `apps/erp/tests/unit/secret-compare.test.ts`, 13 assertions, in
+two halves. Semantic (prefix-only rejected, null/empty rejected both sides, no
+throw on unequal length) AND structural — the helper uses timingSafeEqual over a
+SHA-256 digest and each door imports it with no raw `===`/`!==` on a secret.
+The structural half exists because plain `===` satisfies most semantic
+assertions; it follows the precedent in c04-login-allowlist.test.ts. Confirmed
+it catches a regression: reverting the realtime door fails it 1/13.
+`m7-cron-auth.test.ts` still 7/7, so the cron door's fail-closed behaviour and
+both header forms are unchanged.
+
+## L-5 — I had the diagnosis wrong
+
+Phase 1 said `completeSession` "has no `distribution` key". WRONG, and the
+typecheck proved it: it returns `{ session, distribution }` and `Distribution`
+DOES declare `centerShare?: number`. I had read a different return statement in
+the same file.
+
+The real cause: `centerShare` is OPTIONAL and this hall-free legacy path never
+sets it — and cannot honestly set one, because `centerShare` comes from
+`economicsAt(studentPrice, …)` INSIDE the per-student loop
+(`distribution.ts:349`). With two attendees on different prices there is no
+single per-session share to report.
+
+So the test now asserts the same fact from values the path does define
+(`centerNetTotal`, `presentCount`), with the reasoning inline. I deliberately did
+NOT change the engine to emit `centerShare` here: deciding what it means for a
+mixed-price lesson is a money-engine decision, and this codebase decides money
+semantics explicitly. The comment makes the next person hit the decision rather
+than the symptom.
+
+**Proof:** `center-share-admin.test.ts` 11 passed / 0 failed (was 10/1).
+
+## Full verification
+
+- repo `check-types`: **9/9**
+- erp unit: 1183 passed, 1 skipped, **2 failed — the pre-existing i18n-parity
+  failures from sibling work** (9 missing `gapDetail_*` keys), unchanged by me
+- superadmin unit: **106/106**
+- superadmin DB suites: **24 suites, 802 assertions passed**, 1 failing —
+  only c02's performance-ceiling artifact (center-share-admin now green)
+- erp DB suites: **44 suites, 1446 assertions passed**, 2 failing — the known
+  catalog-onboarding and h03 artifacts
+
+## Teardown
+
+Cluster stopped and removed; 55432 refuses connections; shim clean; QA/.env.qa
+gone; Ali's dev server untouched.
+
+---
+
+# i18n parity — FIXED 2026-08-20 [VERIFIED]
+
+Ali asked me to fix the 9 missing `gapDetail_*` keys. **They were not missing.**
+All nine exist, correctly translated, under `externalTeachers` in both `ar.json`
+and `en.json`. Adding them — the obvious reading of the failure — would have
+created root-level duplicates and left the suite red.
+
+Root cause: `external-teacher-gaps-screen.tsx` holds two translators, root `t`
+and scoped `te`. `describeDetail(detail, te)` is called with the scoped one, but
+its PARAMETER was named `t`. The parity test binds translator variables per FILE
+and knows nothing about a parameter shadowing an outer name, so every
+`t("gapDetail_*")` inside that function resolved against the ROOT dictionary.
+
+Fix: rename the parameter to `te` — matching both the argument passed and the
+type it already declared. Runtime identical; the same object was always passed.
+A comment records why the name is load-bearing.
+
+**Verified:** i18n-parity 57/57; erp unit **76 files / 1185 passed / 1 skipped /
+0 failed** — fully green for the first time this audit; check-types 9/9.
+
+No database was needed, so no environment was stood up and nothing needs tearing
+down.
+
+---
+
+# CI `db` JOB — TURNED ON 2026-08-20 [VERIFIED]
+
+## What "off" actually meant
+
+The job existed and was gated on `TEST_DATABASE_URL` / `TEST_ADMIN_URL`. Those
+secrets were never set, and there is no test branch to point them at (both
+`.env.test` files resolve to DEV), so ~60 money/RLS/auth suites had never run on
+a single pull request. It also carried a step that FAILED pushes to main when
+skipped — right in spirit, inert in practice.
+
+Setting the secrets was not available to me (no test branch exists, and I cannot
+set repo secrets). L-2 made the alternative real: the suites no longer require
+Neon, so the job can provision its own database.
+
+## Rewritten
+
+`db` now runs against an **ephemeral postgres:17 service container**, needs no
+secrets, and therefore runs on every PR including forks. It follows the same
+bootstrap order as the `seeds` job (label → bootstrap-app-role → migrate → seed)
+and keeps db-guard in the loop by LABELLING the container `edura-env:test`, so
+the guard is exercised rather than bypassed.
+
+## Stale references it had accumulated — all fallout from the www → erp rename
+
+Never noticed, because the job never ran:
+- `apps/www/.env.test.example` does not exist → the materialise step's `cp` would
+  have failed on the first line under `set -euo pipefail`;
+- `apps/www` has no `test:e2e` script and no tests → the E2E steps would have
+  failed too.
+Both repointed to `apps/erp`.
+
+## Suites excluded, each for a stated reason
+
+- `apps/erp` `test:db:ci` gains **profile-images**: it refuses to run without
+  real `CLOUDINARY_*` keys ("this suite proves the real upload path"). A
+  third-party-credential test does not belong in a job whose point is needing no
+  secrets. (Existing exclusions: catalog-onboarding, c01, h03.)
+- NEW `apps/superadmin` `test:db:ci` excludes **c02-payout-generation**: a
+  LATENCY-dependent proof that asserts the pre-fix payout path breaches a
+  20 000 ms ceiling. Against a Postgres on the same machine that path finishes in
+  ~45 ms, so it fails for the one reason that does not mean the bug is back.
+
+## Verification [VERIFIED] — the job's sequence run locally, end to end
+
+Fresh database each time, the exact CI steps in order (bootstrap → migrate →
+4 seeds → materialise `.env.test` from the committed templates → db-guard →
+both suite commands):
+
+| Step | Result |
+|---|---|
+| bootstrap / migrate / seed | ok |
+| materialise + `pretest:db` (both apps) | `db-guard: ok — labelled 'test'` |
+| erp `test:db:ci` | **42 suites, 1376 assertions, 0 failed** (×3 consecutive) |
+| superadmin `test:db:ci` | **23 suites, 788 assertions, 0 failed** |
+
+Also confirmed every path and script the workflow names now exists, and the YAML
+parses with no secret gate anywhere.
+
+## Two honest caveats
+
+1. **One unreproducible flake.** In six erp runs, one reported a single failed
+   assertion; five were clean, including three consecutive. I could not identify
+   or reproduce it. Worth watching on the first real runs rather than claiming
+   the job is perfectly stable.
+2. **The E2E half was NOT rehearsed** at the time this was written — see the
+   follow-up section below, where it was hardened and partly verified.
+
+## Teardown
+
+Cluster stopped and removed; generated `.env.test` files deleted; shim clean.
+
+---
+
+# CI E2E BLOCK — HARDENED 2026-08-20 [PARTLY VERIFIED]
+
+## What was wrong beyond the apps/www paths
+
+The port `3002` was written out three times — the dev server, the readiness
+probe, and `E2E_BASE_URL` — which is three chances to change two of them. It
+also made the block impossible to rehearse anywhere 3002 is already taken, which
+is precisely why it had never been run.
+
+`bun run dev` is `next dev -p ${WWW_PORT:-3002}`, so the port was already an
+input; the workflow just wasn't using it.
+
+## Changes
+
+- job-level `E2E_PORT: "3002"`, threaded through `WWW_PORT`, the readiness
+  probe, the `.env.local` overrides and `E2E_BASE_URL`;
+- the failure message now names the port (`erp never became ready on 3102`);
+- comments record WHY dev mode is required (quick-login tiles are gated on
+  `NODE_ENV !== production`) and why the server is backgrounded across steps.
+
+## Verified [VERIFIED]
+
+The substantive risk inside the block was whether the smoke can actually sign
+in — it drives the quick-login tiles, which post fixed demo credentials. Against
+a database seeded by the CI seed list exactly:
+
+| Check | Result |
+|---|---|
+| the four tile accounts exist, `active`, with a password hash | yes — center_admin, teacher, student, parent |
+| `bcrypt.compare("Passw0rd!", hash)` — the literal the tile submits | **all four AUTHENTICATE** |
+| `@playwright/test` resolvable from apps/erp | yes (dependency, ^1.62.0) |
+| every path/script the block names | exists |
+| YAML | parses; 19 steps |
+
+That confirms the seeds and the tiles agree — the failure mode most likely to
+make this block red on its first run, and the one that would have been silent
+(`SEED_PASSWORD` is deliberately unset so the seeds fall back to `Passw0rd!`).
+
+## Still NOT verified — and why
+
+The `next dev` boot itself and Playwright driving the UI. Next refuses a second
+dev server for the same directory **regardless of port**, and Ali's own dev
+server is running from `apps/erp`. Rehearsing would have meant stopping it,
+which I was not asked to do and did not do. On a clean CI runner that lock does
+not apply.
+
+So: the block's inputs, credentials, paths and plumbing are proven; the
+boot-and-drive sequence is not. If the first real run fails, the readiness probe
+now prints the port and the last 50 lines of the server log, which is where to
+look.

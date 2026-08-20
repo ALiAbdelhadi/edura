@@ -3,20 +3,26 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BookOpen, GraduationCap, MoonStar, School, Languages, Check } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Skeleton } from "@repo/ui/components/skeleton";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
 import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
-import { WizardShell, OptionCard, WizardEmpty } from "./wizard-shell";
-import { Chip, Eyebrow, LedgerButton, Num, Sheet } from "@/components/ledger";
-import { useOnboarding, apiSend } from "./use-onboarding";
+import {
+  OptionCard,
+  WizardActions,
+  WizardCount,
+  WizardEmpty,
+  WizardShell,
+  WizardSkeleton,
+} from "./wizard-shell";
+import { Chip, Eyebrow, Hairline, Sheet } from "@/components/ledger";
+import { useOnboarding, apiSend, type OnboardingInitial } from "./use-onboarding";
 import { studentSteps, stepAfterGrade, stepAfterSystem, stepAfterTrack, type StudentStepId } from "./steps";
 import type { CatalogSubject, StudentSelections } from "./types";
 
 type StepId = StudentStepId;
 
-type StudentState = {
+export type StudentState = {
   role: "student";
   onboardingCompleted: boolean;
   onboardingDraft: { step?: StepId; selections?: StudentSelections } | null;
@@ -33,11 +39,11 @@ const SYSTEM_ICONS: Record<string, React.ReactNode> = {
   "graduation-cap": <GraduationCap />,
 };
 
-export function StudentWizard() {
+export function StudentWizard({ initial }: { initial?: OnboardingInitial<StudentState> } = {}) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<StudentState>();
+  const { tree, state, error, saveDraft } = useOnboarding<StudentState>(initial);
 
   const [sel, setSel] = useState<StudentSelections>({});
   const [stepId, setStepId] = useState<StepId>("system");
@@ -134,16 +140,7 @@ export function StudentWizard() {
       </div>
     );
   }
-  if (!tree || !state) {
-    return (
-      <div className="mx-auto grid max-w-2xl gap-4 px-4 py-16">
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-24" />
-        <Skeleton className="h-24" />
-        <Skeleton className="h-24" />
-      </div>
-    );
-  }
+  if (!tree || !state) return <WizardSkeleton />;
 
   const back =
     stepIndex > 0
@@ -154,10 +151,22 @@ export function StudentWizard() {
         }
       : undefined;
 
+  /* What has already been decided, carried at the top of every later step.
+     The review step omits it — the whole step IS the summary. */
+  const trail =
+    stepId === "review"
+      ? []
+      : [
+          stepId !== "system" && system ? dn(system) : null,
+          !["system", "stage"].includes(stepId) && stage ? dn(stage) : null,
+          !["system", "stage", "grade"].includes(stepId) && grade ? dn(grade) : null,
+        ].filter((x): x is string => !!x);
+
   const shell = (children: React.ReactNode, footer?: React.ReactNode) => (
     <WizardShell
-      title={t(`onboarding.steps.${stepId === "secondLanguage" ? "secondLanguage" : stepId}` as Parameters<typeof t>[0])}
-      prompt={t(`onboarding.prompts.${stepId}` as Parameters<typeof t>[0])}
+      eyebrow={t(`onboarding.steps.${stepId === "secondLanguage" ? "secondLanguage" : stepId}` as Parameters<typeof t>[0])}
+      question={t(`onboarding.prompts.${stepId}` as Parameters<typeof t>[0])}
+      trail={trail}
       current={stepIndex + 1}
       total={steps.length}
       onBack={back}
@@ -261,8 +270,8 @@ export function StudentWizard() {
       <div className="grid gap-3">
         {langOptions === null ? (
           <>
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
+            <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--rule-2)" }} />
+            <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--rule-2)" }} />
           </>
         ) : langOptions.length === 0 ? (
           /* This one already had an empty state, and it has a real way out —
@@ -282,12 +291,14 @@ export function StudentWizard() {
           ))
         )}
       </div>,
-      <LedgerButton
-        className="w-full"
+      /* Skip is a real choice here, not an escape hatch, so it is the footer's
+         only control — and secondary, because picking a language is the path
+         the step exists for. */
+      <WizardActions
+        variant="secondary"
+        label={t("onboarding.skip")}
         onClick={() => go("review", { ...sel, secondLanguageSubjectId: null })}
-      >
-        {t("onboarding.skip")}
-      </LedgerButton>,
+      />,
     );
   }
 
@@ -307,28 +318,36 @@ export function StudentWizard() {
 
   return shell(
     <div className="grid gap-6">
-      <Sheet className="grid gap-3 p-4">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-4">
-            <dt className="text-sm" style={{ color: "var(--ink-2)" }}>
-              {k}
-            </dt>
-            <dd className="font-medium" style={{ color: "var(--ink)" }}>
-              {v}
-            </dd>
-          </div>
-        ))}
+      {/* The ledger's own device: label and value on one ruled line. */}
+      <Sheet className="px-4">
+        <dl className="grid">
+          {rows.map(([k, v], i) => (
+            <div key={k} className="grid gap-4 py-3">
+              {i > 0 ? <Hairline className="-mt-3 mb-3" /> : null}
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-sm" style={{ color: "var(--ink-2)" }}>
+                  {k}
+                </dt>
+                <dd className="text-end font-medium" style={{ color: "var(--ink)" }}>
+                  {v}
+                </dd>
+              </div>
+            </div>
+          ))}
+        </dl>
       </Sheet>
 
       <div>
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <Eyebrow>{t("onboarding.review.subjectsPreview")}</Eyebrow>
           {previewSubjects && previewSubjects.length > 0 ? (
-            <Num style={{ color: "var(--ink-3)", fontSize: 11 }}>{previewSubjects.length}</Num>
+            <WizardCount>
+              {t("onboarding.review.subjectsCount", { count: previewSubjects.length })}
+            </WizardCount>
           ) : null}
         </div>
         {previewSubjects === null ? (
-          <Skeleton className="h-16" />
+          <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--rule-2)" }} />
         ) : previewSubjects.length === 0 ? (
           /* The consequence of confirming, stated before the commit. This
              selection assigns no subjects, and the student would otherwise
@@ -353,14 +372,11 @@ export function StudentWizard() {
         )}
       </div>
     </div>,
-    <LedgerButton
-      variant="primary"
-      className="w-full"
+    <WizardActions
+      label={t("onboarding.confirm")}
       onClick={() => void confirm()}
-      disabled={submitting}
-    >
-      {submitting ? <Spinner /> : <Check className="size-4" aria-hidden />}
-      {t("onboarding.confirm")}
-    </LedgerButton>,
+      busy={submitting}
+      icon={submitting ? <Spinner /> : <Check className="size-4" aria-hidden />}
+    />,
   );
 }

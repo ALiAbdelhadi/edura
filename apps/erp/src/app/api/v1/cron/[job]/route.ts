@@ -1,3 +1,4 @@
+import { bearerEquals, secretEquals } from "@repo/server-core/auth/secret-compare";
 import { withErrors } from "@/lib/errors/http";
 import { ok, fail } from "@/lib/http/envelope";
 import { BusinessRuleError } from "@/lib/errors/classes";
@@ -21,9 +22,12 @@ export const dynamic = "force-dynamic";
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  const auth = req.headers.get("authorization");
-  const header = req.headers.get("x-cron-secret");
-  return auth === `Bearer ${secret}` || header === secret;
+  // Constant-time: `===` on strings stops at the first wrong byte, so failure
+  // time leaked how much of the secret a caller had guessed.
+  return (
+    bearerEquals(req.headers.get("authorization"), secret) ||
+    secretEquals(req.headers.get("x-cron-secret"), secret)
+  );
 }
 
 export const POST = withErrors(async (req, ctx) => {

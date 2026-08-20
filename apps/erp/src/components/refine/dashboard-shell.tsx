@@ -57,6 +57,12 @@ const NAV_KEY: Record<string, string> = {
   "Child Progress": "nav.childProgress",
   "Fees & Payments": "nav.feesPayments",
   Dashboard: "nav.dashboard",
+  // The student portal's own two. Not a second naming system: the same
+  // destination named ONCE, in the vocabulary of the role that opens it.
+  // "لوحة التحكم" is a phrase for staff, and the student bar could not fit
+  // either it or "المواد الدراسية" at 375px — measured, six targets, 63px each.
+  "Student Home": "nav.studentHome",
+  "My Subjects": "nav.mySubjects",
   "Student ID": "nav.studentId",
   Practice: "nav.practice",
   Students: "nav.students",
@@ -90,6 +96,7 @@ const NAV_KEY: Record<string, string> = {
   Centers: "nav.centers",
   Browse: "nav.browse",
   Subjects: "nav.subjects",
+  Subscriptions: "nav.subscriptions",
   Wallet: "nav.wallet",
   "Check-in": "nav.checkin",
   Counter: "nav.counter",
@@ -181,6 +188,7 @@ export default function DashboardShell({
   navItems,
   navGroups,
   bottomNav,
+  bottomNavMaxVisible,
   children,
 }: {
   role: string;
@@ -201,6 +209,8 @@ export default function DashboardShell({
    * phones, so an href left out is a destination a phone user cannot reach.
    */
   bottomNav?: string[];
+  /** Targets in the phone bar, "more" included. See AppShell for the trade. */
+  bottomNavMaxVisible?: number;
   children: React.ReactNode;
 }) {
   const t = useTranslations();
@@ -266,6 +276,7 @@ export default function DashboardShell({
       displayName={displayName}
       {...(navGroups ? { groups: navGroups } : { navItems })}
       bottomNav={bottomNav}
+      bottomNavMaxVisible={bottomNavMaxVisible}
       badges={badges}
       unreadCount={unreadCount}
       notificationsHref={`/dashboard/${PORTAL_BASE[role] ?? role}/notifications`}

@@ -8,7 +8,7 @@
  *
  * See ledger.css for the token layer and the deletion plan.
  */
-export { Num, ProseCount, Money, Amount } from "./num";
+export { Num, ProseCount, DateText, Money, Amount } from "./num";
 export {
   Eyebrow,
   Sheet,

@@ -48,9 +48,34 @@ const A = {
   assistant: "showcasedemo-nour@edura.test",
 };
 
-const FORBIDDEN = ["tarekaboelnasr999", "tarekaccountant", "accountant@edura.eg", "ghost-user-9x"];
+/**
+ * The forbidden list is GENERATED FROM THE DATABASE by `build-forbidden.ts`,
+ * not typed here. An earlier version of this file carried four hand-written
+ * strings and therefore never checked for the second real person on this
+ * database — a Gmail address and a live Egyptian mobile sitting on a student
+ * account. A list a human maintains cannot know about a row added last week.
+ */
+const FORBIDDEN: string[] = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "tools", "system-shots", "forbidden.json"), "utf8"),
+).terms;
 
-type Cut = { name: string; file: string; start: number; duration: number; width: number; height: number };
+type Cut = {
+  name: string;
+  file: string;
+  start: number;
+  duration: number;
+  width: number;
+  height: number;
+  /**
+   * Seconds from the START of the cut to grab the poster from. Optional: the
+   * default is one second before the end, which is right for a clip that
+   * finishes on its outcome. It is WRONG for one that deliberately returns to
+   * its opening view to loop — walk-in ends back at the top of an empty board,
+   * so the default poster was a picture of nothing and that is what a
+   * reduced-motion reader would have been shown.
+   */
+  posterAt?: number;
+};
 const cuts: Cut[] = [];
 
 async function hideChrome(page: Page) {
@@ -112,7 +137,14 @@ async function authState(browser: Browser, email: string): Promise<string> {
  */
 async function record(
   browser: Browser,
-  opts: { name: string; email: string; viewport: { width: number; height: number }; isMobile?: boolean },
+  opts: {
+    name: string;
+    email: string;
+    viewport: { width: number; height: number };
+    isMobile?: boolean;
+    /** Seconds from the start of the cut; see `Cut.posterAt`. */
+    posterAt?: number;
+  },
   open: (page: Page) => Promise<void>,
   act: (page: Page) => Promise<void>,
 ) {
@@ -157,6 +189,7 @@ async function record(
     duration: (actionEnd - actionStart) / 1000 + 0.5,
     width: opts.viewport.width,
     height: opts.viewport.height,
+    posterAt: opts.posterAt,
   });
   // eslint-disable-next-line no-console
   console.log(`clip ${opts.name}  ${((actionEnd - actionStart) / 1000).toFixed(1)}s`);
@@ -376,6 +409,25 @@ test("clip · assistant-door", async ({ browser }) => {
 
 test("clip · walk-in", async ({ browser }) => {
   test.setTimeout(10 * 60_000);
+  // THE LINK IN THIS CLIP SHOWS WHATEVER `APP_BASE_URL` SAYS.
+  //
+  // In dev that is the LAN address in `.env`, which is right for testing on a
+  // phone and wrong for a marketing image. To record a take carrying the live
+  // host, override it for the recording only, then remove the override:
+  //
+  //   echo 'APP_BASE_URL=https://edura-erp.vercel.app' > apps/erp/.env.local
+  //   # restart the dev server, run this clip, then:
+  //   rm apps/erp/.env.local   # and restart again
+  //
+  // THE HOST IS THE ERP'S OWN. A claim link lands a student in this app, not on
+  // the marketing site — `edura-www.vercel.app` would be the wrong building.
+  // The custom domain is deliberately NOT used here: it is not what the product
+  // runs on today, and a clip that shows an address nobody can reach is a clip
+  // that ages badly.
+  //
+  // Leaving the file in place would point every dev claim link away from the
+  // LAN address, so it is a per-recording override, not a setting.
+  //
   // A distinct phone per run: the endpoint refuses a duplicate by phone and
   // sends a code reminder instead, which is correct behaviour and a useless
   // recording. Derived from the clock, which is fine here because nothing about
@@ -383,7 +435,9 @@ test("clip · walk-in", async ({ browser }) => {
   const suffix = String(Date.now()).slice(-4);
   await record(
     browser,
-    { name: "walk-in", email: A.counterOwner, viewport: DESKTOP },
+    // The poster is pulled from the OUTCOME — code minted, link on screen —
+    // not from the loop-friendly ending back at the top of the board.
+    { name: "walk-in", email: A.counterOwner, viewport: DESKTOP, posterAt: 8.4 },
     async (page) => {
       await warmGoto(page, "/ar/dashboard/admin/counter");
       await expect(page.locator("main")).toContainText(/طالب جديد/, { timeout: 45_000 });

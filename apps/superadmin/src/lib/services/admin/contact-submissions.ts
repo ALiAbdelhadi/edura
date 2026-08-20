@@ -1,4 +1,5 @@
 import type { ContactSubmissionStatus, Prisma } from "@repo/database";
+import { narrowQuery } from "@repo/database/search-text";
 import type { SessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
@@ -53,13 +54,24 @@ export function listContactSubmissions(filters: ContactFilters) {
 
     const q = filters.q?.trim();
     if (q) {
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q } },
-        { subject: { contains: q, mode: "insensitive" } },
-        { message: { contains: q, mode: "insensitive" } },
-      ];
+      // NARROW ONLY — half the two-stage match, deliberately. `contains` with
+      // `mode: "insensitive"` is ILIKE, which folds ASCII case and nothing
+      // else, so «احمد» matched none of the rows stored «أحمد» and this list
+      // came back empty about people it holds. `literalFragments` asks only for
+      // the pieces that can be compared byte-wise, which fixes that. The JS
+      // decide pass is NOT applied because this query is offset-paginated with
+      // a `count`, and filtering after the page is cut gives a short page and a
+      // wrong total — so the result is a SUPERSET: «احمد» also lists «محمد».
+      // This one is written IN Arabic by the public — a name, a subject and a
+      // free-text message straight off the marketing site — so it was the list
+      // in this app most certain to be searched in the script it cannot match.
+      where.AND = narrowQuery(q, (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+        { email: { contains: f, mode: "insensitive" as const } },
+        { phone: { contains: f } },
+        { subject: { contains: f, mode: "insensitive" as const } },
+        { message: { contains: f, mode: "insensitive" as const } },
+      ]);
     }
 
     if (filters.from || filters.to) {

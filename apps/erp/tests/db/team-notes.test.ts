@@ -17,8 +17,7 @@
 //      board (listed as member, receipts recorded, canWrite=false);
 //   7. soft-remove of an assistant immediately drops them from the fanout;
 //   8. the DB CHECK rejects a note with both scopes or neither.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import { scopedDb, platformDb } from "@/lib/db/scope";
@@ -39,8 +38,7 @@ import {
 } from "@/lib/services/team-notes/team-notes";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const STAFF_ALL = [...RECEPTION, ...ACCOUNTANT];
 

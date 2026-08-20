@@ -52,20 +52,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import {
-  Amount,
-  Badge,
-  Computation,
-  Eyebrow,
-  FinalityNotice,
-  Num,
-  PageHead,
-  Sheet,
-  SheetHead,
-  TwoStepCommit,
-  postMoney,
-  readApiError,
-} from "./ledger";
+import { Amount, Badge, Computation, DateText, Eyebrow, FinalityNotice, Num, PageHead, Sheet, SheetHead, TwoStepCommit, postMoney, readApiError } from "./ledger";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -589,9 +576,9 @@ export function AdminFeesScreen() {
           return <span className="text-[var(--ink-3)]">{t("adminManage.fees.notAvailable")}</span>;
         try {
           return (
-            <Num className="text-xs text-[var(--ink-3)]">
+            <DateText className="text-xs text-[var(--ink-3)]">
               {formatDate(record.paidAt, { month: "short", day: "numeric", year: "numeric" })}
-            </Num>
+            </DateText>
           );
         } catch {
           return <span className="text-[var(--ink-3)]">{t("adminManage.fees.notAvailable")}</span>;
@@ -781,7 +768,7 @@ export function AdminFeesScreen() {
                   >
                     {t(`status.${p.status}` as Parameters<typeof t>[0])}
                   </Badge>
-                  <Num className="text-[11px] text-[var(--ink-3)]">{formatDate(p.createdAt)}</Num>
+                  <DateText className="text-[11px] text-[var(--ink-3)]">{formatDate(p.createdAt)}</DateText>
                 </div>
               ))}
             </div>

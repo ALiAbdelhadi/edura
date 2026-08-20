@@ -351,9 +351,18 @@ governs. Violating one of these is never a local change.
   engine, the back-office preview and the www preview all call it. An unpriced
   lesson REFUSES to complete rather than settling zero.
   → [lesson-settlement](docs/decisions/lesson-settlement.md)
-- **MONEY IS READ-ONLY IN THE BACK OFFICE, and superadmin is NOT exempt.** The
-  DB-level REVOKEs bite for `super_admin` too; no GRANT and no second DB role
-  was added. → [superadmin-center-oversight](docs/decisions/superadmin-center-oversight.md)
+- **MONEY IS READ-ONLY IN THE BACK-OFFICE APP, and superadmin is NOT exempt
+  THERE.** The DB-level REVOKEs bite for `super_admin` too; no GRANT and no
+  second DB role was added, and no back-office module imports a money service.
+  **QUALIFIED 2026-08-20 — read this before quoting the rule:** a `super_admin`
+  CAN now move money, by using "view as" to become an ERP user inside the ERP
+  app, under that user's own session. Ali chose that explicitly over the
+  recommended "block money routes during view-as". The capability comes from the
+  target's session in the other app, never from a money surface added to
+  apps/superadmin. Every such write still carries its own ledger row and audit,
+  and the session behind it carries `impersonated_by`.
+  → [superadmin-center-oversight](docs/decisions/superadmin-center-oversight.md),
+  [superadmin-view-as](docs/decisions/superadmin-view-as.md)
 - **AN EXPORT RUNS THE SAME SERVICE FUNCTION THE SCREEN RUNS.** A report that
   re-derives its own totals is a second set of books.
   → [report-export](docs/decisions/report-export.md)
@@ -397,6 +406,16 @@ governs. Violating one of these is never a local change.
 - **AN EXTERNAL TEACHER IS A `users` ROW, NOT A NEW ENTITY** (role `teacher`,
   `status='shell'`, `password_hash NULL`). No login is enforced by the door that
   already exists. → [external-teachers](docs/decisions/external-teachers.md)
+- **"VIEW AS" IS A SECOND DOOR, NOT A HOLE IN THE FIRST.** `login-policy.ts` is
+  untouched — a `super_admin` still cannot type their way into the ERP — and no
+  back-office cookie ever crosses. What crosses is a signed, 60-second,
+  single-target handoff token; the ERP re-reads the actor and the target and
+  mints its OWN session. In-app impersonation takes back-office targets and
+  refuses ERP roles; view-as takes ERP roles and refuses back-office ones —
+  exactly one mechanism per target. The one-hour window is enforced from
+  `auth_sessions.created_at`, NOT `expires_at`, which better-auth's rolling
+  refresh extends out from under any short expiry (measured: 3600s written,
+  2592000s read back). → [superadmin-view-as](docs/decisions/superadmin-view-as.md)
 - **GLOBAL SEARCH ADDS NO REACH.** Every provider reads what the caller's role
   already reads through an existing route, under the same tier constant and the
   same tenancy — and offers nothing the role cannot open.
@@ -446,11 +465,53 @@ governs. Violating one of these is never a local change.
   run against production reporting `expected 52, got 50` was a shared-baseline
   artifact rather than a defect — NO LONGER APPLIES and has been removed. A
   shape mismatch reported today is a real mismatch: investigate it.
-- **[production Vercel, 2026-08-09]** `STUDENT_QR_SECRET` set on BOTH
-  `edura-www` and `edura-superadmin` with the SAME value. `APP_BASE_URL` pinned
-  to `https://app.edura.eg`, **which has no DNS record yet** — links emitted
-  after a deploy point at a host that does not resolve (Ali's call; no real users
-  yet). Takes effect only on REDEPLOY, since Vercel bakes env at build time.
+- **[production Vercel, 2026-08-19] `STUDENT_QR_SECRET` IS GONE.** The
+  2026-08-09 entry recorded it as set on BOTH `edura-www` and `edura-superadmin`
+  with the SAME value. Those projects were deleted (see the entry below), and
+  the value lived ONLY on the dashboard — it is not in `.env.production` and not
+  in the repo. It must be generated fresh and set, identically, on the ERP and
+  superadmin projects. **[2026-08-19] A fresh one has now been generated and
+  written to `.env.production`**, and carried identically into `.env-erp` and
+  `.env-superadmin`. `qrSecret()`
+  (`packages/server-core/src/services/students/student-qr.ts:91`) THROWS in
+  production when it is unset; there is deliberately no fallback. Takes effect
+  only on REDEPLOY, since Vercel bakes env at build time.
+- **[production, 2026-08-19] THE VERCEL PROJECTS WERE DELETED — NOTHING IS
+  DEPLOYED.** All three hosts return `x-vercel-error: DEPLOYMENT_NOT_FOUND`
+  (measured 2026-08-19). Ali is recreating them; the full rebuild sheet —
+  root dirs, the `turbo run build` exit-127 trap, and the per-project env
+  matrix — is [vercel-project-recreate](docs/runbooks/vercel-project-recreate.md).
+  Two independent breakages recorded there, neither caused by the deletion:
+  mail was unconfigured (`SMTP_HOST=REPLACE`) with `INVITE_CHANNELS=email` and
+  `WHATSAPP_MODE=mock`, so NO invite could be delivered at all — Gmail SMTP has
+  since been wired in `.env.production` and only `SMTP_PASS` is outstanding
+  (an app password only Ali can generate); and `apps/www` needs
+  `NEXT_PUBLIC_APP_ORIGIN` or every login/register CTA on the marketing site
+  falls back to `http://localhost:3002`.
+  The entry below is the hostname policy, which still holds:
+- **[production, CORRECTED 2026-08-19] THE INTENDED HOSTS ARE THE VERCEL ONES.**
+  `edura-erp.vercel.app`, `edura-www.vercel.app`, `edura-superadmin.vercel.app`.
+  **`app.edura.eg` is NOT in use** — it has no DNS record and Ali does not use
+  it. Do not put it in code, config or docs. The 2026-08-09 entry recorded
+  `APP_BASE_URL` as pinned to `app.edura.eg`; that value emits links to a host
+  that does not resolve, and the local `.env.production` has been corrected to
+  `https://edura-erp.vercel.app` for all four of `NEXTAUTH_URL`, `APP_BASE_URL`,
+  `APP_ORIGIN` and `APP_INTERNAL_URL`.
+  **`.env.production` is gitignored and local-only** — production reads the
+  Vercel dashboard, so the dashboard values still need changing there by hand;
+  editing the file changes nothing a user sees.
+  A claim/invite link belongs to the **ERP** host, not `edura-www`: it lands a
+  student inside the app. `NEXTAUTH_URL` in that shared file is the ERP's —
+  apps/erp, apps/superadmin and apps/realtime all symlink one `.env.production`,
+  and superadmin signs in at its own host, so it must override it per project.
+- **[2026-08-19] A DUPLICATE `appBaseUrl()` MADE `APP_BASE_URL` A NO-OP ON THE
+  INVITE PATH.** `services/invites/invite-token.ts` defined its own copy that
+  read `NEXTAUTH_URL` and fell back to `http://localhost:3002`, never consulting
+  `APP_BASE_URL` — so walk-in claim links, guardian-verification links and
+  welcome emails all ignored it. `http/app-url.ts` documents that this function
+  "lived duplicated in five places"; this was the copy that survived. It now
+  re-exports the canonical resolver. Anything that reasons about public link
+  hosts before 2026-08-19 was reasoning about a value that did not apply.
 - **[production Vercel, 2026-08-10]** `edura-showcase` live at
   `https://edura-showcase.vercel.app`. Vercel auto-detects Turbo and runs
   `turbo run build`, which dies on this Bun-only repo (`env: 'node'` not found,
@@ -497,8 +558,11 @@ point, not the changelog.
 | [typescript-7-next-16](docs/decisions/typescript-7-next-16.md) | TypeScript 7 + Next.js 16.3 upgrade (two TypeScripts on purpose) |
 | [portal-design-pass](docs/decisions/portal-design-pass.md) | Defect pass across student/parent/teacher/center portals |
 | [lesson-times-12h](docs/decisions/lesson-times-12h.md) | 12-hour clock with the day period in words |
+| [superadmin-view-as](docs/decisions/superadmin-view-as.md) | The back office reaches every ERP role via a signed handoff; the money qualifier |
 | [parent-portal-dedup](docs/decisions/parent-portal-dedup.md) | Parent portal de-duplication (no capability removed) |
+| [self-service-corrections](docs/decisions/self-service-corrections.md) | Login email, guardian contact and academic answers stop being write-once |
 | [student-portal-dedup](docs/decisions/student-portal-dedup.md) | Student portal de-duplication (no capability removed) |
+| [server-side-portal-gate](docs/decisions/server-side-portal-gate.md) | The portal/onboarding gate moved from the browser to the server |
 
 ## Stitch MCP design workflow (binding rules, added 2026-07-20)
 
@@ -625,6 +689,20 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
   (deliberately NOT the app secret, whose value differs per app). Rotating it
   invalidates every printed card at once; reissue is per-student and is the
   intended tool.
+
+- `VIEW_AS_SECRET` — signs the back-office "view as" handoff token. Required in
+  prod, no fallback (same posture as `STUDENT_QR_SECRET`, and the same hazard:
+  a handoff signed with a guessable value is a forgeable session). **Both apps
+  must be given the SAME value** — apps/superadmin signs and apps/erp verifies,
+  so a mismatch is indistinguishable from a forgery. Rotating it invalidates
+  only tokens in flight, which live 60 seconds, so rotation is cheap.
+- `ERP_BASE_URL` — on **apps/superadmin only**: where a handoff is posted. Its
+  own variable because the deploy runbook overrides `APP_BASE_URL` on that
+  project with its own host, so every generic resolver there would answer "the
+  back office" and send a live credential to a route that does not exist in it.
+  Throws in production rather than misdirecting.
+- `SUPERADMIN_BASE_URL` — on **apps/erp only**: where "end view-as" returns the
+  browser. Falls back to localhost in development.
 
 (Recommended once M3 lands: `REDIS_URL` for a shared rate-limit store across
 instances, `TRUSTED_PROXY_HOPS` matching the deploy's proxy depth.)

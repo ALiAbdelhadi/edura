@@ -33,33 +33,45 @@ count=$(python3 -c "import json;print(len(json.load(open('$JSON'))['cuts']))")
 [ "$count" -gt 0 ] || { echo "clips.json has no cuts."; exit 1; }
 
 for i in $(seq 0 $((count - 1))); do
-  read -r name file start dur w h <<<"$(python3 -c "
+  read -r name file start dur w h poster_at <<<"$(python3 -c "
 import json
 c = json.load(open('$JSON'))['cuts'][$i]
-print(c['name'], c['file'], c['start'], c['duration'], c['width'], c['height'])
+# Default: one second before the end. A clip that loops back to its opening
+# view overrides this, or its poster shows the blank state it started on.
+pa = c.get('posterAt')
+if pa is None:
+    pa = max(0.0, c['duration'] - 1.0)
+print(c['name'], c['file'], c['start'], c['duration'], c['width'], c['height'], pa)
 ")"
 
   src="$RAW/$file"
   [ -f "$src" ] || { echo "  $name: raw file missing ($file), skipped"; continue; }
 
-  # Even dimensions are required by H.264. Phone clips keep their width;
-  # desktop clips drop to 1280 wide, which is the size the plate displays at.
-  if [ "$w" -gt 1000 ]; then scale="1280:-2"; else scale="$w:-2"; fi
+  # NATIVE WIDTH, no downscale. Desktop clips used to drop to 1280, which was
+  # the same mistake the stills made: the plate is ~650 CSS px wide and a retina
+  # screen wants ~1300 device px, so 1280 was already at the edge and any
+  # further loss showed on 13px Arabic labels.
+  #
+  # 1440x900 is the CEILING for a clip, and it is a real one: Playwright has no
+  # deviceScaleFactor for video, and enlarging the viewport to get more pixels
+  # would change the CSS layout rather than its resolution — a different, wider
+  # screen, not a sharper one. So the stills are 4K and the clips are not, and
+  # that is a limit of the recorder, not a choice.
+  scale="$w:-2"
 
   ffmpeg -y -loglevel error -ss "$start" -t "$dur" -i "$src" \
     -vf "scale=$scale,fps=25" -an \
-    -c:v libx264 -profile:v main -pix_fmt yuv420p -crf 30 -preset slow \
+    -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 24 -preset slow \
     -movflags +faststart "$OUT/$name.mp4"
 
   ffmpeg -y -loglevel error -ss "$start" -t "$dur" -i "$src" \
     -vf "scale=$scale,fps=25" -an \
-    -c:v libvpx-vp9 -crf 38 -b:v 0 -deadline good -cpu-used 2 \
+    -c:v libvpx-vp9 -crf 30 -b:v 0 -deadline good -cpu-used 2 \
     "$OUT/$name.webm"
 
-  # Poster from near the end — the state the clip resolves to.
-  poster_at=$(python3 -c "print(max(0.0, $dur - 1.0))")
+  # Poster from the frame that carries the outcome (see clips.spec.ts).
   ffmpeg -y -loglevel error -ss "$poster_at" -i "$OUT/$name.mp4" -frames:v 1 "$RAW/$name-poster.png"
-  cwebp -q 82 -quiet "$RAW/$name-poster.png" -o "$OUT/$name-poster.webp"
+  cwebp -q 92 -sharp_yuv -quiet "$RAW/$name-poster.png" -o "$OUT/$name-poster.webp"
 
   mp4k=$(( $(stat -f%z "$OUT/$name.mp4") / 1024 ))
   webmk=$(( $(stat -f%z "$OUT/$name.webm") / 1024 ))

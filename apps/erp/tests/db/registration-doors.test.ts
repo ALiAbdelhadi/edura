@@ -23,8 +23,7 @@
 // Nothing is mocked: the real register services, the real zod route schemas,
 // and the real better-auth /sign-in/email pipeline (before-hooks + credential
 // verify + session issuance) all run, via the shared auth-door helper.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { passwordSchema, phoneSchema } from "@repo/server-core/validation/common";
 import {
@@ -36,8 +35,7 @@ import {
 import { signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!Reg1";
 

@@ -91,7 +91,7 @@ export async function setGuardianContact(
 
       const profile = await tx.studentProfile.findFirst({
         where: { userId: studentUserId },
-        select: { id: true, guardianEmail: true },
+        select: { id: true, guardianEmail: true, guardianContactDueAt: true },
       });
       if (!profile) throw new NotFoundError("Student profile not found");
 
@@ -114,7 +114,19 @@ export async function setGuardianContact(
             : {}),
           ...(guardianPhone ? { guardianPhone } : {}),
           // No email yet ⇒ start the clock if it is not already running.
-          ...(guardianEmail ? {} : { guardianContactDueAt: guardianContactDueAt() }),
+          //
+          // Both halves of that sentence are now enforced. This used to test
+          // only the INCOMING email, which was harmless while the sole caller
+          // was the "we need a guardian email" banner — it never sent a phone
+          // on its own. The settings card does: a family that already has an
+          // email on file and corrects the phone beside it would otherwise
+          // start (or silently push out) an escalation deadline for a
+          // requirement they had already met. And "if it is not already
+          // running" means exactly that — re-stamping a live clock hands back
+          // time the deadline had already spent.
+          ...(guardianEmail || profile.guardianEmail || profile.guardianContactDueAt
+            ? {}
+            : { guardianContactDueAt: guardianContactDueAt() }),
         },
       });
 

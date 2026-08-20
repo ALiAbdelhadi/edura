@@ -316,7 +316,7 @@ export function EmuPay({
                       border: "1px solid var(--indigo)",
                     }}
                   >
-                    {t("screens.payLesson")} · <Money piasters={EMU_LESSON.pricePerSession} tone="ink" />
+                    {t("screens.payLesson")} · <Money piasters={EMU_LESSON.pricePerSession} tone="inherit" weight={600} />
                   </span>
                 </EmuTarget>
               )}

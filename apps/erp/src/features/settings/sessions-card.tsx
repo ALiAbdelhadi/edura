@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LogOut, MonitorSmartphone, Smartphone, Monitor } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
@@ -79,6 +79,9 @@ export function deviceLabel(ua: string | null | undefined, fallback: string): {
   return { label: [browser, os].filter(Boolean).join(" · "), mobile };
 }
 
+/** How many devices show before the list needs an explicit "show all". */
+const COLLAPSED_COUNT = 6;
+
 /**
  * "الأجهزة والجلسات" — lists this account's live auth_sessions rows and lets
  * the user revoke one device or every other device. Shown to ALL roles.
@@ -90,6 +93,7 @@ export function SessionsCard() {
   const [currentToken, setCurrentToken] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -140,6 +144,23 @@ export function SessionsCard() {
 
   const others = (sessions ?? []).filter((s) => s.token !== currentToken);
 
+  // This device first, then most-recently-active — so the one row a reader
+  // actually cares about (am I signed in elsewhere?) never scrolls past a
+  // long, unsorted dump of old sessions.
+  const sortedSessions = useMemo(() => {
+    if (!sessions) return [];
+    return [...sessions].sort((a, b) => {
+      if (a.token === currentToken) return -1;
+      if (b.token === currentToken) return 1;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [sessions, currentToken]);
+
+  const visibleSessions = expanded
+    ? sortedSessions
+    : sortedSessions.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = sortedSessions.length - visibleSessions.length;
+
   return (
     <section className="flex flex-col gap-3">
       <SectionHead title={t("security.sessionsTitle")} />
@@ -153,7 +174,7 @@ export function SessionsCard() {
           </div>
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-rule">
-            {sessions.map((s) => {
+            {visibleSessions.map((s) => {
               const isCurrent = s.token === currentToken;
               const { label, mobile } = deviceLabel(
                 s.userAgent,
@@ -208,6 +229,20 @@ export function SessionsCard() {
             })}
           </ul>
         )}
+        {hiddenCount > 0 || expanded ? (
+          <div className={others.length > 0 ? "mt-2" : "mt-2 border-t border-rule pt-3"}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded
+                ? t("security.sessionsShowLess")
+                : t("security.sessionsShowAll", { count: sortedSessions.length })}
+            </Button>
+          </div>
+        ) : null}
         {others.length > 0 ? (
           <div className="mt-2 border-t border-rule pt-3">
             <Button

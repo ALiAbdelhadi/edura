@@ -1,4 +1,5 @@
 import { platformDb } from "@/lib/db/scope";
+import { narrowQuery } from "@repo/database/search-text";
 import type { Prisma } from "@repo/database";
 
 const TIME_BUCKETS: Record<string, { start: string; end: string }> = {
@@ -92,11 +93,35 @@ export async function searchCourses(
       if (bucket) where.startTime = { gte: bucket.start, lt: bucket.end };
     }
 
+    /* THE PUBLIC LIST FILTERS NARROW ONLY — deliberately half the two-stage
+     * match the search kernel runs.
+     *
+     * `%احمد%` matched none of the rows stored «أحمد», so these boxes returned
+     * nothing for a name typed the way Egyptians type it. `literalFragments`
+     * fixes that by asking only for the pieces that can be compared byte-wise.
+     *
+     * What is NOT done here is the JS decide pass — because THIS query is
+     * paginated (`skip`/`take`), and a filter applied after the page is cut
+     * would return a short page and a wrong total. The result is therefore a
+     * SUPERSET: a search for «احمد» also shows «محمد». For a browse-and-filter
+     * screen that is the right trade — a few extra rows are a nuisance, an
+     * empty list is a dead end. An exact, paginable version needs the match to
+     * happen inside Postgres (an IMMUTABLE normalize function plus expression
+     * indexes), which is a migration and needs its own approved plan. */
+    // `AND`, not `OR`: each clause is already an OR over the three columns, and
+    // they must be ANDed so a second typed word NARROWS the list. The centre arm
+    // added further down merges into the same `AND`, so this survives it.
     if (filters.q) {
-      where.OR = [
-        { title: { contains: filters.q, mode: "insensitive" } },
-        { subject: { contains: filters.q, mode: "insensitive" } },
-        { description: { contains: filters.q, mode: "insensitive" } },
+      // APPENDED, never assigned: `studentScope` above already put the grade and
+      // track arms in `where.AND`, and overwriting them would have shown a
+      // student every year's groups the moment they typed in the box.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...narrowQuery(filters.q, (f) => [
+          { title: { contains: f, mode: "insensitive" as const } },
+          { subject: { contains: f, mode: "insensitive" as const } },
+          { description: { contains: f, mode: "insensitive" as const } },
+        ]),
       ];
     }
 
@@ -269,11 +294,13 @@ export async function searchCenters(filters: CenterSearchInput) {
       where.lng = { gte: box.lngMin, lte: box.lngMax };
     }
 
+    // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q) {
-      where.OR = [
-        { name: { contains: filters.q, mode: "insensitive" } },
-        { description: { contains: filters.q, mode: "insensitive" } },
-      ];
+      where.AND = narrowQuery(filters.q, (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+        { description: { contains: f, mode: "insensitive" as const } },
+        { area: { contains: f, mode: "insensitive" as const } },
+      ]);
     }
 
     const centers = await tx.center.findMany({
@@ -321,8 +348,11 @@ export async function searchTeachers(filters: TeacherSearchInput) {
       status: "active",
       role: "teacher",
     };
+    // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q)
-      userFilter.name = { contains: filters.q, mode: "insensitive" };
+      userFilter.AND = narrowQuery(filters.q, (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+      ]);
 
     const where: Prisma.TeacherProfileWhereInput = { user: userFilter };
     if (filters.subject) where.subjects = { has: filters.subject };

@@ -259,3 +259,115 @@ describe("marketing nav table", () => {
     expect(notIndexed).toEqual([]);
   });
 });
+
+/**
+ * COVERAGE, PART TWO — the keys that reach `t()` through a LOOKUP TABLE.
+ *
+ * WHY THIS EXISTS, and it is not hypothetical: a nav entry rendered in the
+ * sidebar as the raw string `nav.subscriptions`, because the entry was added to
+ * the label table and the message was not.
+ *
+ * That one WAS caught by the coverage block above — but only by luck. These
+ * keys are not written at a call site; they live as VALUES in a table:
+ *
+ *     const NAV_KEY = { Subscriptions: "nav.subscriptions", … }   // ← here
+ *     …
+ *     t(NAV_KEY[label])                                           // ← not here
+ *
+ * and at the call site the argument is a variable, i.e. exactly the "dynamic,
+ * not checkable" case the block above counts and passes over. It saw that key
+ * only because one screen happened ALSO to hardcode `t("nav.subscriptions")`
+ * for its page title. Take that coincidence away and nothing was watching.
+ *
+ * Measured when this was written: of the shell's two tables, **50 keys** (41
+ * nav/navGroup labels and group headings, 9 search-result headings) had no such
+ * second reference anywhere in the app — reachable ONLY through a table, and so
+ * entirely unguarded. This closes that.
+ *
+ * It scans for the OBJECT-PROPERTY form — `name: "namespace.key"` — anywhere in
+ * the app rather than naming the two tables in the shell, so a third table
+ * added tomorrow is covered without anyone remembering to come back here.
+ * Comments are stripped first: this file's own prose contains key-shaped
+ * strings (a deliberately misspelled `marketing.nav.pricng` lives in a comment
+ * explaining that very hazard) and matching those would be a permanent, useless
+ * red.
+ */
+describe("i18n coverage — keys held in lookup tables", () => {
+  const SRC = path.join(__dirname, "..", "..", "src");
+
+  function sourceFiles(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) sourceFiles(full, out);
+      else if (/\.tsx?$/.test(entry.name) && !/\.d\.ts$/.test(entry.name)) out.push(full);
+    }
+    return out;
+  }
+
+  function lookup(dict: unknown, dotted: string): unknown {
+    return dotted
+      .split(".")
+      .reduce<unknown>(
+        (node, part) =>
+          node !== null && typeof node === "object"
+            ? (node as Record<string, unknown>)[part]
+            : undefined,
+        dict,
+      );
+  }
+
+  /** Comments only — a strip can lose a candidate, never invent one. */
+  const stripComments = (src: string) =>
+    src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+
+  /**
+   * Property names whose dotted values are NOT translation keys.
+   *
+   * `action` is the audit log's verb (`action: "assistant.invited"`), which
+   * shares both the dotted shape and — by coincidence — a first segment with a
+   * real message namespace. It is the one collision in the app today, and
+   * naming it here is honest in a way that narrowing the pattern until the
+   * false positive vanished would not be.
+   */
+  const NOT_MESSAGE_KEYS = new Set(["action"]);
+
+  const PROPERTY =
+    /(?:^|[{,\n])\s*(?:"([^"]+)"|'([^']+)'|\[[^\]]+\]|([A-Za-z_$][\w$]*))\s*:\s*"([A-Za-z_$][\w$]*(?:\.[\w$]+)+)"/g;
+
+  const namespaces = new Set(Object.keys(getMessages("en") as Record<string, unknown>));
+
+  const held = new Map<string, Set<string>>();
+  for (const file of sourceFiles(SRC)) {
+    const src = stripComments(readFileSync(file, "utf8"));
+    const rel = path.relative(SRC, file);
+    PROPERTY.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = PROPERTY.exec(src))) {
+      const name = m[1] ?? m[2] ?? m[3] ?? "";
+      const key = m[4]!;
+      if (NOT_MESSAGE_KEYS.has(name)) continue;
+      // A dotted string is only a candidate if it actually starts at a
+      // namespace the app serves; everything else is some other kind of id.
+      if (!namespaces.has(key.split(".")[0]!)) continue;
+      (held.get(key) ?? held.set(key, new Set()).get(key)!).add(rel);
+    }
+  }
+
+  it("finds table-held keys to check (guards against the pattern matching nothing)", () => {
+    // Same sentinel as the block above, for the same reason: a refactor of how
+    // these tables are written must fail loudly, not quietly check zero keys.
+    expect(held.size).toBeGreaterThan(60);
+  });
+
+  it.each(routing.locales)("every table-held key resolves in %s", (locale) => {
+    const dict = getMessages(locale);
+    const missing = [...held.entries()]
+      .filter(([key]) => typeof lookup(dict, key) !== "string")
+      .map(([key, files]) => `${key}  (${[...files].sort().join(", ")})`);
+
+    expect(missing.sort()).toEqual([]);
+  });
+});

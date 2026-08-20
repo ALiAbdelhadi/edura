@@ -11,19 +11,7 @@ import { Textarea } from "@repo/ui/components/textarea";
 import { Check, Inbox, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
-import {
-  Badge,
-  ClearanceNotice,
-  DataTable,
-  EmptyState,
-  Eyebrow,
-  Num,
-  PageHead,
-  RowIdentity,
-  Sheet,
-  TwoStepCommit,
-  type Column,
-} from "./ledger";
+import { Badge, ClearanceNotice, DataTable, DateText, EmptyState, Eyebrow, PageHead, RowIdentity, Sheet, TwoStepCommit, type Column } from "./ledger";
 
 type PopulatedRef = { _id?: string; id?: string; name?: string; title?: string };
 
@@ -163,9 +151,9 @@ export function AdminEnrollmentRequestsScreen() {
       id: "submitted",
       header: t("adminManage.enroll.colSubmitted"),
       cell: (r) => (
-        <Num className="text-xs text-[var(--ink-3)]">
+        <DateText className="text-xs text-[var(--ink-3)]">
           {formatDate(r.submittedAt, { day: "numeric", month: "short", year: "numeric" })}
-        </Num>
+        </DateText>
       ),
     },
     {
@@ -228,13 +216,13 @@ export function AdminEnrollmentRequestsScreen() {
                     <span className="text-xs text-[var(--ink-2)]">
                       {t("adminManage.enroll.requestedOn")}
                     </span>
-                    <Num className="text-[13px] text-[var(--ink)]">
+                    <DateText className="text-[13px] text-[var(--ink)]">
                       {formatDate(selected.submittedAt, {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
-                    </Num>
+                    </DateText>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-xs text-[var(--ink-2)]">

@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "pretest:db": "tsx --env-file=.env.test ../../packages/database/scripts/db-guard.ts test",
     "test:db": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db",
+    "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude c02-payout-generation",
     "test:db:parity": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only center-people,center-academic,center-operations,center-money,center-platform",
     "test:db:list": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --list",
     "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",

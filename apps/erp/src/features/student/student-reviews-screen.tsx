@@ -27,17 +27,14 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import {
+  Hairline,
   InitialsTile,
   LedgerButton,
   LedgerEmpty,
-  LedgerTable,
   Num,
   PageTitle,
   SectionHeading,
   Sheet,
-  Td,
-  Th,
-  Tr,
 } from "@/features/student/ledger";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
@@ -294,69 +291,59 @@ export function StudentReviewsScreen() {
           ) : reviews.length === 0 ? (
             <LedgerEmpty title={t("studentReviews.noReviewsYet")} />
           ) : (
-            <LedgerTable
-              head={
-                <>
-                  <Th>{t("roles.teacher")}</Th>
-                  <Th>{t("studentReviews.rating")}</Th>
-                  <Th>{t("studentReviews.comment")}</Th>
-                  <Th>{t("studentReviews.date")}</Th>
-                  <Th align="end">
-                    <span className="sr-only">{t("studentReviews.actions")}</span>
-                  </Th>
-                </>
-              }
-            >
-              {reviews.map((review) => {
+            /* ROWS, NOT A TABLE. Five columns — teacher, stars, the comment,
+               the date and an edit button — is a sideways scroll at 375px, and
+               one of those columns is prose. The list is usually two or three
+               entries long, which is a list. */
+            <ul>
+              {reviews.map((review, i) => {
                 const teacher = review.teacherId;
                 return (
-                  <Tr key={review.id || review._id}>
-                    <Td>
+                  <li key={review.id || review._id}>
+                    {i > 0 ? <Hairline /> : null}
+                    <div className="flex flex-col gap-2 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <InitialsTile
-                          name={teacher?.name || "?"}
-                          size={28}
-                          tone="indigo"
-                        />
-                        <span className="font-medium">
-                          {teacher?.name || t("studentReviews.unknown")}
-                        </span>
+                        <InitialsTile name={teacher?.name || "?"} size={30} tone="indigo" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium" style={{ color: "var(--ink)" }}>
+                            {teacher?.name || t("studentReviews.unknown")}
+                          </p>
+                          <div className="mt-0.5 flex items-center gap-2">
+                            <StarRating
+                              value={review.rating}
+                              label={t("studentReviews.ratingOutOf", { rating: review.rating })}
+                            />
+                            {/* Not in <Num>: `formatDate` resolves an Arabic
+                                month to a WORD, and that isolate is for
+                                figures — it laid the day out after the month. */}
+                            <span className="text-xs" style={{ color: "var(--ink-3)" }}>
+                              {review.createdAt ? formatDate(review.createdAt) : "—"}
+                            </span>
+                          </div>
+                        </div>
+                        <LedgerButton
+                          onClick={() => handleOpenEdit(review)}
+                          aria-label={`${t("actions.edit")} — ${teacher?.name ?? ""}`}
+                        >
+                          <Pencil className="size-4" aria-hidden />
+                          {t("actions.edit")}
+                        </LedgerButton>
                       </div>
-                    </Td>
-                    <Td>
-                      <StarRating
-                        value={review.rating}
-                        label={t("studentReviews.ratingOutOf", { rating: review.rating })}
-                      />
-                    </Td>
-                    {/* The one cell allowed to wrap: a comment is prose, and
-                        truncating what the student themself wrote is the one
-                        piece of text on this page they cannot re-read elsewhere. */}
-                    <Td className="max-w-[36ch] whitespace-normal">
-                      {review.text || (
-                        <span style={{ color: "var(--ink-3)" }}>
-                          {t("studentReviews.noComment")}
-                        </span>
-                      )}
-                    </Td>
-                    <Td>
-                      <Num style={{ color: "var(--ink-2)", fontSize: 12 }}>
-                        {review.createdAt ? formatDate(review.createdAt) : "—"}
-                      </Num>
-                    </Td>
-                    <Td align="end">
-                      <LedgerButton
-                        onClick={() => handleOpenEdit(review)}
-                        aria-label={`${t("actions.edit")} — ${teacher?.name ?? ""}`}
+
+                      {/* The comment gets its own line and is never truncated:
+                          it is the one piece of text on this page the student
+                          wrote themself and cannot re-read anywhere else. */}
+                      <p
+                        className="ps-[38px] text-sm leading-snug"
+                        style={{ color: review.text ? "var(--ink-2)" : "var(--ink-3)" }}
                       >
-                        <Pencil className="size-4" aria-hidden />
-                        {t("actions.edit")}
-                      </LedgerButton>
-                    </Td>
-                  </Tr>
+                        {review.text || t("studentReviews.noComment")}
+                      </p>
+                    </div>
+                  </li>
                 );
               })}
-            </LedgerTable>
+            </ul>
           )}
         </div>
       </Sheet>

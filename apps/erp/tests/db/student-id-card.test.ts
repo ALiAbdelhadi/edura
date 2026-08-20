@@ -23,8 +23,7 @@
 //   6. THE DATABASE HOLDS THE SHAPE — the CHECK constraint rejects a code with
 //      a character outside the alphabet and a code whose check character does
 //      not agree, so no writer anywhere can store one the counter would fail.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
   PENDING_SYSTEM_LETTER,
@@ -45,8 +44,7 @@ import {
 import { lookupStudents } from "@repo/server-core/services/attendance/checkin";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

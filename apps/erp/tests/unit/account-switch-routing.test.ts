@@ -8,8 +8,12 @@
 // guard sent them back to /dashboard, and it never terminated.
 //
 // The fix makes the server session the only routing authority and gives both
-// sides ONE map (`portalForRole`). The invariants below are what keep the loop
-// structurally impossible, so they are asserted rather than eyeballed:
+// sides ONE map (`portalForRole`). Both sides now also run in the same place:
+// `/dashboard` and every portal layout are server components calling
+// `resolvePortalEntry` / `requirePortal`, so the decision is taken once, before
+// any HTML is streamed, instead of twice in the browser after it. The
+// invariants below are what keep the loop structurally impossible, so they are
+// asserted rather than eyeballed:
 //   1. the map and the guards can never drift apart (read from the real files);
 //   2. a rejected identity is redirected to a portal that ACCEPTS it, so a
 //      mismatch always terminates in one hop instead of ping-ponging.
@@ -23,9 +27,9 @@ const dashboardDir = fileURLToPath(
 );
 
 /**
- * The guard mapping AS DEPLOYED: every `<RoleGuard allowedRole="X">` paired
- * with the portal folder whose layout declares it. Read from the source rather
- * than restated, so adding a portal without wiring its role fails here.
+ * The guard mapping AS DEPLOYED: every `requirePortal("X", …)` paired with the
+ * portal folder whose layout declares it. Read from the source rather than
+ * restated, so adding a portal without wiring its role fails here.
  */
 function guardsFromSource(): Record<string, string> {
   const found: Record<string, string> = {};
@@ -37,7 +41,7 @@ function guardsFromSource(): Record<string, string> {
     } catch {
       continue; // a portal folder without its own layout guards elsewhere
     }
-    const m = layout.match(/<RoleGuard\s+allowedRole="([a-z_]+)"/);
+    const m = layout.match(/requirePortal\(\s*"([a-z_]+)"/);
     if (m) found[m[1]] = `/dashboard/${entry.name}`;
   }
   return found;
@@ -46,13 +50,13 @@ function guardsFromSource(): Record<string, string> {
 describe("account-switch routing", () => {
   const guards = guardsFromSource();
 
-  it("finds a RoleGuard for every hosted portal", () => {
+  it("finds a server gate for every hosted portal", () => {
     // Guards against the test silently passing because the regex stopped
     // matching after a refactor.
     expect(Object.keys(guards).length).toBe(Object.keys(PORTAL_BY_ROLE).length);
   });
 
-  it("PORTAL_BY_ROLE agrees with every deployed RoleGuard (no drift)", () => {
+  it("PORTAL_BY_ROLE agrees with every deployed server gate (no drift)", () => {
     // This is the disagreement that produced the loop. If a portal's guard and
     // the router's map ever name different roles, it must fail HERE.
     expect(guards).toEqual(PORTAL_BY_ROLE);

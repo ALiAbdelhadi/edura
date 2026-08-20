@@ -57,7 +57,11 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn("overflow-hidden p-0", className)}
+        // An explicit width, rather than inheriting the Dialog's. A palette
+        // draws grouped results with a title, a subtitle and a trailing code on
+        // one row; the 384px it used to inherit truncated all three, and the
+        // 448px it would inherit now is a form's width, not a search's.
+        className={cn("overflow-hidden p-0 sm:max-w-xl", className)}
         showCloseButton={showCloseButton}
       >
         <Command

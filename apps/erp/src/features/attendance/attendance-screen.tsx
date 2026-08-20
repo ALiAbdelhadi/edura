@@ -8,6 +8,7 @@
 // one a parent is scanning for). Three states, three tokens, no fourth hue —
 // and a fourth TONE, `none`, which is not a status at all but the absence of
 // one. See `attendanceDayCells` for why that distinction is load-bearing.
+import type { ReactNode } from "react";
 import { useCustom } from "@refinedev/core";
 import { Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -27,7 +28,28 @@ type Status = "present" | "absent" | "late";
 
 const DAYS = 28;
 
-export function AttendanceScreen({ studentId }: { studentId?: string } = {}) {
+export function AttendanceScreen({
+  studentId,
+  recent,
+}: {
+  studentId?: string;
+  /**
+   * A slot between the three figures and the month pattern.
+   *
+   * WHY A SLOT AND NOT A LIST BUILT IN HERE: naming a lesson needs course
+   * titles, and `me/attendance` returns `courseId` only. The student portal can
+   * resolve those from the `enrollments` it already reads; a PARENT cannot —
+   * their own enrollments are not their child's — so a list built into this
+   * shared screen would print the right dates against the wrong subjects for
+   * one of its two callers. The caller that can name the courses passes the
+   * list; the one that cannot passes nothing and loses nothing.
+   *
+   * It sits ABOVE the heatmap deliberately. "حضرت كام حصة" is answered by the
+   * three figures and then by named lessons; the 28-day grid is a PATTERN, and
+   * a pattern is what you look at second.
+   */
+  recent?: ReactNode;
+} = {}) {
   const t = useTranslations();
   const { locale, formatDate } = useFormatters();
   const url = studentId ? `me/attendance?studentId=${studentId}` : "me/attendance";
@@ -90,6 +112,8 @@ export function AttendanceScreen({ studentId }: { studentId?: string } = {}) {
           reason={outOf}
         />
       </div>
+
+      {recent}
 
       <section className="flex flex-col gap-3">
         <SectionHead

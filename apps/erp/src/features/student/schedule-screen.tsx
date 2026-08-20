@@ -2,9 +2,11 @@
 
 import React from "react";
 import { useList } from "@refinedev/core";
+import { ChevronRight, MapPin, User } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { asKey } from "@/lib/i18n/keys";
+import { DirectionalIcon } from "@repo/ui/components/directional-icon";
+import { cn } from "@repo/ui/lib/utils";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import {
   Dialog,
@@ -16,18 +18,21 @@ import { DescriptionList } from "@/components/kit/description-list";
 import { PageSpinner } from "@/components/kit/spinner";
 import {
   Chip,
-  Eyebrow,
+  Hairline,
   InitialsTile,
+  LedgerButton,
   LedgerEmpty,
-  LedgerTable,
   Num,
   PageTitle,
   SectionHeading,
   Sheet,
-  Td,
-  Th,
-  Tr,
 } from "@/features/student/ledger";
+import {
+  isHappeningNow,
+  sessionsOnDay,
+  todayKey,
+  weekDayKeys,
+} from "@/features/student/session-time";
 
 type Session = {
   id?: string;
@@ -42,51 +47,75 @@ type Session = {
   teacherName?: string;
   roomName?: string;
 };
-type Enrollment = {
-  id?: string;
-  _id?: string;
-  courseName?: string;
-  title?: string;
-  // `number[]`, not `string[]`: the column is `Int[]` and the route types it
-  // `number[]`. The wrong local type is what let `.join(" / ")` look reasonable
-  // — day INDEXES rendering as bare digits with nothing marking them as days.
-  schedulePattern?: { daysOfWeek?: number[] };
-};
 
-const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const dayKeys = ["daySun", "dayMon", "dayTue", "dayWed", "dayThu", "dayFri", "daySat"];
-
+/**
+ * مواعيدي — the week, by date.
+ *
+ * ── THE DAY PICKER WAS MATCHING A WEEKDAY NAME ────────────────────────────
+ *
+ * It held an index 0–6 and filtered with
+ * `dayNames[new Date(s.date).getDay()] === selectedDayName`, which matches
+ * EVERY session ever held on that weekday. Picking "الثلاثاء" listed a lesson
+ * from three weeks ago beside next Tuesday's, in one undated list, and the
+ * chips carried no dates to reveal it. The strip is now seven real DAYS with
+ * their numbers, arrows to the week either side, and a dot on the days that
+ * have something. `sessionsOnDay` matches the calendar day.
+ *
+ * The week opens on Sunday because the attendance heatmap already draws it that
+ * way; two calendars in one portal must not disagree about where a week starts.
+ *
+ * ── ROWS, NOT A FOUR-COLUMN TABLE ─────────────────────────────────────────
+ *
+ * Each row already stacked start over end and course over teacher, so it was a
+ * card pretending to be a table — and at 375px the room column had nothing left
+ * to sit in. A lesson is now one row: when, what, with whom, where.
+ *
+ * ── TWO SHEETS WENT ───────────────────────────────────────────────────────
+ *
+ * 1. The four counters (total / completed / upcoming / cancelled). No student
+ *    asks how many sessions exist in total; "completed" is what /attendance
+ *    owns and states with a denominator, and a cancellation is a notification,
+ *    not a statistic.
+ * 2. "الحصص المسجّلة" — the enrolled-course list with its weekday pattern. It is
+ *    now covered twice over: اشتراكاتي lists the courses WITH what was paid and
+ *    when the cover ends, and a Subjects row expands to the same course showing
+ *    its days and its hours. Neither the list nor the pattern was lost; the
+ *    third copy was.
+ */
 export function ScheduleScreen() {
   const t = useTranslations();
-  const { formatDate, formatWeekdayShort, locale } = useFormatters();
-  const [dayIndex, setDayIndex] = React.useState(new Date().getDay());
-  const [selectedSession, setSelectedSession] = React.useState<Session | null>(null);
-  const dayLabel = (i: number) => t(asKey(`studentClass.${dayKeys[i]}`));
+  const { formatDate, formatNumber, locale } = useFormatters();
 
-  const { query: coursesQuery, result: coursesResult } = useList({
-    resource: "enrollments",
-    filters: [{ field: "studentId", operator: "eq", value: "me" }],
-  });
+  const [weekOffset, setWeekOffset] = React.useState(0);
+  const [selectedKey, setSelectedKey] = React.useState(() => todayKey());
+  const [selectedSession, setSelectedSession] = React.useState<Session | null>(null);
+
   const { query: sessionsQuery, result: sessionsResult } = useList({
     resource: "sessions",
     filters: [{ field: "studentId", operator: "eq", value: "me" }],
+    pagination: { mode: "off" },
   });
 
-  const courses = (coursesResult?.data ?? []) as Enrollment[];
   const sessions = (sessionsResult?.data ?? []) as Session[];
+  const days = weekDayKeys(new Date(), weekOffset);
+  const today = todayKey();
 
-  if (coursesQuery.isLoading || sessionsQuery.isLoading) {
+  // Moving weeks moves the SELECTION with it — landing on the same weekday —
+  // rather than leaving a highlighted chip behind in a week nobody is looking
+  // at. Derived rather than stored so the two can never fall out of step.
+  const selected = days.includes(selectedKey) ? selectedKey : days[0]!;
+  const daySessions = sessionsOnDay(sessions, selected);
+
+  const goWeek = (delta: number) => {
+    const nextDays = weekDayKeys(new Date(), weekOffset + delta);
+    const index = days.indexOf(selected);
+    setWeekOffset((w) => w + delta);
+    setSelectedKey(nextDays[index === -1 ? 0 : index]!);
+  };
+
+  if (sessionsQuery.isLoading) {
     return <PageSpinner label={t("common.loading")} />;
   }
-
-  const selectedDayName = dayNames[dayIndex];
-  const daySessions = sessions
-    .filter((s) => dayNames[new Date(s.date).getDay()] === selectedDayName)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-  const completed = sessions.filter((s) => s.status === "completed").length;
-  const upcoming = sessions.filter((s) => s.status === "scheduled").length;
-  const cancelled = sessions.filter((s) => s.status === "cancelled").length;
 
   const statusTone = (status: string) =>
     status === "cancelled" ? "red" : status === "completed" ? "teal" : "indigo";
@@ -160,190 +189,149 @@ export function ScheduleScreen() {
     : [];
 
   return (
-    <div className="space-y-6">
-      <PageTitle title={t("nav.schedule")} />
+    <div className="space-y-5">
+      <PageTitle title={t("nav.schedule")} subtitle={t("studentClass.scheduleSubtitle")} />
 
-      {/* Day picker. The student's own week is the primary axis here, so it
-          sits above the record rather than inside a card header. */}
-      <div className="flex flex-wrap gap-1.5">
-        {dayNames.map((d, i) => {
-          const active = i === dayIndex;
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDayIndex(i)}
-              aria-pressed={active}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                background: active ? "var(--indigo-soft)" : "var(--sheet)",
-                color: active ? "var(--indigo)" : "var(--ink-2)",
-                border: `1px solid ${active ? "var(--indigo-soft)" : "var(--rule)"}`,
-              }}
-            >
-              {dayLabel(i)}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── The week ────────────────────────────────────────────────────────
+          Seven dated chips, sized for a thumb and fitting 375px without
+          wrapping. A dot marks a day that has something on it, so the student
+          can find their next lesson without opening each day in turn. */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <LedgerButton onClick={() => goWeek(-1)} aria-label={t("studentClass.weekPrevious")}>
+            <DirectionalIcon icon={ChevronRight} className="size-4 rotate-180" aria-hidden />
+          </LedgerButton>
+          <span className="text-sm font-medium" style={{ color: "var(--ink-2)" }}>
+            {weekOffset === 0
+              ? t("studentClass.thisWeek")
+              : `${formatDate(days[0]!, { day: "numeric", month: "short" })} — ${formatDate(
+                  days[6]!,
+                  { day: "numeric", month: "short" },
+                )}`}
+          </span>
+          <LedgerButton onClick={() => goWeek(1)} aria-label={t("studentClass.weekNext")}>
+            <DirectionalIcon icon={ChevronRight} className="size-4" aria-hidden />
+          </LedgerButton>
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Sheet className="p-5">
-            <SectionHeading title={dayLabel(dayIndex)} />
-            <div className="mt-3">
-              {daySessions.length === 0 ? (
-                <LedgerEmpty
-                  title={`${t("studentClass.noSessionsOn")} ${dayLabel(dayIndex)}`}
-                />
-              ) : (
-                <LedgerTable
-                  head={
-                    <>
-                      <Th>{t("studentClass.start")}</Th>
-                      <Th>{t("studentClass.course")}</Th>
-                      <Th>{t("studentClass.room")}</Th>
-                      <Th align="end">{t("studentClass.statusLabel")}</Th>
-                    </>
-                  }
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((key) => {
+            const active = key === selected;
+            const isToday = key === today;
+            const has = sessionsOnDay(sessions, key).length > 0;
+            const d = new Date(`${key}T00:00:00`);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedKey(key)}
+                aria-pressed={active}
+                aria-label={formatDate(key, { weekday: "long", day: "numeric", month: "long" })}
+                className="flex flex-col items-center gap-0.5 rounded-lg py-2 transition-colors"
+                style={{
+                  background: active ? "var(--indigo-soft)" : "var(--sheet)",
+                  color: active ? "var(--indigo)" : "var(--ink-2)",
+                  border: `1px solid ${active ? "var(--indigo-soft)" : "var(--rule)"}`,
+                }}
+              >
+                <span className="text-[10px] leading-none">
+                  {formatDate(key, { weekday: "short" })}
+                </span>
+                <Num
+                  className={cn("text-[15px] leading-tight", isToday && "font-bold")}
+                  style={{ color: active ? "var(--indigo)" : "var(--ink)" }}
                 >
-                  {daySessions.map((s) => (
-                    <Tr key={s.id || s._id}>
-                      <Td>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSession(s)}
-                          className="text-start"
-                        >
-                          <Num.Clock
-                            value={s.startTime}
-                            locale={locale}
-                            style={{ color: "var(--ink)", fontWeight: 500 }}
-                          />
-                          <div>
-                            <Num.Clock
-                              value={s.endTime}
-                              locale={locale}
-                              style={{ color: "var(--ink-3)", fontSize: 11 }}
-                            />
-                          </div>
-                        </button>
-                      </Td>
-                      <Td>
-                        <div className="flex items-center gap-2.5">
-                          <InitialsTile name={s.courseName || "?"} size={28} tone="indigo" />
-                          {s.courseName && s.courseId ? (
-                            <Link
-                              href={`/courses/${s.courseId}`}
-                              className="font-medium hover:underline"
-                              style={{ color: "var(--ink)" }}
-                            >
-                              {s.courseName}
-                            </Link>
-                          ) : (
-                            <span style={{ color: "var(--ink-2)" }}>
-                              {s.courseName || t("studentClass.tbd")}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
-                          {s.teacherName || t("studentClass.assignedTeacher")}
-                        </div>
-                      </Td>
-                      <Td>
-                        <span style={{ color: "var(--ink-2)" }}>
-                          {s.roomName || t("studentClass.tbd")}
-                        </span>
-                      </Td>
-                      <Td align="end">
-                        <Chip tone={statusTone(s.status)}>{statusText(s.status)}</Chip>
-                      </Td>
-                    </Tr>
-                  ))}
-                </LedgerTable>
-              )}
-            </div>
-          </Sheet>
-        </div>
-
-        <div className="space-y-4">
-          <Sheet className="p-5">
-            <Eyebrow>{t("common.total")}</Eyebrow>
-            <div className="mt-2 grid grid-cols-2 gap-4">
-              <div>
-                <Num style={{ fontSize: 26, fontWeight: 600, color: "var(--ink)" }}>
-                  {sessions.length}
+                  {formatNumber(d.getDate())}
                 </Num>
-                <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-                  {t("common.total")}
-                </p>
-              </div>
-              <div>
-                <Num style={{ fontSize: 26, fontWeight: 600, color: "var(--teal)" }}>
-                  {completed}
-                </Num>
-                <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-                  {t("status.completed")}
-                </p>
-              </div>
-              <div>
-                <Num style={{ fontSize: 26, fontWeight: 600, color: "var(--ink)" }}>{upcoming}</Num>
-                <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-                  {t("studentClass.upcoming")}
-                </p>
-              </div>
-              <div>
-                <Num style={{ fontSize: 26, fontWeight: 600, color: "var(--red)" }}>
-                  {cancelled}
-                </Num>
-                <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-                  {t("status.cancelled")}
-                </p>
-              </div>
-            </div>
-          </Sheet>
-
-          <Sheet className="p-5">
-            <SectionHeading title={t("studentClass.enrolledCourses")} />
-            <div className="mt-3">
-              {courses.length === 0 ? (
-                <LedgerEmpty title={t("studentClass.noEnrolledCourses")} />
-              ) : (
-                <ul>
-                  {courses.map((c, i) => (
-                    <li
-                      key={c.id || c._id || i}
-                      className="flex items-center gap-2.5 border-b py-2.5 last:border-b-0"
-                      style={{ borderColor: "var(--rule-2)" }}
-                    >
-                      <InitialsTile name={c.courseName || c.title || "?"} size={28} tone="teal" />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium" style={{ color: "var(--ink)" }}>
-                          {c.courseName || c.title}
-                        </div>
-                        {/* `daysOfWeek` is an array of day INDEXES, and it was
-                            being printed raw — a course meeting on Sunday,
-                            Monday and Saturday read as "6 / 1 / 3", three bare
-                            numbers under a course name with nothing saying they
-                            were days at all. Sorted, because the array's own
-                            order is insertion order, not the week's. */}
-                        <div className="text-xs" style={{ color: "var(--ink-3)" }}>
-                          {c.schedulePattern?.daysOfWeek?.length
-                            ? [...c.schedulePattern.daysOfWeek]
-                                .sort((a, b) => a - b)
-                                .map((day) => formatWeekdayShort(day))
-                                .join(" · ")
-                            : t("studentClass.tbd")}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Sheet>
+                {/* Presence, not a count: a number here would compete with the
+                    day number 2px above it. */}
+                <span
+                  aria-hidden
+                  className="size-1 rounded-full"
+                  style={{ background: has ? "var(--teal)" : "transparent" }}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      <Sheet className="p-5">
+        <SectionHeading
+          title={
+            selected === today
+              ? t("studentDashboard.today")
+              : formatDate(selected, { weekday: "long", day: "numeric", month: "long" })
+          }
+          action={
+            daySessions.length > 0 ? (
+              <Num style={{ color: "var(--ink-3)", fontSize: 13 }}>{daySessions.length}</Num>
+            ) : null
+          }
+        />
+        <div className="mt-2">
+          {daySessions.length === 0 ? (
+            <LedgerEmpty title={t("studentClass.noSessionsThatDay")} />
+          ) : (
+            <ul>
+              {daySessions.map((s, i) => {
+                const now = isHappeningNow(s) && s.status !== "cancelled";
+                return (
+                  <li key={s.id || s._id || i}>
+                    {i > 0 ? <Hairline /> : null}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSession(s)}
+                      className="flex w-full items-start gap-3 py-3.5 text-start transition-colors hover:bg-[var(--field)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--indigo)]"
+                      aria-label={s.courseName || t("studentClass.tbd")}
+                    >
+                      <InitialsTile
+                        name={s.courseName || s.subject || "?"}
+                        size={34}
+                        tone={s.status === "cancelled" ? "amber" : "indigo"}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="truncate font-medium"
+                            style={{ color: "var(--ink)" }}
+                          >
+                            {s.courseName || t("studentClass.tbd")}
+                          </span>
+                          {now ? <Chip tone="teal">{t("studentDashboard.now")}</Chip> : null}
+                          {s.status !== "scheduled" ? (
+                            <Chip tone={statusTone(s.status)}>{statusText(s.status)}</Chip>
+                          ) : null}
+                        </span>
+
+                        <span className="mt-1 block text-sm" style={{ color: "var(--ink-2)" }}>
+                          <Num.ClockRange start={s.startTime} end={s.endTime} locale={locale} />
+                        </span>
+
+                        {/* Where and with whom — on the row, not one tap in.
+                            They are half of "عندي حصة النهاردة؟ امتى وفين؟". */}
+                        <span
+                          className="mt-1 flex flex-col gap-0.5 text-xs sm:flex-row sm:flex-wrap sm:gap-x-4"
+                          style={{ color: "var(--ink-3)" }}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="size-3 shrink-0" aria-hidden />
+                            {s.roomName || t("studentClass.tbd")}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <User className="size-3 shrink-0" aria-hidden />
+                            {s.teacherName || t("studentClass.assignedTeacher")}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </Sheet>
 
       <Dialog
         open={!!selectedSession}

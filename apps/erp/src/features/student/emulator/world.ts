@@ -61,6 +61,27 @@ const titled = (s: Bi): Bi => ({ ar: `${s.ar} — ${GRADE.ar}`, en: `${s.en} —
 
 export const EMU_TODAY: EmuSession[] = [{ id: "s1", subject: titled(CHEM), time: "16:00" }];
 
+/**
+ * Where the lesson is and who teaches it.
+ *
+ * The real home leads with هذين beside the time — "عندي حصة النهاردة؟ امتى
+ * وفين؟" is one question with three parts, and a rehearsal that answers only
+ * "امتى" teaches a screen that no longer exists.
+ */
+export const EMU_PLACE = {
+  room: { ar: "قاعة ٣", en: "Hall 3" },
+  teacher: { ar: "أ. هشام عزيز", en: "Mr Hossam Aziz" },
+} satisfies Record<string, Bi>;
+
+/**
+ * How long the cover lasts, once the learner has subscribed.
+ *
+ * A monthly plan is manual-renewal with no reminder job behind it, so knowing
+ * where the end date is written is a thing worth rehearsing rather than
+ * discovering at a counter.
+ */
+export const EMU_COVER = { daysLeft: 26 } as const;
+
 export const EMU_WEEK: EmuSession[] = [
   { id: "s2", subject: titled(PHYS), time: "16:00", day: { ar: "الأحد", en: "Sun" } },
   { id: "s3", subject: titled(CHEM), time: "18:00", day: { ar: "الاثنين", en: "Mon" } },

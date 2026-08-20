@@ -1,4 +1,7 @@
 import type { Role } from "@repo/database";
+import { narrowQuery } from "@repo/database/search-text";
+import { WWW_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
+import { mintViewAsToken } from "@repo/server-core/auth/view-as-token";
 import { trustedClientIp } from "@repo/server-core/rate-limit/token-bucket";
 import { requestPasswordReset } from "@repo/server-core/services/auth/password-reset";
 import { headers } from "next/headers";
@@ -32,9 +35,17 @@ import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/c
 //    same cookie, audited on start AND stop, with a persistent banner. Other
 //    super_admins are refused too (lateral privilege), which is why the admin
 //    plugin's `impersonate-admins` statement is deliberately not granted.
+//    SEE ALSO the "VIEW AS" block further down: reaching an ERP role is done
+//    by a signed handoff token that makes the OTHER app mint its own session,
+//    NOT by stretching this cookie across the boundary. This paragraph is still
+//    true — it is the reason that mechanism looks the way it does.
 //
-// 3. MONEY STAYS READ-ONLY. Nothing here touches a ledger, wallet or payout.
-//    This module imports no money service — checkable by reading the imports.
+// 3. MONEY STAYS READ-ONLY *IN THIS APP*. Nothing here touches a ledger,
+//    wallet or payout, and this module imports no money service — checkable by
+//    reading the imports. The qualifier is new and load-bearing: since
+//    2026-08-20 a super admin CAN move money through a view-as session, but
+//    only by being the ERP user in the ERP app, under that user's own session
+//    and that app's own audit. No money capability was added here.
 // ===========================================================================
 
 const PAGE_MAX = 100;
@@ -105,6 +116,19 @@ export type UserListFilters = {
  * Cross-role directory. Search matches name / email / phone; the role and
  * status filters are exact. Soft-deleted users are excluded by the client
  * extension, same as every other list in the app.
+ *
+ * THE SEARCH NARROWS ONLY — half of the two-stage match, deliberately.
+ * `contains` with `mode: "insensitive"` is ILIKE, which folds ASCII case and
+ * nothing else, so «احمد» matched none of the rows stored «أحمد» and this
+ * directory answered "no such person" about people it holds.
+ * `literalFragments` yields the pieces of the query that survive normalization
+ * unchanged and can therefore be compared byte-wise, which fixes that.
+ *
+ * What is NOT done here is the JS decide pass, because this list is
+ * CURSOR-paginated: a filter applied after the page is cut would return a short
+ * page and a `nextCursor` that skips rows. So the result is a SUPERSET —
+ * «احمد» also lists «محمد». The palette, which is not paginated, applies the
+ * exact pass itself over these rows (see `services/admin/global-search.ts`).
  */
 export function listUsers(filters: UserListFilters) {
   const take = Math.min(PAGE_MAX, Math.max(1, filters.take ?? 25));
@@ -114,11 +138,11 @@ export function listUsers(filters: UserListFilters) {
     if (filters.status) where.status = filters.status;
     const q = filters.q?.trim();
     if (q) {
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q } },
-      ];
+      where.AND = narrowQuery(q, (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+        { email: { contains: f, mode: "insensitive" as const } },
+        { phone: { contains: f } },
+      ]);
     }
 
     const rows = await tx.user.findMany({
@@ -470,6 +494,96 @@ export function assertImpersonatable(actor: SessionUser, userId: string) {
     }
     return user;
   });
+}
+
+
+// ===========================================================================
+// "VIEW AS" — the cross-app door (added 2026-08-20, Ali's decision).
+//
+// Boundary 2 above still describes the IN-APP impersonation, and it still
+// holds: a back-office session is unreadable by the ERP by construction, and
+// nothing here changes that. What is new is a SECOND mechanism that does not
+// try to: instead of stretching a back-office cookie across the boundary, the
+// super admin gets a signed 60-second handoff token, and apps/erp mints its own
+// ordinary session for the target user (`auth/view-as-plugin.ts`, where the six
+// claim-time gates live).
+//
+// The split of duties is the safety property. THIS module decides WHO may be
+// viewed and records the intent; the ERP re-decides everything for itself at
+// claim time — it re-reads the actor, re-reads the target, and refuses a
+// replayed token. Neither app takes the other's word for anything, so a bug or
+// a stale token on this side cannot become an entry on that side.
+//
+// A DEPARTURE FROM BOUNDARY 3, RECORDED HONESTLY: a view-as session is
+// write-capable INCLUDING money. Ali decided that on 2026-08-20 after the
+// alternative (block money routes during view-as) was put to him. This module
+// still imports no money service — the capability comes from the target's own
+// session in the other app, not from anything here — but it would be dishonest
+// to leave "money stays read-only in the back office" standing unqualified when
+// this button exists. CLAUDE.md carries the amended invariant.
+// ===========================================================================
+
+/**
+ * May `actor` view the app as `userId`?
+ *
+ * Refuses: a non-super_admin caller, the actor's own account, an account that
+ * is not `active`, and any role the ERP does not host — a back-office target
+ * belongs to `assertImpersonatable` above, which stays in-app.
+ */
+export function assertViewAsTarget(actor: SessionUser, userId: string) {
+  if (actor.role !== "super_admin") {
+    throw new ForbiddenError("Only a super admin can view the app as another user");
+  }
+  refuseSelf(actor, userId, "view the app as");
+
+  return platformDb(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true, status: true },
+    });
+    if (!user) throw new NotFoundError("User not found");
+    if (user.status !== "active") {
+      throw new BusinessRuleError("Only an active account can be viewed as");
+    }
+    if (!WWW_LOGIN_ROLES.has(user.role)) {
+      throw new BusinessRuleError(
+        "Only an ERP account can be viewed as — a back-office account is impersonated in this app instead",
+      );
+    }
+    return user;
+  });
+}
+
+/**
+ * Mint the handoff token AND record the intent, in that order but as one step,
+ * so a token can never exist without an audit row naming who asked for it.
+ *
+ * The row is written while the actor is still unambiguously themselves; the ERP
+ * writes its own `user.view_as_claimed` row when the token is actually spent,
+ * which is what distinguishes "a super admin pressed the button" from "a
+ * session was opened".
+ */
+export async function startViewAs(
+  actor: SessionUser,
+  target: { id: string; role: Role; email: string | null },
+) {
+  const minted = mintViewAsToken({
+    targetUserId: target.id,
+    actorUserId: actor.id,
+    targetRole: target.role,
+  });
+
+  await platformDb(
+    (tx) =>
+      audit(tx, actor.id, "user.view_as_requested", target.id, undefined, {
+        jti: minted.jti,
+        targetRole: target.role,
+        targetEmail: target.email,
+      }),
+    { actorId: actor.id },
+  );
+
+  return minted;
 }
 
 /** Record the start of an impersonation. Called after the session is minted. */

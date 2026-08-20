@@ -49,8 +49,7 @@
  *   bun run --filter edura test:db:only h03-seed-uuid-flows
  *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth/session";
 import { __setSessionOverrideForTests } from "@/lib/auth/session";
@@ -62,8 +61,7 @@ import { POST as conversationsRoute } from "@/app/api/v1/messages/conversations/
 import { POST as messageReportsRoute } from "@/app/api/v1/messages/reports/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const pool = testPool();
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
 
 const uuid = z.uuid();

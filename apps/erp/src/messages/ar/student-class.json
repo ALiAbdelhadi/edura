@@ -4,7 +4,7 @@
   "grade": "التقدير",
   "entries": "السجلات",
   "overallGpa": "المعدل التراكمي",
-  "highestGrade": "أعلى تقدير",
+  "highestGrade": "أعلى مادة",
   "subjects": "المواد",
   "gradesTitle": "درجات المواد",
   "subjectComparison": "مقارنة المواد",
@@ -23,7 +23,7 @@
   "course": "الكورس",
   "room": "القاعة",
   "assignedTeacher": "المدرس المعيّن",
-  "tbd": "يُحدد لاحقًا",
+  "tbd": "لسه ما اتحددش",
   "statusLabel": "الحالة",
   "upcoming": "القادمة",
   "enrolledCourses": "الكورسات المسجّلة",
@@ -48,5 +48,13 @@
   "heatmapTitle": "الحضور يوماً بيوم",
   "noAttendance": "لا توجد سجلات حضور بعد.",
   "assignmentsSubtitle": "تابع واجباتك وتقدّم التصحيح.",
-  "gradesSubtitle": "درجاتك وأداؤك في كل مادة."
+  "gradesSubtitle": "درجاتك في كل مادة. اضغط على المادة تشوف الامتحانات.",
+  "latestGrade": "آخر درجة",
+  "entry": "درجة",
+  "entriesCount": "{count, plural, =0 {مفيش درجات} =1 {درجة واحدة} =2 {درجتين} few {# درجات} many {# درجة} other {# درجة}}",
+  "scheduleSubtitle": "حصصك يوم بيوم. النقطة معناها في حصة في اليوم ده.",
+  "weekPrevious": "الأسبوع اللي فات",
+  "weekNext": "الأسبوع الجاي",
+  "thisWeek": "الأسبوع ده",
+  "noSessionsThatDay": "مفيش حصص في اليوم ده"
 }

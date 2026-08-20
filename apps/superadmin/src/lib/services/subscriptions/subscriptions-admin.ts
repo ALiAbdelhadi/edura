@@ -1,4 +1,9 @@
 import { platformDb } from "@/lib/db/scope";
+import {
+  matchesSearchTerms,
+  narrowQuery,
+  searchTerms,
+} from "@repo/database/search-text";
 import { NotFoundError } from "@/lib/errors/classes";
 import type { Prisma } from "@repo/database";
 
@@ -40,24 +45,39 @@ export async function listSubscriptions(filters: SubscriptionListFilters) {
 
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      const [students, courses] = await Promise.all([
+      const terms = searchTerms(q);
+
+      // Bounded sub-queries, so the FULL two-stage match applies — see the same
+      // block in `collaboration-admin.ts`. A subscription reached by the
+      // student's name is the common way this screen is used, and «احمد» found
+      // none of the children stored «أحمد».
+      const [studentRows, courseRows] = await Promise.all([
         tx.user.findMany({
           where: {
             role: "student",
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-            ],
+            AND: narrowQuery(q, (f) => [
+              { name: { contains: f, mode: "insensitive" as const } },
+              { email: { contains: f, mode: "insensitive" as const } },
+            ]),
           },
-          select: { id: true },
+          select: { id: true, name: true, email: true },
           take: 500,
         }),
         tx.course.findMany({
-          where: { title: { contains: q, mode: "insensitive" } },
-          select: { id: true },
+          where: {
+            AND: narrowQuery(q, (f) => [
+              { title: { contains: f, mode: "insensitive" as const } },
+            ]),
+          },
+          select: { id: true, title: true },
           take: 500,
         }),
       ]);
+      const students = studentRows.filter((s) =>
+        matchesSearchTerms([s.name, s.email], terms),
+      );
+      const courses = courseRows.filter((c) => matchesSearchTerms([c.title], terms));
+
       where.OR = [
         { studentId: { in: students.map((s) => s.id) } },
         { courseId: { in: courses.map((c) => c.id) } },

@@ -23,12 +23,27 @@ export async function apiSend<T>(url: string, method: "POST" | "PATCH", body: un
   return json.data;
 }
 
-export function useOnboarding<TState>() {
-  const [tree, setTree] = useState<CatalogSystem[] | null>(null);
-  const [state, setState] = useState<TState | null>(null);
+/**
+ * The wizard's data, either handed to it or fetched.
+ *
+ * `initial` is the server-rendered path: the page that renders a wizard has
+ * already resolved the session to decide whether the wizard should be shown at
+ * all, so it loads the catalog tree and the saved state in that same server
+ * pass and passes them down. The wizard then paints filled on first render
+ * instead of mounting a skeleton and waiting for two more round trips.
+ *
+ * The fetching path stays for any caller with no server data to give.
+ */
+export type OnboardingInitial<TState> = { tree: CatalogSystem[]; state: TState };
+
+export function useOnboarding<TState>(initial?: OnboardingInitial<TState>) {
+  const [tree, setTree] = useState<CatalogSystem[] | null>(initial?.tree ?? null);
+  const [state, setState] = useState<TState | null>(initial?.state ?? null);
   const [error, setError] = useState<string | null>(null);
 
+  const prefetched = initial != null;
   useEffect(() => {
+    if (prefetched) return;
     let cancelled = false;
     Promise.all([apiGet<CatalogSystem[]>("/api/v1/catalog/tree"), apiGet<TState>("/api/v1/me/onboarding")])
       .then(([treeData, stateData]) => {
@@ -40,7 +55,7 @@ export function useOnboarding<TState>() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [prefetched]);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveDraft = useCallback((draft: Record<string, unknown>) => {

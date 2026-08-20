@@ -29,18 +29,14 @@
 // Nothing is mocked: the real `globalSearch` runs against the live DB, and the
 // center principal is built by the REAL `authorizeCenterActor`, so the staff
 // link is resolved the way a request resolves it.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { globalSearch } from "@repo/server-core/services/search/global-search";
 import { authorizeCenterActor } from "@/lib/authz/center-actor";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({
-  connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL,
-});
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;
@@ -80,9 +76,13 @@ async function main() {
   const studentA = crypto.randomUUID(); // centre A's roster, teacher's group
   const studentB = crypto.randomUUID(); // centre B's roster only
   const studentC = crypto.randomUUID(); // A's roster, the OTHER teacher's group
+  // Stored the way a REGISTER holds an Egyptian name — with the hamza, the ta
+  // marbuta and the alef maqsura — so the queries in §10 are typed the way a
+  // counter keyboard actually produces them, and the two have to meet.
+  const studentAr = crypto.randomUUID();
   userIds.push(
     ownerA, ownerB, receptionist, manager, accountant, teacher, otherTeacher,
-    assistant, parent, studentA, studentB, studentC,
+    assistant, parent, studentA, studentB, studentC, studentAr,
   );
 
   const courseA = crypto.randomUUID(); // centre A, `teacher`
@@ -96,6 +96,14 @@ async function main() {
   /** The searchable token. Every fixture name contains it, so ONE query
    *  reaches every provider and the differences are purely about permission. */
   const WORD = `${tag}zebra`;
+
+  /* ── the Arabic fixtures (§10) ──────────────────────────────────────────
+   * Written as a register writes them. Every query in §10 is the SAME name
+   * typed the way a counter keyboard produces it: no hamza (it needs Shift),
+   * ه for ة, ي for ى — and often the family name first. */
+  const AR_NAME = `فاطمة إبراهيم ${tag}`;
+  const AR_PHONE = "01099887766";
+  const AR_ROOM = `قاعة الأنشطة ${tag}`;
 
   const census = async () => {
     const r = await admin.query(
@@ -169,6 +177,8 @@ async function main() {
     await mkUser(studentA, "student", `${WORD} Student A`);
     await mkUser(studentB, "student", `${WORD} Student B`);
     await mkUser(studentC, "student", `${WORD} Student C`);
+    await mkUser(studentAr, "student", AR_NAME);
+    await admin.query(`UPDATE users SET phone = $2 WHERE id = $1`, [studentAr, AR_PHONE]);
 
     await admin.query(
       `UPDATE centers SET owner_user_id = $2 WHERE id = $1`, [centerA, ownerA]);
@@ -188,7 +198,7 @@ async function main() {
     }
 
     // Student profiles carry the code the counter searches on.
-    for (const id of [studentA, studentB, studentC]) {
+    for (const id of [studentA, studentB, studentC, studentAr]) {
       await admin.query(
         `INSERT INTO student_profiles (id, user_id, full_name, family_link_code, created_at, updated_at)
          VALUES (gen_random_uuid(), $1, $2, $3, now(), now())`,
@@ -203,6 +213,7 @@ async function main() {
     for (const [centerId, studentId] of [
       [centerA, studentA],
       [centerA, studentC],
+      [centerA, studentAr],
       [centerB, studentB],
     ] as const) {
       await admin.query(
@@ -256,6 +267,7 @@ async function main() {
     for (const [id, centerId, name] of [
       [roomA, centerA, `${WORD} Hall A`],
       [roomB, centerB, `${WORD} Hall B`],
+      [crypto.randomUUID(), centerA, AR_ROOM],
     ] as const) {
       await admin.query(
         `INSERT INTO rooms (id, center_id, name, is_active, created_at, updated_at)
@@ -470,6 +482,59 @@ async function main() {
     assert(
       allHits(pRes).every((h) => h.href.startsWith("/dashboard/parent/")),
       "every parent hit lands inside the parent portal",
+    );
+
+    /* ── 10) THE NAME AS IT IS ACTUALLY TYPED ──────────────────────────
+     * The reason this whole layer exists. Prisma's `contains` with
+     * `mode: "insensitive"` is ILIKE, and ILIKE folds ASCII case and NOTHING
+     * else — so a receptionist typing «فاطمه» got an empty list about a child
+     * on their own roster, which reads as "not registered here". The control
+     * below asserts that the DATABASE still cannot do this on its own, so the
+     * assertions after it are measuring the fix rather than the data. */
+    const rawIlike = await admin.query(
+      `SELECT count(*)::int AS n FROM users WHERE id = $1 AND name ILIKE '%' || $2 || '%'`,
+      [studentAr, `فاطمه ${tag}`],
+    );
+    assert(
+      rawIlike.rows[0].n === 0,
+      "CONTROL: raw ILIKE still finds nothing for «فاطمه» against a row stored «فاطمة»",
+    );
+
+    const arTitles = async (q: string) =>
+      titles(await centerSearch(session(ownerA, "center_admin", centerA), q), "student");
+
+    assert(
+      (await arTitles(`فاطمه ${tag}`)).includes(AR_NAME),
+      "ta marbuta: «فاطمه» finds «فاطمة» — the same child, the way it is typed",
+    );
+    assert(
+      (await arTitles(`ابراهيم ${tag}`)).includes(AR_NAME),
+      "hamza: «ابراهيم» finds «إبراهيم» — the hamza needs Shift, so nobody types it",
+    );
+    assert(
+      (await arTitles(`${tag} ابراهيم فاطمه`)).includes(AR_NAME),
+      "word order: the family name typed first still finds the row",
+    );
+    assert(
+      (await arTitles(`فاطمة إبراهيم ${tag}`)).includes(AR_NAME),
+      "…and the name typed EXACTLY as stored still works — nothing regressed",
+    );
+    assert(
+      (await arTitles("٠١٠٩٩٨٨٧٧٦٦")).includes(AR_NAME),
+      "an Arabic-Indic phone number resolves — the numerals fold onto ASCII",
+    );
+    assert(
+      !(await arTitles(`سعاد ${tag}`)).includes(AR_NAME),
+      "…and it is NOT fuzzy: a different name still finds nothing",
+    );
+
+    const arRooms = titles(
+      await centerSearch(session(ownerA, "center_admin", centerA), `قاعه الانشطه ${tag}`),
+      "room",
+    );
+    assert(
+      arRooms.includes(AR_ROOM),
+      "the same rules reach every provider: «قاعه الانشطه» finds «قاعة الأنشطة»",
     );
 
     /* ── 9) it writes nothing ──────────────────────────────────────────── */

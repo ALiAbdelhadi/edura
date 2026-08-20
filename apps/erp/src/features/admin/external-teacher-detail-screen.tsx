@@ -18,18 +18,7 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { toast } from "@repo/ui/components/sonner";
-import {
-  Badge,
-  DataTable,
-  EmptyState,
-  Money,
-  Num,
-  PageHead,
-  RowIdentity,
-  Sheet,
-  SheetHead,
-  type Column,
-} from "./ledger";
+import { Badge, DataTable, DateText, EmptyState, Money, PageHead, RowIdentity, Sheet, SheetHead, type Column } from "./ledger";
 
 /**
  * One off-system teacher: their students, their statement, and what is missing.
@@ -421,7 +410,7 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
                 </span>
                 <span className="flex items-center gap-2">
                   {g.date ? (
-                    <Num className="text-xs text-[var(--ink-3)]">{formatDate(g.date)}</Num>
+                    <DateText className="text-xs text-[var(--ink-3)]">{formatDate(g.date)}</DateText>
                   ) : null}
                   <Badge tone={g.severity === "blocking" ? "failed" : "pending"}>
                     {g.severity === "blocking"
@@ -467,7 +456,7 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
                   })}
                   <span className="text-[var(--ink-3)]"> — {h.reason}</span>
                 </span>
-                <Num className="text-xs text-[var(--ink-3)]">{formatDate(h.createdAt)}</Num>
+                <DateText className="text-xs text-[var(--ink-3)]">{formatDate(h.createdAt)}</DateText>
               </li>
             ))}
           </ul>

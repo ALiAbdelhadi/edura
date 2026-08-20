@@ -24,8 +24,7 @@
  *   bunx tsx --env-file=<env> tests/db/center-operations.test.ts
  * ===========================================================================
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
 import {
@@ -47,8 +46,7 @@ import { postponeSession, cancelSession } from "@repo/server-core/services/sessi
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

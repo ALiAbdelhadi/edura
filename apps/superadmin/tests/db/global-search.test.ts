@@ -31,18 +31,14 @@
  *
  * Nothing is mocked: the real `backOfficeSearch` runs against the live DB.
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { backOfficeSearch } from "@/lib/services/admin/global-search";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({
-  connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL,
-});
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;
@@ -71,6 +67,11 @@ const allHits = (r: Result) => r.groups.flatMap((g) => g.hits);
 async function main() {
   const tag = "bogs-" + Math.floor(Math.random() * 1e9).toString(36);
   const WORD = `${tag}zebra`;
+  /* §7 — written as a register writes it. Every query against it below is the
+   * SAME name typed the way people type it: no hamza (it needs Shift), ه for
+   * ة, and the family name first as often as last. */
+  const AR_NAME = `فاطمة إبراهيم ${tag}`;
+  const AR_CENTER = `مركز النيلة ${tag}`;
   const ids: string[] = [];
   const centerIds: string[] = [];
 
@@ -83,7 +84,13 @@ async function main() {
   const owner = crypto.randomUUID();
   const staff = crypto.randomUUID();
   const deleted = crypto.randomUUID();
-  ids.push(superAdmin, accountant, student, teacher, parent, assistant, owner, staff, deleted);
+  // Stored the way a register holds an Egyptian name — with the hamza and the
+  // ta marbuta — so §7 can type it the way a counter keyboard produces them.
+  const arabic = crypto.randomUUID();
+  ids.push(
+    superAdmin, accountant, student, teacher, parent, assistant, owner, staff,
+    deleted, arabic,
+  );
 
   const centerId = crypto.randomUUID();
   centerIds.push(centerId);
@@ -123,6 +130,7 @@ async function main() {
     await mkUser(owner, "center_admin", `${WORD} Boss`);
     await mkUser(staff, "center_staff", `${WORD} Desk`);
     await mkUser(deleted, "student", `${WORD} Gone`);
+    await mkUser(arabic, "teacher", AR_NAME);
     // Soft-deleted, exactly as the app soft-deletes: the client extension is
     // what hides it, and this proves the provider inherits that and does not
     // re-implement a `where`.
@@ -141,6 +149,13 @@ async function main() {
       `INSERT INTO centers (id, name, short_id, status, area, is_demo, created_at, updated_at)
        VALUES ($1, $2, $3, 'active'::center_status, $4, true, now(), now())`,
       [centerId, `${WORD} Academy`, `${tag.slice(0, 8).toUpperCase()}`, `${WORD} Maadi`],
+    );
+    const arCenterId = crypto.randomUUID();
+    centerIds.push(arCenterId);
+    await admin.query(
+      `INSERT INTO centers (id, name, short_id, status, area, is_demo, created_at, updated_at)
+       VALUES ($1, $2, $3, 'active'::center_status, $4, true, now(), now())`,
+      [arCenterId, AR_CENTER, `AR${tag.slice(0, 6).toUpperCase()}`, `المعادى ${tag}`],
     );
 
     const intentRef = `GWREF-${tag.toUpperCase()}`;
@@ -285,6 +300,50 @@ async function main() {
       q: "   ",
     })) as Result;
     assert(blank.groups.length === 0, "whitespace is not a query either");
+
+    /* ── 7) THE NAME AS IT IS ACTUALLY TYPED ──────────────────────────── */
+    section("7. Arabic as an Egyptian types it");
+    // CONTROL FIRST. `contains` with `mode: "insensitive"` is ILIKE, which folds
+    // ASCII case and NOTHING else — so this palette answered "nobody" about the
+    // platform's own directory whenever the reader left out a hamza. The
+    // assertion below proves the DATABASE still cannot do it unaided, which is
+    // what makes the ones after it measure the fix and not the data.
+    const rawIlike = await admin.query(
+      `SELECT count(*)::int AS n FROM users WHERE id = $1 AND name ILIKE '%' || $2 || '%'`,
+      [arabic, `فاطمه ${tag}`],
+    );
+    assert(
+      rawIlike.rows[0].n === 0,
+      "CONTROL: raw ILIKE finds nothing for «فاطمه» against a row stored «فاطمة»",
+    );
+
+    const arSearch = async (q: string) =>
+      (await backOfficeSearch(asUser(superAdmin, "super_admin"), { q })) as Result;
+
+    assert(
+      titles(await arSearch(`فاطمه ${tag}`), "teacher").includes(AR_NAME),
+      "ta marbuta: «فاطمه» finds «فاطمة» in the platform directory",
+    );
+    assert(
+      titles(await arSearch(`ابراهيم ${tag}`), "teacher").includes(AR_NAME),
+      "hamza: «ابراهيم» finds «إبراهيم»",
+    );
+    assert(
+      titles(await arSearch(`${tag} ابراهيم فاطمه`), "teacher").includes(AR_NAME),
+      "word order: the family name typed first still finds the row",
+    );
+    assert(
+      !titles(await arSearch(`سعاد ${tag}`), "teacher").includes(AR_NAME),
+      "…and it is NOT fuzzy: a different name finds nothing",
+    );
+    assert(
+      titles(await arSearch(`مركز النيله ${tag}`), "center").includes(AR_CENTER),
+      "the centers provider folds too: «النيله» finds «النيلة»",
+    );
+    assert(
+      titles(await arSearch(`المعادي ${tag}`), "center").includes(AR_CENTER),
+      "…and matches on the AREA, which is how a back office is told where a centre is",
+    );
 
     /* ── 6) it writes nothing, and reaches nothing audited ────────────── */
     section("6. Read-only, and no quiet door");

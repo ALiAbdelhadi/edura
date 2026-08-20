@@ -2,7 +2,7 @@
 
 import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
-import { Eyebrow, LedgerButton, Num } from "@/components/ledger";
+import { Eyebrow, LedgerButton, Num, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { uiRoleForRole } from "@/lib/auth/portal";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -153,8 +153,8 @@ export default function LoginPage() {
     <AuthShell>
       <div className="mb-6">
         <h1
-          className="text-2xl font-bold"
-          style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+          className={`text-2xl font-bold ${ledgerTrackTight}`}
+          style={{ color: "var(--ink)" }}
         >
           {t("auth.signInTitle")}
         </h1>
@@ -275,7 +275,6 @@ export default function LoginPage() {
                 </div>
                 <FormControl>
                   <PasswordInput
-                    dir="ltr"
                     placeholder={t("auth.passwordPlaceholder")}
                     autoComplete="current-password"
                     showLabel={t("auth.showPassword")}

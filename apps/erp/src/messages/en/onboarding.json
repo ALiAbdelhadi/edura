@@ -71,7 +71,8 @@
   },
   "errors": {
     "selectOne": "Pick an option to continue",
-    "selectAtLeastOne": "Pick at least one option"
+    "selectAtLeastOne": "Pick at least one option",
+    "nameRequired": "Enter the center name to continue"
   },
   "welcomeCenter": "Welcome! Let's set up your center profile",
   "center": {

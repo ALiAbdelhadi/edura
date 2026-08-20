@@ -20,17 +20,14 @@ import { toast } from "@repo/ui/components/sonner";
 import {
   Chip,
   Eyebrow,
+  Hairline,
   InitialsTile,
   LedgerButton,
   LedgerEmpty,
-  LedgerTable,
   Num,
   PageTitle,
   SectionHeading,
   Sheet,
-  Td,
-  Th,
-  Tr,
 } from "@/features/student/ledger";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
@@ -291,49 +288,46 @@ export function StudentFamilyCodeScreen() {
               hint={t("studentFamilyCode.noLinkRequestsHint")}
             />
           ) : (
-            <LedgerTable
-              head={
-                <>
-                  <Th>{t("roles.parent")}</Th>
-                  <Th>{t("studentFamilyCode.status")}</Th>
-                  <Th>{t("studentFamilyCode.initiatedBy")}</Th>
-                  <Th>{t("studentFamilyCode.date")}</Th>
-                  <Th align="end">
-                    <span className="sr-only">{t("studentFamilyCode.actions")}</span>
-                  </Th>
-                </>
-              }
-            >
-              {links.map((link) => {
+            /* ROWS, NOT A TABLE. Five columns for a list that is usually
+               empty and never more than two or three entries long, on a 375px
+               screen. The decision this list exists for — approve or reject —
+               was the column being squeezed. */
+            <ul>
+              {links.map((link, i) => {
                 const id = link.id || link._id || "";
                 const name = link.parentId?.name || t("studentFamilyCode.unknown");
                 const decidable = link.status === "pending" && link.initiatedBy === "parent";
                 return (
-                  <Tr key={id}>
-                    <Td>
-                      <div className="flex items-center gap-2.5">
-                        <InitialsTile name={name} size={28} tone="teal" />
-                        <span className="font-medium">{name}</span>
+                  <li key={id}>
+                    {i > 0 ? <Hairline /> : null}
+                    <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                        <InitialsTile name={name} size={30} tone="teal" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium" style={{ color: "var(--ink)" }}>
+                            {name}
+                          </p>
+                          <p className="mt-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
+                            {link.initiatedBy === "parent"
+                              ? t("roles.parent")
+                              : t("studentFamilyCode.you")}
+                            {link.createdAt ? (
+                              <>
+                                {" · "}
+                                {/* Not in <Num>: an Arabic month is a word, and
+                                    that isolate is for figures. */}
+                                {formatDate(link.createdAt)}
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                        <Chip tone={(link.status && STATUS_TONES[link.status]) || "neutral"}>
+                          {link.status ? t(asKey(STATUS_KEYS[link.status] || link.status)) : "—"}
+                        </Chip>
                       </div>
-                    </Td>
-                    <Td>
-                      <Chip tone={(link.status && STATUS_TONES[link.status]) || "neutral"}>
-                        {link.status ? t(asKey(STATUS_KEYS[link.status] || link.status)) : "—"}
-                      </Chip>
-                    </Td>
-                    <Td>
-                      {link.initiatedBy === "parent"
-                        ? t("roles.parent")
-                        : t("studentFamilyCode.you")}
-                    </Td>
-                    <Td>
-                      <Num style={{ color: "var(--ink-2)", fontSize: 12 }}>
-                        {link.createdAt ? formatDate(link.createdAt) : "—"}
-                      </Num>
-                    </Td>
-                    <Td align="end">
+
                       {decidable ? (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           {/* Approving hands an adult standing read access to a
                               minor's record. It is the consequential one, so it
                               is the primary and reject is the quiet neighbour —
@@ -356,14 +350,12 @@ export function StudentFamilyCodeScreen() {
                             {t("actions.reject")}
                           </LedgerButton>
                         </div>
-                      ) : (
-                        <span style={{ color: "var(--ink-3)" }}>—</span>
-                      )}
-                    </Td>
-                  </Tr>
+                      ) : null}
+                    </div>
+                  </li>
                 );
               })}
-            </LedgerTable>
+            </ul>
           )}
         </div>
       </Sheet>

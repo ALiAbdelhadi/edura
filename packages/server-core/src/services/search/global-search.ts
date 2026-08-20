@@ -1,4 +1,13 @@
 import type { CenterStaffRole, Prisma } from "@repo/database";
+import {
+  literalFragments,
+  narrowFragments,
+  matchesSearchTerms,
+  normalizeIdentifier,
+  normalizeSearchText,
+  searchTerms,
+  SEARCH_SCAN_LIMIT,
+} from "@repo/database/search-text";
 import type { SessionUser } from "../../auth/types";
 import { platformDb, scopedDb } from "../../db/scope";
 import { lookupStudents } from "../attendance/checkin";
@@ -128,7 +137,14 @@ export const MIN_QUERY_LENGTH = 2;
 export const PER_KIND = 5;
 
 type Locale = "ar" | "en";
-type Ctx = { q: string; locale: Locale };
+type Ctx = {
+  q: string;
+  locale: Locale;
+  /** The query as words, normalized. The JS matcher's input. */
+  terms: string[];
+  /** The byte-comparable pieces of those words. The SQL pre-filter's input. */
+  frags: string[];
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Small shared helpers
@@ -136,6 +152,36 @@ type Ctx = { q: string; locale: Locale };
 
 const contains = (q: string) =>
   ({ contains: q, mode: "insensitive" }) as Prisma.StringFilter;
+
+/**
+ * THE TWO-STAGE MATCH — the shape every provider below now has, and the reason
+ * this file changed at all.
+ *
+ * A search for «احمد» used to be `name ILIKE '%احمد%'`, which returned NOTHING
+ * against three rows stored «أحمد» (measured on dev, 2026-08-19). ILIKE folds
+ * ASCII case and nothing else; the hamza an Egyptian typist omits, the ة they
+ * write as ه and the family name they put first are all invisible to it.
+ *
+ * The fix cannot be "normalize the query", because the database holds the RAW
+ * text — so it is done in two stages that answer two different questions:
+ *
+ *   NARROW (here, in SQL) — `literalFragments` yields the pieces of the query
+ *     that survive normalization unchanged, so they can be compared byte-wise.
+ *     «احمد» narrows to «حمد», which also matches «محمد»; that is fine, because
+ *     narrowing is all it claims to do. It can never EXCLUDE a row the full
+ *     query would have accepted, which is the only property it must have.
+ *
+ *   DECIDE (in JS, `matchesSearchTerms`) — the normalized comparison, over the
+ *     row's own searchable fields. This is what actually answers the question,
+ *     and it is the same function the palette's destination matcher runs, so
+ *     one box cannot disagree with the other.
+ *
+ * The cost is a wider `take` (`SEARCH_SCAN_LIMIT` instead of `PER_KIND`) so the
+ * loose stage cannot fill the page with near-misses and push the real answer
+ * off the end. Every provider here is already bounded to ONE center, ONE
+ * teacher's courses or ONE parent's children before that cap applies.
+ */
+const narrow = narrowFragments;
 
 function catalogName(
   row: { nameAr: string; nameEn: string | null } | null | undefined,
@@ -162,12 +208,17 @@ function join(...parts: (string | null | undefined)[]): string | undefined {
  * that rank differently is a worse defect than either ranking.
  */
 export function rankHits(hits: SearchHit[], q: string): SearchHit[] {
-  const needle = q.toLowerCase();
+  // Normalized on BOTH sides, for the same reason the matching is: ranking
+  // «أحمد علي» below «محمد أحمد» for a search of «احمد» — because the raw title
+  // does not start with the raw query — puts the row the reader meant second.
+  const needle = normalizeSearchText(q);
+  const identifier = normalizeIdentifier(q);
   return hits
     .map((hit, i) => {
-      const title = hit.title.toLowerCase();
-      const badge = (hit.badge ?? "").toLowerCase();
-      const score = badge === needle ? 0 : title.startsWith(needle) ? 1 : 2;
+      const title = normalizeSearchText(hit.title);
+      const badge = normalizeIdentifier(hit.badge ?? "");
+      const score =
+        identifier && badge === identifier ? 0 : title.startsWith(needle) ? 1 : 2;
       return { hit, score, i };
     })
     .sort((a, b) => a.score - b.score || a.i - b.i)
@@ -244,24 +295,28 @@ async function centerStudents(
 
 async function centerCourses(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q, locale }: Ctx,
+  { locale, terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   return scopedDb(p.acting, async (tx) => {
-    const courses = await tx.course.findMany({
+    const candidates = await tx.course.findMany({
       where: {
         centerId: p.acting.centerId,
         status: "active",
-        OR: [{ title: contains(q) }, { subject: contains(q) }],
+        AND: narrow(frags, (f) => [{ title: contains(f) }, { subject: contains(f) }]),
       },
       select: {
         id: true,
         title: true,
+        subject: true,
         teacherId: true,
         subjectId: true,
         gradeLevelId: true,
       },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const courses = candidates
+      .filter((c) => matchesSearchTerms([c.title, c.subject], terms))
+      .slice(0, PER_KIND);
     if (!courses.length) return [];
 
     // Names for the subtitle. Two batched reads for the whole page, never one
@@ -312,7 +367,7 @@ async function centerCourses(
 
 async function centerTeachers(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   const centerId = p.acting.centerId as string;
 
@@ -323,15 +378,18 @@ async function centerTeachers(
     });
     if (!links.length) return [];
 
-    const users = await tx.user.findMany({
+    const candidates = await tx.user.findMany({
       where: {
         id: { in: links.map((l) => l.teacherId) },
         status: { not: "deleted" },
-        OR: [{ name: contains(q) }, { phone: { contains: q } }],
+        AND: narrow(frags, (f) => [{ name: contains(f) }, { phone: contains(f) }]),
       },
       select: { id: true, name: true, phone: true },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const users = candidates
+      .filter((u) => matchesSearchTerms([u.name, u.phone], terms))
+      .slice(0, PER_KIND);
 
     return users.map((u) => ({
       kind: "teacher" as const,
@@ -345,20 +403,26 @@ async function centerTeachers(
 
 async function centerExternalTeachers(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   const centerId = p.acting.centerId as string;
 
   return scopedDb(p.acting, async (tx) => {
-    const profiles = await tx.teacherProfile.findMany({
+    const candidates = await tx.teacherProfile.findMany({
       where: {
         managedByCenterId: centerId,
         systemStatus: "external",
-        user: { status: { not: "deleted" }, name: contains(q) },
+        user: {
+          status: { not: "deleted" },
+          AND: narrow(frags, (f) => [{ name: contains(f) }, { phone: contains(f) }]),
+        },
       },
       select: { userId: true, user: { select: { name: true, phone: true } } },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const profiles = candidates
+      .filter((t) => matchesSearchTerms([t.user.name, t.user.phone], terms))
+      .slice(0, PER_KIND);
 
     return profiles.map((t) => ({
       kind: "external_teacher" as const,
@@ -373,18 +437,24 @@ async function centerExternalTeachers(
 
 async function centerRooms(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   return scopedDb(p.acting, async (tx) => {
-    const rooms = await tx.room.findMany({
+    const candidates = await tx.room.findMany({
       where: {
         centerId: p.acting.centerId,
         isActive: true,
-        OR: [{ name: contains(q) }, { description: contains(q) }],
+        AND: narrow(frags, (f) => [
+          { name: contains(f) },
+          { description: contains(f) },
+        ]),
       },
       select: { id: true, name: true, description: true },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const rooms = candidates
+      .filter((r) => matchesSearchTerms([r.name, r.description], terms))
+      .slice(0, PER_KIND);
 
     return rooms.map((r) => ({
       kind: "room" as const,
@@ -401,7 +471,7 @@ async function centerRooms(
 
 async function centerStaffMembers(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   const centerId = p.acting.centerId as string;
 
@@ -412,16 +482,24 @@ async function centerStaffMembers(
     });
     if (!links.length) return [];
 
-    const users = await tx.user.findMany({
+    const candidates = await tx.user.findMany({
       where: {
         id: { in: links.map((l) => l.staffUserId) },
         status: { not: "deleted" },
-        OR: [{ name: contains(q) }, { email: contains(q) }],
+        AND: narrow(frags, (f) => [{ name: contains(f) }, { email: contains(f) }]),
       },
       select: { id: true, name: true, email: true },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
     const byUser = new Map(links.map((l) => [l.staffUserId, l]));
+    // The staff member's TITLE is searchable too — «استقبال» finds the person
+    // on the desk. It lives on the link, not on the user, so it can only join
+    // the haystack here, after the two reads meet.
+    const users = candidates
+      .filter((u) =>
+        matchesSearchTerms([u.name, u.email, byUser.get(u.id)?.title], terms),
+      )
+      .slice(0, PER_KIND);
 
     return users.map((u) => ({
       kind: "staff" as const,
@@ -444,24 +522,55 @@ async function centerStaffMembers(
  */
 async function centerPayments(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { q }: Ctx,
+  { q, terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
+  // A receipt number is READ ALOUD and typed back, so it arrives with the
+  // dashes in the wrong places or with none at all, and on an Arabic keypad its
+  // digits arrive as ٠-٩. `normalizeIdentifier` reduces both sides to the same
+  // bare string, which is the comparison the reader believes they are making.
+  const identifier = normalizeIdentifier(q);
+
   return scopedDb(p.acting, async (tx) => {
-    const payments = await tx.payment.findMany({
-      where: {
-        centerId: p.acting.centerId,
-        receiptNumber: contains(q),
-      },
-      select: {
-        id: true,
-        receiptNumber: true,
-        amount: true,
-        paidAt: true,
-        studentId: true,
-      },
+    const select = {
+      id: true,
+      receiptNumber: true,
+      amount: true,
+      paidAt: true,
+      studentId: true,
+    } as const;
+    const scope = { centerId: p.acting.centerId };
+
+    let candidates = await tx.payment.findMany({
+      where: { ...scope, AND: narrow(frags, (f) => [{ receiptNumber: contains(f) }]) },
+      select,
       orderBy: { paidAt: "desc" },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+
+    // A receipt number PASTED with its separators stripped («rcpnile202600004»)
+    // is one token that appears nowhere in the raw column, so the fragment
+    // pre-filter — which can only compare bytes — excludes the very row it
+    // names. When it excludes everything, fall back to the center's most recent
+    // receipts and let `normalizeIdentifier` decide. Bounded, and reached only
+    // on a query that already found nothing, so the common path still costs one
+    // narrowed query.
+    if (!candidates.length && frags.length) {
+      candidates = await tx.payment.findMany({
+        where: scope,
+        select,
+        orderBy: { paidAt: "desc" },
+        take: SEARCH_SCAN_LIMIT,
+      });
+    }
+
+    const payments = candidates
+      .filter(
+        (x) =>
+          matchesSearchTerms([x.receiptNumber], terms) ||
+          (identifier.length >= MIN_QUERY_LENGTH &&
+            normalizeIdentifier(x.receiptNumber).includes(identifier)),
+      )
+      .slice(0, PER_KIND);
     if (!payments.length) return [];
 
     const students = await tx.user.findMany({
@@ -538,18 +647,27 @@ async function searchCenter(
 
 async function teacherCourses(
   p: Extract<SearchPrincipal, { kind: "teacher" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   return platformDb(async (tx) => {
-    const courses = await tx.course.findMany({
+    const candidates = await tx.course.findMany({
       where: {
         teacherId: p.acting.id,
         status: "active",
-        OR: [{ title: contains(q) }, { subject: contains(q) }],
+        AND: narrow(frags, (f) => [{ title: contains(f) }, { subject: contains(f) }]),
       },
-      select: { id: true, title: true, startTime: true, endTime: true },
-      take: PER_KIND,
+      select: {
+        id: true,
+        title: true,
+        subject: true,
+        startTime: true,
+        endTime: true,
+      },
+      take: SEARCH_SCAN_LIMIT,
     });
+    const courses = candidates
+      .filter((c) => matchesSearchTerms([c.title, c.subject], terms))
+      .slice(0, PER_KIND);
 
     return courses.map((c) => ({
       kind: "course" as const,
@@ -573,7 +691,7 @@ async function teacherCourses(
  */
 async function teacherStudents(
   p: Extract<SearchPrincipal, { kind: "teacher" }>,
-  { q }: Ctx,
+  { q, terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   return platformDb(async (tx) => {
     const courses = await tx.course.findMany({
@@ -589,13 +707,18 @@ async function teacherStudents(
     if (!enrollments.length) return [];
 
     const ids = [...new Set(enrollments.map((e) => e.studentId))];
-    const profiles = await tx.studentProfile.findMany({
+    const code = normalizeIdentifier(q);
+    const candidates = await tx.studentProfile.findMany({
       where: {
         userId: { in: ids },
         OR: [
-          { studentCode: q.toUpperCase() },
-          { fullName: contains(q) },
-          { user: { name: contains(q) } },
+          ...(code.length >= MIN_QUERY_LENGTH ? [{ studentCode: code }] : []),
+          {
+            AND: narrow(frags, (f) => [
+              { fullName: contains(f) },
+              { user: { name: contains(f) } },
+            ]),
+          },
         ],
       },
       select: {
@@ -604,8 +727,15 @@ async function teacherStudents(
         studentCode: true,
         user: { select: { name: true } },
       },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const profiles = candidates
+      .filter(
+        (s) =>
+          s.studentCode === code ||
+          matchesSearchTerms([s.user?.name, s.fullName], terms),
+      )
+      .slice(0, PER_KIND);
 
     const courseTitle = new Map(courses.map((c) => [c.id, c.title]));
     const firstCourse = new Map<string, string>();
@@ -636,7 +766,7 @@ async function teacherStudents(
 
 async function teacherCenters(
   p: Extract<SearchPrincipal, { kind: "teacher" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchHit[]> {
   return platformDb(async (tx) => {
     const links = await tx.centerTeacherAffiliation.findMany({
@@ -645,11 +775,17 @@ async function teacherCenters(
     });
     if (!links.length) return [];
 
-    const centers = await tx.center.findMany({
-      where: { id: { in: links.map((l) => l.centerId) }, name: contains(q) },
+    const candidates = await tx.center.findMany({
+      where: {
+        id: { in: links.map((l) => l.centerId) },
+        AND: narrow(frags, (f) => [{ name: contains(f) }, { area: contains(f) }]),
+      },
       select: { id: true, name: true, area: true },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const centers = candidates
+      .filter((c) => matchesSearchTerms([c.name, c.area], terms))
+      .slice(0, PER_KIND);
 
     return centers.map((c) => ({
       kind: "center" as const,
@@ -683,7 +819,7 @@ async function searchTeacher(
 
 async function searchParent(
   p: Extract<SearchPrincipal, { kind: "parent" }>,
-  { q }: Ctx,
+  { q, terms, frags }: Ctx,
 ): Promise<SearchGroup[]> {
   const hits = await platformDb(async (tx) => {
     // APPROVED links only. `pending`, `rejected` and `revoked` all fail — the
@@ -695,13 +831,18 @@ async function searchParent(
     });
     if (!links.length) return [];
 
-    const profiles = await tx.studentProfile.findMany({
+    const code = normalizeIdentifier(q);
+    const candidates = await tx.studentProfile.findMany({
       where: {
         userId: { in: links.map((l) => l.studentId) },
         OR: [
-          { studentCode: q.toUpperCase() },
-          { fullName: contains(q) },
-          { user: { name: contains(q) } },
+          ...(code.length >= MIN_QUERY_LENGTH ? [{ studentCode: code }] : []),
+          {
+            AND: narrow(frags, (f) => [
+              { fullName: contains(f) },
+              { user: { name: contains(f) } },
+            ]),
+          },
         ],
       },
       select: {
@@ -710,8 +851,15 @@ async function searchParent(
         studentCode: true,
         user: { select: { name: true } },
       },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const profiles = candidates
+      .filter(
+        (s) =>
+          s.studentCode === code ||
+          matchesSearchTerms([s.user?.name, s.fullName], terms),
+      )
+      .slice(0, PER_KIND);
 
     return profiles
       .filter((s): s is typeof s & { userId: string } => Boolean(s.userId))
@@ -736,7 +884,7 @@ async function searchParent(
 
 async function searchStudent(
   p: Extract<SearchPrincipal, { kind: "student" }>,
-  { q }: Ctx,
+  { terms, frags }: Ctx,
 ): Promise<SearchGroup[]> {
   const hits = await platformDb(async (tx) => {
     const enrollments = await tx.enrollment.findMany({
@@ -745,14 +893,17 @@ async function searchStudent(
     });
     if (!enrollments.length) return [];
 
-    const courses = await tx.course.findMany({
+    const candidates = await tx.course.findMany({
       where: {
         id: { in: enrollments.map((e) => e.courseId) },
-        OR: [{ title: contains(q) }, { subject: contains(q) }],
+        AND: narrow(frags, (f) => [{ title: contains(f) }, { subject: contains(f) }]),
       },
-      select: { id: true, title: true, teacherId: true },
-      take: PER_KIND,
+      select: { id: true, title: true, subject: true, teacherId: true },
+      take: SEARCH_SCAN_LIMIT,
     });
+    const courses = candidates
+      .filter((c) => matchesSearchTerms([c.title, c.subject], terms))
+      .slice(0, PER_KIND);
     if (!courses.length) return [];
 
     const teachers = await tx.user.findMany({
@@ -782,7 +933,14 @@ export async function globalSearch(
   opts: { q: string; locale?: Locale },
 ): Promise<GlobalSearchResult> {
   const q = opts.q.trim();
-  const ctx: Ctx = { q, locale: opts.locale === "en" ? "en" : "ar" };
+  const ctx: Ctx = {
+    q,
+    locale: opts.locale === "en" ? "en" : "ar",
+    // Computed ONCE for the whole request. Seven providers run in parallel and
+    // every one of them needs the same two derivations of the same string.
+    terms: searchTerms(q),
+    frags: literalFragments(q),
+  };
 
   // Short-circuits BEFORE any query: a one-character search is not a search,
   // and running seven providers on every keystroke of a word is how a counter

@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "edura-3002.session_token",
-      "value": "xsnw6Pc5OPS8ZSWFHwah0hUHKuC9cnLB.FZWBvrekNWkkOsTRESJDMXdoQi3cw%2FU0nGhEBFEaHNg%3D",
+      "value": "cd8hvmCPz1iCy63MtsHxBhBZhvL3peYn.Jz2c2hgysAp4Pb3stUVuUPuJh2TXMks9BcuYg5I94SI%3D",
       "domain": "localhost",
       "path": "/",
-      "expires": 1789610698.931722,
+      "expires": 1789737449.079324,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"

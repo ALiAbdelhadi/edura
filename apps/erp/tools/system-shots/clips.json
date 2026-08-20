@@ -18,11 +18,12 @@
     },
     {
       "name": "walk-in",
-      "file": "page@9ffe1e48cf8a87a894c9981d2994649f.webm",
-      "start": 1.724,
-      "duration": 10.155,
+      "file": "page@0ec8299b0fe33c8acfd50893f5484696.webm",
+      "start": 2.101,
+      "duration": 10.234,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "posterAt": 8.4
     },
     {
       "name": "counter-board",

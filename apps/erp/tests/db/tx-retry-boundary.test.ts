@@ -118,6 +118,35 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
+/**
+ * THE ONE SUITE THAT CANNOT RUN OFF NEON, and says so instead of failing.
+ *
+ * Its subject IS the Neon serverless driver: it destroys the real WebSocket to
+ * reproduce a proxy drop, so it constructs its own Neon pool rather than using
+ * `testPool()` like the other 49 suites. Under `DATABASE_DRIVER=pg` — a plain
+ * Postgres, which is now how the suites run locally and in CI — there is no
+ * such socket to destroy, and the drop simply never happens: the suite would
+ * report "body ran 1x, expected 2" and read as a money-safety regression when
+ * nothing is wrong.
+ *
+ * So it is SKIPPED there, loudly and by name. Deliberately not silent: this
+ * repo's CI treats a quietly-skipped proof as worse than a red one, because a
+ * green tick that means nothing is what "refuse to ship ahead of the database"
+ * exists to prevent. The skip is also narrow — it triggers only on an explicit
+ * non-Neon driver, so on the real target (Neon, the default) the suite runs
+ * exactly as before and can still fail.
+ */
+if (process.env.DATABASE_DRIVER === "pg") {
+  console.log("tx-retry-boundary: SKIPPED — DATABASE_DRIVER=pg");
+  console.log(
+    "  This suite drops a real Neon WebSocket to prove the COMMIT-window retry\n" +
+      "  boundary. A plain Postgres connection has no such socket, so the drop\n" +
+      "  cannot be simulated and the proof is vacuous rather than passing.\n" +
+      "  Run it against a Neon endpoint (unset DATABASE_DRIVER) to exercise it.",
+  );
+  process.exit(0);
+}
+
 // The environment guard runs BEFORE main(), so invoking this file directly
 // (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite tx-retry-boundary.test.ts" })

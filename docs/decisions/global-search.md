@@ -189,3 +189,293 @@ What WAS checked live: the new route answers **401** unauthenticated on the dev
 server, so it exists, is wired, and fails closed. Everything else about it rests
 on the 27/27 suite, typecheck and build. The palette component itself is the one
 the ERP side was verified against in both scripts and both themes.
+
+---
+
+## The search did not work, and the reason was the Arabic (2026-08-20)
+
+Ali, 2026-08-20: "البحث global … لا يعمل … المستخدم ممكن يخش يبحث علي اي حاجه".
+
+Nothing was broken in the wiring. The palette fetched, the route authorized, the
+providers ran, and the answer came back empty — because every one of those
+providers compared BYTES. Prisma's `contains` with `mode: "insensitive"` is
+`ILIKE`, and ILIKE folds ASCII case and nothing else. Measured against the dev
+database before any change:
+
+| stored | typed | rows |
+|---|---|---|
+| `أحمد` (3 rows) | `احمد` | **0** |
+| `إيهاب` | `ايهاب` | **0** |
+| `فريدة` | `فريده` | **0** |
+| `كنزي` | `كنزى` | **0** |
+| `ملك حسن` | `حسن ملك` | **0** |
+
+An Egyptian typist omits the hamza (it needs Shift on the standard layout),
+writes `ة` and `ه` interchangeably, does the same with `ى` and `ي`, and gives
+the family name first about as often as last. Each of those returned an empty
+list from a search that was working perfectly — which is worse than an error,
+because at a counter it reads as *this child is not registered here*.
+
+1. **ONE NORMALIZER, AND IT LIVES WHERE BOTH HALVES CAN REACH IT.**
+   `@repo/database/search-text` — a pure string module importing nothing.
+   `@repo/database` is the only package BOTH `@repo/server-core` (the query
+   side) and `@repo/ui` (the palette's own destination matcher) already depend
+   on, which is the same reason `chat-policy` lives there. A second copy would
+   be a search that behaves differently depending on which box you typed into.
+   It folds the hamza forms, `ة→ه`, `ى→ي`, the hamza carriers, the Persian
+   shapes a mis-set phone keyboard emits, the tashkeel, the tatweel, the
+   invisible bidi controls a paste drags along, and Arabic-Indic digits onto
+   ASCII. It is NOT fuzzy: `wlt` still does not find «wallet», and a wrong
+   letter still fails. It accepts the same letter written the way people write
+   it, which is a different thing.
+
+2. **TWO STAGES, BECAUSE THE DATABASE HOLDS THE RAW TEXT.** Normalizing the
+   query alone fixes nothing — `«احمد»` still is not a substring of `«أحمد»`.
+   So each provider NARROWS in SQL on `literalFragments` (the pieces of the
+   query that survive normalization unchanged, and can therefore be compared
+   byte-wise: `«احمد» → «حمد»`) and then DECIDES in JS with
+   `matchesSearchTerms`. The narrowing is deliberately loose — `«حمد»` also
+   matches `«محمد»` — and the only property it must have is that it can never
+   EXCLUDE a row the full query would accept. That is asserted directly in
+   `tests/unit/search-text-arabic.test.ts`.
+
+3. **THE PRICE IS A WIDER `take`, NOT A WIDER READ.** `SEARCH_SCAN_LIMIT` (120)
+   replaces `PER_KIND` at the SQL layer so the loose stage cannot fill the page
+   with near-misses and push the real answer off the end. No provider's tenancy,
+   tier or `where` scope changed: every one is still bounded to ONE center's
+   roster, ONE teacher's courses or ONE parent's approved children BEFORE the
+   cap applies. The tier table in `CENTER_PROVIDERS` is untouched.
+
+4. **DIGITS ARE LITERAL-SAFE, AND THE PRICE IS PAID IN A SECOND OR-BRANCH.**
+   Excluding them would have been tidier (`٠` folds onto `0`, so `0` is not
+   strictly safe) but would have left every receipt number, phone and student
+   code with NO usable fragment — and a receipt search would then scan and
+   silently miss the 121st row. `fragmentVariants` sends a digit-bearing
+   fragment twice, once per numeral system. The remaining gap is a value
+   written in MIXED numerals, which no keyboard produces and which dev holds
+   none of (measured: zero non-ASCII digits across `users.phone`,
+   `student_profiles.phone`, `student_profiles.student_code`,
+   `payments.receipt_number`).
+
+5. **THE SCANNER'S URL IS READ RAW, AND THAT ORDERING IS LOAD-BEARING.** A
+   keyboard-wedge scanner types the card's whole signed URL into the box, and
+   normalization turns every `:` `/` `-` in it into a space. Normalizing before
+   `readStudentScan` fed it a sentence and resolved a real card to NOBODY —
+   caught by `student-qr-credential.test.ts`, which is why that suite asserts
+   it. `lookupStudents` now reads the raw string first and retries with
+   `normalizeIdentifier` only when the raw form is unreadable, which is the
+   other hand: a code typed on an Arabic keypad, or read aloud and typed back
+   with a dash.
+
+6. **THE SAME FIX REACHES THE BOXES THAT ARE NOT THE PALETTE.** The defect was
+   never specific to ⌘K — it was in every free-text filter in the product. The
+   counter's `lookupStudents`, the counter board's teacher filter, the center's
+   student roster and the external-teachers list all got the full two-stage
+   match (each is already bounded to one center, so the JS pass is free). The
+   roster's filter was additionally `startsWith`, which asked the operator to
+   know how the row was created — a student registered «محمد أحمد سيد» was
+   unreachable by «أحمد»; it is a contains-match now.
+
+7. **THE PUBLIC DISCOVERY LISTS NARROW ONLY, AND THAT IS A DELIBERATE HALF.**
+   `discovery.ts` is paginated (`skip`/`take`), and a JS filter applied after
+   the page is cut returns a short page and a wrong total. So those three
+   filters get the SQL narrowing without the decide pass: a search for «احمد»
+   also shows «محمد». For a browse-and-filter screen that is the right trade —
+   a few extra rows are a nuisance, an empty list is a dead end. An exact,
+   paginable version needs the match to happen inside Postgres (an `IMMUTABLE`
+   normalize function plus expression indexes), which is a MIGRATION and needs
+   its own approved plan. It has not been written.
+
+**No database migration, no schema change, no new read, no widened tier, and no
+new i18n key.**
+
+Proof — unit `apps/erp/tests/unit/search-text-arabic.test.ts` **29/29** (every
+fold; word-order independence; the compound-name space so «عبدالرحمن» finds
+«عبد الرحمن»; that a second word NARROWS; that it is not fuzzy; and the
+pre-filter's safety property asserted directly). DB
+`apps/erp/tests/db/global-search.test.ts` **41/41** — the 33 boundary
+assertions unchanged, plus a §10 block through the REAL service and the REAL
+`authorizeCenterActor`, opening with a CONTROL that asserts raw ILIKE still
+finds nothing, so the assertions after it measure the fix and not the data.
+Regressions: `check-types` **9/9** for every package touched, `bun run build`
+**3/3**, full ERP DB corpus **44 suites / 1404 assertions** with only the three
+pre-existing exclusions failing (`catalog-onboarding`, `h03-seed-uuid-flows`,
+and `profile-images`, which needs `CLOUDINARY_*`).
+
+Verified against the LIVE DEV DATABASE through `lookupStudents` itself:
+«حمزة الشريف» found by «حمزه», «جنى وجدي» found by «جني», «حمزة الشريف» found by
+«الشريف حمزه» — while a raw `ILIKE '%حمزه%'` against the same database still
+returns 0 rows.
+
+### The back office followed the same day (2026-08-20, Ali — "اعملها لل superadmin كمان")
+
+`apps/superadmin` had the same defect everywhere, not only in its palette, so
+all nine of its free-text filters were done rather than the one box.
+
+1. **THE MATCHING IS NOW SHARED, WHICH THE ROW SHAPE ALREADY WAS.** The back
+   office keeps its own providers — it reads THE PLATFORM through `platformDb`
+   where the ERP kernel reads ONE TENANT through `scopedDb`, and a tenancy that
+   is a parameter is a tenancy someone eventually passes wrong. But it now
+   imports `@repo/database/search-text` alongside `SearchHit` / `rankHits`.
+   Two palettes in one product that MATCH differently is a worse defect than
+   either: an operator learns the rule once.
+
+2. **WHERE THE DECIDE PASS LIVES DEPENDS ON WHO PAGINATES, and that is the only
+   real design question in this pass.** Three shapes, applied by rule:
+
+   | shape | treatment | why |
+   |---|---|---|
+   | not paginated (`centers`, the palette's `people` and `paymentIntents`) | full two-stage | it can slice, so it can decide |
+   | a bounded sub-query (`collaboration`, `subscriptions`, the intents' payer lookup) | full two-stage | already capped at 500, so the JS pass is free |
+   | a paginated list with a `count` (`listUsers`, `platform`, `contact-submissions`, `whatsapp-messages`, the intents' reference arm) | narrow only | a filter applied after the page is cut gives a short page and a wrong total |
+
+   The narrow-only lists therefore return a SUPERSET: «احمد» also lists «محمد».
+   The palette does NOT inherit that looseness — `people()` applies the exact
+   pass itself over the superset `listUsers` hands it, which is why `take` there
+   is now `SEARCH_SCAN_LIMIT` rather than `PER_KIND * 4`.
+
+3. **`narrowQuery` EXISTS BECAUSE AN EMPTY `AND` IS "NO CONSTRAINT".**
+   `narrowFragments` correctly returns `[]` for a query with nothing
+   byte-comparable in it («اي»), and a provider that filters in JS afterwards
+   handles that by scanning its own bounded set. A PAGINATED list has no such
+   second chance: `where.AND = []` would have quietly returned the whole table
+   for a query the operator typed in order to narrow it — a worse failure than
+   the empty result this work exists to fix. `narrowQuery` falls back to
+   comparing the raw query, which for a two-character all-fold-target query is
+   exactly as good as the code was before any of this, and is never a wider
+   read. Every paginated caller uses it.
+
+4. **THE STUDENT CODE GOES THROUGH `normalizeIdentifier`.** `CODE_SHAPE` was
+   tested against `q.trim().toUpperCase()`, so a code read down the phone and
+   typed back with a dash — or with its digits on an Arabic keypad — failed the
+   shape test and resolved to nobody. That is the exact call this provider
+   exists to serve.
+
+5. **`contact_submissions` was the one most certain to be broken in practice.**
+   It holds a name, a subject and a free-text message written IN ARABIC by the
+   public, straight off the marketing site, and it was searched byte-wise.
+
+6. **NO TIER, ROLE OR `where` SCOPE CHANGED.** The `PROVIDERS` table and its
+   `roles` column are untouched; `listUsers` and `listPaymentIntents` are still
+   called as-is, so a search still cannot match a column the list screen would
+   not, nor return a row the list would hide. Nothing audited is reached.
+
+Proof: `apps/superadmin/tests/db/global-search.test.ts` **34/34** (was 27) — the
+27 boundary assertions unchanged, plus a §7 block opening with the same CONTROL
+that raw ILIKE still finds nothing, then the folds through the REAL
+`backOfficeSearch` against the live DB, including the centers provider matching
+on its AREA. Unit `search-text-arabic.test.ts` **33/33** (was 29) — the four new
+ones pin `narrowQuery`'s floor, in particular that it NEVER returns an empty
+`AND`. `check-types` **9/9**, `bun run build` **3/3**.
+
+Note: `apps/superadmin/.env.test` did not exist, so that app's DB suites were
+unrunnable locally. It is now a copy of the ERP's (both ungitted, both pointing
+where that one points).
+
+### The normalizer, in Postgres (2026-08-20, Ali — "اعمل الـ migration")
+
+Migration `20260820120000_search_normalize`. **Written and proven; NOT applied
+anywhere** — see the apply note at the end.
+
+The application fix left the PAGINATED lists returning a superset, and said why:
+a JS filter applied after the page is cut gives a short page and a wrong total,
+so those queries can only NARROW. The only way to make them exact is to move the
+comparison INSIDE the query, which needs the normalizer to exist in SQL.
+
+1. **ADDITIVE, AND NOT A SCHEMA CHANGE.** One extension (`pg_trgm`), one
+   function, five indexes. No table, column, constraint, enum or row is touched,
+   which is why it could be written without a schema plan: `rollback.sql` drops
+   exactly those and returns the database to its previous state. The only shape
+   number that moves is the migration count (54 → 55) — no new table, sequence,
+   RLS table or policy.
+
+2. **`IMMUTABLE` IS A REQUIREMENT, NOT A LABEL.** An expression index cannot be
+   built on anything weaker, and it is honestly true here: every builtin it calls
+   is itself immutable (`normalize` reports `provolatile = 'i'` on PG 13+).
+   `STRICT` so NULL in gives NULL out — otherwise a NULL column would normalize
+   to the empty string and `WHERE f(col) LIKE '%…%'` would be accidentally TRUE
+   for every row with no name.
+
+3. **THE ONE PROPERTY THAT MATTERS IS MEASURED, NOT ASSERTED.** The SQL function
+   and `normalizeSearchText` must produce BYTE-IDENTICAL output; two normalizers
+   that disagree are two search engines, and a reader would learn one rule on the
+   palette and a different one on the list below it. So
+   `apps/erp/tests/db/search-normalize.test.ts` runs BOTH over (a) one case per
+   fold rule, (b) EVERY DISTINCT VALUE in eight searchable columns on the live
+   database, and (c) a fuzz pass whose alphabet is deliberately far wider than
+   anything this product holds — Cyrillic, CJK, Hangul, emoji, Arabic
+   presentation forms, full-width Latin, Unicode digraphs, and the invisible
+   bidi/joiner controls a paste carries. The corpus is Arabic and Latin because
+   that is what the data is; the divergence risk lives in what it does not hold
+   yet.
+
+4. **FIVE INDEXES, NOT EVERY SEARCHABLE COLUMN.** GIN + `gin_trgm_ops` on the
+   NORMALIZED expression, because the query compares
+   `edura_search_normalize(col) LIKE '%…%'` and an index on anything else cannot
+   serve it. Each of the five is a free-text column on a paginated list a human
+   searches by name; the ASCII-only columns (gateway references,
+   `idempotency_key`, `provider_message_id`) are deliberately absent — ILIKE
+   already served those and a trigram index there would be write cost for
+   nothing. Not `CONCURRENTLY`, because prisma runs each migration in one
+   transaction and `CREATE INDEX CONCURRENTLY` cannot; the tables are small
+   today, and `IF NOT EXISTS` lets a large environment build them by hand first
+   and make this a no-op.
+
+Proof, measured against the LIVE DEV DATABASE with the whole migration applied
+inside a transaction that was then rolled back — so dev is unchanged:
+
+- the migration applies as one transaction with no error;
+- the function reports `provolatile = i`, `proisstrict = true`,
+  `proparallel = s`;
+- all five indexes exist;
+- **the planner uses them** — `Bitmap Index Scan on users_name_search_trgm`, so
+  the index is load-bearing rather than decorative;
+- on real dev rows, `«احمد»` finds «أحمد الشناوي», «أ. أحمد الشناوي» and
+  «يوسف أحمد», while `name ILIKE '%احمد%'` against the same table still returns
+  **0**;
+- SQL and JS agree on **31/31** hand cases, **738/738** distinct real values, and
+  **4000/4000** fuzzed strings.
+
+**NOT APPLIED, and applying it is not a formality.** Two things have to be true
+first, both of them lessons this file's own history records:
+
+- `prisma migrate deploy` applies EVERY pending migration in name order, and dev
+  currently has two pending — this one and `20260818130000_validate_centers_wallet_check`,
+  which belongs to another workstream. It is guarded to be a no-op wherever the
+  constraint is already validated (which dev is), but applying another branch's
+  migration is not a decision to take silently.
+- Nothing in the application calls `edura_search_normalize` yet, deliberately.
+  Code that calls a function its database does not have turns every search into a
+  500 — the 2026-08-02 outage, exactly. The order is: apply the migration, THEN
+  ship code that uses it.
+
+**WHAT IS STILL SUPERSET, AND THE ONE-LINE DECISION THAT WOULD FIX IT.** Prisma
+cannot express `WHERE f(col) LIKE …` in a typed `where`, so the paginated lists
+cannot use the function as written. The three ways out, and why only one is
+worth doing:
+
+- *Raw SQL for each list* — duplicates every existing filter, cursor and count
+  into six hand-written queries. That is the drift this codebase keeps refusing.
+- *A raw id pre-filter feeding `id: { in: … }`* — keeps all the Prisma filters,
+  but the id set is unbounded: two characters against a platform-sized `users`
+  table is tens of thousands of UUIDs in memory. Sound, and wrong at scale.
+- *A `GENERATED ALWAYS AS (edura_search_normalize(col)) STORED` column* per
+  searched column, indexed, and named in `schema.prisma`. Prisma then filters it
+  with a plain `contains` — exact, indexed, paginated and counted, with no raw
+  SQL and no duplicated logic. This is the right answer.
+
+That last one adds COLUMNS to real tables, which under this file's own rules
+needs an approved plan before anything touches the database. The plan is one
+statement per column, e.g.
+
+```sql
+ALTER TABLE users
+  ADD COLUMN name_norm text GENERATED ALWAYS AS (edura_search_normalize(name)) STORED;
+```
+
+plus the trigram index moving from the expression to the column, and the field
+added to `schema.prisma`. Its one real cost is a footgun worth stating: Prisma
+does not model generated columns, so `prisma migrate dev` would propose turning
+them back into ordinary ones. This repo writes its migrations by hand and checks
+shape with `verify-db`, so the exposure is a developer running `migrate dev` —
+which is why it belongs in a decision Ali makes, not in this one.

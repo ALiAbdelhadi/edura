@@ -1,12 +1,14 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { PasswordInput } from "@/components/kit/password-input";
 import { Spinner } from "@/components/kit/spinner";
-import { LedgerButton } from "@/components/ledger";
+import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api/client";
 import { authClient } from "@/lib/auth/client";
 import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { toast } from "@repo/ui/components/sonner";
 import { CheckCircle2, KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -62,6 +64,20 @@ function ClaimInner() {
   }, [token, router]);
 
   const saveCredentials = async () => {
+    // Mirror the server's rules (valid email, passwordSchema's letter + digit)
+    // so a walk-in student gets a translated message, not a raw API error.
+    if (!fixedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error(t("auth.emailInvalid"));
+      return;
+    }
+    if (!/[A-Za-z]/.test(password)) {
+      toast.error(t("auth.passwordNeedsLetter"));
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      toast.error(t("auth.passwordNeedsDigit"));
+      return;
+    }
     setBusy(true);
     try {
       await api.post("me/credentials", {
@@ -95,7 +111,7 @@ function ClaimInner() {
           >
             <KeyRound className="size-5" aria-hidden />
           </div>
-          <h1 className="pt-2 text-xl font-bold" style={{ color: "var(--ink)" }}>
+          <h1 className={`pt-2 text-xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
             {t("claim.invalidTitle")}
           </h1>
           <p className="text-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
@@ -106,8 +122,8 @@ function ClaimInner() {
         <div className="space-y-4">
           <div>
             <h1
-              className="text-xl font-bold"
-              style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+              className={`text-xl font-bold ${ledgerTrackTight}`}
+              style={{ color: "var(--ink)" }}
             >
               {t("claim.credentialsTitle")}
             </h1>
@@ -119,35 +135,46 @@ function ClaimInner() {
           <div className="space-y-3">
             {/* An invitee keeps the address they were invited at; only a
                 phone-only student chooses one. */}
-            {fixedEmail ? (
-              <Input
-                type="email"
-                dir="ltr"
-                aria-label={t("claim.emailPlaceholder")}
-                className="font-[family-name:var(--ledger-mono)]"
-                value={fixedEmail}
-                readOnly
-                disabled
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="claim-email" style={{ color: "var(--ink-2)" }}>
+                {t("auth.email")}
+              </Label>
+              {fixedEmail ? (
+                <Input
+                  id="claim-email"
+                  type="email"
+                  dir="ltr"
+                  className="font-[family-name:var(--ledger-mono)]"
+                  value={fixedEmail}
+                  readOnly
+                  disabled
+                />
+              ) : (
+                <Input
+                  id="claim-email"
+                  type="email"
+                  dir="ltr"
+                  className="font-[family-name:var(--ledger-mono)]"
+                  placeholder={t("claim.emailPlaceholder")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="claim-password" style={{ color: "var(--ink-2)" }}>
+                {t("auth.password")}
+              </Label>
+              <PasswordInput
+                id="claim-password"
+                placeholder={t("claim.passwordPlaceholder")}
+                autoComplete="new-password"
+                showLabel={t("auth.showPassword")}
+                hideLabel={t("auth.hidePassword")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
-            ) : (
-              <Input
-                type="email"
-                dir="ltr"
-                aria-label={t("claim.emailPlaceholder")}
-                className="font-[family-name:var(--ledger-mono)]"
-                placeholder={t("claim.emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            )}
-            <Input
-              type="password"
-              dir="ltr"
-              aria-label={t("claim.passwordPlaceholder")}
-              placeholder={t("claim.passwordPlaceholder")}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            </div>
             <LedgerButton
               variant="primary"
               className="w-full"

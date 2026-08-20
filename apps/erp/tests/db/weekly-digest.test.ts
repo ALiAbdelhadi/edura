@@ -23,8 +23,7 @@
 // A stub channel is registered that reports `sent` — but ONLY for this suite's
 // own centers, and `skipped` for every other center in the database, so a run
 // of this job cannot write an audit row against a center it does not own.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
   registerChannel,
@@ -40,8 +39,7 @@ import { runWeeklyCenterDigest } from "@/lib/services/cron/jobs";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };

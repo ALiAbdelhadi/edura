@@ -1,4 +1,10 @@
 // =============================================================================
+import {
+  literalFragments,
+  matchesSearchTerms,
+  narrowFragments,
+  searchTerms,
+} from "@repo/database/search-text";
 // OFF-SYSTEM ("EXTERNAL") TEACHERS — the record, its ownership gate, and the
 // two conversions.
 //
@@ -430,7 +436,17 @@ export async function listCenterTeachers(
           // caller's `where` OVER its default), and `undefined` is Prisma's
           // "no filter" — so this asks for both kinds only when asked.
           ...(filters.includeRemoved ? { deletedAt: undefined } : {}),
-          ...(filters.q ? { name: { contains: filters.q, mode: "insensitive" as const } } : {}),
+          // NARROW here, DECIDE below — `%احمد%` matched nothing against a row
+          // stored «أحمد», so filtering this list by name emptied it. See the
+          // two-stage note in `services/search/global-search.ts`.
+          ...(searchTerms(filters.q ?? "").length
+            ? {
+                AND: narrowFragments(literalFragments(filters.q ?? ""), (f) => [
+                  { name: { contains: f, mode: "insensitive" as const } },
+                  { phone: { contains: f } },
+                ]),
+              }
+            : {}),
         },
         select: {
           id: true,
@@ -456,7 +472,14 @@ export async function listCenterTeachers(
         },
       }),
     ]);
-    const userMap = new Map(users.map((u) => [u.id, u]));
+    // The DECIDE half. The fragment pre-filter above is deliberately loose —
+    // «حمد» also matches «محمد» — so the normalized comparison happens here,
+    // over a set already bounded to this center's affiliated teachers.
+    const terms = searchTerms(filters.q ?? "");
+    const matched = terms.length
+      ? users.filter((u) => matchesSearchTerms([u.name, u.phone], terms))
+      : users;
+    const userMap = new Map(matched.map((u) => [u.id, u]));
     const profileMap = new Map(profiles.map((p) => [p.userId, p]));
 
     const courseGroups = await tx.course.groupBy({

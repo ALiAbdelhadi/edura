@@ -71,6 +71,20 @@
 
   --chrome-ring: var(--chrome-accent);
 
+  /* ── the scrim ───────────────────────────────────────────────────────────
+     The ground a modal sits on. `bg-black/50` — what the dialog carried until
+     now — is soot, and this file already states why that is wrong for this
+     palette: a neutral black over a warm ground reads as DIRT, while the same
+     value carrying the accent's hue reads as LIGHT being blocked. Derived from
+     --chrome-shadow-color for exactly that reason, so a retuned accent moves
+     the scrim with it.
+
+     FLAT. No backdrop-filter. The 2026 direction here is away from frosted
+     depth ("Anti-Liquid Glass", cited at the nav-glyph rule below), and on a
+     counter machine a blur is the one effect that costs real frames — the
+     centre's front desk runs this modal all day on hardware nobody chose. */
+  --chrome-scrim: oklch(from var(--chrome-shadow-color) l c h / 0.5);
+
   /* ── type ────────────────────────────────────────────────────────────────
      Alexandria is the risk this direction takes and the reason it pays: ONE
      variable face carrying BOTH Arabic and Latin at display weights, which is
@@ -94,6 +108,24 @@
      connected script and tracking breaks the joins, so the Arabic branch has no
      property to set wrongly. */
   --chrome-display-track: -0.025em;
+
+  /* ── nav density ─────────────────────────────────────────────────────────
+     MEASURED, not preferred. The center portal carries 19 destinations in 7
+     runs and superadmin 21; at the old rhythm (32px rows, 4px gaps, 16px of
+     wrapper padding per run, a 104px identity header and a 49px logout row)
+     that needed ~1125px of sidebar to draw and a 1080p browser offers ~950.
+     So the two biggest portals — the ones staff live in all day — could not
+     show their own menu without scrolling it.
+     32px (Ali, 2026-08-20 — 30 read as cramped). Still well clear of the 24×24
+     WCAG 2.2 target minimum: the row is full-width, so the target is 32 × 232.
+     THE COST, measured rather than guessed: two pixels times fourteen rows is
+     28px, so on a 720px-tall laptop the student portal scrolls again (627
+     against 599 of room). On a 1080p screen — what a center actually runs —
+     every portal still shows its whole menu. That is the trade Ali chose, in
+     that order: legibility first, and the scrollbar only on the short laptop.
+     Change one of these and check that sum again. */
+  --chrome-nav-row: 32px;
+  --chrome-nav-gap: 2px;
 
   /* ── radii ───────────────────────────────────────────────────────────────
      Concentric: a nested radius is the outer one minus its padding. */
@@ -154,6 +186,12 @@
      lifted surface does the whole job. */
   --chrome-shadow-md: none;
   --chrome-shadow-lg: none;
+
+  /* Darker AND more opaque than the light scrim, which is not symmetry-breaking
+     for its own sake: the panel above it is L 0.185 rather than L 1, so a 0.5
+     scrim leaves too little separation between the modal and the page behind
+     it. This is the same check the --chrome-border line above records. */
+  --chrome-scrim: oklch(0.12 0.02 275 / 0.72);
 }
 
 /* One honest exit. Every chrome transition names its properties, so this is a
@@ -192,8 +230,21 @@
   background: var(--chrome-surface);
   color: var(--chrome-fg-muted);
 }
+/* NO RULE BETWEEN THE PANEL AND THE CONTENT (Ali, 2026-08-20).
+ *
+ * The primitive draws one with `group-data-[side=left]:border-r` /
+ * `[side=right]:border-l`, so this zeroes the inline width rather than
+ * recolouring it — recolouring to transparent would leave a 1px gap that still
+ * takes layout and shifts the panel by a pixel between the two sides.
+ *
+ * The separation does not go away with it: the panel is `--chrome-surface`
+ * (#fff light / L 0.185 dark) and the content ground is a step off it
+ * (measured rgb(243,242,242) light), so the edge is a change of GROUND rather
+ * than a drawn line — which is the same way this chrome separates every other
+ * panel from the page it sits on. */
+.chrome[data-slot="sidebar-container"],
 .chrome [data-slot="sidebar-container"] {
-  border-color: var(--chrome-border);
+  border-inline-width: 0;
 }
 
 /* ── the nav item ─────────────────────────────────────────────────────────── */
@@ -202,6 +253,52 @@
   color: var(--chrome-fg-muted);
   font-size: 13.5px;
   font-weight: 500;
+  transition:
+    background-color var(--chrome-fast) var(--chrome-ease),
+    color var(--chrome-fast) var(--chrome-ease);
+}
+
+/* Density, applied here rather than in the primitive: `sidebar.tsx` is the
+   shadcn component and other surfaces render it, so the SHELL's rhythm belongs
+   to the shell's layer. `[data-size="default"]` only — the identity row at the
+   foot is `lg` and must keep its two lines of text.
+   The rail is untouched by this: its `size-8!` is `!important` in the
+   primitive, so a 48px rail keeps 32px squares and the icons stay on the same
+   grid as the header's controls. */
+.chrome [data-slot="sidebar-menu-button"][data-size="default"] {
+  height: var(--chrome-nav-row);
+}
+.chrome [data-slot="sidebar-menu"] {
+  gap: var(--chrome-nav-gap);
+}
+
+/* The last run's trailing padding separates nothing — there is no group after
+   it, only the footer's own border. Six pixels that exist purely to be
+   scrolled, on the two portals closest to overflowing. */
+.chrome [data-sidebar="content"] > div:last-child {
+  padding-bottom: 0;
+}
+
+/* ── the icon plate ───────────────────────────────────────────────────────────
+ * THE ONE NEW DEVICE, and the reason the row stopped looking like 2019.
+ *
+ * Idle and hover it is INVISIBLE — a transparent 22px square behind a 16px
+ * glyph. It exists only so the active state has somewhere to land that is not
+ * another rectangle of tint: today hover and active were the same shape in two
+ * colours, and a state told apart by hue alone is the weakest signal a nav has.
+ * Active fills it with the accent, so the two states differ in FORM.
+ *
+ * Flat fill, no blur, no translucency — the 2026 move is away from frosted
+ * depth (`blog.tubikstudio.com/ui-design-trends-2026`, "Anti-Liquid Glass"),
+ * and on a counter machine a backdrop-filter is also the one effect that costs
+ * real frames.
+ *
+ * `content-box` is load-bearing: the primitive sizes the glyph with `size-4`,
+ * so padding has to grow the box rather than eat the glyph. */
+.chrome [data-slot="sidebar-menu-button"] > svg {
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: var(--chrome-radius-sm);
   transition:
     background-color var(--chrome-fast) var(--chrome-ease),
     color var(--chrome-fast) var(--chrome-ease);
@@ -230,10 +327,93 @@
   font-weight: 600;
 }
 
+/* AND THE EDGE BAR THE PRIMITIVE STILL DREW, KILLED HERE.
+ *
+ * The note above says the active mark is a wash and a colour with no edge rule,
+ * and this sheet held to that — but `sidebar.tsx` is stock shadcn and its base
+ * class carries `data-[active=true]:before:absolute … before:start-0
+ * before:w-0.5 before:bg-sidebar-primary`, a 2px bar on the inline-start edge.
+ * So the decision was made in the layer that styles the sidebar while the
+ * component underneath kept drawing the thing (Ali spotted it on screen,
+ * 2026-08-20). Every objection from 2026-08-14 still applies: a hard stroke on
+ * one edge fights the row's 10px radius, and it has to be redrawn on the
+ * opposite edge in RTL, so one nav item had two silhouettes depending on the
+ * script.
+ *
+ * Killed HERE and not by editing the primitive, so `sidebar.tsx` stays stock
+ * and a future shadcn update does not conflict — it will simply re-add a rule
+ * this one already overrides. `content: none` stops the box being generated at
+ * all rather than hiding a box that still exists. */
+.chrome [data-slot="sidebar-menu-button"][data-active="true"]::before {
+  content: none;
+}
+
+/* The plate, filled. White on `--chrome-accent` is the 6.3:1 pair the token
+   block documents, so the glyph is readable rather than merely coloured. */
+.chrome [data-slot="sidebar-menu-button"][data-active="true"] > svg {
+  background: var(--chrome-accent);
+  color: var(--chrome-accent-fg);
+}
+
+/* THE RAIL IS THE PLATE, SCALED. At 48px the button is a 32px square with 8px
+   of padding, which leaves 16px of content — less than the 22px plate. Rather
+   than fight the primitive's `p-2!` for six pixels, the SQUARE becomes the
+   filled shape and the glyph sits on it directly. One device at two sizes, and
+   an active destination is unmistakable at a glance in a column of 21 icons —
+   which a 10% wash on a 32px square was not. */
+/* `[data-collapsible]` sits on the OUTER <Sidebar> div and `.chrome` on the
+   container inside it, so the state comes first in the selector, not after.
+   Getting that order wrong is silent: the rule simply never matches, and the
+   rail keeps the old wash while everything else changes. */
+[data-collapsible="icon"]
+  .chrome
+  [data-slot="sidebar-menu-button"][data-active="true"] {
+  background: var(--chrome-accent);
+  color: var(--chrome-accent-fg);
+}
+[data-collapsible="icon"]
+  .chrome
+  [data-slot="sidebar-menu-button"][data-active="true"]
+  > svg {
+  background: transparent;
+  color: var(--chrome-accent-fg);
+}
+
+/* The count on an active row. It was `--chrome-accent-soft` on a row that is
+   ALSO `--chrome-accent-soft` — two 10% washes stacked, so the chip that exists
+   to be seen all but disappeared on the one row the reader is looking at. */
+.chrome
+  [data-slot="sidebar-menu-button"][data-active="true"]
+  ~ [data-slot="sidebar-menu-badge"] {
+  background: var(--chrome-accent);
+  color: var(--chrome-accent-fg);
+}
+
 /* Press. 0.97 would be visible on a full-width row as a wobble; 0.985 across
    248px is the same gesture at the same scale the eye actually reads. */
 .chrome [data-slot="sidebar-menu-button"]:active {
   transform: scale(0.985);
+}
+
+/* ── the search field ─────────────────────────────────────────────────────────
+ * The button beside the mark, dressed as an input. Same material as the nav
+ * rows one step down — surface-2 with a hairline — so the header reads as one
+ * object rather than as a control dropped onto a panel. The border is what
+ * makes it read as a FIELD; without it the whole header is a wash. */
+.chrome-search {
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--chrome-radius-md);
+  background: var(--chrome-surface-2);
+  color: var(--chrome-fg-muted);
+  transition:
+    border-color var(--chrome-fast) var(--chrome-ease),
+    color var(--chrome-fast) var(--chrome-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chrome-search:hover {
+    border-color: var(--chrome-fg-subtle);
+    color: var(--chrome-fg);
+  }
 }
 
 /* Focus is an OUTLINE, not a ring: an outline is drawn outside the border box,
@@ -249,6 +429,39 @@
 header.chrome {
   background: var(--chrome-surface);
   border-color: var(--chrome-border);
+}
+
+/* WHERE THE TWO HEADERS MEET, AND ONLY THERE (Ali, 2026-08-20).
+ *
+ * Aligning the two hairlines at 64px fixed the step — and created a new
+ * problem: both bars carry `--chrome-surface`, so the top of the window became
+ * ONE continuous white band and the mark, the search field, the toggle and the
+ * screen title all read as members of a single toolbar. They are not: one
+ * belongs to the panel, the other to the page.
+ *
+ * A rule 64px tall says that, and it is NOT the full-height rule that was
+ * removed on the same day — that one ran the whole window and was the first
+ * thing Ali's eye landed on. This one stops where the headers stop, exactly
+ * where the two objects stop touching; below it the panel is still told apart
+ * by its ground. So the line marks a JOIN rather than fencing off a column.
+ *
+ * Logical, so it lands on the header's left edge in English and its right edge
+ * in Arabic without a mirrored rule.
+ *
+ * `header.chrome` and NOT the inset selector above it: `<SidebarInset>` does
+ * not carry the class — the header carries it itself. The pair above works
+ * because of its second selector, and writing this one the other way produced a
+ * rule that matched nothing and failed silently (measured: 0px).
+ *
+ * ONLY FROM `md`. Below it the sidebar is a drawer and the header spans the
+ * whole window, so this line would sit on the edge of the screen itself with
+ * nothing on the other side of it — a stray 1px stripe down every phone. 768px
+ * is the same breakpoint `useIsMobile` switches the panel to a drawer at; they
+ * have to stay in step. */
+@media (min-width: 768px) {
+  header.chrome {
+    border-inline-start: 1px solid var(--chrome-border);
+  }
 }
 
 /* ── the palette ──────────────────────────────────────────────────────────── */
@@ -271,3 +484,11 @@ header.chrome {
   background: var(--chrome-accent-soft);
   color: var(--chrome-accent-text);
 }
+
+/* ── the identity menu ──────────────────────────────────────────────────────
+   The dropdown behind the foot of the sidebar. It used to carry three rules of
+   its own here, scoped to `.chrome-surface`, because it was the only styled
+   menu in the product. It no longer needs them: the anchored-panel block below
+   gives EVERY dropdown the same treatment, so the scoped copies were deleted
+   rather than left to say the same thing twice in two places — which is how one
+   of them eventually gets edited and the other does not. */

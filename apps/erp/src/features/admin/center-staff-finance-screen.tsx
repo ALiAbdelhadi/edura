@@ -5,15 +5,7 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React, { useEffect, useState } from "react";
-import {
-  Amount,
-  Badge,
-  EmptyState,
-  Num,
-  PageHead,
-  Sheet,
-  SheetHead,
-} from "./ledger";
+import { Amount, Badge, DateText, EmptyState, PageHead, Sheet, SheetHead } from "./ledger";
 
 type NetProfit = { revenue: number; expenses: number; netProfit: number };
 type WalletInfo = { balance: number; available: number };
@@ -146,9 +138,9 @@ export function CenterStaffFinanceScreen() {
                     </span>
                   </td>
                   <td>
-                    <Num className="text-xs text-[var(--ink-3)]">
+                    <DateText className="text-xs text-[var(--ink-3)]">
                       {formatDate(tx.createdAt, { day: "numeric", month: "short", year: "numeric" })}
-                    </Num>
+                    </DateText>
                   </td>
                   <td data-numeric="true">
                     <Amount

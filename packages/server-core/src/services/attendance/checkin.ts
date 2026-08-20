@@ -9,6 +9,15 @@ import { notify } from "../../services/notifications/notify";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
 import { readStudentScan } from "../students/student-qr";
 import { Prisma } from "@repo/database";
+import {
+  literalFragments,
+  matchesSearchTerms,
+  narrowFragments,
+  normalizeIdentifier,
+  normalizeSearchText,
+  searchTerms,
+  SEARCH_SCAN_LIMIT,
+} from "@repo/database/search-text";
 import { maskName, maskPhone } from "../students/disclosure";
 
 // ---------------------------------------------------------------------------
@@ -50,8 +59,13 @@ export const resolveAssistantTeacher = resolveActingTeacher;
 const PHONE_IDENTIFIER_MIN_DIGITS = 8;
 
 function asPhoneIdentifier(query: string): string | null {
-  if (/[^\d\s+()\-]/.test(query)) return null;
-  const digits = query.replace(/\D/g, "");
+  // NORMALIZED FIRST, and that is not cosmetic. A number typed on an Arabic
+  // keypad arrives as ٠١١١١٣٦٧١٥٠; the letter test below saw non-ASCII digits
+  // as letters and rejected the whole thing, so the card in the reader's hand
+  // resolved to nobody. `normalizeSearchText` folds ٠-٩ onto 0-9 first.
+  const normalized = normalizeSearchText(query);
+  if (/[^\d\s+()\-]/.test(normalized)) return null;
+  const digits = normalized.replace(/\D/g, "");
   return digits.length >= PHONE_IDENTIFIER_MIN_DIGITS ? digits : null;
 }
 
@@ -110,7 +124,17 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   // the human, not at the square; refusing here would only send them to type
   // the same eight characters by hand. Card AUTHENTICITY is answered on the
   // scan route, where there is somewhere to show the answer.
-  const scan = readStudentScan(query);
+  // RAW FIRST, and that ordering is the whole of it. A keyboard-wedge scanner
+  // types the card's entire signed URL into this box, and normalization turns
+  // every `:` `/` `-` in it into a space — so normalizing before this call fed
+  // `readStudentScan` a sentence and it resolved a real card to nobody.
+  // The normalized retry exists for the OTHER hand: a code typed by a human on
+  // an Arabic keypad («A1Y٠٠HDG») or read aloud and typed back with a dash.
+  let scan = readStudentScan(query);
+  if (scan.kind === "unreadable") {
+    const retyped = normalizeIdentifier(query);
+    if (retyped && retyped !== query.toUpperCase()) scan = readStudentScan(retyped);
+  }
   const code = scan.kind === "unreadable" ? null : scan.code;
   const phone = asPhoneIdentifier(query);
 
@@ -122,6 +146,16 @@ export async function lookupStudents(q: string, admin: SessionUser) {
       select: { studentId: true },
     });
     const ourStudentIds = ourRoster.map((r) => r.studentId);
+
+    // The free-text reach NARROWS in SQL and DECIDES in JS — see the two-stage
+    // note in `services/search/global-search.ts`. `%احمد%` matched none of the
+    // three rows stored «أحمد», so the counter answered "not registered here"
+    // about a child standing at the desk. The fragments below are the pieces of
+    // the query that survive normalization unchanged and can therefore be
+    // compared byte-wise; `matchesSearchTerms` then makes the real decision.
+    const terms = searchTerms(query);
+    const frags = literalFragments(query);
+    const narrow = <W,>(on: (needle: string) => W[]) => narrowFragments(frags, on);
 
     const reach: Prisma.StudentProfileWhereInput[] = [
       ...(code ? [{ studentCode: code }] : []),
@@ -135,12 +169,12 @@ export async function lookupStudents(q: string, admin: SessionUser) {
         ? [
             {
               userId: { in: ourStudentIds },
-              OR: [
-                { phone: { contains: query } },
-                { fullName: { contains: query, mode: "insensitive" as const } },
-                { user: { name: { contains: query, mode: "insensitive" as const } } },
-                { user: { phone: { contains: query } } },
-              ],
+              AND: narrow((f) => [
+                { phone: { contains: f } },
+                { fullName: { contains: f, mode: "insensitive" as const } },
+                { user: { name: { contains: f, mode: "insensitive" as const } } },
+                { user: { phone: { contains: f } } },
+              ]),
             },
           ]
         : []),
@@ -150,7 +184,7 @@ export async function lookupStudents(q: string, admin: SessionUser) {
     // legitimately match on, and an empty `OR` in Prisma matches EVERY row.
     if (reach.length === 0) return [];
 
-    const profiles = await tx.studentProfile.findMany({
+    const candidates = await tx.studentProfile.findMany({
       where: {
         OR: reach,
         user: { status: { in: ["active", "shell"] } },
@@ -162,8 +196,29 @@ export async function lookupStudents(q: string, admin: SessionUser) {
         phone: true,
         user: { select: { name: true, phone: true, status: true } },
       },
-      take: 10,
+      take: SEARCH_SCAN_LIMIT,
     });
+
+    // An IDENTIFIER row is kept whatever the text matcher thinks of it: it was
+    // reached because the reader supplied a code whose check character agrees
+    // or a phone number in full, and neither of those has to look like the
+    // child's name. Only the free-text rows are re-decided here.
+    const profiles = candidates
+      .filter((r) => {
+        const byIdentifier =
+          (code !== null && r.studentCode === code) ||
+          (phone !== null &&
+            ((r.phone ?? "").includes(phone) ||
+              (r.user?.phone ?? "").includes(phone)));
+        return (
+          byIdentifier ||
+          matchesSearchTerms(
+            [r.user?.name, r.fullName, r.phone, r.user?.phone],
+            terms,
+          )
+        );
+      })
+      .slice(0, 10);
 
     const userIds = profiles.map((p) => p.userId).filter(Boolean) as string[];
     const rosters = await tx.centerStudentRoster.findMany({

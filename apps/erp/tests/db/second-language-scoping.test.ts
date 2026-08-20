@@ -14,15 +14,13 @@
 //   * the non-language subjects are identical in all three cases (nothing else lost)
 //   * completeStudentOnboarding rejects a language that is not offered for the grade
 // =============================================================================
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import { getSubjectsForSelection, getStudentOwnSubjects } from "@/lib/services/catalog/catalog-read";
 import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const adminPool = testPool();
 
 let pass = 0;
 let fail = 0;

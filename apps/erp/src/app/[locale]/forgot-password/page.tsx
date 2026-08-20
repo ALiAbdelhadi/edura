@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
-import { LedgerButton } from "@/components/ledger";
+import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
             <CheckCircle2 className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
+            <h1 className={`text-xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
               {t("auth.forgotSentTitle")}
             </h1>
             <p className="text-sm" style={{ color: "var(--ink-2)" }}>
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthCenteredShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}>
+        <h1 className={`text-2xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
           {t("auth.forgotPassword")}
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
@@ -94,7 +94,10 @@ export default function ForgotPasswordPage() {
         ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{t("auth.email")}</Label>
-          <div className="relative">
+          {/* `dir="ltr"` on the WRAPPER, matching login/register: the icon and
+              its padding cut are logical, so an LTR field inside an RTL wrapper
+              would put them on opposite sides. */}
+          <div className="relative" dir="ltr">
             <Mail className="pointer-events-none absolute inset-y-0 inset-s-0 my-auto ms-3 size-4 text-muted-foreground" />
             <Input
               id="email"

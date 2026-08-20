@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useList, useCustomMutation } from "@refinedev/core";
+import { useCustom, useList, useCustomMutation } from "@refinedev/core";
 import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SearchInput } from "@repo/ui/components/search-input";
@@ -28,6 +28,9 @@ import {
 import { newIdempotencyKey } from "@/features/student/idempotency";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
+import { stateBySubject, type SubscriptionRow } from "@/features/student/subscriptions";
+import { SubscriptionStateChip } from "@/features/student/subscription-state-chip";
 
 type CatalogSubject = { id: string; code: string; nameAr: string; nameEn: string };
 
@@ -371,6 +374,18 @@ export function StudentSubjectsScreen() {
     pagination: { mode: "off" },
   });
 
+  /* WHICH OF THESE AM I ALREADY PAYING FOR?
+     Until now a subject the student subscribes to and a subject they have
+     never touched rendered identically, so the "موادي" tab could not be told
+     apart from a catalogue. `me/subscriptions` answers it — the same endpoint
+     the home alert and the subscriptions page read, through the same
+     derivation, so the three can never disagree about what "قرب يخلص" means.
+
+     `subjectId` on a subscription is a nullable snapshot: a row without one
+     attaches to nothing rather than being guessed onto a subject. */
+  const { result: subsResult } = useCustom({ url: "me/subscriptions", method: "get" });
+  const subjectStates = stateBySubject(asArray<SubscriptionRow>(subsResult?.data));
+
   const subjects = (result?.data ?? []) as CatalogSubject[];
   const subjectName = (s: CatalogSubject) => (locale === "ar" ? s.nameAr : s.nameEn);
 
@@ -401,6 +416,7 @@ export function StudentSubjectsScreen() {
     legacy?: boolean,
   ) => {
     const expanded = expandedId === id;
+    const state = subjectStates.get(id);
     return (
       <Sheet key={id} className="overflow-hidden">
         <button
@@ -428,6 +444,10 @@ export function StudentSubjectsScreen() {
               </span>
             ) : null}
           </span>
+          {/* The state rides on the row, not inside it: the whole point is to
+              be readable WITHOUT expanding, so the student can scan the list
+              and see which subjects are covered. */}
+          {state ? <SubscriptionStateChip state={state} /> : null}
           {/* Vertical rotation only — a chevron that points DOWN does not lie in
               RTL, so this one is not a directional icon. */}
           <ChevronDown
@@ -448,7 +468,7 @@ export function StudentSubjectsScreen() {
   return (
     <div className="space-y-6">
       <PageTitle
-        title={t("nav.subjects")}
+        title={t("nav.mySubjects")}
         subtitle={browseAll ? undefined : t("studentSubjects.myTabHint")}
       />
 

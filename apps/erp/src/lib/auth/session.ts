@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import type { Role } from "@repo/database";
 import { isSessionAmbiguous } from "@repo/server-core/auth/session-cookies";
+import { isViewAsExpired } from "@repo/server-core/auth/view-as-token";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { AuthError, SessionConflictError } from "@/lib/errors/classes";
 import { tagSentryUser } from "@/lib/observability/sentry-user";
@@ -81,8 +82,31 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     tagSentryUser(null);
     return null;
   }
-  const centerId =
-    (res.session as { centerId?: string | null }).centerId ?? undefined;
+  // THE VIEW-AS HARD CAP.
+  //
+  // A back-office "view as" session is minted with a one-hour `expires_at`
+  // (view-as-plugin.ts). That column CANNOT be the enforcement point: this
+  // app's better-auth is configured with `updateAge: 1 day` against a 30-day
+  // `expiresIn`, so the rolling refresh extends any session whose remaining
+  // life is short — and a one-hour session is, by definition, always short. The
+  // very first `getSession` pushed it back out to thirty days. Measured, not
+  // reasoned about: the proof suite asserted an hour and read 2592000 seconds.
+  //
+  // So the cap is enforced HERE, against `created_at`, which nothing refreshes.
+  // Past it the session reads as signed out — the same answer a suspended
+  // account gets — and the admin starts a new, freshly-audited window rather
+  // than holding an open-ended one.
+  const sessionRow = res.session as {
+    centerId?: string | null;
+    impersonatedBy?: string | null;
+    createdAt?: Date | string | null;
+  };
+  if (isViewAsExpired(sessionRow)) {
+    tagSentryUser(null);
+    return null;
+  }
+
+  const centerId = sessionRow.centerId ?? undefined;
   const sessionUser: SessionUser = {
     id: user.id,
     role: user.role,

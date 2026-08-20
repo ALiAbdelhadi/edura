@@ -1,0 +1,92 @@
+
+run-db-suites — 44 suite(s) in erp/tests/db against a 'test' database
+
+  PASS  bulk-import-students.test.ts               43 passed, 0 failed        0.6s
+  PASS  c01-lesson-settlement.test.ts              36 passed, 0 failed        2.4s
+  PASS  c03-status-revocation.test.ts              30 passed, 0 failed        3.3s
+  PASS  c04-login-parity.test.ts                   48 passed, 0 failed        11.8s
+  FAIL  catalog-onboarding.test.ts                 no count line (exit 1)     0.4s
+        │ 
+        │ 1) Catalog shape (بكالوريا track rules)
+        │ Error: `cacheTag()` is only available with the `cacheComponents` config.
+        │     at cacheTag (/Users/ali/edura/node_modules/.bun/next@16.3.0+b7a8ccea77567de4/node_modules/next/src/server/use-cache/cache-tag.ts:6:11)
+        │     at getCatalogTree (/Users/ali/edura/apps/erp/src/lib/services/catalog/catalog-read.ts:10:3)
+        │     at main (/Users/ali/edura/apps/erp/tests/db/catalog-onboarding.test.ts:130:24)
+        │     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+  PASS  center-directory-search.test.ts            7 passed, 0 failed         0.3s
+  PASS  center-share-governance.test.ts            6 passed, 0 failed         0.4s
+  PASS  center-staff-delegation.test.ts            55 passed, 0 failed        0.9s
+  PASS  counter-board.test.ts                      32 passed, 0 failed        0.3s
+  PASS  course-create-atomicity.test.ts            10 passed, 0 failed        0.4s
+  PASS  data-rights.test.ts                        55 passed, 0 failed        0.5s
+  PASS  external-teachers.test.ts                  104 passed, 0 failed       1.1s
+  PASS  global-search.test.ts                      33 passed, 0 failed        0.9s
+  PASS  guardian-verification.test.ts              51 passed, 0 failed        1.3s
+  FAIL  h03-seed-uuid-flows.test.ts                47 passed, 1 failed        1.5s
+        │   ✓ no "Invalid UUID" 400 on the seeded recipientId — got 201
+        │   ✓ student -> own teacher conversation opened: 201 
+        │   ✓ conversation id is a valid uuid: 6f90c3c0-c014-515b-b56b-84e7c28782cb
+        │   ✓ report against a SEEDED conversation id validates — got 201
+        │   ✓ report filed on the seeded thread: 201 {"data":{"id":"9b65c3c6-e6b2-46dc-b378-3bd748805df7","reporterId":"d6a1c45c-bf81-52b8-83bf-1916b82889af","reportedUserId":"b5ddc2ea-6e62-5ed6-95d1-1ee553f07a67","conversationId":"6f90c3c0-c014-515b-b56b-84e7c28782cb","groupId":null,"messageId":null,"category":"other","details":"h03 proof — seeded co
+        │ 
+        │ F5 — the guard is intact: a legacy-shaped id is still REJECTED
+        │   ✓ the legacy seed id still fails z.uuid() (nothing was relaxed)
+        │   ✓ the route still answers 400 "Invalid UUID" for a non-RFC id: 400 {"error":{"code":"validation_error","message":"Validation failed","fields":{"sessionId":["Invalid UUID"]}}}
+        │   ✓ messages/conversations still rejects a non-RFC id: 400
+        │ 
+        │ F6 — cleanup: the ledger returns to its pre-run baseline
+        │   ✓ notifications: 14 -> 14 (1 fanned out by the flows, removed)
+        │   ✓ t: 0 -> 0 (restored)
+        │   ✓ p: 0 -> 0 (restored)
+        │   ✓ w: 7 -> 7 (restored)
+        │   ✓ s: 5 -> 5 (restored)
+        │   ✓ ss: 0 -> 0 (restored)
+        │   ✓ pi: 0 -> 0 (restored)
+        │   ✗ pl: 6 -> 0 (restored)
+        │   ✓ wallet c: 0 -> 0 (restored)
+        │   ✓ wallet t: 0 -> 0 (restored)
+        │   ✓ wallet s: 0 -> 0 (restored)
+        │ 
+        │ 47 passed, 1 failed
+  PASS  h04-blacklist-cascade-reversal.test.ts     44 passed, 0 failed        0.5s
+  PASS  h1-payout-race.test.ts                     no count line (exit 0)     0.3s
+  PASS  hall-booking.test.ts                       62 passed, 0 failed        0.5s
+  PASS  invite-claim.test.ts                       107 passed, 0 failed       10.3s
+  PASS  l1-session-invalidation.test.ts            13 passed, 0 failed        2.6s
+  PASS  m1-webhook-atomicity.test.ts               9 passed, 0 failed         0.5s
+  PASS  m5-send-invite-ownership.test.ts           10 passed, 0 failed        0.3s
+  PASS  mail-password-reset.test.ts                15 passed, 0 failed        1.5s
+  PASS  materials-access.test.ts                   12 passed, 0 failed        0.4s
+  PASS  messaging-scope.test.ts                    87 passed, 0 failed        0.6s
+  PASS  offline-sync.test.ts                       27 passed, 0 failed        0.3s
+  PASS  parent-pay.test.ts                         60 passed, 0 failed        0.8s
+  PASS  profile-images.test.ts                     50 passed, 0 failed        24.6s
+  PASS  push-registration-ownership.test.ts        16 passed, 0 failed        0.4s
+  PASS  rbac-isolation.test.ts                     11 passed, 0 failed        0.4s
+  PASS  registration-doors.test.ts                 17 passed, 0 failed        5.2s
+  PASS  report-export.test.ts                      38 passed, 0 failed        0.3s
+  PASS  review-per-lesson.test.ts                  14 passed, 0 failed        0.4s
+  PASS  room-ownership.test.ts                     5 passed, 0 failed         0.4s
+  PASS  roster-courses-count.test.ts               13 passed, 0 failed        0.3s
+  PASS  second-language-scoping.test.ts            11 passed, 0 failed        0.4s
+  PASS  student-id-card.test.ts                    53 passed, 0 failed        0.3s
+  PASS  student-qr-credential.test.ts              88 passed, 0 failed        0.4s
+  PASS  team-notes.test.ts                         47 passed, 0 failed        1.0s
+  FAIL  tx-retry-boundary.test.ts                  3 passed, 2 failed         0.7s
+        │   ✗ drop mid-body is retried (body ran 1x, expected 2)
+        │   ✓ drop mid-body ultimately succeeds
+        │   ✓ drop during COMMIT is NOT retried — no double-apply (body ran 1x, expected 1)
+        │   ✗ drop during COMMIT surfaces as an error rather than a silent retry
+        │   ✓ an undisturbed transaction runs its body exactly once
+        │ 
+        │ 3 passed, 2 failed
+  PASS  wallet-no-cap.test.ts                      7 passed, 0 failed         0.4s
+  PASS  wallet.test.ts                             20 passed, 0 failed        0.7s
+  PASS  weekly-digest.test.ts                      42 passed, 0 failed        0.6s
+  PASS  run-db-tests.ts                            11 passed, 0 failed        0.3s
+
+──────────────────────────────────────────────────────────────────────────────
+3 SUITE(S) FAILED ✗  —  44 suites, 1449 assertions passed, 3 failed, 81.3s
+──────────────────────────────────────────────────────────────────────────────
+note: 2 suite(s) printed no "N passed, M failed" line and were scored by exit code only: catalog-onboarding.test.ts, h1-payout-race.test.ts
+failed: catalog-onboarding.test.ts, h03-seed-uuid-flows.test.ts, tx-retry-boundary.test.ts

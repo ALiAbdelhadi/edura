@@ -4,6 +4,13 @@ import { listPaymentIntents } from "@/lib/services/payments/payment-intents-admi
 import type { Role } from "@repo/database";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import {
+  matchesSearchTerms,
+  narrowQuery,
+  normalizeIdentifier,
+  searchTerms,
+  SEARCH_SCAN_LIMIT,
+} from "@repo/database/search-text";
+import {
   MIN_QUERY_LENGTH,
   PER_KIND,
   rankHits,
@@ -34,7 +41,13 @@ import {
  * parameter is a tenancy someone eventually passes wrong.
  *
  * What IS shared is everything a reader can perceive: the row shape, the
- * ordering, and the two-character floor.
+ * ordering, the two-character floor — and, since 2026-08-20, the MATCHING.
+ * `@repo/database/search-text` folds the hamza, the ta marbuta, the alef
+ * maqsura and the Arabic-Indic numerals an Egyptian typist does not
+ * distinguish; without it `contains` is ILIKE, which folds ASCII case and
+ * nothing else, so «احمد» found none of the people stored «أحمد» and this
+ * palette answered "nobody" about the platform's own directory. Two palettes
+ * in one product that match differently is a worse defect than either.
  *
  * ── IT ADDS NO REACH, AND NO QUIETER DOOR ───────────────────────────────────
  *
@@ -87,7 +100,12 @@ const GROUP_ORDER: SearchKind[] = [
 /** Enough characters for the search to be about a person rather than a letter. */
 const CODE_SHAPE = /^[0-9A-HJ-NP-TV-Y]{8}$/i;
 
-type Ctx = { q: string; portal: "superadmin" | "finance" };
+type Ctx = {
+  q: string;
+  portal: "superadmin" | "finance";
+  /** The query as normalized words. The JS matcher's input. */
+  terms: string[];
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
  * People
@@ -102,12 +120,17 @@ type Ctx = { q: string; portal: "superadmin" | "finance" };
  * way to be helped from the one box. That is not a widening — it lands on a
  * user this role can already list, reached by an identifier the caller was
  * given — it is the missing key on an existing door.
+ *
+ * THE DECIDE HALF LIVES HERE. `listUsers` is cursor-paginated, so it can only
+ * NARROW — it returns a superset in which «احمد» also lists «محمد». This
+ * function is not paginated (it takes a page and slices), so it can apply the
+ * exact normalized comparison, and it does. The `take` is widened accordingly:
+ * the loose stage must not fill the page with near-misses and push the real
+ * answer off the end.
  */
 async function people(ctx: Ctx): Promise<SearchHit[]> {
-  // A generous take: the result is split across up to seven role groups, so a
-  // cap of five would silently drop whole roles from a common name.
   const [{ users }, byCode] = await Promise.all([
-    listUsers({ q: ctx.q, take: PER_KIND * 4 }),
+    listUsers({ q: ctx.q, take: SEARCH_SCAN_LIMIT }),
     resolveStudentCode(ctx.q),
   ]);
 
@@ -115,12 +138,23 @@ async function people(ctx: Ctx): Promise<SearchHit[]> {
   // that carries the code to draw as a badge, and it is the more specific
   // match — someone who typed eight characters of Crockford base32 meant that
   // student, not the four others whose email happens to contain the substring.
+  // The code hit is kept WHATEVER the text matcher thinks of it: it was reached
+  // by an identifier the caller was handed, which does not have to look like
+  // the person's name. Only the free-text rows are re-decided.
+  const exact = users.filter((u) =>
+    matchesSearchTerms([u.name, u.email, u.phone], ctx.terms),
+  );
+
   const seen = new Set<string>();
-  const rows: PersonRow[] = [...byCode, ...users].filter((u) => {
-    if (seen.has(u.id)) return false;
-    seen.add(u.id);
-    return true;
-  });
+  const rows: PersonRow[] = [...byCode, ...exact]
+    .filter((u) => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    })
+    // Split across up to seven role groups downstream, so the slice is
+    // generous: a cap of five here would drop whole roles from a common name.
+    .slice(0, PER_KIND * 4);
 
   return rows.map((u) => ({
     kind: ROLE_KIND[u.role] ?? "back_office",
@@ -144,7 +178,10 @@ type PersonRow = {
 };
 
 async function resolveStudentCode(q: string): Promise<PersonRow[]> {
-  const code = q.trim().toUpperCase();
+  // `normalizeIdentifier`, not `toUpperCase`: a code read aloud over the phone
+  // and typed back arrives with a dash in it, or with its digits on an Arabic
+  // keypad («A1Y٠٠HDG»). Both used to fail `CODE_SHAPE` and resolve to nobody.
+  const code = normalizeIdentifier(q);
   if (!CODE_SHAPE.test(code)) return [];
   return platformDb(async (tx) => {
     const profile = await tx.studentProfile.findFirst({
@@ -173,13 +210,18 @@ async function resolveStudentCode(q: string): Promise<PersonRow[]> {
  */
 async function centers(ctx: Ctx): Promise<SearchHit[]> {
   return platformDb(async (tx) => {
-    const rows = await tx.center.findMany({
+    // The FULL two-stage match — this provider is neither paginated nor shared
+    // with a list screen, so it narrows in SQL and decides in JS. «مركز النيله»
+    // finds «مركز النيلة»; the governorate joins the haystack because that is
+    // how a back office is told where a center is.
+    const candidates = await tx.center.findMany({
       where: {
-        OR: [
-          { name: { contains: ctx.q, mode: "insensitive" } },
-          { shortId: { contains: ctx.q, mode: "insensitive" } },
-          { area: { contains: ctx.q, mode: "insensitive" } },
-        ],
+        AND: narrowQuery(ctx.q, (f) => [
+          { name: { contains: f, mode: "insensitive" as const } },
+          { shortId: { contains: f, mode: "insensitive" as const } },
+          { area: { contains: f, mode: "insensitive" as const } },
+          { governorate: { contains: f, mode: "insensitive" as const } },
+        ]),
       },
       select: {
         id: true,
@@ -189,8 +231,13 @@ async function centers(ctx: Ctx): Promise<SearchHit[]> {
         governorate: true,
       },
       orderBy: { createdAt: "desc" },
-      take: PER_KIND,
+      take: SEARCH_SCAN_LIMIT,
     });
+    const rows = candidates
+      .filter((c) =>
+        matchesSearchTerms([c.name, c.shortId, c.area, c.governorate], ctx.terms),
+      )
+      .slice(0, PER_KIND);
 
     return rows.map((c) => ({
       kind: "center" as const,
@@ -222,9 +269,34 @@ async function centers(ctx: Ctx): Promise<SearchHit[]> {
  * "super_admin")`, both the same service.
  */
 async function paymentIntents(ctx: Ctx): Promise<SearchHit[]> {
-  const { data } = await listPaymentIntents({ q: ctx.q, limit: String(PER_KIND) });
+  // Wider than PER_KIND, then decided here: `listPaymentIntents` is
+  // offset-paginated with a `count`, so its gateway-reference arm can only
+  // NARROW and returns a superset. Every column that arm can match on comes
+  // back on the row (`...r` is spread there), so the comparison below is over
+  // the same fields the query used — it cannot drop a row it legitimately
+  // found.
+  const { data } = await listPaymentIntents({
+    q: ctx.q,
+    limit: String(SEARCH_SCAN_LIMIT),
+  });
 
-  return data.map((intent) => ({
+  const rows = data
+    .filter((intent) =>
+      matchesSearchTerms(
+        [
+          intent.studentName,
+          intent.studentEmail,
+          intent.payerName,
+          intent.gatewayRef,
+          intent.gatewayOrderId,
+          intent.idempotencyKey,
+        ],
+        ctx.terms,
+      ),
+    )
+    .slice(0, PER_KIND);
+
+  return rows.map((intent) => ({
     kind: "payment_intent" as const,
     id: intent.id,
     // The payer, when the row has one. A parent wallet top-up has no
@@ -270,7 +342,9 @@ export async function backOfficeSearch(
   if (q.length < MIN_QUERY_LENGTH) return { q, groups: [], truncated: false };
 
   const portal = user.role === "accountant" ? "finance" : "superadmin";
-  const ctx: Ctx = { q, portal };
+  // Derived ONCE for the request: three providers run in parallel and every one
+  // of them needs the same two derivations of the same string.
+  const ctx: Ctx = { q, portal, terms: searchTerms(q) };
 
   const runnable = PROVIDERS.filter((p) => p.roles.includes(user.role));
   if (!runnable.length) return { q, groups: [], truncated: false };

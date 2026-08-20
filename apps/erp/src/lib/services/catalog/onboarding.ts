@@ -5,6 +5,48 @@ import { Prisma } from "@repo/database";
 import { finalizeStudentCode } from "@repo/database/student-code-issue";
 
 
+/**
+ * Just the boolean — for the SERVER-SIDE portal gate, which runs on every
+ * dashboard request and must not pay for the whole onboarding payload (joined
+ * catalog names, the draft blob) to answer one yes/no.
+ *
+ * MISSING PROFILE MEANS "DO NOT GATE", deliberately. `getOnboardingState`
+ * throws NotFoundError there, and the old client gate swallowed that error and
+ * let the user through. Returning `false` instead would send them to
+ * /onboarding, whose own loader would hit the same NotFoundError and bounce
+ * them to /login — a redirect loop in place of a broken profile. A broken
+ * profile is a data problem; it must not become a lockout.
+ */
+export function isOnboardingComplete(user: SessionUser): Promise<boolean> {
+  if (user.role !== "student" && user.role !== "teacher" && user.role !== "center_admin") {
+    return Promise.resolve(true);
+  }
+  if (user.role === "center_admin" && !user.centerId) return Promise.resolve(true);
+
+  return platformDb(async (tx) => {
+    if (user.role === "student") {
+      const profile = await tx.studentProfile.findUnique({
+        where: { userId: user.id },
+        select: { onboardingCompleted: true },
+      });
+      return profile?.onboardingCompleted ?? true;
+    }
+    if (user.role === "teacher") {
+      const profile = await tx.teacherProfile.findUnique({
+        where: { userId: user.id },
+        select: { onboardingCompleted: true },
+      });
+      return profile?.onboardingCompleted ?? true;
+    }
+    const center = await tx.center.findUnique({
+      where: { id: user.centerId! },
+      select: { onboardingCompleted: true },
+    });
+    return center?.onboardingCompleted ?? true;
+  });
+}
+
+
 export function getOnboardingState(user: SessionUser) {
   return platformDb(async (tx) => {
     if (user.role === "student") {

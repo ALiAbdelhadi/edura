@@ -8,6 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from "@repo/ui/components/command";
+import { matchesSearchTerms, searchTerms } from "@repo/database/search-text";
 import { Kbd } from "@repo/ui/components/kbd";
 import { formatEGP, type Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
@@ -318,17 +319,29 @@ function CodeChip({ children }: { children: React.ReactNode }) {
  * a counter: it also accepts `sett` for BOTH "Settings" and "Settlements", and
  * ranks them by an opaque score. A receptionist typing three letters under
  * pressure needs the list to be predictable, not clever.
+ *
+ * Substring, but over the NORMALIZED text and word-independently — the shared
+ * rules in `@repo/database/search-text`, which fold the hamza, the ta marbuta
+ * and the alef maqsura an Egyptian typist does not distinguish. That is a
+ * different thing from fuzziness: nothing here accepts a wrong letter, it
+ * accepts the same letter written the way people write it.
  */
 export function filterNavGroups(
   groups: PaletteGroup[],
   query: string,
 ): PaletteGroup[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return groups;
+  const terms = searchTerms(query);
+  if (!terms.length) return groups;
   return groups.map((group) => ({
     heading: group.heading,
     items: group.items.filter((item) =>
-      `${item.translated} ${item.label} ${item.href}`.toLowerCase().includes(q),
+      // The SAME matcher the server runs — `@repo/database/search-text` is a
+      // pure string module both halves import, so a query cannot find a student
+      // and miss the screen named after them. It is also why «الاعدادات» now
+      // finds «الإعدادات»: the destination list compared bytes too, and the
+      // hamza an Egyptian typist omits made every hamza-bearing menu entry
+      // unreachable from the box that exists to reach it.
+      matchesSearchTerms([item.translated, item.label, item.href], terms),
     ),
   }));
 }
@@ -354,10 +367,32 @@ export function useCommandPalette() {
 }
 
 /**
+ * The palette's keyboard hint, as text.
+ *
+ * Rendered only after mount: the symbol differs per platform, and deciding it
+ * on the server would ship ⌘ to a Windows receptionist half the time. Empty
+ * until then, so the first paint matches the server's.
+ *
+ * Exported because the palette now has TWO triggers on the page — the header
+ * pill below `md`, the sidebar row above it — and a second copy of this
+ * detection is a second thing to get wrong on Windows.
+ */
+export function usePaletteShortcutLabel(): string {
+  const [isMac, setIsMac] = React.useState<boolean | null>(null);
+  React.useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
+  }, []);
+  return isMac === null ? "" : isMac ? "⌘K" : "Ctrl K";
+}
+
+/**
  * The header trigger. It shows the shortcut rather than hiding it: a keyboard
  * affordance nobody is told about is one only its author uses, and this palette
  * is worth more to the operator who lives in one portal all day than to anyone
  * who discovers it by accident.
+ *
+ * It is the PHONE's trigger now: above `md` the sidebar carries a search row of
+ * its own, next to the list it searches, and the shell hides this one there.
  */
 export function CommandPaletteTrigger({
   onClick,
@@ -368,12 +403,7 @@ export function CommandPaletteTrigger({
   label: string;
   className?: string;
 }) {
-  // Rendered only after mount: the symbol differs per platform, and deciding it
-  // on the server would ship ⌘ to a Windows receptionist half the time.
-  const [isMac, setIsMac] = React.useState<boolean | null>(null);
-  React.useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
-  }, []);
+  const shortcut = usePaletteShortcutLabel();
 
   return (
     <button
@@ -393,7 +423,7 @@ export function CommandPaletteTrigger({
       <span className="hidden text-[13px] lg:inline">{label}</span>
       {/* `min-w` so the Ctrl/⌘ swap after mount cannot shift the header. */}
       <Kbd className="hidden min-w-11 justify-center lg:inline-flex">
-        {isMac === null ? "" : isMac ? "⌘K" : "Ctrl K"}
+        {shortcut}
       </Kbd>
     </button>
   );

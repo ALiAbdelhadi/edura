@@ -3,7 +3,7 @@
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
-import { LedgerButton } from "@/components/ledger";
+import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, XCircle } from "lucide-react";
@@ -40,11 +40,11 @@ function ResetPasswordContent() {
     return (
       <AuthCenteredShell>
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+          <div className="flex size-11 items-center justify-center rounded-lg" style={{ background: "var(--red-soft)", color: "var(--red)" }}>
             <XCircle className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
+            <h1 className={`text-xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
               {t("auth.resetInvalidTitle")}
             </h1>
             <p className="text-sm" style={{ color: "var(--ink-2)" }}>
@@ -67,7 +67,7 @@ function ResetPasswordContent() {
             <CheckCircle2 className="size-6" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
+            <h1 className={`text-xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
               {t("auth.resetDoneTitle")}
             </h1>
             <p className="text-sm" style={{ color: "var(--ink-2)" }}>
@@ -85,6 +85,16 @@ function ResetPasswordContent() {
   const handleSubmit = async () => {
     if (!password || password.length < 8) {
       setError(t("auth.passwordMinLength"));
+      return;
+    }
+    // Mirror the server's passwordSchema (letter + digit): without these the
+    // server refuses with an untranslated zod message.
+    if (!/[A-Za-z]/.test(password)) {
+      setError(t("auth.passwordNeedsLetter"));
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError(t("auth.passwordNeedsDigit"));
       return;
     }
     if (password !== confirm) {
@@ -115,7 +125,7 @@ function ResetPasswordContent() {
   return (
     <AuthCenteredShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}>
+        <h1 className={`text-2xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
           {t("auth.resetTitle")}
         </h1>
       </div>

@@ -11,6 +11,10 @@ export { ledgerMono } from "./fonts";
 export const ledgerShellScope = styles.shellScope;
 /** The page-content canvas inside the shell. */
 export const ledgerScope = styles.scope;
+/** The editorial serif display face used by marketing headings. */
+export const ledgerDisplay = styles.display;
+/** Tight heading tracking — applies in Latin only; Arabic is never tracked. */
+export const ledgerTrackTight = styles.trackTight;
 
 const ARABIC = /[؀-ۿ]/;
 
@@ -136,9 +140,48 @@ function ClockText({
 
 export const Num = Object.assign(NumBase, { Clock, ClockRange, ClockText });
 
+/**
+ * A DATE that carries a month NAME — "٢٠ أغسطس ٢٠٢٦", "Aug 20, 2026".
+ *
+ * ── WHY A DATE IS NOT A FIGURE ────────────────────────────────────────────
+ *
+ * `<Num>` isolates its content `dir="ltr"` so a minus sign or a decimal point
+ * cannot reorder inside an Arabic sentence, and sets it in the mono face. Both
+ * are right for money, ids and counts. Neither is right for a date, because
+ * `formatDate` resolves an Arabic month to a WORD:
+ *
+ *   · isolated LTR, "٢٠ أغسطس ٢٠٢٦" lays the day out AFTER the month —
+ *     "أغسطس ٢٠٢٦ ٢٠" — which is not how anyone writes a date; and
+ *   · the mono face ships no Arabic glyphs, so the month silently drops into
+ *     a fallback family, which is the same trap `Clock` lifts its day period
+ *     out of the isolate to avoid.
+ *
+ * The string is one opaque localized value, so its numerals cannot be split
+ * from its word the way a clock's can. So a date goes in the body face, in the
+ * ambient direction, and lets the bidi algorithm do what CLDR already ordered.
+ *
+ * A date formatted with NUMERIC fields only (`2026-08-20`, `20/08/2026`) has no
+ * word in it and may stay in `<Num>`.
+ */
+export function DateText({
+  children,
+  className,
+  ...rest
+}: ComponentProps<"span">) {
+  return (
+    <span className={className} {...rest}>
+      {children}
+    </span>
+  );
+}
+
 /* ── Money ─────────────────────────────────────────────────────────────────
    Outflow negative with a leading − in --red; inflow + in --teal; the
-   decisive net figure in --ink; neutral context in --ink-2 (handoff §4). */
+   decisive net figure in --ink; neutral context in --ink-2 (handoff §4).
+   `tone="inherit"` is for a figure sitting inside a colored control (a
+   button's own `color`, e.g. --indigo-ink) rather than on the --sheet
+   background — --ink assumes the latter and goes near-illegible on the
+   former in both themes. */
 export function Money({
   piasters,
   signed = false,
@@ -148,7 +191,7 @@ export function Money({
 }: {
   piasters: number | null | undefined;
   signed?: boolean;
-  tone?: "auto" | "ink" | "muted" | "teal" | "red";
+  tone?: "auto" | "ink" | "muted" | "teal" | "red" | "inherit";
   className?: string;
   weight?: 400 | 500 | 600;
 }) {
@@ -157,13 +200,15 @@ export function Money({
   const resolved =
     tone === "auto" ? (v < 0 ? "red" : v > 0 ? "teal" : "muted") : tone;
   const color =
-    resolved === "red"
-      ? "var(--red)"
-      : resolved === "teal"
-        ? "var(--teal)"
-        : resolved === "muted"
-          ? "var(--ink-2)"
-          : "var(--ink)";
+    resolved === "inherit"
+      ? "inherit"
+      : resolved === "red"
+        ? "var(--red)"
+        : resolved === "teal"
+          ? "var(--teal)"
+          : resolved === "muted"
+            ? "var(--ink-2)"
+            : "var(--ink)";
 
   return (
     <Num className={className} style={{ color, fontWeight: weight }}>
@@ -234,8 +279,8 @@ export function PageTitle({
       <div className="min-w-0 space-y-1">
         {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
         <h1
-          className="text-2xl font-bold sm:text-[26px]"
-          style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+          className={cx("text-2xl font-bold sm:text-[26px]", styles.trackTight)}
+          style={{ color: "var(--ink)" }}
         >
           {title}
         </h1>

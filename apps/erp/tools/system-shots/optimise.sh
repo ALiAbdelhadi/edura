@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 # Turns the raw 2x Playwright PNGs into the WebP files apps/www serves.
 #
-# Playwright writes at deviceScaleFactor 2, so a 1440x900 shot is 2880x1800 and
-# roughly 1 MB. The site displays these inside a plate a few hundred CSS px
-# wide, and Egyptian mobile data is the constraint rather than anyone's desktop,
-# so each file is downscaled to ~2x its real display width and encoded to WebP.
-# ASSETS.md's budget is ~180 KB per still.
+# NO DOWNSCALING. The source keeps every pixel it was captured with.
+#
+# The first version resized each shot to 1600px wide and encoded it at q82,
+# which threw away 44% of the linear resolution of a 2880px capture and then
+# compressed the remainder — and `next/image` re-encoded THAT at its default
+# quality of 75. Three lossy steps, on an image whose whole content is 13px
+# Arabic labels, hairline rules and figures in a money column. Text is the
+# worst possible subject for that pipeline.
+#
+# Captures now come in at deviceScaleFactor 3 (4320x2700 for a 1440x900 screen)
+# and are encoded once, near-lossless. That is not the extravagance it sounds
+# like: flat interface art compresses extremely well, so a full 4K plate lands
+# around 115 KB — smaller than the old 180 KB budget the downscaling existed to
+# meet. And the SOURCE size is not what a visitor downloads: `next/image`
+# resizes per device, so shipping a 4K master costs storage, not bandwidth.
+#
+# `-sharp_yuv` matters here. WebP subsamples chroma by default, which is
+# invisible on a photograph and very visible on coloured text and 1px rules.
 #
 # NOTHING IS COMPOSITED HERE, deliberately. `center-team` was going to be two
 # captures of one URL stacked into a single plate; both reasons it was dropped
@@ -16,7 +29,7 @@
 # composited marketing image is also a thing nobody can reproduce from the spec
 # six months later.
 #
-# Requires: sips (macOS) and cwebp (`brew install webp`).
+# Requires: cwebp (`brew install webp`).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,18 +38,6 @@ OUT="$(cd "$HERE/../../../www" && pwd)/public/system"
 
 [ -d "$RAW" ] || { echo "No raw/ directory — run the capture spec first."; exit 1; }
 mkdir -p "$OUT"
-
-# Phone slots display narrow; desktop slots wide. Widths are 2x display, not 2x
-# capture. The curated phone slots are named individually because ASSETS.md
-# fixed their ids; library phone shots carry a `-phone` suffix instead, so the
-# convention is self-describing for anything added later.
-phone_slot() {
-  case "$1" in
-    student-card|student-learn|parent-pay|assistant-door) return 0 ;;
-    *-phone) return 0 ;;
-    *) return 1 ;;
-  esac
-}
 
 # Encodes every PNG in $1 into WebP under $2. Used twice: once for the curated
 # slots, once for the library, which stays in its own directory because nothing
@@ -53,20 +54,18 @@ encode_dir() {
 
   local total=0
   for f in "${files[@]}"; do
-    local base width size kb flag
+    local base size kb flag
     base="$(basename "$f" .png)"
-    if phone_slot "$base"; then width=780; else width=1600; fi
-
-    cp "$f" "$src/.work.png"
-    sips -Z "$width" "$src/.work.png" >/dev/null
-    cwebp -q 82 -quiet "$src/.work.png" -o "$dest/$base.webp"
-    rm -f "$src/.work.png"
+    cwebp -q 92 -sharp_yuv -quiet "$f" -o "$dest/$base.webp"
 
     size=$(stat -f%z "$dest/$base.webp")
     total=$((total + size))
     kb=$((size / 1024))
     flag=""
-    [ "$kb" -gt 180 ] && flag="  <-- OVER the 180 KB budget"
+    # Roomier than the old 180 KB, because these are now full-resolution
+    # masters that next/image resizes per device rather than files served
+    # as-is. A plate over 400 KB means something went wrong in the capture.
+    [ "$kb" -gt 400 ] && flag="  <-- unusually large, check the capture"
     printf '  %-34s %4d KB%s\n' "$base.webp" "$kb" "$flag"
   done
   echo "  $label: $((total / 1024)) KB across ${#files[@]} files"

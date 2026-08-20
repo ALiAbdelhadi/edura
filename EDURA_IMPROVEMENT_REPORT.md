@@ -21,6 +21,72 @@ Everything else in this report is fully within scope.
 
 ---
 
+---
+
+## 0.1 Status re-verification against `HEAD` — 2026-08-20
+
+**Read this before acting on any "open" item below.** The report was written
+against `ac5e941`. Commit `2e393c2` then landed **2,441 files**, and a
+file-by-file re-check found that a large part of the "remaining work" was
+already done. Items confirmed **CLOSED** in code:
+
+| Item | Evidence |
+|---|---|
+| **M-1** login brute force / no per-account lockout | `login-email:<email>` bucket, cap 5, fires **before** the DB+bcrypt work, in **both** apps (`auth.ts`) |
+| **M-2** device-token ownership hijack | `push-registration.ts` shared by both channels; `push-registration-ownership.test.ts` 16/16 |
+| **L-4** secrets compared with `===` | `packages/server-core/src/auth/secret-compare.ts` + `timingSafeEqual` across view-as, student-QR, guardian-verification |
+| **M8** `$queryRawUnsafe` | zero occurrences in application code |
+| Teacher/room conflict detection | `conflict-detector.ts` — write gate *and* calendar read side, half-open overlap |
+| Migration-drift gate | `check-pending-migrations.ts`, wired at `deploy.yml:119`, plus `deploy-drift.yml` |
+| "No test database" (CI half) | CI `db` and `seeds` jobs run **ephemeral Postgres 17** labelled `test`, not dev |
+| Backup secrets | all 9 `BACKUP_*` secrets set 2026-08-08 |
+
+**Corrected, still open:**
+
+- **Backups.** Not "no bucket, no secrets" — the secrets exist; the **schedule
+  is still commented out** in `backup.yml`, which documents the exact 3-step
+  re-enable. One verification run away, not a procurement task.
+- **Cron.** Genuinely blocked: `gh secret list` shows no `CRON_SECRET` and no
+  `CRON_BASE_URL`, so all 8 jobs remain inert.
+- **Local** `.env.test` still points at dev (CI is clean; local is not).
+- Every remaining feature gap is real and unchanged: no `Assignment`,
+  `Submission`, `Quiz`, `Coupon`, `Referral`, `Plan`, `CenterGroup` or
+  `Certificate` model; no progress fields on `Enrollment`; no
+  `Course.meetingUrl`.
+
+### CSP — done 2026-08-20 (partially; the rest is a named decision)
+
+The finding was worse than §6.1 recorded. The policy was `Report-Only` **with
+no `report-uri` and no `report-to`** — so it blocked nothing *and recorded
+nothing*, in both apps, since H4. "Observing before we enforce" observed
+nothing for months, which is also why no one could say what enforcing would
+break.
+
+Shipped: a rate-limited, unauthenticated `/api/v1/security/csp-report`
+endpoint in both apps that parses **both** wire formats (`report-uri`'s
+`csp-report` object and the Reporting API's batched `reports+json`), drops
+browser-extension noise, and reports to Sentry fingerprinted by
+directive+blocked-URI; `report-uri` **and** `report-to` plus the
+`Reporting-Endpoints` header; and a `CSP_MODE` env switch — **enforcing by
+default**, `report-only` as an instant rollback that needs no code change.
+
+Verified in a real browser: login page and the center-admin dashboard both
+render clean under the enforcing policy, **zero CSP violations**, HMR intact,
+sign-in 200. Both report formats confirmed end-to-end (204 + correct log
+lines), extension noise correctly dropped. Guarded by
+`apps/erp/tests/unit/csp-policy.test.ts` (14 assertions, confirmed to fail 2/14
+when the header is reverted to Report-Only).
+
+**Deliberately NOT done:** `script-src` keeps `'unsafe-inline'`. A nonce +
+`'strict-dynamic'` needs a `middleware.ts` to mint a per-request nonce, and
+**neither app has middleware at all** — introducing that layer is an
+architectural decision, not a header tweak. Enforcing the current policy is
+still a real gain: it blocks unlisted script origins, `eval` in production,
+`object`/`embed`, base-URI hijacking, form-action exfiltration and
+cross-origin framing.
+
+---
+
 ## 1. Current State Analysis
 
 ### 1.1 What exists — the full feature inventory

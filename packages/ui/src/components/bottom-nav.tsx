@@ -27,7 +27,7 @@
 // the bar a shared component has to clear.
 
 import * as React from "react";
-import { MoreHorizontal } from "lucide-react";
+import { LogOut, MoreHorizontal } from "lucide-react";
 
 import { cn } from "@repo/ui/lib/utils";
 import {
@@ -87,8 +87,18 @@ export function computeSlots<T extends { key: string }>(
   items: T[],
   maxVisible: number,
   activeKey?: string,
+  /**
+   * The "more" slot is drawn even when nothing overflows, so it has to be paid
+   * for out of the same `maxVisible` slots. Set when the sheet carries
+   * something that is not a destination — today, the account action: without
+   * this the bar would draw `maxVisible` destinations AND a "more" beside them,
+   * one target more than the width was designed for.
+   */
+  reserveMoreSlot = false,
 ): { slots: T[]; overflow: T[] } {
-  if (items.length <= maxVisible) return { slots: items, overflow: [] };
+  if (!reserveMoreSlot && items.length <= maxVisible) {
+    return { slots: items, overflow: [] };
+  }
 
   // One slot is spent on "more", so only maxVisible-1 destinations show.
   const visible = items.slice(0, maxVisible - 1);
@@ -120,6 +130,7 @@ export function BottomNav({
   navLabel,
   linkAs: Link = "a",
   moreTour,
+  account,
   className,
 }: {
   items: BottomNavItem[];
@@ -136,13 +147,32 @@ export function BottomNav({
   linkAs?: React.ElementType<any>;
   /** Optional `data-tour` id for the "more" trigger. */
   moreTour?: string;
+  /**
+   * WHO YOU ARE, AND THE WAY OUT — the one thing in this sheet that is not a
+   * destination.
+   *
+   * It exists because a portal that ships this bar HIDES the sidebar toggle on
+   * phones (one navigation per viewport), and the sidebar is where identity and
+   * logout live. So on a phone those two were in the DOM and unreachable: the
+   * drawer holding them had no way to be opened. This is the other end of that
+   * rule — if the bar takes the sidebar's place, it inherits the sidebar's
+   * whole job, not just the destinations.
+   *
+   * Everything here is already localized, like every other string in this file.
+   */
+  account?: {
+    displayName: string;
+    roleLabel: string;
+    logoutLabel: string;
+    onLogout: () => void;
+  };
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
 
   const { slots, overflow: hidden } = React.useMemo(
-    () => computeSlots(items, maxVisible, activeKey),
-    [items, maxVisible, activeKey],
+    () => computeSlots(items, maxVisible, activeKey, Boolean(account)),
+    [items, maxVisible, activeKey, account],
   );
 
   const grouped = React.useMemo(() => {
@@ -194,7 +224,11 @@ export function BottomNav({
             </li>
           ))}
 
-          {hidden.length > 0 ? (
+          {/* `|| account`: the sheet is the only way to the account action, so
+              its trigger cannot depend on whether the DESTINATIONS happened to
+              overflow. A portal that later drops to four screens would
+              otherwise lose its logout without a single line of it changing. */}
+          {hidden.length > 0 || account ? (
             <li className="min-w-0 flex-1">
               <Sheet open={open} onOpenChange={setOpen}>
                 <SheetTrigger asChild>
@@ -276,6 +310,41 @@ export function BottomNav({
                         ))}
                       </div>
                     ))}
+
+                    {account ? (
+                      // Below the destinations and behind a rule, because it is
+                      // a different KIND of thing: everything above navigates,
+                      // this ends the session. Same order as the sidebar, where
+                      // identity sits under the nav and behind its own border.
+                      <div className="flex flex-col gap-1 border-t border-rule pt-3">
+                        <div className="min-w-0 px-2">
+                          <p className="truncate text-[14px] font-semibold text-ink">
+                            {account.displayName}
+                          </p>
+                          <p className="truncate text-[12px] text-ink-2">
+                            {account.roleLabel}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false);
+                            account.onLogout();
+                          }}
+                          className={cn(
+                            "flex items-center gap-3 rounded-md px-2 py-3 text-start text-[14px] text-destructive",
+                            "hover:bg-destructive/10",
+                            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo",
+                          )}
+                          style={{ minHeight: 48 }}
+                        >
+                          <LogOut aria-hidden className="size-5 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {account.logoutLabel}
+                          </span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </SheetContent>
               </Sheet>

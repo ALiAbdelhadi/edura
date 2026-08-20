@@ -28,8 +28,7 @@
 //       super-admin log; report reaches the review queue flagged for a minor;
 //   13. group membership is DERIVED — a dropped student loses access even with
 //       a stale cached membership row, and owner_only blocks student posts.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import type { Role } from "@repo/database";
 import type { TenantTx } from "@repo/database/client";
@@ -49,10 +48,7 @@ import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 // a backstop, and double-deleting is a no-op.
 let __sweepTag = "";
 
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({
-  connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL,
-});
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

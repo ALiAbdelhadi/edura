@@ -1,3 +1,4 @@
+import { secretEquals } from "@repo/server-core/auth/secret-compare";
 import * as chat from "@repo/database/chat";
 import * as proto from "@repo/database/chat-protocol";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -66,7 +67,9 @@ export async function handleInternalRequest(
   res: ServerResponse,
   ctx: { io: () => Server; presence: PresenceRegistry },
 ): Promise<void> {
-  if (req.headers["x-internal-secret"] !== env.internalSecret) {
+  // Constant-time; see @repo/server-core/auth/secret-compare.
+  const presented = req.headers["x-internal-secret"];
+  if (!secretEquals(Array.isArray(presented) ? presented[0] : presented, env.internalSecret)) {
     return json(res, 401, { error: "unauthorized" });
   }
   if (req.method !== "POST") {

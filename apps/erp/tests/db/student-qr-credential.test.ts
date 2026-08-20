@@ -28,8 +28,7 @@
 //   5. THE COUNTER AND THE DOOR ACCEPT THE SCANNED URL. A keyboard-wedge
 //      scanner types the whole URL into the search box; the receptionist must
 //      not have to know that.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { finalizeStudentCode } from "@repo/database/student-code-issue";
 import { buildStudentCode } from "@repo/database/student-code";
@@ -49,8 +48,7 @@ import {
 import { lookupStudents } from "@repo/server-core/services/attendance/checkin";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

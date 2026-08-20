@@ -34,6 +34,24 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /**
+   * IMAGE QUALITY — this is a product screenshot, not a photograph.
+   *
+   * The default `quality` is 75, which is tuned for photographs where a little
+   * chroma noise is invisible. Applied to a UI screenshot it eats exactly the
+   * thing the image exists for: hairline rules, 13px Arabic labels, and the
+   * figures in a money column. The sources are captured at deviceScaleFactor 3
+   * and encoded near-lossless, so re-encoding them at 75 threw that away at the
+   * last step.
+   *
+   * `qualities` must list every value used, or Next refuses the request.
+   * AVIF first: on flat interface art it is markedly smaller than WebP at the
+   * same fidelity, and Next falls back to WebP for anything that cannot take it.
+   */
+  images: {
+    formats: ["image/avif", "image/webp"],
+    qualities: [75, 90],
+  },
   // Next 16.3 writes an AGENTS.md + CLAUDE.md into the app on every dev boot.
   // This repo authors its agent instructions at the root; keep them authored.
   agentRules: false,

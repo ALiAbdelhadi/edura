@@ -14,8 +14,7 @@
 //   * admin adds a system + subject with zero code changes → instantly visible
 //   * course search scoped to the student's grade/track
 // =============================================================================
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import type { SessionUser } from "@/lib/auth/session";
 import { ValidationError } from "@/lib/errors/classes";
@@ -30,8 +29,7 @@ import { createSystem, createStage, createGradeLevel, createSubject, createOffer
 import { searchCourses } from "@/lib/services/discovery/discovery";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const adminPool = testPool();
 
 let pass = 0;
 let fail = 0;

@@ -146,3 +146,109 @@ Arabic/RTL and English/LTR, light and dark.
 **NOT verified in the browser:** `apps/superadmin` (2FA login whose credentials
 Claude will not enter) and the assistant portal (no quick-login tile; its screens
 are the teacher's, which were verified).
+
+---
+
+## The modal — the last stock surface (2026-08-20, Ali: "تصميم dialog-model … قديم جدا")
+
+He was right, and the reason is specific rather than a matter of taste: the
+dialog was **still stock shadcn**. Every other surface a reader meets through a
+Radix portal — the command palette, the phone drawer, the identity menu — had
+been brought into the 2026 chrome. The dialog never opted in, so it carried
+`bg-background`, `rounded-lg` (8px), Tailwind's soot `shadow-lg`, a `bg-black/50`
+scrim and `zoom-in-95`. Five defaults, not one of them a decision anybody made
+about this product. That is what "old" was.
+
+**No new direction was chosen, and that is the first decision.** The repo has
+one (`chrome-2026`), and a design system already in the repo outranks any
+skill. The whole change is the dialog consuming `--chrome-*` like everything
+else. No new font, no new hue, no second animation vocabulary.
+
+1. **THE REPO'S OWN RULE KILLED THE OBVIOUS MOVE.** A frosted, blurred scrim is
+   what "modern modal" means to most people in 2026. `chrome-2026.css` already
+   refuses it in writing — the direction is *away* from frosted depth
+   ("Anti-Liquid Glass"), and a `backdrop-filter` is the one effect that costs
+   real frames on the counter machine a centre actually owns. So the scrim
+   stayed FLAT and changed hue instead: `--chrome-scrim` derives from
+   `--chrome-shadow-color`, for the reason the elevation tokens already state —
+   a neutral black over a warm ground reads as DIRT, the accent's hue reads as
+   light being blocked.
+
+2. **WHERE THE LOOK LIVES IS A SPLIT, NOT A PREFERENCE.** Colour, hairline,
+   radius, elevation and motion are in `chrome-2026.css` keyed on `data-slot`.
+   Everything a call site overrides — `max-width`, padding, `overflow`, layout —
+   stayed a Tailwind utility in the component, because **29 of the 50 dialogs in
+   this repo pass their own `sm:max-w-*`** and a plain CSS rule would tie with
+   those on specificity and be settled by bundle order.
+
+3. **`p-6` AND `gap-4` ARE UNCHANGED, DELIBERATELY.** Most call sites put their
+   body straight into `DialogContent` and inherit both. Moving the padding into
+   sub-components would have re-spaced every dialog in the product as a side
+   effect of a reskin. The header and footer bands sit ON TOP of that padding
+   via `-mx-6 -mt-6 / -mb-6`, so nothing at a call site had to change.
+
+4. **THE REAL BUG WAS NOT VISUAL.** The old panel had NO max-height. A long form
+   on a 720px laptop pushed its own submit button past the bottom of the screen
+   with nothing on screen to say so. The panel now has a cap
+   (`min(100svh - 4rem, 44rem)`), scrolls, and its header and footer are
+   **sticky** — so the title and the actions hold their place while the body
+   moves under them. Sticky rather than a new `DialogBody` sub-component: fifty
+   call sites, zero adoption cost. `overflow-y-auto` and not `overflow-hidden`,
+   because a clipped dialog is strictly worse than today's overflowing one.
+
+5. **THE ONE DELIBERATE RISK: PHONES GET A BOTTOM SHEET.** Below `sm` the panel
+   is attached to the bottom edge, full width, top corners rounded, entering
+   from the edge it is attached to. `CONSTITUTION.md` §5 describes the person
+   this product is hardest on — a receptionist standing one-handed with a queue
+   in front of them — and a card floating in the middle of a 390px screen puts
+   every control at the top of the reach arc. The footer follows: `flex-col`
+   rather than `flex-col-reverse`, so the primary action (last in the DOM by
+   this repo's consistent convention) sits LOWEST, nearest the thumb. Desktop
+   ordering is unchanged.
+
+6. **THE SHEET AND THE ALERT DIALOG CAME ALONG, AND HAD TO.** The phone nav
+   drawer's scrim was `bg-black/50` too; a soot scrim beside a tinted one, on
+   the same screen minutes apart, reads as one of them being broken. The alert
+   dialog takes the surface, radius, scrim and motion but is deliberately
+   EXCLUDED from the header/footer bands: a confirm box is short, never scrolls,
+   and its header is a centred title beside an optional media tile — banding it
+   would draw two rules around three lines of text.
+
+7. **MOTION: two bands, no third.** In at `--chrome-base` (220ms), out at
+   `--chrome-fast` (140ms), both on `--chrome-ease`. The exit is shorter because
+   a reader who has decided to dismiss has already moved on. Reduced motion
+   needed no rule of its own — the media query at the top of the sheet takes
+   both bands to 0ms. This does NOT spend the money path's single-animation
+   budget: that budget is the seal, and a modal arriving is chrome. The keyframe
+   animates `scale`, an independent CSS property, precisely so it cannot fight
+   the `translate` utilities that centre the panel.
+
+8. **ACCESSIBILITY, measured not assumed.** The close control was a bare 16px
+   glyph at `opacity: 0.7` — under the 24×24 minimum WCAG 2.2 §2.5.8 sets for a
+   pointer target, with the weakest hover signal available. It is now a 32px
+   square that fills on hover and takes a real focus ring. The header is
+   start-aligned in both scripts rather than `text-center sm:text-start`, and
+   `leading-6` replaces `leading-none`, which clipped the Arabic descenders in
+   ي and ج.
+
+9. **The palette got an explicit width.** It had been inheriting the dialog's
+   `sm:max-w-sm` — 384px for a surface that draws a title, a subtitle and a
+   trailing code on one row, and truncated all three. Set to `sm:max-w-xl` as a
+   decision rather than left to inherit the new default.
+
+**Verified live in the browser**, not read as source: Arabic/RTL and English/LTR,
+light and dark, desktop and 375px. Computed values off the running page —
+`border-radius: 16px` (was 8), `box-shadow: none` in dark (the tokens making
+elevation lightness-plus-hairline, which the old `shadow-lg` violated),
+scrim `oklch(0.25 0.092 275 / 0.5)`, header `position: sticky; top: -24px`. The
+12-field dialog was scrolled end to end with both bands holding their place —
+the case that previously lost its own submit button. On the phone form the
+primary action renders lowest, as intended.
+
+Regressions: `check-types` **9/9**, `bun run build` **3/3**, ERP unit
+**1281 pass / 1 skip (79 files)** — `design-tokens`, `app-shell-chrome` and
+`design-contrast` all green, which is the guard that would have caught a second
+palette. The two suites failing are another session's in-flight work and contain
+none of this change: `route-conventions` (their new `v1/auth/view-as/claim`
+route) and `tailwind-dead-classes` (`bg-sheet-2` / `bg-page/95` in `apps/www`, a
+directory this change does not touch).

@@ -24,8 +24,7 @@
 //      a stale one confirms an address nobody re-checked.
 //   7. IT GRANTS NOTHING ELSE. No money, no session row, no status change —
 //      counted, not assumed.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { createHash } from "node:crypto";
 import {
@@ -41,8 +40,7 @@ import { CLAIMABLE } from "@repo/server-core/services/invites/invite-token";
 import { claimDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };

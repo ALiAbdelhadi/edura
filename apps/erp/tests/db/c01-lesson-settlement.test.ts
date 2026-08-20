@@ -40,8 +40,7 @@
  * Run (this one only):        bun run --filter edura test:db:only c01-lesson-settlement
  * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
 import type { SessionUser } from "@/lib/auth/session";
@@ -57,8 +56,7 @@ import { POST as registerCenterRoute } from "@/app/api/v1/auth/register/center/r
 import { POST as centerStaffRoute } from "@/app/api/v1/center/staff/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const pool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const pool = testPool();
 const q = async (s: string, p: unknown[] = []) => (await pool.query(s, p)).rows;
 
 const TAG = "c01-" + Math.random().toString(36).slice(2, 7);

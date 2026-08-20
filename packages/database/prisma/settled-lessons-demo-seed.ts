@@ -37,9 +37,16 @@
 //   bun --env-file=.env prisma/settled-lessons-demo-seed.ts --dry-run
 // ---------------------------------------------------------------------------
 import { assertNotProduction } from "../scripts/db-guard";
+import {
+  assertHttpTargetSharesDatabase,
+  requireErpBaseUrl,
+} from "./http-target-guard";
 import { prisma, withPlatformContext } from "../src/index";
 
-const BASE_URL = process.env.ERP_BASE_URL ?? "http://localhost:3002";
+// Resolved lazily: --dry-run never reaches the network, so it must not
+// demand a target. Everything that DOES write calls baseUrl().
+let _baseUrl: string | null = null;
+const baseUrl = () => (_baseUrl ??= requireErpBaseUrl("settled-lessons-demo-seed"));
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -82,24 +89,46 @@ async function census(centerId: string): Promise<Money> {
 
 const egp = (piastres: number) => `${(piastres / 100).toFixed(2)} ج.م`;
 
+/**
+ * L-8: `assertNotProduction()` above guards the DATABASE this process is
+ * connected to. Everything below writes MONEY through an app over HTTP, and
+ * that app reads whatever database IT was started with. Prove they are the
+ * same before writing a single row.
+ */
+async function assertSameDatabase(cookie: string): Promise<void> {
+  const owner = await withPlatformContext((tx) =>
+    tx.user.findUnique({ where: { email: OWNER_EMAIL }, select: { id: true } }),
+  );
+  if (!owner) {
+    throw new Error(`settled-lessons-demo-seed: ${OWNER_EMAIL} not found — run seed:showcase-demo first`);
+  }
+  await assertHttpTargetSharesDatabase({
+    seedName: "settled-lessons-demo-seed",
+    baseUrl: baseUrl(),
+    userId: owner.id,
+    cookie,
+  });
+}
+
 async function signIn(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/api/auth/sign-in/email`, {
+  const res = await fetch(`${baseUrl()}/api/auth/sign-in/email`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: OWNER_EMAIL, password: PASSWORD }),
   });
   if (!res.ok) {
     throw new Error(
-      `sign-in failed (${res.status}). Is the dev server up on ${BASE_URL}, and does ${OWNER_EMAIL} exist? Run the showcase seed first.`,
+      `sign-in failed (${res.status}). Is the dev server up on ${baseUrl()}, and does ${OWNER_EMAIL} exist? Run the showcase seed first.`,
     );
   }
   const cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
   if (!cookie) throw new Error("sign-in returned no session cookie");
+  await assertSameDatabase(cookie);
   return cookie;
 }
 
 async function main() {
-  await assertNotProduction();
+  await assertNotProduction("settled-lessons-demo-seed");
 
   const center = await withPlatformContext((tx) =>
     tx.center.findFirst({ where: { shortId: CENTER_SHORT_ID }, select: { id: true, name: true } }),
@@ -152,7 +181,7 @@ async function main() {
 
   for (const s of candidates) {
     const day = s.date.toISOString().slice(0, 10);
-    const res = await fetch(`${BASE_URL}/api/v1/sessions/${s.id}/complete`, {
+    const res = await fetch(`${baseUrl()}/api/v1/sessions/${s.id}/complete`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
     });

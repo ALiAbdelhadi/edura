@@ -1348,6 +1348,11 @@
     "regenerate": "Regenerate backup codes",
     "passwordPrompt": "Confirm your password to continue",
     "scanQr": "Scan this QR code with your authenticator app (Google Authenticator, Authy…), then enter the 6-digit code to confirm.",
+    "scanQrHint": "Open the authenticator app first and use its \"Scan QR code\" option — scanning with your phone's regular camera will just show the raw link as text instead of adding the account.",
+    "manualKeyLabel": "Can't scan? Enter this key manually",
+    "manualKeyDesc": "In your authenticator app, choose \"Enter a setup key\" and paste this instead.",
+    "copyKey": "Copy key",
+    "keyCopied": "Key copied",
     "backupCodes": "Backup codes",
     "backupCodesDesc": "Store these codes somewhere safe. Each one can be used once if you lose access to your authenticator app.",
     "copyCodes": "Copy codes",
@@ -1471,7 +1476,10 @@
       "pendingCode": "This student has not finished onboarding, so their code is provisional and no card is printed.",
       "unavailable": "The card could not be loaded.",
       "failed": "The action could not be completed"
-    }
+    },
+    "actionViewAs": "Open the ERP as this user",
+    "confirm_viewAs_title": "Open the ERP as this user?",
+    "confirm_viewAs_body": "A one-hour session opens in a new tab with this user's full access — including money actions such as payments, wallets and refunds. Start and end are recorded in the audit log against your account, and a banner names you on every screen. Your back-office session here stays signed in."
   },
   "featureFlags": {
     "title": "Feature flags",

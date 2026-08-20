@@ -21,8 +21,7 @@
 //      "all students" is the union of the roster, whoever holds a pass, and
 //      whoever already has an attendance row. A child who paid but is not
 //      enrolled must not vanish from the screen they were marked on.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
   counterRoster,
@@ -32,8 +31,7 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

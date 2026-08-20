@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "لوحة التحكم",
+    "studentHome": "الرئيسية",
     "finance": "الشؤون المالية",
     "students": "الطلاب",
     "teachers": "المدرّسون",
@@ -24,7 +25,7 @@
     "materials": "الملفات التعليمية",
     "reviews": "التقييمات",
     "assignments": "الواجبات",
-    "family": "رمز العائلة",
+    "family": "ولي أمري",
     "progress": "التقدم",
     "affiliations": "الانتسابات",
     "centers": "المراكز",
@@ -42,6 +43,8 @@
     "catalog": "الكتالوج التعليمي",
     "team": "الفريق",
     "subjects": "المواد الدراسية",
+    "mySubjects": "موادي",
+    "subscriptions": "اشتراكاتي",
     "wallet": "المحفظة",
     "checkin": "تسجيل الحضور",
     "counter": "الكاونتر",
@@ -587,7 +590,10 @@
   "attendanceView": {
     "outOf": "من {count, plural, =0 {# جلسة} =1 {جلسة واحدة} =2 {جلستين} few {# جلسات} other {# جلسة}}",
     "recentEyebrow": "آخر ٢٨ يوماً",
-    "noSession": "لا حصة"
+    "noSession": "لا حصة",
+    "subtitle": "حضورك في الحصص، وآخر اللي اتسجل عليك.",
+    "recentTitle": "آخر الحصص",
+    "pastCourse": "مادة قديمة"
   },
   "navGroup": {
     "learn": "الدراسة",
@@ -625,6 +631,8 @@
   "security": {
     "sessionsTitle": "الأجهزة والجلسات",
     "sessionsDesc": "كل الأجهزة المسجّل دخولها إلى حسابك حاليًا. سجّل الخروج من أي جهاز لا تعرفه.",
+    "sessionsShowAll": "إظهار كل الأجهزة ({count})",
+    "sessionsShowLess": "إظهار أقل",
     "thisDevice": "هذا الجهاز",
     "unknownDevice": "جهاز غير معروف",
     "lastActive": "آخر نشاط",
@@ -648,6 +656,8 @@
     "copyCodes": "نسخ الرموز",
     "codesCopied": "تم نسخ الرموز",
     "codePlaceholder": "رمز من 6 أرقام",
+    "codeLabel": "رمز التحقق",
+    "backupCodeLabel": "رمز الاحتياط",
     "verify": "تأكيد",
     "invalidCode": "رمز غير صحيح — حاول مرة أخرى",
     "enabledToast": "تم تفعيل المصادقة الثنائية",
@@ -748,6 +758,15 @@
     "gap_group_without_price": "مجموعة من غير سعر",
     "gap_group_without_students": "مجموعة من غير طلاب",
     "gaps_clean": "مفيش نواقص",
-    "gaps_cleanHint": "كل الحصص متسجّل ليها حضور ومقفولة، وكل الطلاب المسجّلين دافعين."
+    "gaps_cleanHint": "كل الحصص متسجّل ليها حضور ومقفولة، وكل الطلاب المسجّلين دافعين.",
+    "gapDetail_attendance": "{marked} من {enrolled} مسجّلين",
+    "gapDetail_noAttendance": "لم يُسجَّل أحد من {enrolled}",
+    "gapDetail_notSettled": "انتهت ولم تُوزَّع حصيلتها",
+    "gapDetail_noPrice": "لا شهري ولا لكل حصة",
+    "gapDetail_noSessions": "لا مواعيد على الجدول",
+    "gapDetail_noStudents": "لا طلاب مسجّلين",
+    "gapDetail_student": "الطالب: {name}",
+    "gapDetail_none": "—",
+    "gapDetail_noneMarked": "لا حضور مسجَّل"
   }
 }

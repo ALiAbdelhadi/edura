@@ -1,5 +1,6 @@
 /**
- * The student's first-run tour: welcome, twelve tasks, then "now it's your turn".
+ * The student's first-run tour: welcome, thirteen tasks, then "now it's your
+ * turn".
  *
  * EVERY STEP TEACHES A PROCEDURE, NOT A LOCATION. Pointing at a tab and saying
  * "this is your wallet" teaches nothing the label does not already say — so each
@@ -10,7 +11,8 @@
  * WHAT THE TWELVE ARE, and why in this order — it is the order a student needs
  * them, which is roughly the order they get stuck:
  *
- *   read the day → the schedule → JOIN a class → PAY for it → get the receipt →
+ *   read the day → the schedule → JOIN a class → PAY for it →
+ *   CHECK HOW LONG THE COVER LASTS → get the receipt →
  *   the card you show at the counter → check you were marked present →
  *   read your marks → message your teacher → unlock messaging if it is locked →
  *   turn on phone notifications → link your parent
@@ -45,6 +47,10 @@ export const STUDENT_TOUR_STEPS: TourStep[] = [
   { id: "schedule", anchor: at("schedule") },
   { id: "subscribe", anchor: at("subjects") },
   { id: "payWallet", anchor: at("wallet") },
+  // Straight after paying, because that is when "for how long?" is the next
+  // question — and because a monthly plan is manual-renewal with no reminder
+  // job behind it, so the only warning a student gets is one they go and read.
+  { id: "subscriptions", anchor: at("subscriptions") },
   { id: "receipts", anchor: at("wallet") },
   { id: "card", anchor: at("id") },
   { id: "attendance", anchor: at("attendance") },

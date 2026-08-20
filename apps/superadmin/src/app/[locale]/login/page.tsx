@@ -7,7 +7,7 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { PasswordInput } from "@repo/ui/components/password-input";
 import type { Locale } from "@repo/ui/lib/format";
-import { ShieldCheck, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Suspense, useState } from "react";
 
@@ -46,18 +46,28 @@ export default function LoginPage() {
           <LanguageSwitcher />
         </Suspense>
       </div>
-      <div className="w-full max-w-sm rounded-xl border border-rule bg-sheet p-6 shadow-(--lift)">
+      <div className="w-full max-w-sm rounded-xl border border-rule bg-sheet p-6 shadow-(--lift-2)">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex size-12 items-center justify-center rounded-md bg-indigo-soft">
-            <ShieldCheck className="size-6 text-indigo" aria-hidden="true" />
-          </div>
+          {/* The real Edura mark — same file the dashboard sidebar renders —
+              in place of the generic shield placeholder. "back office" below
+              already says who this login is for; the icon doesn't need to. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/edura-mark.svg" alt="" width={40} height={40} className="mb-4 size-10 shrink-0" />
           <Eyebrow locale={locale} script="latin" marker={false} className="mb-2">
             back office
           </Eyebrow>
-          <h1 className="text-[26px] leading-tight font-bold tracking-[-0.02em] text-ink">
+          <h1
+            className="text-[28px] leading-tight text-ink"
+            style={
+              locale === "en"
+                ? { fontFamily: "var(--lat-display)", letterSpacing: "var(--lat-display-track)", fontWeight: 700 }
+                : { fontFamily: "var(--ar-display)", fontWeight: 700 }
+            }
+          >
             {t("auth.backofficeTitle")}
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2">{t("auth.backofficeSubtitle")}</p>
+          <span aria-hidden="true" className="mt-4 h-[2px] w-8 bg-gold" />
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4">
           {error ? (

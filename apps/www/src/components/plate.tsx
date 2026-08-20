@@ -57,6 +57,10 @@ export function Plate({
             alt={caption}
             fill
             sizes="(min-width: 1024px) 45vw, 100vw"
+            // 90, not the default 75. See the note in next.config.ts: a plate
+            // is a screenshot of type and hairlines, and 75 is a photographic
+            // setting that softens exactly those.
+            quality={90}
             className="object-cover"
             priority={priority}
           />

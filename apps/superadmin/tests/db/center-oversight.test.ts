@@ -19,8 +19,7 @@
  *   bunx tsx --env-file=<env> tests/db/center-oversight.test.ts
  * ===========================================================================
  */
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
@@ -54,8 +53,7 @@ import { listAuditLogs } from "@/lib/services/admin/audit-log";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!OVS";
 let pass = 0;
@@ -804,7 +802,7 @@ async function main() {
     ).rows[0];
     assert(!!appRole, "the application DB role edura_app exists");
 
-    const appPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const appPool = testPool(process.env.DATABASE_URL);
 
     /**
      * Run one statement exactly as an oversight request would: as `edura_app`,

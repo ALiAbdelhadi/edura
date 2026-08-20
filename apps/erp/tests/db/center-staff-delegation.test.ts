@@ -13,8 +13,7 @@
 //   7. center_accountant is scoped to its own center and is never a platform
 //      accountant / super_admin (can't reach apps/superadmin);
 //   8. creating staff writes ZERO money/ledger rows (seed-hygiene contract).
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { scopedDb } from "@/lib/db/scope";
@@ -33,8 +32,7 @@ import { requestCenterPayout, getCenterWallet } from "@/lib/services/finance/cen
 import { createTempStudent } from "@/lib/services/temp-students/temp-students";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;

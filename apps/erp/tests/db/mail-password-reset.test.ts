@@ -9,15 +9,13 @@
 // Also pins the two behaviours a reset mailer must never break:
 //   - unknown address  → no email, no throw (anti-enumeration)
 //   - dead SMTP host   → no throw (a 500 would leak that the account EXISTS)
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import net from "node:net";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 import bcrypt from "bcryptjs";
 import { requestPasswordReset, resetPassword } from "@/lib/services/auth/password-reset";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const OLD_PW = "OldPassw0rd!";
 const NEW_PW = "FreshPassw0rd!";

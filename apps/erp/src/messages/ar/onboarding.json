@@ -71,7 +71,8 @@
   },
   "errors": {
     "selectOne": "اختر عنصرًا للمتابعة",
-    "selectAtLeastOne": "اختر عنصرًا واحدًا على الأقل"
+    "selectAtLeastOne": "اختر عنصرًا واحدًا على الأقل",
+    "nameRequired": "اكتب اسم السنتر للمتابعة"
   },
   "welcomeCenter": "أهلًا بيكم! خلّونا نظبط ملف السنتر",
   "center": {

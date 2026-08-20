@@ -1,4 +1,9 @@
 import { platformDb } from "@/lib/db/scope";
+import {
+  matchesSearchTerms,
+  narrowQuery,
+  searchTerms,
+} from "@repo/database/search-text";
 import { NotFoundError } from "@/lib/errors/classes";
 import type { Prisma } from "@repo/database";
 
@@ -23,18 +28,38 @@ export async function listCollaborationRequests(filters: {
     }
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      const [teachers, centers] = await Promise.all([
+      const terms = searchTerms(q);
+
+      // These are BOUNDED SUB-QUERIES, not pages, so they get the full
+      // two-stage match — narrow in SQL, decide in JS. `contains` is ILIKE,
+      // which folds ASCII case and nothing else, so a request could not be
+      // found by the name of the teacher or the center on it whenever that name
+      // carried a hamza the operator did not type. The 500-row cap that was
+      // already here still bounds the read.
+      const [teacherRows, centerRows] = await Promise.all([
         tx.user.findMany({
-          where: { role: "teacher", name: { contains: q, mode: "insensitive" } },
-          select: { id: true },
+          where: {
+            role: "teacher",
+            AND: narrowQuery(q, (f) => [
+              { name: { contains: f, mode: "insensitive" as const } },
+            ]),
+          },
+          select: { id: true, name: true },
           take: 500,
         }),
         tx.center.findMany({
-          where: { name: { contains: q, mode: "insensitive" } },
-          select: { id: true },
+          where: {
+            AND: narrowQuery(q, (f) => [
+              { name: { contains: f, mode: "insensitive" as const } },
+            ]),
+          },
+          select: { id: true, name: true },
           take: 500,
         }),
       ]);
+      const teachers = teacherRows.filter((t) => matchesSearchTerms([t.name], terms));
+      const centers = centerRows.filter((c) => matchesSearchTerms([c.name], terms));
+
       where.OR = [
         { teacherId: { in: teachers.map((t) => t.id) } },
         { centerId: { in: centers.map((c) => c.id) } },

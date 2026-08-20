@@ -212,6 +212,35 @@ async function main() {
       underGranted.length ? `missing on: ${underGranted.join(", ")}` : "ok",
     );
 
+    // -- 4b. CHECK constraints must be VALIDATED, not merely present ---------
+    // A constraint added `NOT VALID` still enforces every INSERT and UPDATE,
+    // so it LOOKS present in every catalogue listing — but Postgres never
+    // back-checked the existing rows, and nothing here used to say so.
+    //
+    // That mattered: 20260720160000_wallet_nonneg_check deliberately added
+    // `centers_wallet_balance_nonneg` NOT VALID (there was one legacy negative
+    // row at the time) and left the VALIDATE as a COMMENT for a human to run
+    // later. Dev and production had it run by hand; every freshly bootstrapped
+    // environment did not — and this script still reported all-green, because
+    // it only ever asked whether constraints EXIST. Measured 2026-08-18 on a
+    // fresh database: every other *_nonneg CHECK was convalidated, that one
+    // was not. Migration 20260818130000 now validates it; this check is what
+    // stops the same gap reopening silently.
+    const unvalidated = await q<{ conname: string; rel: string }>(
+      `SELECT c.conname, c.conrelid::regclass::text AS rel
+         FROM pg_constraint c
+         JOIN pg_namespace n ON n.oid = c.connamespace
+        WHERE c.contype = 'c' AND n.nspname = 'public' AND NOT c.convalidated
+        ORDER BY 1`,
+    );
+    record(
+      "every CHECK constraint is VALIDATED",
+      unvalidated.length === 0,
+      unvalidated.length
+        ? `NOT VALID: ${unvalidated.map((u) => `${u.rel}.${u.conname}`).join(", ")}`
+        : "ok",
+    );
+
     // -- 5. sequences + default privileges -----------------------------------
     const seqs = await q<{ relname: string; usage: boolean; sel: boolean }>(
       `SELECT c.relname,

@@ -116,3 +116,62 @@ export async function sessionFor(cookie: string): Promise<{
     locale: u.locale,
   };
 }
+
+/**
+ * Spend a back-office "view as" handoff token through the full plugin
+ * pipeline. Same shape as claimDoor, but the response carries no top-level
+ * session token — the whole point of this door is the COOKIE it sets and the
+ * `impersonated_by` stamp on the row behind it, so both of those are what a
+ * caller inspects.
+ */
+export async function viewAsDoor(
+  token: string,
+  opts: { ip?: string } = {},
+): Promise<
+  | { ok: true; cookie: string; user: Record<string, unknown> }
+  | { ok: false; status: number; message: string }
+> {
+  try {
+    const { headers, response } = await auth.api.claimViewAs({
+      body: { token },
+      headers: new Headers({
+        "x-forwarded-for": opts.ip ?? freshIp(),
+        "user-agent": "db-proof-suite",
+      }),
+      returnHeaders: true,
+    });
+    return {
+      ok: true,
+      cookie: cookieFromHeaders(headers),
+      user: (response as { user: unknown }).user as Record<string, unknown>,
+    };
+  } catch (e) {
+    if (e instanceof APIError) {
+      return {
+        ok: false,
+        status: e.statusCode,
+        message: (e.body as { message?: string } | undefined)?.message ?? "",
+      };
+    }
+    throw e;
+  }
+}
+
+/**
+ * The RAW better-auth session behind a cookie — not the narrowed shape
+ * `sessionFor` returns.
+ *
+ * It exists for one class of bug: better-auth returns only the session fields
+ * the app DECLARES, so a column that is populated in the row is silently
+ * dropped from `getSession()` unless it is listed in `session.additionalFields`.
+ * `impersonatedBy` was exactly that — the one-hour view-as cap and the portal
+ * banner both read it, both failed open, and neither said anything, while a
+ * unit-level proof of the cap passed because the predicate was fine and simply
+ * never got the value. Narrowing helpers hide this; this one does not.
+ */
+export async function rawSessionFor(
+  cookie: string,
+): Promise<Record<string, unknown> | null> {
+  const res = await auth.api.getSession({ headers: new Headers({ cookie }) });
+  return (res?.session as Record<string, unknown> | undefined) ?? null;
+}

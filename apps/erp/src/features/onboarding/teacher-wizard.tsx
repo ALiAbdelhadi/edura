@@ -3,12 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, CirclePlus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Textarea } from "@repo/ui/components/textarea";
-import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -20,13 +17,20 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
-import { WizardShell, OptionChip } from "./wizard-shell";
-import { useOnboarding, apiSend } from "./use-onboarding";
+import {
+  OptionChip,
+  WizardActions,
+  WizardCount,
+  WizardShell,
+  WizardSkeleton,
+} from "./wizard-shell";
+import { Chip, Eyebrow, LedgerButton, Sheet, SectionHeading } from "@/components/ledger";
+import { useOnboarding, apiSend, type OnboardingInitial } from "./use-onboarding";
 import type { CatalogSubject } from "./types";
 
 type StepId = "grades" | "subjects" | "review";
 
-type TeacherState = {
+export type TeacherState = {
   role: "teacher";
   onboardingCompleted: boolean;
   onboardingDraft: { step?: StepId; gradeLevelIds?: string[]; subjectIds?: string[] } | null;
@@ -34,11 +38,11 @@ type TeacherState = {
   subjectIds: string[];
 };
 
-export function TeacherWizard() {
+export function TeacherWizard({ initial }: { initial?: OnboardingInitial<TeacherState> } = {}) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<TeacherState>();
+  const { tree, state, error, saveDraft } = useOnboarding<TeacherState>(initial);
 
   const [stepId, setStepId] = useState<StepId>("grades");
   const [gradeIds, setGradeIds] = useState<string[]>([]);
@@ -147,16 +151,13 @@ export function TeacherWizard() {
     }
   }
 
-  if (error) return <div className="p-8 text-center text-destructive">{error}</div>;
-  if (!tree || !state) {
+  if (error)
     return (
-      <div className="mx-auto grid max-w-2xl gap-4 px-4 py-16">
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-40" />
-        <Skeleton className="h-40" />
+      <div className="p-8 text-center text-sm font-medium" style={{ color: "var(--red)" }}>
+        {error}
       </div>
     );
-  }
+  if (!tree || !state) return <WizardSkeleton rows={2} />;
 
   const back =
     stepIndex > 0
@@ -171,14 +172,22 @@ export function TeacherWizard() {
     tree.flatMap((sys) => sys.stages.flatMap((st) => st.gradeLevels.map((g) => [g.id, { g, st, sys }] as const))),
   );
 
+  /* The trail is a count, not a list: a teacher can pick twenty grades, and
+     twenty chips at the top of every step would bury the question. */
+  const trail =
+    stepId === "subjects" && gradeIds.length > 0
+      ? [t("onboarding.review.gradesCount", { count: gradeIds.length })]
+      : [];
+
   const shell = (children: React.ReactNode, footer: React.ReactNode) => (
     <WizardShell
-      title={t(
+      eyebrow={t(
         `onboarding.steps.${stepId === "grades" ? "grades" : stepId === "subjects" ? "subjects" : "review"}` as Parameters<typeof t>[0],
       )}
-      prompt={t(
+      question={t(
         `onboarding.prompts.${stepId === "grades" ? "teacherGrades" : stepId === "subjects" ? "teacherSubjects" : "teacherReview"}` as Parameters<typeof t>[0],
       )}
+      trail={trail}
       current={stepIndex + 1}
       total={steps.length}
       onBack={back}
@@ -191,39 +200,53 @@ export function TeacherWizard() {
   if (stepId === "grades") {
     return shell(
       <div className="grid gap-6">
-        {tree.map((sys) => (
-          <section key={sys.id} className="grid gap-3">
-            <h2 className="font-semibold">{dn(sys)}</h2>
-            {sys.stages.map((st) => (
-              <div key={st.id} className="grid gap-2">
-                <p className="text-sm text-muted-foreground">{dn(st)}</p>
-                <div className="flex flex-wrap gap-2">
-                  {st.gradeLevels.map((g) => (
-                    <OptionChip
-                      key={g.id}
-                      label={dn(g)}
-                      selected={gradeIds.includes(g.id)}
-                      onClick={() => toggleGrade(g.id)}
-                    />
-                  ))}
+        {tree.map((sys) => {
+          const inThisSystem = sys.stages.reduce(
+            (n, st) => n + st.gradeLevels.filter((g) => gradeIds.includes(g.id)).length,
+            0,
+          );
+          return (
+            <Sheet key={sys.id} className="grid gap-4 p-4">
+              {/* The per-system count answers "did I cover this system?"
+                  without counting the highlighted chips by eye. */}
+              <SectionHeading
+                title={dn(sys)}
+                action={
+                  inThisSystem > 0 ? (
+                    <WizardCount>
+                      {t("onboarding.review.gradesCount", { count: inThisSystem })}
+                    </WizardCount>
+                  ) : null
+                }
+              />
+              {sys.stages.map((st) => (
+                <div key={st.id} className="grid gap-2">
+                  <Eyebrow>{dn(st)}</Eyebrow>
+                  <div className="flex flex-wrap gap-2">
+                    {st.gradeLevels.map((g) => (
+                      <OptionChip
+                        key={g.id}
+                        label={dn(g)}
+                        selected={gradeIds.includes(g.id)}
+                        onClick={() => toggleGrade(g.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </section>
-        ))}
+              ))}
+            </Sheet>
+          );
+        })}
       </div>,
-      <Button
-        className="w-full"
-        size="lg"
+      <WizardActions
+        label={t("onboarding.next")}
         disabled={gradeIds.length === 0}
+        hint={t("onboarding.errors.selectAtLeastOne")}
         onClick={() => {
           setStepId("subjects");
           persistDraft("subjects", gradeIds, subjectIds);
         }}
-      >
-        {t("onboarding.next")}
-        <Badge variant="secondary">{gradeIds.length}</Badge>
-      </Button>,
+      />,
     );
   }
 
@@ -235,32 +258,46 @@ export function TeacherWizard() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("onboarding.teacher.searchSubjects")}
         />
-        {filteredSubjects === null ? (
-          <div className="grid gap-2">
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-          </div>
-        ) : filteredSubjects.length === 0 ? (
-          <p className="text-center text-muted-foreground">
-            {t("onboarding.teacher.noSubjectsForGrades")}
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {filteredSubjects.map((s) => (
-              <OptionChip
-                key={s.id}
-                label={dn(s)}
-                selected={subjectIds.includes(s.id)}
-                onClick={() => toggleSubject(s.id)}
-              />
-            ))}
-          </div>
-        )}
-        <Button variant="ghost" className="justify-start" onClick={() => setRequestOpen(true)}>
-          <CirclePlus className="size-4" />
+
+        <Sheet className="grid gap-3 p-4">
+          <SectionHeading
+            title={t("onboarding.steps.subjects")}
+            action={
+              subjectIds.length > 0 ? (
+                <WizardCount>
+                  {t("onboarding.review.subjectsCount", { count: subjectIds.length })}
+                </WizardCount>
+              ) : null
+            }
+          />
+          {filteredSubjects === null ? (
+            <div className="grid gap-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg" style={{ background: "var(--rule-2)" }} />
+              ))}
+            </div>
+          ) : filteredSubjects.length === 0 ? (
+            <p className="py-4 text-center text-sm" style={{ color: "var(--ink-2)" }}>
+              {t("onboarding.teacher.noSubjectsForGrades")}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {filteredSubjects.map((s) => (
+                <OptionChip
+                  key={s.id}
+                  label={dn(s)}
+                  selected={subjectIds.includes(s.id)}
+                  onClick={() => toggleSubject(s.id)}
+                />
+              ))}
+            </div>
+          )}
+        </Sheet>
+
+        <LedgerButton className="justify-start" onClick={() => setRequestOpen(true)}>
+          <CirclePlus className="size-4" aria-hidden />
           {t("onboarding.teacher.requestSubject")}
-        </Button>
+        </LedgerButton>
 
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
           <DialogContent className="max-w-md">
@@ -270,76 +307,95 @@ export function TeacherWizard() {
             </DialogHeader>
             <div className="grid gap-3 py-2">
               <div className="grid gap-1.5">
-                <Label>{t("onboarding.teacher.suggestedName")}</Label>
-                <Input value={requestName} onChange={(e) => setRequestName(e.target.value)} />
+                <Label htmlFor="req-name">{t("onboarding.teacher.suggestedName")}</Label>
+                <Input id="req-name" value={requestName} onChange={(e) => setRequestName(e.target.value)} />
               </div>
               <div className="grid gap-1.5">
-                <Label>{t("onboarding.teacher.notes")}</Label>
-                <Textarea rows={3} value={requestNotes} onChange={(e) => setRequestNotes(e.target.value)} />
+                <Label htmlFor="req-notes">{t("onboarding.teacher.notes")}</Label>
+                <Textarea
+                  id="req-notes"
+                  rows={3}
+                  value={requestNotes}
+                  onChange={(e) => setRequestNotes(e.target.value)}
+                />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setRequestOpen(false)} disabled={requestBusy}>
+              <LedgerButton onClick={() => setRequestOpen(false)} disabled={requestBusy}>
                 {t("actions.cancel")}
-              </Button>
-              <Button onClick={() => void sendRequest()} disabled={requestBusy || !requestName.trim()}>
+              </LedgerButton>
+              <LedgerButton
+                variant="primary"
+                onClick={() => void sendRequest()}
+                disabled={requestBusy || !requestName.trim()}
+              >
                 {requestBusy ? <Spinner /> : null}
                 {t("actions.sendInvite")}
-              </Button>
+              </LedgerButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>,
-      <Button
-        className="w-full"
-        size="lg"
+      <WizardActions
+        label={t("onboarding.next")}
         disabled={subjectIds.length === 0}
+        hint={t("onboarding.errors.selectAtLeastOne")}
         onClick={() => {
           setStepId("review");
           persistDraft("review", gradeIds, subjectIds);
         }}
-      >
-        {t("onboarding.next")}
-        <Badge variant="secondary">{subjectIds.length}</Badge>
-      </Button>,
+      />,
     );
   }
 
   return shell(
-    <div className="grid gap-6">
-      <section className="grid gap-2 rounded-xl border p-4">
-        <h2 className="text-sm text-muted-foreground">
-          {t("onboarding.teacher.selectedGrades")} · {t("onboarding.review.gradesCount", { count: gradeIds.length })}
-        </h2>
+    <div className="grid gap-4">
+      <Sheet className="grid gap-3 p-4">
+        <SectionHeading
+          title={t("onboarding.teacher.selectedGrades")}
+          action={
+            <WizardCount>
+              {t("onboarding.review.gradesCount", { count: gradeIds.length })}
+            </WizardCount>
+          }
+        />
         <div className="flex flex-wrap gap-1.5">
           {gradeIds.map((id) => {
             const hit = gradeById.get(id);
             return hit ? (
-              <Badge key={id} variant="secondary">
+              <Chip key={id} tone="indigo">
                 {dn(hit.sys)} · {dn(hit.g)}
-              </Badge>
+              </Chip>
             ) : null;
           })}
         </div>
-      </section>
-      <section className="grid gap-2 rounded-xl border p-4">
-        <h2 className="text-sm text-muted-foreground">
-          {t("onboarding.steps.subjects")} · {t("onboarding.review.subjectsCount", { count: subjectIds.length })}
-        </h2>
+      </Sheet>
+
+      <Sheet className="grid gap-3 p-4">
+        <SectionHeading
+          title={t("onboarding.steps.subjects")}
+          action={
+            <WizardCount>
+              {t("onboarding.review.subjectsCount", { count: subjectIds.length })}
+            </WizardCount>
+          }
+        />
         <div className="flex flex-wrap gap-1.5">
           {(subjects ?? [])
             .filter((s) => subjectIds.includes(s.id))
             .map((s) => (
-              <Badge key={s.id} variant="secondary">
+              <Chip key={s.id} tone="indigo">
                 {dn(s)}
-              </Badge>
+              </Chip>
             ))}
         </div>
-      </section>
+      </Sheet>
     </div>,
-    <Button className="w-full" size="lg" onClick={() => void confirm()} disabled={submitting}>
-      {submitting ? <Spinner /> : <Check className="size-4" />}
-      {t("onboarding.confirm")}
-    </Button>,
+    <WizardActions
+      label={t("onboarding.confirm")}
+      onClick={() => void confirm()}
+      busy={submitting}
+      icon={submitting ? <Spinner /> : <Check className="size-4" aria-hidden />}
+    />,
   );
 }

@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
+import { narrowQuery } from "@repo/database/search-text";
 import { NotFoundError, BusinessRuleError, ConflictError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 
@@ -208,11 +209,19 @@ export function listTeachers(filters: {
     if (filters.mode) where.teacherProfile = { is: { attendanceMode: filters.mode } };
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q } },
-      ];
+      // NARROW ONLY — half the two-stage match, deliberately. `contains` with
+      // `mode: "insensitive"` is ILIKE, which folds ASCII case and nothing
+      // else, so «احمد» matched none of the rows stored «أحمد» and this list
+      // came back empty about people it holds. `literalFragments` asks only for
+      // the pieces that can be compared byte-wise, which fixes that. The JS
+      // decide pass is NOT applied because this query is offset-paginated with
+      // a `count`, and filtering after the page is cut gives a short page and a
+      // wrong total — so the result is a SUPERSET: «احمد» also lists «محمد».
+      where.AND = narrowQuery(q, (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+        { email: { contains: f, mode: "insensitive" as const } },
+        { phone: { contains: f } },
+      ]);
     }
     const [rows, total] = await Promise.all([
       tx.user.findMany({

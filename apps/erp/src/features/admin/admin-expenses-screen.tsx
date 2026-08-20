@@ -38,17 +38,7 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import {
-  Amount,
-  Badge,
-  DataTable,
-  EmptyState,
-  Num,
-  PageHead,
-  Sheet,
-  type BadgeTone,
-  type Column,
-} from "./ledger";
+import { Amount, Badge, DataTable, DateText, EmptyState, PageHead, Sheet, type BadgeTone, type Column } from "./ledger";
 
 const CATEGORIES = [
   "rent",
@@ -212,7 +202,7 @@ export function AdminExpensesScreen() {
       id: "expenseDate",
       header: t("adminManage.expenses.date"),
       cell: (r) => (
-        <Num className="text-xs text-[var(--ink-3)]">{formatDate(r.expenseDate)}</Num>
+        <DateText className="text-xs text-[var(--ink-3)]">{formatDate(r.expenseDate)}</DateText>
       ),
     },
     {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCustom } from "@refinedev/core";
 import { useOnDemand } from "@/lib/api/use-on-demand";
 import { useTranslations, useLocale } from "next-intl";
 import { QRCodeCanvas } from "qrcode.react";
-import { Check, Copy, Download, IdCard, Printer, Share2, CircleAlert } from "lucide-react";
+import { Check, Copy, Download, Printer, Share2, CircleAlert } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { toast } from "@repo/ui/components/sonner";
 import { Link } from "@/i18n/navigation";
@@ -98,6 +98,28 @@ export function StudentIdScreen({
     enabled: checklist?.cardAvailable === true,
   });
   const card = cardReq.data?.card ?? null;
+
+  // ---- AND IT IS ASKED FOR AS SOON AS THE SERVER SAYS THERE IS ONE.
+  //
+  // `useOnDemand` states its own boundary in its header: it is for SECONDARY
+  // data — a panel below the fold, a report nobody may scroll to — and
+  // explicitly NOT for "the thing the page exists for", whose test is "if a
+  // reader would be confused to arrive and NOT see it, it loads with the page".
+  // This page is بطاقتي. The card IS the page.
+  //
+  // It was behind a press, which cost a tap and a round-trip at a counter with
+  // a queue behind the student — the one place this screen is ever opened in a
+  // hurry. The deferral still holds everywhere it was meant to: the SETTINGS
+  // card keeps its button, because there the card is a section on an account
+  // page and not the reason anyone opened it.
+  //
+  // `enabled` is unchanged and still the server's own precondition, so an
+  // incomplete profile asks for nothing.
+  const { request: requestCard } = cardReq;
+  const canAsk = checklist?.cardAvailable === true;
+  useEffect(() => {
+    if (canAsk) requestCard();
+  }, [canAsk, requestCard]);
 
   if (q.isPending && !q.isError) return <PageSpinner />;
 
@@ -200,26 +222,11 @@ export function StudentIdScreen({
             ) : null}
           </div>
         </Sheet>
-      ) : !cardReq.requested ? (
-        // ---- THE CARD IS NOT BUILT UNTIL IT IS ASKED FOR.
-        // Opening this screen costs one light query; the card — which signs a
-        // QR and, for a super admin elsewhere, writes an audit row — is
-        // produced only by this press. It is a button and not an auto-load
-        // because a card is a thing you go and get, not a thing that happens
-        // to you on the way past.
-        <Sheet className="flex flex-col items-start gap-3 p-5">
-          <div className="space-y-1">
-            <Eyebrow>{t("eyebrow")}</Eyebrow>
-            <p className="text-sm" style={{ color: "var(--ink-2)" }}>
-              {t("showHint")}
-            </p>
-          </div>
-          <Button onClick={cardReq.request} size="sm">
-            <IdCard className="size-4" />
-            {t("showCard")}
-          </Button>
-        </Sheet>
-      ) : cardReq.loading ? (
+      ) : cardReq.loading || !cardReq.requested ? (
+        // The effect above requests on the same commit the checklist lands, so
+        // `!requested` is at most one frame. Both states paint the same thing —
+        // a placeholder where the card is about to be — rather than flashing a
+        // button the reader would not have time to press.
         <Sheet className="flex items-center justify-center p-8">
           <Spinner />
         </Sheet>
@@ -235,6 +242,14 @@ export function StudentIdScreen({
           <div ref={cardRef}>
             <StudentIdCard card={card} locale={locale} labels={labels} />
           </div>
+
+          {/* Raised above the actions: at a counter the FIRST thing that
+              happens is the student reading their code out, and the QR is the
+              shortcut. It used to sit under three buttons about saving and
+              printing — below the fold on a phone. */}
+          <p className="text-[13px]" style={{ color: "var(--ink-2)" }}>
+            {t("counterHint", { code: formatStudentCode(card.studentCode) })}
+          </p>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={copy} variant="outline" size="sm">
@@ -252,10 +267,6 @@ export function StudentIdScreen({
               </a>
             </Button>
           </div>
-
-          <p className="text-[13px]" style={{ color: "var(--ink-2)" }}>
-            {t("counterHint", { code: formatStudentCode(card.studentCode) })}
-          </p>
 
           {/* Off-screen QR at export resolution, and INSIDE the branch that has
               a card — rendering it above would have kept a second QR encoder

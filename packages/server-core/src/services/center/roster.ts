@@ -1,4 +1,10 @@
 import { Prisma } from "@repo/database";
+import {
+  literalFragments,
+  matchesSearchTerms,
+  narrowFragments,
+  searchTerms,
+} from "@repo/database/search-text";
 import { scopedDb } from "../../db/scope";
 import {
   BusinessRuleError,
@@ -62,13 +68,29 @@ export async function listRosterStudents(
     const rosters = await tx.centerStudentRoster.findMany({ where: rosterFilter });
     const ids = rosters.map((r) => r.studentId);
 
+    // The filter used to be `startsWith`, which asked the operator to know how
+    // the row was created: a student registered «محمد أحمد سيد» was unreachable
+    // by «أحمد», and — because ILIKE compares bytes — «احمد» reached nobody at
+    // all. It is now the same two-stage match the rest of the product uses:
+    // NARROW in SQL on the byte-comparable fragments, DECIDE in JS over the
+    // normalized name. This list is already bounded to ONE center's roster, so
+    // the JS pass is over a set the query had to read anyway.
+    const terms = searchTerms(filters.q ?? "");
     const userFilter: Prisma.UserWhereInput = { id: { in: ids }, status: { not: "deleted" } };
-    if (filters.q) userFilter.name = { startsWith: filters.q, mode: "insensitive" };
+    if (terms.length) {
+      userFilter.AND = narrowFragments(literalFragments(filters.q ?? ""), (f) => [
+        { name: { contains: f, mode: "insensitive" as const } },
+        { phone: { contains: f } },
+      ]);
+    }
 
-    const users = await tx.user.findMany({
+    const found = await tx.user.findMany({
       where: userFilter,
       select: { id: true, name: true, email: true, phone: true, status: true },
     });
+    const users = terms.length
+      ? found.filter((u) => matchesSearchTerms([u.name, u.phone], terms))
+      : found;
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     // The printable code (A1Y00HDG) is what a center actually holds a student

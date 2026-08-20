@@ -1,5 +1,5 @@
 import { Container } from "@/components/kit/container";
-import { Chip, Eyebrow, Num } from "@/components/ledger";
+import { Chip, DateText, Eyebrow, Num } from "@/components/ledger";
 import type { Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
 import { getTranslations } from "next-intl/server";
@@ -47,13 +47,13 @@ export async function ChangelogScreen({ locale }: { locale: Locale }) {
                   <div className="flex flex-wrap items-center gap-3">
                     {/* A date is data: mono face, Latin digits, isolated from
                         the surrounding Arabic by <Num>. */}
-                    <Num className="text-xs" style={{ color: "var(--ink-3)" }}>
+                    <DateText className="text-xs" style={{ color: "var(--ink-3)" }}>
                       {formatDate(entry.date, locale, {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
                       })}
-                    </Num>
+                    </DateText>
                     <Chip tone={TAG_TONE[entry.tag]}>{t(`changelog.tag.${entry.tag}`)}</Chip>
                   </div>
                   <h2 className="mt-3 text-[16px] font-bold" style={{ color: "var(--ink)" }}>

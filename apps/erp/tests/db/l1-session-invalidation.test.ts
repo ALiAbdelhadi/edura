@@ -10,16 +10,14 @@
 //     the users_revoke_sessions DB trigger deletes the session rows — HARD
 //     revocation, stronger than the old per-request JWT epoch re-read.
 // No mocks anywhere.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { resetPassword } from "@/lib/services/auth/password-reset";
 import { generateOpaqueToken, hashToken } from "@/lib/utils/random";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const OLD_PW = "OldPassw0rd!";
 const NEW_PW = "FreshPassw0rd!";

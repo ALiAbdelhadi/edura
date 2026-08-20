@@ -60,6 +60,38 @@
         "dev"
       ],
       "port": 3005
+    },
+    {
+      "name": "edura-erp-review",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-review",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3099"
+      ],
+      "port": 3099
+    },
+    {
+      "name": "edura-erp-ia",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-ia",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3097"
+      ],
+      "port": 3097
     }
   ]
 }

@@ -28,6 +28,7 @@ import {
   Ban,
   Building2,
   CircleCheck,
+  ExternalLink,
   KeyRound,
   LogOut,
   Monitor,
@@ -113,6 +114,24 @@ export type ReasonAction =
  * child's lost card tells the operator they are about to break something.
  */
 const RESTORATIVE: ReadonlySet<ReasonAction> = new Set(["reinstate", "reissueCard"]);
+
+/**
+ * The roles apps/erp hosts — the ones "view as" can reach.
+ *
+ * A LOCAL COPY on purpose: this file is a client component and
+ * `WWW_LOGIN_ROLES` lives in a server package that pulls in Prisma. It decides
+ * only whether to OFFER the button; `assertViewAsTarget` on the server is the
+ * authority, and the ERP re-checks the role a third time at claim. Drift here
+ * costs a button that fails, never a door that opens.
+ */
+const ERP_ROLES: ReadonlySet<string> = new Set([
+  "center_admin",
+  "center_staff",
+  "teacher",
+  "assistant",
+  "parent",
+  "student",
+]);
 
 /** The body of the reason dialog. Mounted only while open, so it carries no
     reset logic — closing it discards the draft reason by construction. */
@@ -304,6 +323,60 @@ export function UserDetailScreen({ userId }: { userId: string }) {
       setBusy(false);
     }
   };
+
+  /**
+   * VIEW AS — hand off to the ERP.
+   *
+   * Two steps, and the second one is a FORM SUBMIT rather than a fetch, which
+   * is the only non-obvious part of this file. The claim endpoint lives on the
+   * other origin and has to both set a cookie there and land the browser on a
+   * page there; a `fetch` would need CORS plus credentialed cross-origin
+   * cookies and would still leave the browser sitting on this page. A
+   * self-submitting form is a top-level navigation, so the cookie is set for
+   * the origin the user is now on, in one hop.
+   *
+   * `_blank` so the back office stays open behind it: ending the view-as closes
+   * a tab rather than costing a 2FA sign-in.
+   *
+   * The token is a form FIELD, never a query parameter — see the mint route.
+   */
+  const viewAs = async () => {
+    setBusy(true);
+    try {
+      const res = (await mutate({
+        url: `admin/users/${userId}/view-as`,
+        method: "post",
+        values: {},
+      })) as { data?: { data?: { claimUrl?: string; token?: string } } };
+      const claimUrl = res?.data?.data?.claimUrl;
+      const token = res?.data?.data?.token;
+      if (!claimUrl || !token) throw new Error();
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = claimUrl;
+      form.target = "_blank";
+      const field = document.createElement("input");
+      field.type = "hidden";
+      field.name = "token";
+      field.value = token;
+      form.appendChild(field);
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Mirrors `assertViewAsTarget`: an ERP role, active. The service stays the
+  // authority; this only decides whether to OFFER it.
+  const canViewAs =
+    !!user &&
+    user.status === "active" &&
+    ERP_ROLES.has(user.role);
 
   // Mirrors `IMPERSONATABLE` + the active check in admin-users.ts. The service
   // stays the authority; this only decides whether to OFFER the action.
@@ -509,6 +582,23 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               title={t("confirm_impersonate_title")}
               description={t("confirm_impersonate_body")}
               onConfirm={() => void impersonate()}
+            />
+          ) : null}
+
+          {/* VIEW AS — the ERP door. Offered only for a role the ERP hosts;
+              the back-office case above is a different mechanism entirely
+              (same app, same cookie) and the two are never both shown. */}
+          {canViewAs ? (
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="outline" disabled={busy}>
+                  <ExternalLink className="size-4" aria-hidden="true" />
+                  {t("actionViewAs")}
+                </Button>
+              }
+              title={t("confirm_viewAs_title")}
+              description={t("confirm_viewAs_body")}
+              onConfirm={() => void viewAs()}
             />
           ) : null}
         </div>

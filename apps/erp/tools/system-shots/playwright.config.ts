@@ -25,7 +25,7 @@ export default defineConfig({
     baseURL: process.env.HELP_SHOTS_BASE_URL ?? "http://localhost:3002",
     headless: true,
     navigationTimeout: 60_000,
-    deviceScaleFactor: 2,
+    deviceScaleFactor: 3,
   },
   projects: [{ name: "chromium", use: { channel: "chrome" } }],
 });

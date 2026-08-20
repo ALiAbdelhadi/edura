@@ -11,16 +11,14 @@
 //     and the users_revoke_sessions DB trigger DELETES the session rows in the
 //     same statement (hard revocation, stronger than the old per-request JWT
 //     epoch re-read).
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
 import { updateUserStatus } from "@/lib/services/admin/platform";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!C03";
 const GENERIC = "Invalid email or password"; // full H5: every refusal is this

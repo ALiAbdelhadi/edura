@@ -84,3 +84,48 @@ describe("computeSlots", () => {
     expectPartition(items, slots, overflow);
   });
 });
+
+// The bar is drawn INSTEAD of the sidebar, and a portal that ships it hides the
+// sidebar toggle on phones — so the sheet behind "more" is the only place left
+// for the account action (identity + logout) that lives at the sidebar's foot.
+// That makes the "more" slot unconditional in those portals, which is a
+// different arithmetic: the slot has to come out of `maxVisible` even when
+// nothing overflowed, or the bar draws one target more than it was measured for.
+describe("computeSlots — with the account action in the sheet", () => {
+  it("still spends a slot on 'more' when the destinations fit exactly", () => {
+    const items = mk(5);
+    const { slots, overflow } = computeSlots(items, 5, "k0", true);
+    expect(slots.map((i) => i.key)).toEqual(["k0", "k1", "k2", "k3"]);
+    expect(overflow.map((i) => i.key)).toEqual(["k4"]);
+    expectPartition(items, slots, overflow);
+  });
+
+  it("leaves a short bar alone — there is nothing to push out", () => {
+    const items = mk(3);
+    const { slots, overflow } = computeSlots(items, 5, "k1", true);
+    // 3 destinations + "more" is 4 targets, under the 5 the bar allows.
+    expect(slots).toHaveLength(3);
+    expect(overflow).toHaveLength(0);
+    expectPartition(items, slots, overflow);
+  });
+
+  it("keeps the active destination in the bar, reserved slot or not", () => {
+    const items = mk(5);
+    for (const active of items.map((i) => i.key)) {
+      const { slots, overflow } = computeSlots(items, 5, active, true);
+      expect(
+        slots.some((i) => i.key === active),
+        `${active} fell into the overflow`,
+      ).toBe(true);
+      expect(slots.length).toBeLessThanOrEqual(4);
+      expectPartition(items, slots, overflow);
+    }
+  });
+
+  it("changes nothing when the flag is off (the default stays the default)", () => {
+    const items = mk(5);
+    expect(computeSlots(items, 5, "k0", false)).toEqual(
+      computeSlots(items, 5, "k0"),
+    );
+  });
+});

@@ -2,14 +2,12 @@
 //  (1) a settlement exceeding the balance is REJECTED (conditional decrement),
 //  (2) the DB CHECK (wallet_balance >= 0) rejects a direct negative write,
 //  (3) a normal valid settlement still works.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { approvePayout } from "@/lib/services/finance/payouts";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 // H-03: the original hardcoded seed UUID was removed by the Step 9 pre-launch
 // wipe. Prefer it when it still exists, otherwise bind to any teacher profile —

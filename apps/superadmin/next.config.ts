@@ -5,16 +5,57 @@ import { withSentryConfig } from "@sentry/nextjs";
 const withNextIntl = createNextIntlPlugin();
 
 // H4 — security headers. The back-office is the highest-value surface, so it is
-// stricter than www: never framable and no cross-origin frames/sockets. CSP
-// ships Report-Only first (observe, don't block); the rest is enforced.
+// stricter than the ERP: never framable, no cross-origin frames or sockets.
+// The CSP now ENFORCES by default and reports what it blocks (CSP_MODE below).
+//
+// STILL OPEN, deliberately: script-src keeps 'unsafe-inline' — a nonce needs a
+// middleware.ts this app does not have. See the longer note in apps/erp.
 const isDev = process.env.NODE_ENV !== "production";
+
+// ---------------------------------------------------------------------------
+// CSP MODE — enforce or observe, chosen by env, not by editing this file.
+//
+// The policy shipped Report-Only "until real traffic confirms nothing legit is
+// flagged" — but it carried no report-uri and no report-to, so no traffic was
+// ever confirmed by anything. It observed nothing for months. Reporting is now
+// wired to /api/v1/security/csp-report, and the disposition is a switch:
+//
+//   CSP_MODE=enforce      (default) the policy BLOCKS, and reports what it blocks
+//   CSP_MODE=report-only            the policy only reports
+//
+// Being an env var and not a constant is the point: a policy that turns out to
+// break a real screen is rolled back by changing a variable and restarting,
+// not by shipping a code change through a build — which is the difference
+// between a minute and an hour while users are locked out.
+// ---------------------------------------------------------------------------
+const cspReportOnly = process.env.CSP_MODE === "report-only";
+const cspHeaderName = cspReportOnly
+  ? "Content-Security-Policy-Report-Only"
+  : "Content-Security-Policy";
+
+// The ONE cross-origin destination this app may post a form to: the ERP's
+// claim endpoint for a "view as" handoff.
+//
+// WHY THIS IS HERE AT ALL. `form-action 'self'` blocks a cross-origin form
+// submit SILENTLY — no request, no console error the code can catch, nothing.
+// The handoff is delivered as a top-level form POST precisely so the token
+// never touches a URL (history, Referer, proxy logs), and that delivery is
+// exactly what the directive refuses by default. Found by clicking the button
+// in a real browser; every curl proof passed, because curl has no CSP.
+//
+// NARROW ON PURPOSE. One origin, read from the same variable the mint route
+// posts to, so the allowlist cannot drift from the destination. Empty in
+// development when unset — the dev fallback resolves to a localhost origin
+// which `'self'` may not cover, so the value is included whenever it is known.
+const erpFormAction = (process.env.ERP_BASE_URL || process.env.APP_BASE_URL || "")
+  .replace(/\/+$/, "");
 
 const csp = [
   `default-src 'self'`,
   `base-uri 'self'`,
   `object-src 'none'`,
   `frame-ancestors 'none'`,
-  `form-action 'self'`,
+  `form-action 'self'${erpFormAction ? ` ${erpFormAction}` : ""}`,
   // Cloudinary delivers material/receipt images shown in the back-office.
   `img-src 'self' data: blob: https://res.cloudinary.com`,
   `font-src 'self' data:`,
@@ -30,6 +71,13 @@ const csp = [
   `connect-src 'self' https://*.ingest.sentry.io https://*.ingest.de.sentry.io`,
   `frame-src 'none'`,
   `worker-src 'self'`,
+  // Where violations go. BOTH spellings on purpose: `report-uri` is deprecated
+  // but is still the only one Safari and older Chrome honour, while `report-to`
+  // is what current Chrome uses and is the only one that will survive. Sending
+  // both means no browser is silently unreported. `report-to` names a group
+  // declared by the Reporting-Endpoints header below.
+  `report-uri /api/v1/security/csp-report`,
+  `report-to csp-endpoint`,
 ].join("; ");
 
 const securityHeaders = [
@@ -37,7 +85,9 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  // `report-to` above is inert without this header — it names the group.
+  { key: "Reporting-Endpoints", value: `csp-endpoint="/api/v1/security/csp-report"` },
+  { key: cspHeaderName, value: csp },
 ];
 
 const nextConfig = {

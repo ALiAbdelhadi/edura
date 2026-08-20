@@ -92,6 +92,17 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
     reason: "public reset completion — the emailed token is the credential",
     mustContain: ["withRateLimit"],
   },
+  "v1/auth/view-as/claim": {
+    reason:
+      "the landing door for a back-office 'view as'. apps/superadmin POSTs the " +
+      "signed handoff token here as a TOP-LEVEL FORM NAVIGATION, so the caller " +
+      "holds no ERP session yet and there is nothing for an auth wrapper to " +
+      "check — the token SIGNATURE is the credential, verified by " +
+      "auth.api.claimViewAs. Safe because that token is single-target, " +
+      "60-second, and minted only by apps/superadmin: see " +
+      "docs/decisions/superadmin-view-as.md.",
+    mustContain: ["claimViewAs"],
+  },
   "v1/auth/register/center": {
     reason: "public registration",
     mustContain: ["withRateLimit"],
@@ -127,6 +138,14 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
   "v1/internal/chat-notify": {
     reason: "server↔server bridge from apps/realtime (M2 dedicated secret)",
     mustContain: ["requireDedicatedSecret"],
+  },
+  "v1/security/csp-report": {
+    reason:
+      "the BROWSER posts CSP violation reports, with no session and no CORS " +
+      "preflight; requiring auth would collect violations only from signed-in " +
+      "users and so miss the login page — the surface an injection attack " +
+      "cares most about. Bounded by a per-IP bucket instead.",
+    mustContain: ["withRateLimit"],
   },
   "v1/payments/paymob/webhook": {
     reason: "gateway webhook — authenticity is the HMAC over the raw body",
@@ -165,6 +184,16 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
 const RAW_JSON_ALLOWED: Record<string, PublicEntry> = {};
 
 const RAW_TEXT_ALLOWED: Record<string, PublicEntry> = {
+  "v1/security/csp-report": {
+    reason:
+      "reports arrive in two wire formats (application/csp-report and " +
+      "application/reports+json) and a hostile client can send neither; the " +
+      "body is size-capped and parsed defensively rather than trusted to a " +
+      "schema, and a malformed one is dropped, never 400'd back at a browser " +
+      "that cannot act on it.",
+    mustContain: ["MAX_BODY_BYTES"],
+  },
+
   "v1/payments/paymob/webhook": {
     reason: "HMAC must be computed over the raw request bytes",
     mustContain: ["verifyWebhook"],
@@ -172,6 +201,10 @@ const RAW_TEXT_ALLOWED: Record<string, PublicEntry> = {
 };
 
 const FORM_DATA_ALLOWED = new Set([
+  // Not an upload: a top-level form navigation carrying the view-as handoff
+  // token in the BODY rather than a query string, so it never lands in browser
+  // history, referrers or access logs.
+  "v1/auth/view-as/claim",
   "v1/materials",
   "v1/materials/[id]",
   "v1/centers/me/logo",

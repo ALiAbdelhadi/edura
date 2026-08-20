@@ -5,9 +5,19 @@ import { BottomNav } from "@repo/ui/components/bottom-nav";
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
+import { Kbd } from "@repo/ui/components/kbd";
+import {
   CommandPaletteTrigger,
   NavCommandPalette,
   useCommandPalette,
+  usePaletteShortcutLabel,
   type PaletteGroup,
   type PaletteRemote,
 } from "@repo/ui/components/nav-command-palette";
@@ -33,6 +43,7 @@ import {
   Calendar,
   CheckCircle2,
   ChevronDown,
+  ChevronsUpDown,
   ClipboardList,
   DollarSign,
   FileSearch,
@@ -239,8 +250,13 @@ function HeaderSidebarToggle({
       aria-expanded={expanded}
     >
       {/* Flips in RTL: it points along the reading axis (constitution §6.4 —
-          an icon flips if it points, not if it depicts). */}
-      <PanelLeft className="size-4 rtl:-scale-x-100" />
+          an icon flips if it points, not if it depicts).
+          `size-5`, not the `size-4` every other header control uses (Ali,
+          2026-08-20): this one is a 20px glyph in a 36px button because it is
+          the only control on the header that changes the LAYOUT, and at 16px it
+          read as a decoration sitting next to the title rather than as the
+          handle for the panel beside it. */}
+      <PanelLeft className="size-5 rtl:-scale-x-100" />
     </Button>
   );
 }
@@ -287,7 +303,21 @@ function SidebarNav({
           // replaced put the group's <Eyebrow> straight inside SidebarMenu —
           // invalid markup that browsers forgive and assistive technology does
           // not have to.
-          <div key={group.label || gi} className="px-2 py-2">
+          <div key={group.label || gi} className="px-1.5 pb-1.5">
+            {/* THE RAIL'S ONLY GROUPING DEVICE.
+                At 48px the headings are hidden, so a 21-destination portal used
+                to draw one undifferentiated column of icons and the runs a
+                reader already knows by shape were gone. A hairline costs no
+                width and restores them. It is `hidden` at full width — there the
+                heading does this job and two devices would say the same thing
+                twice. Never before the first group: a rule above the first item
+                separates it from the header's own border, not from anything. */}
+            {gi > 0 ? (
+              <div
+                aria-hidden="true"
+                className="mx-auto mb-1.5 hidden h-px w-6 bg-(--chrome-border) group-data-[collapsible=icon]:block"
+              />
+            ) : null}
             {group.label ? (
               <button
                 type="button"
@@ -295,14 +325,21 @@ function SidebarNav({
                 onClick={() => onToggleGroup(group.label)}
                 aria-expanded={!isCollapsed}
                 className={cn(
-                  "mb-1.5 flex w-full items-center gap-1 rounded-(--chrome-radius-sm) px-2 py-0.5 text-start",
+                  "flex w-full items-center gap-1 rounded-(--chrome-radius-sm) px-2 pt-0.5 pb-1 text-start",
+                  // Sticky, so the run you are inside keeps naming itself while
+                  // you scroll a 21-item portal. It needs an opaque ground of
+                  // its own — the items scroll UNDER it, and the sidebar panel's
+                  // background is on an ancestor, which paints behind both.
+                  // The separation from the first item is PADDING, not a
+                  // margin, for the same reason: a margin is transparent, so a
+                  // row scrolling past would show through the gap.
+                  "sticky top-0 z-10 bg-(--chrome-surface)",
                   "transition-colors duration-(--chrome-fast) ease-(--chrome-ease)",
                   "hover:bg-(--chrome-surface-2)",
                   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--chrome-ring)",
                   // Hidden in the icon rail: it is 48px wide, so a heading there
                   // would either truncate to nothing or force the rail open. The
-                  // runs stay separated by the menus' own padding, which is the
-                  // only separation a rail can carry.
+                  // hairline above is what separates the runs there instead.
                   "group-data-[collapsible=icon]:hidden",
                 )}
               >
@@ -363,14 +400,20 @@ function SidebarNav({
                     </SidebarMenuButton>
                     {count ? (
                       <SidebarMenuBadge
-                        // Latin digits, mono, tabular, bidi-isolated — the
-                        // <Num> path from constitution §6.3. Arabic-Indic
-                        // digits would fall silently out of the mono face,
-                        // which ships no Arabic glyphs.
-                        dir="ltr"
+                        // `end-1`/`top-*` on this element are RTL-logical, so
+                        // the badge itself must stay in the ambient (RTL)
+                        // direction — that's what puts it at the icon's
+                        // opposite corner instead of on top of it. `dir="ltr"`
+                        // here previously flipped those same logical insets to
+                        // their LTR reading, landing the badge exactly where
+                        // the icon sits. Isolation belongs on the digits only:
+                        // Latin, mono, tabular, bidi-isolated — the <Num> path
+                        // from constitution §6.3. Arabic-Indic digits would
+                        // fall silently out of the mono face, which ships no
+                        // Arabic glyphs.
                         className="rounded-(--chrome-radius-sm) bg-(--chrome-accent-soft) font-(family-name:--chrome-mono) text-[11px] font-semibold text-(--chrome-accent-text) tabular-nums"
                       >
-                        {count}
+                        <bdi dir="ltr">{count}</bdi>
                       </SidebarMenuBadge>
                     ) : null}
                   </SidebarMenuItem>
@@ -384,6 +427,185 @@ function SidebarNav({
   );
 }
 
+/* ── search, in the sidebar ───────────────────────────────────────────────── */
+
+/**
+ * ONE SEARCH PER VIEWPORT — the same rule the phone bar and the drawer already
+ * live under, applied to the palette.
+ *
+ * The palette's only visible entry point used to be a pill in the content
+ * header, which is the wrong end of the screen from the list it searches: the
+ * center portal carries 19 destinations and superadmin 21, and by the time a
+ * list is that long, scanning it is the slow path and typing is the fast one.
+ * So the trigger moves next to the list, and the header's pill hides at `md`
+ * (see the header below) rather than becoming its twin. Below `md` the sidebar
+ * is a drawer, so the header keeps the pill and this row is not on screen.
+ *
+ * It renders as a nav row rather than as its own control on purpose: the rail
+ * collapse, the 48px tooltip and the focus outline are then the ones every
+ * other row already has, not a second implementation of each.
+ */
+/**
+ * The expanded state's search — a FIELD beside the mark, not a menu row.
+ *
+ * The mark used to sit alone on a 44px row with the search under it, and alone
+ * is exactly how it read: a small object floating in an empty band. Beside a
+ * field it reads as a lockup, which is what the top of a sidebar is for. It
+ * costs 24px of width (248 → 272) and gives back ~30px of height.
+ *
+ * A button that LOOKS like an input, deliberately: it opens the palette, and a
+ * real <input> here would be a second search implementation — the thing the
+ * palette exists to prevent. The affordance is the field; the mechanism stays
+ * one.
+ */
+function SidebarSearchField({
+  label,
+  onOpen,
+}: {
+  label: string;
+  onOpen: () => void;
+}) {
+  const shortcut = usePaletteShortcutLabel();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={label}
+      aria-keyshortcuts="Meta+K Control+K"
+      className="chrome-search flex h-9 min-w-0 flex-1 items-center gap-2 px-2.5 group-data-[collapsible=icon]:hidden"
+    >
+      <Search aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-start text-[13px]">
+        {label}
+      </span>
+      {/* `min-w` so the Ctrl/⌘ swap after mount cannot resize the field. */}
+      <Kbd className="min-w-11 shrink-0 justify-center">{shortcut}</Kbd>
+    </button>
+  );
+}
+
+/**
+ * The RAIL's search. At 48px there is no room beside the mark, so the field
+ * folds back into a nav row — the same square, the same tooltip and the same
+ * focus outline every other rail icon has.
+ */
+function SidebarSearchRow({
+  label,
+  onOpen,
+}: {
+  label: string;
+  onOpen: () => void;
+}) {
+  const shortcut = usePaletteShortcutLabel();
+  return (
+    <SidebarMenu className="hidden px-1.5 pb-1 group-data-[collapsible=icon]:block">
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          onClick={onOpen}
+          tooltip={label}
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <Search />
+          <span>{label}</span>
+          {/* `min-w` so the Ctrl/⌘ swap after mount cannot shift the row. */}
+          <Kbd className="ms-auto min-w-11 justify-center group-data-[collapsible=icon]:hidden">
+            {shortcut}
+          </Kbd>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+/* ── identity, at the foot ────────────────────────────────────────────────── */
+
+/**
+ * WHO YOU ARE MOVED TO THE BOTTOM, AND LOGOUT MOVED INSIDE IT.
+ *
+ * Two things were wrong with the old arrangement, and one edit fixes both.
+ * Identity sat directly under the mark, so the first ~56px of every portal —
+ * the most valuable strip in the sidebar, the one the eye lands on — was spent
+ * on a name that does not change and is already in the header's own avatar.
+ * And `logout` held a permanent full-width row at the foot: a destructive
+ * action, used once a day, drawn at the same weight as the screens used all
+ * day, and the only red in the chrome.
+ *
+ * Both are now one row: identity is the visible thing (it is a label), logout
+ * is one click behind it (it is an action). That is the arrangement every
+ * desktop shell converged on, and it buys back roughly a destination's worth of
+ * height at the top where the destinations are.
+ */
+function SidebarIdentity({
+  displayName,
+  roleLabel,
+  logoutLabel,
+  onLogout,
+}: {
+  displayName: string;
+  roleLabel: string;
+  logoutLabel: string;
+  onLogout: () => void;
+}) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              tooltip={`${displayName} — ${roleLabel}`}
+              className="data-[state=open]:bg-(--chrome-surface-2)"
+            >
+              <Avatar className="size-8 shrink-0">
+                <AvatarFallback className="bg-(--chrome-accent) text-xs font-semibold text-(--chrome-accent-fg)">
+                  {getInitials(displayName)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="grid min-w-0 flex-1 text-start leading-tight">
+                <span className="truncate text-[13px] font-semibold text-(--chrome-fg)">
+                  {displayName}
+                </span>
+                <span className="truncate text-[11px] text-(--chrome-fg-muted)">
+                  {roleLabel}
+                </span>
+              </span>
+              {/* Points at neither edge, so it does not mirror in RTL — it says
+                  "this opens", not "this way". */}
+              <ChevronsUpDown
+                aria-hidden="true"
+                className="ms-auto size-4 shrink-0 text-(--chrome-fg-subtle) group-data-[collapsible=icon]:hidden"
+              />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          {/* A Radix portal, appended to <body>, so it takes the chrome by its
+              own class exactly as the palette dialog does — descent reaches it
+              from nothing. */}
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            className="chrome-surface w-(--radix-dropdown-menu-trigger-width) min-w-56"
+          >
+            <DropdownMenuLabel className="min-w-0">
+              <span className="block truncate text-[13px] font-semibold text-(--chrome-fg)">
+                {displayName}
+              </span>
+              <span className="block truncate text-[11px] font-normal text-(--chrome-fg-muted)">
+                {roleLabel}
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onLogout}>
+              <LogOut />
+              {logoutLabel}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
 /* ── the shell ────────────────────────────────────────────────────────────── */
 
 export function AppShell({
@@ -393,6 +615,7 @@ export function AppShell({
   groups: groupsProp,
   navItems,
   bottomNav,
+  bottomNavMaxVisible = 5,
   badges = {},
   notificationsHref,
   unreadCount = 0,
@@ -427,6 +650,21 @@ export function AppShell({
    * href left out is a destination a phone user cannot reach.
    */
   bottomNav?: string[];
+  /**
+   * How many TARGETS the phone bar draws, "more" included — so `5` is four
+   * destinations plus the sheet, and `6` is five plus the sheet.
+   *
+   * A prop rather than a constant because the right number is a property of
+   * the PORTAL, not of the bar: it depends on how many destinations a role
+   * opens daily and how long their labels are. Five destinations at 375px
+   * leaves ~62px each, which fits a two-syllable Arabic label and an icon and
+   * not much else — so a portal raising this owes a look at its own longest
+   * label in both locales before it does.
+   *
+   * Defaults to 5, which is what every portal rendered before this was
+   * configurable; leaving it unset changes nothing.
+   */
+  bottomNavMaxVisible?: number;
   /** href → count. Resolved by the app; @repo/ui owns no data layer. */
   badges?: Record<string, number>;
   notificationsHref: string;
@@ -613,7 +851,18 @@ export function AppShell({
         // in sidebar.tsx.
         className="chrome"
       >
-        <SidebarHeader className="gap-0 border-b border-(--chrome-border)">
+        {/* 64px — THE SAME HEIGHT AS THE CONTENT HEADER (Ali, 2026-08-20).
+            It was 54 (a 48px row plus padding) against the header's 64, so the
+            two hairlines sat ten pixels apart and the top of the app read as
+            two unrelated bars that happened to be adjacent. They carry the same
+            `--chrome-border` and now end at the same y, so they read as ONE
+            rule crossing the whole window. If either height changes, the other
+            has to change with it — that is the whole point of the number.
+            The height is on the HEADER, not on the row inside it: box-sizing is
+            border-box, so 64 here includes the hairline and both rules land on
+            the same pixel. Sizing the child instead put the border a pixel
+            below — visible as a step exactly where the two meet. */}
+        <SidebarHeader className="h-16 gap-0 border-b border-(--chrome-border) p-0">
           {/* THE MARK ALONE — no wordmark beside it (Ali, 2026-08-14).
               Which of the two survives was not a toss-up: the collapsed rail is
               48px wide and hides the wordmark by design, so a header built on
@@ -622,26 +871,40 @@ export function AppShell({
               The consequence is that the mark is now the only thing naming the
               product here, so it is no longer decorative and carries a real
               `alt` again — see the note on the `logo` prop in each app's
-              wrapper. */}
-          <div className="flex h-12 items-center px-1">{logo}</div>
-          <div className="flex items-center gap-2 px-1 pb-2">
-            <Avatar>
-              <AvatarFallback className="bg-(--chrome-accent) font-semibold text-(--chrome-accent-fg)">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-semibold text-(--chrome-fg)">
-                {displayName}
-              </p>
-              <p className="truncate text-xs text-(--chrome-fg-muted)">
-                {roleLabel}
-              </p>
-            </div>
+              wrapper.
+              ONE ROW with the search field (Ali, 2026-08-20). Identity had
+              already moved to the foot (see <SidebarIdentity>); folding the
+              mark and the search together is what turns the two rows it left
+              behind into one, and gives the mark something to sit beside. */}
+          <div className="flex h-full items-center gap-2 px-2 group-data-[collapsible=icon]:px-1.5">
+            {logo}
+            <SidebarSearchField
+              label={strings.search}
+              onOpen={() => palette.setOpen(true)}
+            />
           </div>
         </SidebarHeader>
 
-        <SidebarContent>
+        {/* `py-1`, not `py-1.5`: the student portal measured 608px of nav
+            against 604px of room on a 720px-tall laptop — a scrollbar for four
+            pixels, which reads as a broken menu rather than a long one. The
+            four pixels come off the list's own top and bottom padding, where
+            nothing is separated by them, and not off the rows.
+            `pb-0` for the same reason, once the rows grew to 32px: the footer
+            below carries its own border AND its own 4px of padding, so the
+            list's trailing padding was a second gap stacked on a gap that was
+            already there. */}
+        <SidebarContent className="gap-0 pt-1 pb-0">
+          {/* Rail only, and it lives HERE rather than in the header for one
+              reason: the header has to be exactly 64px in both states to keep
+              its rule level with the content header's, and 36px of mark plus a
+              30px row is 66. As a nav row it is also what it looks like at
+              48px — the same square, tooltip and outline as every icon under
+              it. Hidden at full width, where the field above does this job. */}
+          <SidebarSearchRow
+            label={strings.search}
+            onOpen={() => palette.setOpen(true)}
+          />
           <SidebarNav
             groups={groups}
             selectedKey={selectedKey}
@@ -654,19 +917,13 @@ export function AppShell({
           />
         </SidebarContent>
 
-        <SidebarFooter className="border-t border-(--chrome-border)">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={onLogout}
-                tooltip={strings.logout}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive active:bg-destructive/10 active:text-destructive"
-              >
-                <LogOut />
-                <span>{strings.logout}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarFooter className="border-t border-(--chrome-border) p-1">
+          <SidebarIdentity
+            displayName={displayName}
+            roleLabel={roleLabel}
+            logoutLabel={strings.logout}
+            onLogout={onLogout}
+          />
         </SidebarFooter>
       </Sidebar>
 
@@ -693,9 +950,16 @@ export function AppShell({
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {/* PHONE ONLY, since 2026-08-20. Above `md` the sidebar carries the
+                search row and the rail carries its icon, so keeping this pill
+                there would be two triggers for one palette — the same
+                two-navigations-one-viewport defect the phone bar rule exists
+                for. Below `md` the sidebar is a drawer, so this is the palette's
+                only visible way in and it stays. */}
             <CommandPaletteTrigger
               onClick={() => palette.setOpen(true)}
               label={strings.search}
+              className="md:hidden"
             />
             {headerSettings ? (
               <div className="hidden items-center gap-3 lg:flex">
@@ -719,19 +983,24 @@ export function AppShell({
               </Button>
               {unreadCount > 0 ? (
                 <span
-                  dir="ltr"
                   aria-hidden="true"
+                  // Same trap as the sidebar badge: `-inset-e-1` is RTL-logical
+                  // and must resolve against the ambient (RTL) direction, so
+                  // `dir="ltr"` cannot live on this element — it would pin the
+                  // dot to the bell's LTR corner instead of its RTL one.
+                  // Isolation goes on the digits only.
                   className="absolute -top-1 -inset-e-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-(family-name:--chrome-mono) text-[10px] font-semibold text-white tabular-nums"
                 >
-                  {unreadCount}
+                  <bdi dir="ltr">{unreadCount}</bdi>
                 </span>
               ) : null}
             </div>
-            <Avatar>
-              <AvatarFallback className="bg-(--chrome-accent) font-semibold text-(--chrome-accent-fg)">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
+            {/* NO AVATAR HERE (Ali, 2026-08-20). Identity is named once, at the
+                foot of the sidebar, where it is also the control that logs you
+                out. The one that used to sit here was a plain <Avatar> with no
+                handler and no label — it answered "who am I signed in as?" a
+                second time and did nothing when clicked, which is the worst of
+                both: it looks like a menu and is not one. */}
           </div>
         </header>
 
@@ -750,11 +1019,22 @@ export function AppShell({
           <BottomNav
             items={bottomNavItems}
             activeKey={selectedKey}
-            maxVisible={5}
+            maxVisible={bottomNavMaxVisible}
             linkAs={linkAs}
             navLabel={strings.dashboard}
             moreLabel={strings.more}
             moreTitle={strings.allSections}
+            // The bar's presence HIDES the sidebar toggle on phones, so the
+            // drawer holding identity and logout cannot be opened there. The
+            // bar takes the sidebar's place, so it carries the sidebar's foot
+            // too — otherwise a phone user of a barred portal has no way to
+            // sign out at all.
+            account={{
+              displayName,
+              roleLabel,
+              logoutLabel: strings.logout,
+              onLogout,
+            }}
             {...(moreTour ? { moreTour } : {})}
           />
         ) : null}

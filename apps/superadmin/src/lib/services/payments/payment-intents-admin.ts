@@ -1,4 +1,9 @@
 import { platformDb } from "@/lib/db/scope";
+import {
+  matchesSearchTerms,
+  narrowQuery,
+  searchTerms,
+} from "@repo/database/search-text";
 import { NotFoundError } from "@/lib/errors/classes";
 import type { Prisma } from "@repo/database";
 
@@ -42,22 +47,48 @@ export async function listPaymentIntents(filters: IntentListFilters) {
 
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      const students = await tx.user.findMany({
+      const terms = searchTerms(q);
+
+      // The PAYER lookup gets the FULL two-stage match — narrow in SQL, decide
+      // in JS — because it is a bounded sub-query, not a page: «احمد» used to
+      // match none of the rows stored «أحمد», so an intent could not be found
+      // by the name of the person who paid for it. The JS pass runs over the
+      // 500-row cap this query already had.
+      const candidates = await tx.user.findMany({
         where: {
           role: "student",
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-          ],
+          AND: narrowQuery(q, (f) => [
+            { name: { contains: f, mode: "insensitive" as const } },
+            { email: { contains: f, mode: "insensitive" as const } },
+          ]),
         },
-        select: { id: true },
+        select: { id: true, name: true, email: true },
         take: 500,
       });
+      const students = candidates.filter((s) =>
+        matchesSearchTerms([s.name, s.email], terms),
+      );
+
+      // The GATEWAY references narrow only. This query is offset-paginated and
+      // returns a `count`, so a JS filter after the page is cut would give a
+      // short page and a wrong total — the same trade recorded in `listUsers`.
+      // Gateway references are ASCII anyway, so the fragments are the whole
+      // string and the narrowing is exact for them in practice.
       where.OR = [
         { studentId: { in: students.map((s) => s.id) } },
-        { gatewayOrderId: { contains: q, mode: "insensitive" } },
-        { gatewayRef: { contains: q, mode: "insensitive" } },
-        { idempotencyKey: { contains: q, mode: "insensitive" } },
+        // ONE clause, not spread — the fragments must stay ANDed WITHIN the
+        // reference branch so a second typed word narrows it. Spreading them
+        // into the outer OR would have made «احمد محمد» match a reference
+        // containing either. `narrowQuery` (not `narrowFragments`) because an
+        // empty `AND` is Prisma's "no constraint", which here would have listed
+        // EVERY intent on the platform for an unnarrowable query.
+        {
+          AND: narrowQuery(q, (f) => [
+            { gatewayOrderId: { contains: f, mode: "insensitive" as const } },
+            { gatewayRef: { contains: f, mode: "insensitive" as const } },
+            { idempotencyKey: { contains: f, mode: "insensitive" as const } },
+          ]),
+        },
       ];
     }
 

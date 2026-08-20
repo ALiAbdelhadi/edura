@@ -26,7 +26,9 @@ import {
   Sheet,
 } from "@/components/ledger";
 import {
+  EMU_COVER,
   EMU_LEDGER_OPENING,
+  EMU_PLACE,
   EMU_RECORD,
   EMU_STUDENT,
   EMU_SUBJECTS,
@@ -66,10 +68,30 @@ export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
               <p className="text-sm" style={{ color: "var(--ink-2)" }}>
                 <Num.ClockText value={EMU_TODAY[0]!.time} locale={locale} /> · {t("screens.today")}
               </p>
+              {/* WHERE and WITH WHOM. The real hero carries both; a rehearsal
+                  that answers only "when" teaches a screen that no longer
+                  exists. */}
+              <p className="mt-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
+                {pick(EMU_PLACE.room, locale)} · {pick(EMU_PLACE.teacher, locale)}
+              </p>
             </div>
           </div>
         </Sheet>
       </div>
+
+      {/* The cover line, and only once there is something to cover. It mirrors
+          the real home's subscription notice, which is the one place a student
+          learns that a monthly plan ends by itself. */}
+      {subscribed ? (
+        <div data-emu-region="cover">
+          <Sheet className="p-4" style={{ borderColor: "var(--teal)" }}>
+            <Eyebrow>{t("screens.coverEyebrow")}</Eyebrow>
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
+              {t("screens.coverBody", { days: EMU_COVER.daysLeft })}
+            </p>
+          </Sheet>
+        </div>
+      ) : null}
 
       <Sheet className="p-4">
         <SectionHeading eyebrow={t("screens.schedule")} title={t("screens.thisWeek")} />
@@ -204,7 +226,7 @@ export function EmuSubjects({
                               >
                                 {t("screens.subscribeMonthly")}
                                 {" · "}
-                                <Money piasters={g.pricePerMonth} tone="ink" />
+                                <Money piasters={g.pricePerMonth} tone="inherit" weight={600} />
                               </span>
                             </EmuTarget>
                           )}

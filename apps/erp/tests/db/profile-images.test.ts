@@ -24,11 +24,10 @@
 //  11. a delete REPORTS what it did — deleted / not_found / failed / skipped —
 //      so a wrong resource_type, a stale key or an out-of-slot target is no
 //      longer indistinguishable from success, and none of them throw.
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 import { withPlatformContext, prisma } from "@repo/database";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
@@ -49,8 +48,7 @@ import {
 import { deleteResource, publicIdFromUrl } from "@repo/server-core/media/cloudinary";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(here, "fixtures", "images");

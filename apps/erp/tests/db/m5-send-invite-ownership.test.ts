@@ -10,15 +10,13 @@
 // teacher-shaped with id === the teacher's id. So proving "teacher T (owner)
 // succeeds, teacher R (non-owner) is rejected" IS the assistant-scope proof:
 // an assistant of T resolves to acting.id=T, an assistant of R to acting.id=R.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { sendTempStudentInvite } from "@/lib/services/temp-students/temp-students";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };

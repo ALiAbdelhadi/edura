@@ -32,6 +32,176 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Seeds: the seed SCRIPTS themselves, against a throwaway Postgres.
+  #
+  # WHY THIS EXISTS SEPARATELY FROM THE `db` JOB BELOW, which also seeds:
+  # that job seeds only the DEMO path, once, as setup for the suites. This one
+  # covers what it does not —
+  #   * the PRODUCTION path (`seed --no-demo`), which is what bootstraps a real
+  #     environment and is otherwise never exercised anywhere;
+  #   * IDEMPOTENCE, by running the whole set twice and diffing a full row
+  #     census, so a seed that starts duplicating is caught by name.
+  # It is also much faster than `db`, so a broken seed fails in a minute with an
+  # unambiguous signal instead of surfacing as thirty crashed suites.
+  #
+  # (Until 2026-08-20 the `db` job was gated on TEST_DATABASE_URL /
+  # TEST_ADMIN_URL, which were never set, so nothing ran the seeds on a PR at
+  # all. That is how a schema change shipped a broken seed on 2026-08-18:
+  # migration 20260818120000_review_per_lesson_unique replaced Review's
+  # @@unique([studentId, teacherId]) with two PARTIAL indexes, which Prisma
+  # cannot express, so the generated `studentId_teacherId` key vanished and
+  # preview-seed's upsert on it threw. The whole seed runs in ONE transaction,
+  # so every fixture it creates — 4 centers, 5 teachers, 5 students, 5 courses,
+  # 7 sessions — disappeared, and three DB suites failed for want of them.
+  # Nothing caught it.)
+  #
+  # This job needs NO secrets, so it runs on every PR including forks, and it
+  # provisions its own database — nothing here can touch dev or production.
+  # It is deliberately narrow: it proves the seed scripts still RUN against the
+  # current schema. The `db` job remains the place where suites assert
+  # behaviour against the shared branch.
+  # ---------------------------------------------------------------------------
+  seeds:
+    name: seed paths (ephemeral Postgres)
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: neondb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # The repo-level default is `ws` (the Neon serverless driver, which speaks
+      # WebSocket to a Neon endpoint). A plain Postgres container cannot answer
+      # that, so this job uses node-postgres. `createAdapter()` in
+      # packages/database/src/client.ts branches on exactly this variable.
+      DATABASE_DRIVER: pg
+      DATABASE_URL: postgresql://edura_app:app_pw_ci@localhost:5432/neondb
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      ADMIN_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      APP_ROLE_PASSWORD: app_pw_ci
+      # Required by the production seed path; inert throwaway values.
+      SEED_SUPERADMIN_EMAIL: ci.superadmin@edura.test
+      SEED_SUPERADMIN_PASSWORD: CiPassw0rd!123
+      SEED_ACCOUNTANT_EMAIL: ci.accountant@edura.test
+      SEED_ACCOUNTANT_PASSWORD: CiPassw0rd!123
+      SEED_PASSWORD: CiPassw0rd!123
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run --filter @repo/database generate
+
+      # db-guard reads the environment from a label stored INSIDE the database,
+      # and refuses an unlabelled one. Label this throwaway as `test` so every
+      # guarded script below is exercised exactly as it is in real use, rather
+      # than bypassed.
+      - name: Label the throwaway database and create the app role
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d neondb -c "COMMENT ON DATABASE neondb IS 'edura-env:test';"
+          psql -h localhost -U postgres -d neondb -c "CREATE ROLE edura_app WITH LOGIN PASSWORD 'app_pw_ci' NOBYPASSRLS;"
+          psql -h localhost -U postgres -d neondb -c "GRANT ALL ON SCHEMA public TO edura_app;"
+
+      # ORDER MATTERS and the script enforces it: bootstrap-app-role REFUSES to
+      # run against a populated schema, because its GRANT ... ON ALL TABLES
+      # would re-grant the UPDATE/DELETE that migration 00000000000003 revokes
+      # on transactions / points_ledger / audit_logs, silently breaking the
+      # append-only ledger. So: role first, then migrate.
+      - name: Bootstrap the app role (NOBYPASSRLS), before any table exists
+        working-directory: packages/database
+        run: bunx tsx scripts/bootstrap-app-role.ts
+
+      - name: Apply migrations
+        working-directory: packages/database
+        run: bunx prisma migrate deploy
+
+      # The path that bootstraps a real environment: catalog + the two staff
+      # accounts + points rules, zero demo rows.
+      - name: Seed — production path (--no-demo)
+        working-directory: packages/database
+        run: bunx tsx prisma/seed.ts --no-demo
+
+      # The demo path, in the same order the `db` job uses. Each is idempotent
+      # by design (upsert on deterministic UUIDv5 ids), so they layer onto the
+      # production seed rather than fighting it.
+      - name: Seed — demo path (all four)
+        working-directory: packages/database
+        run: |
+          set -euo pipefail
+          bunx tsx prisma/seed.ts
+          bunx tsx prisma/preview-seed.ts
+          bunx tsx prisma/center-oversight-demo-seed.ts
+          bunx tsx prisma/messaging-demo-seed.ts
+
+      # A full row census of every table, so the idempotence check below needs
+      # no magic numbers: adding a fixture changes both snapshots equally and
+      # stays green, while a seed that starts duplicating shows up as a diff on
+      # exactly the table it broke.
+      - name: Census after the first pass
+        run: |
+          set -euo pipefail
+          bash .github/scripts/db-census.sh > /tmp/census1.txt
+          echo "counted $(wc -l < /tmp/census1.txt) tables"
+
+      # IDEMPOTENCE IS A PROPERTY WORTH TESTING, NOT AN ASSUMPTION. Every seed
+      # claims to be re-runnable, and the `db` job re-runs them on every push
+      # against a branch that already holds their rows. A seed that starts
+      # duplicating — or that trips a newly added unique index on its second
+      # pass — fails there in a way that looks like a data problem rather than a
+      # code one. Running the whole set twice costs seconds and names the culprit.
+      - name: Seed — run the whole set AGAIN (idempotence)
+        working-directory: packages/database
+        run: |
+          set -euo pipefail
+          bunx tsx prisma/seed.ts
+          bunx tsx prisma/preview-seed.ts
+          bunx tsx prisma/center-oversight-demo-seed.ts
+          bunx tsx prisma/messaging-demo-seed.ts
+
+      - name: Assert the second pass changed no row count
+        run: |
+          set -euo pipefail
+          bash .github/scripts/db-census.sh > /tmp/census2.txt
+          if diff -u /tmp/census1.txt /tmp/census2.txt > /tmp/census.diff; then
+            echo "identical — the second pass added nothing"
+          else
+            echo "::error title=A seed is not idempotent::Re-running the seeds changed row counts. Table and delta below."
+            cat /tmp/census.diff
+            exit 1
+          fi
+
+      # Read-only. Asserts the RLS policies, the append-only REVOKEs, the
+      # migration count and the expected table/sequence shape.
+      - name: verify-db
+        working-directory: packages/database
+        run: bunx tsx scripts/verify-db.ts
+
+  # ---------------------------------------------------------------------------
   # Static: no database, no secrets. Runs on forks and every PR.
   # ---------------------------------------------------------------------------
   static:
@@ -91,123 +261,138 @@ jobs:
         run: bun run build
 
   # ---------------------------------------------------------------------------
-  # DB suites: 23 in www + 18 in superadmin, via the aggregate runner.
+  # DB suites — against an EPHEMERAL Postgres, no secrets.
   #
-  # GATED ON A SECRET, deliberately. A fork PR has no TEST_DATABASE_URL, so this
-  # job SKIPS rather than failing — a contributor should never see a red X for a
-  # credential they cannot have. When the secret is present the job is fully
-  # blocking.
+  # HISTORY, because it explains the shape. This job used to require
+  # TEST_DATABASE_URL / TEST_ADMIN_URL pointing at a Neon branch labelled
+  # `edura-env:test`, and skipped without them — with an extra step that FAILED
+  # pushes to main rather than let a skip look like a pass. That guard was right
+  # in spirit and inert in practice: the secrets were never set, so the 60-odd
+  # money, RLS and auth suites had not run on a single pull request. A job that
+  # cannot run is not a gate.
   #
-  # The runner calls assertDbEnv(["test"]) in-process before spawning anything,
-  # so a secret that accidentally points at the dev or production branch causes a
-  # loud refusal, not silent contamination. That check reads a label stored
-  # INSIDE the database, so a mis-set secret cannot lie about where it landed.
+  # Two things made the gate unnecessary rather than merely unmet:
+  #   1. There is no test branch to point at — both .env.test files resolve to
+  #      DEV (CLAUDE.md, 2026-08-03) — so the secrets could not be set honestly.
+  #   2. The suites no longer require Neon. Each opened its raw SQL connection
+  #      with `new Pool` from @neondatabase/serverless, a WebSocket client
+  #      speaking Neon's protocol, so any other Postgres was impossible. They
+  #      now go through `testPool()`, which honours DATABASE_DRIVER exactly as
+  #      the application's own createAdapter() does.
+  #
+  # So the database is provisioned here, per run, and thrown away. No secret can
+  # be mis-set, no shared branch accumulates fixtures, and forks get the same
+  # coverage as branches. db-guard still runs for real: the container is
+  # LABELLED `edura-env:test`, so the guard is exercised rather than bypassed.
   # ---------------------------------------------------------------------------
   db:
-    name: DB suites (test branch)
+    name: DB suites (ephemeral Postgres)
     needs: static
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # `secrets` is not allowed in a job-level `if`, so gate via a step output.
-    steps:
-      - name: Check for a test database secret
-        id: gate
+
+    services:
+      postgres:
+        image: postgres:17
         env:
-          HAS_DB: ${{ secrets.TEST_DATABASE_URL != '' && secrets.TEST_ADMIN_URL != '' }}
-        run: echo "ok=$HAS_DB" >> "$GITHUB_OUTPUT"
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: neondb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
-      - name: Explain skip
-        if: steps.gate.outputs.ok != 'true'
-        run: |
-          echo "::notice title=DB suites skipped::TEST_DATABASE_URL / TEST_ADMIN_URL are not set."
-          echo "To enable, add repo secrets pointing at a Neon branch labelled edura-env:test:"
-          echo "    COMMENT ON DATABASE neondb IS 'edura-env:test';"
-          echo "The runner refuses any database not carrying that label."
+    env:
+      # The repo default is `ws` (Neon's serverless driver). A plain container
+      # cannot answer that; `pg` is the node-postgres branch of createAdapter().
+      DATABASE_DRIVER: pg
+      DATABASE_URL: postgresql://edura_app:app_pw_ci@localhost:5432/neondb
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      ADMIN_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      APP_ROLE_PASSWORD: app_pw_ci
+      # SEED_PASSWORD is deliberately NOT set: the seeds fall back to
+      # "Passw0rd!", which is what tests/playwright/helpers.ts and the E2E
+      # smoke sign in with.
+      #
+      # One port, named once. It was written out three times — the dev server,
+      # the readiness probe and E2E_BASE_URL — which is three chances to change
+      # two of them. It is also what makes this block rehearsable off a clean
+      # runner, where 3002 is usually already taken by somebody's dev server.
+      E2E_PORT: "3002"
 
-      # ======================================================================
-      # A SKIPPED PROOF SUITE MUST NOT LOOK LIKE A PASSING ONE.
-      #
-      # Skipping produced a GREEN run, so the 51 money / RLS / auth suites
-      # could stop running on every push and the dashboard would still show a
-      # tick. Worse, deploy.yml fires on `workflow_run` with
-      # conclusion == 'success', so that same green ships to production —
-      # exactly what "refuse to ship ahead of the database" was meant to stop.
-      #
-      # Same posture as backup.yml: absent protection is reported honestly
-      # rather than quietly.
-      #
-      # PUSHES TO MAIN ONLY, deliberately. Pull requests still skip with the
-      # notice above, because a fork PR cannot read repository secrets and
-      # failing it would blame a contributor for something only a maintainer
-      # can fix.
-      #
-      # There is NO opt-out flag. A "temporarily allow skipping" switch gets
-      # set once during an incident and is never unset, which recreates the
-      # silence this exists to remove. To turn it off, fix the secrets:
-      #     packages/database/scripts/fix-test-db-credentials.sh   (local)
-      #     gh secret set TEST_DATABASE_URL --repo ALiAbdelhadi/edura
-      # ======================================================================
-      - name: Fail if the DB suites were skipped on main
-        if: >-
-          steps.gate.outputs.ok != 'true'
-          && github.event_name == 'push'
-          && github.ref == 'refs/heads/main'
-        run: |
-          echo "::error title=DB suites did not run on main::TEST_DATABASE_URL / TEST_ADMIN_URL are not set, so 51 money, RLS and auth suites were skipped. A green tick here would have meant nothing."
-          echo
-          echo "Set the repo secrets against a Neon branch labelled edura-env:test:"
-          echo "    gh secret set TEST_DATABASE_URL --repo ALiAbdelhadi/edura"
-          echo "    gh secret set TEST_DIRECT_URL   --repo ALiAbdelhadi/edura"
-          echo "    gh secret set TEST_ADMIN_URL    --repo ALiAbdelhadi/edura"
-          echo
-          echo "Label the branch (as the database owner) if it is not already:"
-          echo "    COMMENT ON DATABASE neondb IS 'edura-env:test';"
-          exit 1
 
+    steps:
       - uses: actions/checkout@v4
-        if: steps.gate.outputs.ok == 'true'
 
       - uses: oven-sh/setup-bun@v2
-        if: steps.gate.outputs.ok == 'true'
         with:
           bun-version: 1.3.12
 
       - uses: actions/setup-node@v4
-        if: steps.gate.outputs.ok == 'true'
         with:
           node-version: 20
 
       - name: Install
-        if: steps.gate.outputs.ok == 'true'
         run: bun install --frozen-lockfile
 
       - name: Generate Prisma client
-        if: steps.gate.outputs.ok == 'true'
         run: bun run --filter @repo/database generate
 
-      # The suites read .env.test from disk (`tsx --env-file=.env.test`), so CI
-      # materialises one from the committed template plus secrets. Written with
-      # printf, not heredoc-with-interpolation, to keep values out of the log.
-      - name: Materialise .env.test from the committed template + secrets
-        if: steps.gate.outputs.ok == 'true'
-        env:
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          TEST_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
-          TEST_ADMIN_URL: ${{ secrets.TEST_ADMIN_URL }}
+      # db-guard reads the environment from a label INSIDE the database and
+      # refuses an unlabelled one. Labelling the container `test` means every
+      # guarded script below is exercised exactly as it is in real use.
+      - name: Label the throwaway database and create the app role
         run: |
           set -euo pipefail
-          for app in apps/www apps/superadmin packages/database; do
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d neondb -c "COMMENT ON DATABASE neondb IS 'edura-env:test';"
+          psql -h localhost -U postgres -d neondb -c "CREATE ROLE edura_app WITH LOGIN PASSWORD 'app_pw_ci' NOBYPASSRLS;"
+          psql -h localhost -U postgres -d neondb -c "GRANT ALL ON SCHEMA public TO edura_app;"
+
+      # Role BEFORE tables: bootstrap-app-role refuses to run against a
+      # populated schema, because its GRANT ... ON ALL TABLES would re-grant the
+      # UPDATE/DELETE that migration 00000000000003 revokes on transactions /
+      # points_ledger / audit_logs — silently breaking the append-only ledger.
+      - name: Bootstrap the app role (NOBYPASSRLS), before any table exists
+        working-directory: packages/database
+        run: bunx tsx scripts/bootstrap-app-role.ts
+
+      - name: Apply migrations
+        working-directory: packages/database
+        run: bunx prisma migrate deploy
+
+      # Most suites assert against rows they did not create. All four seeds are
+      # idempotent (upsert on deterministic UUIDv5 ids from seed-ids.ts).
+      - name: Seed
+        working-directory: packages/database
+        run: |
+          set -euo pipefail
+          bunx tsx prisma/seed.ts
+          bunx tsx prisma/preview-seed.ts
+          bunx tsx prisma/center-oversight-demo-seed.ts
+          bunx tsx prisma/messaging-demo-seed.ts
+
+      # The suites are launched with `tsx --env-file=.env.test`, so the file has
+      # to exist. Built from the committed template with the container's
+      # connection strings substituted in.
+      - name: Materialise .env.test from the committed templates
+        run: |
+          set -euo pipefail
+          for app in apps/erp apps/superadmin; do
             cp "$app/.env.test.example" "$app/.env.test"
-            # Replace the placeholder connection strings with the real ones.
             python3 - "$app/.env.test" <<'PY'
           import os, re, sys
           p = sys.argv[1]
           vals = {
-              "DATABASE_URL": os.environ["TEST_DATABASE_URL"],
-              "DIRECT_URL":   os.environ.get("TEST_DIRECT_URL") or os.environ["TEST_DATABASE_URL"],
-              "ADMIN_URL":    os.environ["TEST_ADMIN_URL"],
-              # Deterministic per-run secrets. c04 needs the two NextAuth values
-              # to DIFFER and to be identical across the two apps.
+              "DATABASE_URL":    os.environ["DATABASE_URL"],
+              "DIRECT_URL":      os.environ["DIRECT_URL"],
+              "ADMIN_URL":       os.environ["ADMIN_URL"],
+              "DATABASE_DRIVER": "pg",
+              # c04 needs the two auth secrets to DIFFER and to be identical
+              # across the two apps.
               "NEXTAUTH_SECRET": "ci-www-secret-0000000000000000000000000000",
               "SUPERADMIN_NEXTAUTH_SECRET": "ci-sa-secret-11111111111111111111111111111",
               "REALTIME_JWT_SECRET": "ci-realtime-2222222222222222222222222222",
@@ -217,117 +402,102 @@ jobs:
           out = []
           for line in open(p, encoding="utf-8"):
               m = re.match(r"([A-Z][A-Z0-9_]*)=", line)
-              if m and m.group(1) in vals:
-                  out.append(f"{m.group(1)}={vals[m.group(1)]}\n")
-              else:
-                  out.append(line)
+              out.append(f"{m.group(1)}={vals[m.group(1)]}\n" if m and m.group(1) in vals else line)
           open(p, "w", encoding="utf-8").write("".join(out))
           PY
-            # Opt in to running the suites against the DEV database (Ali,
-            # 2026-08-03). The suites and the runner all default to test-only;
-            # this single variable widens it, and db-guard REFUSES to let it
-            # name 'production'. Appended here rather than added to the
-            # committed .env.test.example, so a developer copying the template
-            # still gets the narrow default unless they choose otherwise.
-            printf '\nEDURA_ALLOW_DB_ENVS=dev\n' >> "$app/.env.test"
           done
-          echo "wrote apps/www/.env.test and apps/superadmin/.env.test (values not echoed)"
+          echo "wrote apps/erp/.env.test and apps/superadmin/.env.test (values not echoed)"
 
-      # Fails loudly if the secret points anywhere but a test- or dev-labelled
-      # database. Production is refused whatever EDURA_ALLOW_DB_ENVS says.
-      - name: Assert the target database is labelled 'test' or 'dev'
-        if: steps.gate.outputs.ok == 'true'
-        run: bun run --filter edura pretest:db
-
-      # The test branch is a Neon branch and inherits its PARENT's migration
-      # state — the branch used on 2026-07-26 arrived at 34 of 36, so every suite
-      # that creates a StudentProfile died on a missing column. Migrate first.
-      # apply-migrations.mjs is used rather than `prisma migrate deploy` because
-      # it takes ADMIN_URL directly; DIRECT_URL is the owner string here anyway.
-      # working-directory matters: `bun run --filter X` runs from the REPO
-      # ROOT, so a bare `--env-file=.env.test` resolves to the wrong path and
-      # node exits 9 with ".env.test: not found".
-      - name: Apply migrations to the test branch
-        if: steps.gate.outputs.ok == 'true'
-        working-directory: packages/database
-        run: bunx tsx --env-file=.env.test scripts/apply-migrations.mjs
-
-      # 31 of the 41 suites assert against rows they did not create. Without this
-      # the run fails exactly as the first real run did: 28 of 41 crashing before
-      # their first assertion. All four seeds are idempotent (upsert on
-      # deterministic UUIDv5 ids from seed-ids.ts), so re-running is safe.
-      # EDURA_ENV=test is REQUIRED: scripts/load-env.ts defaults to
-      # packages/database/.env, which is DEV.
-      - name: Seed the test branch deterministically
-        if: steps.gate.outputs.ok == 'true'
-        env:
-          EDURA_ENV: test
-        working-directory: packages/database
+      # Proves the guard itself works against the container, before any suite.
+      - name: Assert the target database is labelled 'test'
         run: |
           set -euo pipefail
-          bunx tsx prisma/seed.ts
-          bunx tsx prisma/preview-seed.ts
-          bunx tsx prisma/center-oversight-demo-seed.ts
-          bunx tsx prisma/messaging-demo-seed.ts
+          bun run --filter edura pretest:db
+          bun run --filter superadmin pretest:db
 
-      - name: DB suites — www (23)
-        if: steps.gate.outputs.ok == 'true'
-        # EXCLUDED, see docs/reports/feature-completeness.md §A10:
-        #   catalog-onboarding  — calls cacheTag(), needs a Next runtime
-        #   c01, h03            — network fetch() against a running dev server
-        # These cannot pass in CI at any database state. A permanently red
-        # test trains people to ignore red, so they are skipped explicitly
-        # rather than left failing.
+      # test:db:ci excludes four suites. The first three predate this job; the
+      # fourth was added when the job was first actually run (2026-08-20):
+      #   catalog-onboarding — calls cacheTag(), needs a Next runtime
+      #   h03                — leaks a fixture row per run
+      #   c01                — historical. It passes again now that the wallet
+      #                        CHECK is validated at bootstrap (migration
+      #                        20260818130000); re-including it is a coverage
+      #                        win for someone to take deliberately.
+      #   profile-images     — refuses to run without real CLOUDINARY_* keys:
+      #                        "this suite proves the real upload path". It is a
+      #                        third-party-credential test, not a logic test, so
+      #                        it belongs wherever those keys live — not in a
+      #                        job whose whole point is needing no secrets.
+      - name: DB suites — erp
         run: bun run --filter edura test:db:ci
 
-      - name: DB suites — superadmin (18)
-        if: steps.gate.outputs.ok == 'true'
-        run: bun run --filter superadmin test:db
+      # superadmin's test:db:ci excludes exactly one suite:
+      #   c02-payout-generation — a LATENCY-dependent regression proof. It
+      #     reproduces the pre-fix payout implementation and asserts it breaches
+      #     the production 20 000 ms ceiling. Against a Postgres on the same
+      #     machine that path finishes in ~45 ms, so the breach cannot happen
+      #     and the assertion fails for the one reason that does not mean the
+      #     bug is back. It needs a networked database to be meaningful.
+      - name: DB suites — superadmin
+        run: bun run --filter superadmin test:db:ci
 
       # ------------------------------------------------------------------
-      # E2E smoke — the deploy gate. Boots www in dev mode (quick-login tiles
-      # are NODE_ENV-gated) against the seeded test branch, then drives real
-      # Chromium through: login form, invalid-credentials rejection, all four
-      # portals' nav, and the unauthenticated-bounce guard. A build that
-      # cannot log in does not ship.
+      # E2E smoke — the deploy gate. Boots erp in dev mode (the quick-login
+      # tiles are NODE_ENV-gated) against the seeded container, then drives real
+      # Chromium through login, invalid-credential rejection, portal nav and the
+      # unauthenticated-bounce guard. A build that cannot log in does not ship.
+      #
+      # These steps said `apps/www` until 2026-08-20. That directory is the
+      # marketing site: it has neither a .env.test.example nor a test:e2e
+      # script, so the job would have died at the first `cp`. Fallout from the
+      # www -> erp rename that nobody saw, because the job never ran.
       # ------------------------------------------------------------------
       - name: Install Playwright Chromium
-        if: steps.gate.outputs.ok == 'true'
         run: bunx playwright install --with-deps chromium
 
-      - name: Boot www against the test branch
-        if: steps.gate.outputs.ok == 'true'
-        working-directory: apps/www
+      # `bun run dev` is `next dev -p ${WWW_PORT:-3002}`, so the port is passed
+      # in rather than baked. Dev mode is REQUIRED, not incidental: the smoke
+      # drives the quick-login tiles, which are gated on NODE_ENV !== production.
+      #
+      # The server is backgrounded and outlives this step on purpose — the
+      # runner does not reap it between steps, and the alternative (boot it
+      # inside the smoke step) would lose the readiness probe below, which is
+      # what turns "the app never started" into a clear message instead of 60
+      # seconds of Playwright timeouts.
+      - name: Boot erp against the seeded container
+        working-directory: apps/erp
+        env:
+          WWW_PORT: ${{ env.E2E_PORT }}
         run: |
           set -euo pipefail
           cp .env.test .env.local
           {
-            echo "NEXTAUTH_URL=http://localhost:3002"
-            echo "APP_BASE_URL=http://localhost:3002"
+            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
+            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
           } >> .env.local
           (bun run dev > /tmp/e2e-server.log 2>&1 &)
           for i in $(seq 1 60); do
-            curl -sf http://localhost:3002/ar/login -o /dev/null && exit 0
+            curl -sf "http://localhost:${E2E_PORT}/ar/login" -o /dev/null && exit 0
             sleep 2
           done
-          echo "www never became ready"; tail -50 /tmp/e2e-server.log; exit 1
+          echo "erp never became ready on ${E2E_PORT}"; tail -50 /tmp/e2e-server.log; exit 1
 
-      - name: E2E smoke (login + all four portals)
-        if: steps.gate.outputs.ok == 'true'
-        working-directory: apps/www
+      - name: E2E smoke (login + portals)
+        working-directory: apps/erp
         env:
-          E2E_BASE_URL: http://localhost:3002
+          E2E_BASE_URL: http://localhost:${{ env.E2E_PORT }}
         run: bun run test:e2e
 
       - name: Show server log on smoke failure
-        if: steps.gate.outputs.ok == 'true' && failure()
+        if: failure()
         run: tail -100 /tmp/e2e-server.log || true
 
       # Fixture teardown is per-suite and in a `finally`, so this should find
       # nothing. It runs anyway: a suite killed by the job timeout never reaches
-      # its own cleanup, and residue must not accumulate across runs.
+      # its own cleanup. Harmless here — the database dies with the runner — but
+      # kept so the command stays exercised.
       - name: Sweep any residue
-        if: steps.gate.outputs.ok == 'true' && always()
+        if: always()
         run: |
           bun run --filter edura test:db:sweep \
             wallet- nocap- roomown- share- msgtest- \
@@ -335,4 +505,4 @@ jobs:
 
       - name: Remove generated env files
         if: always()
-        run: rm -f apps/www/.env.test apps/superadmin/.env.test apps/www/.env.local
+        run: rm -f apps/erp/.env.test apps/superadmin/.env.test apps/erp/.env.local

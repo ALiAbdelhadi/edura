@@ -13,8 +13,9 @@
  *       tools/system-shots/optimise.sh
  *
  * THE SAFETY RULE OVERRIDES EVERYTHING HERE: no real person may appear. Every
- * account below is `is_demo`, and `assertNoRealPeople` fails the capture if a
- * known-real identifier reaches the DOM. Blurring is not the method.
+ * account below is `is_demo`, and `assertNoRealPeople` fails the capture if any
+ * identifier belonging to a non-demo account reaches the DOM. Blurring is not
+ * the method.
  */
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs";
@@ -40,8 +41,8 @@ const A = {
    *
    * Lina's profile is 2-of-4 complete, so `/dashboard/student/id` renders
    * "بياناتك لسه مش مكتملة، فالبطاقة لسه ما اتصدرتش" — a refusal, not a card.
-   * The showcase students carry a guardian email and a grade (phone is
-   * non-blocking), so `cardAvailable` is true and the card really issues. It
+   * The showcase students carry a guardian email, a grade and (since the live
+   * seed) a phone, so `cardAvailable` is true and the card really issues. It
    * also keeps the student on the same center as every other plate.
    */
   student: "showcasedemo-student-1@edura.test",
@@ -49,16 +50,15 @@ const A = {
 };
 
 /**
- * Strings that must NEVER reach a marketing image. The real operator account
- * is on this database, and a screenshot is the easiest place in a company to
- * leak one.
+ * The forbidden list is GENERATED FROM THE DATABASE by `build-forbidden.ts`,
+ * not typed here. An earlier version of this file carried four hand-written
+ * strings and therefore never checked for the second real person on this
+ * database — a Gmail address and a live Egyptian mobile sitting on a student
+ * account. A list a human maintains cannot know about a row added last week.
  */
-const FORBIDDEN = [
-  "tarekaboelnasr999",
-  "tarekaccountant",
-  "accountant@edura.eg",
-  "ghost-user-9x",
-];
+const FORBIDDEN: string[] = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "tools", "system-shots", "forbidden.json"), "utf8"),
+).terms;
 
 async function assertNoRealPeople(page: Page, slot: string) {
   const body = (await page.locator("body").innerText()).toLowerCase();

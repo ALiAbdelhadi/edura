@@ -38,7 +38,16 @@ const A = {
 /** A real showcase student id, discovered by the probe rather than guessed. */
 const SHOWCASE_STUDENT_ID = "08b929d8-c147-569d-a426-7640dcb0c611";
 
-const FORBIDDEN = ["tarekaboelnasr999", "tarekaccountant", "accountant@edura.eg", "ghost-user-9x"];
+/**
+ * The forbidden list is GENERATED FROM THE DATABASE by `build-forbidden.ts`,
+ * not typed here. An earlier version of this file carried four hand-written
+ * strings and therefore never checked for the second real person on this
+ * database — a Gmail address and a live Egyptian mobile sitting on a student
+ * account. A list a human maintains cannot know about a row added last week.
+ */
+const FORBIDDEN: string[] = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "tools", "system-shots", "forbidden.json"), "utf8"),
+).terms;
 
 async function assertNoRealPeople(page: Page, slot: string) {
   const body = (await page.locator("body").innerText()).toLowerCase();
@@ -168,6 +177,17 @@ test.describe("library · center", () => {
 
     await warmGoto(page, "/ar/dashboard/admin/audit");
     await settle(page, { expect: /سجل التدقيق/ });
+
+    // NO RAW ENUMS. Actions and target types are stored as machine strings
+    // (`points.adjusted`, `center.updated`, `pointsledger`) and this screen used
+    // to print them verbatim in an otherwise Arabic log. `actionLabel` now
+    // translates them, with a fallback that strips the separators — so a dotted
+    // identifier reaching the screen means a key is missing, and this catches it.
+    const auditBody = await page.locator("main").innerText();
+    expect(auditBody, "audit: a raw dotted enum is on screen").not.toMatch(
+      /\b[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\b/,
+    );
+
     await shoot(page, "admin-audit");
 
     await warmGoto(page, "/ar/dashboard/admin/checkin");
@@ -188,6 +208,23 @@ test.describe("library · center", () => {
 
     await warmGoto(page, "/ar/dashboard/admin/external-teachers/gaps");
     await settle(page, { expect: /مدرّسون خارج النظام/, rows: 6 });
+
+    // NO DEVELOPER OUTPUT ON A SCREEN AN OPERATOR READS.
+    //
+    // This column used to print its payload verbatim — `marked: 0 · enrolled: 0`,
+    // `status: scheduled · settled: no`, and a raw `studentId:` UUID beside a
+    // child's name — in an otherwise entirely Arabic table. It was found by
+    // looking at the captured image, which is a bad way to find it twice, so the
+    // check lives here now and covers every row the page renders, not just the
+    // ones that fit above the fold.
+    const body = await page.locator("main").innerText();
+    for (const leak of ["studentId:", "studentName:", "marked:", "enrolled:", "settled:", "pricePerMonth:", "status: scheduled"]) {
+      expect(body, `gaps: raw payload "${leak}" is on screen`).not.toContain(leak);
+    }
+    expect(body, "gaps: a bare UUID is on screen").not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+
     await shoot(page, "admin-external-teachers-gaps");
   });
 });

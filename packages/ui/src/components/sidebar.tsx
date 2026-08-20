@@ -21,17 +21,13 @@ import { useIsMobile } from "@repo/ui/hooks/use-mobile";
 import { cn } from "@repo/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
-import { Slot } from "radix-ui";
+import { Direction, Slot } from "radix-ui";
 import * as React from "react";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-// 248px per Handoff I §3.1 (was 16rem/256px). The rail carries three labelled
-// groups whose longest Arabic label is «التواصل والرقابة»; 248 is the width
-// that fits it without wrapping while staying narrower than the content it
-// sits beside.
 
-const SIDEBAR_WIDTH = "15.5rem";
+const SIDEBAR_WIDTH = "clamp(15rem, 20vw + 4rem, 17rem)";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -186,13 +182,6 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          // `className` and `style` are forwarded here and NOT only on the
-          // desktop branch below. They used to be dropped, which meant a caller
-          // that styled <Sidebar> got its styling on the rail and silently not
-          // on the phone drawer — one component, two appearances, and the kind
-          // of split a user finds rather than we do. The drawer renders through
-          // a Radix portal, so it inherits nothing from the shell's subtree
-          // either; forwarding is the only way anything reaches it.
           className={cn(
             "w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden",
             className,
@@ -519,6 +508,7 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : "button";
   const { isMobile, state } = useSidebar();
+  const direction = Direction.useDirection();
 
   const button = (
     <Comp
@@ -545,7 +535,7 @@ function SidebarMenuButton({
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
-        side="right"
+        side={direction === "rtl" ? "left" : "right"}
         align="center"
         hidden={state !== "collapsed" || isMobile}
         {...tooltip}

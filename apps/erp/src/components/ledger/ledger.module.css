@@ -85,6 +85,27 @@
   text-transform: uppercase;
 }
 
+/* ── Display ───────────────────────────────────────────────────────────────
+   The editorial serif face from the marketing/showcase `.display` device
+   (apps/www/src/app/globals.css), re-declared here because this scope does
+   not import that stylesheet. Script switches the family; Arabic gets no
+   letter-spacing (the mono trap's sibling rule: never track a connected
+   script). */
+.display {
+  font-family: var(--ar-display);
+  font-weight: 700;
+}
+:root[lang="en"] .display {
+  font-family: var(--lat-display);
+  letter-spacing: var(--lat-display-track);
+}
+
+/* Tight tracking for UI-face headings (page titles, auth h1s) — Latin only,
+   under the same rule as .display: a connected script is never tracked. */
+:root[lang="en"] .trackTight {
+  letter-spacing: -0.02em;
+}
+
 /* ── Surfaces ──────────────────────────────────────────────────────────── */
 .sheet {
   background: var(--sheet);

@@ -53,6 +53,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "student-home-and-schedule", category: "student" },
   { slug: "student-subjects-and-subscribe", category: "student" },
   { slug: "student-wallet", category: "student" },
+  { slug: "student-subscriptions", category: "student" },
   { slug: "student-receipts", category: "student" },
   { slug: "student-id-card", category: "student" },
   { slug: "student-attendance", category: "student" },

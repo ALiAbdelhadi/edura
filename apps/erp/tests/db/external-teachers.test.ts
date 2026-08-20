@@ -37,8 +37,7 @@
 //   8. THE GAPS REPORT finds the absences manual entry creates silently.
 //
 //   9. REPORTS combine both kinds by default and narrow only when asked.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
   BusinessRuleError,
@@ -80,8 +79,7 @@ import {
 } from "@repo/server-core/services/reports/reports";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const STAFF_ALL = [...RECEPTION, ...ACCOUNTANT, ...MANAGER];
 

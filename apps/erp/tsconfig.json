@@ -44,7 +44,15 @@
     ".next-clock/types/**/*.ts",
     ".next-clock/dev/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts"
+    ".next-verify/dev/types/**/*.ts",
+    ".next-review/types/**/*.ts",
+    ".next-review/dev/types/**/*.ts",
+    ".next-hydration/types/**/*.ts",
+    ".next-hydration/dev/types/**/*.ts",
+    ".next-ia/types/**/*.ts",
+    ".next-ia/dev/types/**/*.ts",
+    ".next-dialog/types/**/*.ts",
+    ".next-dialog/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

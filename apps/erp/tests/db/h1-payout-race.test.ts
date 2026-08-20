@@ -1,15 +1,13 @@
 // H1 proof — two concurrent full-balance payout requests must NOT both succeed.
 // Runs the REAL requestTeacherPayout service (FOR UPDATE row lock) twice in
 // parallel and asserts exactly one wins and the wallet is never over-reserved.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { requestTeacherPayout } from "@/lib/services/finance/teacher-wallet";
 import { requestCenterPayout } from "@/lib/services/finance/center-wallet";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 // H-03: these seed UUIDs were removed by the Step 9 pre-launch wipe. Prefer
 // them when they still exist, otherwise bind to any teacher / any center that

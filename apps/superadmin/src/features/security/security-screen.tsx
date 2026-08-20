@@ -249,6 +249,20 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
     }
   };
 
+  const manualKey = totpUri?.split("?")[1]
+    ? new URLSearchParams(totpUri.split("?")[1]).get("secret")
+    : null;
+
+  const copyKey = async () => {
+    if (!manualKey) return;
+    try {
+      await navigator.clipboard.writeText(manualKey);
+      toast.success(t("security.keyCopied"));
+    } catch {
+      toast.error(t("security.actionFailed"));
+    }
+  };
+
   if (enabled === null) return null;
 
   return (
@@ -291,9 +305,28 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
       {!enabled && phase === "verify" && totpUri ? (
         <div className="mt-4 flex flex-col gap-4 border-t border-rule pt-4">
           <p className="text-[13px] text-ink-2">{t("security.scanQr")}</p>
+          <p className="text-[12px] text-ink-3">{t("security.scanQrHint")}</p>
           <div className="flex justify-center rounded-lg bg-white p-4">
             <QRCodeSVG value={totpUri} size={168} aria-hidden />
           </div>
+          {manualKey ? (
+            <div className="rounded-lg border border-rule bg-paper p-3">
+              <p className="text-[13px] font-semibold text-ink">{t("security.manualKeyLabel")}</p>
+              <p className="mt-0.5 text-[12px] text-ink-3">{t("security.manualKeyDesc")}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <code
+                  dir="ltr"
+                  className="flex-1 truncate rounded-md bg-sheet px-2 py-1.5 font-mono text-[13px] text-ink"
+                >
+                  {manualKey}
+                </code>
+                <Button type="button" variant="outline" size="sm" onClick={copyKey}>
+                  <Copy className="size-3.5" aria-hidden />
+                  {t("security.copyKey")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {backupCodes.length > 0 ? (
             <div className="rounded-lg border border-rule bg-paper p-3">
               <p className="text-[13px] font-semibold text-ink">{t("security.backupCodes")}</p>

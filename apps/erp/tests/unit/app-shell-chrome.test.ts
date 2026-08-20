@@ -193,4 +193,30 @@ describe("the chrome layer stays a layer, not a second palette", () => {
     const active = css.slice(css.indexOf('[data-active="true"]'));
     expect(active).not.toMatch(/box-shadow:\s*inset/);
   });
+
+  it("kills the edge bar the shadcn primitive still draws", () => {
+    // The rule above only ever governed THIS sheet, and for six days that was
+    // half the story: `sidebar.tsx` is stock shadcn and its base class carries
+    // `data-[active=true]:before:…before:start-0 before:w-0.5`, so the bar was
+    // on screen the whole time the sheet said there was no bar. Both halves are
+    // asserted here — the primitive is expected to keep carrying it (we do not
+    // fork shadcn), so the override is what must not disappear.
+    const primitive = code(SIDEBAR);
+    const hasPseudoBar =
+      /data-\[active=true\]:before:start-0/.test(primitive) &&
+      /data-\[active=true\]:before:w-0\.5/.test(primitive);
+
+    if (hasPseudoBar) {
+      expect(
+        /\[data-active="true"\]::before\s*\{[^}]*content:\s*none/.test(
+          read(CHROME),
+        ),
+        "sidebar.tsx still draws a 2px ::before bar on the start edge of the " +
+          "active row, and chrome-2026.css no longer cancels it. That bar was " +
+          "removed by decision on 2026-08-14 — it fights the row's 10px radius " +
+          "and mirrors in RTL, so one nav item gets two silhouettes depending " +
+          "on the script. Restore the `content: none` override.",
+      ).toBe(true);
+    }
+  });
 });

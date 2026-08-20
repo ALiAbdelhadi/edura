@@ -1,8 +1,7 @@
 "use client";
 
-import { Eyebrow, Sheet, ledgerMono, ledgerShellScope } from "@/components/ledger";
+import { Eyebrow, Sheet, ledgerDisplay, ledgerMono, ledgerShellScope } from "@/components/ledger";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { CalendarCheck, CreditCard, GraduationCap, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, type ReactNode } from "react";
 
@@ -16,10 +15,13 @@ export function AuthShell({
   const t = useTranslations();
   const isSignup = variant === "signup";
 
+  // No icons — a calendar glyph beside "attendance tracking" adds decoration,
+  // not meaning. Same device the marketing hero uses for its reassurances
+  // (apps/www/src/sections/hero.tsx): a short gold rule, then the claim.
   const features = [
-    { icon: CalendarCheck, label: t("auth.heroFeatureAttendance") },
-    { icon: CreditCard, label: t("auth.heroFeaturePayments") },
-    { icon: Users, label: t("auth.heroFeatureRoles") },
+    t("auth.heroFeatureAttendance"),
+    t("auth.heroFeaturePayments"),
+    t("auth.heroFeatureRoles"),
   ];
   const steps = [t("auth.heroStep1"), t("auth.heroStep2"), t("auth.heroStep3")];
 
@@ -30,12 +32,11 @@ export function AuthShell({
     >
       <header className="flex shrink-0 items-center justify-between gap-3 px-6 py-4">
         <div className="flex items-center gap-2.5">
-          <span
-            className="flex size-8 items-center justify-center rounded-lg"
-            style={{ background: "var(--indigo-soft)", color: "var(--indigo)" }}
-          >
-            <GraduationCap aria-hidden className="size-4" />
-          </span>
+          {/* The real Edura mark — same file the marketing header and the
+              dashboard sidebar render, in place of the generic placeholder
+              icon this shell carried before. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/edura-mark.svg" alt="" width={28} height={28} className="size-7 shrink-0" />
           <span className="text-[15px] font-bold leading-none" style={{ color: "var(--ink)" }}>
             Edura
           </span>
@@ -53,8 +54,8 @@ export function AuthShell({
           >
             <Eyebrow>{isSignup ? t("auth.heroSignupBadge") : "Edura"}</Eyebrow>
             <h2
-              className="mt-2 text-3xl font-bold leading-tight"
-              style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+              className={`${ledgerDisplay} mt-2 text-4xl leading-[1.15]`}
+              style={{ color: "var(--ink)" }}
             >
               {isSignup ? t("auth.heroTaglineSignup") : t("auth.heroTagline")}
             </h2>
@@ -85,14 +86,9 @@ export function AuthShell({
                 </>
               ) : (
                 <ul className="flex flex-col gap-3 text-sm">
-                  {features.map(({ icon: Icon, label }) => (
-                    <li key={label} className="flex items-center gap-3">
-                      <span
-                        className="flex size-7 shrink-0 items-center justify-center rounded-md"
-                        style={{ background: "var(--field)", color: "var(--ink-2)" }}
-                      >
-                        <Icon aria-hidden className="size-4" />
-                      </span>
+                  {features.map((label) => (
+                    <li key={label} className="flex items-baseline gap-3">
+                      <span aria-hidden="true" className="mt-1.5 h-[2px] w-4 shrink-0 bg-gold" />
                       {label}
                     </li>
                   ))}
@@ -101,7 +97,9 @@ export function AuthShell({
             </div>
           </aside>
           <div className={`mx-auto w-full max-w-sm ${isSignup ? "lg:order-1" : ""}`}>
-            <Sheet className="p-6 sm:p-7">{children}</Sheet>
+            <Sheet className="p-6 sm:p-7" style={{ boxShadow: "var(--lift-2)" }}>
+              {children}
+            </Sheet>
           </div>
         </div>
       </main>

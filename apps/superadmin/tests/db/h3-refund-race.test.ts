@@ -1,15 +1,13 @@
 // H3 proof — two concurrent refunds of the SAME charge must NOT both land.
 // Builds a real distributed lesson, fires refundLessonForStudent twice in
 // parallel, and asserts exactly one refund row + one clawback (no double).
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };

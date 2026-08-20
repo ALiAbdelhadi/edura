@@ -4,7 +4,7 @@
   "grade": "Grade",
   "entries": "Entries",
   "overallGpa": "Overall GPA",
-  "highestGrade": "Highest Grade",
+  "highestGrade": "Best subject",
   "subjects": "Subjects",
   "gradesTitle": "Subject Grades",
   "subjectComparison": "Subject Comparison",
@@ -23,7 +23,7 @@
   "course": "Course",
   "room": "Room",
   "assignedTeacher": "Assigned Teacher",
-  "tbd": "TBD",
+  "tbd": "Not set yet",
   "statusLabel": "Status",
   "upcoming": "Upcoming",
   "enrolledCourses": "Enrolled Courses",
@@ -48,5 +48,13 @@
   "heatmapTitle": "Day by day",
   "noAttendance": "No attendance records yet.",
   "assignmentsSubtitle": "Track your assignments and grading progress.",
-  "gradesSubtitle": "Your grades and performance by subject."
+  "gradesSubtitle": "Your marks in every subject. Tap a subject to see its assessments.",
+  "latestGrade": "Latest grade",
+  "entry": "Grade",
+  "entriesCount": "{count, plural, =0 {No grades} one {1 grade} other {# grades}}",
+  "scheduleSubtitle": "Your sessions, day by day. A dot means that day has one.",
+  "weekPrevious": "Previous week",
+  "weekNext": "Next week",
+  "thisWeek": "This week",
+  "noSessionsThatDay": "Nothing on that day"
 }

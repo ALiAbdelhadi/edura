@@ -24,13 +24,13 @@
  *   bunx tsx --env-file=<env> tests/db/admin-users.test.ts
  * ===========================================================================
  */
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 import bcrypt from "bcryptjs";
 import {
   assertImpersonatable,
+  assertViewAsTarget,
   getUserDetail,
   listUsers,
   resetTwoFactor,
@@ -38,13 +38,14 @@ import {
   revokeOneSession,
   sendPasswordReset,
   setUserSuspended,
+  startViewAs,
 } from "@/lib/services/admin/admin-users";
+import { verifyViewAsToken } from "@repo/server-core/auth/view-as-token";
 import type { SessionUser } from "@/lib/auth/session";
 import { signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 let pass = 0;
 let fail = 0;
@@ -424,6 +425,79 @@ async function main() {
     );
     assert(inactiveImp.threw && inactiveImp.matched, "an inactive account cannot be impersonated");
     await setUserSuspended(actor, accountant.id, false, "back");
+
+    // ─────────────────────────────────────────────────────────────────────
+    section("7b. View as — the OTHER app's door, minted from here");
+
+    // The mirror image of section 7. In-app impersonation takes back-office
+    // targets and refuses ERP roles; this takes ERP roles and refuses
+    // back-office ones — so between the two there is exactly one mechanism per
+    // target, never a choice and never an overlap.
+    const viewable = await assertViewAsTarget(actor, teacher.id);
+    assert(viewable.id === teacher.id, "a teacher (an ERP role) MAY be viewed as");
+    const viewableStudent = await assertViewAsTarget(actor, student.id);
+    assert(viewableStudent.id === student.id, "so may a student");
+
+    const backOfficeTarget = await rejects(
+      () => assertViewAsTarget(actor, accountant.id),
+      /only an ERP account can be viewed as/i,
+    );
+    assert(
+      backOfficeTarget.threw && backOfficeTarget.matched,
+      "a back-office account is refused — that case is the in-app impersonation above",
+    );
+
+    const lateralView = await rejects(
+      () => assertViewAsTarget(actor, otherAdmin.id),
+      /only an ERP account can be viewed as/i,
+    );
+    assert(lateralView.threw && lateralView.matched, "another super admin is refused");
+
+    const selfView = await rejects(
+      () => assertViewAsTarget(actor, superAdmin.id),
+      /your own account/i,
+    );
+    assert(selfView.threw && selfView.matched, "viewing as yourself is refused");
+
+    const notAdminView = await rejects(
+      () => assertViewAsTarget(notAdmin, teacher.id),
+      /only a super admin/i,
+    );
+    assert(notAdminView.threw && notAdminView.matched, "an accountant cannot view as anyone");
+
+    await setUserSuspended(actor, student.id, true, "off for now");
+    const inactiveView = await rejects(
+      () => assertViewAsTarget(actor, student.id),
+      /only an active account/i,
+    );
+    assert(inactiveView.threw && inactiveView.matched, "a suspended target is refused");
+    await setUserSuspended(actor, student.id, false, "back");
+
+    // Minting: a token that names both parties, plus the audit row that must
+    // exist before the token does.
+    const minted = await startViewAs(actor, {
+      id: teacher.id,
+      role: "teacher",
+      email: teacher.email,
+    });
+    const decoded = verifyViewAsToken(minted.token);
+    assert(decoded?.sub === teacher.id, "the minted token names the target");
+    assert(decoded?.act === superAdmin.id, "…and the super admin behind it");
+    assert(
+      minted.expiresAt.getTime() - Date.now() <= 61_000,
+      "…and expires within about a minute",
+    );
+
+    const requested = await auditRows(teacher.id, "user.view_as_requested");
+    assert(requested.length === 1, "asking for a handoff wrote exactly one audit row");
+    assert(
+      requested[0]?.actor_id === superAdmin.id,
+      "…naming the super admin who asked",
+    );
+    assert(
+      (requested[0]?.after_state as { jti?: string } | null)?.jti === minted.jti,
+      "…and the token's own nonce, so the request can be tied to the claim the ERP records",
+    );
 
     // ─────────────────────────────────────────────────────────────────────
     section("8. Money stays out of reach");

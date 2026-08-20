@@ -5,6 +5,10 @@
   "description": "Edura data layer \u2014 Prisma schema, Neon client, migrations, seed, and domain query functions. The ONLY package that imports Prisma directly.",
   "type": "module",
   "exports": {
+    "./search-text": {
+      "types": "./src/search-text.ts",
+      "default": "./src/search-text.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

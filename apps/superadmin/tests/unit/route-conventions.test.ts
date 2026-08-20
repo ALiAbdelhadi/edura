@@ -43,6 +43,15 @@ type PublicEntry = {
 };
 
 const PUBLIC_ROUTES: Record<string, PublicEntry> = {
+  "v1/security/csp-report": {
+    reason:
+      "the BROWSER posts CSP violation reports, with no session and no CORS " +
+      "preflight; requiring auth would collect violations only from signed-in " +
+      "users and so miss the login page — the surface an injection attack " +
+      "cares most about. Bounded by a per-IP bucket instead.",
+    mustContain: ["withRateLimit"],
+  },
+
   "auth/[...all]": {
     reason: "better-auth catch-all; auth IS the handler",
     mustContain: ["toNextJsHandler(auth)"],
@@ -113,14 +122,39 @@ describe("route conventions (all api routes)", () => {
   });
 
   it("no raw body reads — all bodies go through parseJson", () => {
+    // Exceptions must record WHY, the same discipline PUBLIC_ROUTES uses. The
+    // rule's strength is that an exemption is written down and reviewable, not
+    // that one can never exist.
+    const RAW_BODY_ALLOWED: Record<string, string> = {
+      "v1/security/csp-report":
+        "CSP reports arrive in two wire formats (application/csp-report and " +
+        "application/reports+json), one of which BATCHES, so there is no single " +
+        "schema to parse into. The body is size-capped before parsing and a " +
+        "malformed one is DROPPED with 204 — parseJson would answer 400 to a " +
+        "browser that cannot act on it, and some agents retry a non-2xx, " +
+        "turning one violation into many.",
+    };
+
     const offenders = [...sources.entries()]
       .filter(
-        ([, src]) =>
-          /\b(?:req|request)\.json\(\)/.test(src) ||
-          /\b(?:req|request)\.text\(\)/.test(src) ||
-          src.includes("formData()"),
+        ([key, src]) =>
+          (/\b(?:req|request)\.json\(\)/.test(src) ||
+            /\b(?:req|request)\.text\(\)/.test(src) ||
+            src.includes("formData()")) &&
+          !(key in RAW_BODY_ALLOWED),
       )
       .map(([key]) => key);
     expect(offenders).toEqual([]);
+
+    // An exemption that stops being needed must be removed, not left to rot.
+    for (const key of Object.keys(RAW_BODY_ALLOWED)) {
+      const src = sources.get(key);
+      expect(src, `${key} is allow-listed but no longer exists`).toBeDefined();
+      expect(
+        /\b(?:req|request)\.(?:json|text)\(\)/.test(src ?? "") ||
+          (src ?? "").includes("formData()"),
+        `${key} no longer reads a raw body — remove it from RAW_BODY_ALLOWED`,
+      ).toBe(true);
+    }
   });
 });

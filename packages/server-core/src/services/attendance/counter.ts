@@ -1,4 +1,10 @@
 import { platformDb } from "../../db/scope";
+import {
+  literalFragments,
+  matchesSearchTerms,
+  narrowFragments,
+  searchTerms,
+} from "@repo/database/search-text";
 import { ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { PLATFORM_TIME_ZONE, todayKey } from "../../lib/date-key";
@@ -134,14 +140,29 @@ export async function listCounterTeachers(
     ];
     if (teacherIds.length === 0) return { teachers: [], defaultTeacherId: null, clock };
 
-    const users = await tx.user.findMany({
+    // NARROW in SQL, DECIDE in JS — the same two stages the search kernel runs,
+    // and for the same measured reason: `name ILIKE '%احمد%'` matched none of
+    // the rows stored «أحمد», so filtering this board by a teacher's name
+    // emptied it. The set is already bounded to the teachers at this center
+    // today, so the JS pass costs nothing.
+    const terms = searchTerms(q ?? "");
+    const candidates = await tx.user.findMany({
       where: {
         id: { in: teacherIds },
         status: { in: ["active", "shell"] },
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+        ...(terms.length
+          ? {
+              AND: narrowFragments(literalFragments(q ?? ""), (f) => [
+                { name: { contains: f, mode: "insensitive" as const } },
+              ]),
+            }
+          : {}),
       },
       select: { id: true, name: true },
     });
+    const users = terms.length
+      ? candidates.filter((u) => matchesSearchTerms([u.name], terms))
+      : candidates;
     const profiles = await tx.teacherProfile.findMany({
       where: { userId: { in: teacherIds } },
       select: { userId: true, systemStatus: true },

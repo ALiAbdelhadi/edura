@@ -18,8 +18,7 @@
 //     in the same statement. HARD revocation, stronger than the old
 //     per-request JWT epoch re-read.
 // Nothing is mocked.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
 import {
@@ -29,8 +28,7 @@ import {
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!C03";
 

@@ -301,6 +301,17 @@ function EmuNav({
 }) {
   const t = useTranslations("studentEmulator");
   const items = [
+    /* ── FOUR TABS, WHERE THE REAL BAR NOW DRAWS FIVE ────────────────────
+       The real student bar is الرئيسية · مواعيدي · بطاقتي · موادي · محفظتي.
+       This one has no Schedule, because the emulator has no schedule SCREEN —
+       building a fake week is a screen's worth of work for a mission nobody
+       has written, and Ali chose to defer it (2026-08-20) rather than ship a
+       tab that opens nothing.
+
+       The mismatch is therefore DELIBERATE and recorded here rather than left
+       to be discovered. The four tabs are the four screens that exist; the
+       missions never point at a fifth. If a schedule mission is ever written,
+       this list and `EmuScreen` in `script.ts` grow together. */
     { id: "nav-home", to: "dashboard" as const, icon: "home" as const, label: t("nav.dashboard") },
     { id: "nav-card", to: "card" as const, icon: "card" as const, label: t("nav.card") },
     { id: "nav-subjects", to: "subjects" as const, icon: "book" as const, label: t("nav.subjects") },

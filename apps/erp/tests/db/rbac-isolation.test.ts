@@ -1,5 +1,4 @@
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withTenant, withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { completeSession } from "@/lib/services/finance/distribution";
@@ -7,8 +6,7 @@ import { acceptCollaborationRequest, rejectCollaborationRequest } from "@/lib/se
 import { cancelSession } from "@/lib/services/session-actions/session-actions";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const adminPool = testPool();
 
 let pass = 0;
 let fail = 0;

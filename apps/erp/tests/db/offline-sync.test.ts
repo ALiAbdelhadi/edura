@@ -1,12 +1,10 @@
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { syncOfflineAttendance, type OfflineRecord } from "@/lib/services/attendance/sync";
 import { randomUUID } from "node:crypto";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const adminPool = testPool();
 
 let pass = 0;
 let fail = 0;

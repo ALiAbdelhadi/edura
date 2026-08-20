@@ -9,10 +9,15 @@
 //
 // This is the same rule, checked for every portal at once, before the browser.
 //
-// It reads the layout SOURCE rather than importing it: these are client
+// It reads the chrome SOURCE rather than importing it: these are client
 // components that pull in the whole shell, and the two arrays are plain
-// literals whose whole purpose is to be read side by side. A layout that stops
+// literals whose whole purpose is to be read side by side. A portal that stops
 // declaring them literally will fail the guard below rather than pass silently.
+//
+// The file is `portal-chrome.tsx`, not `layout.tsx`: each portal's `layout.tsx`
+// is now a SERVER component that runs the entry gate and renders the chrome
+// beside it (see src/lib/auth/portal-gate.ts). The nav and bar literals stayed
+// with the chrome.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -21,10 +26,10 @@ import { describe, expect, it } from "vitest";
 // (`bottomNav={barForItems(navItems)}`), so the two cannot disagree.
 const PORTALS = ["admin", "assistant", "parent", "student", "teacher"] as const;
 
-function layoutSource(portal: string): string {
+function chromeSource(portal: string): string {
   return readFileSync(
     fileURLToPath(
-      new URL(`../../src/app/[locale]/dashboard/${portal}/layout.tsx`, import.meta.url),
+      new URL(`../../src/app/[locale]/dashboard/${portal}/portal-chrome.tsx`, import.meta.url),
     ),
     "utf8",
   );
@@ -71,7 +76,7 @@ function barHrefs(src: string): string[] {
 }
 
 describe.each(PORTALS)("portal %s", (portal) => {
-  const src = layoutSource(portal);
+  const src = chromeSource(portal);
   const nav = navHrefs(src);
   const bar = barHrefs(src);
 

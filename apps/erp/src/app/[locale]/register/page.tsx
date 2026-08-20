@@ -2,7 +2,7 @@
 
 import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
-import { LedgerButton } from "@/components/ledger";
+import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth/client";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +28,7 @@ import {
   User,
   UserPlus,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -105,6 +105,7 @@ const SERVER_FIELD_TO_FORM: Record<string, keyof RegisterFormValues> = {
 
 export default function RegisterPage() {
   const t = useTranslations();
+  const locale = useLocale();
   // The marketing site's per-role CTAs land here with `?role=` so the reader
   // does not re-answer a question they answered by clicking. Anything not a
   // registrable role falls back to the default.
@@ -198,14 +199,14 @@ export default function RegisterPage() {
               password: values.password,
               phone: values.phone?.trim() || undefined,
               address: values.address?.trim() || undefined,
-              locale: "ar",
+              locale,
             }
           : {
               name: values.name.trim(),
               email,
               password: values.password,
               phone: values.phone?.trim() || undefined,
-              locale: "ar",
+              locale,
             };
 
       const created = await ky
@@ -270,7 +271,7 @@ export default function RegisterPage() {
             <Clock className="size-5" aria-hidden />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
+            <h1 className={`text-xl font-bold ${ledgerTrackTight}`} style={{ color: "var(--ink)" }}>
               {t("auth.pendingApprovalTitle")}
             </h1>
             <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
@@ -299,8 +300,8 @@ export default function RegisterPage() {
     <AuthShell variant="signup">
       <div className="mb-6">
         <h1
-          className="text-2xl font-bold"
-          style={{ color: "var(--ink)", letterSpacing: "-0.02em" }}
+          className={`text-2xl font-bold ${ledgerTrackTight}`}
+          style={{ color: "var(--ink)" }}
         >
           {t("auth.createAccountTitle")}
         </h1>

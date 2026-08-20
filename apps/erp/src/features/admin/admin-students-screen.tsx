@@ -36,19 +36,7 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { StudentImportDialog } from "./student-import-dialog";
-import {
-  Badge,
-  BlacklistCascadePanel,
-  DataTable,
-  EmptyState,
-  MetricCard,
-  Num,
-  PageHead,
-  RowIdentity,
-  Sheet,
-  type BadgeTone,
-  type Column,
-} from "./ledger";
+import { Badge, BlacklistCascadePanel, DataTable, DateText, EmptyState, MetricCard, Num, PageHead, RowIdentity, Sheet, type BadgeTone, type Column } from "./ledger";
 
 export function AdminStudentsScreen() {
   const t = useTranslations();
@@ -214,9 +202,9 @@ export function AdminStudentsScreen() {
           return <span className="text-xs text-[var(--ink-3)]">{t("adminHome.students_notAvailable")}</span>;
         try {
           return (
-            <Num className="text-xs text-[var(--ink-3)]">
+            <DateText className="text-xs text-[var(--ink-3)]">
               {formatDate(dateStr, { month: "short", year: "numeric" })}
-            </Num>
+            </DateText>
           );
         } catch {
           return <span className="text-xs text-[var(--ink-3)]">{t("adminHome.students_notAvailable")}</span>;

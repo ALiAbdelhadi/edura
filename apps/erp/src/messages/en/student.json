@@ -5,8 +5,8 @@
     "subject": "Subject",
     "room": "Room",
     "teacher": "Teacher",
-    "attendanceRate": "Attendance Rate",
-    "averageGrade": "Average Grade",
+    "attendanceRate": "Attendance",
+    "averageGrade": "Average",
     "unreadMessages": "Unread Messages",
     "todaySchedule": "Today's Schedule",
     "noClassesToday": "No classes today",
@@ -16,22 +16,29 @@
     "noGradeTrend": "No grade trend yet",
     "subtitle": "Your attendance, assignments, and performance at a glance.",
     "whatsNext": "What's next",
-    "whatsNextSubtitle": "Your upcoming sessions, your balance, and your record — as it has been written.",
+    "whatsNextSubtitle": "Your next session, your record, and your money — in one place.",
     "upNext": "Up next",
-    "noUpcoming": "No sessions scheduled for this week.",
+    "noUpcoming": "No sessions coming up",
     "today": "Today",
     "thisWeek": "This week",
     "yourRecord": "Your record",
     "viewAttendance": "Attendance record",
     "allGrades": "All grades",
     "openWallet": "Wallet",
-    "recordEyebrow": "record",
+    "recordEyebrow": "Record",
     "scheduleEyebrow": "schedule",
-    "moneyEyebrow": "money",
-    "attendanceTraceHint": "Derived from your attendance entries.",
+    "moneyEyebrow": "Money",
+    "attendanceTraceHint": "From your attendance entries.",
     "gradeTraceHint": "Average across your graded subjects.",
-    "balanceTraceHint": "Closing balance of the latest entry in your wallet.",
-    "openRecord": "Open {record}"
+    "balanceTraceHint": "The latest balance in your wallet.",
+    "openRecord": "Open {record}",
+    "now": "Now",
+    "noUpcomingHint": "Subscribe to a subject and your sessions will show up here.",
+    "moreToday": "{count, plural, one {and 1 more session today} other {and # more sessions today}}",
+    "quickCard": "My card",
+    "quickCardHint": "Show it at the counter",
+    "quickSubscribe": "Subscribe to a subject",
+    "quickSubscribeHint": "See the available groups"
   },
   "studentBrowse": {
     "enrollmentSent": "Enrollment request sent",
@@ -195,7 +202,14 @@
     "colRef": "Reference",
     "closingBalance": "Closing balance",
     "testMode": "Test mode",
-    "topUpAction": "Top up {amount}"
+    "topUpAction": "Top up {amount}",
+    "tabHistory": "Transactions",
+    "tabReceipts": "Receipts",
+    "balanceAfter": "Balance after",
+    "showAll": "Show all ({count})",
+    "showFewer": "Show fewer",
+    "noReceipts": "No receipts yet",
+    "noReceiptsHint": "Once you pay, the receipt shows up here for you to download."
   },
   "studentNav": {
     "more": "More",
@@ -322,7 +336,9 @@
       "cardTitle": "My ID",
       "cardHint": "Your card is not loaded automatically — press to show it.",
       "showCard": "Show my card",
-      "cardEyebrow": "Student ID"
+      "cardEyebrow": "Student ID",
+      "coverEyebrow": "Your cover",
+      "coverBody": "Your Chemistry subscription is running — {days} days left. You get a notice here when it is about to end."
     },
     "steps": {
       "welcome": {
@@ -422,7 +438,7 @@
       },
       "upNext": {
         "title": "Your next class",
-        "body": "The first thing you see each day: the subject and the time. If you just want to know where you're going, look here.",
+        "body": "The first thing on the page is your next session: the subject, the day and time, the hall, and the teacher.",
         "how": {
           "1": "Open “Dashboard”",
           "2": "At the top you'll find “Up next”",
@@ -461,24 +477,35 @@
         },
         "note": "Wallet payments are all or nothing: if your balance is short the whole payment is refused and no part of it is taken."
       },
+      "subscriptions": {
+        "title": "How to tell whether your subscription has ended",
+        "body": "A monthly subscription ends on its own, and nobody renews it for you. This screen shows every one you have with the date it ends.",
+        "how": {
+          "1": "Tap “More” at the bottom, then “Subscriptions”",
+          "2": "“Running now” holds the ones still covering you, each with the days left beside it",
+          "3": "If one says “Ending soon” or “Ended”, tap “Renew”",
+          "4": "Renewing takes you to your subjects, where you pick the same group and pay again"
+        },
+        "note": "When one is about to end you also get a notice on the home screen, so you do not have to go looking."
+      },
       "receipts": {
         "title": "How to get a receipt",
         "body": "Every payment has a numbered receipt — your proof if anything goes wrong with the centre.",
         "how": {
-          "1": "Press “Wallet” and scroll to the bottom",
-          "2": "You'll find the “Receipts” section",
-          "3": "Press “Download” next to the receipt",
-          "4": "On the receipt page press “Print”, or choose “Save as PDF” to send it on WhatsApp"
+          "1": "Tap “Wallet” in the menu",
+          "2": "Tap the “Receipts” tab at the top",
+          "3": "Tap “Download receipt” beside the payment",
+          "4": "On the receipt page tap “Print”, or choose “Save as PDF” to send it on WhatsApp"
         }
       },
       "card": {
         "title": "How to get your card and use it",
         "body": "It carries your eight-character code — what you give the counter staff every day to be checked in.",
         "how": {
-          "1": "Press “My ID” in the menu",
-          "2": "Press “Show my card”",
-          "3": "Press “Print” to cut it out and keep it, or “Save as image” to send it on WhatsApp",
-          "4": "At the centre: say the code to the counter staff, or show them the card"
+          "1": "Tap “My ID” in the bottom bar",
+          "2": "The card opens ready — there is nothing to press",
+          "3": "Tap “Print” to cut it out for your wallet, or “Share card” to send it on WhatsApp",
+          "4": "At the centre: read the code to the counter, or show them the card"
         },
         "note": "If the card doesn't appear, the screen tells you exactly what's missing — complete it and press “Show my card” again."
       },
@@ -561,5 +588,31 @@
       }
     },
     "moreHint": "On a phone: press “More” first — it's inside there."
+  },
+  "studentSubscriptions": {
+    "subtitle": "The subscriptions you have running, and when they end.",
+    "sectionActive": "Running now",
+    "sectionPast": "Past subscriptions",
+    "noneTitle": "You haven't subscribed to anything yet",
+    "noneHint": "Pick a subject and subscribe to start attending.",
+    "planMonthly": "Monthly",
+    "planSession": "Single session",
+    "endsOn": "Ends",
+    "noWindow": "Covers one session only",
+    "notStarted": "Starts once it is paid",
+    "stateActive": "Active",
+    "stateExpiring": "Ending soon",
+    "stateLapsed": "Ended",
+    "statePending": "Awaiting payment",
+    "stateCancelled": "Cancelled",
+    "daysLeft": "{count, plural, =0 {Ends today} one {1 day left} other {# days left}}",
+    "lapsedAgo": "{count, plural, =0 {Ended today} one {Ended 1 day ago} other {Ended # days ago}}",
+    "endsToday": "Ends today",
+    "endsTomorrow": "Ends tomorrow",
+    "renew": "Renew",
+    "alertExpiringTitle": "Your {course} subscription is ending soon",
+    "alertLapsedTitle": "Your {course} subscription has ended",
+    "alertBody": "Renew it so you don't miss any sessions.",
+    "alertOpen": "See my subscriptions"
   }
 }

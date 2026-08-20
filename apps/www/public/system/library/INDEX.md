@@ -3,7 +3,8 @@
 Twenty-two screens of `apps/erp`, beyond the nineteen curated slots the site is
 built around. Captured by
 [`library.spec.ts`](../../../../erp/tools/system-shots/library.spec.ts) as real
-signed-in demo roles, Arabic · light · 1440×900 unless the row says phone.
+signed-in demo roles, Arabic · light · 1440×900 CSS unless the row says phone,
+captured at deviceScaleFactor 3 — so each master is **4320×2700** actual pixels.
 
 **Nothing here is wired into a page.** `src/media/manifest.ts` is the only route
 by which an image reaches the site, and no file in this directory appears in it.
@@ -18,20 +19,38 @@ eight portals, and photographing each eight times is thirty files that say one
 thing. Reasoning in
 [`INVENTORY.md` §11](../../../../erp/tools/system-shots/INVENTORY.md).
 
-**694 KB across 22 files.** Largest is 75 KB, against the 180 KB per-file
-budget.
+**3.4 MB across 22 files**, full-resolution masters. That is storage, not
+bandwidth: nothing here is in the manifest, so no visitor downloads any of it —
+and anything promoted into the manifest is resized per device by `next/image`
+rather than served at this size.
 
 ---
 
-## Read this before publishing any of these
+## Two defects found by capturing, both now fixed
 
-Two files carry visible product defects. They are kept because the defect is
-worth knowing about, not because they are ready.
+**Fixed 2026-08-18 — `admin-external-teachers-gaps` is now publishable.** It
+previously printed its payload verbatim in the «المصدر» column —
+`marked: 0 · enrolled: 0`, `status: scheduled · settled: no`, and a raw
+`studentId:` UUID beside a child's name — English keys in an entirely Arabic
+table. The column now renders sentences («لم يُسجَّل أحد من 3»،
+«انتهت ولم تُوزَّع حصيلتها»، «لا حضور مسجَّل») and the id is **dropped rather
+than translated**: it identifies the row for the server, and the operator needs
+the name. `library.spec.ts` now asserts, over every rendered row rather than
+just the ones above the fold, that no payload key and no bare UUID reaches the
+screen — so it cannot come back quietly.
 
-| File | Problem |
-|---|---|
-| `admin-external-teachers-gaps.webp` | **DO NOT PUBLISH.** The «المصدر» column renders raw debug output — `marked: 0 · enrolled: 0`, `status: scheduled · settled: no`, and `studentId: c8204eb0-…-59a215da7a9a · studentName: يوسف أحمد`. Untranslated English key/value pairs and a raw UUID beside a name. The data is demo, so nothing real leaks, but it is developer output on a user-facing screen. |
-| `admin-audit.webp` | Publishable, with a caveat: event names render as raw enums (`points.adjusted`, `center.updated`) in an otherwise Arabic screen. On an audit log that reads as deliberate; judge it against the page it would sit on. |
+**Fixed 2026-08-18 — `admin-audit` reads in Arabic.** Actions and target types
+are stored as machine strings and were printed verbatim: `points.adjusted`,
+`center.updated`, `pointsledger`. They now render as words («تعديل نقاط»،
+«تعديل بيانات السنتر»، «دفتر النقاط»), and the fallback for an action nobody
+has translated yet strips the separators rather than showing a dotted
+identifier — so a missing key looks like awkward English, not like debug
+output. `library.spec.ts` asserts no dotted enum reaches the screen.
+
+**The record ids stay.** Unlike the gaps screen, where the id was noise beside a
+child's name, an audit row exists to say which record changed — support reads
+those back. They are LTR-isolated so a hex string cannot reorder the Arabic
+around it.
 
 ---
 
@@ -43,8 +62,8 @@ them.
 | File | Portal · route | What is on screen | What it proves |
 |---|---|---|---|
 | `admin-external-teachers.webp` | center · `/dashboard/admin/external-teachers` | The off-system teacher records at سنتر النيل التعليمي (`extdemo`) | A center can run teachers who have no account on the platform and still keep them in its books |
-| `admin-external-teachers-gaps.webp` | center · `…/external-teachers/gaps` | 17 rows of reconciliation gaps — lessons held with no attendance, groups with no price, students recorded but unpaid — each with teacher, class and status | The manual-entry path is audited rather than trusted. **Defect above** |
-| `admin-audit.webp` | center · `/dashboard/admin/audit` | «كل عملية حساسة تمت داخل مركزك — من قام بها، وعلى ماذا، ومتى», the immutability banner, and real rows (`points.adjusted`, `center.updated`) with actor and timestamp | Every back-office write is attributed, and the log says outright it cannot be edited or deleted from any screen |
+| `admin-external-teachers-gaps.webp` | center · `…/external-teachers/gaps` | 17 rows of reconciliation gaps — lessons held with no attendance, groups with no price, students recorded but unpaid — each with teacher, class and status | The manual-entry path is audited rather than trusted |
+| `admin-audit.webp` | center · `/dashboard/admin/audit` | «كل عملية حساسة تمت داخل مركزك — من قام بها، وعلى ماذا، ومتى», the immutability banner, and real rows («تعديل نقاط»، «تعديل بيانات السنتر») with actor, record and timestamp | Every back-office write is attributed, and the log says outright it cannot be edited or deleted from any screen |
 | `parent-oversight.webp` | parent · `/dashboard/parent/oversight` | Both children as «أقل من 18», and the rule stated in full: «الاطلاع فقط — لا يمكنك الرد، وابنك يعلم أنك تستطيع رؤية هذه المحادثات» | The child-safety model — a parent watches, cannot speak, and the child is told. Counts read 0 conversations; content needs the absent `msgdemo` seed |
 | `student-family.webp` | student · `/dashboard/student/family` | Family code `SHOW001` with copy and regenerate, a guardian field accepting a phone **or** an email, and an approved link request from سهير قنديل | A parent can be linked without an email address — the mechanism behind the guardian gate |
 | `teacher-team.webp` | teacher · `/dashboard/teacher/team` | The teacher's assistants | Who is allowed to act on this teacher's behalf, which is what makes the on-behalf-of attribution meaningful |
@@ -83,9 +102,12 @@ them.
 
 ## Accounts used
 
-All demo, all `is_demo = true`. The capture asserts that no known-real
-identifier reaches the DOM — `tarekaboelnasr999`, `tarekaccountant`,
-`accountant@edura.eg`, `ghost-user-9x` — and every one of the 22 passed.
+All demo, all `is_demo = true`. The capture asserts that **no identifier
+belonging to any non-demo account** reaches the DOM. That list is generated from
+the database by `build-forbidden.ts` — 97 terms from 39 non-demo accounts, every
+email and phone in both the typed `01…` and stored `+201…` form — rather than
+hand-typed, which is how it turned out this database carries a second real
+person nobody had listed. Every one of the 22 passed.
 
 | Role | Account |
 |---|---|

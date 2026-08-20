@@ -9,16 +9,14 @@
 // C2 limits + the canSignIn partition + full H5, then real DB session rows +
 // getSession) against the live DB, one account per role, and re-checks the
 // C2/H5/L1/C-03 hardening on this door too.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
 import { WWW_LOGIN_ROLES, SUPERADMIN_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!C04sa";
 // Full H5 on this door: every refusal (unknown email, www role, shell,

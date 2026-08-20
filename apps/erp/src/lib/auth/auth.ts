@@ -18,6 +18,7 @@ import { twoFactor } from "better-auth/plugins";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 import { inviteTokenPlugin } from "./invite-token-plugin";
+import { viewAsPlugin } from "./view-as-plugin";
 
 // ============================================================================
 // better-auth instance — apps/www (replaces the NextAuth v4 options, 2026-08).
@@ -98,6 +99,19 @@ export const auth = betterAuth({
     additionalFields: {
       // Session-scoped center claim (mirror of the old JWT claim).
       centerId: { type: "string", required: false, input: false },
+      // The super admin behind a "view as" session, or null.
+      //
+      // DECLARED HERE OR IT DOES NOT EXIST. better-auth returns only the
+      // session fields it knows about, so an undeclared column is silently
+      // dropped from `getSession()` even though it is populated in the row.
+      // That is not cosmetic: `session.ts` reads it to enforce the one-hour
+      // view-as cap and the portal banner reads it to warn the operator, so
+      // both fail OPEN and neither says anything. Found by driving the real
+      // HTTP path — a unit-level proof of the cap passed the whole time,
+      // because the predicate was correct and simply never received the value.
+      // `input: false` for the same reason `centerId` has it: nothing a client
+      // sends may set this.
+      impersonatedBy: { type: "string", required: false, input: false },
     },
   },
   account: { modelName: "authAccount" },
@@ -164,6 +178,7 @@ export const auth = betterAuth({
     customRules: {
       "/sign-in/email": { window: 60, max: 20 },
       "/invite-token/claim": { window: 60, max: 10 },
+      "/view-as/claim": { window: 60, max: 10 },
       "/two-factor/*": { window: 60, max: 15 },
     },
   },
@@ -260,6 +275,10 @@ export const auth = betterAuth({
   },
   plugins: [
     inviteTokenPlugin(),
+    // The back-office "view as" door (apps/superadmin -> here). It does NOT
+    // relax the password door above: canSignIn("www", …) is untouched and a
+    // super_admin still cannot type their way in. See view-as-plugin.ts.
+    viewAsPlugin(),
     // Guided (optional) enrollment for center owners; enforcement for the
     // back-office roles lives in apps/superadmin.
     twoFactor({ issuer: "Edura" }),

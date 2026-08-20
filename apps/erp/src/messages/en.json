@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "studentHome": "Home",
     "finance": "Finance",
     "students": "Students",
     "teachers": "Teachers",
@@ -24,7 +25,7 @@
     "materials": "Materials",
     "reviews": "Reviews",
     "assignments": "Assignments",
-    "family": "Family Code",
+    "family": "My guardian",
     "progress": "Progress",
     "affiliations": "Affiliations",
     "centers": "Centers",
@@ -42,6 +43,8 @@
     "catalog": "Catalog",
     "team": "Team",
     "subjects": "Subjects",
+    "mySubjects": "Subjects",
+    "subscriptions": "Subscriptions",
     "wallet": "Wallet",
     "checkin": "Check-in",
     "counter": "Counter",
@@ -587,7 +590,10 @@
   "attendanceView": {
     "outOf": "of {count, plural, one {# session} other {# sessions}}",
     "recentEyebrow": "Last 28 days",
-    "noSession": "No lesson"
+    "noSession": "No lesson",
+    "subtitle": "Your attendance, and the latest entries recorded for you.",
+    "recentTitle": "Recent sessions",
+    "pastCourse": "A past course"
   },
   "navGroup": {
     "learn": "Learning",
@@ -625,6 +631,8 @@
   "security": {
     "sessionsTitle": "Devices & sessions",
     "sessionsDesc": "Every device currently signed in to your account. Sign out any device you don't recognize.",
+    "sessionsShowAll": "Show all devices ({count})",
+    "sessionsShowLess": "Show less",
     "thisDevice": "This device",
     "unknownDevice": "Unknown device",
     "lastActive": "Last active",
@@ -648,6 +656,8 @@
     "copyCodes": "Copy codes",
     "codesCopied": "Codes copied",
     "codePlaceholder": "6-digit code",
+    "codeLabel": "Verification code",
+    "backupCodeLabel": "Backup code",
     "verify": "Confirm",
     "invalidCode": "Invalid code — try again",
     "enabledToast": "Two-factor authentication enabled",
@@ -748,6 +758,15 @@
     "gap_group_without_price": "Group has no price",
     "gap_group_without_students": "Group has no students",
     "gaps_clean": "Nothing missing",
-    "gaps_cleanHint": "Every lesson has attendance and is completed, and every enrolled student has paid."
+    "gaps_cleanHint": "Every lesson has attendance and is completed, and every enrolled student has paid.",
+    "gapDetail_attendance": "{marked} of {enrolled} enrolled",
+    "gapDetail_noAttendance": "none of {enrolled} marked",
+    "gapDetail_notSettled": "finished, revenue not distributed",
+    "gapDetail_noPrice": "no monthly and no per-session price",
+    "gapDetail_noSessions": "nothing on the schedule",
+    "gapDetail_noStudents": "no students enrolled",
+    "gapDetail_student": "Student: {name}",
+    "gapDetail_none": "—",
+    "gapDetail_noneMarked": "no attendance recorded"
   }
 }

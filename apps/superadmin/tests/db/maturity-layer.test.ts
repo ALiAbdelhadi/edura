@@ -28,10 +28,9 @@
  * Run (this one only):        bun run --filter superadmin test:db:only maturity-layer
  * ===========================================================================
  */
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 import { withPlatformContext } from "@repo/database";
 import {
   clearFeatureFlagCache,
@@ -56,8 +55,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const SUITE_NAME = "maturity-layer.test.ts";
 let __sweepTag = "";

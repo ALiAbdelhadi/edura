@@ -27,6 +27,7 @@ const SCREENS: { slug: string; path: string }[] = [
   { slug: "student-home-and-schedule", path: "" },
   { slug: "student-subjects-and-subscribe", path: "/subjects" },
   { slug: "student-wallet", path: "/wallet" },
+  { slug: "student-subscriptions", path: "/subscriptions" },
   { slug: "student-id-card", path: "/id" },
   { slug: "student-attendance", path: "/attendance" },
   { slug: "student-grades", path: "/grades" },
@@ -85,9 +86,11 @@ for (const locale of LOCALES) {
       await signIn(page, locale);
       await page.goto(`/${locale}/dashboard/student/wallet`);
       await settle(page);
-      // The receipts list is the last section of the wallet screen.
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(500);
+      // The receipts are the wallet's SECOND TAB. They used to be the last
+      // section of the page and this step scrolled to the bottom to find them;
+      // after the IA pass that scroll lands on nothing.
+      await page.getByRole("tab", { name: /الإيصالات|Receipts/ }).click();
+      await page.waitForTimeout(800);
       await page.screenshot({
         path: path.join(OUT, `student-receipts-${locale}.png`),
         animations: "disabled",

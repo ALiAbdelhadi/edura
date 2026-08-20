@@ -3,11 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Badge } from "@repo/ui/components/badge";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Skeleton } from "@repo/ui/components/skeleton";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useRouter } from "@/i18n/navigation";
@@ -18,12 +15,19 @@ import {
   governorateLabel,
   cityLabel,
 } from "@/lib/egypt-locations";
-import { WizardShell, OptionChip } from "./wizard-shell";
-import { useOnboarding, apiSend } from "./use-onboarding";
+import {
+  OptionChip,
+  WizardActions,
+  WizardCount,
+  WizardShell,
+  WizardSkeleton,
+} from "./wizard-shell";
+import { Chip, Hairline, Sheet, SectionHeading } from "@/components/ledger";
+import { useOnboarding, apiSend, type OnboardingInitial } from "./use-onboarding";
 
 type StepId = "centerInfo" | "coverage" | "review";
 
-type CenterState = {
+export type CenterState = {
   role: "center_admin";
   onboardingCompleted: boolean;
   onboardingDraft: {
@@ -35,11 +39,11 @@ type CenterState = {
   stageIds?: string[];
 };
 
-export function CenterWizard() {
+export function CenterWizard({ initial }: { initial?: OnboardingInitial<CenterState> } = {}) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<CenterState>();
+  const { tree, state, error, saveDraft } = useOnboarding<CenterState>(initial);
 
   const [stepId, setStepId] = useState<StepId>("centerInfo");
   const [info, setInfo] = useState({ name: "", governorate: "", area: "", phone: "" });
@@ -102,15 +106,13 @@ export function CenterWizard() {
     }
   }
 
-  if (error) return <div className="p-8 text-center text-destructive">{error}</div>;
-  if (!tree || !state) {
+  if (error)
     return (
-      <div className="mx-auto grid max-w-2xl gap-4 px-4 py-16">
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-40" />
+      <div className="p-8 text-center text-sm font-medium" style={{ color: "var(--red)" }}>
+        {error}
       </div>
     );
-  }
+  if (!tree || !state) return <WizardSkeleton rows={2} />;
 
   const back =
     stepIndex > 0
@@ -121,14 +123,19 @@ export function CenterWizard() {
         }
       : undefined;
 
+  /* The centre's name is the one thing every later step is about, so it is
+     what the trail carries. */
+  const trail = stepId !== "centerInfo" && info.name.trim() ? [info.name.trim()] : [];
+
   const shell = (children: React.ReactNode, footer: React.ReactNode) => (
     <WizardShell
-      title={t(
+      eyebrow={t(
         `onboarding.steps.${stepId === "centerInfo" ? "centerInfo" : stepId === "coverage" ? "coverage" : "review"}` as Parameters<typeof t>[0],
       )}
-      prompt={t(
+      question={t(
         `onboarding.prompts.${stepId === "centerInfo" ? "centerInfo" : stepId === "coverage" ? "coverage" : "centerReview"}` as Parameters<typeof t>[0],
       )}
+      trail={trail}
       current={stepIndex + 1}
       total={steps.length}
       onBack={back}
@@ -151,7 +158,7 @@ export function CenterWizard() {
       persist(stepId, next);
     };
     return shell(
-      <div className="grid gap-4">
+      <Sheet className="grid gap-4 p-4">
         <div className="grid gap-1.5">
           <Label htmlFor="c-name">{t("onboarding.center.name")}</Label>
           <Input
@@ -205,52 +212,59 @@ export function CenterWizard() {
             onChange={(e) => setField("phone", e.target.value)}
           />
         </div>
-      </div>,
-      <Button
-        className="w-full"
-        size="lg"
+      </Sheet>,
+      <WizardActions
+        label={t("onboarding.next")}
         disabled={!info.name.trim()}
+        hint={t("onboarding.errors.nameRequired")}
         onClick={() => {
           setStepId("coverage");
           persist("coverage");
         }}
-      >
-        {t("onboarding.next")}
-      </Button>,
+      />,
     );
   }
 
   if (stepId === "coverage") {
     return shell(
-      <div className="grid gap-6">
-        {tree.map((sys) => (
-          <section key={sys.id} className="grid gap-2">
-            <h2 className="font-semibold">{dn(sys)}</h2>
-            <div className="flex flex-wrap gap-2">
-              {sys.stages.map((st) => (
-                <OptionChip
-                  key={st.id}
-                  label={dn(st)}
-                  selected={stageIds.includes(st.id)}
-                  onClick={() => toggleStage(st.id)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+      <div className="grid gap-4">
+        {tree.map((sys) => {
+          const inThisSystem = sys.stages.filter((st) => stageIds.includes(st.id)).length;
+          return (
+            <Sheet key={sys.id} className="grid gap-3 p-4">
+              <SectionHeading
+                title={dn(sys)}
+                action={
+                  inThisSystem > 0 ? (
+                    <WizardCount>
+                      {t("onboarding.center.stagesCount", { count: inThisSystem })}
+                    </WizardCount>
+                  ) : null
+                }
+              />
+              <div className="flex flex-wrap gap-2">
+                {sys.stages.map((st) => (
+                  <OptionChip
+                    key={st.id}
+                    label={dn(st)}
+                    selected={stageIds.includes(st.id)}
+                    onClick={() => toggleStage(st.id)}
+                  />
+                ))}
+              </div>
+            </Sheet>
+          );
+        })}
       </div>,
-      <Button
-        className="w-full"
-        size="lg"
+      <WizardActions
+        label={t("onboarding.next")}
         disabled={stageIds.length === 0}
+        hint={t("onboarding.errors.selectAtLeastOne")}
         onClick={() => {
           setStepId("review");
           persist("review");
         }}
-      >
-        {t("onboarding.next")}
-        <Badge variant="secondary">{stageIds.length}</Badge>
-      </Button>,
+      />,
     );
   }
 
@@ -258,48 +272,65 @@ export function CenterWizard() {
     tree.flatMap((sys) => sys.stages.map((st) => [st.id, { st, sys }] as const)),
   );
 
+  const rows: [string, string][] = [
+    [t("onboarding.center.name"), info.name],
+    [
+      t("onboarding.center.governorate"),
+      info.governorate ? governorateLabel(info.governorate, locale) : t("onboarding.review.none"),
+    ],
+    [
+      t("onboarding.center.area"),
+      info.area ? cityLabel(info.governorate, info.area, locale) : t("onboarding.review.none"),
+    ],
+    [t("onboarding.center.phone"), info.phone || t("onboarding.review.none")],
+  ];
+
   return shell(
-    <div className="grid gap-6">
-      <dl className="grid gap-3 rounded-xl border p-4">
-        {(
-          [
-            [t("onboarding.center.name"), info.name],
-            [
-              t("onboarding.center.governorate"),
-              info.governorate ? governorateLabel(info.governorate, locale) : t("onboarding.review.none"),
-            ],
-            [
-              t("onboarding.center.area"),
-              info.area ? cityLabel(info.governorate, info.area, locale) : t("onboarding.review.none"),
-            ],
-            [t("onboarding.center.phone"), info.phone || t("onboarding.review.none")],
-          ] as [string, string][]
-        ).map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-muted-foreground">{k}</dt>
-            <dd className="font-medium">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <section className="grid gap-2 rounded-xl border p-4">
-        <h2 className="text-sm text-muted-foreground">
-          {t("onboarding.center.coverage")} · {t("onboarding.center.stagesCount", { count: stageIds.length })}
-        </h2>
+    <div className="grid gap-4">
+      <Sheet className="px-4">
+        <dl className="grid">
+          {rows.map(([k, v], i) => (
+            <div key={k} className="grid gap-4 py-3">
+              {i > 0 ? <Hairline className="-mt-3 mb-3" /> : null}
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-sm" style={{ color: "var(--ink-2)" }}>
+                  {k}
+                </dt>
+                <dd className="text-end font-medium" style={{ color: "var(--ink)" }}>
+                  {v}
+                </dd>
+              </div>
+            </div>
+          ))}
+        </dl>
+      </Sheet>
+
+      <Sheet className="grid gap-3 p-4">
+        <SectionHeading
+          title={t("onboarding.center.coverage")}
+          action={
+            <WizardCount>
+              {t("onboarding.center.stagesCount", { count: stageIds.length })}
+            </WizardCount>
+          }
+        />
         <div className="flex flex-wrap gap-1.5">
           {stageIds.map((id) => {
             const hit = stageById.get(id);
             return hit ? (
-              <Badge key={id} variant="secondary">
+              <Chip key={id} tone="indigo">
                 {dn(hit.sys)} · {dn(hit.st)}
-              </Badge>
+              </Chip>
             ) : null;
           })}
         </div>
-      </section>
+      </Sheet>
     </div>,
-    <Button className="w-full" size="lg" onClick={() => void confirm()} disabled={submitting}>
-      {submitting ? <Spinner /> : <Check className="size-4" />}
-      {t("onboarding.confirm")}
-    </Button>,
+    <WizardActions
+      label={t("onboarding.confirm")}
+      onClick={() => void confirm()}
+      busy={submitting}
+      icon={submitting ? <Spinner /> : <Check className="size-4" aria-hidden />}
+    />,
   );
 }

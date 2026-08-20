@@ -21,16 +21,14 @@
 //
 // Everything created here is flagged is_demo and deleted at the end; the final
 // section asserts the DB is back to its pre-test row counts.
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { randomUUID } from "node:crypto";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 import { withPlatformContext, type TenantTx } from "@repo/database";
 import { generatePayouts } from "@/lib/services/finance/payouts";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const TAG = "c02-" + randomUUID().slice(0, 8);
 const DEMO_TEACHERS = 30;

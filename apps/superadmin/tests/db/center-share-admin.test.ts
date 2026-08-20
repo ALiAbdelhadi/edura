@@ -171,10 +171,6 @@ async function main() {
     teacher: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))!.walletBalance,
   }));
 
-  assert(
-    dist.distribution.centerShare === 2500,
-    `settlement used the SUPERADMIN share (got ${dist.distribution.centerShare})`,
-  );
   // Legacy no-room path: center gets share − platform center fee; teacher gets
   // price − platform teacher fee − share. Fees come from commission_settings.
   const fees = await withPlatformContext((tx) =>
@@ -182,6 +178,28 @@ async function main() {
   );
   const tFee = fees?.platformTeacherFee ?? 200;
   const cFee = fees?.platformCenterFee ?? 200;
+
+  // The superadmin-set share, read back out of the engine's OWN return value.
+  //
+  // This used to assert `dist.distribution.centerShare === 2500` and failed
+  // with `got undefined` — while the money underneath was correct. The reason
+  // is worth keeping: `Distribution.centerShare` is OPTIONAL, and this
+  // (hall-free, legacy) path never sets it. It cannot honestly set one, either:
+  // `centerShare` comes out of `economicsAt(studentPrice, …)` INSIDE the
+  // per-student loop, so when two attendees pay different prices there is no
+  // single per-session share to report.
+  //
+  // So this asserts the same fact from values that path does define. With one
+  // present student, centerNetTotal is exactly share − centre fee.
+  // Do NOT reinstate the centerShare form without first deciding what it should
+  // mean for a mixed-price lesson — that is a money-engine decision, not a test
+  // fix.
+  const centerNet = dist.distribution.centerNetTotal;
+  const seen = dist.distribution.presentCount;
+  assert(
+    centerNet === (2500 - cFee) * (seen ?? 0),
+    `settlement used the SUPERADMIN share (center net ${centerNet} === (2500 − ${cFee}) × ${seen})`,
+  );
   assert(
     after.center - before.center === 2500 - cFee,
     `center wallet moved by share − platform fee (got ${after.center - before.center})`,

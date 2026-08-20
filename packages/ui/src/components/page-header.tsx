@@ -6,7 +6,6 @@ export function PageHeader({
   title,
   description,
   actions,
-  /** The queue screens sit above an 18px bottom rule; record screens do not. */
   rule = false,
   className,
 }: {
@@ -26,11 +25,9 @@ export function PageHeader({
       )}
     >
       <div className="space-y-1.5">
-        {/* Pass an <Eyebrow>, not a bare string — it carries the script-correct form. */}
         {eyebrow}
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-ink">{title}</h1>
         {description ? (
-          // 68ch: past that a subtitle stops being scannable and becomes a paragraph.
           <p className="max-w-[68ch] text-sm text-ink-2">{description}</p>
         ) : null}
       </div>

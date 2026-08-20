@@ -27,8 +27,7 @@
 // revocation (HARD: the users_revoke_sessions trigger deletes session rows),
 // C-03 live status revocation (typed ACCOUNT_INACTIVE for a proven owner), and
 // the narrow invite-token claim door.
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
@@ -38,8 +37,7 @@ import { __resetRateLimiterForTests } from "@/lib/rate-limit/token-bucket";
 import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 const PW = "Passw0rd!C04";
 

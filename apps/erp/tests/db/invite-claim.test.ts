@@ -19,8 +19,7 @@
 // is the actual child-safety decision, and we capture it by reading the same
 // console line the driver prints.
 // =============================================================================
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
+import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
@@ -40,8 +39,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
-neonConfig.webSocketConstructor = ws as never;
-const admin = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
+const admin = testPool();
 
 // `console` is the project's own mail mock: it delivers nothing and returns
 // sent:false. What we assert is the RECIPIENT, which is the child-safety

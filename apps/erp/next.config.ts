@@ -7,15 +7,44 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin();
 
-// H4 — security headers. CSP ships as Report-Only first (observe, don't block)
-// so it can be tightened to enforce once real traffic confirms nothing legit
-// is flagged. HSTS / nosniff / frame options / Referrer-Policy ARE enforced.
+// H4 — security headers. The CSP now ENFORCES by default and reports what it
+// blocks (see the CSP_MODE block below). HSTS / nosniff / frame options /
+// Referrer-Policy are enforced as they always were.
+//
+// STILL OPEN, deliberately: script-src keeps 'unsafe-inline'. Replacing it
+// with a per-request nonce + 'strict-dynamic' needs a middleware.ts to mint
+// the nonce, and neither app has one — introducing that layer is an
+// architectural decision, not a header tweak. Enforcing THIS policy is still
+// a real gain over Report-Only: it blocks unlisted script origins, eval in
+// production, object/embed, base-uri hijacking, form-action exfiltration and
+// cross-origin framing. The nonce is the next tightening, not a prerequisite.
 const isDev = process.env.NODE_ENV !== "production";
 
 // The chat client (socket.io) connects to the realtime server over HTTP
 // polling + a WS upgrade, so both the http(s) and ws(s) origins are allowed.
 const realtimeHttp = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3005";
 const realtimeWs = realtimeHttp.replace(/^http/, "ws");
+
+// ---------------------------------------------------------------------------
+// CSP MODE — enforce or observe, chosen by env, not by editing this file.
+//
+// The policy shipped Report-Only "until real traffic confirms nothing legit is
+// flagged" — but it carried no report-uri and no report-to, so no traffic was
+// ever confirmed by anything. It observed nothing for months. Reporting is now
+// wired to /api/v1/security/csp-report, and the disposition is a switch:
+//
+//   CSP_MODE=enforce      (default) the policy BLOCKS, and reports what it blocks
+//   CSP_MODE=report-only            the policy only reports
+//
+// Being an env var and not a constant is the point: a policy that turns out to
+// break a real screen is rolled back by changing a variable and restarting,
+// not by shipping a code change through a build — which is the difference
+// between a minute and an hour while users are locked out.
+// ---------------------------------------------------------------------------
+const cspReportOnly = process.env.CSP_MODE === "report-only";
+const cspHeaderName = cspReportOnly
+  ? "Content-Security-Policy-Report-Only"
+  : "Content-Security-Policy";
 
 const csp = [
   `default-src 'self'`,
@@ -50,6 +79,13 @@ const csp = [
   `frame-src 'self' https://accept.paymob.com`,
   `worker-src 'self'`,
   `manifest-src 'self'`,
+  // Where violations go. BOTH spellings on purpose: `report-uri` is deprecated
+  // but is still the only one Safari and older Chrome honour, while `report-to`
+  // is what current Chrome uses and is the only one that will survive. Sending
+  // both means no browser is silently unreported. `report-to` names a group
+  // declared by the Reporting-Endpoints header below.
+  `report-uri /api/v1/security/csp-report`,
+  `report-to csp-endpoint`,
 ].join("; ");
 
 const securityHeaders = [
@@ -57,7 +93,9 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  // `report-to` above is inert without this header — it names the group.
+  { key: "Reporting-Endpoints", value: `csp-endpoint="/api/v1/security/csp-report"` },
+  { key: cspHeaderName, value: csp },
 ];
 
 /** Content hash of a file in `public/`, used as its precache revision. */
