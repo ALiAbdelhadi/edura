@@ -436,10 +436,62 @@ governs. Violating one of these is never a local change.
 > `packages/database/scripts/verify-db.ts` is read-only and safe against any
 > target: prefer running it over trusting a line written here.
 
-- **[dev, 2026-08-18]** 53 migrations, 79 tables, verify-db 27/27.
-- **[production, 2026-08-18]** 53 migrations, 79 tables, verify-db 27/27 —
-  dev and production are now IDENTICAL in shape (79 tables / 6 sequences /
-  38 RLS tables / 59 policies / 53 migrations). Bootstrapped 2026-07-31; the
+> **EVERY PRISMA COMMAND AGAINST A NON-DEV DATABASE STARTS WITH `EDURA_ENV`.**
+> Not a style preference — it is the ONLY input that selects the database, and
+> every other way of pointing prisma somewhere reaches **dev**, silently:
+>
+> ```bash
+> EDURA_ENV=production npx prisma migrate deploy   # from packages/database
+> ```
+>
+> `prisma.config.ts` loads `.env.${EDURA_ENV}` (defaulting to `.env`, which is
+> dev) and passes the resulting `DIRECT_URL` as the datasource. Sourcing
+> `.env.production` into the shell first does NOT work: measured 2026-08-20,
+> `set -a; . ./.env.production; npx prisma migrate status` reported it was
+> connected to `ep-patient-scene-…` — **dev** — while the operator believed they
+> were looking at production. The command printed a perfectly ordinary
+> "2 migrations pending" against the wrong database. `migrate deploy` run the
+> same way would have applied them there.
+>
+> So: read the `Datasource "db": … at "<host>"` line prisma prints on EVERY
+> invocation and check the endpoint before trusting anything below it.
+> Production is `ep-solitary-river-…`; dev is `ep-patient-scene-…`.
+>
+> The same variable is what arms the guard: with `EDURA_ENV=production`,
+> `prisma.config.ts` REFUSES `migrate dev`, `migrate reset`, `db push` and
+> `db execute` outright. Reaching production without it means reaching it with
+> the safety off as well as by accident.
+>
+> `scripts/*.ts` (db-guard, verify-db, wipe-data, seeds) read the same variable
+> through `scripts/load-env.ts`, so `EDURA_ENV=production npx tsx scripts/…`
+> is the one form for those too.
+
+- **[dev, 2026-08-20]** 53 migrations applied, verify-db 27/27. Dev is now
+  BEHIND production by two: `20260818130000_validate_centers_wallet_check` and
+  `20260820120000_search_normalize` are pending here and applied there. That
+  inversion is unusual and worth fixing next time dev is touched — the Arabic
+  search normalizer does not exist on dev, so anything reading
+  `edura_search_normalize` works in production and fails locally.
+- **[production, 2026-08-20]** **55 migrations, verify-db 28/28.** The two above
+  were applied 2026-08-20 with `EDURA_ENV=production npx prisma migrate deploy`.
+  Pre-flight (read-only) proved: the label reads `edura-env:production`, exactly
+  those two were pending with no sibling riding along, `centers` held no negative
+  wallet balance, and the five tables to be indexed held 9 / 2 / 1 / 0 rows — so
+  the migration's own `NOT CONCURRENTLY` caveat did not bite. After: `pg_trgm`
+  installed, `edura_search_normalize` present with EXECUTE granted to
+  `edura_app`, five `*_search_trgm` indexes built, and the normalizer proven on
+  production itself (`أحمد` == `احمد`, `فريدة` == `فريده`, `كنزي` == `كنزى`).
+  `centers_wallet_balance_nonneg` was ALREADY `convalidated` there, so the first
+  migration was the no-op its guard intends. Data untouched: 9 users / 2 centers
+  / 1 course / 0 payments / 0 transactions, identical before and after.
+  The 28th check is new — verify-db now asserts `convalidated` on that CHECK,
+  which is the gap the first of these two migrations closes for fresh
+  environments.
+- **[2026-08-18, HISTORY — the two lines above supersede it]** 53 migrations,
+  79 tables, verify-db 27/27, and dev and production identical in shape at that
+  date (79 tables / 6 sequences / 38 RLS tables / 59 policies / 53 migrations).
+  They are NO LONGER identical — see the dev line above. Bootstrapped
+  2026-07-31; the
   `centers_wallet_balance_nonneg` CHECK is VALIDATED. Bootstrap order for a
   fresh environment: `label-db` → `bootstrap-app-role` → `prisma migrate deploy`
   → `seed` → `verify-db`.
@@ -460,8 +512,10 @@ governs. Violating one of these is never a local change.
   room → center → global chain resolves, so the "no rate" case cannot arise.
   Reproduces identically against unmodified `HEAD`. Do not chase it as a code
   defect.
-- **`expected-db-shape.json`** is committed at **53** and is ACCURATE for BOTH
-  dev and production as of 2026-08-18. The old caveat here — that a `verify-db`
+- **`expected-db-shape.json`** is committed at **53**, which now matches DEV and
+  TRAILS PRODUCTION by the two migrations applied 2026-08-20 (both additive — an
+  extension, a function and five indexes — so the table/sequence/policy counts
+  are unchanged and verify-db passes 28/28 against production regardless). The old caveat here — that a `verify-db`
   run against production reporting `expected 52, got 50` was a shared-baseline
   artifact rather than a defect — NO LONGER APPLIES and has been removed. A
   shape mismatch reported today is a real mismatch: investigate it.
