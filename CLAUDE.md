@@ -466,12 +466,17 @@ governs. Violating one of these is never a local change.
 > through `scripts/load-env.ts`, so `EDURA_ENV=production npx tsx scripts/…`
 > is the one form for those too.
 
-- **[dev, 2026-08-20]** 53 migrations applied, verify-db 27/27. Dev is now
-  BEHIND production by two: `20260818130000_validate_centers_wallet_check` and
-  `20260820120000_search_normalize` are pending here and applied there. That
-  inversion is unusual and worth fixing next time dev is touched — the Arabic
-  search normalizer does not exist on dev, so anything reading
-  `edura_search_normalize` works in production and fails locally.
+- **[dev, 2026-08-20]** **55 migrations, verify-db 28/28** — level with
+  production again. The two were applied the same day and the same way
+  (`npx prisma migrate deploy`, EDURA_ENV unset, which is what selects dev; the
+  printed datasource read `ep-patient-scene-…`). Pre-flight matched production's:
+  `centers_wallet_balance_nonneg` was already `convalidated`, no negative wallet
+  balance, no `*_search_trgm` index yet. Data untouched: 257 users / 71 centers
+  / 62 courses before and after.
+  **The normalizer proven against real dev rows, which is the whole point:**
+  searching `احمد` through `edura_search_normalize` returns 3 (أحمد الشناوي,
+  أ. أحمد الشناوي, يوسف أحمد) where plain `ILIKE '%احمد%'` returns **0** — the
+  exact failure the migration header measured on 2026-08-19.
 - **[production, 2026-08-20]** **55 migrations, verify-db 28/28.** The two above
   were applied 2026-08-20 with `EDURA_ENV=production npx prisma migrate deploy`.
   Pre-flight (read-only) proved: the label reads `edura-env:production`, exactly
@@ -512,10 +517,12 @@ governs. Violating one of these is never a local change.
   room → center → global chain resolves, so the "no rate" case cannot arise.
   Reproduces identically against unmodified `HEAD`. Do not chase it as a code
   defect.
-- **`expected-db-shape.json`** is committed at **53**, which now matches DEV and
-  TRAILS PRODUCTION by the two migrations applied 2026-08-20 (both additive — an
-  extension, a function and five indexes — so the table/sequence/policy counts
-  are unchanged and verify-db passes 28/28 against production regardless). The old caveat here — that a `verify-db`
+- **`expected-db-shape.json`** is committed at **53** and now TRAILS BOTH
+  environments, which sit at 55 since 2026-08-20. Harmless as it stands: both
+  migrations are additive — an extension, a function and five indexes — so the
+  table / sequence / policy counts the file pins are unchanged and verify-db
+  passes 28/28 against dev and production alike. Re-baseline it the next time
+  the shape itself moves. The old caveat here — that a `verify-db`
   run against production reporting `expected 52, got 50` was a shared-baseline
   artifact rather than a defect — NO LONGER APPLIES and has been removed. A
   shape mismatch reported today is a real mismatch: investigate it.
