@@ -48,7 +48,13 @@ how the false positives above were caught rather than acted on.
 
 ## 2. Deleted
 
-### 2.1 Translation keys — 11 keys, removed from BOTH `ar` and `en`
+### 2.1 Translation keys — 44 keys, removed from BOTH `ar` and `en`
+
+Two rounds. The first took the eleven this pass orphaned; the second took the
+thirty-three that were already dead when it started, once they had been
+re-verified against the tree as it stands.
+
+#### Round 1 — orphaned by this pass (11)
 
 All eleven were verified three ways: unused now, used at `9e8ce65`, and a direct
 repo-wide grep (including `.mdx`, `.md` and the seeds) returning no consumer.
@@ -64,6 +70,47 @@ repo-wide grep (including `.mdx`, `.md` and the seeds) returning no consumer.
 `studentClass.enrolledCourses` needed a second look: a repo grep hits
 `preview-seed.ts`, but those are a local JavaScript variable of the same name,
 not a translation key.
+
+#### Round 2 — already dead before this pass (33)
+
+Residue of three earlier removals whose components were deleted but whose keys
+were not: the assignments screen (there is no `Assignment` model), the
+standalone Browse Courses page absorbed into Subjects, and the 2026-08-10
+portal de-duplication. No surviving component or screen file references any of
+them — `find` for `*assignment*` and `*browse*` under `apps/erp/src` returns
+nothing, so these were keys without code, not code without keys.
+
+Each was re-checked individually against the CURRENT tree before deletion, with
+the suffix-aware matcher, and all thirty-three returned zero consumers.
+
+```
+studentBrowse.allSubjects, hideFilters, moreFilters, noCourses,
+  noDescription, priceRange, seatsFilled                                   (7)
+studentClass.assignment, assignmentsSubtitle, averagePercent, dueVsCompleted,
+  filterAll, noAssignments, noSubjectTrend, noWeeklyTrend, overallGpa,
+  subjectComparison, totalEntries, weekShort                              (12)
+studentDashboard.allGrades, gradeTrend, noClassesToday, noGradeTrend,
+  noPerformanceData, scheduleEyebrow, subjectPerformance, thisWeek,
+  viewAttendance, yourRecord                                              (10)
+studentFamilyCode.invalidEmail                                             (1)
+studentIdCard.pendingBody                                                  (1)
+studentMaterials.uploaded                                                  (1)
+studentReviews.eligibleTeachers                                            (1)
+```
+
+`studentClass.assignment` is the thirty-third and was not in the original list
+of thirty-two — an earlier classification put it on the wrong side of the
+baseline. It is dead by direct grep, and it belongs to the same assignments
+cluster as the twelve beside it, so leaving one member behind would have been
+an inconsistency nobody could explain later.
+
+**What deleting these did NOT touch:** `dashboards/student` still computes and
+ships `subjectPerformance`, `analytics.gradeTrend` and a hardcoded
+`unreadMessages: 0`. Removing a response field is an API change and outside a
+pass that reads existing endpoints only. `subjectPerformance` is in fact still
+read — `student-dashboard.tsx` uses its length to decide whether the account is
+empty enough to show the practice invite — so only its LABEL was dead. The
+contract cleanup stays flagged in that route's header.
 
 ### 2.2 Code
 
@@ -90,36 +137,7 @@ next person does not re-add it.
 
 ## 3. Found orphaned and deliberately LEFT
 
-### 3.1 Already dead before this pass — 32 keys
-
-Dead at `9e8ce65` and dead now, so nothing here was caused by the IA work. They
-are the residue of three earlier removals: the assignments screen (there is no
-`Assignment` model), the standalone Browse Courses page absorbed into Subjects,
-and the 2026-08-10 portal de-duplication.
-
-```
-studentBrowse.allSubjects, hideFilters, moreFilters, noCourses,
-  noDescription, priceRange, seatsFilled
-studentClass.assignment, assignmentsSubtitle, averagePercent, dueVsCompleted,
-  filterAll, noAssignments, noSubjectTrend, noWeeklyTrend, overallGpa,
-  subjectComparison, totalEntries, weekShort
-studentDashboard.allGrades, gradeTrend, noClassesToday, noGradeTrend,
-  noPerformanceData, scheduleEyebrow, subjectPerformance, thisWeek,
-  viewAttendance, yourRecord
-studentFamilyCode.invalidEmail
-studentIdCard.pendingBody
-studentMaterials.uploaded
-studentReviews.eligibleTeachers
-```
-
-**Why left:** this pass's remit was the student IA, and the cleanup rule is about
-not leaving one's own removals half-done. Deleting another workstream's residue
-in the same commit would hide this pass's actual footprint inside a much larger
-diff, and `studentBrowse.*` in particular is a coherent set that a future browse
-surface would want back. They are listed here so the decision is a decision
-rather than an oversight — a follow-up commit can take the whole block at once.
-
-### 3.2 Belongs to work in flight — 3 keys
+### 3.1 Belongs to work in flight — 3 keys
 
 `studentClass.presentDays`, `lateExcused`, `absentDays`.
 
@@ -129,7 +147,7 @@ the three attendance `Metric` cards with a `DonutChart` in
 and that file is being edited right now — the donut may yet want the same three
 labels for its legend. Deleting them would be deleting under someone's hands.
 
-### 3.3 Live despite looking dead — do not delete
+### 3.2 Live despite looking dead — do not delete
 
 `studentWallet.type_topup`, `type_payment`, `type_refund`, `type_adjustment`.
 
@@ -160,10 +178,11 @@ Two things the audit expected to find dead and did not:
 - `bun run check-types` — clean for every file this pass owns.
 - `bun run test:unit` — **81 files, 1284 passing**, 1 skipped.
 - `tests/unit/i18n-parity.test.ts` — 61 passing, so `ar` and `en` were kept in
-  step through all eleven deletions.
+  step through all forty-four deletions.
 - `bunx eslint src/features/student src/features/attendance` — 0 errors.
-- The before/after key diff re-run after the deletions: **0 keys regressed by
-  this work**.
+- The audit re-run after both rounds: **0 pre-existing orphans left, 0 keys
+  regressed by this work.** The only three dead keys remaining in the student
+  catalogue are §3.2's, which belong to an edit in flight.
 
 One typecheck error stands in `features/attendance/settle-lesson-card.tsx`
 (`Cannot find name 'TotalLine'`). It is in the parallel session's in-flight edit,
