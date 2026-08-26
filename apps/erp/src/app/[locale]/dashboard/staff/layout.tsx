@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requirePortal } from "@/lib/auth/portal-gate";
+import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { getStaffMe } from "@/lib/services/center/staff";
 import PortalChrome from "./portal-chrome";
@@ -28,15 +29,22 @@ export default async function StaffLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const user = await requirePortal("center_staff", locale);
+  const actor = await requirePortal("center_staff", locale);
 
   let staffRole;
   try {
-    staffRole = (await getStaffMe(user)).role;
+    staffRole = (await getStaffMe(actor)).role;
   } catch (err) {
     if (err instanceof ForbiddenError) redirect(`/${locale}/login`);
     throw err;
   }
 
-  return <PortalChrome staffRole={staffRole}>{children}</PortalChrome>;
+  return (
+    <>
+      <AnalyticsIdentity
+        session={{ id: actor.id, role: actor.role, centerId: actor.centerId ?? null }}
+      />
+      <PortalChrome staffRole={staffRole}>{children}</PortalChrome>
+    </>
+  );
 }

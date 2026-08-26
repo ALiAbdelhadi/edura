@@ -2,8 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import type { SessionLike } from "@repo/observability";
-import { capturePageview, captureEvent, identifyUser, initAnalytics } from "./posthog-client";
+import { capturePageview, captureEvent, initAnalytics } from "./posthog-client";
 import { registerTrackSink } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
 
@@ -11,17 +10,13 @@ import { ANALYTICS_EVENTS } from "@repo/observability";
  * Mount once, high in the tree. Does nothing at all when
  * NEXT_PUBLIC_POSTHOG_KEY is unset — which is every local and CI run.
  *
- * `session` comes from the server layout, so identification happens on the
- * first render rather than after a client round-trip. Passing `null` is
- * meaningful: it resets any previous person on a shared device.
+ * Init, pageviews and the `track()` sink only. WHO the visitor is is not this
+ * component's business any more: it took a `session` prop that the root layout
+ * filled with `await getSessionUser()`, and that one cookie read made every page
+ * in the app dynamic. Identity now comes from `AnalyticsIdentity`, mounted by
+ * the portal layouts that read the session anyway — see the note in that file.
  */
-export function AnalyticsProvider({
-  session,
-  children,
-}: {
-  session: SessionLike | null;
-  children?: React.ReactNode;
-}) {
+export function AnalyticsProvider({ children }: { children?: React.ReactNode }) {
   useEffect(() => {
     initAnalytics();
     // Point the app-wide `track()` seam at PostHog. Registering it HERE rather
@@ -32,11 +27,6 @@ export function AnalyticsProvider({
     // (or without) a PostHog key is harmless.
     registerTrackSink(captureEvent);
   }, []);
-
-  useEffect(() => {
-    identifyUser(session);
-    // Re-identify when the ACTOR changes, not on every render of a new object.
-  }, [session?.id, session?.role, session?.centerId]);
 
   return (
     <>
