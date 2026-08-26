@@ -135,15 +135,31 @@ describe("role portals", () => {
           // CI runner takes tens of seconds — a 2s sample reads the OLD url
           // and fails a navigation that was merely still compiling.
           let arrived = false;
+          const links = page.locator(`a[href*='${role.portal}/${seg}']`);
           for (let attempt = 1; attempt <= 2 && !arrived; attempt++) {
-            await page
-              .locator(`a[href*='${role.portal}/${seg}']`)
-              .first()
-              .click({ timeout: 15_000 });
+            await links.first().click({ timeout: 15_000 });
             arrived = await page
               .waitForURL(`**${role.portal}/${seg}**`, { timeout: 60_000 })
               .then(() => true)
               .catch(() => false);
+          }
+          if (!arrived) {
+            // A clicked link that navigates nowhere twice needs facts, not a
+            // stack trace: how many elements matched, which were visible, and
+            // whether anything modal sat above them at that moment.
+            const n = await links.count();
+            const vis: string[] = [];
+            for (let i = 0; i < Math.min(n, 4); i++) {
+              const l = links.nth(i);
+              vis.push(
+                `#${i} visible=${await l.isVisible().catch(() => "?")} box=${JSON.stringify(await l.boundingBox().catch(() => null))}`,
+              );
+            }
+            console.error(
+              `[e2e-diag] ${role.portal}/${seg}: url=${page.url()} matches=${n} | ${vis.join(" | ")}` +
+                ` | modals=${await page.locator("[role=dialog][aria-modal=true]").count()}` +
+                ` | dims=${await page.locator("[class*='guided-tour'][class*='dim']").count()}`,
+            );
           }
           expect(new URL(page.url()).pathname).toContain(seg);
         }
