@@ -4,7 +4,7 @@ import { paymobDriver } from "./paymob-driver";
 import { paymentsMode } from "./types";
 
 export type { PaymentGatewayDriver, WebhookEvent, CheckoutInfo } from "./types";
-export { paymentsMode } from "./types";
+export { paymentsMode, onlineCheckoutAvailable } from "./types";
 export { signMockWebhook } from "./mock-driver";
 
 /**

@@ -743,8 +743,12 @@ docs/security/security-audit.md for the full report and severities.
 - **M3** — shared-store (Redis) rate limiter + trusted client-IP hop.
   *Implemented + proven, awaiting review* (adds REDIS_URL / TRUSTED_PROXY_HOPS /
   TRUSTED_CLIENT_IP_HEADER; falls back to in-memory when REDIS_URL unset).
-- **M4** — return a generic "Internal error" for unhandled errors in prod (stop
-  leaking raw err.message).
+- **M4** — *Done (verified 2026-08-26):* `toErrorResponse` in the shared kernel
+  (`packages/server-core/src/errors/http.ts`, both apps' `@/lib/errors/http`
+  re-export it) logs the real error server-side in every environment and
+  returns a fixed "Internal error" for the unhandled branch in production;
+  AppError / mapped-Prisma messages stay intentional. Proof:
+  apps/erp/tests/unit/m4-error-messages.test.ts (4/4).
 - **M7** — cron auth: require CRON_SECRET unconditionally (fail closed if
   unset) and drop the side-effectful GET alias.
   *Done (2026-07-20):* `authorized()` returns false when CRON_SECRET is unset
@@ -762,7 +766,13 @@ docs/security/security-audit.md for the full report and severities.
   security-sensitive runtime dep (next/react/next-auth/prisma/bcryptjs/zod/
   jose/socket.io/ioredis) was bumped — deliberately out of scope.
 - Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
-  **M6** (materials %PDF- magic-byte check), **M8** (kill $queryRawUnsafe).
+  **M6** (materials %PDF- magic-byte check).
+- **M8** — *Done (2026-08-26):* the last `$queryRawUnsafe` (a fully static
+  query in `packages/database/scripts/reconcile-wallets.ts`) converted to the
+  tagged-template `$queryRaw` (byte-identical behaviour, proven by a dry run
+  against dev), and `apps/erp/tests/unit/m8-no-raw-unsafe.test.ts` scans
+  apps + packages so `$queryRawUnsafe` / `$executeRawUnsafe` can never
+  reappear without a red test.
 - Then **Step 10** — final cleanup pass (batch the remaining L-findings; flip
   the CSP to enforce; VALIDATE the centers wallet CHECK after the Step 9 wipe).
 

@@ -59,6 +59,21 @@ export interface PaymentGatewayDriver {
   ): WebhookVerification;
 }
 
+/**
+ * MVP blocker #2 (docs/reports/mvp-launch-plan.md): may the app OFFER an
+ * online checkout right now?
+ *
+ * In production with the MOCK gateway the answer is NO: C1 removed
+ * mock-complete from production entirely, so a mock checkout is a charge that
+ * can never settle — a dead button. Every online CTA consults this (absent,
+ * not disabled, per D-027) and every gateway INITIATOR asserts it, so the
+ * promise and the capability can never disagree. Internal-wallet payments
+ * (payFrom wallet / parent_wallet) never touch the gateway and stay up.
+ */
+export function onlineCheckoutAvailable(): boolean {
+  return !(paymentsMode() === "mock" && process.env.NODE_ENV === "production");
+}
+
 export function paymentsMode(): PaymentsMode {
   const raw = process.env.PAYMENTS_MODE?.toLowerCase();
   const isProd = process.env.NODE_ENV === "production";

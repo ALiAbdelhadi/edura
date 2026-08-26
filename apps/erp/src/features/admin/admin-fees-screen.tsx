@@ -55,6 +55,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Amount, Badge, Computation, DateText, Eyebrow, FinalityNotice, Num, PageHead, Sheet, SheetHead, TwoStepCommit, postMoney, readApiError } from "./ledger";
 import { goToCheckout } from "@/lib/payments/checkout-redirect";
+import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -138,6 +139,9 @@ export function AdminFeesScreen() {
   const [creditTopupEgp, setCreditTopupEgp] = useState("");
   const [creditBusy, setCreditBusy] = useState(false);
   const [creditMockIntent, setCreditMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
+  // MVP blocker #2: the top-up CONTROLS are absent when online checkout
+  // cannot settle; the balance, arrears hint and ledger always render.
+  const onlineCheckout = useOnlineCheckout();
 
   const initiateCreditTopup = async () => {
     const egp = Number(creditTopupEgp);
@@ -872,7 +876,7 @@ export function AdminFeesScreen() {
                 {t("adminManage.fees.creditArrearsHint")}
               </p>
             ) : null}
-            {creditMockIntent ? (
+            {!onlineCheckout ? null : creditMockIntent ? (
               <div className="flex flex-col gap-2 rounded-lg border border-[var(--rule)] bg-[var(--field)] p-3">
                 <span className="text-[13px] text-[var(--ink-2)]">
                   {t("adminManage.fees.creditMockConfirm", {

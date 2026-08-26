@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useCustom, useList, useCustomMutation } from "@refinedev/core";
 import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -124,6 +125,11 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   // Subscription checkout (Step 4): plan price is a server-side snapshot; the
   // client only names the plan. In mock mode the returned checkout URL points
   // at the local mock gateway, so we confirm via the mock-complete endpoint.
+  // MVP blocker #2: when online checkout cannot settle, the subscribe
+  // buttons are ABSENT and an honest note points at the center's counter —
+  // which is where an MVP subscription actually happens.
+  const onlineCheckout = useOnlineCheckout();
+
   const handleSubscribe = async (course: CourseHit, plan: "monthly" | "per_session") => {
     setLoadingId(course.id);
     try {
@@ -257,7 +263,12 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               </div>
             </div>
 
-            {course.pricePerMonth || course.pricePerSession ? (
+            {(course.pricePerMonth || course.pricePerSession) && !onlineCheckout ? (
+              <p className="m-0 max-w-48 shrink-0 self-center text-[12.5px] leading-relaxed text-ink-2 sm:text-end">
+                {t("studentSubjects.subscribeAtCenter")}
+              </p>
+            ) : null}
+            {(course.pricePerMonth || course.pricePerSession) && onlineCheckout ? (
               <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
                 {course.pricePerMonth ? (
                   /* The button carries its own amount (§1). The amount is a

@@ -147,6 +147,13 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
       "cares most about. Bounded by a per-IP bucket instead.",
     mustContain: ["withRateLimit"],
   },
+  "v1/payments/availability": {
+    reason:
+      "one boolean — may the UI offer an online checkout (MVP blocker #2). " +
+      "Leaks nothing; the gateway initiators assert the same predicate " +
+      "server-side, so this endpoint informs and never authorizes.",
+    getOnly: true,
+  },
   "v1/payments/paymob/webhook": {
     reason: "gateway webhook — authenticity is the HMAC over the raw body",
     mustContain: ["verifyWebhook"],

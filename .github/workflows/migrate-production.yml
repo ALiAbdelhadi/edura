@@ -24,13 +24,19 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "status = read-only pre-flight; deploy = apply pending migrations"
+        description: "status/census = read-only; deploy = migrations; cleanup = pre-launch residue wipe (MVP blocker #7)"
         required: true
         default: status
         type: choice
         options:
           - status
           - deploy
+          - census
+          - cleanup
+      confirm:
+        description: "cleanup only: must be exactly wipe-<N>-users, N from the census run you just read"
+        required: false
+        type: string
 
 concurrency:
   group: migrate-production
@@ -70,6 +76,7 @@ jobs:
         run: bunx tsx scripts/db-guard.ts production
 
       - name: Migration status (read-only)
+        if: inputs.mode == 'status' || inputs.mode == 'deploy'
         working-directory: packages/database
         env:
           DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
@@ -88,6 +95,36 @@ jobs:
 
       - name: Verify shape after deploy
         if: inputs.mode == 'deploy'
+        working-directory: packages/database
+        env:
+          DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+          ADMIN_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+        run: bunx tsx scripts/verify-db.ts
+
+      # ---- MVP blocker #7: pre-launch residue wipe -------------------------
+      # Two-step like migrations themselves: census (read-only, names every
+      # row) → read the output → cleanup with confirm=wipe-<N>-users. The
+      # script's own rails re-check the label, the staff set, and the catalog
+      # counts inside the same transaction.
+      - name: Pre-launch census (read-only)
+        if: inputs.mode == 'census'
+        working-directory: packages/database
+        env:
+          DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+        run: bunx tsx scripts/production-cleanup.ts census
+
+      - name: Pre-launch cleanup (residue wipe)
+        if: inputs.mode == 'cleanup'
+        working-directory: packages/database
+        env:
+          DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.BACKUP_DIRECT_URL }}
+        run: bunx tsx scripts/production-cleanup.ts cleanup --confirm='${{ inputs.confirm }}'
+
+      - name: Verify shape after cleanup
+        if: inputs.mode == 'cleanup'
         working-directory: packages/database
         env:
           DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}

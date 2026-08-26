@@ -1,0 +1,58 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// MVP blocker #2 (docs/reports/mvp-launch-plan.md): in production with the
+// MOCK gateway an online checkout can never settle (C1 removed mock-complete
+// from production), so the capability must answer NO — and every gateway
+// initiator must refuse rather than mint a dead charge. Internal-wallet
+// payments never consult this gate.
+
+const platformDb = vi.fn(async () => {
+  throw new Error("platformDb must not be reached when the gate refuses");
+});
+vi.mock("@/lib/db/scope", () => ({
+  platformDb: (...a: unknown[]) => platformDb(...(a as [])),
+  scopedDb: vi.fn(),
+}));
+
+const { onlineCheckoutAvailable } = await import("@/lib/services/payments/gateway");
+const { initiateWalletTopUpIntent } = await import("@/lib/services/wallet/wallet");
+const { BusinessRuleError } = await import("@/lib/errors/classes");
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  platformDb.mockClear();
+});
+
+describe("onlineCheckoutAvailable — the one predicate", () => {
+  it("production + mock → NOT available (the dead-button case)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMENTS_MODE", "mock");
+    expect(onlineCheckoutAvailable()).toBe(false);
+  });
+
+  it("production + live → available", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMENTS_MODE", "live");
+    expect(onlineCheckoutAvailable()).toBe(true);
+  });
+
+  it("development + mock → available (the local mock-complete loop works)", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PAYMENTS_MODE", "mock");
+    expect(onlineCheckoutAvailable()).toBe(true);
+  });
+});
+
+describe("the initiators assert the same predicate", () => {
+  it("wallet top-up refuses in production+mock BEFORE touching the database", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMENTS_MODE", "mock");
+    await expect(
+      initiateWalletTopUpIntent(
+        { amount: 5000, method: "card", idempotencyKey: "gate-test-0001" },
+        { id: "s1", role: "student" } as never,
+      ),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+    expect(platformDb).not.toHaveBeenCalled();
+  });
+});

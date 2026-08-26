@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { Wallet, Plus, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -75,6 +76,8 @@ export function ParentWalletScreen() {
   const entries = asArray<Entry>(histRes?.data);
 
   const [topupOpen, setTopupOpen] = useState(false);
+  // MVP blocker #2: absent, not disabled (D-027).
+  const onlineCheckout = useOnlineCheckout();
   const [amountEgp, setAmountEgp] = useState("");
   const [busy, setBusy] = useState(false);
   const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
@@ -146,10 +149,12 @@ export function ParentWalletScreen() {
         title={t("nav.parentWallet")}
         description={t("parentWallet.subtitle")}
         actions={
-          <Button onClick={() => setTopupOpen(true)}>
-            <Plus className="size-4" />
-            {t("parentWallet.topUp")}
-          </Button>
+          onlineCheckout ? (
+            <Button onClick={() => setTopupOpen(true)}>
+              <Plus className="size-4" />
+              {t("parentWallet.topUp")}
+            </Button>
+          ) : null
         }
       />
 

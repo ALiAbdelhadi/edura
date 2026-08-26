@@ -111,7 +111,13 @@ const withSerwist = withSerwistInit({
   cacheOnNavigation: true,
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV === "development" && process.env.SERWIST_DEV !== "1",
+  // SERWIST_DISABLE=1 is the TEST-DEPLOY lever (Vercel-as-testbed, 2026-08-26):
+  // the service-worker pass is a second webpack compilation and a real share of
+  // the build's memory peak. A test deployment that only needs the app, not the
+  // PWA, can skip it (bun run build:light). Production/VPS builds keep it.
+  disable:
+    process.env.SERWIST_DISABLE === "1" ||
+    (process.env.NODE_ENV === "development" && process.env.SERWIST_DEV !== "1"),
   exclude: [/.*/],
   // THE REVISION MUST BE A CONTENT HASH, and this was a literal "v1".
   //
@@ -197,6 +203,22 @@ const nextConfig = {
     // step that writes next-env.d.ts loads the API too. With it, Next shells
     // out to the `tsc` binary instead.
     useTypeScriptCli: true,
+
+    // The OTHER Vercel memory failure, sibling of the tsc OOM above — the
+    // WEBPACK COMPILE itself. Twice (2026-08-19 and 2026-08-26) the build
+    // logged "Creating an optimized production build ..." and then went
+    // SILENT for 45 minutes until the platform killed it (deploys
+    // edura-4s5z56tyx, edura-fvkh2cwzy): the 2-core/8GB builder SIGKILLs a
+    // webpack worker under memory pressure and the parent waits forever on a
+    // dead child. Intermittent — the same commit often builds Ready in ~3m on
+    // retry, which is what made it look haunted. This flag trades a little
+    // build speed for a lower peak (Next reuses/frees module buffers), and
+    // vercel.json caps V8's old space so a genuine overrun dies FAST AND
+    // VISIBLY as an OOM stack instead of a 46-minute silent hang. The clean
+    // fix remains a bigger build machine (Vercel project settings → Build &
+    // Development → Build Machine), which is a dashboard toggle only Ali can
+    // flip.
+    webpackMemoryOptimizations: true,
 
     // Enables the `"use cache"` directive ONLY. This is deliberately NOT
     // `cacheComponents` (Next 16's renamed dynamicIO): that flag changes

@@ -1,9 +1,9 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
-import { ForbiddenError, NotFoundError } from "@/lib/errors/classes";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Prisma } from "@repo/database";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
-import { resolveDriver } from "@/lib/services/payments/gateway";
+import { resolveDriver, onlineCheckoutAvailable } from "@/lib/services/payments/gateway";
 import type { SettleNotification } from "@/lib/services/payments/payment-intents";
 import {
   getWalletSettings,
@@ -72,6 +72,12 @@ export async function initiateParentWalletTopUpIntent(
 ) {
   if (user.role !== "parent") throw new ForbiddenError("Parents only");
   const driver = resolveDriver();
+  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
+  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
+  // mint a charge that is a dead end in production-with-mock.
+  if (!onlineCheckoutAvailable()) {
+    throw new BusinessRuleError("Online payments are not available yet");
+  }
 
   const { intent, parent } = await platformDb(
     async (tx) => {

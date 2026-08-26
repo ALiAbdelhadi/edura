@@ -75,7 +75,11 @@ const egp = (piasters: number) => (piasters / 100).toFixed(2);
  */
 async function collect(): Promise<Drift[]> {
   return withPlatformContext(async (tx) => {
-    const rows = await tx.$queryRawUnsafe<
+    // M8: the tagged-template raw query, never the Unsafe string variant.
+    // The SQL was always static — nothing interpolates into it — so this is
+    // byte-identical in behaviour; the point is that the injection-shaped API
+    // greps to ZERO in this repo (m8-no-raw-unsafe.test.ts keeps it that way).
+    const rows = await tx.$queryRaw<
       {
         kind: "student" | "parent";
         user_id: string;
@@ -84,7 +88,7 @@ async function collect(): Promise<Drift[]> {
         ledger_sum: number;
         newest: number;
       }[]
-    >(`
+    >`
       SELECT 'student'::text AS kind, wl.student_id AS user_id, u.email AS label,
              sp.wallet_balance AS cached,
              SUM(wl.delta)::int AS ledger_sum,
@@ -108,7 +112,7 @@ async function collect(): Promise<Drift[]> {
         JOIN parent_profiles pp ON pp.user_id = pl.parent_id
         LEFT JOIN users u ON u.id = pl.parent_id
        GROUP BY pl.parent_id, u.email, pp.wallet_balance
-    `);
+    `;
 
     return rows
       .map((r) => ({

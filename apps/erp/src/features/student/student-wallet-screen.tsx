@@ -18,6 +18,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { newIdempotencyKey } from "@/features/student/idempotency";
 import { goToCheckout } from "@/lib/payments/checkout-redirect";
+import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { StudentReceiptsSection } from "@/features/student/student-receipts-section";
 import {
   Chip,
@@ -132,6 +133,9 @@ export function StudentWalletScreen() {
   const [tab, setTab] = useState<"history" | "receipts">("history");
   const [showAll, setShowAll] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
+  // MVP blocker #2: absent, not disabled (D-027) — no dead top-up button
+  // in production-with-mock. The initiator asserts the same server-side.
+  const onlineCheckout = useOnlineCheckout();
   const [amountEgp, setAmountEgp] = useState("");
   const [busy, setBusy] = useState(false);
   const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
@@ -218,10 +222,12 @@ export function StudentWalletScreen() {
         title={t("nav.wallet")}
         subtitle={t("studentWallet.subtitle")}
         actions={
-          <LedgerButton variant="primary" onClick={() => setTopupOpen(true)}>
-            <Plus className="size-4" aria-hidden />
-            {t("studentWallet.topUp")}
-          </LedgerButton>
+          onlineCheckout ? (
+            <LedgerButton variant="primary" onClick={() => setTopupOpen(true)}>
+              <Plus className="size-4" aria-hidden />
+              {t("studentWallet.topUp")}
+            </LedgerButton>
+          ) : null
         }
       />
 

@@ -16,7 +16,7 @@ import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
-import { resolveDriver, type WebhookEvent } from "./gateway";
+import { resolveDriver, type WebhookEvent, onlineCheckoutAvailable } from "./gateway";
 
 const INTENT_TTL_MS = 60 * 60 * 1000; // 1h checkout window
 
@@ -36,6 +36,12 @@ export async function initiatePayment(
   if (user.role !== "student") throw new ForbiddenError("Students only");
 
   const driver = resolveDriver();
+  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
+  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
+  // mint a charge that is a dead end in production-with-mock.
+  if (!onlineCheckoutAvailable()) {
+    throw new BusinessRuleError("Online payments are not available yet");
+  }
 
   const { intent, student } = await platformDb(
     async (tx) => {
@@ -122,6 +128,12 @@ export async function initiateSubscriptionIntent(
   user: SessionUser,
 ) {
   const driver = resolveDriver();
+  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
+  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
+  // mint a charge that is a dead end in production-with-mock.
+  if (!onlineCheckoutAvailable()) {
+    throw new BusinessRuleError("Online payments are not available yet");
+  }
   // A parent checking out for their child pays as themselves; the student stays
   // the beneficiary. NULL for a student, which is what every pre-existing
   // subscription intent means.

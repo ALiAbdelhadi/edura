@@ -145,7 +145,8 @@
     "mockPay": "Complete payment",
     "mockFail": "Simulate failure",
     "seats": "Seats",
-    "noTrackSubjectsHint": "If your year or track is not set yet, ask your center — you can browse all subjects meanwhile."
+    "noTrackSubjectsHint": "If your year or track is not set yet, ask your center — you can browse all subjects meanwhile.",
+    "subscribeAtCenter": "Subscribe and pay at the center — online payment is not available yet."
   },
   "studentWallet": {
     "subtitle": "Top up and pay for classes from your balance",

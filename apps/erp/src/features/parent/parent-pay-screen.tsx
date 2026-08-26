@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useChildSelector } from "@/components/ui/child-selector";
 import { goToCheckout } from "@/lib/payments/checkout-redirect";
+import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
 import {
@@ -342,6 +343,8 @@ export function ParentPayScreen() {
   // Checkout
   // -------------------------------------------------------------------------
 
+  const onlineCheckout = useOnlineCheckout();
+
   const pay = async (payFrom: "gateway" | "parent_wallet") => {
     if (!pending || !childId) return;
     setBusy(true);
@@ -574,10 +577,15 @@ export function ParentPayScreen() {
               </div>
 
               <div className="space-y-2">
-                <Button className="w-full justify-start" disabled={busy} onClick={() => pay("gateway")}>
-                  <CreditCard className="size-4" />
-                  {t("parentPay.payByCard")}
-                </Button>
+                {/* MVP blocker #2: the gateway leg is ABSENT when online
+                    checkout cannot settle; the parent-wallet leg is internal
+                    money and stays up either way. */}
+                {onlineCheckout ? (
+                  <Button className="w-full justify-start" disabled={busy} onClick={() => pay("gateway")}>
+                    <CreditCard className="size-4" />
+                    {t("parentPay.payByCard")}
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   className="w-full justify-start"
