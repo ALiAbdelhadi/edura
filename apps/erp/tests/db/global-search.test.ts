@@ -347,9 +347,15 @@ async function main() {
       session(ownerA, "center_admin", centerA),
       receiptB,
     );
+    // NOT `length === 0`: the query `RCP-<TAG>-B` tokenizes, and whenever the
+    // random tag happens to contain the letter «b» every term also exists in
+    // centre A's OWN payment haystack — so the search legitimately returns
+    // A's own receipt, and a zero-count assertion misread that own-tenancy
+    // substring match as a leak (~15% of runs; the CI flake of 2026-08-26).
+    // The tenancy claim is exact: THEIR receipt never surfaces here.
     assert(
-      hits(foreignReceipt, "payment").length === 0,
-      "TENANCY: the other centre's receipt number resolves to NOTHING",
+      hits(foreignReceipt, "payment").every((h) => h.badge !== receiptB),
+      "TENANCY: the other centre's receipt number resolves to NOTHING of theirs",
     );
 
     /* ── 2) the tier map ───────────────────────────────────────────────── */
