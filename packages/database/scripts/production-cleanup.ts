@@ -191,14 +191,27 @@ async function main() {
       // commission_settings is in PRESERVE? No — keep it OUT of PRESERVE so
       // override rows die; the WHERE above protects the global row.
 
+      // Parents-last hint: RESTRICT FKs (rooms→centers, courses→centers…)
+      // fail their pass until the children are gone; ordering the known
+      // parents last makes most runs converge in one pass. The savepoint
+      // pattern below is what makes a failed DELETE recoverable at all: in
+      // Postgres an error ABORTS the transaction unless you roll back to a
+      // savepoint taken BEFORE the failing statement.
+      const PARENTS_LAST = ["sessions", "courses", "rooms", "centers", "users"];
+      const ordered = [
+        ...victims.filter((t) => !PARENTS_LAST.includes(t)),
+        ...PARENTS_LAST.filter((t) => victims.includes(t)),
+      ];
+
       const deleted: Record<string, number> = {};
       let pass = 0;
       for (;;) {
         pass += 1;
         if (pass > 10) throw new Error("FK passes did not converge — aborting (rolled back)");
         let any = false;
-        for (const t of victims) {
+        for (const t of ordered) {
           const w = whereClauses[t];
+          await c.query("SAVEPOINT del_one");
           try {
             const res = w
               ? await c.query(w.sql, w.params as never)
@@ -207,10 +220,12 @@ async function main() {
               deleted[t] = (deleted[t] ?? 0) + (res.rowCount ?? 0);
               any = true;
             }
+            await c.query("RELEASE SAVEPOINT del_one");
           } catch (err) {
-            // FK violation this pass — children go first on a later pass.
+            // FK violation this pass — restore the tx, children go first on a
+            // later pass.
             if ((err as { code?: string }).code === "23503") {
-              await c.query("SAVEPOINT retry"); // keep the tx alive
+              await c.query("ROLLBACK TO SAVEPOINT del_one");
               continue;
             }
             throw err;
