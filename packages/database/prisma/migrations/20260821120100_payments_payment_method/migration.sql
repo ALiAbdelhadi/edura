@@ -1,0 +1,19 @@
+-- MC-3 (EDURA_IMPROVEMENT_REPORT.md §6.1.1), migration 2 of 2.
+--
+-- THE GAP THIS CLOSES: `payments` never said how the money arrived, so no
+-- screen could split the drawer — the method was written to the sibling
+-- Transaction and to Subscription but never to the receipt itself, and the
+-- centre could not reconcile cash against Edura at all (CENTER_IA_AUDIT §7.2
+-- #8; the takings card ships deliberately unsplit with an in-code guard in
+-- apps/erp/src/features/admin/takings.ts pointing here).
+--
+-- BACKFILL RULE (approved decision, 2026-08-21): every pre-existing row reads
+-- 'unknown'. NOT 'cash' — most old rows probably were cash, and "probably" is
+-- exactly the word that has no place in a money column. ADD COLUMN with a
+-- constant DEFAULT is a fast (catalog-only) backfill on Postgres 11+, so this
+-- does not rewrite the table.
+--
+-- The DEFAULT stays after the backfill, deliberately: a future writer that
+-- forgets to set the method produces an honest 'unknown', never a lie. All six
+-- current writers set it explicitly (see the same-commit service changes).
+ALTER TABLE "payments" ADD COLUMN "payment_method" "payment_method" NOT NULL DEFAULT 'unknown';

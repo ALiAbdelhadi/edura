@@ -1,0 +1,12 @@
+-- MC-3 (EDURA_IMPROVEMENT_REPORT.md §6.1.1), migration 1 of 2.
+--
+-- Adds the 'unknown' member to the existing payment_method enum so the next
+-- migration can backfill payments.payment_method HONESTLY: every row written
+-- before the column existed gets 'unknown', never a guessed 'cash' — a
+-- fabricated drawer figure is worse than an admitted gap.
+--
+-- TWO MIGRATIONS ON PURPOSE. Postgres refuses to USE a new enum value inside
+-- the same transaction that added it ("unsafe use of new value of enum type"),
+-- and prisma migrate wraps each migration in one transaction. Splitting the
+-- ADD VALUE from the column that defaults to it is the standard shape.
+ALTER TYPE "payment_method" ADD VALUE IF NOT EXISTS 'unknown';

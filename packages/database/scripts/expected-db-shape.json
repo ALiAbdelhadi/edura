@@ -1,7 +1,7 @@
 {
-  "tables": 79,
+  "tables": 82,
   "sequences": 6,
-  "rlsTables": 38,
-  "policies": 59,
-  "migrations": 55
+  "rlsTables": 41,
+  "policies": 62,
+  "migrations": 69
 }

@@ -318,7 +318,6 @@ enum InvitePurpose {
   // guardian_email_verified_at. See CLAIMABLE in invite-token.ts.
   guardian_email_verification
 
-
   @@map("invite_purpose")
 }
 
@@ -356,6 +355,17 @@ enum PaymentMethod {
   online_paymob
   online_fawry
   wallet // funded from the student's own wallet balance (internal transfer)
+  // Phase 1 (revenue-operations spec): the counter's non-cash channels.
+  // instapay + pos_card reconcile against the BANK, mobile_wallet against the
+  // wallet provider; only `cash` counts against the drawer (Phase 2 shifts).
+  instapay
+  pos_card
+  mobile_wallet
+  // MC-3 backfill value: how rows written before payments.payment_method
+  // existed read, and what a writer that forgets to set the method falls to.
+  // An honest "we don't know" — NEVER written deliberately by application
+  // code, and NEVER to be guessed into 'cash' by a backfill or a report.
+  unknown
 
   @@map("payment_method")
 }
@@ -382,6 +392,9 @@ enum PayoutStatus {
   approved
   paid
   rejected
+  // T-4: the OWNER's own undo, while still pending — distinct from `rejected`
+  // (an accountant's refusal) so the audit trail can tell them apart.
+  cancelled
 
   @@map("payout_status")
 }
@@ -453,6 +466,10 @@ enum NotificationType {
   // (done/declined) tells the note's author.
   team_note_created
   team_note_status_changed
+  // B.1#12: a monthly subscription's window is ending (T-5/T-2/T-0 sweep by
+  // the subscription-renewal-reminders cron). Deliberately NOT auto-charge —
+  // manual renewal is decision #2; this is the reminder that makes it happen.
+  subscription_expiring
 
   @@map("notification_type")
 }
@@ -488,6 +505,22 @@ model User {
   passwordHash     String?    @map("password_hash")
   role             Role
   name             String
+  /// GENERATED ALWAYS AS … STORED — Postgres computes it, nothing may write it.
+  /// Migration 20260820160000_search_text_columns. It holds this row's
+  /// searchable fields normalized (hamza, ta marbuta, alef maqsura, Arabic
+  /// numerals) PLUS the same text with its spaces closed up, which is exactly
+  /// what `matchesSearchTerms` in @repo/database/search-text compares — so a
+  /// paginated list can filter it with a plain `contains` and be EXACT rather
+  /// than the superset a fragment pre-filter gives.
+  ///
+  /// TWO THINGS PRISMA DOES NOT KNOW ABOUT IT, both worth stating here because
+  /// this doc comment is where someone will look:
+  ///   1. `prisma migrate dev` will propose turning it into an ordinary column.
+  ///      It is not one. This repo writes its migrations by hand and checks the
+  ///      shape with `verify-db`, which asserts `is_generated = ALWAYS`.
+  ///   2. Writing to it fails at the database. That is the loud failure, not a
+  ///      silent one — but never include it in a `create`/`update` payload.
+  searchText       String?    @map("search_text")
   locale           Locale     @default(ar)
   theme            Theme      @default(system)
   status           UserStatus @default(active)
@@ -537,15 +570,18 @@ model User {
 }
 
 model StudentProfile {
-  id                      String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId                  String?    @unique @map("user_id") @db.Uuid // NULL for temporary/invited students (PRD)
-  fullName                String     @map("full_name")
-  phone                   String?
-  grade                   String? // DEPRECATED free text — superseded by gradeLevelId (education catalog)
-  familyLinkCode          String     @unique @map("family_link_code")
+  id                         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                     String?    @unique @map("user_id") @db.Uuid // NULL for temporary/invited students (PRD)
+  fullName                   String     @map("full_name")
+  /// GENERATED ALWAYS AS … STORED. See the note on `User.searchText` — same
+  /// column, same warnings. Migration 20260820180000.
+  searchText                 String?    @map("search_text")
+  phone                      String?
+  grade                      String? // DEPRECATED free text — superseded by gradeLevelId (education catalog)
+  familyLinkCode             String     @unique @map("family_link_code")
   // Welcome-email idempotency stamp: the sender claims it atomically
   // (updateMany WHERE null) so duplicate/retried sign-ups mail exactly once.
-  onboardingEmailSentAt   DateTime?  @map("onboarding_email_sent_at") @db.Timestamptz(6)
+  onboardingEmailSentAt      DateTime?  @map("onboarding_email_sent_at") @db.Timestamptz(6)
   // The Student ID a student is handed on a card and a receptionist types at
   // the counter. v2 (20260803110000): eight characters, `G7K3M2QF` — education
   // system letter + one-way body + CHECK CHARACTER, so a single mistyped
@@ -555,9 +591,9 @@ model StudentProfile {
   // creation site, and a CHECK constraint holds the alphabet and the check
   // character so no writer can store a code the counter would reject.
   // See packages/server-core/src/services/students/student-code.ts.
-  studentCode             String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")
-  entityType              EntityType @default(registered) @map("entity_type")
-  inviteCode              String?    @unique @map("invite_code")
+  studentCode                String     @unique @default(dbgenerated("gen_student_code()")) @map("student_code")
+  entityType                 EntityType @default(registered) @map("entity_type")
+  inviteCode                 String?    @unique @map("invite_code")
   // ---- Manual-entry DEDUP KEY (off-system teachers).
   // When center staff type a student in by hand, the same child is very likely
   // already on the platform (with an enrolled teacher, or another center). The
@@ -566,17 +602,17 @@ model StudentProfile {
   // students without a national ID on file are unaffected, while two rows can
   // never claim the same one. `resolveOrCreateStudent` looks both keys up
   // BEFORE creating; this index is the hard backstop under that lookup.
-  nationalId              String?    @unique @map("national_id")
+  nationalId                 String?    @unique @map("national_id")
   // ---- Child safety (messaging oversight). DEFAULT-MINOR by design: a student
   // counts as an adult ONLY when a VERIFIED date of birth proves 18+. Missing,
   // unverified, or under-18 all mean MINOR, so parent oversight stays active.
   // Erring toward more protection is the safe failure mode on a K-12 platform;
   // see isMinor() in src/queries/chat-minors.ts — the single implementation.
-  dateOfBirth             DateTime?  @map("date_of_birth") @db.Date
+  dateOfBirth                DateTime?  @map("date_of_birth") @db.Date
   // Set by a super admin once the DOB is evidenced. NULL ⇒ unverified ⇒ minor,
   // no matter what dateOfBirth says.
-  dateOfBirthVerifiedAt   DateTime?  @map("date_of_birth_verified_at") @db.Timestamptz(6)
-  dateOfBirthVerifiedBy   String?    @map("date_of_birth_verified_by") @db.Uuid
+  dateOfBirthVerifiedAt      DateTime?  @map("date_of_birth_verified_at") @db.Timestamptz(6)
+  dateOfBirthVerifiedBy      String?    @map("date_of_birth_verified_by") @db.Uuid
   // ---- Guardian contact channel (child safety, approved 2026-07-25).
   // A MINOR must have a reachable GUARDIAN EMAIL before adult-facing messaging
   // (teacher / assistant / center admin / center staff) opens. See
@@ -586,20 +622,20 @@ model StudentProfile {
   // walk-in counter): it is kept for the record and for a future SMS/WhatsApp
   // channel, but it NEVER satisfies the gate — the gate is email-only by
   // decision, because that is the channel we can actually deliver on today.
-  guardianEmail           String?    @map("guardian_email")
-  guardianPhone           String?    @map("guardian_phone")
-  guardianEmailAddedAt    DateTime?  @map("guardian_email_added_at") @db.Timestamptz(6)
-  guardianEmailAddedBy    String?    @map("guardian_email_added_by") @db.Uuid
+  guardianEmail              String?    @map("guardian_email")
+  guardianPhone              String?    @map("guardian_phone")
+  guardianEmailAddedAt       DateTime?  @map("guardian_email_added_at") @db.Timestamptz(6)
+  guardianEmailAddedBy       String?    @map("guardian_email_added_by") @db.Uuid
   // Verification: the stamp AND the exact address it was earned by. A reader
   // must compare `guardianEmailVerifiedValue` against `guardianEmail` — an
   // edited address is unverified again, however recent the stamp.
-  guardianEmailVerifiedAt    DateTime? @map("guardian_email_verified_at") @db.Timestamptz(6)
-  guardianEmailVerifiedValue String?   @map("guardian_email_verified_value")
+  guardianEmailVerifiedAt    DateTime?  @map("guardian_email_verified_at") @db.Timestamptz(6)
+  guardianEmailVerifiedValue String?    @map("guardian_email_verified_value")
   // Deadline for supplying the email. Purely an ESCALATION marker: passing it
   // never suspends the account (the student paid) and never unlocks messaging.
   // Before it, reminders are periodic; after it, the banner turns persistent
   // and the owning center is notified.
-  guardianContactDueAt    DateTime?  @map("guardian_contact_due_at") @db.Timestamptz(6)
+  guardianContactDueAt       DateTime?  @map("guardian_contact_due_at") @db.Timestamptz(6)
   // ---- The ID card's QR credential (20260809140000).
   // The QR is a SIGNED URL, not a picture of the code: the signature is derived
   // as HMAC(STUDENT_QR_SECRET, code|version) and is never stored, so nothing
@@ -608,37 +644,37 @@ model StudentProfile {
   // invalidates every card ever printed at the old version, at once, which is
   // the whole answer to "the student lost their card".
   // See packages/server-core/src/services/students/student-qr.ts.
-  qrVersion               Int        @default(1) @map("qr_version")
+  qrVersion                  Int        @default(1) @map("qr_version")
   // NULL for every student who predates this column: we know when a card was
   // REISSUED, and a first-issue date we never recorded would be invented.
-  qrIssuedAt              DateTime?  @map("qr_issued_at") @db.Timestamptz(6)
+  qrIssuedAt                 DateTime?  @map("qr_issued_at") @db.Timestamptz(6)
   // Revoked = no card is valid until one is reissued. The reason is shown to
   // whoever is holding the refused card, so a DB CHECK keeps the pair together.
-  qrRevokedAt             DateTime?  @map("qr_revoked_at") @db.Timestamptz(6)
-  qrRevokedReason         String?    @map("qr_revoked_reason")
-  pointsBalance           Int        @default(0) @map("points_balance")
+  qrRevokedAt                DateTime?  @map("qr_revoked_at") @db.Timestamptz(6)
+  qrRevokedReason            String?    @map("qr_revoked_reason")
+  pointsBalance              Int        @default(0) @map("points_balance")
   // Student money wallet (piasters). Cached balance — the append-only
   // WalletLedger is the source of truth; reconciles as SUM(delta) == this ==
   // last balanceAfter. DB CHECK (wallet_balance >= 0) is the H2-style floor.
-  walletBalance           Int        @default(0) @map("wallet_balance")
-  savedAreaCity           String?    @map("saved_area_city")
-  savedAreaLat            Float?     @map("saved_area_lat")
-  savedAreaLng            Float?     @map("saved_area_lng")
-  invitationSentAt        DateTime?  @map("invitation_sent_at") @db.Timestamptz(6)
-  claimedAt               DateTime?  @map("claimed_at") @db.Timestamptz(6)
+  walletBalance              Int        @default(0) @map("wallet_balance")
+  savedAreaCity              String?    @map("saved_area_city")
+  savedAreaLat               Float?     @map("saved_area_lat")
+  savedAreaLng               Float?     @map("saved_area_lng")
+  invitationSentAt           DateTime?  @map("invitation_sent_at") @db.Timestamptz(6)
+  claimedAt                  DateTime?  @map("claimed_at") @db.Timestamptz(6)
   // ---- Education catalog (onboarding §4). stage/system stored alongside
   // gradeLevel per the PRD; the API layer enforces chain consistency.
   // Catalog FKs are ON DELETE RESTRICT: admins hide via is_active, never
   // hard-delete rows students still point at.
-  educationSystemId       String?    @map("education_system_id") @db.Uuid
-  stageId                 String?    @map("stage_id") @db.Uuid
-  gradeLevelId            String?    @map("grade_level_id") @db.Uuid
-  trackId                 String?    @map("track_id") @db.Uuid
-  secondLanguageSubjectId String?    @map("second_language_subject_id") @db.Uuid
-  onboardingCompleted     Boolean    @default(false) @map("onboarding_completed")
-  onboardingDraft         Json?      @map("onboarding_draft") // wizard auto-save (§9)
-  createdAt               DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  educationSystemId          String?    @map("education_system_id") @db.Uuid
+  stageId                    String?    @map("stage_id") @db.Uuid
+  gradeLevelId               String?    @map("grade_level_id") @db.Uuid
+  trackId                    String?    @map("track_id") @db.Uuid
+  secondLanguageSubjectId    String?    @map("second_language_subject_id") @db.Uuid
+  onboardingCompleted        Boolean    @default(false) @map("onboarding_completed")
+  onboardingDraft            Json?      @map("onboarding_draft") // wizard auto-save (§9)
+  createdAt                  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user                  User?            @relation(fields: [userId], references: [id])
   educationSystem       EducationSystem? @relation(fields: [educationSystemId], references: [id], onDelete: Restrict)
@@ -800,6 +836,11 @@ model Center {
   address             String?
   area                String?
   subjects            String[]
+  /// GENERATED ALWAYS AS … STORED. See the note on `User.searchText` — same
+  /// column, same migration, same two things Prisma does not know about it:
+  /// `migrate dev` will propose turning it into an ordinary column, and writing
+  /// to it fails at the database.
+  searchText          String?      @map("search_text")
   lat                 Float?
   lng                 Float?
   phone               String?
@@ -809,7 +850,12 @@ model Center {
   classroomCount      Int          @default(0) @map("classroom_count")
   entityType          EntityType   @default(registered) @map("entity_type")
   status              CenterStatus @default(pending)
-  walletBalance       Int          @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0) NOT VALID, H2
+  walletBalance       Int          @default(0) @map("wallet_balance") // piasters; DB CHECK (>= 0) NOT VALID, H2 — PLATFORM-HELD payable ONLY (Phase 4)
+  // Phase 4 (D4/D5): signed center<->platform position. Top-ups credit it,
+  // center-held settlement obligations debit it; NEGATIVE = arrears, allowed
+  // by design (refusing the debit would refuse to settle a lesson that
+  // already happened). Every move is mirrored in center_wallet_ledger.
+  creditBalance       Int          @default(0) @map("credit_balance")
   receiptSeq          Int          @default(0) @map("receipt_seq")
   governorate         String? // المحافظة (onboarding §6; `area` stays المنطقة)
   onboardingCompleted Boolean      @default(false) @map("onboarding_completed")
@@ -1228,6 +1274,9 @@ model Room {
   id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId              String              @map("center_id") @db.Uuid
   name                  String
+  /// GENERATED ALWAYS AS … STORED. See the note on `User.searchText` — same
+  /// column, same warnings. Migration 20260820180000.
+  searchText            String?             @map("search_text")
   capacity              Int?
   facilities            String[]
   photos                String[]
@@ -1260,6 +1309,11 @@ model Course {
   title           String
   subject         String // DEPRECATED free text — superseded by subjectId (education catalog)
   description     String?
+  /// GENERATED ALWAYS AS … STORED. See the note on `User.searchText` — same
+  /// column, same migration, same two things Prisma does not know about it:
+  /// `migrate dev` will propose turning it into an ordinary column, and writing
+  /// to it fails at the database.
+  searchText      String?            @map("search_text")
   gradeTag        String?            @map("grade_tag") // DEPRECATED free text — superseded by gradeLevelId
   // ---- Education catalog linkage: what makes "students see only their
   // grade/track content" queryable. trackId NULL = open to all tracks.
@@ -1347,6 +1401,12 @@ model Session {
   // Set once revenue distribution has run for this session. Guards against
   // double-distribution under concurrency (see finance/distribution.ts).
   distributedAt      DateTime?     @map("distributed_at") @db.Timestamptz(6)
+  // T-9 reopen-for-settlement: the register was reopened past the 7-day edit
+  // window for a never-settled lesson. Honoured by the lock predicate ONLY
+  // while distributedAt is NULL — settlement re-arms the lock for good.
+  // See docs/decisions/attendance-reopen-settlement.md.
+  attendanceReopenedAt DateTime?   @map("attendance_reopened_at") @db.Timestamptz(6)
+  attendanceReopenedBy String?     @map("attendance_reopened_by") @db.Uuid
   dataSource         DataSource    @default(system) @map("data_source") // provenance
   createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1496,7 +1556,12 @@ model Material {
 model Payment {
   id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId      String?       @map("center_id") @db.Uuid // NULL for teacher-direct receipts (platform_receipt_seq)
-  studentId     String        @map("student_id") @db.Uuid
+  // NULL for a PARENT WALLET TOP-UP only — a float deposit by a guardian, which
+  // has no beneficiary student until it is spent. The DB CHECK
+  // `payments_student_required` (migration 20260820200000_parent_topup_receipt)
+  // holds that NULL to exactly that shape: payer_user_id set, center_id and
+  // course_id both NULL. Every other receipt still names its student.
+  studentId     String?       @map("student_id") @db.Uuid
   // Who actually PAID, when that is not the student themselves (a parent paying
   // for their child). NULL = the student paid for themselves, which is what
   // every row predating the parent wallet means.
@@ -1505,6 +1570,16 @@ model Payment {
   status        PaymentStatus @default(paid)
   amount        Int // piasters, SIGNED (positive=payment, negative=refund)
   currency      String        @default("EGP")
+  // How the money ARRIVED (MC-3): cash | online_paymob | online_fawry | wallet.
+  // `unknown` = rows predating migration 20260821120100 (backfilled, never
+  // guessed) or a writer that forgot to set it — reports must show 'unknown'
+  // as its own bucket, not fold it into cash. `wallet` is an internal transfer
+  // (the drawer split is cash / online / wallet, three buckets, not two).
+  paymentMethod PaymentMethod @default(unknown) @map("payment_method")
+  // Phase 2: the drawer session this payment was recorded under — stamped at
+  // write time from the recorder's OPEN shift, NULL when they had none (or the
+  // row predates shifts). FK with ON DELETE SET NULL lives in the migration.
+  shiftId       String?       @map("shift_id") @db.Uuid
   note          String?
   receiptNumber String        @unique @map("receipt_number")
   dataSource    DataSource    @default(system) @map("data_source") // provenance
@@ -1516,6 +1591,7 @@ model Payment {
   @@index([centerId, paidAt(sort: Desc)])
   @@index([studentId, paidAt(sort: Desc)])
   @@index([payerUserId])
+  // Plus (raw SQL): partial index payments_shift_id_idx ON (shift_id) WHERE NOT NULL.
   @@map("payments")
 }
 
@@ -1549,6 +1625,9 @@ model Transaction {
   paymentMethod PaymentMethod?    @map("payment_method")
   gatewayRef    String?           @map("gateway_ref")
   reversalOfId  String?           @map("reversal_of_id") @db.Uuid // correction linkage
+  // Phase 4 (D5): who holds this row's money — stamped at INSERT on the
+  // per-student lesson payment rows; NULL = predates funding legs.
+  funding       FundingSource?
   notes         String?
   // Provenance (see DataSource). Set at INSERT only — this table is append-only
   // (REVOKE UPDATE/DELETE + the runtime immutability extension), so the label
@@ -1609,6 +1688,7 @@ model Payout {
   approvedBy      String?         @map("approved_by") @db.Uuid
   rejectionReason String?         @map("rejection_reason")
   paidAt          DateTime?       @map("paid_at") @db.Timestamptz(6)
+  cancelledAt     DateTime?       @map("cancelled_at") @db.Timestamptz(6) // T-4 owner cancel
   receiptUrl      String?         @map("receipt_url")
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -2210,21 +2290,21 @@ model ChatbotConversation {
 // =============================================================================
 
 model EducationSystem {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code      String   @unique // 'general' | 'azhari' | 'bacc' | ...
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String   @unique // 'general' | 'azhari' | 'bacc' | ...
   // The letter that opens every student code in this system (G / A / B). It
   // lives on the catalog rather than in application code so a system added
   // later needs no deploy. NULLABLE: a system without a letter simply cannot
   // finalize codes yet — its students keep the pending 'X', which is a working
   // state. 'X' itself is refused by a CHECK; it means "not chosen yet".
-  codeLetter String? @unique @map("code_letter") @db.Char(1)
-  nameAr    String   @map("name_ar")
-  nameEn    String?  @map("name_en")
-  iconKey   String?  @map("icon_key") // wizard card icon
-  isActive  Boolean  @default(true) @map("is_active")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  codeLetter String?  @unique @map("code_letter") @db.Char(1)
+  nameAr     String   @map("name_ar")
+  nameEn     String?  @map("name_en")
+  iconKey    String?  @map("icon_key") // wizard card icon
+  isActive   Boolean  @default(true) @map("is_active")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   stages          Stage[]
   studentProfiles StudentProfile[]
@@ -2461,8 +2541,30 @@ enum PaymentIntentPurpose {
   subscription
   wallet_topup
   parent_wallet_topup // money into a PARENT's wallet — no beneficiary student
+  center_credit_topup // Phase 4: a CENTER funds its credit_balance — no student
 
   @@map("payment_intent_purpose")
+}
+
+/// Phase 4 (D5): who physically holds a settled lesson's gross, per student.
+/// Stamped on the per-student lesson `payment` Transaction rows at INSERT.
+/// NULL = the row predates funding legs.
+enum FundingSource {
+  platform_held // online_paymob / wallet coverage — the platform holds it
+  center_held // counter channels (or no coverage) — the center holds it
+
+  @@map("funding_source")
+}
+
+enum CenterWalletEntryType {
+  topup
+  teacher_debit
+  commission_debit
+  wallet_cash_collection
+  refund_reversal
+  adjustment
+
+  @@map("center_wallet_entry_type")
 }
 
 model PaymentIntent {
@@ -2793,6 +2895,131 @@ model CollaborationRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Counter shifts (Phase 2, revenue-operations spec) — one staff member's
+// drawer session. Writes no money of its own: every reported figure is a SUM
+// over `payments` rows stamped with shift_id at write time. Frozen-at-close
+// figures (expected/counted/variance) cover the DRAWER only — cash is the one
+// method physically in the till; bank/provider channels reconcile against
+// their statements and `wallet` moves no physical money.
+// Raw SQL besides this model: partial unique center_shifts_one_open_per_staff
+// (staff_user_id WHERE status='open'), the closed-shape CHECK, and the
+// tenant_isolation RLS policy (FORCEd), all in migration 20260825140000.
+// ---------------------------------------------------------------------------
+
+enum ShiftStatus {
+  open
+  closed
+
+  @@map("shift_status")
+}
+
+model CenterShift {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId     String      @map("center_id") @db.Uuid
+  staffUserId  String      @map("staff_user_id") @db.Uuid // whose drawer = payments.recorded_by
+  status       ShiftStatus @default(open)
+  openedAt     DateTime    @default(now()) @map("opened_at") @db.Timestamptz(6)
+  openedBy     String      @map("opened_by") @db.Uuid
+  closedAt     DateTime?   @map("closed_at") @db.Timestamptz(6)
+  closedBy     String?     @map("closed_by") @db.Uuid
+  openingFloat Int         @default(0) @map("opening_float") // piasters
+  countedCash  Int?        @map("counted_cash") // piasters, frozen at close
+  expectedCash Int?        @map("expected_cash") // opening_float + cash net, frozen at close
+  variance     Int?        // counted - expected, frozen at close
+  note         String?
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId, openedAt(sort: Desc)])
+  @@index([staffUserId])
+  @@map("center_shifts")
+}
+
+// ---------------------------------------------------------------------------
+// Teacher agreements (Phase 5, D1/D2) — the per-(center,teacher) money
+// contract. The rate prices the NON-RESIDUAL side; the residual keeps the
+// remainder (default residual=teacher = today's direction, so nothing
+// re-rates on deploy). ERP writes PROPOSALS only; superadmin approval
+// activates. Effective-dated append-only rows: a settled lesson is explained
+// by the row live on its date. NO-ROOM courses only — a room-based course is
+// governed by its frozen room economics ("ONE rule per course").
+// Raw SQL beyond this model: rate/dating-shape CHECKs, the partial unique
+// teacher_agreements_one_active_per_pair (WHERE status='active'), and the
+// tenant_isolation RLS policy (FORCEd) — migration 20260825200000.
+// ---------------------------------------------------------------------------
+
+enum AgreementBasis {
+  percent_of_net
+  fixed_per_student
+
+  @@map("agreement_basis")
+}
+
+enum AgreementResidual {
+  teacher
+  center
+
+  @@map("agreement_residual")
+}
+
+enum AgreementStatus {
+  proposed
+  active
+  rejected
+  ended
+
+  @@map("agreement_status")
+}
+
+model TeacherAgreement {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String            @map("center_id") @db.Uuid
+  teacherId     String            @map("teacher_id") @db.Uuid
+  basis         AgreementBasis
+  rateBp        Int?              @map("rate_bp") // percent_of_net: bp of the post-fee net
+  rateFlat      Int?              @map("rate_flat") // fixed_per_student: piasters per present student
+  residual      AgreementResidual @default(teacher)
+  status        AgreementStatus   @default(proposed)
+  proposedBy    String            @map("proposed_by") @db.Uuid
+  approvedBy    String?           @map("approved_by") @db.Uuid
+  effectiveFrom DateTime?         @map("effective_from") @db.Timestamptz(6)
+  endedAt       DateTime?         @map("ended_at") @db.Timestamptz(6)
+  note          String?
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([centerId, status])
+  @@index([teacherId])
+  @@map("teacher_agreements")
+}
+
+// ---------------------------------------------------------------------------
+// Center credit ledger (Phase 4, D4/D5) — every credit_balance move, signed,
+// with a running balance. The sibling of wallet_ledger / parent_wallet_ledger,
+// owned by a CENTER. RLS tenant_isolation (FORCEd) in the migration.
+// ---------------------------------------------------------------------------
+
+model CenterWalletLedger {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId        String                @map("center_id") @db.Uuid
+  type            CenterWalletEntryType
+  delta           Int // signed piasters
+  balanceAfter    Int                   @map("balance_after") // running credit_balance snapshot
+  method          PaymentMethod?
+  refNumber       String?               @map("ref_number")
+  paymentIntentId String?               @map("payment_intent_id") @db.Uuid
+  sessionId       String?               @map("session_id") @db.Uuid // the settled lesson, for debits
+  relatedTxnId    String?               @map("related_txn_id") @db.Uuid
+  reason          String?
+  recordedBy      String?               @map("recorded_by") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([centerId, createdAt(sort: Desc)])
+  // Plus (raw SQL): partial index on (session_id) WHERE NOT NULL.
+  @@map("center_wallet_ledger")
+}
+
+// ---------------------------------------------------------------------------
 // Per-session settlement records (Room Pricing Methods). A queryable projection
 // written in the SAME transaction as distributeSessionRevenue for ROOM-BASED
 // courses (both methods) — the transactions ledger stays the money source of
@@ -2809,12 +3036,18 @@ model SessionSettlement {
   centerId        String            @map("center_id") @db.Uuid // RLS tenant key
   teacherId       String            @map("teacher_id") @db.Uuid
   roomId          String?           @map("room_id") @db.Uuid
-  pricingMethod   RoomPricingMethod @map("pricing_method")
+  // NULL = the legacy no-room fee model (Phase 3: EVERY settled lesson files a
+  // record; room methods keep their frozen value here).
+  pricingMethod   RoomPricingMethod? @map("pricing_method")
   presentCount    Int               @map("present_count")
   perSessionPrice Int               @map("per_session_price") // piasters
   platformTotal   Int               @map("platform_total") // piasters, presentCount × platform cut
   centerTotal     Int               @map("center_total") // piasters, presentCount × center share
   teacherTotal    Int               @map("teacher_total") // piasters, presentCount × teacher net
+  // Phase 4 (D5): the funding split this lesson settled under. NULL on both =
+  // predates funding legs (never backfilled — an admitted gap, not a guess).
+  platformHeldGross Int?            @map("platform_held_gross")
+  centerHeldGross   Int?            @map("center_held_gross")
   m2CenterFee     Int?              @map("m2_center_fee") // Method-2 flat rate used (piasters/student)
   m2CenterBp      Int?              @map("m2_center_bp") // Method-2 bp rate used
   settledBy       String            @map("settled_by") @db.Uuid // actor who completed the session
@@ -2856,6 +3089,11 @@ model ContactSubmission {
   /// demo | pricing | support | partnership | other so the queue can filter.
   subject     String?
   message     String
+  /// GENERATED ALWAYS AS … STORED. See the note on `User.searchText` — same
+  /// column, same migration, same two things Prisma does not know about it:
+  /// `migrate dev` will propose turning it into an ordinary column, and writing
+  /// to it fails at the database.
+  searchText  String?                 @map("search_text")
   locale      Locale                  @default(ar)
   /// Which public form produced the row, so a second one stays separable.
   source      String?

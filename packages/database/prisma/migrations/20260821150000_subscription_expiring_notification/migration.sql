@@ -1,0 +1,13 @@
+-- B.1#12 — renewal reminders (API session 2; EDURA_IMPROVEMENT_REPORT §2.5).
+--
+-- Monthly subscriptions are manual-renewal by design (decision #2 — no
+-- auto-charge), and until now they expired SILENTLY: `expire-subscriptions`
+-- is post-hoc, no pre-expiry notification type existed, and the in-app alerts
+-- the IA passes shipped only fire while someone is already inside the app.
+-- In a market where the alternative is the teacher's WhatsApp group, silent
+-- expiry is the churn mechanism.
+--
+-- This adds the notification type; the `subscription-renewal-reminders` cron
+-- job (same commit) sweeps the [status, periodEnd] index — which has existed
+-- for exactly this sweep since Step 4 — at T-5 / T-2 / T-0 Cairo days.
+ALTER TYPE "notification_type" ADD VALUE IF NOT EXISTS 'subscription_expiring';
