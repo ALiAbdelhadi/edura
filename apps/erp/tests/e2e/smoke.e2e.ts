@@ -38,9 +38,22 @@ afterAll(async () => {
   await browser?.close();
 });
 
+/** Per-page console/error/network trail, dumped beside the failure shot. */
+const pageTrail = new WeakMap<Page, string[]>();
+
 async function freshPage(): Promise<{ ctx: BrowserContext; page: Page }> {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  return { ctx, page: await ctx.newPage() };
+  const page = await ctx.newPage();
+  const trail: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") trail.push(`[console.${m.type()}] ${m.text()}`);
+  });
+  page.on("pageerror", (e) => trail.push(`[pageerror] ${e.message}`));
+  page.on("requestfailed", (r) =>
+    trail.push(`[requestfailed] ${r.url()} — ${r.failure()?.errorText ?? "?"}`),
+  );
+  pageTrail.set(page, trail);
+  return { ctx, page };
 }
 
 /**
@@ -73,6 +86,10 @@ async function runWithFailureShot(page: Page, name: string, body: () => Promise<
     const html = await page.content().catch(() => "");
     await import("node:fs/promises")
       .then((fs) => fs.writeFile(`${dir}/${name}.html`, `<!-- ${page.url()} -->\n${html}`))
+      .catch(() => {});
+    const trail = pageTrail.get(page) ?? [];
+    await import("node:fs/promises")
+      .then((fs) => fs.writeFile(`${dir}/${name}.console.txt`, trail.join("\n") || "(no console errors, page errors, or failed requests recorded)"))
       .catch(() => {});
     throw err;
   }
