@@ -5,6 +5,9 @@ import { notify } from "@/lib/services/notifications/notify";
 import { nextTxnRefs } from "@/lib/services/finance/ref-numbers";
 import { resolveCommission } from "@/lib/services/finance/commission";
 import { computeNoRoomLessonSplit } from "@/lib/services/finance/fees";
+import { creditMove } from "@repo/server-core/services/finance/center-credit";
+import { resolveTeacherAgreement } from "@repo/server-core/services/finance/agreements";
+import { computeAgreementSplit } from "@repo/server-core/services/finance/fees";
 import { walletCredit } from "@repo/server-core/services/wallet/wallet";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -92,6 +95,12 @@ export async function refundLessonForStudent(
         } else if (course.splitPlatformBp != null && course.splitCenterBp != null) {
           centerShare = Math.round((perSessionPrice * course.splitCenterBp) / 10_000);
         } else {
+          // Phase 5 (D1): if a teacher agreement was live ON THE LESSON'S
+          // DATE, the settlement derived centerShare from it — the reversal
+          // must use the SAME derivation (computeAgreementSplit, fed the
+          // ACTUALLY-CHARGED fees below) or the wallets drift. The affiliation
+          // figure is only the pre-agreement fallback, exactly as at
+          // settlement time.
           const affiliation = await tx.centerTeacherAffiliation.findFirst({
             where: { centerId, teacherId, status: "active" },
             select: { centerShare: true },
@@ -125,6 +134,22 @@ export async function refundLessonForStudent(
             : null;
         const teacherFee = chargedTeacherFee ?? fallback!.platformTeacherFee;
         const centerFee = chargedCenterFee ?? fallback!.platformCenterFee;
+
+        // Phase 5: agreement-settled lessons reverse under the agreement live
+        // on the lesson's date, with the fees that were actually charged.
+        if (course.pricingMethod == null && course.splitPlatformBp == null) {
+          const agreement = await resolveTeacherAgreement(tx, {
+            centerId,
+            teacherId,
+            onDate: session.date,
+          });
+          if (agreement) {
+            centerShare = computeAgreementSplit(perSessionPrice, agreement, {
+              platformTeacherFee: teacherFee,
+              platformCenterFee: centerFee,
+            }).centerShare;
+          }
+        }
 
         const teacherNet = perSessionPrice - teacherFee - centerShare;
         const centerNet = centerShare - centerFee;
@@ -173,7 +198,32 @@ export async function refundLessonForStudent(
             data: { walletBalance: { decrement: teacherNet } },
           });
         }
-        if (centerNet !== 0) {
+        // D5 (Phase 4): the reversal follows the FUNDING stamped on the
+        // original charge row at settlement time.
+        //  • platform_held (or NULL — a row predating funding legs, whose
+        //    settlement DID credit the wallet): decrement wallet_balance,
+        //    byte-identical to the pre-Phase-4 reversal.
+        //  • center_held: wallet_balance was never credited, so there is
+        //    nothing there to reverse. Instead the center's POSITION moves by
+        //    −centerNet: settlement already debited (teacherNet + fees), the
+        //    platform is now refunding the student the full price from its own
+        //    pocket while the gross still sits in the center's drawer — so the
+        //    center owes the platform exactly the whole price, and
+        //    −(teacherNet+fees) − centerNet = −price. Same clearing model,
+        //    no special case.
+        if (payment.funding === "center_held") {
+          if (centerNet !== 0) {
+            await creditMove(tx, {
+              centerId,
+              type: "refund_reversal",
+              delta: -centerNet,
+              sessionId,
+              relatedTxnId: payment.id,
+              recordedBy: user.id,
+              reason: `Refund of a center-collected lesson charge: ${reason}`,
+            });
+          }
+        } else if (centerNet !== 0) {
           await tx.center.update({
             where: { id: centerId },
             data: { walletBalance: { decrement: centerNet } },

@@ -213,6 +213,29 @@ export async function listChildren(user: SessionUser) {
       select: { id: true, name: true, email: true, phone: true },
     });
 
-    return students;
+    // B.1#10: the child switcher could only show an initial, so two children
+    // with similar names were indistinguishable at 13px (PARENT_IA_AUDIT §7.1
+    // #6). The grade level is the disambiguator a parent actually thinks in.
+    // BOTH names ship — this is an API, and the language belongs to whoever
+    // renders it. No photo: students carry no photo field (Cloudinary media is
+    // wired for teachers/centers only), and inventing one is not this change.
+    const profiles = await tx.studentProfile.findMany({
+      where: { userId: { in: studentIds } },
+      select: {
+        userId: true,
+        gradeLevelId: true,
+        gradeLevel: { select: { id: true, nameAr: true, nameEn: true } },
+      },
+    });
+    const profileMap = new Map(profiles.map((p) => [p.userId, p]));
+
+    return students.map((s) => {
+      const p = profileMap.get(s.id);
+      return {
+        ...s,
+        gradeLevelId: p?.gradeLevelId ?? null,
+        gradeLevel: p?.gradeLevel ?? null,
+      };
+    });
   });
 }

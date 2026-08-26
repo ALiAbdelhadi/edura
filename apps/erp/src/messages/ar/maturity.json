@@ -22,7 +22,12 @@
     "notePaidByParent": "اشتراك ({plan}، {method}) — دفعها ولي الأمر",
     "systemGenerated": "مستند صادر عن النظام — لا يحتاج توقيعًا. الأرقام بالجنيه المصري.",
     "print": "طباعة / حفظ PDF",
-    "download": "تحميل الإيصال"
+    "download": "تحميل الإيصال",
+    "method": "طريقة الدفع",
+    "methodInstapay": "إنستاباي",
+    "methodPosCard": "ماكينة كارت (POS)",
+    "methodMobileWallet": "محفظة موبايل",
+    "methodWalletBalance": "رصيد المحفظة"
   },
   "centerAudit": {
     "title": "سجل التدقيق",

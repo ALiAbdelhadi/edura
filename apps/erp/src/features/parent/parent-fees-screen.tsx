@@ -24,7 +24,7 @@ import React, { useState } from "react";
 import { DateRangeField } from "@/components/kit/date-range-field";
 import { useList } from "@refinedev/core";
 import { Users } from "lucide-react";
-import { useChildSelector, ChildSelectorBar } from "@/components/ui/child-selector";
+import { useChildSelector } from "@/components/ui/child-selector";
 import { LineChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -56,7 +56,7 @@ type PaymentRow = {
 export function ParentFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate } = useFormatters();
-  const { childId, isLoading: childrenLoading } = useChildSelector();
+  const { childId, childName, isLoading: childrenLoading } = useChildSelector();
   const [range, setRange] = useState<{ start: string; end: string }>({
     start: "",
     end: "",
@@ -205,10 +205,15 @@ export function ParentFeesScreen() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* WHOSE money. This is the page a parent screenshots to argue with a
+          center, and it named no child anywhere except a 13px chip in the
+          header — which rendered as nothing at all for a parent with one
+          child. A ledger with no name on it is not evidence. */}
       <PageHeader
         eyebrow={t("roles.parent")}
-        title={t("nav.fees")}
-        actions={<ChildSelectorBar />}
+        title={
+          childName ? t("parentFees.titleFor", { name: childName }) : t("nav.fees")
+        }
       />
 
       {isLoading && all.length === 0 ? (

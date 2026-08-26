@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@repo/ui/lib/utils";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@repo/ui/lib/utils";
 import * as React from "react";
 import { Num } from "./num";
 
@@ -11,20 +11,9 @@ const LABEL_TONE: Record<Tone, string> = {
   indigo: "text-[var(--indigo)]",
   teal: "text-[var(--teal)]",
   amber: "text-[var(--amber)]",
-  red: "text-[var(--red)]",
+  red: "text-destructive",
 };
 
-/**
- * MetricCard — three rows, and row 3 is the point.
- *
- * No gradient, no filled variant, no trend-arrow trio. Row 3 is *the reason this
- * number matters* ("أقدم طلب: ٣ أيام"), never a percentage delta with no
- * referent — a delta the operator cannot act on is decoration.
- *
- * Cards are links. Each one is the door to its queue; a metric the operator
- * cannot walk into is a dead end, which is the defect the old seven-identical-
- * StatCards Overview had.
- */
 export function MetricCard({
   href,
   label,
@@ -42,12 +31,9 @@ export function MetricCard({
   label: React.ReactNode;
   icon?: React.ReactNode;
   tone?: Tone;
-  /** mono right-hand meta, e.g. an SLA */
   meta?: React.ReactNode;
   count: React.ReactNode;
-  /** optional money figure, baseline-aligned with the count */
   amount?: React.ReactNode;
-  /** row 3 — why this number matters */
   fact?: React.ReactNode;
   factIcon?: React.ReactNode;
   blocking?: boolean;
@@ -57,8 +43,8 @@ export function MetricCard({
     <Link
       href={href}
       className={cn(
-        "lg-card flex flex-col gap-3.5 p-[18px] transition-colors",
-        "hover:bg-[var(--rule-2)]",
+        "lg-card flex flex-col gap-3.5 p-4.5 transition-colors",
+        "hover:bg-(--rule-2)",
       )}
       data-blocking={blocking || undefined}
     >
@@ -73,19 +59,18 @@ export function MetricCard({
           {label}
         </span>
         {blocking && blockingLabel ? (
-          <span className="rounded-[5px] bg-[var(--red-soft)] px-1.5 py-px text-[11px] font-semibold text-[var(--red)]">
+          <span className="rounded-[5px] bg-(--red-soft) px-1.5 py-px text-[11px] font-semibold text-destructive">
             {blockingLabel}
           </span>
         ) : meta ? (
-          <Num className="text-[11px] text-[var(--ink-3)]">{meta}</Num>
+          <Num className="text-[11px] text-(--ink-3)">{meta}</Num>
         ) : null}
       </div>
-
       <div className="flex items-baseline gap-2.5">
         <Num
           className={cn(
             "text-[34px] font-semibold leading-none",
-            blocking ? "text-[var(--red)]" : "text-[var(--ink)]",
+            blocking ? "text-destructive" : "text-(--ink)",
           )}
         >
           {count}
@@ -94,16 +79,15 @@ export function MetricCard({
           <Num
             className={cn(
               "text-sm font-semibold",
-              blocking ? "text-[var(--red)]" : "text-[var(--money)]",
+              blocking ? "text-destructive" : "text-(--money)",
             )}
           >
             {amount}
           </Num>
         ) : null}
       </div>
-
       {fact ? (
-        <span className="flex items-center gap-1.5 text-xs leading-relaxed text-[var(--ink-2)]">
+        <span className="flex items-center gap-1.5 text-xs leading-relaxed text-(--ink-2)">
           {factIcon}
           {fact}
         </span>

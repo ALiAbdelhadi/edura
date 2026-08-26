@@ -40,18 +40,6 @@ function daysWaiting(iso: string): number {
   return Math.max(0, Math.floor(ms / 86_400_000));
 }
 
-/**
- * طلبات التسجيل — the enrolment queue.
- *
- * The old screen rendered a solid Approve AND a solid destructive Decline in
- * every row: at ten rows, twenty saturated buttons, with reject at equal weight
- * to approve. Per the system, a queue has NO per-row action buttons — selecting
- * a row opens the decision panel, and that is where the action lives.
- *
- * Approving writes an enrolment and notifies the student, so it takes the
- * two-step commit. Declining is a low-weight bordered button that opens the
- * required-reason field — a rejection with no reason is a bug.
- */
 export function AdminEnrollmentRequestsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
@@ -145,13 +133,13 @@ export function AdminEnrollmentRequestsScreen() {
     {
       id: "course",
       header: t("adminManage.enroll.colCourse"),
-      cell: (r) => <span className="text-[13px] text-[var(--ink)]">{courseOf(r)}</span>,
+      cell: (r) => <span className="text-[13px] text-(--ink)">{courseOf(r)}</span>,
     },
     {
       id: "submitted",
       header: t("adminManage.enroll.colSubmitted"),
       cell: (r) => (
-        <DateText className="text-xs text-[var(--ink-3)]">
+        <DateText className="text-xs text-(--ink-3)">
           {formatDate(r.submittedAt, { day: "numeric", month: "short", year: "numeric" })}
         </DateText>
       ),
@@ -160,7 +148,6 @@ export function AdminEnrollmentRequestsScreen() {
       id: "status",
       header: t("adminManage.enroll.colStatus"),
       numeric: true,
-      // A pending badge carries its own age — waiting is the operator's metric.
       cell: (r) => (
         <Badge tone="pending" age={t("adminManage.enroll.waitingAge", { n: daysWaiting(r.submittedAt) })}>
           {t("status.pending")}
@@ -175,7 +162,6 @@ export function AdminEnrollmentRequestsScreen() {
         title={t("adminManage.enroll.title")}
         subtitle={t("adminManage.enroll.subtitle")}
       />
-
       {requests.length === 0 ? (
         <Sheet>
           <EmptyState icon={<Inbox className="size-6" />} title={t("adminManage.enroll.noPending")} />
@@ -194,7 +180,6 @@ export function AdminEnrollmentRequestsScreen() {
             selectedKey={selectedId}
             caption={t("adminManage.enroll.title")}
           />
-
           <Sheet className="h-fit p-4">
             {!selected ? (
               <EmptyState
@@ -205,18 +190,17 @@ export function AdminEnrollmentRequestsScreen() {
               <div className="flex flex-col gap-3.5">
                 <div>
                   <Eyebrow>{t("adminManage.enroll.panelEyebrow")}</Eyebrow>
-                  <h2 className="mt-1.5 mb-0 text-[17px] font-bold text-[var(--ink)]">
+                  <h2 className="mt-1.5 mb-0 text-[17px] font-bold text-(--ink)">
                     {nameOf(selected)}
                   </h2>
-                  <p className="mt-0.5 mb-0 text-[13px] text-[var(--ink-2)]">{courseOf(selected)}</p>
+                  <p className="mt-0.5 mb-0 text-[13px] text-(--ink-2)">{courseOf(selected)}</p>
                 </div>
-
                 <div className="lg-field flex flex-col gap-2 p-3">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-[var(--ink-2)]">
+                    <span className="text-xs text-(--ink-2)">
                       {t("adminManage.enroll.requestedOn")}
                     </span>
-                    <DateText className="text-[13px] text-[var(--ink)]">
+                    <DateText className="text-[13px] text-(--ink)">
                       {formatDate(selected.submittedAt, {
                         day: "numeric",
                         month: "short",
@@ -225,7 +209,7 @@ export function AdminEnrollmentRequestsScreen() {
                     </DateText>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-[var(--ink-2)]">
+                    <span className="text-xs text-(--ink-2)">
                       {t("adminManage.enroll.studentIdLabel")}
                     </span>
                     <CopyableText
@@ -234,9 +218,7 @@ export function AdminEnrollmentRequestsScreen() {
                     />
                   </div>
                 </div>
-
                 <ClearanceNotice>{t("adminManage.enroll.clearance")}</ClearanceNotice>
-
                 <TwoStepCommit
                   resetKey={selected._id}
                   icon={<Check className="size-4" />}
@@ -246,9 +228,6 @@ export function AdminEnrollmentRequestsScreen() {
                   armedHint={t("adminManage.enroll.approveArmedHint")}
                   onCommit={() => handleApprove(selected._id)}
                 />
-
-                {/* Decline is bordered, not filled — it must never be the visual
-                    twin of approve, and it always requires a reason. */}
                 {declineOpen ? (
                   <div className="flex flex-col gap-2">
                     <Textarea
@@ -262,7 +241,7 @@ export function AdminEnrollmentRequestsScreen() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1 border-[var(--red)] text-[var(--red)]"
+                        className="flex-1 border-destructive text-destructive"
                         disabled={!declineReason.trim() || declineMutation.isPending}
                         onClick={handleDecline}
                       >
@@ -277,7 +256,7 @@ export function AdminEnrollmentRequestsScreen() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-[var(--rule)] text-[var(--red)]"
+                    className="border-(--rule) text-destructive"
                     onClick={() => setDeclineOpen(true)}
                   >
                     <X className="size-4" />

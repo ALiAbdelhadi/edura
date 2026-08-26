@@ -26,6 +26,10 @@ import {
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+import {
+  scanSeedsForDirectLedgerWrites,
+  ROOM_SEED_CENTER_SHORT_IDS,
+} from "../../../../packages/database/scripts/seed-money-scan";
 
 // Fixture teardown + the environment guard, wired at the module edge so
 // neither depends on remembering to do it inside a proof.
@@ -143,10 +147,17 @@ async function mkRoomBasedCourse(
   });
 }
 const wallets = (teacherId: string, centerId: string) =>
-  withPlatformContext(async (tx) => ({
-    teacher: (await tx.teacherProfile.findUnique({ where: { userId: teacherId }, select: { walletBalance: true } }))!.walletBalance,
-    center: (await tx.center.findUnique({ where: { id: centerId }, select: { walletBalance: true } }))!.walletBalance,
-  }));
+  withPlatformContext(async (tx) => {
+    const c = (await tx.center.findUnique({
+      where: { id: centerId },
+      select: { walletBalance: true, creditBalance: true },
+    }))!;
+    return {
+      teacher: (await tx.teacherProfile.findUnique({ where: { userId: teacherId }, select: { walletBalance: true } }))!.walletBalance,
+      center: c.walletBalance,
+      credit: c.creditBalance,
+    };
+  });
 
 async function main() {
   const tag = "split-" + rid();
@@ -215,7 +226,16 @@ async function main() {
   const centerCut = Math.round((price * 2000) / 10000); // 4000
   const teacherCut = price - platformCut - centerCut; // 12000
   assert(after.teacher - before.teacher === teacherCut, `teacher credited its share once (+${teacherCut})`);
-  assert(after.center - before.center === centerCut, `center credited its share once (+${centerCut})`);
+  // D5 (Phase 4): this fixture's student has NO subscription, so the lesson
+  // resolves CENTER-HELD — the gross sits in the center's own drawer. Its net
+  // therefore never touches wallet_balance (crediting it was the F2
+  // double-pay), and the center's credit POSITION is debited what it owes on:
+  // the teacher's net plus the platform's fees.
+  assert(after.center - before.center === 0, "center-held lesson: center wallet NOT credited (net already in its drawer)");
+  assert(
+    after.credit - before.credit === -(teacherCut + platformCut),
+    `center credit debited what it owes on (teacher ${teacherCut} + fees ${platformCut})`,
+  );
   assert(teacherCut + centerCut + platformCut === price, "three shares conserve exactly to the price");
 
   const ledger = await withPlatformContext(async (tx) => {
@@ -231,8 +251,8 @@ async function main() {
   await completeSession(sessionId, { id: teacherId, role: "teacher" } as never);
   const after2 = await wallets(teacherId, centerId);
   assert(
-    after2.teacher === after.teacher && after2.center === after.center,
-    "re-settling the same session does NOT double-pay (distributedAt exactly-once)",
+    after2.teacher === after.teacher && after2.center === after.center && after2.credit === after.credit,
+    "re-settling the same session does NOT double-pay (distributedAt exactly-once, credit included)",
   );
 
   // %-mode refund reverses exactly (uses the course snapshot).
@@ -241,6 +261,13 @@ async function main() {
   assert(
     afterRefund.teacher === before.teacher && afterRefund.center === before.center,
     "a %-mode refund reverses the split exactly (wallets back to pre-settlement)",
+  );
+  // D5: the refund's extra credit debit is −centerNet, so the position lands
+  // at −price — the platform refunded the student from its own pocket while
+  // the gross still sits in the center's drawer, so the center owes it all.
+  assert(
+    afterRefund.credit - before.credit === -price,
+    `center-held refund leaves the credit position at −price (−${price})`,
   );
 
   // Course-level snapshot CHECK is DB-enforced too.
@@ -286,18 +313,40 @@ async function main() {
   await updateGlobalSplit({ platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 }, su);
 
   // ---------------------------------------------------------------- VP5
-  console.log("\nVP5 — is_demo seed wrote room profiles but NO ledger");
+  // This proof used to count `transactions` across EVERY is_demo center and
+  // assert zero. That census broke the day demo money became sanctioned: the
+  // showcase seeds settle lessons and record counter payments THROUGH THE
+  // REAL ENGINE, so shared dev legitimately holds engine-written demo ledger
+  // rows this suite never wrote (and, symmetrically, the photo/price checks
+  // were passing on showcase rooms while room-rate-demo-seed's own centers
+  // had been absent since the 2026-07-31 wipe). The "no ledger" half is a
+  // property of the SEED SOURCE and is asserted there; the positive half is
+  // scoped to the centers the room seeds actually own.
+  console.log("\nVP5 — room demo seeds write profiles/config, never the ledger");
+  const ledgerWrites = scanSeedsForDirectLedgerWrites();
+  assert(
+    ledgerWrites.length === 0,
+    "NO demo seed writes transactions/session_settlements directly" +
+      (ledgerWrites.length
+        ? ` — found: ${ledgerWrites.map((h) => `${h.file}:${h.line} ${h.match}`).join("; ")}`
+        : ""),
+  );
   const seedCheck = await withPlatformContext(async (tx) => {
-    const demoCenters = await tx.center.findMany({ where: { isDemo: true }, select: { id: true } });
-    const ids = demoCenters.map((c) => c.id);
-    const demoTx = await tx.transaction.count({ where: { centerId: { in: ids } } });
+    const roomSeedCenters = await tx.center.findMany({
+      where: { shortId: { in: [...ROOM_SEED_CENTER_SHORT_IDS] } },
+      select: { id: true },
+    });
+    const ids = roomSeedCenters.map((c) => c.id);
     const roomsWithPhotos = await tx.room.count({ where: { centerId: { in: ids }, NOT: { photos: { isEmpty: true } } } });
     const roomsWithPrice = await tx.room.count({ where: { centerId: { in: ids }, NOT: { price: null } } });
-    return { demoTx, roomsWithPhotos, roomsWithPrice };
+    return { seeded: ids.length, roomsWithPhotos, roomsWithPrice };
   });
-  assert(seedCheck.demoTx === 0, "NO ledger Transaction rows reference demo centers (no ledger pollution)");
-  assert(seedCheck.roomsWithPhotos > 0, "demo rooms have photos (previewable)");
-  assert(seedCheck.roomsWithPrice > 0, "demo rooms have a hall price");
+  assert(
+    seedCheck.seeded > 0,
+    "at least one room-seed center exists (run preview-seed or room-rate-demo-seed)",
+  );
+  assert(seedCheck.roomsWithPhotos > 0, "room-seed demo rooms have photos (previewable)");
+  assert(seedCheck.roomsWithPrice > 0, "room-seed demo rooms have a hall price");
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exitCode = fail === 0 ? 0 : 1;

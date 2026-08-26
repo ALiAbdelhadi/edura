@@ -39,6 +39,13 @@ const navGroups = [
     label: "@ops",
     items: [
       { href: "/dashboard/admin/teachers", icon: "person", label: "Teachers", tour: "nav-teachers" },
+      // Collaboration requests were a band at the top of the Teachers page — a
+      // request inbox mounted inside a directory, so the teacher list started
+      // below the fold and a waiting decision was something you scrolled past
+      // rather than navigated to. It sits next to Teachers because that is the
+      // same subject; it is its own row because it is a QUEUE, and every other
+      // queue in this portal has one.
+      { href: "/dashboard/admin/collaborations", icon: "clipboard", label: "Collaboration Requests" },
       // Off-system teachers shipped with a full portal (list, statement, gaps,
       // settle, convert) and NO way in: no nav entry and no link from any screen,
       // so it was reachable only by typing the URL. A capability nobody can find is
@@ -111,6 +118,7 @@ const BAR_ORDER = [
   // — the "more" sheet, in sidebar order —
   "/dashboard/admin/enrollment-requests",
   "/dashboard/admin/teachers",
+  "/dashboard/admin/collaborations",
   "/dashboard/admin/external-teachers",
   "/dashboard/admin/classes",
   "/dashboard/admin/schedule",

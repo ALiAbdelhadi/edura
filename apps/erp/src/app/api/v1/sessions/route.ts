@@ -6,6 +6,11 @@ import { authorizeCenterActor } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
+import {
+  approvedChildIds,
+  assertApprovedChild,
+} from "@/lib/services/wallet/parent-wallet";
+import { enrichSessions } from "@/lib/services/sessions/enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +79,26 @@ export const GET = withErrors(async (req) => {
       });
       where.courseId = { in: enrollments.map((e) => e.courseId) };
     } else if (user.role === "parent") {
-      const links = await tx.parentStudentLink.findMany({
-        where: { parentId: user.id, status: "approved" },
-        select: { studentId: true },
-      });
-      const studentIds = links.map((l) => l.studentId);
-      if (studentIds.length === 0) throw new ForbiddenError("No linked children");
+      // A PARENT MAY NARROW TO ONE CHILD. Without `studentId` this route
+      // returned the union of every child's courses and had no way to say which
+      // child a session belonged to — so a multi-child parent read one
+      // undifferentiated timetable (PARENT_IA_AUDIT.md §7.1, finding 1).
+      //
+      // The union stays the default, because existing callers depend on it and
+      // narrowing by force would silently hide a child. What is new is that
+      // asking for one child is now possible, and answered.
+      //
+      // The gate is `assertApprovedChild` — the SAME function every parent money
+      // path calls, not a second inline link lookup. `pending`, `rejected` and
+      // `revoked` all fail there, which is the point of it.
+      let studentIds: string[];
+      if (studentIdParam && studentIdParam !== "me") {
+        await assertApprovedChild(tx, user.id, studentIdParam);
+        studentIds = [studentIdParam];
+      } else {
+        studentIds = await approvedChildIds(tx, user.id);
+        if (studentIds.length === 0) throw new ForbiddenError("No linked children");
+      }
       const enrollments = await tx.enrollment.findMany({
         where: { studentId: { in: studentIds }, status: "active" },
         select: { courseId: true },
@@ -106,42 +125,10 @@ export const GET = withErrors(async (req) => {
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
 
-    const courseIds = [...new Set(sessions.map((s) => s.courseId))];
-    const teacherIds = [...new Set(sessions.map((s) => s.teacherId).filter(Boolean))];
-    const roomIds = [
-      ...new Set(sessions.map((s) => s.roomId).filter(Boolean) as string[]),
-    ];
-
-    const [courses, teachers, rooms] = await Promise.all([
-      tx.course.findMany({
-        where: { id: { in: courseIds } },
-        select: { id: true, title: true, subject: true },
-      }),
-      tx.user.findMany({
-        where: { id: { in: teacherIds } },
-        select: { id: true, name: true },
-      }),
-      tx.room.findMany({
-        where: { id: { in: roomIds } },
-        select: { id: true, name: true },
-      }),
-    ]);
-    const courseMap = new Map(courses.map((c) => [c.id, c]));
-    const teacherMap = new Map(teachers.map((t) => [t.id, t]));
-    const roomMap = new Map(rooms.map((r) => [r.id, r]));
-
-    return sessions.map((s) => {
-      const c = courseMap.get(s.courseId);
-      const t = teacherMap.get(s.teacherId);
-      const r = s.roomId ? roomMap.get(s.roomId) : null;
-      return {
-        ...s,
-        courseName: c?.title ?? "",
-        subject: c?.subject ?? "",
-        teacherName: t?.name ?? "",
-        roomName: r?.name ?? "",
-      };
-    });
+    // T-8: the joins (incl. centerName through Course.centerId — Session has
+    // no center column) live in enrichSessions so the shape is testable and
+    // the three portal heroes share it instead of re-joining client-side.
+    return enrichSessions(tx, sessions);
   });
 
   return ok({ items: enriched });

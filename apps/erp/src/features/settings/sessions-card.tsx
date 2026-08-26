@@ -19,10 +19,6 @@ type SessionRow = {
   userAgent?: string | null;
 };
 
-/**
- * Better-auth stores IPv6 fully expanded ("0000:0000:…"), which is unreadable
- * on the card. Compress it back to display form (:: / ::1 / 2001:db8::1).
- */
 export function formatIp(ip: string | null | undefined): string {
   if (!ip) return "—";
   if (!ip.includes(":")) return ip;
@@ -79,13 +75,8 @@ export function deviceLabel(ua: string | null | undefined, fallback: string): {
   return { label: [browser, os].filter(Boolean).join(" · "), mobile };
 }
 
-/** How many devices show before the list needs an explicit "show all". */
 const COLLAPSED_COUNT = 6;
 
-/**
- * "الأجهزة والجلسات" — lists this account's live auth_sessions rows and lets
- * the user revoke one device or every other device. Shown to ALL roles.
- */
 export function SessionsCard() {
   const t = useTranslations();
   const format = useFormatter();
@@ -144,9 +135,6 @@ export function SessionsCard() {
 
   const others = (sessions ?? []).filter((s) => s.token !== currentToken);
 
-  // This device first, then most-recently-active — so the one row a reader
-  // actually cares about (am I signed in elsewhere?) never scrolls past a
-  // long, unsorted dump of old sessions.
   const sortedSessions = useMemo(() => {
     if (!sessions) return [];
     return [...sessions].sort((a, b) => {

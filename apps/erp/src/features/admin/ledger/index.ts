@@ -1,13 +1,3 @@
-/**
- * الدفتر / The Ledger — center admin + staff portal implementation.
- *
- * SCOPE: this folder is a portal-local stand-in for what the foundation session
- * will promote into `packages/ui`. It exists because five sessions build in
- * parallel and none may edit the shared layer. Every name here matches the
- * spec's vocabulary, so the swap is a re-point, not a rewrite.
- *
- * See ledger.css for the token layer and the deletion plan.
- */
 export { Num, ProseCount, DateText, Money, Amount } from "./num";
 export {
   Eyebrow,

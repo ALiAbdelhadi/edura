@@ -1,5 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import {
+  exactQuery,
   matchesSearchTerms,
   narrowQuery,
   searchTerms,
@@ -47,33 +48,19 @@ export async function listPaymentIntents(filters: IntentListFilters) {
 
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      const terms = searchTerms(q);
-
-      // The PAYER lookup gets the FULL two-stage match — narrow in SQL, decide
-      // in JS — because it is a bounded sub-query, not a page: «احمد» used to
-      // match none of the rows stored «أحمد», so an intent could not be found
-      // by the name of the person who paid for it. The JS pass runs over the
-      // 500-row cap this query already had.
-      const candidates = await tx.user.findMany({
+      // The PAYER lookup is exact in SQL now (`users.search_text`); the
+      // gateway-reference arm still narrows, because `payment_intents` has no
+      // such column — its reference columns are ASCII, so ILIKE already served
+      // them and a generated column there would be storage for nothing.
+      const students = await tx.user.findMany({
         where: {
           role: "student",
-          AND: narrowQuery(q, (f) => [
-            { name: { contains: f, mode: "insensitive" as const } },
-            { email: { contains: f, mode: "insensitive" as const } },
-          ]),
+          AND: exactQuery(q, (t) => ({ searchText: { contains: t } })),
         },
-        select: { id: true, name: true, email: true },
+        select: { id: true },
         take: 500,
       });
-      const students = candidates.filter((s) =>
-        matchesSearchTerms([s.name, s.email], terms),
-      );
 
-      // The GATEWAY references narrow only. This query is offset-paginated and
-      // returns a `count`, so a JS filter after the page is cut would give a
-      // short page and a wrong total — the same trade recorded in `listUsers`.
-      // Gateway references are ASCII anyway, so the fragments are the whole
-      // string and the narrowing is exact for them in practice.
       where.OR = [
         { studentId: { in: students.map((s) => s.id) } },
         // ONE clause, not spread — the fragments must stay ANDed WITHIN the

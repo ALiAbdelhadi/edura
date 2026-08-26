@@ -55,6 +55,7 @@ export function DonutChart({
                 cornerRadius={4}
                 stroke="var(--sheet)"
                 strokeWidth={2}
+                isAnimationActive={false}
               >
                 {resolved.map((slice) => (
                   <Cell key={slice.id} fill={slice.color} />

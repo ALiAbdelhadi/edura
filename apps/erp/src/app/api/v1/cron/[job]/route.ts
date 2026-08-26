@@ -5,6 +5,7 @@ import { BusinessRuleError } from "@/lib/errors/classes";
 import {
   runMonthEndStatements,
   runLessonReminders,
+  runSubscriptionRenewalReminders,
   runWeeklyCenterDigest,
 } from "@/lib/services/cron/jobs";
 import { expirePaymentIntents } from "@/lib/services/payments/payment-intents";
@@ -43,6 +44,11 @@ export const POST = withErrors(async (req, ctx) => {
       return ok(await expirePaymentIntents(now));
     case "expire-subscriptions":
       return ok(await expireSubscriptions(now));
+    // B.1#12: T-5/T-2/T-0 renewal reminders on the [status, periodEnd] index.
+    // Idempotent per (subscription, bucket) via the sent notification's own
+    // data — a double-fired schedule is a no-op, never a duplicate.
+    case "subscription-renewal-reminders":
+      return ok(await runSubscriptionRenewalReminders(now));
     case "expire-collaboration-requests":
       return ok(await expireCollaborationRequests(now));
     // Child safety: escalate (never suspend) when a minor still has no

@@ -1,9 +1,8 @@
 "use client";
 
-import { api } from "@/lib/api/client";
 import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Badge, PageHead, Sheet } from "./ledger";
 import { CenterCounterScreen } from "./counter/center-counter-screen";
 import { GuidedTour } from "@/features/tour/guided-tour";
@@ -12,25 +11,30 @@ import { staffTourSteps } from "@/features/admin/staff-tour/steps";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 
-type Me = { role: StaffRole; title: string | null; centerName: string | null };
-
-export function CenterStaffPortalHome() {
+/**
+ * THE SUB-ROLE ARRIVES AS A PROP, resolved on the SERVER by this route's page.
+ *
+ * It used to be `api.get("center/staff/me")` in a client effect, with the whole
+ * screen replaced by a centred "loading…" until it answered — and the whole
+ * screen here is THE COUNTER BOARD, the highest-frequency surface in the
+ * product. So the busiest screen in the building was gated behind a round trip
+ * for a value the server had ALREADY resolved: `staff/layout.tsx` reads exactly
+ * this to decide the navigation, one layer up, before any HTML is streamed.
+ *
+ * The resolve stays live and revocation-aware — it is the same `getStaffMe`
+ * call against the same live link, just made where the answer was already
+ * needed. A deactivated staff account still has no active link and is still
+ * sent to login on THIS request.
+ */
+export function CenterStaffPortalHome({
+  role,
+  centerName,
+}: {
+  role: StaffRole;
+  centerName: string | null;
+}) {
   const t = useTranslations();
-  const [me, setMe] = useState<Me | null>(null);
-  // Declared above the loading return: hooks cannot sit behind a branch.
   const tour = useTourGate();
-
-  useEffect(() => {
-    api.get("center/staff/me").json<{ data: Me }>().then((r) => setMe(r.data)).catch(() => {});
-  }, []);
-
-  if (!me) {
-    return (
-      <div className="p-8 text-center text-[13px] text-[var(--ink-3)]">
-        {t("centerStaff.loading")}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -39,18 +43,18 @@ export function CenterStaffPortalHome() {
           accountant do not share a job, and a step about revenue reports shown
           to a receptionist walks them to a door their tier does not open. */}
       <GuidedTour
-        steps={staffTourSteps(me.role)}
+        steps={staffTourSteps(role)}
         namespace="adminHome.staffTour"
         open={tour.shouldOpen}
         onClose={tour.markDone}
       />
 
       <PageHead
-        title={me.centerName ?? t("centerStaff.portalTitle")}
-        subtitle={t(`centerStaff.roleDesc.${me.role}` as Parameters<typeof t>[0])}
+        title={centerName ?? t("centerStaff.portalTitle")}
+        subtitle={t(`centerStaff.roleDesc.${role}` as Parameters<typeof t>[0])}
         actions={
           <Badge tone="info" icon={<ShieldCheck className="size-3.5" />}>
-            {t(`centerStaff.roleName.${me.role}` as Parameters<typeof t>[0])}
+            {t(`centerStaff.roleName.${role}` as Parameters<typeof t>[0])}
           </Badge>
         }
       />
@@ -91,7 +95,7 @@ export function CenterStaffPortalHome() {
         record reading rather than passing by, which is the more honest reading
         of "قرأها".
       */}
-      {me.role === "receptionist" || me.role === "manager" ? (
+      {role === "receptionist" || role === "manager" ? (
         <CenterCounterScreen embedded />
       ) : null}
 
@@ -101,7 +105,7 @@ export function CenterStaffPortalHome() {
         without explanation reads as a broken portal; state the boundary
         instead. This tier has no board above, so this IS its page.
       */}
-      {me.role === "center_accountant" ? (
+      {role === "center_accountant" ? (
         <Sheet className="p-4">
           <p className="m-0 text-[15px] font-semibold text-[var(--ink)]">
             {t("centerStaff.noMessagingTitle")}

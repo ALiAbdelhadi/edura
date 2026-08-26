@@ -97,6 +97,12 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
   const [reserved, setReserved] = useState(0);
   const [walletRows, setWalletRows] = useState<EmuWalletRow[]>(EMU_WALLET_OPENING_ROWS);
   const [requests, setRequests] = useState<EmuPayoutRow[]>([]);
+  /* The withdraw is ARMED before it commits, because the real one is. The
+     screen this rehearses now uses TwoStepCommit — press once to arm, again to
+     send, with the amount on the button and "no cancel after this" underneath.
+     An emulator that still took one press would be teaching a ceremony the
+     product no longer has. */
+  const [withdrawArmed, setWithdrawArmed] = useState(false);
   const [screenOverride, setScreenOverride] = useState<EmuScreen | null>(null);
 
   const finished = index >= FLAT_STEPS.length;
@@ -172,9 +178,15 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     ]);
   };
 
+  const armWithdraw = () => {
+    if (Math.max(0, balance - reserved) <= 0) return;
+    setWithdrawArmed(true);
+  };
+
   const withdraw = () => {
     const amount = Math.max(0, balance - reserved);
     if (amount <= 0) return;
+    setWithdrawArmed(false);
     // Reserving rather than deducting is the point of the step that follows:
     // "available" drops to zero while "balance" does not move, which is the
     // wallet's most misread pair.
@@ -192,6 +204,7 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     setPriced(false);
     setLessonOpen(false);
     setRoster(EMU_ROSTER);
+    setWithdrawArmed(false);
     setSaved(false);
     setArmed(false);
     setSettled(false);
@@ -348,6 +361,8 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
                 <EmuTeacherWallet
                   balance={balance}
                   reserved={reserved}
+                  armed={withdrawArmed}
+                  onArm={armWithdraw}
                   rows={walletRows}
                   requests={requests}
                   onWithdraw={withdraw}

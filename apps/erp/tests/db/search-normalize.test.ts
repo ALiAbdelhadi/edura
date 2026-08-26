@@ -24,7 +24,11 @@
 //
 // Nothing is mocked and nothing is written: every query here is a SELECT.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { normalizeSearchText } from "@repo/database/search-text";
+import {
+  matchesSearchQuery,
+  normalizeSearchText,
+  searchTerms,
+} from "@repo/database/search-text";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
@@ -103,11 +107,46 @@ const CORPUS: [string, string][] = [
 ];
 
 const EXPECTED_INDEXES = [
-  "users_name_search_trgm",
-  "centers_name_search_trgm",
-  "courses_title_search_trgm",
-  "contact_submissions_name_search_trgm",
-  "contact_submissions_subject_search_trgm",
+  "users_search_text_trgm",
+  "centers_search_text_trgm",
+  "courses_search_text_trgm",
+  "contact_submissions_search_text_trgm",
+  "student_profiles_search_text_trgm",
+  "rooms_search_text_trgm",
+];
+
+/** The tables carrying `search_text`, and the fields each one's column joins. */
+const GENERATED: { table: string; fields: string[] }[] = [
+  { table: "users", fields: ["name", "email", "phone"] },
+  {
+    table: "centers",
+    fields: ["name", "short_id", "area", "governorate", "description"],
+  },
+  { table: "courses", fields: ["title", "subject", "description"] },
+  {
+    table: "contact_submissions",
+    fields: ["name", "email", "phone", "subject", "message"],
+  },
+  // `student_code` and the guardian columns are DELIBERATELY absent — see the
+  // header of migration 20260820180000. Both would widen reach: the code is
+  // matched through `readStudentScan`, whose check character means a mistype
+  // resolves to nobody, and a guardian's contact details would make a CHILD
+  // findable by their parent's email. If either is ever added to the column,
+  // this list disagrees with the database and the desync check below goes red —
+  // which is the point.
+  { table: "student_profiles", fields: ["full_name", "phone"] },
+  { table: "rooms", fields: ["name", "description"] },
+];
+
+/** Queries chosen so each one exercises a different fold. */
+const PARITY_QUERIES = [
+  "احمد",
+  "فاطمه",
+  "ندي",
+  "عبدالرحمن",
+  "مصطفي كامل",
+  "0111",
+  "zzzz-no-such-thing",
 ];
 
 async function main() {
@@ -203,8 +242,107 @@ async function main() {
       "pg_trgm is installed — a GIN trigram index is the only kind that serves LIKE '%…%'",
     );
 
-    /* ── 5) it actually finds the row ILIKE could not ───────────────────── */
-    section("5. The point of the whole thing");
+    /* ── 5) the generated columns ───────────────────────────────────────── */
+    section("5. search_text — generated, and equal to the JS matcher");
+    for (const { table } of GENERATED) {
+      const meta = await admin.query(
+        `SELECT is_generated FROM information_schema.columns
+          WHERE table_name = $1 AND column_name = 'search_text'`,
+        [table],
+      );
+      assert(
+        meta.rows[0]?.is_generated === "ALWAYS",
+        `${table}.search_text is GENERATED ALWAYS — not an ordinary column ` +
+          `a write could desynchronize`,
+      );
+    }
+
+    // THE DESYNC CHECK, and it is the one that earns its place. A STORED
+    // generated column is computed on WRITE. `CREATE OR REPLACE FUNCTION` on
+    // `edura_search_normalize` with a different body would NOT recompute the
+    // rows already stored, and the database would then hold two definitions of
+    // the same word with nothing to say so. Comparing every stored value
+    // against a live call turns that silent divergence into a red line here.
+    for (const { table, fields } of GENERATED) {
+      const expr = fields.map((f) => `coalesce(${f}, '')`).join(` || ' ' || `);
+      const stale = await admin.query(
+        `SELECT count(*)::int AS n FROM ${table}
+          WHERE search_text IS DISTINCT FROM edura_search_haystack(${expr})`,
+      );
+      assert(
+        stale.rows[0].n === 0,
+        `${table}.search_text: every stored value equals a live call — ` +
+          `the normalizer has not been edited without a rebuild`,
+      );
+    }
+
+    // PARITY. `search_text LIKE '%term%'` for every term, ANDed, must return
+    // exactly what `matchesSearchTerms` returns over the same fields. This is
+    // the property the paginated list screens now depend on: it is what lets
+    // them be exact AND counted, which a JS filter after the page is cut cannot
+    // be.
+    {
+      const rows = await admin.query(
+        `SELECT name, email, phone, search_text FROM users LIMIT 500`,
+      );
+      let compared = 0;
+      const disagreements: string[] = [];
+      for (const row of rows.rows) {
+        for (const query of PARITY_QUERIES) {
+          const bySql = searchTerms(query).every((t) =>
+            String(row.search_text).includes(t),
+          );
+          const byJs = matchesSearchQuery([row.name, row.email, row.phone], query);
+          compared++;
+          if (bySql !== byJs) {
+            disagreements.push(
+              `q=${JSON.stringify(query)} name=${JSON.stringify(row.name)} sql=${bySql} js=${byJs}`,
+            );
+          }
+        }
+      }
+      if (disagreements.length) console.error("    first:", disagreements.slice(0, 5));
+      assert(
+        disagreements.length === 0,
+        `search_text agrees with matchesSearchTerms on all ${compared} ` +
+          `comparisons (${rows.rowCount} rows x ${PARITY_QUERIES.length} queries)`,
+      );
+    }
+
+    /* ── 6) THE INVARIANT: every searched table has the column ──────────── */
+    section("6. No free-text search without a search_text column");
+    // The rule this whole line of work converges on is one sentence: EVERY TABLE
+    // A FREE-TEXT SEARCH REACHES CARRIES `search_text`. Measured 2026-08-20, the
+    // database has 79 tables and 58 carry a candidate free-text column, but only
+    // these SIX are reached by a search — the other 52 have no code searching
+    // them, and a generated column there would be write cost on every row with
+    // no reader.
+    //
+    // This assertion is what stops that drifting. A future search written
+    // against a seventh table will not fail here — nothing can detect that from
+    // SQL alone — but the day somebody ADDS a `search_text` column without
+    // adding it to `GENERATED` above, or removes one this list expects, they
+    // find out here instead of in production.
+    {
+      const present = await admin.query(
+        `SELECT table_name FROM information_schema.columns
+          WHERE table_schema = 'public' AND column_name = 'search_text'
+          ORDER BY table_name`,
+      );
+      const actual = present.rows.map((r) => r.table_name).sort();
+      const expected = GENERATED.map((g) => g.table).sort();
+      assert(
+        JSON.stringify(actual) === JSON.stringify(expected),
+        `exactly ${expected.length} tables carry search_text, and they are the ` +
+          `ones this suite knows how to check` +
+          (JSON.stringify(actual) === JSON.stringify(expected)
+            ? ""
+            : `  (found: ${actual.join(", ")})`),
+      );
+    }
+
+    /* ── 7) it actually finds the row ILIKE could not ───────────────────── */
+    section("7. The point of the whole thing");
     const probe = await admin.query(
       `SELECT
          (SELECT count(*)::int FROM (VALUES ('أحمد على')) AS t(n)

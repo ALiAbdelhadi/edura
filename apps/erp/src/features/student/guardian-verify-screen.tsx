@@ -111,8 +111,8 @@ export function GuardianVerifyScreen({
           </div>
         </div>
       ) : phase.k === "bad" ? (
-        <div className="flex items-start gap-3 rounded-(--radius-step-md) border border-[var(--red)] bg-[var(--red-soft)] p-4">
-          <CircleAlert className="mt-0.5 size-5 shrink-0 text-[var(--red)]" aria-hidden />
+        <div className="flex items-start gap-3 rounded-(--radius-step-md) border border-destructive bg-[var(--red-soft)] p-4">
+          <CircleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div>
             <p className="font-semibold text-[var(--ink)]">{t.badTitle}</p>
             <p className="mt-1 text-sm text-[var(--ink-2)]">{t.badBody}</p>

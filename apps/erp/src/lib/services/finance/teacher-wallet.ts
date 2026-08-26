@@ -1,6 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
+import { dayRange } from "@repo/server-core/lib/day-range";
 
 
 export function getTeacherWallet(teacher: SessionUser) {
@@ -24,17 +25,53 @@ export function getTeacherWallet(teacher: SessionUser) {
   });
 }
 
-export function getTeacherWalletTransactions(teacher: SessionUser, opts?: { take?: number; cursor?: string }) {
+/**
+ * `from`/`to` (Cairo day strings via `dayRange`) bound the list to a period —
+ * the "كسبت الفترة دي" read (TEACHER_IA_AUDIT §7.2 #3). Omitted, the list is
+ * the full cursor-paginated history, unchanged. The bounds compose with the
+ * cursor: a bounded page still pages within its period.
+ */
+export function getTeacherWalletTransactions(
+  teacher: SessionUser,
+  opts?: { take?: number; cursor?: string; from?: string; to?: string },
+) {
   const take = Math.min(100, Math.max(1, opts?.take ?? 50));
+  const createdAt = dayRange(opts?.from, opts?.to);
   return platformDb(async (tx) => {
     const rows = await tx.transaction.findMany({
-      where: { OR: [{ fromEntityId: teacher.id }, { toEntityId: teacher.id }] },
+      where: {
+        OR: [{ fromEntityId: teacher.id }, { toEntityId: teacher.id }],
+        ...(createdAt ? { createdAt } : {}),
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: take + 1,
       ...(opts?.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
     });
     const nextCursor = rows.length > take ? rows[take].id : null;
-    return { data: rows.slice(0, take), nextCursor };
+
+    // The period figure is computed SERVER-SIDE over the whole bounded range,
+    // never by summing the visible page — a page sum wearing the period's name
+    // is the same defect the reviews average had (a sample labelled as the
+    // whole). `null` when no period was asked for: a lifetime sum here would
+    // just be the wallet balance's noisy twin.
+    let totals: { earned: number; deducted: number; net: number } | null = null;
+    if (createdAt) {
+      const [credit, debit] = await Promise.all([
+        tx.transaction.aggregate({
+          where: { toEntityId: teacher.id, ...(createdAt ? { createdAt } : {}) },
+          _sum: { amount: true },
+        }),
+        tx.transaction.aggregate({
+          where: { fromEntityId: teacher.id, ...(createdAt ? { createdAt } : {}) },
+          _sum: { amount: true },
+        }),
+      ]);
+      const earned = credit._sum.amount ?? 0;
+      const deducted = debit._sum.amount ?? 0;
+      totals = { earned, deducted, net: earned - deducted };
+    }
+
+    return { data: rows.slice(0, take), nextCursor, totals };
   });
 }
 

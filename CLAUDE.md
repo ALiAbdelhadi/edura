@@ -466,6 +466,58 @@ governs. Violating one of these is never a local change.
 > through `scripts/load-env.ts`, so `EDURA_ENV=production npx tsx scripts/…`
 > is the one form for those too.
 
+- **[dev AND production, 2026-08-20]** **57 migrations, verify-db 28/28 on
+  BOTH**, identical in shape (79 tables / 6 sequences / 38 RLS tables / 59
+  policies / 57 migrations). The 57th is `20260820180000_search_text_remaining`:
+  `search_text` on `student_profiles` and `rooms`, completing the rule that
+  **EVERY TABLE A FREE-TEXT SEARCH REACHES CARRIES `search_text`** — six tables,
+  and `apps/erp/tests/db/search-normalize.test.ts` asserts that set exactly, so
+  a seventh column appearing (or one of these disappearing) is a red test.
+  **WHY SIX AND NOT SEVENTY-NINE**, measured rather than assumed: 58 tables carry
+  a candidate free-text column, but only six are reached by any search in the
+  product — no Prisma `contains`, no refine `operator: "contains"`, nothing, on
+  the other 52. A generated column there is write cost on every insert and update
+  with no reader, and on `transactions` / `points_ledger` / `wallet_ledger` /
+  `audit_logs` — append-only, money, highest volume — it is that cost per ledger
+  row forever. The `chatbot_*` tables are descoped surface and were not touched.
+  **`student_code` AND THE GUARDIAN COLUMNS ARE DELIBERATELY ABSENT** from the
+  student haystack: the code is matched through `readStudentScan`, whose check
+  character means a mistype resolves to NOBODY rather than to a different child,
+  and a guardian's email or phone would make a CHILD findable by their parent's
+  contact details. Both would widen reach, which global-search rule 1 forbids.
+  **`lookupStudents` KEPT ITS JS DECIDE PASS**, and that is not redundancy: its
+  haystack spans TWO tables (the profile's name/phone and the user row's), a
+  generated column cannot reference another table, and a query naming a student
+  by their user-row name and their profile phone satisfies the joined haystack
+  and NEITHER column alone. The columns are its pre-filter; JS is its decision.
+- **[dev AND production, 2026-08-20]** **56 migrations, verify-db 28/28 on
+  BOTH** — the shape is identical again (79 tables / 6 sequences / 38 RLS tables
+  / 59 policies / 56 migrations). The 56th is
+  `20260820160000_search_text_columns`, applied to dev and then to production
+  the same day; production's pre-flight showed exactly ONE pending migration
+  with no sibling riding along, and 9 / 2 / 1 / 0 rows to backfill.
+  It adds ONE `search_text` column to each of `users`, `centers`, `courses` and
+  `contact_submissions`, **`GENERATED ALWAYS AS (edura_search_haystack(…))
+  STORED`** — the row's searchable fields normalized, plus the same text with
+  its spaces closed up, which is exactly what `matchesSearchTerms` compares. It
+  also retires the five expression indexes from migration 55, whose query the
+  application no longer issues. Tables stay 79: a column is not a table.
+  **THE HAZARD, WRITTEN DOWN BECAUSE IT IS SILENT.** A STORED generated column
+  is computed on WRITE. `CREATE OR REPLACE FUNCTION` on `edura_search_normalize`
+  with a different body would NOT recompute the rows already stored, and the
+  database would hold two definitions of the same word with nothing to say so.
+  **Changing the normalizer requires rebuilding these columns.**
+  `apps/erp/tests/db/search-normalize.test.ts` compares every stored value
+  against a live call, which is what turns that into a red test rather than a
+  quiet divergence — 43/43 on dev.
+  **Prisma does not model generated columns**, so `prisma migrate dev` will
+  propose turning them into ordinary ones. They are named in `schema.prisma`
+  (with that warning on `User.searchText`) only so a typed `where` can filter
+  them; writing to one fails at the database, which is a loud failure.
+  Measured after applying, on production itself: all four columns report
+  `is_generated = ALWAYS`, the four `*_search_text_trgm` indexes exist, zero
+  expression indexes remain, zero desync rows, and data untouched (9 users /
+  2 centers / 1 course / 0 payments / 0 transactions).
 - **[dev, 2026-08-20]** **55 migrations, verify-db 28/28** — level with
   production again. The two were applied the same day and the same way
   (`npx prisma migrate deploy`, EDURA_ENV unset, which is what selects dev; the

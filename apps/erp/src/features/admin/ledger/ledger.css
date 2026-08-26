@@ -1,371 +1,250 @@
-/* This file is in the `portal` layer, declared in the app's globals.css and
-   ordered BETWEEN `components` and `utilities`.
-   ─────────────────────────────────────────────────────────────────────────────
-   It used to be unlayered, which meant every rule below outranked every Tailwind
-   utility regardless of specificity. That is not a detail: this file restyles
-   SHARED components by descendant selector (`[data-slot="sidebar-menu-button"]`,
-   `header`, …), so a utility written on one of those components inside these
-   routes silently did nothing, with no error anywhere.
-
-   Inside the layer, utilities win. The one place that changes what renders is
-   the shell header: dashboard-shell.tsx asks for `bg-background/85` +
-   `backdrop-blur-sm`, which this file's `background: var(--sidebar)` used to
-   override into flat opaque white — defeating a blur that had nothing left to
-   see through. Now the shell's frosted header comes through, which is what its
-   author wrote. A full computed-style diff over 1,138 elements across the
-   landing, help and dashboard pages found that header to be the ONLY change.
-
-   To restyle something here on purpose, keep doing it — but know that a plain
-   utility on the same element now beats you, so reach for a token
-   (`.lg-seal { color: var(--money) }`) rather than out-specifying the utility. */
 @layer portal {
-/*
- * الدفتر / The Ledger — the portion of the Ledger that is genuinely THIS portal's
- * (center admin + staff routes), scoped by `.led` and the <html> portal marker.
- *
- * THE PALETTE IS NO LONGER HERE — IT LIVES IN packages/ui/src/styles/globals.css
- * ---------------------------------------------------------------------------
- * This file used to carry a full second copy of the palette under `.led`,
- * because the global layer still held the superseded "Deep Trust" values. That
- * migration is done: globals.css IS the Ledger token layer now, exactly as this
- * file's original header said it eventually would be ("delete this file... the
- * component classes below re-point to the global names unchanged").
- *
- * The copy was not merely redundant, it had DRIFTED — on --ink-3, --teal,
- * --muted, --secondary, --chart-1/2 and --seal. That drift is why the same
- * component rendered differently here than in superadmin. Two of those were
- * defects rather than choices: --ink-3 #8b91a1 measured 2.91:1 on --paper (below
- * even the 3:1 large-text floor), and swapping --chart-1/--chart-2 contradicted
- * packages/ui/src/lib/chart-tokens.ts, which documents chart-1 as teal.
- *
- * What survives below is only what no other portal wants: the money accent, the
- * sidebar width, the neutralised gradient/glow utilities, and the `.lg-*`
- * component classes. Everything else inherits from :root.
- *
- * Do NOT reintroduce a palette copy here. To restyle one portal, point its
- * component at an existing token — see `.lg-seal`, which asks for --money
- * instead of redefining --seal for every portal that renders a receipt.
- */
-
-/* `.led` covers this portal's own content; the root marker covers the shared
-   chrome around it (sidebar, header, <main>), so the canvas has no seam. */
-.led,
-html[data-portal="ledger"] {
-  /* Money accent. Teal is "value actually moving"; the spec allows an indigo
-     variant per surface via data-money. Center portals move real cash, so teal. */
-  --money: var(--teal);
-  --money-soft: var(--teal-soft);
-
-  /* Gradients and glows are gone from the system — hierarchy, not shine. */
-  --shadow-glow: none;
-
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.led[data-money="indigo"] {
-  --money: var(--indigo);
-  --money-soft: var(--indigo-soft);
-}
-
-/* Neutralise the old gradient/glow utilities rather than hunting call sites in
-   four portals. */
-.led .gradient-primary {
-  background: var(--sheet) !important;
-  color: var(--ink) !important;
-}
-.led .shadow-glow {
-  box-shadow: var(--lift) !important;
-}
-
-/* ============================================================ the chrome ====
- * Sidebar + header, scoped to this portal's routes by the marker that
- * portal-scope.tsx puts on <html>.
- *
- * The near-black sidebar is REMOVED. The rationale from the spec: a dark slab
- * beside a light canvas read as two different apps, and it was the loudest
- * element on screen while carrying the least information.
- *
- * The --sidebar* COLOURS used to be re-pointed here with literal hex, with the
- * note that literals were needed because these land on <html>, above the `.led`
- * scope. Both halves of that are now moot: :root owns the palette, and its
- * values are identical to the literals that stood here. Only the width, which
- * really is this portal's, remains.
- */
-html[data-portal="ledger"] {
-  /* 248px per §3.1, replacing the shadcn default. */
-  --sidebar-width: 248px;
-}
-
-/* A hairline, not a tonal shift — the rule IS the separation device. */
-html[data-portal="ledger"] [data-slot="sidebar-container"] {
-  border-inline-end: 1px solid var(--sidebar-border);
-}
-
-/* Active item: indigo on indigo-soft, with the 3px inset bar at the start
-   edge. `inset-inline-start` so it flips with direction — the bar is
-   positional, unlike the lock and shield glyphs, which do not flip. */
-html[data-portal="ledger"] [data-slot="sidebar-menu-button"][data-active="true"] {
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--sidebar-primary);
-}
-[dir="rtl"] html[data-portal="ledger"] [data-slot="sidebar-menu-button"][data-active="true"],
-html[data-portal="ledger"] [dir="rtl"] [data-slot="sidebar-menu-button"][data-active="true"] {
-  box-shadow: inset -3px 0 0 var(--sidebar-primary);
-}
-
-/* Nav items: 8px radius, mono-free 14px label, quiet until active. */
-html[data-portal="ledger"] [data-slot="sidebar-menu-button"] {
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-/* The count badge carries TEXT in mono, never a bare aria-hidden dot — the old
-   red dot had no text equivalent for assistive tech. */
-html[data-portal="ledger"] [data-slot="sidebar-menu-badge"] {
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 5px;
-  padding: 1px 6px;
-  color: #a35a06;
-  background: #fbf0dd;
-}
-html[data-portal="ledger"][data-theme="dark"] [data-slot="sidebar-menu-badge"] {
-  color: #e0a44a;
-  background: #33260f;
-}
-
-/* Group labels, brand block and footer all sit on the sheet now. */
-html[data-portal="ledger"] [data-slot="sidebar-group-label"] {
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: #8b91a1;
-}
-html[data-portal="ledger"][data-theme="dark"] [data-slot="sidebar-group-label"] {
-  color: #7c7e78;
-}
-html[data-portal="ledger"] [data-slot="sidebar-header"],
-html[data-portal="ledger"] [data-slot="sidebar-footer"] {
-  border-color: var(--sidebar-border);
-}
-
-/* Header: 60px on the sheet with a bottom rule, matching §3.2. */
-html[data-portal="ledger"] header {
-  background: var(--sidebar);
-  border-color: var(--sidebar-border);
-}
-
-/* ---------------------------------------------------------------- figures --
- * "Every figure is monospaced" is the system's highest-signal device, and it
- * doubles as the fix for unsystematised Latin-inside-Arabic (emails, STU- codes,
- * TRX- refs, phone numbers).
- */
-.led .num {
-  font-family: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Mono eyebrow. `text-transform: uppercase` is applied ONLY here and only ever
-   reaches Latin strings — Arabic has no case and must never be transformed. */
-.led .lg-eyebrow {
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--ink-3);
-}
-.led .lg-eyebrow[data-latin="true"] {
-  text-transform: uppercase;
-}
-
-/* ----------------------------------------------------------------- sheets -- */
-.led .lg-card {
-  background: var(--sheet);
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-  box-shadow: var(--lift);
-}
-.led .lg-card[data-blocking="true"] {
-  border-color: var(--red);
-}
-.led .lg-field {
-  background: var(--field);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-}
-
-/* The accountant's rule. Every "الإجمالي / net" line closes on this.
- *
- * The spec says `2px double`, but CSS cannot draw a double border under 3px —
- * the two lines and the gap need one pixel each, so at 2px every browser
- * silently falls back to a solid line and the device disappears. 3px is the
- * minimum that actually renders as two rules, which is the point of it. */
-.led .lg-total {
-  border-top: 3px double var(--ink);
-}
-
-/* ----------------------------------------------------------------- tables --
- * Three densities. `compact` is the admin default (desktop, dense record work).
- * `touch` is this session's definition for the counter — see DECISIONS entry:
- * 48px minimum target, 16px minimum type, 12px minimum gap, nothing actionable
- * at 12px. A receptionist is standing, one-handed, with a queue behind them.
- */
-.led .lg-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.led .lg-table thead th {
-  background: var(--field);
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-  text-align: start;
-  white-space: nowrap;
-}
-.led .lg-table thead th[data-latin="true"] {
-  text-transform: uppercase;
-}
-.led .lg-table tbody tr {
-  border-bottom: 1px solid var(--rule-2);
-}
-.led .lg-table tbody tr:last-child {
-  border-bottom: 0;
-}
-.led .lg-table tbody tr[data-clickable="true"]:hover {
-  background: var(--rule-2);
-  cursor: pointer;
-}
-.led .lg-table tbody tr[data-selected="true"] {
-  background: var(--indigo-soft);
-  box-shadow: inset 3px 0 0 var(--indigo);
-}
-.led .lg-table td[data-numeric="true"],
-.led .lg-table th[data-numeric="true"] {
-  text-align: end;
-}
-
-/* A cell never wraps. `th` already refused to; `td` did not, so a long subject name
- * or a date silently became two lines on a narrow screen — and a wrapped amount
- * reads as two amounts. The table is allowed to be wider than the phone; that is
- * what .lg-scroll is for. Opt a specific cell out with data-wrap="true". */
-.led .lg-table td {
-  white-space: nowrap;
-}
-.led .lg-table td[data-wrap="true"] {
-  white-space: normal;
-}
-
-/* Every .lg-table needs one of these around it, or the table pushes the PAGE wide
- * instead of scrolling inside its own card. */
-.lg-scroll {
-  width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-}
-
-.led[data-density="compact"] .lg-table th {
-  height: 34px;
-  padding: 0 12px;
-}
-.led[data-density="compact"] .lg-table td {
-  padding: 7px 12px;
-}
-.led[data-density="comfortable"] .lg-table th {
-  height: 42px;
-  padding: 0 14px;
-}
-.led[data-density="comfortable"] .lg-table td {
-  padding: 13px 14px;
-}
-.led[data-density="touch"] .lg-table th {
-  height: 48px;
-  padding: 0 16px;
-  font-size: 11px;
-}
-.led[data-density="touch"] .lg-table td {
-  padding: 16px;
-  font-size: 16px;
-}
-
-/* ------------------------------------------------------------- the seal ----
- * The entire app's motion budget is this one animation: the stamp on a row that
- * just became permanent. Everything else is instant or a <=120ms tint.
- */
-@keyframes lg-seal-in {
-  from {
-    opacity: 0;
-    transform: rotate(-14deg) scale(1.3);
+  .led,
+  html[data-portal="ledger"] {
+    --money: var(--teal);
+    --money-soft: var(--teal-soft);
+    --shadow-glow: none;
+    background: var(--paper);
+    color: var(--ink);
   }
-  to {
-    opacity: 1;
-    transform: rotate(-6deg) scale(1);
+
+  .led[data-money="indigo"] {
+    --money: var(--indigo);
+    --money-soft: var(--indigo-soft);
   }
-}
-.led .lg-seal {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  /* --money, NOT --seal. This portal's permanence stamp is teal because teal is
-     "value that actually moved"; the shared receipt seal (`text-seal` in
-     receipt-sheet.tsx) is red, and its print stylesheet pins --seal to #8f2727,
-     so the red is deliberate there. This file used to get its teal by
-     redefining --seal underneath everyone — which silently recoloured the
-     receipt seal too. Asking for --money says what is actually meant and leaves
-     --seal alone. */
-  color: var(--money);
-  border: 1px solid var(--money);
-  border-radius: 4px;
-  padding: 1px 5px;
-  transform: rotate(-6deg);
-  animation: lg-seal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-/* In RTL the stamp mirrors, or it reads as leaning the wrong way against the
-   text flow. The rotation is directional, unlike the lock/shield icon set. */
-[dir="rtl"] .led .lg-seal {
-  transform: rotate(6deg);
-}
-@media (prefers-reduced-motion: reduce) {
+  .led .gradient-primary {
+    background: var(--sheet) !important;
+    color: var(--ink) !important;
+  }
+  .led .shadow-glow {
+    box-shadow: var(--lift) !important;
+  }
+  html[data-portal="ledger"] {
+    --sidebar-width: 248px;
+  }
+
+  html[data-portal="ledger"] [data-slot="sidebar-container"] {
+    border-inline-end: 1px solid var(--sidebar-border);
+  }
+
+  html[data-portal="ledger"]
+    [data-slot="sidebar-menu-button"][data-active="true"] {
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--sidebar-primary);
+  }
+  [dir="rtl"]
+    html[data-portal="ledger"]
+    [data-slot="sidebar-menu-button"][data-active="true"],
+  html[data-portal="ledger"]
+    [dir="rtl"]
+    [data-slot="sidebar-menu-button"][data-active="true"] {
+    box-shadow: inset -3px 0 0 var(--sidebar-primary);
+  }
+
+  html[data-portal="ledger"] [data-slot="sidebar-menu-button"] {
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  html[data-portal="ledger"] [data-slot="sidebar-menu-badge"] {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: #a35a06;
+    background: #fbf0dd;
+  }
+  html[data-portal="ledger"][data-theme="dark"]
+    [data-slot="sidebar-menu-badge"] {
+    color: #e0a44a;
+    background: #33260f;
+  }
+
+  html[data-portal="ledger"] [data-slot="sidebar-group-label"] {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: #8b91a1;
+  }
+  html[data-portal="ledger"][data-theme="dark"]
+    [data-slot="sidebar-group-label"] {
+    color: #7c7e78;
+  }
+  html[data-portal="ledger"] [data-slot="sidebar-header"],
+  html[data-portal="ledger"] [data-slot="sidebar-footer"] {
+    border-color: var(--sidebar-border);
+  }
+
+  html[data-portal="ledger"] header {
+    background: var(--sidebar);
+    border-color: var(--sidebar-border);
+  }
+
+  .led .num {
+    font-family:
+      var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .led .lg-eyebrow {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--ink-3);
+  }
+  .led .lg-eyebrow[data-latin="true"] {
+    text-transform: uppercase;
+  }
+
+  .led .lg-card {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: var(--lift);
+  }
+  .led .lg-card[data-blocking="true"] {
+    border-color: var(--red);
+  }
+  .led .lg-field {
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+  }
+  .led .lg-total {
+    border-top: 3px double var(--ink);
+  }
+
+  .led .lg-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .led .lg-table thead th {
+    background: var(--field);
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    text-align: start;
+    white-space: nowrap;
+  }
+  .led .lg-table thead th[data-latin="true"] {
+    text-transform: uppercase;
+  }
+  .led .lg-table tbody tr {
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .led .lg-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .led .lg-table tbody tr[data-clickable="true"]:hover {
+    background: var(--rule-2);
+    cursor: pointer;
+  }
+  .led .lg-table tbody tr[data-selected="true"] {
+    background: var(--indigo-soft);
+    box-shadow: inset 3px 0 0 var(--indigo);
+  }
+  .led .lg-table td[data-numeric="true"],
+  .led .lg-table th[data-numeric="true"] {
+    text-align: end;
+  }
+
+  .led .lg-table td {
+    white-space: nowrap;
+  }
+  .led .lg-table td[data-wrap="true"] {
+    white-space: normal;
+  }
+
+  .lg-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .led[data-density="compact"] .lg-table th {
+    height: 34px;
+    padding: 0 12px;
+  }
+  .led[data-density="compact"] .lg-table td {
+    padding: 7px 12px;
+  }
+  .led[data-density="comfortable"] .lg-table th {
+    height: 42px;
+    padding: 0 14px;
+  }
+  .led[data-density="comfortable"] .lg-table td {
+    padding: 13px 14px;
+  }
+  .led[data-density="touch"] .lg-table th {
+    height: 48px;
+    padding: 0 16px;
+    font-size: 11px;
+  }
+  .led[data-density="touch"] .lg-table td {
+    padding: 16px;
+    font-size: 16px;
+  }
+
+  @keyframes lg-seal-in {
+    from {
+      opacity: 0;
+      transform: rotate(-14deg) scale(1.3);
+    }
+    to {
+      opacity: 1;
+      transform: rotate(-6deg) scale(1);
+    }
+  }
   .led .lg-seal {
-    animation: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--money);
+    border: 1px solid var(--money);
+    border-radius: 4px;
+    padding: 1px 5px;
+    transform: rotate(-6deg);
+    animation: lg-seal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-}
+  [dir="rtl"] .led .lg-seal {
+    transform: rotate(6deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .led .lg-seal {
+      animation: none;
+    }
+  }
 
-/* ------------------------------------------------------------------ focus --
- * Visible focus ring on every interactive element — the current app ships
- * shadcn defaults only.
- */
-.led a:focus-visible,
-.led button:focus-visible,
-.led [tabindex]:focus-visible,
-.led input:focus-visible,
-.led select:focus-visible,
-.led textarea:focus-visible {
-  outline: 2px solid var(--indigo);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
+  .led a:focus-visible,
+  .led button:focus-visible,
+  .led [tabindex]:focus-visible,
+  .led input:focus-visible,
+  .led select:focus-visible,
+  .led textarea:focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
 
-/* Scrollbars, so a dense table does not carry a chrome-grey slab down its side. */
-.led ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.led ::-webkit-scrollbar-track {
-  background: transparent;
-}
-.led ::-webkit-scrollbar-thumb {
-  background: var(--rule);
-  border-radius: 8px;
-}
+  .led ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .led ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .led ::-webkit-scrollbar-thumb {
+    background: var(--rule);
+    border-radius: 8px;
+  }
 }

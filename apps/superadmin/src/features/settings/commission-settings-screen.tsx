@@ -34,6 +34,7 @@ import { formatPercent, type Locale } from "@repo/ui/lib/format";
 
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { AgreementProposalsPanel } from "./agreement-proposals-panel";
 
 type CommissionData = {
   teacherDirectCommissionBp: number;
@@ -215,6 +216,11 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
           </div>
         ) : null}
       </section>
+
+      {/* Phase 5 (D2): proposed teacher agreements — the queue the centers'
+          proposals land in. super_admin decides; the accountant view has no
+          approval controls because this panel is simply absent for it. */}
+      {!readOnly ? <AgreementProposalsPanel /> : null}
     </div>
   );
 }

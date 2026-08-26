@@ -70,6 +70,10 @@ import {
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+import {
+  scanSeedsForDirectLedgerWrites,
+  ROOM_SEED_CENTER_SHORT_IDS,
+} from "../../../../packages/database/scripts/seed-money-scan";
 
 // Fixture teardown + the environment guard, wired at the module edge so
 // neither depends on remembering to do it inside a proof.
@@ -216,16 +220,23 @@ async function mkCourse(opts: {
 }
 
 const wallets = (teacherId: string, centerId: string) =>
-  withPlatformContext(async (tx) => ({
-    teacher: (await tx.teacherProfile.findUnique({
-      where: { userId: teacherId },
-      select: { walletBalance: true },
-    }))!.walletBalance,
-    center: (await tx.center.findUnique({
+  withPlatformContext(async (tx) => {
+    const c = (await tx.center.findUnique({
       where: { id: centerId },
-      select: { walletBalance: true },
-    }))!.walletBalance,
-  }));
+      select: { walletBalance: true, creditBalance: true },
+    }))!;
+    return {
+      teacher: (await tx.teacherProfile.findUnique({
+        where: { userId: teacherId },
+        select: { walletBalance: true },
+      }))!.walletBalance,
+      center: c.walletBalance,
+      // D5 (Phase 4): every fixture in this file settles CENTER-HELD (no
+      // subscription), so the center's take never touches wallet_balance —
+      // its position moves on credit_balance instead.
+      credit: c.creditBalance,
+    };
+  });
 
 const ledgerFor = (sessionId: string) =>
   withPlatformContext((tx) => tx.transaction.findMany({ where: { lessonId: sessionId } }));
@@ -442,7 +453,13 @@ async function main() {
     a1.teacher - b1.teacher === teacherCut * N,
     `teacher got the remainder × PRESENT only (+${teacherCut * N}, absent + counter_only excluded)`,
   );
-  assert(a1.center - b1.center === centerCut * N, `center got rate × attendees (+${centerCut * N})`);
+  // D5: center-held lesson — the rate × attendees stays in the center's
+  // drawer (wallet untouched); its credit is debited teacher net + fees.
+  assert(a1.center - b1.center === 0, "center wallet NOT credited (center-held: rate × attendees already in its drawer)");
+  assert(
+    a1.credit - b1.credit === -(teacherCut + platformCut) * N,
+    `center credit debited (teacher ${teacherCut} + fees ${platformCut}) × ${N}`,
+  );
   assert(
     teacherCut + centerCut + platformCut === price,
     "per-student conservation: price = platform + center + teacher exactly",
@@ -522,8 +539,9 @@ async function main() {
   assert(
     r1.distribution.distributed === true &&
       r2.distribution.reason === "already_distributed" &&
-      aLate.center - bLate.center === centerCut,
-    "late attendance + re-complete settles EXACTLY once",
+      aLate.center - bLate.center === 0 &&
+      aLate.credit - bLate.credit === -(teacherCut + platformCut),
+    "late attendance + re-complete settles EXACTLY once (one credit debit, center-held)",
   );
 
   // ---------------------------------------------------------------- VP5
@@ -610,8 +628,13 @@ async function main() {
   const postRefund = await wallets(t1, centerId);
   assert(
     preRefund.teacher - postRefund.teacher === teacherCut &&
-      preRefund.center - postRefund.center === centerCut,
-    "refunding ONE student reverses exactly one per-student split (teacher −16500, center −500)",
+      preRefund.center === postRefund.center &&
+      // D5: settlement debited −(teacher+fees); the refund's reversal debits
+      // the remaining −centerNet, landing the position at −price for this
+      // student — the platform refunded from its own pocket while the gross
+      // sits in the center's drawer.
+      postRefund.credit - preRefund.credit === -centerCut,
+    "refunding ONE student reverses one per-student split (teacher −16500, credit −500 to −price)",
   );
   const studentWallet = await withPlatformContext((tx) =>
     tx.studentProfile.findUnique({ where: { userId: sA }, select: { walletBalance: true } }),
@@ -642,9 +665,11 @@ async function main() {
   const a4 = await wallets(t4, pctRateRoom.centerId);
   const pctCenterCut = Math.round((price * 1000) / 10000); // 2000
   assert(
-    a4.center - b4.center === pctCenterCut &&
-      a4.teacher - b4.teacher === price - platformCut - pctCenterCut,
-    `percent-form rate settles bp-exact (center +${pctCenterCut}, teacher remainder)`,
+    a4.center - b4.center === 0 &&
+      a4.teacher - b4.teacher === price - platformCut - pctCenterCut &&
+      // D5 center-held: credit debit = teacher net + fees = price − centerCut.
+      a4.credit - b4.credit === -(price - pctCenterCut),
+    `percent-form rate settles bp-exact (center keeps +${pctCenterCut} in the drawer, teacher remainder, credit −${price - pctCenterCut})`,
   );
 
   await expectThrows(
@@ -668,24 +693,40 @@ async function main() {
   assert(rate === null, "clearing the room M2 rate then resolves to nothing (no global)");
 
   // ---------------------------------------------------------------- VP9
-  console.log("\nVP9 — is_demo seed: method configs + M2 course, NO ledger rows");
+  // The "NO ledger rows" half used to be a zero-count over EVERY is_demo
+  // center — unsound on shared dev now that the showcase seeds settle demo
+  // lessons through the real engine (see seed-money-scan.ts for the full
+  // story). It is asserted at the seed source instead, and the config checks
+  // are scoped to the centers the room seeds actually own.
+  console.log("\nVP9 — room demo seeds: method configs + M2 course, never the ledger");
+  const ledgerWrites = scanSeedsForDirectLedgerWrites();
+  assert(
+    ledgerWrites.length === 0,
+    "NO demo seed writes transactions/session_settlements directly" +
+      (ledgerWrites.length
+        ? ` — found: ${ledgerWrites.map((h) => `${h.file}:${h.line} ${h.match}`).join("; ")}`
+        : ""),
+  );
   const seedCheck = await withPlatformContext(async (tx) => {
-    const demoCenters = await tx.center.findMany({ where: { isDemo: true }, select: { id: true } });
-    const ids = demoCenters.map((c) => c.id);
-    const demoTx = await tx.transaction.count({ where: { centerId: { in: ids } } });
+    const roomSeedCenters = await tx.center.findMany({
+      where: { shortId: { in: [...ROOM_SEED_CENTER_SHORT_IDS] } },
+      select: { id: true },
+    });
+    const ids = roomSeedCenters.map((c) => c.id);
     const m2Rooms = await tx.room.count({
       where: { centerId: { in: ids }, allowedPricingMethods: { has: "per_attending_student" } },
     });
     const m2Courses = await tx.course.findMany({
-      where: { isDemo: true, pricingMethod: "per_attending_student" },
+      where: { centerId: { in: ids }, isDemo: true, pricingMethod: "per_attending_student" },
       select: { m2CenterFee: true, splitPlatformBp: true },
     });
-    const demoSettlements = await tx.sessionSettlement.count({ where: { centerId: { in: ids } } });
-    return { demoTx, m2Rooms, m2Courses, demoSettlements };
+    return { seeded: ids.length, m2Rooms, m2Courses };
   });
-  assert(seedCheck.demoTx === 0, "NO ledger Transaction rows reference demo centers");
-  assert(seedCheck.demoSettlements === 0, "NO settlement records reference demo centers");
-  assert(seedCheck.m2Rooms >= 2, "demo rooms offer the per-student method (NILE both, ANDL forced)");
+  assert(
+    seedCheck.seeded > 0,
+    "at least one room-seed center exists (run preview-seed or room-rate-demo-seed)",
+  );
+  assert(seedCheck.m2Rooms >= 2, "room-seed demo rooms offer the per-student method (NILE both, ANDL forced)");
   assert(
     seedCheck.m2Courses.length >= 1 &&
       seedCheck.m2Courses.every((c) => c.m2CenterFee != null && c.splitPlatformBp != null),

@@ -17,6 +17,7 @@ import { toast } from "@repo/ui/components/sonner";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { newIdempotencyKey } from "@/features/student/idempotency";
+import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { StudentReceiptsSection } from "@/features/student/student-receipts-section";
 import {
   Chip,
@@ -164,8 +165,11 @@ export function StudentWalletScreen() {
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
-        window.open(intent.checkout.url, "_blank");
-        setTopupOpen(false);
+        // Was `window.open(url, "_blank")` plus a dialog close. Called after
+        // the await above it sits outside the click's gesture stack, so mobile
+        // Safari blocked it and the student saw the dialog just sit there.
+        // See lib/payments/checkout-redirect.ts.
+        goToCheckout(intent.checkout.url);
       }
     } catch (err) {
       toast.error((err as { message?: string })?.message || t("studentWallet.topupFailed"));

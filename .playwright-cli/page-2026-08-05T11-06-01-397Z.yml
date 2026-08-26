@@ -1,5 +1,0 @@
-- generic [active] [ref=f2e1]:
-  - generic [ref=f2e2]: جارٍ التحميل…
-  - region "Notifications alt+T"
-  - button "Open Next.js Dev Tools" [ref=f2e9] [cursor=pointer]
-  - alert [ref=f2e13]

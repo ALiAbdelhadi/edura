@@ -231,7 +231,15 @@
     "scanCard": "Scan card",
     "scanTitle": "Scan the student's card",
     "scanHint": "Point the camera at the QR square on the card.",
-    "scanDenied": "The camera could not be opened. Type the code instead."
+    "scanDenied": "The camera could not be opened. Type the code instead.",
+    "methodLabel": "Payment method",
+    "methodCash": "Cash",
+    "methodInstapay": "InstaPay",
+    "methodPosCard": "Card (POS)",
+    "methodMobileWallet": "Mobile wallet",
+    "amountDue": "Amount due",
+    "paymentCollected": "Payment recorded",
+    "armCollectMethod": "Collect {price} — {method}"
   },
   "counter": {
     "title": "Counter board",
@@ -265,7 +273,11 @@
     "noLessonHint": "Pick a teacher and a lesson above. Student search and walk-in registration work either way.",
     "nonePending": "Everyone has checked in",
     "pickLessonFirst": "Pick the lesson first",
-    "byStudent": "Search a student's whole day"
+    "byStudent": "Search a student's whole day",
+    "clearSearch": "Clear search",
+    "kbdSearchHint": "to find a student",
+    "kbdRowsHint": "to move between students",
+    "kbdEscHint": "to clear the search"
   },
   "door": {
     "title": "Door check-in",
@@ -275,8 +287,11 @@
     "noSessions": "No sessions today",
     "session": "Session",
     "atTheDoor": "At the door",
+    "codeLabel": "Student code",
     "codePlaceholder": "e.g. G7K3M2QF",
     "confirm": "Confirm",
+    "checkedInOf": "of {total} checked in",
+    "remainingCount": "{n} remaining",
     "confirmed": "Door check-in confirmed — present",
     "failed": "Door check-in failed",
     "loadFailed": "Could not load the session roster",
@@ -400,5 +415,43 @@
   "academicStages": "Stages served",
   "academicEditCta": "Edit academic details",
   "guardianCardEmailPlaceholder": "name@example.com",
-  "guardianCardPhonePlaceholder": "01XXXXXXXXX"
+  "guardianCardPhonePlaceholder": "01XXXXXXXXX",
+  "subscriptions": {
+    "sectionActive": "Running now",
+    "sectionPast": "Past subscriptions",
+    "planMonthly": "Monthly",
+    "planSession": "Single session",
+    "endsOn": "Ends",
+    "noWindow": "Covers one session only",
+    "notStarted": "Starts once it is paid",
+    "stateActive": "Active",
+    "stateExpiring": "Ending soon",
+    "stateLapsed": "Ended",
+    "statePending": "Awaiting payment",
+    "stateCancelled": "Cancelled",
+    "daysLeft": "{count, plural, =0 {Ends today} one {1 day left} other {# days left}}",
+    "lapsedAgo": "{count, plural, =0 {Ended today} one {Ended 1 day ago} other {Ended # days ago}}",
+    "endsToday": "Ends today",
+    "endsTomorrow": "Ends tomorrow",
+    "renew": "Renew"
+  },
+  "shifts": {
+    "title": "Shift",
+    "noneOpen": "No open shift — open one before taking any money.",
+    "openingFloat": "Opening drawer float (EGP)",
+    "open": "Open shift",
+    "opened": "Shift opened",
+    "openSince": "Shift open since {time}",
+    "expectedCash": "Expected in drawer",
+    "countedCash": "Counted cash (EGP)",
+    "close": "Close shift",
+    "armClose": "Close shift",
+    "confirmClose": "Confirm close",
+    "closed": "Shift closed",
+    "varianceZero": "Last close: drawer balanced — no variance.",
+    "varianceResult": "Last close: variance of {amount}",
+    "invalidAmount": "Enter a valid amount",
+    "failed": "The action was not recorded — try again.",
+    "methodOther": "Other"
+  }
 }

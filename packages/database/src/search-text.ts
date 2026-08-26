@@ -331,6 +331,34 @@ export function narrowQuery<W>(
 }
 
 /**
+ * The EXACT filter, for a caller that has the `search_text` column.
+ *
+ * `search_text` is `GENERATED ALWAYS AS (edura_search_haystack(…)) STORED`
+ * (migration 20260820160000) — the row's searchable fields already normalized
+ * and already carrying the space-closed second chance. So the comparison is a
+ * plain substring per term, ANDed, and it is EXACTLY `matchesSearchTerms`:
+ * proven row-by-row against the live database in
+ * `apps/erp/tests/db/search-normalize.test.ts`.
+ *
+ * This is what `narrowQuery` was a stand-in for. That one narrows and returns a
+ * SUPERSET, which is all a paginated list could do before the column existed;
+ * this is exact, indexed by a GIN trigram, and countable — so the page and the
+ * total are both right.
+ *
+ * NO `mode: "insensitive"`. The column is already lower-cased, and asking for
+ * ILIKE here would cost the index for nothing.
+ *
+ * An empty array for an empty query, which Prisma reads as "no constraint" —
+ * the correct answer when nobody typed anything.
+ */
+export function exactQuery<W>(
+  query: string,
+  on: (needle: string) => W,
+): W[] {
+  return searchTerms(query).map(on);
+}
+
+/**
  * How many rows a provider may pull back before the JS matcher narrows them to
  * the handful the palette shows.
  *

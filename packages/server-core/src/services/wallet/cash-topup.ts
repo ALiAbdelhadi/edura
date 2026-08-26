@@ -1,5 +1,7 @@
 import { platformDb } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError } from "../../errors/classes";
+import { openShiftIdFor } from "../center/shifts";
+import { creditMove } from "../finance/center-credit";
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../notifications/notify";
 import { studentAndParents } from "../notifications/fanout";
@@ -53,9 +55,13 @@ export async function topUpWalletCash(
           studentId: input.studentId,
           courseId: null,
           amount: input.amount,
+          // MC-3: cash over the counter — same value the ledger mirror records.
+          paymentMethod: "cash",
           note: `Wallet top-up (cash at center)`,
           receiptNumber,
           recordedBy: user.id,
+          // Phase 2: stamp the recorder's open drawer session (NULL when none).
+          shiftId: await openShiftIdFor(tx, user.id),
           paidAt: new Date(),
         },
       });
@@ -73,6 +79,20 @@ export async function topUpWalletCash(
           paymentMethod: "cash",
           notes: `Wallet top-up (cash at center, receipt ${receiptNumber})`,
         },
+      });
+
+      // D5: the drawer just took CASH that became a PLATFORM liability to the
+      // student — the center now holds platform money, and this debit is what
+      // makes "wallet = platform-held" true uniformly at settlement time.
+      await creditMove(tx, {
+        centerId,
+        type: "wallet_cash_collection",
+        delta: -input.amount,
+        method: "cash",
+        refNumber,
+        relatedTxnId: transaction.id,
+        recordedBy: user.id,
+        reason: `Cash wallet top-up collected at the counter (receipt ${receiptNumber})`,
       });
 
       const { balanceAfter } = await walletCredit(tx, input.studentId, input.amount, {

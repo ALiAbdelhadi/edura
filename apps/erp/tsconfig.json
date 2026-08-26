@@ -52,7 +52,15 @@
     ".next-ia/types/**/*.ts",
     ".next-ia/dev/types/**/*.ts",
     ".next-dialog/types/**/*.ts",
-    ".next-dialog/dev/types/**/*.ts"
+    ".next-dialog/dev/types/**/*.ts",
+    ".next-overlay/types/**/*.ts",
+    ".next-overlay/dev/types/**/*.ts",
+    ".next-attendance/types/**/*.ts",
+    ".next-attendance/dev/types/**/*.ts",
+    ".next-settle/types/**/*.ts",
+    ".next-settle/dev/types/**/*.ts",
+    ".next-counter/types/**/*.ts",
+    ".next-counter/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

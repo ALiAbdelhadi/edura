@@ -28,6 +28,7 @@ import { StatCard } from "@/components/kit/stat-card";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -104,8 +105,9 @@ export function ParentWalletScreen() {
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
-        window.open(intent.checkout.url, "_blank");
-        setTopupOpen(false);
+        // Same gesture-stack problem as the pay screen: blocked on mobile
+        // Safari, silently. See lib/payments/checkout-redirect.ts.
+        goToCheckout(intent.checkout.url);
       }
     } catch (err) {
       toast.error((err as { message?: string })?.message || t("parentWallet.topupFailed"));

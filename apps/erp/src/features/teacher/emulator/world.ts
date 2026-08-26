@@ -70,6 +70,31 @@ export const EMU_TEACHER = {
   room: { ar: "قاعة ٢", en: "Hall 2" },
 } satisfies Record<string, Bi>;
 
+/* ── TWO DELIBERATE DIVERGENCES FROM THE REAL PORTAL ────────────────────────
+ * Written down rather than left silent, because a silent mismatch is what makes
+ * an emulator stop being a rehearsal.
+ *
+ * 1. THE PRICING MISSION TEACHES A CONTROL THE REAL PORTAL DOES NOT HAVE.
+ *    Mission 2 hands the learner a `set-price` button on an existing group.
+ *    In the product, `PATCH /api/v1/courses/[id]` is `requireRole("center_admin")`
+ *    with no teacher branch: a teacher sets prices ONLY at creation, and cannot
+ *    edit them afterwards at all — not even on their own teacher-direct group.
+ *    Recorded as T-1 in EDURA_IMPROVEMENT_REPORT.md §2.11.
+ *    The mission stays because it is the first link of the money chain
+ *    (price → attend → close → withdraw) and that chain is this emulator's whole
+ *    argument. The TOUR copy was corrected instead: it now says the price is set
+ *    when the group is created and there is no screen to change it yet.
+ *    WHEN T-1 IS FIXED, this note comes out and the mission becomes literal.
+ *
+ * 2. THE EMULATOR HAS NO DOOR SCREEN, AND THE REAL BAR HAS A DOOR SLOT.
+ *    The emulator's nav is home · classes · attendance · wallet; the teacher's
+ *    phone bar is home · attendance · groups · door · wallet · more. Building a
+ *    fifth simulated screen for the door was considered and NOT done: the door
+ *    is the ASSISTANT's job in counter+door mode (the teacher's account is the
+ *    fallback), and the assistant emulator already rehearses it properly. A
+ *    teacher who needs it meets it in the guided tour's `door` card instead.
+ */
+
 /** The one class the practice day revolves around. It starts UNPRICED, which is
  *  the single most common thing that blocks a real teacher's first payout. */
 export const EMU_CLASS = {

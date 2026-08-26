@@ -1,26 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { todayKey } from "@repo/server-core/lib/date-key";
-import { resolveStudentCode } from "@repo/database/student-code";
-import { codeFromScan } from "@/lib/attendance/scanned-code";
-import { useCustomMutation, useGetIdentity } from "@refinedev/core";
-import { CloudOff, DoorOpen, CheckCircle2 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Num } from "@repo/ui/components/num";
-import { toast } from "@repo/ui/components/sonner";
-import { api } from "@/lib/api/client";
 import { PageHeader } from "@/components/kit/page-header";
 import { QrScannerButton } from "@/components/kit/qr-scanner-button";
-import { StatusBadge } from "@/components/kit/status-badge";
 import { Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { api } from "@/lib/api/client";
+import { codeFromScan } from "@/lib/attendance/scanned-code";
+import { useFormatters } from "@/lib/i18n/use-formatters";
 import { enqueueAttendance } from "@/lib/pwa/attendance-outbox";
 import { useAttendanceSync } from "@/lib/pwa/use-attendance-sync";
-import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useCustomMutation, useGetIdentity } from "@refinedev/core";
+import { resolveStudentCode } from "@repo/database/student-code";
+import { todayKey } from "@repo/server-core/lib/date-key";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { Figure, SectionHead } from "@repo/ui/components/ledger";
+import { Num } from "@repo/ui/components/num";
+import { Progress } from "@repo/ui/components/progress";
+import { toast } from "@repo/ui/components/sonner";
+import { cn } from "@repo/ui/lib/utils";
+import { CheckCircle2, CloudOff, DoorOpen } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 type DoorRow = {
   studentId: string;
@@ -33,10 +35,6 @@ type DoorRow = {
 
 type SessionRow = { id: string; courseTitle?: string; startTime: string; endTime: string; date: string };
 
-/**
- * Door check-in (Step 6) — the assistant confirms counter-passed students at
- * the classroom door (teacher's own account works as fallback). Phone-first.
- */
 export function DoorCheckinScreen() {
   const t = useTranslations();
   const { locale } = useFormatters();
@@ -45,9 +43,6 @@ export function DoorCheckinScreen() {
     id?: string;
     actingTeacherId?: string;
   }>();
-  // Same derivation as the teacher's attendance screen: the queue belongs to
-  // the TEACHER, so an assistant's door records replay correctly whether the
-  // assistant or the teacher is the one who gets back online.
   const teacherId = identity?.actingTeacherId ?? identity?.id;
   const { queueCount, isSyncing, flush, refreshCount } =
     useAttendanceSync(teacherId);
@@ -59,8 +54,6 @@ export function DoorCheckinScreen() {
   const [busy, setBusy] = useState(false);
   const [counterOnly, setCounterOnly] = useState(false);
 
-  // The server throws its errors in English; the toast must speak the UI's
-  // language, so the two known refusals are mapped onto i18n keys here.
   const doorErrorMessage = (err: any) => {
     const status = err?.statusCode ?? err?.response?.status;
     const message: string = err?.message ?? "";
@@ -70,8 +63,6 @@ export function DoorCheckinScreen() {
   };
 
   useEffect(() => {
-    // Teacher-only endpoint: an assistant opening this screen just gets no
-    // notice — the check is informational, never a gate.
     (async () => {
       try {
         const res = await api
@@ -87,9 +78,6 @@ export function DoorCheckinScreen() {
   useEffect(() => {
     (async () => {
       try {
-        // Cairo's today, not the browser's UTC day: this screen stands at the
-        // classroom door, and a late session running past midnight local time
-        // would otherwise fetch the PREVIOUS day's list and show none of it.
         const today = todayKey();
         const res = await api
           .get(`sessions?from=${today}&to=${today}`)
@@ -113,57 +101,17 @@ export function DoorCheckinScreen() {
     }
   };
 
-  // A hand-off from the scan page (`/c/<payload>` → "continue to the door")
-  // arrives as `?code=`. It PREFILLS and deliberately does NOT confirm: the
-  // confirmation is a write, and a write fired by merely opening a URL is one
-  // a prefetch, a share or a back button can repeat. The operator still
-  // presses the button — they just no longer type eight characters they were
-  // already holding in their other hand.
-  //
-  // Declared AFTER `loadRoster` on purpose: the effect calls it, and reading a
-  // `const` from above its declaration works at runtime but is a temporal-dead-
-  // zone hazard the moment anyone moves this call anywhere but an effect body.
   const handedOff = useRef(false);
   const searchParams = useSearchParams();
-  // Read straight from the URL rather than mirrored into state: the notice
-  // must show while the lesson list is still loading, which is before the
-  // effect has run. Resolved through `codeFromScan` so that only a REAL code
-  // claims "card received" — a query string is whatever anyone typed, and
-  // echoing junk back as a received card is a lie the operator would act on.
   const handedOffCode = codeFromScan(searchParams.get("code") ?? "");
   useEffect(() => {
-    // Waits for the lesson list: arriving before it lands would take the
-    // one-lesson shortcut below off the table for exactly the operator the
-    // hand-off was built for.
     if (!handedOffCode || handedOff.current || sessions === null) return;
     handedOff.current = true;
     setCode(handedOffCode);
-    // One lesson today is not a choice, and making someone tap it answers
-    // nothing. Two or more and the door genuinely does not know which one
-    // they are standing at, so it must not guess.
     const only = sessions.length === 1 ? sessions[0] : null;
     if (only && !sessionId) void loadRoster(only.id);
-    // `loadRoster` is redefined every render; the ref is what makes this run
-    // once, so chasing it as a dependency would buy nothing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handedOffCode, sessions]);
 
-  /**
-   * Resolve what the operator gave us against THIS lesson's cached roster.
-   *
-   * Offline there is no database to ask, so the roster — the students who have
-   * already passed the counter for this lesson — is the only set we may resolve
-   * within, and that is the right set: it is strictly NARROWER than the online
-   * path, which looks the code up platform-wide.
-   *
-   * A scanned card is a signed URL that carries the code in plain sight (the
-   * cheap keyboard-wedge scanners centres own depend on that). We cannot check
-   * the signature without the server's secret — but neither does the online
-   * door endpoint, which accepts a `forged` or hand-typed scan and rejects only
-   * an `unreadable` one. So this grants no authority the roster button beside
-   * it does not already grant, and on replay `doorTransitionTx` re-checks the
-   * counter step anyway.
-   */
   const findRosterRow = (input: {
     studentId?: string;
     studentCode?: string;
@@ -174,11 +122,6 @@ export function DoorCheckinScreen() {
 
     const raw = input.studentCode?.trim();
     if (!raw) return null;
-
-    // One resolver for a typed code AND a scanned card, so the Crockford
-    // substitutions (O→0, I/L→1) and the check character behave at the door
-    // exactly as they do online. See `codeFromScan` for why the signature is
-    // not — and need not be — checked here.
     const code = codeFromScan(raw);
     if (!code) return null;
     return (
@@ -194,8 +137,6 @@ export function DoorCheckinScreen() {
   }): Promise<void> => {
     if (!sessionId || !teacherId) return;
     const row = findRosterRow(input);
-    // Refusing by name is the honest outcome: we genuinely do not know whether
-    // this student exists, only that they are not on this lesson's list.
     if (!row) {
       toast.error(t("shared.door.offlineNotOnList"));
       return;
@@ -213,14 +154,7 @@ export function DoorCheckinScreen() {
     await enqueueAttendance(teacherId, sessionId, [
       { studentId: row.studentId, status: "present", stage: "door" },
     ]);
-    // Without this the count only catches up on the NEXT mount, so the
-    // operator queues confirmations at the door and the "n waiting to sync"
-    // banner stays hidden — the one piece of feedback telling them the work is
-    // held rather than lost. Observed in the browser before it was added.
     await refreshCount();
-    // Mark it locally so the queue is visible in the list the operator is
-    // working from — the replay is idempotent, so an optimistic row that turns
-    // out to have been confirmed already costs nothing.
     setRoster(
       (prev) =>
         prev?.map((r) =>
@@ -277,8 +211,13 @@ export function DoorCheckinScreen() {
     }
   };
 
+  const checkedIn = roster?.filter((r) => r.doorAt).length ?? 0;
+  const rosterTotal = roster?.length ?? 0;
+  const remaining = rosterTotal - checkedIn;
+  const progressPct = rosterTotal > 0 ? Math.round((checkedIn / rosterTotal) * 100) : 0;
+
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-xl space-y-5">
       <PageHeader title={t("shared.door.title")} description={t("shared.door.description")} />
 
       {queueCount > 0 && (
@@ -305,77 +244,74 @@ export function DoorCheckinScreen() {
         </p>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("shared.door.pickSession")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {/* THE CARD MUST NOT ARRIVE SILENTLY. The scanned code is held in
-              state, but the box that shows it only renders once a lesson is
-              picked — so with no lesson today, or with two, the operator who
-              just scanned a card landed on a screen with no sign their scan
-              had registered at all. Found in the browser, not by reading the
-              code: the one-lesson shortcut hid it during the first walkthrough
-              and a second lesson brought it straight back. */}
-          {handedOffCode && !sessionId ? (
-            <p
-              className="rounded-lg px-3 py-2 text-sm"
-              style={{ background: "var(--indigo-soft)", color: "var(--ink)" }}
-            >
-              {t("shared.door.handedOff", { code: handedOffCode })}
-            </p>
-          ) : null}
-          {sessions === null ? (
-            <Spinner />
-          ) : sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("shared.door.noSessions")}</p>
-          ) : (
-            sessions.map((s) => (
-              <Button
+      {/* Session selector — a control bar, not a step: switching sessions mid-shift
+          must not hide the console the operator is standing in front of. */}
+      <div className="flex flex-col gap-2">
+        <span className="eyebrow">{t("shared.door.pickSession")}</span>
+        {handedOffCode && !sessionId ? (
+          <p className="rounded-lg bg-indigo-soft px-3 py-2 text-sm text-ink">
+            {t("shared.door.handedOff", { code: handedOffCode })}
+          </p>
+        ) : null}
+        {sessions === null ? (
+          <Spinner />
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-ink-2">{t("shared.door.noSessions")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {sessions.map((s) => (
+              <button
                 key={s.id}
-                variant={sessionId === s.id ? "default" : "outline"}
-                className="w-full justify-between"
+                type="button"
                 onClick={() => loadRoster(s.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors",
+                  sessionId === s.id
+                    ? "border-indigo bg-indigo-soft text-indigo"
+                    : "border-rule bg-sheet text-ink-2 hover:text-ink",
+                )}
               >
                 <span>{(s as any).courseTitle ?? (s as any).courseName ?? t("shared.door.session")}</span>
                 <Num.ClockRange start={s.startTime} end={s.endTime} locale={locale} />
-              </Button>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {sessionId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DoorOpen className="size-4" />
-              {t("shared.door.atTheDoor")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Input
-                className="h-12 text-base"
-                dir="ltr"
-                placeholder={t("shared.door.codePlaceholder")}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && code.trim() && confirm({ studentCode: code.trim() })}
-              />
-              <Button size="touch" disabled={busy || !code.trim()} onClick={() => confirm({ studentCode: code.trim() })}>
-                {busy ? <Spinner /> : <CheckCircle2 className="size-4" />}
-                {t("shared.door.confirm")}
-              </Button>
+        <>
+          {/* The live console — always on screen, never a step to get past.
+              Code entry, scan and confirm are the same action three ways in,
+              so all three stay in one panel instead of a wizard sequence. */}
+          <div
+            className="space-y-3 rounded-xl border border-rule bg-sheet p-4"
+            style={{ boxShadow: "var(--lift)" }}
+          >
+            <div className="flex items-center gap-2 text-indigo">
+              <DoorOpen className="size-4" aria-hidden="true" />
+              <span className="eyebrow text-indigo">{t("shared.door.atTheDoor")}</span>
             </div>
-
-            {/* The door is the one place a scan is worth most: an assistant is
-                standing in a doorway with a phone and a queue, not sitting at a
-                keyboard. It confirms IMMEDIATELY rather than filling the box —
-                the operator already aimed at one card, and `doorCheckin` takes
-                the scanned URL through the same `readStudentScan` the typed
-                code goes through. Present on any device with a camera,
-                iPhones included — see `lib/attendance/qr-decoder`. */}
+            <div className="space-y-1.5">
+              <label htmlFor="door-code-input" className="text-xs font-medium text-ink-2">
+                {t("shared.door.codeLabel")}
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="door-code-input"
+                  className="h-12 text-base"
+                  dir="ltr"
+                  placeholder={t("shared.door.codePlaceholder")}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && code.trim() && confirm({ studentCode: code.trim() })}
+                />
+                <Button size="touch" disabled={busy || !code.trim()} onClick={() => confirm({ studentCode: code.trim() })}>
+                  {busy ? <Spinner /> : <CheckCircle2 className="size-4" />}
+                  {t("shared.door.confirm")}
+                </Button>
+              </div>
+            </div>
             <QrScannerButton
               onScan={(raw) => {
                 setCode(raw);
@@ -387,39 +323,72 @@ export function DoorCheckinScreen() {
               deniedMessage={t("shared.door.scanDenied")}
               className="h-11 px-2 text-[13px]"
             />
+          </div>
 
-            {roster === null ? (
-              <Spinner />
-            ) : roster.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("shared.door.emptyRoster")}</p>
-            ) : (
-              <div className="space-y-2">
-                {roster.map((r) => (
-                  <div
-                    key={r.studentId}
-                    className="flex items-center justify-between rounded-lg border border-border p-3"
-                  >
-                    <span>
-                      <span className="block font-medium">{r.name}</span>
-                      <span className="block font-mono text-xs text-muted-foreground" dir="ltr">
-                        {r.studentCode ?? ""}
-                      </span>
-                    </span>
-                    {r.doorAt ? (
-                      <StatusBadge tone="success">{t("shared.door.doorDone")}</StatusBadge>
-                    ) : r.counterAt ? (
-                      <Button size="sm" disabled={busy} onClick={() => confirm({ studentId: r.studentId })}>
-                        {t("shared.door.confirm")}
-                      </Button>
-                    ) : (
-                      <StatusBadge tone="neutral">{t("shared.door.noCounter")}</StatusBadge>
-                    )}
-                  </div>
-                ))}
+          {/* Progress readout — a live count, not a report: the number the
+              operator actually watches while the queue at the door moves. */}
+          {rosterTotal > 0 ? (
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between text-[13px]">
+                <span className="text-ink-2">
+                  <Figure className="font-semibold text-ink">{checkedIn}</Figure>
+                  {" "}
+                  {t("shared.door.checkedInOf", { total: rosterTotal })}
+                </span>
+                {remaining > 0 ? (
+                  <span className="text-amber">{t("shared.door.remainingCount", { n: remaining })}</span>
+                ) : (
+                  <StatusBadge tone="success" icon={CheckCircle2}>
+                    {t("shared.door.committed")}
+                  </StatusBadge>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <Progress value={progressPct} className="h-1.5" />
+            </div>
+          ) : null}
+
+          <SectionHead
+            eyebrow={t("shared.door.rosterEyebrow")}
+            title={
+              (sessions?.find((s) => s.id === sessionId) as any)?.courseTitle ??
+              (sessions?.find((s) => s.id === sessionId) as any)?.courseName ??
+              t("shared.door.session")
+            }
+          />
+
+          {roster === null ? (
+            <Spinner />
+          ) : roster.length === 0 ? (
+            <p className="text-sm text-ink-2">{t("shared.door.emptyRoster")}</p>
+          ) : (
+            <div className="space-y-2">
+              {roster.map((r) => (
+                <div
+                  key={r.studentId}
+                  className="flex items-center justify-between rounded-lg border border-rule bg-sheet p-3"
+                >
+                  <span>
+                    <span className="block font-medium text-ink">{r.name}</span>
+                    <span className="block font-mono text-xs text-ink-2" dir="ltr">
+                      {r.studentCode ?? ""}
+                    </span>
+                  </span>
+                  {r.doorAt ? (
+                    <StatusBadge tone="success" icon={CheckCircle2}>
+                      {t("shared.door.doorDone")}
+                    </StatusBadge>
+                  ) : r.counterAt ? (
+                    <Button size="sm" disabled={busy} onClick={() => confirm({ studentId: r.studentId })}>
+                      {t("shared.door.confirm")}
+                    </Button>
+                  ) : (
+                    <StatusBadge tone="neutral">{t("shared.door.noCounter")}</StatusBadge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       ) : null}
     </div>
   );

@@ -188,12 +188,25 @@ export function Money({
   tone = "auto",
   className,
   weight = 500,
+  /**
+   * Show the piasters.
+   *
+   * OFF by default, which is every existing call site unchanged: most figures
+   * in this product are whole pounds and a trailing `.00` is noise. Turn it ON
+   * wherever a rounded figure would CONTRADICT another number on the same
+   * screen — a wallet balance beside a commit button that names the exact
+   * amount it is about to move, for instance, where `formatEGP`'s default of
+   * zero fraction digits rendered 2365.50 as "2,366" next to a button reading
+   * "2365.50".
+   */
+  decimals = false,
 }: {
   piasters: number | null | undefined;
   signed?: boolean;
   tone?: "auto" | "ink" | "muted" | "teal" | "red" | "inherit";
   className?: string;
   weight?: 400 | 500 | 600;
+  decimals?: boolean;
 }) {
   const { formatEGP } = useFormatters();
   const v = piasters ?? 0;
@@ -213,7 +226,7 @@ export function Money({
   return (
     <Num className={className} style={{ color, fontWeight: weight }}>
       {signed && v > 0 ? "+" : signed && v < 0 ? "−" : ""}
-      {formatEGP(Math.abs(v))}
+      {formatEGP(Math.abs(v), { decimals })}
     </Num>
   );
 }

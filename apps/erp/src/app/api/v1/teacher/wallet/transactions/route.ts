@@ -10,6 +10,10 @@ export const GET = withErrors(async (req) => {
   const result = await getTeacherWalletTransactions(user, {
     cursor: sp.get("cursor") ?? undefined,
     take: sp.get("take") ? Number(sp.get("take")) : undefined,
+    // Cairo day strings; bound the list AND produce the server-side period
+    // totals (the «كسبت الفترة دي» figure). Omitted = full history, no totals.
+    from: sp.get("from") ?? undefined,
+    to: sp.get("to") ?? undefined,
   });
-  return ok(result.data, { meta: { nextCursor: result.nextCursor } });
+  return ok(result.data, { meta: { nextCursor: result.nextCursor, totals: result.totals } });
 });

@@ -72,6 +72,10 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   // assistants). In-app + push only — never email/SMS noise.
   team_note_created: C(true, true, false, false),
   team_note_status_changed: C(true, true, false, false),
+  // Renewal reminder (B.1#12): in-app + push, same posture as lesson_reminder.
+  // WhatsApp is the market channel but stays off until templates are approved;
+  // adding it later is a flag flip here, not a new path.
+  subscription_expiring: C(true, true, false, false),
 };
 
 export async function notify(

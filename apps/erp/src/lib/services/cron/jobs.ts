@@ -1,5 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
-import { toDateKey } from "@repo/server-core/lib/date-key";
+import { shiftDayKey, toDateKey, todayKey } from "@repo/server-core/lib/date-key";
+import { dayRange } from "@repo/server-core/lib/day-range";
+import { studentAndParents } from "@repo/server-core/services/notifications/fanout";
 import { generateAndEmailInvoice } from "@/lib/services/finance/invoices";
 import { notify } from "@/lib/services/notifications/notify";
 import { send as sendNotification } from "@repo/notifications";
@@ -303,4 +305,86 @@ export async function runWeeklyCenterDigest(now: Date) {
   }
 
   return { job: "weekly-center-digest", periodStart, periodEnd, sent, skipped, failed };
+}
+
+/**
+ * B.1#12 — renewal reminders. Monthly coverage is manual-renewal by design
+ * (decision #2, no auto-charge), and until this job the only pre-expiry signal
+ * was an in-app alert that fires while the reader is already inside the app.
+ * This sweep runs on the `[status, periodEnd]` index — created for exactly
+ * this in Step 4 — and tells the student AND their linked parents at
+ * T-5 / T-2 / T-0 Cairo days before the window closes.
+ *
+ * IDEMPOTENT PER (subscription, bucket): each send carries `subscriptionId` +
+ * `daysLeft` in its data, and the sweep skips a pair that already has its
+ * notification row — so a double-fired schedule (or an hourly tick, if this
+ * job is ever moved off the daily one) costs a no-op, never a duplicate.
+ * Days are CAIRO days via `todayKey`/`shiftDayKey` — the same clock the money
+ * screens bound days with; a UTC day here would remind Egyptian families a day
+ * early or late for three hours around midnight.
+ */
+export async function runSubscriptionRenewalReminders(now: Date) {
+  const buckets = [5, 2, 0];
+  let notified = 0;
+  let skipped = 0;
+
+  for (const daysLeft of buckets) {
+    const key = shiftDayKey(todayKey(now), daysLeft);
+    const window = dayRange(key, key);
+    if (!window?.gte || !window.lte) continue;
+
+    const subs = await platformDb((tx) =>
+      tx.subscription.findMany({
+        where: {
+          plan: "monthly",
+          status: "active",
+          periodEnd: { gte: window.gte, lte: window.lte },
+        },
+        select: { id: true, studentId: true, courseId: true, periodEnd: true },
+        take: 1000,
+      }),
+    );
+
+    for (const sub of subs) {
+      const already = await platformDb((tx) =>
+        tx.notification.findFirst({
+          where: {
+            type: "subscription_expiring",
+            AND: [
+              { data: { path: ["subscriptionId"], equals: sub.id } },
+              { data: { path: ["daysLeft"], equals: daysLeft } },
+            ],
+          },
+          select: { id: true },
+        }),
+      );
+      if (already) {
+        skipped++;
+        continue;
+      }
+
+      const course = await platformDb((tx) =>
+        tx.course.findUnique({ where: { id: sub.courseId }, select: { title: true } }),
+      );
+      await notify({
+        recipients: await studentAndParents(sub.studentId),
+        type: "subscription_expiring",
+        title:
+          daysLeft === 0 ? "Subscription ends today" : `Subscription ends in ${daysLeft} days`,
+        body: course?.title
+          ? `The monthly subscription for ${course.title} ends ${daysLeft === 0 ? "today" : `in ${daysLeft} days`}. Renew to keep attending.`
+          : "A monthly subscription is about to end. Renew to keep attending.",
+        data: {
+          subscriptionId: sub.id,
+          courseId: sub.courseId,
+          studentId: sub.studentId,
+          daysLeft,
+          periodEnd: sub.periodEnd?.toISOString() ?? null,
+        },
+      });
+      notified++;
+    }
+  }
+
+  return { job: "subscription-renewal-reminders", notified, skipped };
 }

@@ -1,45 +1,12 @@
 "use client";
 
-/**
- * «جرّب بنفسك» — the centre emulator.
- *
- * A working copy of Edura, populated with a fake counter day, that walks a
- * first-time centre owner through the five things their centre lives on: read
- * the day, PRICE the class (which the front desk cannot collect without), work
- * the counter (cash and check-in in one commit), close the lesson so the
- * centre's own share is credited, and read the books. They PERFORM each one.
- *
- * It is the third caller of the same engine pattern (student → teacher →
- * centre): `script.ts` holds structure, `world.ts` holds the fake day,
- * `screens.tsx` holds the simulated screens, and this file holds the walk. The
- * shared pieces — `EmuTarget` and the highlight stylesheet — live in
- * `features/emulator/` and are imported, never copied.
- *
- * FOUR PROPERTIES, unchanged from the teacher emulator because they are what
- * make this safe and useful:
- *
- *  1. IT TOUCHES NOTHING. No fetch, no mutation, no receipt, no ledger row.
- *  2. THE LEARNER ACTS — a step with a target waits for that control.
- *  3. IT IS SKIPPABLE AND REVERSIBLE — Skip and Back are always present.
- *  4. IT IS RESUMABLE — progress in localStorage, under its own key so the
- *     centre's progress and a teacher's never overwrite each other on a shared
- *     browser at the front desk.
- *
- * ONE MODELLING DECISION WORTH READING, because getting it wrong would teach a
- * falsehood: COLLECTING CASH DOES NOT RAISE THE CENTRE'S REVENUE. The counter's
- * 120 EGP is gross money that still belongs to a split; the centre's own share
- * is recognised when the lesson is CLOSED. So `collect` writes a receipt and
- * leaves revenue alone, and `settle` adds the centre's share. That is the same
- * truth the teacher tour teaches from the other side of the same lesson.
- */
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
-import { BookOpen, Check, ChevronRight, Coins, Home, Receipt, RotateCcw, Users } from "lucide-react";
 import { Eyebrow, LedgerButton, Sheet } from "@/components/ledger";
-import { asKey } from "@/lib/i18n/keys";
-import { EmuTarget, EmuTargetProvider } from "@/features/emulator/target";
 import styles from "@/features/emulator/emulator.module.css";
+import { EmuTarget, EmuTargetProvider } from "@/features/emulator/target";
+import { asKey } from "@/lib/i18n/keys";
+import { BookOpen, Check, ChevronRight, Coins, Home, Receipt, RotateCcw, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmuCentreBooks, EmuCentreClasses, EmuCentreCounter, EmuCentreDashboard } from "./screens";
 import { FLAT_STEPS, MISSIONS, type EmuScreen } from "./script";
 import {
@@ -52,7 +19,6 @@ import {
   type EmuReceipt,
 } from "./world";
 
-/** Its own key: a front-desk browser may host both portals. */
 const PROGRESS_KEY = "edura.centerEmulator.step";
 
 const ICON = {
@@ -66,11 +32,8 @@ const ICON = {
 export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
   const t = useTranslations("adminHome.centerEmulator");
   const stageRef = useRef<HTMLDivElement>(null);
-
   const [index, setIndex] = useState(0);
   const [missed, setMissed] = useState(false);
-
-  /* Simulated world — everything the owner's own actions change. */
   const [classOpen, setClassOpen] = useState(false);
   const [priced, setPriced] = useState(false);
   const [teacherPicked, setTeacherPicked] = useState(false);
@@ -88,8 +51,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
   const step = FLAT_STEPS[Math.min(index, FLAT_STEPS.length - 1)]!;
   const screen: EmuScreen = screenOverride ?? step.screen;
 
-  /* Resume where they stopped, clamped against a stored index from a longer
-     earlier script. */
   useEffect(() => {
     try {
       const n = Number(window.localStorage.getItem(PROGRESS_KEY) ?? 0);
@@ -107,8 +68,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
     }
   }, [index]);
 
-  /* The spotlight — see the teacher engine for why this is an effect over the
-     rendered stage rather than a prop. */
   useEffect(() => {
     const root = stageRef.current;
     if (!root) return;
@@ -143,9 +102,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
     setIndex((i) => Math.max(0, i - 1));
   }, []);
 
-  /* ── The world's own actions ──────────────────────────────────────────── */
-
-  /** Cash + attendance in ONE commit, exactly as the real counter does it. */
   const collect = (id: string) => {
     setArmedFor(null);
     setRoster((rows) =>
@@ -161,7 +117,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
         kind: "payment",
       },
     ]);
-    // Revenue deliberately NOT touched here — see the file header.
   };
 
   const checkIn = (id: string) =>
@@ -174,7 +129,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
     setRevenue((r) => r + present * EMU_SPLIT.centre);
   };
 
-  /** A refund is a NEW entry beneath the original, never a deletion. */
   const refund = (id: string) => {
     const original = receipts.find((r) => r.id === id);
     if (!original) return;
@@ -188,7 +142,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
         kind: "refund",
       },
     ]);
-    // The reversed payment takes its contribution with it.
     setRevenue((r) => Math.max(0, r - EMU_SPLIT.centre));
   };
 
@@ -222,7 +175,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
 
   return (
     <div className="space-y-4">
-      {/* ── Progress ─────────────────────────────────────────────────────── */}
       <Sheet className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -241,7 +193,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
             <LedgerButton onClick={() => onDone?.()}>{t("skip")}</LedgerButton>
           </div>
         </div>
-
         <div className="mt-3 flex flex-wrap gap-2">
           {MISSIONS.map((m, mi) => {
             const Icon = ICON[m.icon];
@@ -268,8 +219,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
           })}
         </div>
       </Sheet>
-
-      {/* ── The instruction ──────────────────────────────────────────────── */}
       {finished ? (
         <Sheet className="p-6 text-center">
           <h2 className="text-xl font-semibold" style={{ color: "var(--ink)" }}>
@@ -296,13 +245,11 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
           <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
             {t(asKey(`steps.${step.id}.body`))}
           </p>
-
           {missed ? (
             <p className="mt-2 text-sm" style={{ color: "var(--amber)" }} role="status">
               {t("missHint")}
             </p>
           ) : null}
-
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {!step.target ? (
               <LedgerButton variant="primary" onClick={advance}>
@@ -313,8 +260,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
           </div>
         </Sheet>
       )}
-
-      {/* ── The simulation ───────────────────────────────────────────────── */}
       <div
         ref={stageRef}
         className="overflow-hidden rounded-(--radius-step-lg)"
@@ -323,7 +268,7 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
         <EmuTargetProvider value={ctx}>
           <div className="grid gap-0 md:grid-cols-[12rem_1fr]">
             <EmuNav screen={screen} onNavigate={(s) => setScreenOverride(s)} />
-            <div className="min-h-[26rem] p-4 md:p-5">
+            <div className="min-h-104 p-4 md:p-5">
               {screen === "dashboard" ? (
                 <EmuCentreDashboard revenue={revenue} />
               ) : screen === "classes" ? (
@@ -359,15 +304,12 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
           </div>
         </EmuTargetProvider>
       </div>
-
       <p className="text-center text-xs" style={{ color: "var(--ink-3)" }}>
         {t("sandboxNote")}
       </p>
     </div>
   );
 }
-
-/* ── The simulation's own sidebar ───────────────────────────────────────── */
 
 function EmuNav({
   screen,

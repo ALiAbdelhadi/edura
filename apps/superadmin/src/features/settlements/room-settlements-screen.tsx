@@ -39,7 +39,9 @@ import { PageSpinner } from "@/components/kit/spinner";
 type SettlementRow = {
   id: string;
   sessionId: string;
-  pricingMethod: "whole_room_percent" | "per_attending_student";
+  // NULL since Phase 3 = the legacy no-room fee model (every settled lesson
+  // files a record now, not only room-based ones).
+  pricingMethod: "whole_room_percent" | "per_attending_student" | null;
   presentCount: number;
   livePresentCount: number;
   attendanceMismatch: boolean;
@@ -207,7 +209,9 @@ export function RoomSettlementsScreen() {
                     <StatusBadge tone="neutral">
                       {r.pricingMethod === "per_attending_student"
                         ? t("methodPerStudent")
-                        : t("methodWholeRoom")}
+                        : r.pricingMethod === "whole_room_percent"
+                          ? t("methodWholeRoom")
+                          : t("methodNoRoom")}
                     </StatusBadge>
                   </TableCell>
                   <TableCell className="px-3 py-[7px] whitespace-nowrap">

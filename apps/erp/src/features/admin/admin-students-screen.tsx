@@ -238,7 +238,7 @@ export function AdminStudentsScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-[var(--red)]"
+            className="text-destructive"
             onClick={() => setCascadeFor({ id, name })}
           >
             {t("actions.blacklist")}

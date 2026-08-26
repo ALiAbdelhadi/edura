@@ -452,7 +452,10 @@
   "methods": {
     "card": "بطاقة",
     "wallet": "محفظة إلكترونية",
-    "cash": "كاش"
+    "cash": "كاش",
+    "instapay": "إنستاباي",
+    "pos_card": "ماكينة كارت (POS)",
+    "mobile_wallet": "محفظة موبايل"
   },
   "plans": {
     "monthly": "شهري",
@@ -734,7 +737,8 @@
     "prev": "السابق",
     "next": "التالي",
     "settlementCount": "تسوية",
-    "exportXlsx": "تصدير Excel"
+    "exportXlsx": "تصدير Excel",
+    "methodNoRoom": "بدون قاعة (النموذج الافتراضي)"
   },
   "auditLog": {
     "title": "سجل التدقيق",
@@ -1807,5 +1811,18 @@
         "body": "الجولة خلصت. شغلك اليومي بيبدأ من «مستحقات وصرف» — دي اللي فيها ناس مستنياك."
       }
     }
+  },
+  "agreements": {
+    "queueTitle": "اقتراحات اتفاقيات المدرسين",
+    "queueEmpty": "لا اقتراحات معلّقة.",
+    "percentLine": "{rate} من الصافي — {side}",
+    "fixedLine": "لكل طالب حاضر — {side}: ",
+    "sideTeacher": "نصيب المدرس",
+    "sideCenter": "نصيب السنتر",
+    "approve": "اعتماد",
+    "reject": "رفض",
+    "approved": "اعتُمدت الاتفاقية",
+    "rejected": "رُفض الاقتراح",
+    "failed": "لم تُنفذ العملية"
   }
 }

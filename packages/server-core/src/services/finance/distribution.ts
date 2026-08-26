@@ -3,8 +3,11 @@ import { ForbiddenError, NotFoundError, BusinessRuleError } from "../../errors/c
 import { awardPoints } from "../points/points";
 import { nextTxnRefs } from "./ref-numbers";
 import type { SessionUser } from "../../auth/types";
-import { computeLessonSplit, computeNoRoomLessonSplit, resolveLessonPrice } from "./fees";
+import { computeAgreementSplit, computeLessonSplit, computeNoRoomLessonSplit, resolveLessonPrice } from "./fees";
 import { resolveCommission } from "./commission";
+import { lockSessionRow } from "../attendance/lesson-lock";
+import { creditMove, resolveFundingLegs, type FundingSource } from "./center-credit";
+import { resolveTeacherAgreement, type ResolvedAgreement } from "./agreements";
 
 export { computeLessonSplit };
 
@@ -17,6 +20,13 @@ type Distribution = {
   teacherNetTotal?: number;
   centerNetTotal?: number;
   platformEarned?: number;
+  // Phase 4 (D5): the funding split. platformHeldGross flowed through the
+  // gateway/wallet; centerHeldGross sits physically with the center, whose
+  // credit_balance was debited creditDebited for the teacher's share and the
+  // platform's fees on that portion.
+  platformHeldGross?: number;
+  centerHeldGross?: number;
+  creditDebited?: number;
 };
 
 /**
@@ -63,11 +73,15 @@ type LessonEconomics = {
 type LessonRates = {
   affiliationCenterShare: number;
   commission: { platformTeacherFee: number; platformCenterFee: number };
+  /** Phase 5 (D1/D2): the teacher agreement live ON THE LESSON'S DATE, or
+   *  null. Applies to the NO-ROOM branch only — a room-based course is
+   *  governed by its frozen room economics ("ONE rule per course"). */
+  agreement: ResolvedAgreement | null;
 };
 
 async function loadLessonRates(
   tx: TenantTx,
-  args: { centerId: string; teacherId: string },
+  args: { centerId: string; teacherId: string; onDate: Date },
 ): Promise<LessonRates> {
   const affiliation = await tx.centerTeacherAffiliation.findFirst({
     where: { centerId: args.centerId, teacherId: args.teacherId, status: "active" },
@@ -79,7 +93,12 @@ async function loadLessonRates(
     teacherId: args.teacherId,
     centerId: args.centerId,
   });
-  return { affiliationCenterShare: affiliation?.centerShare ?? 0, commission };
+  const agreement = await resolveTeacherAgreement(tx, {
+    centerId: args.centerId,
+    teacherId: args.teacherId,
+    onDate: args.onDate,
+  });
+  return { affiliationCenterShare: affiliation?.centerShare ?? 0, commission, agreement };
 }
 
 /** PURE — the same inputs always give the same split, which is what lets the
@@ -107,6 +126,20 @@ function economicsAt(
       centerShare: Math.round((perSessionPrice * course.splitCenterBp) / 10_000),
       fees: { platformTeacherFee: platformCut, platformCenterFee: 0 },
       clampedNote: "",
+      feeExceedsPrice: false,
+    };
+  }
+
+  // Phase 5 (D1): an agreement live on the lesson's date REPLACES the flat
+  // affiliation figure on the no-room branch — the rate prices the
+  // non-residual side, the residual keeps the remainder, and both directions
+  // flow through the same computeLessonSplit identity via centerShare.
+  if (rates.agreement) {
+    const ag = computeAgreementSplit(perSessionPrice, rates.agreement, rates.commission);
+    return {
+      centerShare: ag.centerShare,
+      fees: ag.fees,
+      clampedNote: ag.clamped ? " — capped to the lesson's value (agreement)" : "",
       feeExceedsPrice: false,
     };
   }
@@ -140,9 +173,14 @@ async function resolveLessonEconomics(
     centerId: string;
     teacherId: string;
     perSessionPrice: number;
+    onDate: Date;
   },
 ): Promise<LessonEconomics> {
-  const rates = await loadLessonRates(tx, { centerId: args.centerId, teacherId: args.teacherId });
+  const rates = await loadLessonRates(tx, {
+    centerId: args.centerId,
+    teacherId: args.teacherId,
+    onDate: args.onDate,
+  });
   return economicsAt(args.perSessionPrice, args.course, rates);
 }
 
@@ -237,6 +275,15 @@ export async function distributeSessionRevenue(
   sessionId: string,
   settledBy?: string,
 ): Promise<Distribution> {
+  // Phase 0: take the session row lock BEFORE reading the present set, and
+  // hold it for the rest of this transaction. Every attendance writer takes
+  // the same lock before writing (see attendance/lesson-lock.ts), so a
+  // check-in can no longer slip between our attendance read and the
+  // distributedAt claim — it blocks here briefly, then sees the committed
+  // claim and refuses. The claim below stays the exactly-once witness; this
+  // lock only fixes WHO reads first. Deliberately NOT taken by the preview,
+  // which must never serialize anything.
+  await lockSessionRow(tx, sessionId);
   const session = await tx.session.findUnique({ where: { id: sessionId } });
   if (!session) throw new NotFoundError("Session not found");
 
@@ -274,6 +321,16 @@ export async function distributeSessionRevenue(
     courseLevelPrice,
   });
 
+  // D5: who physically holds each present student's money. Resolved from the
+  // covering subscription's paymentMethod; no coverage = center-held, the
+  // default that can never make the platform pay out money it does not hold.
+  const fundingFor = await resolveFundingLegs(tx, {
+    courseId: course.id,
+    sessionId,
+    sessionDate: session.date,
+    studentIds: present.map((p) => p.studentId),
+  });
+
   const claim = await tx.session.updateMany({
     where: { id: sessionId, distributedAt: null },
     data: { distributedAt: new Date() },
@@ -281,7 +338,7 @@ export async function distributeSessionRevenue(
   if (claim.count === 0) return { distributed: false, reason: "already_distributed" };
 
   // Read the no-room rates ONCE; the arithmetic below runs per student.
-  const rates = await loadLessonRates(tx, { centerId, teacherId });
+  const rates = await loadLessonRates(tx, { centerId, teacherId, onDate: session.date });
 
   // A flat per-student fee can exceed a cheap/unpriced course's lesson price;
   // the teacher's remainder must never go negative (H2 wallet floor). Throw
@@ -337,6 +394,14 @@ export async function distributeSessionRevenue(
   let centerNetTotal = 0;
   let platformTotal = 0;
   let grossTotal = 0;
+  // D5 split accumulators. centerNetPlatformHeld is the ONLY amount that may
+  // reach wallet_balance; the center-held teacher/fee sums become credit
+  // debits — the center holds that money and owes it on.
+  let platformHeldGross = 0;
+  let centerHeldGross = 0;
+  let centerNetPlatformHeld = 0;
+  let centerHeldTeacherNet = 0;
+  let centerHeldFees = 0;
 
   const rows: Parameters<TenantTx["transaction"]["createMany"]>[0]["data"] = [];
   for (let i = 0; i < present.length; i++) {
@@ -349,10 +414,19 @@ export async function distributeSessionRevenue(
     const { centerShare, fees, clampedNote } = economicsAt(studentPrice, course, rates);
     const { teacherNet, centerNet } = computeLessonSplit(studentPrice, centerShare, fees);
     const noteSuffix = methodNote + clampedNote;
+    const funding: FundingSource = fundingFor.get(studentId) ?? "center_held";
     teacherNetTotal += teacherNet;
     centerNetTotal += centerNet;
     platformTotal += fees.platformTeacherFee + fees.platformCenterFee;
     grossTotal += studentPrice;
+    if (funding === "platform_held") {
+      platformHeldGross += studentPrice;
+      centerNetPlatformHeld += centerNet;
+    } else {
+      centerHeldGross += studentPrice;
+      centerHeldTeacherNet += teacherNet;
+      centerHeldFees += fees.platformTeacherFee + fees.platformCenterFee;
+    }
 
     const [paymentRef, teacherFeeRef, centerFeeRef] = refs.slice(i * 3, i * 3 + 3);
     rows.push(
@@ -365,6 +439,9 @@ export async function distributeSessionRevenue(
         centerId,
         lessonId: sessionId,
         status: "completed",
+        // D5: stamped at INSERT so a refund (and any report) reads who held
+        // this student's money instead of re-deriving it later.
+        funding,
         // Inherited from the group, like every other row in this chain, so a
         // center's finance report can separate platform-collected money from
         // money its staff keyed in for an off-system teacher without joining
@@ -410,11 +487,13 @@ export async function distributeSessionRevenue(
 
   await tx.transaction.createMany({ data: rows });
 
-  // Per-session settlement record — room-based courses only (both methods).
-  // Same tx as the ledger; UNIQUE(session_id) doubles as an exactly-once
-  // witness beside the distributedAt claim. present_count freezes the settled
-  // attendee set so post-settlement attendance edits are detectable.
-  if (course.pricingMethod != null) {
+  // Per-session settlement record — EVERY settled lesson (Phase 3; this is
+  // the spec's Session_Financials). pricing_method NULL = the legacy no-room
+  // fee model. Same tx as the ledger; UNIQUE(session_id) doubles as an
+  // exactly-once witness beside the distributedAt claim. present_count
+  // freezes the settled attendee set so post-settlement attendance edits are
+  // detectable.
+  {
     await tx.sessionSettlement.create({
       data: {
         sessionId,
@@ -429,6 +508,8 @@ export async function distributeSessionRevenue(
         // attendees can differ, and this is their MEAN — the three totals
         // beside it are the exact figures, and they are what the reports read.
         perSessionPrice: Math.round(grossTotal / present.length),
+        platformHeldGross,
+        centerHeldGross,
         platformTotal,
         centerTotal: centerNetTotal,
         teacherTotal: teacherNetTotal,
@@ -439,16 +520,44 @@ export async function distributeSessionRevenue(
     });
   }
 
+  // The teacher is owed their full net whoever held the gross — for the
+  // center-held part the CENTER owes it on, which is exactly the credit debit.
   if (teacherNetTotal !== 0) {
     await tx.teacherProfile.updateMany({
       where: { userId: teacherId },
       data: { walletBalance: { increment: teacherNetTotal } },
     });
   }
-  if (centerNetTotal !== 0) {
+  // D5 — THE F2 FIX: wallet_balance (platform-held payable) is credited ONLY
+  // with the center's net on money the platform actually holds. The center's
+  // net on cash it collected itself is already in its own drawer; crediting it
+  // here was the double-pay.
+  if (centerNetPlatformHeld !== 0) {
     await tx.center.update({
       where: { id: centerId },
-      data: { walletBalance: { increment: centerNetTotal } },
+      data: { walletBalance: { increment: centerNetPlatformHeld } },
+    });
+  }
+  // The center-held obligations, each with its lesson reference — §4.8's fix:
+  // arrears become a visible, chaseable number instead of an invisible row.
+  if (centerHeldTeacherNet > 0) {
+    await creditMove(tx, {
+      centerId,
+      type: "teacher_debit",
+      delta: -centerHeldTeacherNet,
+      sessionId,
+      recordedBy: settledBy ?? teacherId,
+      reason: "Teacher share of center-collected lesson revenue",
+    });
+  }
+  if (centerHeldFees > 0) {
+    await creditMove(tx, {
+      centerId,
+      type: "commission_debit",
+      delta: -centerHeldFees,
+      sessionId,
+      recordedBy: settledBy ?? teacherId,
+      reason: "Platform fees on center-collected lesson revenue",
     });
   }
 
@@ -459,6 +568,9 @@ export async function distributeSessionRevenue(
     teacherNetTotal,
     centerNetTotal,
     platformEarned: platformTotal,
+    platformHeldGross,
+    centerHeldGross,
+    creditDebited: centerHeldTeacherNet + centerHeldFees,
   };
 }
 
@@ -515,11 +627,16 @@ export async function previewSessionSettlement(sessionId: string, user: SessionU
     async (tx) => {
       const { session, course } = await assertMaySettle(tx, sessionId, user);
 
-      const [presentRows, plannedSessions, full] = await Promise.all([
+      const [presentRows, counterOnlyCount, plannedSessions, full] = await Promise.all([
         tx.attendanceRecord.findMany({
           where: { sessionId, status: "present" },
           select: { studentId: true },
         }),
+        // Phase 3: students who passed the counter but never the door
+        // (counter_and_door mode) are EXCLUDED from the money by design. The
+        // preview names their number so a receptionist pressing "end lesson"
+        // sees "excluded by design", never "excluded by surprise".
+        tx.attendanceRecord.count({ where: { sessionId, status: "counter_only" } }),
         tx.session.count({ where: { courseId: session.courseId } }),
         tx.course.findUnique({
           where: { id: session.courseId },
@@ -579,13 +696,31 @@ export async function previewSessionSettlement(sessionId: string, user: SessionU
       };
       const rates =
         course.centerId && present > 0
-          ? await loadLessonRates(tx, { centerId: course.centerId, teacherId: course.teacherId })
+          ? await loadLessonRates(tx, {
+              centerId: course.centerId,
+              teacherId: course.teacherId,
+              onDate: session.date,
+            })
           : null;
+
+      // D5: the same funding resolution the settlement runs, so the preview
+      // can say how much of the gross the center already holds.
+      const previewFunding =
+        course.centerId && present > 0
+          ? await resolveFundingLegs(tx, {
+              courseId: session.courseId,
+              sessionId,
+              sessionDate: session.date,
+              studentIds: presentRows.map((p) => p.studentId),
+            })
+          : new Map<string, FundingSource>();
 
       let gross = 0,
         teacherTotal = 0,
         centerTotal = 0,
         platformTotal = 0,
+        pvPlatformHeld = 0,
+        pvCenterHeld = 0,
         feeExceeds = false;
       if (rates) {
         for (const { studentId } of presentRows) {
@@ -596,6 +731,11 @@ export async function previewSessionSettlement(sessionId: string, user: SessionU
           teacherTotal += s.teacherNet;
           centerTotal += s.centerNet;
           platformTotal += e.fees.platformTeacherFee + e.fees.platformCenterFee;
+          if ((previewFunding.get(studentId) ?? "center_held") === "platform_held") {
+            pvPlatformHeld += price;
+          } else {
+            pvCenterHeld += price;
+          }
           feeExceeds = feeExceeds || e.feeExceedsPrice;
         }
       }
@@ -618,6 +758,10 @@ export async function previewSessionSettlement(sessionId: string, user: SessionU
         // blocked lesson.
         unpriced: present > 0 ? gross <= 0 : courseLevelPrice <= 0,
         nothingToSettle: present === 0,
+        counterOnlyCount,
+        // D5: how much of the gross each side physically holds.
+        platformHeldGross: pvPlatformHeld,
+        centerHeldGross: pvCenterHeld,
         feeExceedsPrice: feeExceeds,
         isTeacherDirect: course.centerId === null,
 

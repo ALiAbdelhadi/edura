@@ -231,7 +231,15 @@
     "scanCard": "مسح البطاقة",
     "scanTitle": "امسح بطاقة الطالب",
     "scanHint": "وجّه الكاميرا إلى مربّع الـ QR على البطاقة.",
-    "scanDenied": "تعذّر فتح الكاميرا. اكتب الكود بدلاً من ذلك."
+    "scanDenied": "تعذّر فتح الكاميرا. اكتب الكود بدلاً من ذلك.",
+    "methodLabel": "طريقة الدفع",
+    "methodCash": "نقدًا",
+    "methodInstapay": "إنستاباي",
+    "methodPosCard": "ماكينة كارت",
+    "methodMobileWallet": "محفظة موبايل",
+    "amountDue": "المبلغ المطلوب",
+    "paymentCollected": "تم تسجيل الدفع",
+    "armCollectMethod": "تحصيل {price} — {method}"
   },
   "counter": {
     "title": "لوحة الكاونتر",
@@ -265,7 +273,11 @@
     "noLessonHint": "اختر مدرّسًا وحصة من الأعلى. البحث عن الطالب وتسجيل طالب جديد شغّالين في كل الأحوال.",
     "nonePending": "كل الطلبة سجّلوا الحضور",
     "pickLessonFirst": "اختر الحصة أولًا",
-    "byStudent": "ابحث بكل حصص طالب"
+    "byStudent": "ابحث بكل حصص طالب",
+    "clearSearch": "امسح البحث",
+    "kbdSearchHint": "للبحث عن طالب",
+    "kbdRowsHint": "للتنقل بين الطلبة",
+    "kbdEscHint": "لمسح البحث"
   },
   "door": {
     "title": "تشيك-إن الباب",
@@ -275,8 +287,11 @@
     "noSessions": "لا توجد حصص اليوم",
     "session": "حصة",
     "atTheDoor": "عند الباب",
+    "codeLabel": "كود الطالب",
     "codePlaceholder": "مثال: G7K3M2QF",
     "confirm": "تأكيد",
+    "checkedInOf": "من {total} تم تسجيلهم",
+    "remainingCount": "{n} متبقٍ",
     "confirmed": "تم تأكيد الباب — حاضر",
     "failed": "فشل تشيك-إن الباب",
     "loadFailed": "تعذّر تحميل قائمة الحصة",
@@ -400,5 +415,43 @@
   "academicStages": "المراحل اللي بيخدمها المركز",
   "academicEditCta": "تعديل البيانات الدراسية",
   "guardianCardEmailPlaceholder": "name@example.com",
-  "guardianCardPhonePlaceholder": "01XXXXXXXXX"
+  "guardianCardPhonePlaceholder": "01XXXXXXXXX",
+  "subscriptions": {
+    "sectionActive": "شغّالة دلوقتي",
+    "sectionPast": "اشتراكات قديمة",
+    "planMonthly": "اشتراك شهري",
+    "planSession": "حصة واحدة",
+    "endsOn": "بيخلص",
+    "noWindow": "بيغطي حصة واحدة بس",
+    "notStarted": "الفترة بتبدأ بعد الدفع",
+    "stateActive": "شغّال",
+    "stateExpiring": "قرب يخلص",
+    "stateLapsed": "خلص",
+    "statePending": "مستني الدفع",
+    "stateCancelled": "ملغي",
+    "daysLeft": "{count, plural, =0 {بيخلص النهاردة} =1 {فاضل يوم واحد} =2 {فاضل يومين} few {فاضل # أيام} many {فاضل # يوم} other {فاضل # يوم}}",
+    "lapsedAgo": "{count, plural, =0 {خلص النهاردة} =1 {خلص من يوم} =2 {خلص من يومين} few {خلص من # أيام} many {خلص من # يوم} other {خلص من # يوم}}",
+    "endsToday": "بيخلص النهاردة",
+    "endsTomorrow": "بيخلص بكرة",
+    "renew": "جدّد الاشتراك"
+  },
+  "shifts": {
+    "title": "الوردية",
+    "noneOpen": "لا توجد وردية مفتوحة — افتح واحدة قبل استلام أي مبالغ.",
+    "openingFloat": "رصيد بداية الدرج (ج.م)",
+    "open": "فتح وردية",
+    "opened": "فُتحت الوردية",
+    "openSince": "وردية مفتوحة منذ {time}",
+    "expectedCash": "المتوقع في الدرج",
+    "countedCash": "الكاش المعدود (ج.م)",
+    "close": "إقفال الوردية",
+    "armClose": "إقفال الوردية",
+    "confirmClose": "تأكيد الإقفال",
+    "closed": "أُقفلت الوردية",
+    "varianceZero": "آخر إقفال: الدرج مضبوط — لا فرق.",
+    "varianceResult": "آخر إقفال: فرق {amount}",
+    "invalidAmount": "أدخل مبلغًا صحيحًا",
+    "failed": "لم تُنفذ العملية — أعد المحاولة.",
+    "methodOther": "أخرى"
+  }
 }

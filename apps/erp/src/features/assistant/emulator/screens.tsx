@@ -169,6 +169,67 @@ export function EmuAssistantAttendance({
 
       {lessonOpen ? (
         <>
+          {/* Pinned above the roster, mirroring the real register — see the
+              teacher emulator's copy of this block for the reasoning. The
+              assistant meets this state more than anyone: in counter+door mode
+              the hall door is THEIR job, so an unresolved row is theirs to
+              clear. */}
+          {roster.some((p) => p.status === "counter_only") ? (
+            <div data-emu-region="counterOnly">
+              <Sheet className="p-4" style={{ borderColor: "var(--amber)", borderWidth: 2 }}>
+                <SectionHeading
+                  title={t("screens.counterOnly")}
+                  action={
+                    <Chip tone="amber">
+                      {roster.filter((p) => p.status === "counter_only").length}
+                    </Chip>
+                  }
+                />
+                <div className="mt-2 divide-y" style={{ borderColor: "var(--rule-2)" }}>
+                  {roster
+                    .filter((p) => p.status === "counter_only")
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        data-emu-region={`row-${p.id}`}
+                        className="flex flex-wrap items-center gap-3 py-2.5"
+                      >
+                        <InitialsTile name={pick(p.name, locale)} size={30} tone="indigo" />
+                        <span
+                          className="min-w-0 flex-1 truncate text-sm"
+                          style={{ color: "var(--ink)" }}
+                        >
+                          {pick(p.name, locale)}
+                        </span>
+                        <span className="flex shrink-0 gap-1.5">
+                          {(["present", "absent"] as const).map((st) => {
+                            const Icon = st === "present" ? Check : X;
+                            return (
+                              <span key={st} className="w-[2.25rem]">
+                                <EmuTarget id={`${st}-${p.id}`} onClick={() => onSetStatus(p.id, st)}>
+                                  <span
+                                    className="inline-flex h-8 w-full items-center justify-center rounded-(--radius-step-md)"
+                                    style={{
+                                      border: "1px solid var(--rule)",
+                                      background: "var(--sheet)",
+                                      color: "var(--ink-3)",
+                                    }}
+                                    title={t(asKey(`screens.status_${st}`))}
+                                  >
+                                    <Icon className="size-4" aria-hidden />
+                                  </span>
+                                </EmuTarget>
+                              </span>
+                            );
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </Sheet>
+            </div>
+          ) : null}
+
           <div data-emu-region="roster">
             <Sheet className="p-4">
               <SectionHeading
@@ -180,7 +241,9 @@ export function EmuAssistantAttendance({
                 }
               />
               <div className="mt-3 divide-y" style={{ borderColor: "var(--rule-2)" }}>
-                {roster.map((p) => (
+                {roster
+                  .filter((p) => p.status !== "counter_only")
+                  .map((p) => (
                   <div key={p.id} className="flex flex-wrap items-center gap-3 py-2.5">
                     <InitialsTile name={pick(p.name, locale)} size={30} tone="indigo" />
                     <span

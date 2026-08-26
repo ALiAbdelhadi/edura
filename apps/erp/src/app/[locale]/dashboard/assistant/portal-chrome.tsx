@@ -37,7 +37,7 @@ const navGroups = [
       { href: "/dashboard/assistant/attendance", icon: "check", label: "Attendance", tour: "nav-attendance" },
       { href: "/dashboard/assistant/door", icon: "check", label: "Door Check-in", tour: "nav-door" },
       { href: "/dashboard/assistant/grades", icon: "chart", label: "Gradebook", tour: "nav-grades" },
-      { href: "/dashboard/assistant/materials", icon: "book", label: "Materials", tour: "nav-materials" },
+      { href: "/dashboard/assistant/materials", icon: "book", label: "Teacher Materials", tour: "nav-materials" },
     ],
   },
   {
@@ -80,9 +80,14 @@ const BAR_ORDER = [
   "/dashboard/assistant/attendance",
   "/dashboard/assistant/door",
   "/dashboard/assistant/classes",
+  // The fifth slot is the GRADEBOOK, and this is where the assistant's bar
+  // stops mirroring the teacher's. Their job is speed on attendance, grades
+  // and materials, and they mark beside the teacher during and after a lesson
+  // — so the book is a standing-up reach for them in a way it is not for the
+  // teacher, whose fifth slot is the wallet they do not have.
+  "/dashboard/assistant/grades",
   // — the "more" sheet, in sidebar order —
   "/dashboard/assistant/notifications",
-  "/dashboard/assistant/grades",
   "/dashboard/assistant/materials",
   "/dashboard/assistant/collaborations",
   "/dashboard/assistant/notes",
@@ -100,6 +105,7 @@ export default function PortalChrome({
       role="assistant"
       navGroups={navGroups}
       bottomNav={BAR_ORDER}
+      bottomNavMaxVisible={6}
     >
       {/* In the layout, not on each screen: the delegation is true of every
           route in this portal, and a strip that appeared on some screens and

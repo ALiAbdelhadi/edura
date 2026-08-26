@@ -742,5 +742,37 @@
         "body": "الجولة خلصت. شغلك بيبدأ من الشاشة دي — اختار المدرّس والحصة وابدأ."
       }
     }
-  }
+  },
+  "takings_title": "اتحصّل النهاردة",
+  "takings_seeRows": "شوف الإيصالات",
+  "takings_net": "الصافي",
+  "takings_receipts": "{n} إيصال",
+  "takings_refunded": "مرتجع",
+  "takings_refundCount": "{n} عملية",
+  "takings_none": "لسه مفيش تحصيل النهاردة",
+  "takings_methodNote": "ده إجمالي التحصيل. تفصيل الكاش والأونلاين لسه مش متاح.",
+  "queue_unsettledLabel": "حصص مستنية التقفيل",
+  "queue_unsettledFact": "الحصة اللي خلصت ومتقفلتش، فلوسها لسه ما اتوزعتش.",
+  "queue_unsettledChip": "فلوس واقفة",
+  "queue_clashLabel": "تعارض في الجدول النهاردة",
+  "queue_clashFact": "قاعة أو مدرّس محجوز مرتين في نفس الوقت.",
+  "queue_allTime": "من البداية",
+  "live_title": "شغّال دلوقتي",
+  "live_count": "{n} حصة",
+  "agreements_action": "اتفاقية",
+  "agreements_title": "اقتراح اتفاقية مالية — {name}",
+  "agreements_hint": "هذا اقتراح فقط — لا يسري أي معدل قبل اعتماد المنصة له.",
+  "agreements_basis": "نوع الحساب",
+  "agreements_percent": "نسبة من الصافي",
+  "agreements_fixed": "مبلغ ثابت لكل طالب",
+  "agreements_residual": "المعدل يخص",
+  "agreements_rateForTeacher": "نصيب المدرس (والباقي للسنتر)",
+  "agreements_rateForCenter": "نصيب السنتر (والباقي للمدرس)",
+  "agreements_ratePercent": "النسبة (%)",
+  "agreements_rateEgp": "المبلغ لكل طالب (ج.م)",
+  "agreements_submit": "إرسال الاقتراح",
+  "agreements_proposed": "أُرسل الاقتراح — بانتظار اعتماد المنصة",
+  "agreements_roomOnlyWarning": "كل مجموعات هذا المدرس الحالية مرتبطة بقاعات — الاتفاقية لن تسري إلا على مجموعات بدون قاعة.",
+  "agreements_invalidRate": "أدخل معدلًا صحيحًا",
+  "agreements_failed": "لم يُرسل الاقتراح — أعد المحاولة."
 }

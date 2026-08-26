@@ -1,35 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { AtSign, Save } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { PasswordInput } from "@/components/kit/password-input";
+import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { SectionHead } from "@repo/ui/components/ledger";
 import { toast } from "@repo/ui/components/sonner";
-import { PasswordInput } from "@/components/kit/password-input";
-import { Spinner } from "@/components/kit/spinner";
-import { api } from "@/lib/api/client";
+import { AtSign, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 
-/**
- * Correct your own login email.
- *
- * The email row above this card was read-only for the life of the product, and
- * for a student it is very often not a value they typed: a receptionist enters
- * it at a walk-in counter from a number read aloud. Making it editable is the
- * point of this card; the two things around it are what make that safe to
- * offer, and both are stated up front rather than discovered on submit.
- *
- * The password field appears ONLY for an account that has a password. A
- * walk-in student who has not set credentials yet has nothing to prove and is
- * asked for nothing — the route agrees, so the form matches the rule instead of
- * guessing at it.
- *
- * Sign-in is NOT interrupted: the credential did not change. What does change
- * is the address every reset link and receipt goes to, which is why the current
- * password is the price of changing it.
- */
 export function EmailCard({
   email,
   hasPassword,
@@ -64,9 +46,7 @@ export function EmailCard({
       onChanged?.();
     } catch (err: unknown) {
       const message = (err as { message?: string })?.message ?? "";
-      // The route answers in English (it is shared with the back office). Map
-      // the refusals a person can act on, so an Arabic screen never replies in
-      // English about their own account.
+
       if (/already in use/i.test(message)) toast.error(t("shared.emailTaken"));
       else if (/password/i.test(message)) toast.error(t("security.currentPasswordWrong"));
       else if (/guardian/i.test(message)) toast.error(t("shared.emailIsGuardians"));
@@ -119,7 +99,6 @@ export function EmailCard({
                 onChange={(e) => setNext(e.target.value)}
               />
             </div>
-
             {hasPassword ? (
               <div className="grid gap-1.5">
                 <Label htmlFor="em-pass">{t("security.currentPassword")}</Label>
@@ -133,7 +112,6 @@ export function EmailCard({
                 <p className="text-xs text-ink-3">{t("shared.emailPasswordWhy")}</p>
               </div>
             ) : null}
-
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" disabled={busy}>
                 {busy ? <Spinner /> : <Save className="size-4" aria-hidden />}

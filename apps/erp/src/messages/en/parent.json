@@ -1,33 +1,23 @@
 {
   "parentDashboard": {
-    "attendanceLabel": "Attendance",
-    "gradePercentLabel": "Grade %",
-    "loadingDashboard": "Loading dashboard…",
     "noChildren": "No children registered.",
     "attendanceRate": "Attendance Rate",
     "averageGrade": "Average Grade",
     "feesPaid": "Fees Paid",
-    "feesDue": "Fees Due",
-    "recentGrades": "Recent Grades",
-    "noGrades": "No grades yet.",
-    "recentPayments": "Recent Payments",
-    "noPayments": "No payments yet.",
-    "payment": "Payment",
-    "paidVsDue": "Paid vs Due",
-    "paidCoverage": "Paid Coverage",
-    "paidLabel": "paid",
-    "dueLabel": "due",
-    "attendanceTrend": "Attendance Trend",
-    "noAttendanceTrend": "No attendance trend yet.",
-    "gradeTrend": "Grade Trend",
-    "noGradeTrend": "No grade trend yet.",
-    "latestEyebrow": "Latest",
-    "trendsEyebrow": "Trends",
     "attendanceReason": "of {count} recorded sessions",
     "gradeReason": "across {count} subjects",
     "paidReason": "Total settled to date",
-    "dueReason": "across {count} active enrolments",
-    "openRecord": "Open {record}"
+    "openRecord": "Open {record}",
+    "title": "Home",
+    "todayEyebrow": "Today",
+    "todayCount": "{count, plural, one {1 lesson} other {# lessons}} today",
+    "nextLesson": "Next lesson",
+    "noNextLesson": "No upcoming lessons",
+    "noNextLessonHint": "Once a subject is paid for, the times show up here.",
+    "now": "Now",
+    "alsoToday": "{count, plural, one {1 more lesson} other {# more lessons}} today",
+    "latestGrade": "Latest grade",
+    "payFor": "Pay for {name}"
   },
   "parentFees": {
     "cumulativePaid": "Cumulative Paid",
@@ -38,9 +28,7 @@
     "receipt": "Receipt #",
     "status": "Status",
     "refund": "Refund",
-    "loadingPayments": "Loading payments…",
     "noChildren": "No children registered.",
-    "dateRange": "Date range:",
     "reset": "Reset",
     "paidTotal": "Paid (total)",
     "refunds": "Refunds",
@@ -53,11 +41,11 @@
     "payLimit": "You can pay for your child from the \"Pay for a lesson\" page — by card or from your wallet. Cash paid at the centre also appears here.",
     "periodEyebrow": "Period",
     "rangeStart": "From date",
-    "rangeEnd": "To date",
     "paidReason": "across {count} entries",
     "refundsReason": "Amounts returned",
     "netReason": "Paid minus refunds",
-    "noPaymentsInRange": "No payments in this period."
+    "noPaymentsInRange": "No payments in this period.",
+    "titleFor": "{name}'s payments"
   },
   "parentProgress": {
     "noChildren": "No children registered.",
@@ -78,7 +66,8 @@
     "noGradesYet": "No grades recorded yet",
     "attendanceReason": "across all recorded sessions",
     "subjectsReason": "with recorded grades",
-    "breakdownEyebrow": "By subject"
+    "breakdownEyebrow": "By subject",
+    "titleFor": "{name}'s grades"
   },
   "parentLinking": {
     "linkedSuccess": "Linked successfully.",
@@ -157,7 +146,8 @@
     "wed": "Wed",
     "thu": "Thu",
     "fri": "Fri",
-    "sat": "Sat"
+    "sat": "Sat",
+    "titleFor": "Pay for {name}"
   },
   "parentWallet": {
     "subtitle": "Your own balance — top it up, then pay for your children's lessons from it.",
@@ -479,5 +469,24 @@
         "body": "The tour is done. Start by linking your child from “Children” — that's what opens the rest of the account. And if you'd rather rehearse first, “Practice” is in the menu."
       }
     }
+  },
+  "parentChild": {
+    "viewing": "Viewing",
+    "card": "ID card",
+    "link": "Link your child"
+  },
+  "parentAttendance": {
+    "title": "Attendance",
+    "titleFor": "{name}'s attendance",
+    "subtitle": "The attendance record, and the latest sessions entered."
+  },
+  "parentSubscriptions": {
+    "alertExpiringTitle": "{name}'s {course} subscription is ending soon",
+    "alertLapsedTitle": "{name}'s {course} subscription has ended",
+    "alertBody": "Renew it so no sessions are missed.",
+    "titleFor": "{name}'s subscriptions",
+    "subtitle": "The subscriptions running now, and when they end.",
+    "noneTitle": "No subscriptions yet",
+    "noneHint": "Pick a subject and pay for it, and the subscription shows up here."
   }
 }

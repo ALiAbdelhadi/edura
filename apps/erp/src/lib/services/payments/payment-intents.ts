@@ -274,6 +274,12 @@ export async function processWebhookEvent(
     const { settleWalletTopUpFromIntentTx } = await import("@/lib/services/wallet/wallet");
     settle = (tx) =>
       settleWalletTopUpFromIntentTx(tx, intent.id, { gatewayRef: event.gatewayRef });
+  } else if (intent.purpose === "center_credit_topup") {
+    const { settleCenterCreditTopUpFromIntentTx } = await import(
+      "@/lib/services/wallet/center-credit-topup"
+    );
+    settle = (tx) =>
+      settleCenterCreditTopUpFromIntentTx(tx, intent.id, { gatewayRef: event.gatewayRef });
   } else if (intent.purpose === "parent_wallet_topup") {
     const { settleParentWalletTopUpFromIntentTx } = await import(
       "@/lib/services/wallet/parent-wallet"
@@ -352,8 +358,12 @@ export async function processWebhookEvent(
     });
 
     // Emailed receipt. Reads the receipt number the settler already recorded on
-    // the notification, so no settlement path changed to enable this. A wallet
-    // top-up carries none (it writes no Payment row) and correctly gets none.
+    // the notification, so no settlement path changed to enable this. Both
+    // wallet top-ups now resolve to a real Payment row and so get a real
+    // receipt — the parent one since 2026-08-20. The note that used to stand
+    // here ("a wallet top-up writes no Payment row and correctly gets none")
+    // was already untrue of the student path, and was the reason a parent was
+    // told a receipt number that nothing could produce.
     const receiptNumber = receiptNumberFrom(toNotify.data);
     if (receiptNumber) {
       // Fire-and-forget: this runs after money has committed AND after the
@@ -406,6 +416,9 @@ async function settleIntentTx(tx: TenantTx, intentId: string): Promise<SettleNot
       studentId,
       courseId: intent.courseId,
       amount: intent.amount,
+      // MC-3: the receipt says how the money arrived, same value the sibling
+      // Transaction below has always recorded.
+      paymentMethod: "online_paymob",
       note: `Online payment (${intent.gateway}/${intent.method})`,
       receiptNumber,
       recordedBy: studentId, // self-service online payment

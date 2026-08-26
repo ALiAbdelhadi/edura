@@ -1,6 +1,6 @@
 {
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Home",
     "studentHome": "Home",
     "finance": "Finance",
     "students": "Students",
@@ -14,6 +14,7 @@
     "schedule": "Schedule",
     "enrollments": "Enrollments",
     "enrollmentRequests": "Enrollment Requests",
+    "collaborationRequests": "Collaboration Requests",
     "expenses": "Expenses",
     "rooms": "Rooms",
     "reports": "Reports",
@@ -48,13 +49,13 @@
     "wallet": "Wallet",
     "checkin": "Check-in",
     "counter": "Counter",
-    "doorCheckin": "Door Check-in",
+    "doorCheckin": "Door",
     "staff": "Staff",
     "childSafety": "Child safety",
     "more": "More",
     "allSections": "All sections",
     "requests": "Requests",
-    "myClasses": "My Classes",
+    "myClasses": "Groups",
     "myCenters": "My Centers",
     "payments": "Student payments",
     "childProgress": "Child Progress",
@@ -66,7 +67,9 @@
     "externalTeachers": "Off-system teachers",
     "studentId": "My ID",
     "practice": "Practice",
-    "tour": "Guided tour"
+    "tour": "Guided tour",
+    "childSubscriptions": "Subscriptions",
+    "teacherMaterials": "Handouts"
   },
   "gradeBands": {
     "excellent": "Excellent",
@@ -110,7 +113,7 @@
     "expired": "Expired",
     "removed": "Removed",
     "withdrawn": "Withdrawn",
-    "counter_only": "At center — didn't attend class"
+    "counter_only": "At the centre, not in the lesson"
   },
   "actions": {
     "rowsPerPage": "Rows per page",
@@ -468,7 +471,20 @@
     "remove": "Remove",
     "removeTitle": "Remove assistant?",
     "removeDescription": "{name} will lose team access. Existing conversations are kept, but they can no longer be contacted by your students.",
-    "inviteNote": "The assistant sets their own password from an emailed invite link — you never see it."
+    "inviteNote": "The assistant sets their own password from an emailed invite link — you never see it.",
+    "boundaryTitle": "Exactly what an assistant can do",
+    "boundaryIntro": "An assistant acts on your behalf on these screens — and everything they do is recorded in their name, on your account.",
+    "can": {
+      "attendance": "Take attendance and resolve \"at the centre, not in the lesson\"",
+      "door": "Check students in at the classroom door",
+      "closeLesson": "Close a lesson — which distributes the takings and credits your share, and cannot be undone",
+      "grades": "Create assessments and enter marks",
+      "materials": "Upload and delete materials",
+      "messages": "Reply to students and parents",
+      "notes": "Write in team notes"
+    },
+    "boundaryExcluded": "They can never reach your wallet or request a payout, set group prices, or add or remove assistants. Those doors are permanently closed — there is no setting to change.",
+    "boundaryAudit": "Every change an assistant makes is written to the audit log in their name, on your behalf."
   },
   "claim": {
     "authenticating": "Signing you in…",
@@ -546,7 +562,8 @@
     "txnAmount": "Amount",
     "fillRate": "Fill rate",
     "enrolledOfMax": "Enrolled",
-    "shortcuts": "Shortcuts"
+    "shortcuts": "Shortcuts",
+    "noPaymentsInPeriod": "No payments in this period"
   },
   "oversight": {
     "title": "My children's conversations",

@@ -29,10 +29,8 @@ const navGroups = [
       { href: "/dashboard/student/attendance", icon: "check", label: "Attendance", tour: "nav-attendance" },
       // No Assignments entry: there is no Assignment model. The screen invented a
       // graded/pending status from grade rows with no score. Do not reinstate it.
-      // KNOWN, STILL OPEN: the API continues to derive `assignmentsDue` and
-      // `assignmentsTrend` from those same scoreless grade rows. Nothing renders
-      // them any more, so the lie is no longer shown — but the fields are still in
-      // the payload and should be removed from the endpoint contract.
+      // The `assignmentsDue` / `assignmentsTrend` fields it read are gone from
+      // `dashboards/student` too, so there is nothing left to wire it back to.
       { href: "/dashboard/student/grades", icon: "award", label: "Grades", tour: "nav-grades" },
       { href: "/dashboard/student/materials", icon: "book", label: "Materials" },
       // Reviews is the student rating a teacher — an act performed about a

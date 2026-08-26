@@ -45,7 +45,6 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
@@ -75,7 +74,7 @@ export function TeacherMaterialsScreen() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<"upload" | "link">("upload");
 
-  const { query: coursesQuery, result: coursesResult } = useList({
+  const { result: coursesResult } = useList({
     resource: "courses",
   });
   const { query: materialsQuery, result: materialsResult } = useList({
@@ -230,89 +229,72 @@ export function TeacherMaterialsScreen() {
     }
   };
 
-  const columns: ColumnDef<any>[] = [
-    {
-      id: "title",
-      header: t("teacher.title"),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <FileText className="size-4 text-destructive" />
-          <span>{row.original.title}</span>
-        </div>
-      ),
-    },
-    {
-      id: "course",
-      header: t("nav.courses"),
-      cell: ({ row }) =>
-        courseMap.get(row.original.courseId?.toString?.()) || "—",
-    },
-    {
-      id: "type",
-      header: t("teacher.type"),
-      cell: ({ row }) => {
-        const v = row.original.type as string;
-        return v ? (
-          <StatusBadge tone={TYPE_TONES[v] ?? "neutral"}>
-            {t(asKey(`teacher.type_${v}`))}
-          </StatusBadge>
-        ) : null;
-      },
-    },
-    {
-      id: "size",
-      header: t("teacher.size"),
-      cell: ({ row }) => formatBytes(row.original.fileSizeBytes),
-    },
-    {
-      id: "createdAt",
-      header: t("teacher.uploaded"),
-      cell: ({ row }) =>
-        row.original.createdAt ? formatDate(row.original.createdAt) : "—",
-    },
-    {
-      id: "actions",
-      header: t("teacher.actions"),
-      cell: ({ row }) => {
-        const record = row.original;
-        const id = record.id || record._id;
-        return (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDownload(id)}
-              disabled={downloadingId === id}
-            >
-              {downloadingId === id ? (
-                <Spinner />
-              ) : (
-                <Download className="size-4" />
-              )}
-              {t("teacher.download")}
-            </Button>
-            <ConfirmDialog
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                  {t("actions.delete")}
-                </Button>
-              }
-              title={t("teacher.deleteConfirm")}
-              confirmText={t("actions.delete")}
-              cancelText={t("actions.cancel")}
-              destructive
-              onConfirm={() => handleDelete(id)}
-            />
-          </div>
-        );
-      },
-    },
-  ];
+  /* ROWS, NOT SIX COLUMNS.
+     Title / course / type / size / uploaded / actions is a desktop table, and
+     this screen is opened on a phone between lessons. The title leads, the
+     facts about the file sit under it as one quiet line, and the two actions
+     stay at the end where the thumb is. */
+  const materialRow = (m: any) => {
+    const id = m.id || m._id;
+    const type = m.type as string | undefined;
+    return (
+      <li key={id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <FileText className="size-4 shrink-0 text-destructive" />
+            <span className="truncate text-sm font-medium text-foreground">
+              {m.title}
+            </span>
+          </span>
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {type ? (
+              <StatusBadge tone={TYPE_TONES[type] ?? "neutral"}>
+                {t(asKey(`teacher.type_${type}`))}
+              </StatusBadge>
+            ) : null}
+            <span className="text-xs text-muted-foreground">
+              {courseMap.get(m.courseId?.toString?.()) || "—"}
+            </span>
+            <span className="text-xs text-muted-foreground" dir="ltr">
+              {formatBytes(m.fileSizeBytes)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {m.createdAt ? formatDate(m.createdAt) : "—"}
+            </span>
+          </span>
+        </span>
+
+        <span className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDownload(id)}
+            disabled={downloadingId === id}
+          >
+            {downloadingId === id ? <Spinner /> : <Download className="size-4" />}
+            {t("teacher.download")}
+          </Button>
+          <ConfirmDialog
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="size-4" />
+                {t("actions.delete")}
+              </Button>
+            }
+            title={t("teacher.deleteConfirm")}
+            confirmText={t("actions.delete")}
+            cancelText={t("actions.cancel")}
+            destructive
+            onConfirm={() => handleDelete(id)}
+          />
+        </span>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -348,18 +330,17 @@ export function TeacherMaterialsScreen() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           {materialsQuery.isLoading ? (
             <PageSpinner />
+          ) : materials.length === 0 ? (
+            <div className="px-6">
+              <EmptyState icon={FileText} title={t("teacher.noMaterials")} />
+            </div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={materials}
-              pageSize={10}
-              emptyState={
-                <EmptyState icon={FileText} title={t("teacher.noMaterials")} />
-              }
-            />
+            <ul className="divide-y divide-border border-y border-border">
+              {materials.map((m: any) => materialRow(m))}
+            </ul>
           )}
         </CardContent>
       </Card>

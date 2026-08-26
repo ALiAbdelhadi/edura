@@ -152,6 +152,13 @@ const DESTINATIONS: Record<string, Destinations> = {
     teacher: "/classes",
     assistant: "/classes",
   },
+  // The renewal reminder lands on the Subscriptions page each portal now has
+  // (student IA step 4 / parent IA step 4) — the page that answers "which one
+  // is ending, and where do I renew".
+  subscription_expiring: {
+    student: "/subscriptions",
+    parent: "/subscriptions",
+  },
   homework_deadline: { student: "/subjects" },
   guardian_contact_required: {
     student: "/settings",

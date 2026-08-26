@@ -64,6 +64,12 @@ const NAV_KEY: Record<string, string> = {
   "Student Home": "nav.studentHome",
   "My Subjects": "nav.mySubjects",
   "Student ID": "nav.studentId",
+  // The teacher side's own word for the same destination, on the same
+  // precedent as the student's two above. A teacher and their assistant say
+  // "الملازم"; the STUDENT portal's page title, subtitle and empty state all
+  // say "الملفات التعليمية", so re-pointing the shared key would have left
+  // that portal's nav disagreeing with its own screen.
+  "Teacher Materials": "nav.teacherMaterials",
   Practice: "nav.practice",
   Students: "nav.students",
   Teachers: "nav.teachers",
@@ -77,6 +83,10 @@ const NAV_KEY: Record<string, string> = {
   Schedule: "nav.schedule",
   Enrollments: "nav.enrollments",
   "Enrollment Requests": "nav.enrollmentRequests",
+  // NOT `nav.affiliations`. "الانتسابات" is the SUPERSEDED name that
+  // collaboration requests replaced (CLAUDE.md decision #3), and reusing that
+  // key would put a retired term back in two sidebars. This is its own row.
+  "Collaboration Requests": "nav.collaborationRequests",
   Expenses: "nav.expenses",
   Rooms: "nav.rooms",
   Reports: "nav.reports",
@@ -105,6 +115,9 @@ const NAV_KEY: Record<string, string> = {
   Finance: "nav.finance",
   Catalog: "nav.catalog",
   "Child Safety": "nav.childSafety",
+  // Not `nav.subscriptions` — that one reads "اشتراكاتي", which is the
+  // student saying MINE. A parent is reading a child's.
+  "Child Subscriptions": "nav.childSubscriptions",
   "Pay for a Lesson": "nav.payForChild",
   "My Wallet": "nav.parentWallet",
   "Guided tour": "nav.tour",

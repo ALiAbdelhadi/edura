@@ -9,7 +9,13 @@ export const dynamic = "force-dynamic";
 // the head-count and the frozen split, so it is not a lesser permission and is
 // not guarded more loosely. The kernel re-checks the actor against the session
 // itself (`assertMaySettle`), so this route holds no policy of its own.
-export const GET = delegatedWithCenter(async (_req, ctx, { acting: user }) => {
-  const { id } = await ctx.params;
-  return ok(await previewSessionSettlement(id, user));
-});
+export const GET = delegatedWithCenter(
+  async (_req, ctx, { acting: user }) => {
+    const { id } = await ctx.params;
+    return ok(await previewSessionSettlement(id, user));
+  },
+  // Phase 3: the counter presses "end lesson", so it reads the same preview —
+  // the preview shows money and is NOT a lesser permission, which is exactly
+  // why the two routes must widen together or not at all.
+  { staffAllow: ["receptionist", "manager"] },
+);

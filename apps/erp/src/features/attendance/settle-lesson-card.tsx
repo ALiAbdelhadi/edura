@@ -1,31 +1,21 @@
 "use client";
 
-/**
- * SETTLE THE LESSON — the trigger for the whole money engine, finally reachable
- * from the product.
- *
- * Until now `POST /api/v1/sessions/[id]/complete` had NO caller in apps/www at
- * all: the only surface that could settle a lesson was the back office's
- * center-oversight tab, and no cron did it either. So a center could take cash
- * and mark attendance, and the teacher's wallet stayed empty until someone at
- * Edura opened the back office and closed the lesson by hand, one at a time.
- *
- * Everything shown here comes from `GET .../settlement-preview`, which runs the
- * SAME `resolveLessonPrice` / `resolveLessonEconomics` / `computeLessonSplit`
- * the settlement itself runs. Nothing on this screen re-derives money — the
- * button quotes the ledger's own arithmetic (`design/CONSTITUTION.md` §1: the
- * button carries its own amount, every intermediate figure is shown).
- */
-
 import { useCustom, useCustomMutation, useInvalidate } from "@refinedev/core";
-import { useLocale, useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Num } from "@repo/ui/components/num";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
-import { LimitNote, TotalLine } from "@repo/ui/components/ledger";
-import { PageSpinner } from "@/components/kit/spinner";
+import { LimitNote } from "@repo/ui/components/ledger";
+import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
 import type { Locale } from "@repo/ui/lib/format";
+import { cn } from "@repo/ui/lib/utils";
+import { useLocale, useTranslations } from "next-intl";
 
 type Preview = {
   courseTitle: string | null;
@@ -34,6 +24,9 @@ type Preview = {
   cancelled: boolean;
   unpriced: boolean;
   nothingToSettle: boolean;
+  counterOnlyCount?: number;
+  platformHeldGross?: number;
+  centerHeldGross?: number;
   feeExceedsPrice: boolean;
   isTeacherDirect: boolean;
   presentCount: number;
@@ -62,66 +55,237 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
       await query.refetch();
       invalidate({ resource: "sessions", invalidates: ["list"] });
     } catch (e) {
-      // The server owns every refusal (unpriced, already settled, fee > price),
-      // so its message is shown verbatim rather than re-worded here.
       toast.error((e as { message?: string })?.message || t("teacher.settleError"));
     }
   };
 
-  const body = () => {
-    if (query.isLoading || !p) return <PageSpinner />;
+  const actionable =
+    !!p &&
+    !p.isTeacherDirect &&
+    !p.cancelled &&
+    !p.alreadySettled &&
+    !p.nothingToSettle &&
+    !p.unpriced &&
+    !p.feeExceedsPrice;
 
-    // Each of these is a reason there is nothing to press — stated as prose,
-    // never as a disabled button the reader has to interrogate.
-    if (p.isTeacherDirect) return <LimitNote>{t("teacher.settleTeacherDirect")}</LimitNote>;
-    if (p.cancelled) return <LimitNote>{t("teacher.settleCancelled")}</LimitNote>;
-    if (p.alreadySettled) {
+  const body = () => {
+    if (query.isLoading || !p) {
       return (
-        <LimitNote>
-          {t("teacher.settleAlready")}{" "}
-          {p.settledAt ? <Num.Date value={p.settledAt} locale={locale} /> : null}
+        <div className="space-y-4">
+          <div className="h-24 animate-pulse rounded-2xl bg-field" />
+          <div className="h-32 animate-pulse rounded-2xl bg-field" />
+          <div className="h-12 animate-pulse rounded-xl bg-field" />
+        </div>
+      );
+    }
+
+    if (p.isTeacherDirect) {
+      return (
+        <LimitNote className="rounded-2xl border border-indigo/15 bg-indigo-soft/40 px-4 py-4">
+          {t("teacher.settleTeacherDirect")}
         </LimitNote>
       );
     }
-    if (p.nothingToSettle) return <LimitNote>{t("teacher.settleNoPresent")}</LimitNote>;
-    if (p.unpriced) return <LimitNote>{t("teacher.settleUnpriced")}</LimitNote>;
-    if (p.feeExceedsPrice) return <LimitNote>{t("teacher.settleFeeExceeds")}</LimitNote>;
 
-    const row = (label: string, value: number) => (
-      <div className="flex items-baseline justify-between gap-4 py-1">
-        <span className="text-[13px] text-ink-2">{label}</span>
-        <Num.Money piasters={value} locale={locale} sign={false} />
+    if (p.cancelled) {
+      return (
+        <LimitNote className="rounded-2xl border border-red/15 bg-red-soft/40 px-4 py-4">
+          {t("teacher.settleCancelled")}
+        </LimitNote>
+      );
+    }
+
+    if (p.alreadySettled) {
+      return (
+        <LimitNote className="rounded-2xl border border-teal/15 bg-teal-soft/40 px-4 py-4">
+          {t("teacher.settleAlready")}{" "}
+          {p.settledAt ? (
+            <Num.Date value={p.settledAt} locale={locale} />
+          ) : null}
+        </LimitNote>
+      );
+    }
+
+    if (p.nothingToSettle) {
+      return (
+        <LimitNote className="rounded-2xl border border-amber/15 bg-amber-soft/40 px-4 py-4">
+          {t("teacher.settleNoPresent")}
+        </LimitNote>
+      );
+    }
+
+    if (p.unpriced) {
+      return (
+        <LimitNote className="rounded-2xl border border-amber/15 bg-amber-soft/40 px-4 py-4">
+          {t("teacher.settleUnpriced")}
+        </LimitNote>
+      );
+    }
+
+    if (p.feeExceedsPrice) {
+      return (
+        <LimitNote className="rounded-2xl border border-red/15 bg-red-soft/40 px-4 py-4">
+          {t("teacher.settleFeeExceeds")}
+        </LimitNote>
+      );
+    }
+
+    // Phase 3: counter-passed-but-never-doored students are EXCLUDED from the
+    // money by design (counter_and_door mode). The operator pressing this
+    // button may be a receptionist with less context than the teacher — the
+    // warning is the difference between "excluded by design" and "excluded by
+    // surprise".
+    // Phase 4 (D5): how much of the gross the center already physically holds
+    // (its own counter collections). That part never reaches the withdrawable
+    // wallet — the teacher's share and the platform's fees on it are debited
+    // from the center's platform credit instead.
+    const fundingNote =
+      (p.centerHeldGross ?? 0) > 0 ? (
+        <p className="mt-2 mb-0 flex flex-wrap items-baseline gap-1 text-[12.5px] leading-relaxed text-ink-2">
+          <span>{t("teacher.settleCenterHeldNote")}</span>
+          <Num.Money piasters={p.centerHeldGross ?? 0} locale={locale} sign={false} />
+        </p>
+      ) : null;
+
+    const counterOnlyNote =
+      (p.counterOnlyCount ?? 0) > 0 ? (
+        <LimitNote className="mb-3 rounded-2xl border border-amber/15 bg-amber-soft/40 px-4 py-3">
+          {t("teacher.settleCounterOnlyWarning", { n: p.counterOnlyCount ?? 0 })}
+        </LimitNote>
+      ) : null;
+
+    const row = (label: string, value: number, emphasized = false) => (
+      <div className="flex items-center justify-between gap-4 py-2">
+        <span
+          className={cn(
+            "text-[13px]",
+            emphasized ? "font-medium text-ink" : "text-ink-2",
+          )}
+        >
+          {label}
+        </span>
+
+        <Num.Money
+          piasters={value}
+          locale={locale}
+          sign={false}
+        />
       </div>
     );
 
     return (
-      <div className="space-y-3">
-        <div className="flex items-baseline justify-between gap-4 py-1">
-          <span className="text-[13px] text-ink-2">{t("teacher.settlePresent")}</span>
-          <Num.Figure value={p.presentCount} locale={locale} />
-        </div>
-        {row(t("teacher.settleLessonPrice"), p.perSessionPrice)}
+      <div className="space-y-5">
+        {/* Main outcome */}
+        <div className="rounded-2xl border border-border/70 bg-sheet p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="eyebrow mb-1">
+                {t("teacher.settleTeacherTotal")}
+              </p>
 
-        <div className="border-t border-rule pt-2">
-          <p className="eyebrow mb-1">{t("teacher.settlePerStudent")}</p>
-          {row(t("teacher.settleTeacherShare"), p.perStudent?.teacher ?? 0)}
-          {row(t("teacher.settleCenterShare"), p.perStudent?.center ?? 0)}
-          {row(t("teacher.settlePlatformShare"), p.perStudent?.platform ?? 0)}
+              <div className="text-[30px] font-semibold tracking-tight text-ink">
+                <Num.Money
+                  piasters={p.total?.teacher ?? 0}
+                  locale={locale}
+                  sign={false}
+                />
+              </div>
+
+              <p className="mt-1 text-xs text-ink-3">
+                {p.courseTitle}
+              </p>
+            </div>
+
+            <div className="rounded-full bg-teal-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal">
+              {t("teacher.settleAction", {
+                amount: ((p.total?.gross ?? 0) / 100).toFixed(2),
+                n: p.presentCount,
+              })}
+            </div>
+          </div>
+
+          {counterOnlyNote}
+          {fundingNote}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-field px-3.5 py-3">
+              <p className="text-[11px] text-ink-3">
+                {t("teacher.settlePresent")}
+              </p>
+              <div className="mt-1 text-lg font-semibold text-ink">
+                <Num.Figure
+                  value={p.presentCount}
+                  locale={locale}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-field px-3.5 py-3">
+              <p className="text-[11px] text-ink-3">
+                {t("teacher.settleLessonPrice")}
+              </p>
+
+              <div className="mt-1 text-lg font-semibold text-ink">
+                <Num.Money
+                  piasters={p.perSessionPrice}
+                  locale={locale}
+                  sign={false}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <TotalLine
-          label={t("teacher.settleTeacherTotal")}
-          value={
-            <Num.Money piasters={p.total?.teacher ?? 0} locale={locale} sign={false} />
-          }
-        />
+        {/* Breakdown */}
+        <div className="rounded-2xl border border-border/70 bg-sheet px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="eyebrow">
+              {t("teacher.settlePerStudent")}
+            </p>
+
+            <span className="text-[11px] text-ink-3">
+              {t("teacher.settlePresent")}
+            </span>
+          </div>
+
+          {row(
+            t("teacher.settleTeacherShare"),
+            p.perStudent?.teacher ?? 0,
+            true,
+          )}
+
+          {row(
+            t("teacher.settleCenterShare"),
+            p.perStudent?.center ?? 0,
+          )}
+
+          {row(
+            t("teacher.settlePlatformShare"),
+            p.perStudent?.platform ?? 0,
+          )}
+        </div>
+
+        {/* Total */}
+        <div className="rounded-2xl bg-ink px-4 py-4 text-white">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium text-white/70">
+              {t("teacher.settleTeacherTotal")}
+            </span>
+
+            <div className="text-xl font-semibold tracking-tight">
+              <Num.Money
+                piasters={p.total?.teacher ?? 0}
+                locale={locale}
+                sign={false}
+              />
+            </div>
+          </div>
+        </div>
 
         <TwoStepCommit
           resetKey={sessionId}
           busy={mutation.isPending}
           onCommit={commit}
           labels={{
-            // The amount the teacher is authorising, not a category of action.
             action: t("teacher.settleAction", {
               amount: ((p.total?.gross ?? 0) / 100).toFixed(2),
               n: p.presentCount,
@@ -140,6 +304,13 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">{t("teacher.settleTitle")}</CardTitle>
+        <CardDescription>{t("teacher.settleSubtitle")}</CardDescription>
+        {actionable ? (
+          <CardAction>
+            <span className="mt-1.5 block size-2 rounded-full bg-amber" aria-hidden />
+            <span className="sr-only">{t("teacher.settlePendingLabel")}</span>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent>{body()}</CardContent>
     </Card>

@@ -379,6 +379,16 @@
   color: var(--chrome-accent-fg);
 }
 
+/* AND THE PLATE'S PADDING, ZEROED THERE TOO. The 3px `content-box` padding
+   above grows the svg to a 22px box, but the rail button's content area is
+   32 - 2×8 = 16px — the box overflows past the inline-end edge and the glyph
+   lands 3px off the square's centre. Invisible on idle rows; on the active
+   tile the accent fill makes the offset read as a misaligned icon. In the
+   rail the SQUARE is the plate, so the svg needs no plate of its own. */
+[data-collapsible="icon"] .chrome [data-slot="sidebar-menu-button"] > svg {
+  padding: 0;
+}
+
 /* The count on an active row. It was `--chrome-accent-soft` on a row that is
    ALSO `--chrome-accent-soft` — two 10% washes stacked, so the chip that exists
    to be seen all but disappeared on the one row the reader is looking at. */
@@ -492,3 +502,407 @@ header.chrome {
    gives EVERY dropdown the same treatment, so the scoped copies were deleted
    rather than left to say the same thing twice in two places — which is how one
    of them eventually gets edited and the other does not. */
+
+/* ═══ the overlays — every surface that appears ON TOP of a screen ══════════
+ *
+ * WHY THEY ARE IN THIS FILE. Everything a reader meets through a Radix portal
+ * already lives here: the command palette, the phone drawer, the identity menu.
+ * The modal, the dropdown, the select popup, the popover and the sheet did not,
+ * and the consequence was visible — they were still stock shadcn while the shell
+ * around them had been redesigned. `bg-popover`, `rounded-md`, Tailwind's soot
+ * `shadow-md`, `zoom-in-95`: defaults, not decisions anybody made about this
+ * product. That is what "they look old" was.
+ *
+ * WHAT IS HERE AND WHAT IS NOT, and the split is load-bearing. This block owns
+ * the SKIN — colour, hairline, radius, elevation, motion. It owns nothing a call
+ * site overrides: `max-width`, padding, `overflow` and layout stay Tailwind
+ * utilities in the components so `cn()` can still merge them. Twenty-nine of the
+ * fifty dialogs in this repo pass their own `sm:max-w-*`; a plain CSS rule here
+ * would tie with those utilities on specificity and be settled by bundle order,
+ * which is not a thing to leave to chance.
+ *
+ * ── THREE FAMILIES, AND THE DIFFERENCE BETWEEN THEM IS THE POINT ────────────
+ *
+ * ANCHORED PANELS (dropdown, select, popover) hang off a control the pointer is
+ * already touching. They take `--chrome-radius-md`, the lighter
+ * `--chrome-shadow-md`, and `--chrome-fast` — this file's own rule: "fast is
+ * anything the pointer is already touching".
+ *
+ * BIG SURFACES (modal, sheet) take over the screen. They take
+ * `--chrome-radius-lg`, `--chrome-shadow-lg`, and `--chrome-base`, the band for
+ * anything that changes the layout. Giving a modal the dropdown's 140ms makes it
+ * appear rather than arrive; giving a dropdown the modal's 220ms makes a menu
+ * feel like it is deciding whether to open.
+ *
+ * THE TOOLTIP is neither. It keeps its inverted fill — that is a current,
+ * deliberate pattern and not the thing that read as dated — and takes only the
+ * motion tokens and the radius.
+ *
+ * ELEVATION IS ALREADY CORRECT IN DARK, for free: both shadow tokens are `none`
+ * there and the lifted surface plus its hairline does the whole job. The old
+ * `shadow-md`/`shadow-lg` kept a soot shadow in dark mode, which is the
+ * grey-halo failure the elevation tokens above were written to prevent.
+ *
+ * REDUCED MOTION needs no rule of its own: the media query at the top of this
+ * file takes both bands to 0ms, so every animation here becomes an instant
+ * state change.
+ *
+ * NONE OF THIS SPENDS THE MONEY PATH'S SINGLE-ANIMATION BUDGET. That budget is
+ * about the seal — the one moment something became permanent — and a panel
+ * arriving is chrome, exactly as the palette arriving is.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The `scale` property, NOT the `transform` shorthand and not `translate`.
+   `scale` is its own CSS property, so animating it cannot disturb the
+   `translate-x/y-[-50%]` utilities that centre the modal on desktop or the
+   `translate-*` nudges Radix applies to a popper. Animating `transform` — which
+   is what tw-animate-css's zoom-in does — fights those for the same declaration,
+   and the old 0.95 was the tell of that whole generation of overlays anyway.
+   0.97 reads as arriving; 0.95 reads as zooming. */
+@keyframes chrome-overlay-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes chrome-overlay-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+/* The phone form of the modal, and every side of the sheet. A panel attached to
+   an edge enters FROM that edge — one that fades in where it is already sitting
+   reads as a rendering glitch. `translate` is safe to animate on these: none of
+   them carries a translate utility, unlike the centred desktop modal. */
+@keyframes chrome-edge-in-bottom {
+  from {
+    opacity: 0;
+    translate: 0 100%;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes chrome-edge-out-bottom {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: 0 100%;
+  }
+}
+@keyframes chrome-edge-in-top {
+  from {
+    opacity: 0;
+    translate: 0 -100%;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes chrome-edge-out-top {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: 0 -100%;
+  }
+}
+/* PHYSICAL, and named physically after an attempt at logical names was measured
+   and found wrong. `translate` is a physical transform — `translate: -100% 0`
+   moves left whatever `dir` says — and `side` is a physical prop, so a drawer
+   asked for on the right is on the right in both scripts. Mapping the keyframes
+   by direction therefore made the RTL drawer sit on the right and slide in from
+   the LEFT, travelling across the whole screen. There is no direction-dependence
+   here at all; there never was. */
+@keyframes chrome-edge-in-left {
+  from {
+    opacity: 0;
+    translate: -100% 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes chrome-edge-out-left {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: -100% 0;
+  }
+}
+@keyframes chrome-edge-in-right {
+  from {
+    opacity: 0;
+    translate: 100% 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes chrome-edge-out-right {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: 100% 0;
+  }
+}
+
+@keyframes chrome-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes chrome-scrim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ── the scrim ────────────────────────────────────────────────────────────── */
+/* The SHEET's overlay is in here too, and has to be: the phone nav drawer and a
+   modal are two things the same reader sees on the same screen minutes apart,
+   and a soot scrim beside a tinted one reads as one of them being broken. */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  background: var(--chrome-scrim);
+  animation: chrome-scrim-in var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="dialog-overlay"][data-state="closed"],
+[data-slot="alert-dialog-overlay"][data-state="closed"],
+[data-slot="sheet-overlay"][data-state="closed"] {
+  animation: chrome-scrim-out var(--chrome-fast) var(--chrome-ease);
+}
+
+/* ── big surfaces: the modal and the sheet ────────────────────────────────── */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"] {
+  background: var(--chrome-surface);
+  color: var(--chrome-fg);
+  border-color: var(--chrome-border);
+  box-shadow: var(--chrome-shadow-lg);
+  font-family: var(--chrome-body);
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  animation: chrome-edge-in-bottom var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="dialog-content"][data-state="closed"],
+[data-slot="alert-dialog-content"][data-state="closed"] {
+  animation: chrome-edge-out-bottom var(--chrome-fast) var(--chrome-ease);
+}
+
+/* 40rem = Tailwind's `sm`. Kept in sync by hand because this sheet cannot read
+   the theme's breakpoints; if that ever moves, the sheet-to-card switch here
+   moves with it or the panel animates from an edge it is no longer attached
+   to. */
+@media (width >= 40rem) {
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"] {
+    animation-name: chrome-overlay-in;
+  }
+  [data-slot="dialog-content"][data-state="closed"],
+  [data-slot="alert-dialog-content"][data-state="closed"] {
+    animation-name: chrome-overlay-out;
+  }
+}
+
+/* The sheet, per side. `data-side` is set by the component. */
+[data-slot="sheet-content"][data-side="bottom"] {
+  animation: chrome-edge-in-bottom var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="bottom"][data-state="closed"] {
+  animation: chrome-edge-out-bottom var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="top"] {
+  animation: chrome-edge-in-top var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="top"][data-state="closed"] {
+  animation: chrome-edge-out-top var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="right"] {
+  animation: chrome-edge-in-right var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="right"][data-state="closed"] {
+  animation: chrome-edge-out-right var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="left"] {
+  animation: chrome-edge-in-left var(--chrome-base) var(--chrome-ease);
+}
+[data-slot="sheet-content"][data-side="left"][data-state="closed"] {
+  animation: chrome-edge-out-left var(--chrome-base) var(--chrome-ease);
+}
+
+/* The modal's header and action bands. A hairline under the title and above the
+   buttons is what makes the body SCROLLABLE without the reader losing either —
+   the old dialog had no max-height at all, so a long form on a 720px laptop
+   pushed its own submit button off the bottom of the screen with nothing to
+   indicate it. Drawn always rather than only on scroll: a rule that appears
+   mid-gesture is a layout shift under the reader's eye, and the band reads as
+   deliberate structure either way.
+   THE ALERT DIALOG IS EXCLUDED. A confirm box is short, never scrolls, and its
+   header is a centred title beside an optional media tile; banding it would
+   draw two rules around three lines of text. */
+[data-slot="dialog-header"],
+[data-slot="sheet-header"] {
+  border-bottom: 1px solid var(--chrome-border);
+}
+[data-slot="dialog-footer"],
+[data-slot="sheet-footer"] {
+  border-top: 1px solid var(--chrome-border);
+}
+/* The palette hides its header with `sr-only` and pays no padding, so it must
+   not draw a band either. Keyed on the class the caller already passes rather
+   than on a new flag. An empty footer is the same case. */
+[data-slot="dialog-header"].sr-only,
+[data-slot="sheet-header"].sr-only,
+[data-slot="dialog-footer"]:empty,
+[data-slot="sheet-footer"]:empty {
+  border: 0;
+}
+/* The phone NAV drawer is a Sheet, and it is not a form: it has a header for
+   its own reasons and no band belongs on it. `.chrome` is on that drawer and
+   nothing else. */
+.chrome [data-slot="sheet-header"],
+.chrome [data-slot="sheet-footer"] {
+  border: 0;
+}
+
+/* The close affordance, shared by the modal and the sheet. It was a bare 16px
+   glyph at `opacity: 0.7` — under the 24×24 minimum WCAG 2.2 §2.5.8 sets for a
+   pointer target, and an opacity change is the weakest hover signal available.
+   Now a real 32px square that fills on hover, which is the same treatment the
+   sidebar's nav glyph gets. */
+[data-dialog-dismiss] {
+  color: var(--chrome-fg-muted);
+  border-radius: var(--chrome-radius-sm);
+  transition:
+    background-color var(--chrome-fast) var(--chrome-ease),
+    color var(--chrome-fast) var(--chrome-ease);
+}
+[data-dialog-dismiss]:hover {
+  background: var(--chrome-surface-2);
+  color: var(--chrome-fg);
+}
+[data-dialog-dismiss]:focus-visible {
+  outline: 2px solid var(--chrome-ring);
+  outline-offset: 2px;
+}
+
+/* ── anchored panels: dropdown, select, popover ───────────────────────────── */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="select-content"],
+[data-slot="popover-content"] {
+  background: var(--chrome-surface);
+  color: var(--chrome-fg);
+  border-color: var(--chrome-border);
+  border-radius: var(--chrome-radius-md);
+  box-shadow: var(--chrome-shadow-md);
+  font-family: var(--chrome-body);
+  animation: chrome-overlay-in var(--chrome-fast) var(--chrome-ease);
+}
+[data-slot="dropdown-menu-content"][data-state="closed"],
+[data-slot="dropdown-menu-sub-content"][data-state="closed"],
+[data-slot="select-content"][data-state="closed"],
+[data-slot="popover-content"][data-state="closed"] {
+  animation: chrome-overlay-out var(--chrome-fast) var(--chrome-ease);
+}
+
+/* The rows. `--chrome-radius-sm` inside `--chrome-radius-md` is the concentric
+   rule this file states at the radii: a nested radius is the outer one minus its
+   padding, and the panel pays 4px.
+   `:not([data-variant="destructive"])` is the whole reason the colour rule is
+   written narrowly: logout is the one destructive item in the chrome, its red
+   comes from the shared `--destructive`, and a blanket `color` here would
+   quietly paint it the same grey as everything else. */
+[data-slot="dropdown-menu-item"],
+[data-slot="dropdown-menu-checkbox-item"],
+[data-slot="dropdown-menu-radio-item"],
+[data-slot="dropdown-menu-sub-trigger"],
+[data-slot="select-item"] {
+  border-radius: var(--chrome-radius-sm);
+  transition:
+    background-color var(--chrome-fast) var(--chrome-ease),
+    color var(--chrome-fast) var(--chrome-ease);
+}
+[data-slot="dropdown-menu-item"]:not([data-variant="destructive"]),
+[data-slot="dropdown-menu-checkbox-item"],
+[data-slot="dropdown-menu-radio-item"],
+[data-slot="dropdown-menu-sub-trigger"],
+[data-slot="select-item"] {
+  color: var(--chrome-fg-muted);
+}
+[data-slot="dropdown-menu-item"]:not([data-variant="destructive"]):focus,
+[data-slot="dropdown-menu-checkbox-item"]:focus,
+[data-slot="dropdown-menu-radio-item"]:focus,
+[data-slot="dropdown-menu-sub-trigger"]:focus,
+[data-slot="dropdown-menu-sub-trigger"][data-state="open"],
+[data-slot="select-item"]:focus {
+  background: var(--chrome-surface-2);
+  color: var(--chrome-fg);
+}
+/* The CHOSEN row in a select is not the same thing as the row under the cursor,
+   and stock shadcn drew them identically — so a reader could not tell which
+   option was already theirs. Accent-soft is the same mark the sidebar's active
+   item and the palette's selected row already use. */
+[data-slot="select-item"][data-state="checked"] {
+  background: var(--chrome-accent-soft);
+  color: var(--chrome-accent-text);
+}
+
+[data-slot="dropdown-menu-label"],
+[data-slot="select-label"] {
+  color: var(--chrome-fg-subtle);
+}
+[data-slot="dropdown-menu-separator"],
+[data-slot="select-separator"] {
+  background: var(--chrome-border);
+}
+
+/* ── the tooltip ──────────────────────────────────────────────────────────── */
+/* The inverted fill STAYS. It is a current pattern, it is the one overlay in the
+   product that must read instantly against any ground, and it was never what
+   looked dated. What it takes from here is the motion band and the radius, so it
+   stops being the one panel animating on a duration nobody chose. */
+[data-slot="tooltip-content"] {
+  border-radius: var(--chrome-radius-sm);
+  font-family: var(--chrome-body);
+  animation: chrome-overlay-in var(--chrome-fast) var(--chrome-ease);
+}
+[data-slot="tooltip-content"][data-state="closed"] {
+  animation: chrome-overlay-out var(--chrome-fast) var(--chrome-ease);
+}

@@ -277,6 +277,75 @@ export function EmuTeacherAttendance({
 
       {lessonOpen ? (
         <>
+          {/* THE PINNED QUEUE, mirroring the real register.
+              `counter_only` used to sit inline in the roster wearing an amber
+              chip — which is exactly what the real screen did, and exactly what
+              the audit found wrong: the same amber as "excused", wherever the
+              list happened to sort it. The real register now pins these rows
+              ABOVE the roster with a count, so the rehearsal does too, or it
+              teaches a place that no longer exists. */}
+          {roster.some((p) => p.status === "counter_only") ? (
+            <div data-emu-region="counterOnly">
+              <Sheet
+                className="p-4"
+                style={{ borderColor: "var(--amber)", borderWidth: 2 }}
+              >
+                <SectionHeading
+                  title={t("screens.counterOnly")}
+                  action={
+                    <Chip tone="amber">
+                      {roster.filter((p) => p.status === "counter_only").length}
+                    </Chip>
+                  }
+                />
+                <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+                  {t("screens.counterOnlyHint")}
+                </p>
+                <div className="mt-2 divide-y" style={{ borderColor: "var(--rule-2)" }}>
+                  {roster
+                    .filter((p) => p.status === "counter_only")
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        data-emu-region={`row-${p.id}`}
+                        className="flex flex-wrap items-center gap-3 py-2.5"
+                      >
+                        <InitialsTile name={pick(p.name, locale)} size={30} tone="indigo" />
+                        <span
+                          className="min-w-0 flex-1 truncate text-sm"
+                          style={{ color: "var(--ink)" }}
+                        >
+                          {pick(p.name, locale)}
+                        </span>
+                        <span className="flex shrink-0 gap-1.5">
+                          {(["present", "absent"] as const).map((st) => {
+                            const Icon = st === "present" ? Check : X;
+                            return (
+                              <span key={st} className="w-[2.25rem]">
+                                <EmuTarget id={`${st}-${p.id}`} onClick={() => onSetStatus(p.id, st)}>
+                                  <span
+                                    className="inline-flex h-8 w-full items-center justify-center rounded-(--radius-step-md)"
+                                    style={{
+                                      border: "1px solid var(--rule)",
+                                      background: "var(--sheet)",
+                                      color: "var(--ink-3)",
+                                    }}
+                                    title={t(asKey(`screens.status_${st}`))}
+                                  >
+                                    <Icon className="size-4" aria-hidden />
+                                  </span>
+                                </EmuTarget>
+                              </span>
+                            );
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </Sheet>
+            </div>
+          ) : null}
+
           <div data-emu-region="roster">
             <Sheet className="p-4">
               <SectionHeading
@@ -288,7 +357,9 @@ export function EmuTeacherAttendance({
                 }
               />
               <div className="mt-3 divide-y" style={{ borderColor: "var(--rule-2)" }}>
-                {roster.map((p) => (
+                {roster
+                  .filter((p) => p.status !== "counter_only")
+                  .map((p) => (
                   <div
                     key={p.id}
                     data-emu-region={`row-${p.id}`}
@@ -474,12 +545,16 @@ export function EmuTeacherWallet({
   reserved,
   rows,
   requests,
+  armed,
+  onArm,
   onWithdraw,
 }: {
   balance: number;
   reserved: number;
   rows: EmuWalletRow[];
   requests: EmuPayoutRow[];
+  armed: boolean;
+  onArm: () => void;
   onWithdraw: () => void;
 }) {
   const t = useTranslations("teacher.teacherEmulator");
@@ -506,20 +581,42 @@ export function EmuTeacherWallet({
         ))}
       </div>
 
-      <div>
+      <div className="space-y-1.5">
         {available > 0 ? (
-          <EmuTarget id="withdraw" onClick={onWithdraw}>
-            <span
-              className="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
-              style={{
-                background: "var(--indigo)",
-                color: "var(--indigo-ink)",
-                border: "1px solid var(--indigo)",
-              }}
-            >
-              {t("screens.withdrawCta")}
-            </span>
-          </EmuTarget>
+          armed ? (
+            /* ARMED — the real button turns red and says it cannot be undone.
+               Two presses, exactly as the wallet now asks for. */
+            <>
+              <EmuTarget id="withdraw-confirm" onClick={onWithdraw}>
+                <span
+                  className="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
+                  style={{
+                    background: "var(--red-soft)",
+                    color: "var(--red)",
+                    border: "1px solid var(--red)",
+                  }}
+                >
+                  {t("screens.withdrawConfirm")}
+                </span>
+              </EmuTarget>
+              <p className="text-[11px]" style={{ color: "var(--red)" }}>
+                {t("screens.withdrawArmedHint")}
+              </p>
+            </>
+          ) : (
+            <EmuTarget id="withdraw" onClick={onArm}>
+              <span
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
+                style={{
+                  background: "var(--indigo)",
+                  color: "var(--indigo-ink)",
+                  border: "1px solid var(--indigo)",
+                }}
+              >
+                {t("screens.withdrawCta")}
+              </span>
+            </EmuTarget>
+          )
         ) : (
           <p className="text-xs" style={{ color: "var(--ink-3)" }}>
             {t("screens.nothingAvailable")}

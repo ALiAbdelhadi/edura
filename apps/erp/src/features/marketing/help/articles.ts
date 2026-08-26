@@ -30,6 +30,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "invite-teacher", category: "start" },
   { slug: "create-group", category: "start" },
   // الحضور
+  { slug: "teacher-attendance-close", category: "attendance" },
   { slug: "counter-checkin", category: "attendance" },
   { slug: "door-checkin", category: "attendance" },
   { slug: "offline-attendance", category: "attendance" },
@@ -37,8 +38,12 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "record-cash-payment", category: "money" },
   { slug: "close-session-settlement", category: "money" },
   { slug: "request-payout", category: "money" },
+  { slug: "teacher-wallet-payouts", category: "money" },
   // الناس والصلاحيات
   { slug: "assistant-accounts", category: "people" },
+  // The assistant's own guide. Filed under `people` rather than a new category:
+  // it is one article, and the category list is a top-level menu, not a tag.
+  { slug: "assistant-first-steps", category: "people" },
   // الأمان
   { slug: "guardian-email-messaging", category: "safety" },
 

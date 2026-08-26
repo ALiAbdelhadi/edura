@@ -742,5 +742,37 @@
         "body": "The tour is done. Your work starts on this screen — pick the teacher and the lesson and go."
       }
     }
-  }
+  },
+  "takings_title": "Taken today",
+  "takings_seeRows": "See the receipts",
+  "takings_net": "Net",
+  "takings_receipts": "{n} receipts",
+  "takings_refunded": "Refunded",
+  "takings_refundCount": "{n} refunds",
+  "takings_none": "Nothing taken yet today",
+  "takings_methodNote": "Total takings. A cash / online breakdown is not available yet.",
+  "queue_unsettledLabel": "Lessons awaiting settlement",
+  "queue_unsettledFact": "A finished lesson that was never closed — its money has not been split yet.",
+  "queue_unsettledChip": "Money held",
+  "queue_clashLabel": "Schedule clashes today",
+  "queue_clashFact": "A hall or a teacher booked twice at the same time.",
+  "queue_allTime": "All time",
+  "live_title": "Running now",
+  "live_count": "{n} lessons",
+  "agreements_action": "Agreement",
+  "agreements_title": "Propose a money agreement — {name}",
+  "agreements_hint": "This is a proposal only — no rate takes effect before the platform approves it.",
+  "agreements_basis": "Basis",
+  "agreements_percent": "Percent of net",
+  "agreements_fixed": "Fixed per student",
+  "agreements_residual": "The rate prices",
+  "agreements_rateForTeacher": "The teacher's take (center keeps the rest)",
+  "agreements_rateForCenter": "The center's share (teacher keeps the rest)",
+  "agreements_ratePercent": "Percent (%)",
+  "agreements_rateEgp": "Amount per student (EGP)",
+  "agreements_submit": "Send proposal",
+  "agreements_proposed": "Proposal sent — awaiting platform approval",
+  "agreements_roomOnlyWarning": "All of this teacher's current groups are hall-based — the agreement will only govern no-hall groups.",
+  "agreements_invalidRate": "Enter a valid rate",
+  "agreements_failed": "The proposal was not sent — try again."
 }

@@ -105,6 +105,10 @@ export const MISSIONS: EmuMission[] = [
       { id: "openWallet", screen: "attendance", target: "nav-wallet" },
       { id: "balance", screen: "wallet", spotlight: "figures" },
       { id: "withdraw", screen: "wallet", target: "withdraw" },
+      // The second press. The real wallet arms before it commits, so the
+      // rehearsal does too — a mission that still ended at one press would be
+      // teaching a ceremony the product no longer has.
+      { id: "withdrawConfirm", screen: "wallet", target: "withdraw-confirm" },
       { id: "reserved", screen: "wallet", spotlight: "figures" },
       { id: "requests", screen: "wallet", spotlight: "requests" },
       { id: "done", screen: "wallet" },

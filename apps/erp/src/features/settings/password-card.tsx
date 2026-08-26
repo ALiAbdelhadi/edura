@@ -1,25 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { KeyRound } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { toast } from "@repo/ui/components/sonner";
-import { SectionHead } from "@repo/ui/components/ledger";
 import { PasswordInput } from "@/components/kit/password-input";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { authClient } from "@/lib/auth/client";
+import { Button } from "@repo/ui/components/button";
+import { SectionHead } from "@repo/ui/components/ledger";
+import { toast } from "@repo/ui/components/sonner";
+import { KeyRound } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState } from "react";
 
-/**
- * Self-service password change.
- *
- * The server bumps `token_version`, which revokes EVERY session including this
- * one — so on success there is nothing to stay logged in with. Rather than
- * leave the user on a screen whose next request 401s, this signs out cleanly
- * and sends them to the sign-in page. Saying so BEFORE they submit is the
- * point of the description line: being logged out must not read as a bug.
- */
 export function PasswordCard({ locale }: { locale?: string }) {
   const t = useTranslations();
   const [current, setCurrent] = useState("");
@@ -27,9 +18,6 @@ export function PasswordCard({ locale }: { locale?: string }) {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // The kernel throws its refusals in English (it serves both apps and has no
-  // locale). Same treatment as the door screen: map the known ones onto i18n
-  // keys so an Arabic UI never answers in English.
   const localizedError = (err: any) => {
     const message: string = err?.message ?? "";
     if (/current password/i.test(message)) return t("security.currentPasswordWrong");
@@ -52,14 +40,9 @@ export function PasswordCard({ locale }: { locale?: string }) {
       setCurrent("");
       setNext("");
       setConfirm("");
-      // Clear the (already server-side dead) cookie before leaving, so the
-      // sign-in page is not reached carrying a stale token.
       await authClient.signOut().catch(() => undefined);
       window.location.href = `/${locale ?? "ar"}/login`;
     } catch (err: any) {
-      // The api client's beforeError hook already lifts the envelope's
-      // `error.message` onto err.message — re-reading the body here would
-      // consume an already-consumed stream and lose the real reason.
       toast.error(localizedError(err));
     } finally {
       setBusy(false);

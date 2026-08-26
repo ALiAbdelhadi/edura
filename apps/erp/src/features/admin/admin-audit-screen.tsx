@@ -1,41 +1,18 @@
 "use client";
 
-/* سجل التدقيق / Center audit log — the owner's copy.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The back office has had this screen since the center-oversight work; the people
-   whose staff the log is ABOUT did not. That asymmetry is the thing being fixed:
-   a center owner is asked to trust a record of their own counter, and trust needs
-   to be inspectable.
-
-   The form follows the guarantee, exactly as in the back-office twin:
-
-   - THE ACTOR IS NEVER BLANK. An unattributed action in an audited system is a gap
-     the interface should not create — an automated write reads «النظام».
-   - STICKY DAY HEADERS. A log is read as a sequence of days.
-   - BEFORE AND AFTER, SIDE BY SIDE. What makes an action checkable is not that it
-     was logged but that the CHANGE is legible.
-   - EVERY REF IS MONO AND ISOLATED. Action names, ids and timestamps are Latin runs
-     sitting beside Arabic prose — the product's most common bidi break.
-   - AND ONE THING THE BACK OFFICE DOES NOT SAY: this screen states, in the owner's
-     own language, that the log cannot be edited — by them, by their staff, or by
-     us. A tamper-proof record nobody knows is tamper-proof buys no trust. */
-
-import { Fragment, useEffect, useState } from "react";
-import { todayKey } from "@repo/server-core/lib/date-key";
-import { useCustom } from "@refinedev/core";
-import { useOnDemand } from "@/lib/api/use-on-demand";
-import { useTranslations } from "next-intl";
-import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
-
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-
 import { DateRangeField } from "@/components/kit/date-range-field";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { useOnDemand } from "@/lib/api/use-on-demand";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useCustom } from "@refinedev/core";
+import { todayKey } from "@repo/server-core/lib/date-key";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Fragment, useEffect, useState } from "react";
 
 type Row = {
   id: string;
@@ -128,12 +105,6 @@ export function AdminAuditScreen() {
   }
 
   const dayLabel = (day: string) => {
-    // `today` / `yesterday` come from state, not from a clock read during
-    // render: reading the clock while rendering is impure (the same render can
-    // produce different output), and it is also wrong across midnight — a
-    // board left open overnight would keep calling yesterday "today" until
-    // something unrelated re-rendered it. The effect below re-stamps on mount
-    // and once an hour.
     if (day === todayKeys.today) return t("today");
     if (day === todayKeys.yesterday) return t("yesterday");
     return formatDate(day, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -142,14 +113,12 @@ export function AdminAuditScreen() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
-
-      {/* The guarantee, stated to the person being asked to rely on it. */}
       <p className="flex gap-2 rounded-xl border border-rule bg-field p-3 text-[13px] text-ink-2">
         <Lock className="mt-px size-4 shrink-0" aria-hidden="true" />
         <span>{t("immutableNotice")}</span>
       </p>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-(--lift)">
         <label className="text-xs">
           <span className="mb-1 block text-ink-2">{t("filterActor")}</span>
           <select
@@ -170,7 +139,6 @@ export function AdminAuditScreen() {
             ))}
           </select>
         </label>
-
         <label className="text-xs">
           <span className="mb-1 block text-ink-2">{t("filterAction")}</span>
           <Input
@@ -190,7 +158,6 @@ export function AdminAuditScreen() {
             ))}
           </datalist>
         </label>
-
         <DateRangeField
           value={{ from, to }}
           onChange={(next) => {
@@ -201,20 +168,18 @@ export function AdminAuditScreen() {
           formatDate={formatDate}
           placeholder={t("filterFrom")}
         />
-
         {hasFilters ? (
           <Button variant="ghost" size="sm" onClick={clear}>
             {t("clear")}
           </Button>
         ) : null}
       </div>
-
       {req.query.isLoading ? (
         <PageSpinner label={t("loading")} />
       ) : rows.length === 0 ? (
         <EmptyState icon={ScrollText} title={t("emptyTitle")} description={t("emptyBody")} />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
+        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-(--lift)">
           {days.map(({ day, rows: dayRows }) => (
             <Fragment key={day}>
               <p className="sticky top-0 z-10 border-b border-rule bg-field px-4 py-1.5 text-[11px] font-semibold text-ink-2">
@@ -244,7 +209,6 @@ export function AdminAuditScreen() {
                       ) : (
                         <span className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       )}
-
                       <div className="min-w-0 flex-1">
                         <span className="text-[12px] font-medium text-ink">
                           {actionLabel(r.action, t)}
@@ -263,20 +227,14 @@ export function AdminAuditScreen() {
                           <p className="mt-0.5 text-[11px] text-ink-3">
                             {r.targetType ? entityLabel(r.targetType, t) : null}
                             {r.targetType ? " · " : ""}
-                            {/* The id stays: an audit row has to identify the
-                                record it is about, and support reads it back.
-                                It is LTR-isolated so a hex string cannot
-                                reorder the Arabic around it. */}
                             <code className="num" dir="ltr">{r.targetId}</code>
                           </p>
                         ) : null}
                       </div>
-
                       <code className="num shrink-0 text-[11px] text-ink-3" dir="ltr">
                         {formatDate(r.createdAt, { hour: "2-digit", minute: "2-digit" })}
                       </code>
                     </button>
-
                     {open && hasDiff ? (
                       <div className="grid grid-cols-1 gap-3 border-t border-rule-2 bg-field px-4 py-3 sm:grid-cols-2">
                         <div>
@@ -306,7 +264,6 @@ export function AdminAuditScreen() {
           ))}
         </div>
       )}
-
       {total > PAGE_SIZE ? (
         <div className="flex items-center justify-between gap-3 text-xs text-ink-2">
           <Button
@@ -334,22 +291,6 @@ export function AdminAuditScreen() {
   );
 }
 
-/**
- * Turns an audit enum into words.
- *
- * The action and the target type are stored as machine strings —
- * `points.adjusted`, `center.updated`, `pointsledger` — and this screen used to
- * print them verbatim, in a monospace `<code>` forced to LTR, inside an
- * otherwise entirely Arabic log. The person reading this screen is a centre
- * owner checking who changed what, not the engineer who named the enum.
- *
- * THE FALLBACK NEVER SHOWS A RAW ENUM EITHER. New actions get added by code all
- * the time and nobody will remember to come back here, so an untranslated one
- * degrades to `entity — verb` with the separators removed rather than to
- * `some_thing.was_done`. It is imperfect English in an Arabic table, which is a
- * far smaller failure than a dotted identifier, and it is self-announcing:
- * anything that reads oddly is a missing key.
- */
 function actionLabel(action: string, t: ReturnType<typeof useTranslations<"centerAudit">>): string {
   const key = `action_${action.replace(/\./g, "_")}` as never;
   if (t.has(key)) return t(key);

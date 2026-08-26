@@ -1,5 +1,5 @@
 import { Prisma, type DataSource } from "@repo/database";
-import { scopedDb } from "../../db/scope";
+import { platformDb, scopedDb } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import { requireCenterScope } from "../../authz/center-scope";
 import type { SessionUser } from "../../auth/types";
@@ -358,6 +358,70 @@ export async function updateCourse(acting: SessionUser, id: string, body: Course
   });
 
   return withSchedulePattern(updated);
+}
+
+/**
+ * T-1 (TEACHER_IA_AUDIT §7.2 #1, approved 2026-08-21): a teacher edits the
+ * PRICING of their own TEACHER-DIRECT group. Before this, plan prices existed
+ * only at create time, so an unpriced or mispriced teacher-direct group was
+ * unfixable by the person who owns it — while lesson-settlement (correctly)
+ * refuses to settle an unpriced lesson, leaving the owner locked out of the
+ * refusal with no way through.
+ *
+ * Scope, exactly as approved:
+ *   - `centerId IS NULL` courses the caller teaches — a CENTERED course 404s
+ *     for a teacher even if they teach it (its pricing is the center's
+ *     arrangement, edited through the center door above).
+ *   - PRICING FIELDS ONLY: price, pricePerMonth, pricePerSession,
+ *     settlementBasis (the same owner-pricing family `updateCourse` groups
+ *     together — "Owner-only, like the prices it chooses between"). No title,
+ *     no schedule, no capacity: those stay create-time until decided otherwise.
+ *   - `requireRole("teacher")` at the route — deliberately NOT `delegated()`:
+ *     plan prices are financial settings, which Step 8 excludes from
+ *     delegation (the same reason the assistant's create-group button is
+ *     gated).
+ *
+ * NotFound (never Forbidden) for a course the caller does not own — an id
+ * probe learns nothing, same posture as callerOwnsTempStudent (M5).
+ *
+ * platformDb, not scopedDb: teacher-direct courses have NULL center_id, which
+ * tenant RLS deliberately hides ("bypass-only" — see createWalkInSubscription's
+ * note); ownership is enforced explicitly here instead.
+ */
+export type TeacherDirectPricingPatch = {
+  price?: number;
+  pricePerMonth?: number | null;
+  pricePerSession?: number | null;
+  settlementBasis?: "course_price" | "session_price" | "subscription";
+};
+
+export async function updateTeacherDirectPricing(
+  teacher: SessionUser,
+  id: string,
+  body: TeacherDirectPricingPatch,
+) {
+  return platformDb(
+    async (tx) => {
+      const course = await tx.course.findUnique({ where: { id } });
+      if (!course || course.teacherId !== teacher.id || course.centerId !== null) {
+        throw new NotFoundError("Course not found");
+      }
+
+      const data: Prisma.CourseUncheckedUpdateInput = {};
+      if (body.price !== undefined) data.price = body.price;
+      if (body.pricePerMonth !== undefined) data.pricePerMonth = body.pricePerMonth;
+      if (body.pricePerSession !== undefined) data.pricePerSession = body.pricePerSession;
+      // Forward-looking only, same as updateCourse: settled lessons are never
+      // re-rated (append-only ledger, M4.5).
+      if (body.settlementBasis !== undefined) data.settlementBasis = body.settlementBasis;
+
+      if (Object.keys(data).length === 0) {
+        throw new BusinessRuleError("Nothing to update");
+      }
+      return tx.course.update({ where: { id }, data });
+    },
+    { actorId: teacher.id },
+  );
 }
 
 export async function cancelCourse(acting: SessionUser, id: string, reason: string) {

@@ -142,7 +142,11 @@ export async function adminEditAttendance(
     throw new ForbiddenError("Attendance record belongs to a different center");
   }
 
-  const result = await editAttendance(attendanceId, newStatus, actor.id, centerId);
+  // §3.3: the one caller of the settled-lock override — this function is what
+  // measures the divergence and writes the audit row that justify it.
+  const result = await editAttendance(attendanceId, newStatus, actor.id, centerId, {
+    overrideSettledLock: true,
+  });
 
   // Did this correction move a session that has already been settled?
   const settlement = await platformDb((tx) =>

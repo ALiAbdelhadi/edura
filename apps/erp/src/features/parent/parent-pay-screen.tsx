@@ -26,8 +26,15 @@ import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { ChildSelectorBar, useChildSelector, childKey } from "@/components/ui/child-selector";
+import { useChildSelector } from "@/components/ui/child-selector";
+import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
+import {
+  stateBySubject,
+  type SubscriptionRow,
+} from "@/features/subscriptions/subscription-state";
+import { SubscriptionStateChip } from "@/features/subscriptions/subscription-state-chip";
 import { cn } from "@repo/ui/lib/utils";
 
 type CatalogSubject = {
@@ -251,7 +258,7 @@ export function ParentPayScreen() {
   const { locale, formatEGP } = useFormatters();
   const {
     childId,
-    children,
+    childName,
     isLoading: childrenLoading,
     failed: childrenFailed,
   } = useChildSelector();
@@ -276,6 +283,23 @@ export function ParentPayScreen() {
     pagination: { mode: "off" },
     queryOptions: { enabled: browseAll || Boolean(childId) },
   });
+
+  /* WHAT THE CHILD IS ALREADY COVERED FOR.
+
+     Without it a parent could pay a second time for a month they already hold
+     and only find out from the server's duplicate check — after committing. The
+     row now says so before the accordion is even opened, which is the point:
+     the list has to be scannable without expanding six subjects.
+
+     `subjectId` on a subscription is a nullable snapshot; a row without one
+     attaches to nothing rather than being guessed onto a subject. Same reading
+     the student's Subjects screen uses, from the same module. */
+  const { result: subsRes } = useCustom({
+    url: childId ? `me/subscriptions?studentId=${childId}` : "me/subscriptions",
+    method: "get",
+    queryOptions: { enabled: Boolean(childId) },
+  });
+  const subjectStates = stateBySubject(asArray<SubscriptionRow>(subsRes?.data));
 
   const { query: walletQuery, result: walletRes } = useCustom({
     url: "me/parent-wallet",
@@ -308,12 +332,11 @@ export function ParentPayScreen() {
 
   const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
 
-  // `childKey`, not `c._id`. The payload from /api/v1/me/children carries `id`
-  // and has never carried `_id`, so this lookup never matched and the name was
-  // always "" — which is why the subject hint rendered as "مواد شعبة ." and the
-  // payment confirmation never named the child being paid for. Same helper the
-  // selector uses, so the two cannot disagree about identity again.
-  const childName = children.find((c) => childKey(c) === childId)?.name ?? "";
+  // `childName` comes from the context, not from a local lookup. It was
+  // resolved here with `c._id` — a field /api/v1/me/children has never
+  // returned — so the name was always "", the subject hint read "مواد شعبة ."
+  // and the payment confirmation never named the child being paid for. One
+  // resolution, in one place, so the two cannot disagree about identity again.
 
   // -------------------------------------------------------------------------
   // Checkout
@@ -349,8 +372,11 @@ export function ParentPayScreen() {
       if (data?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: data.id, amount: data.amount });
       } else if (data?.checkout?.url) {
-        window.open(data.checkout.url, "_blank");
-        setPending(null);
+        // Was `window.open(url, "_blank")`. Called after the await above, it
+        // sits outside the click's gesture stack and mobile Safari blocks it —
+        // so the parent pressed «ادفع بالكارت» and the dialog just sat there.
+        // See lib/payments/checkout-redirect.ts.
+        goToCheckout(data.checkout.url);
       }
     } catch (err: any) {
       toast.error(err?.message || t("parentPay.checkoutFailed"));
@@ -418,6 +444,7 @@ export function ParentPayScreen() {
 
   const renderSubjectRow = (id: string, title: string, subtitle?: string, legacy?: boolean) => {
     const expanded = expandedId === id;
+    const state = subjectStates.get(id);
     return (
       <Card key={id} className="overflow-hidden py-0">
         <button
@@ -437,6 +464,8 @@ export function ParentPayScreen() {
               <span className="block text-xs text-muted-foreground">{subtitle}</span>
             ) : null}
           </span>
+          {/* The state rides ON the row, not inside it. */}
+          {state ? <SubscriptionStateChip state={state} /> : null}
           <ChevronDown
             className={cn(
               "size-4 shrink-0 text-muted-foreground transition-transform",
@@ -462,10 +491,14 @@ export function ParentPayScreen() {
 
   return (
     <div className="space-y-6">
+      {/* The one screen where naming the wrong child costs money. */}
       <PageHeader
-        title={t("nav.payForChild")}
+        title={
+          childName
+            ? t("parentPay.titleFor", { name: childName })
+            : t("nav.payForChild")
+        }
         description={t("parentPay.subtitle")}
-        actions={<ChildSelectorBar />}
       />
 
       <Tabs value={tab} onValueChange={switchTab}>

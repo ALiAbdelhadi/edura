@@ -1,33 +1,23 @@
 {
   "parentDashboard": {
-    "attendanceLabel": "الحضور",
-    "gradePercentLabel": "نسبة الدرجة",
-    "loadingDashboard": "جارٍ تحميل لوحة التحكم…",
     "noChildren": "لا يوجد أبناء مسجلون.",
     "attendanceRate": "معدل الحضور",
     "averageGrade": "متوسط الدرجات",
     "feesPaid": "الرسوم المدفوعة",
-    "feesDue": "الرسوم المستحقة",
-    "recentGrades": "أحدث الدرجات",
-    "noGrades": "لا توجد درجات بعد.",
-    "recentPayments": "أحدث المدفوعات",
-    "noPayments": "لا توجد مدفوعات بعد.",
-    "payment": "دفعة",
-    "paidVsDue": "المدفوع مقابل المستحق",
-    "paidCoverage": "نسبة السداد",
-    "paidLabel": "مدفوع",
-    "dueLabel": "مستحق",
-    "attendanceTrend": "اتجاه الحضور",
-    "noAttendanceTrend": "لا يوجد اتجاه حضور بعد.",
-    "gradeTrend": "اتجاه الدرجات",
-    "noGradeTrend": "لا يوجد اتجاه درجات بعد.",
-    "latestEyebrow": "الأحدث",
-    "trendsEyebrow": "الاتجاهات",
     "attendanceReason": "من {count} جلسة مسجّلة",
     "gradeReason": "عبر {count} مادة",
     "paidReason": "إجمالي ما تم سداده",
-    "dueReason": "عن {count} اشتراك نشط",
-    "openRecord": "افتح {record}"
+    "openRecord": "افتح {record}",
+    "title": "الرئيسية",
+    "todayEyebrow": "النهاردة",
+    "todayCount": "{count, plural, =1 {حصة واحدة} =2 {حصتين} few {# حصص} other {# حصة}} النهاردة",
+    "nextLesson": "الحصة الجاية",
+    "noNextLesson": "مفيش حصص جاية",
+    "noNextLessonHint": "بعد الاشتراك في مادة، المواعيد هتبان هنا.",
+    "now": "دلوقتي",
+    "alsoToday": "وكمان {count, plural, =1 {حصة} =2 {حصتين} few {# حصص} other {# حصة}} النهاردة",
+    "latestGrade": "آخر درجة",
+    "payFor": "ادفع لـ {name}"
   },
   "parentFees": {
     "cumulativePaid": "إجمالي المدفوع التراكمي",
@@ -38,9 +28,7 @@
     "receipt": "رقم الإيصال",
     "status": "الحالة",
     "refund": "استرداد",
-    "loadingPayments": "جارٍ تحميل المدفوعات…",
     "noChildren": "لا يوجد أبناء مسجلون.",
-    "dateRange": "النطاق الزمني:",
     "reset": "إعادة تعيين",
     "paidTotal": "المدفوع (الإجمالي)",
     "refunds": "المبالغ المستردة",
@@ -53,11 +41,11 @@
     "payLimit": "تقدر تدفع لابنك من صفحة «ادفع لابنك» — بالكارت أو من محفظتك. والدفع نقداً في السنتر بيظهر هنا كمان.",
     "periodEyebrow": "الفترة",
     "rangeStart": "من تاريخ",
-    "rangeEnd": "إلى تاريخ",
     "paidReason": "من {count} عملية",
     "refundsReason": "مبالغ أُعيدت",
     "netReason": "المدفوع ناقص المسترد",
-    "noPaymentsInRange": "لا توجد مدفوعات في هذه الفترة."
+    "noPaymentsInRange": "لا توجد مدفوعات في هذه الفترة.",
+    "titleFor": "فلوس {name}"
   },
   "parentProgress": {
     "noChildren": "لا يوجد أبناء مسجلون.",
@@ -78,7 +66,8 @@
     "noGradesYet": "لا توجد درجات بعد",
     "attendanceReason": "لكل الجلسات المسجّلة",
     "subjectsReason": "بها درجات مسجّلة",
-    "breakdownEyebrow": "بالمادة"
+    "breakdownEyebrow": "بالمادة",
+    "titleFor": "درجات {name}"
   },
   "parentLinking": {
     "linkedSuccess": "تم الربط بنجاح.",
@@ -157,7 +146,8 @@
     "wed": "الأربعاء",
     "thu": "الخميس",
     "fri": "الجمعة",
-    "sat": "السبت"
+    "sat": "السبت",
+    "titleFor": "ادفع لـ {name}"
   },
   "parentWallet": {
     "subtitle": "رصيدك الخاص — اشحنه، ثم ادفع منه دروس أبنائك.",
@@ -479,5 +469,24 @@
         "body": "الجولة خلصت. ابدأ بربط ابنك من «الأبناء» — ده اللي بيفتح باقي الحساب. ولو حابب تتمرّن الأول، «تدرّب» من القائمة."
       }
     }
+  },
+  "parentChild": {
+    "viewing": "بتشوف",
+    "card": "البطاقة",
+    "link": "اربط ابنك"
+  },
+  "parentAttendance": {
+    "title": "الحضور",
+    "titleFor": "حضور {name}",
+    "subtitle": "سجل الحضور، وآخر الحصص اللي اتسجلت."
+  },
+  "parentSubscriptions": {
+    "alertExpiringTitle": "اشتراك {name} في {course} قرب يخلص",
+    "alertLapsedTitle": "اشتراك {name} في {course} خلص",
+    "alertBody": "جدّده عشان الحصص ما تفوتش.",
+    "titleFor": "اشتراكات {name}",
+    "subtitle": "الاشتراكات الشغّالة، وامتى بتخلص.",
+    "noneTitle": "مفيش اشتراكات لسه",
+    "noneHint": "اختار مادة وادفع، وهتلاقي الاشتراك هنا."
   }
 }

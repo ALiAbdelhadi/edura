@@ -1,5 +1,5 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
-import { narrowQuery } from "@repo/database/search-text";
+import { exactQuery } from "@repo/database/search-text";
 import { NotFoundError, BusinessRuleError, ConflictError } from "@/lib/errors/classes";
 import { notify } from "@/lib/services/notifications/notify";
 
@@ -217,11 +217,7 @@ export function listTeachers(filters: {
       // decide pass is NOT applied because this query is offset-paginated with
       // a `count`, and filtering after the page is cut gives a short page and a
       // wrong total — so the result is a SUPERSET: «احمد» also lists «محمد».
-      where.AND = narrowQuery(q, (f) => [
-        { name: { contains: f, mode: "insensitive" as const } },
-        { email: { contains: f, mode: "insensitive" as const } },
-        { phone: { contains: f } },
-      ]);
+      where.AND = exactQuery(q, (t) => ({ searchText: { contains: t } }));
     }
     const [rows, total] = await Promise.all([
       tx.user.findMany({

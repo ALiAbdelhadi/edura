@@ -500,7 +500,7 @@ export function AdminRoomsScreen() {
                         should not have to hover a glyph to learn it deletes. */}
                     <ConfirmDialog
                       trigger={
-                        <Button variant="ghost" size="sm" className="text-[var(--red)]">
+                        <Button variant="ghost" size="sm" className="text-destructive">
                           <Trash2 className="size-4" />
                           {t("actions.delete")}
                         </Button>
@@ -701,7 +701,7 @@ export function AdminRoomsScreen() {
                           </span>
                         </div>
                         <p
-                          className={`text-xs ${rateTooHigh || rateMissing ? "text-[var(--red)]" : "text-muted-foreground"}`}
+                          className={`text-xs ${rateTooHigh || rateMissing ? "text-destructive" : "text-muted-foreground"}`}
                         >
                           {rateMissing
                             ? t("adminManage.rooms.perStudentRateRequired")

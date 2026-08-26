@@ -137,14 +137,29 @@ export async function initiateParentWalletTopUpIntent(
  * Settle a paid PARENT top-up intent, WITHIN the webhook claim transaction (M1)
  * so the credit is atomic with the pending->paid claim.
  *
- * Deliberately writes NO Payment row: a Payment is a receipt for money a
- * student owes a center or teacher, and this is neither — it is a float deposit
- * by a guardian. Its receipt number lives on the Transaction and on the ledger
- * row's refNumber, which is what the parent's wallet history displays. That is
- * also why payments.student_id stayed NOT NULL.
+ * IT NOW WRITES A PAYMENT ROW, and that reverses
+ * docs/decisions/parent-pays-lesson.md §5 — Ali's call on 2026-08-20, see
+ * migration 20260820200000_parent_topup_receipt for the reasoning.
+ *
+ * The old shape had already broken its own promise: it minted a receipt number
+ * and announced it ("Receipt RCP-EDURA-2026-00042 has been issued"), while
+ * `sendPaymentReceiptEmail` looked it up, found no `payments` row and returned
+ * `no_payment_row`. The parent held a number nothing could produce.
+ *
+ * SAME TRIO AS THE CASH DESK. `topUpWalletCash` has always written Payment +
+ * Transaction + WalletLedger in one transaction, and this is that pattern for
+ * the card path — deliberately not a second way to record a top-up.
+ *
+ * THE MONEY MODEL IS UNCHANGED. `centerId` and `courseId` stay NULL, so no
+ * center's revenue report, P&L, payout or statement sees a piaster of it: the
+ * center-scoped reads all key on `center_id`, and `listPayments` for a
+ * `center_admin` filters by it. The Transaction still records the float
+ * direction it always did (parent -> NULL, no center). What is new is the
+ * receipt, not the money.
  *
  * Idempotent via the intent claim — a replayed webhook never reaches here
- * (claim.count===0), so the wallet is credited ONCE.
+ * (claim.count===0), so the wallet is credited ONCE and exactly one Payment row
+ * is written. `receiptNumber` is unique, so a second one could not land anyway.
  */
 export async function settleParentWalletTopUpFromIntentTx(
   tx: TenantTx,
@@ -161,6 +176,26 @@ export async function settleParentWalletTopUpFromIntentTx(
   const parentId = intent.payerUserId;
 
   const receiptNumber = await nextPlatformReceipt(tx);
+
+  // The receipt itself. `studentId: null` is the shape the
+  // `payments_student_required` CHECK exists to permit and to bound: a payer,
+  // no center, no course — a guardian's float deposit and nothing else.
+  const payment = await tx.payment.create({
+    data: {
+      centerId: null, // platform-held float, NOT center revenue
+      studentId: null, // no beneficiary child until the money is spent
+      payerUserId: parentId, // who actually paid — and who owns this receipt
+      courseId: null,
+      amount: intent.amount,
+      // MC-3: mirrors the sibling Transaction's method.
+      paymentMethod: "online_paymob",
+      note: "Parent wallet top-up (online)",
+      receiptNumber,
+      recordedBy: parentId, // self-service
+      paidAt: new Date(),
+    },
+  });
+
   const refNumber = await nextTxnRef(tx);
   const transaction = await tx.transaction.create({
     data: {
@@ -181,6 +216,9 @@ export async function settleParentWalletTopUpFromIntentTx(
     type: "topup",
     method: "online_paymob",
     refNumber,
+    // The ledger row now points at the receipt too, so the wallet history can
+    // link each top-up to the document for it — the whole reason this exists.
+    paymentId: payment.id,
     paymentIntentId: intent.id,
     relatedTxnId: transaction.id,
     reason: "Online wallet top-up",
@@ -189,7 +227,7 @@ export async function settleParentWalletTopUpFromIntentTx(
 
   await tx.paymentIntent.update({
     where: { id: intent.id },
-    data: { transactionId: transaction.id },
+    data: { paymentId: payment.id, transactionId: transaction.id },
   });
 
   return {
@@ -201,6 +239,10 @@ export async function settleParentWalletTopUpFromIntentTx(
     title: "Wallet topped up",
     body: `${(intent.amount / 100).toFixed(2)} EGP was added to your wallet. Receipt ${receiptNumber}.`,
     data: {
+      // `paymentId` is what a receipt link needs; `receiptNumber` is what the
+      // post-commit receipt email resolves. Both are real now — before this,
+      // `receiptNumber` was here and resolved to nothing.
+      paymentId: payment.id,
       receiptNumber,
       amount: intent.amount,
       balanceAfter,

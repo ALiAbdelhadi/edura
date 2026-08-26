@@ -37,6 +37,19 @@ function navForRole(role: StaffRole) {
   // — operations —
   if (role === "manager") {
     items.push(
+      // THE MISSING DOOR. `/dashboard/staff/collaborations` has existed since
+      // the panel was given a staff surface, and a manager is authorised for
+      // the whole set at the API — `delegatedWithCenter(..., { staffAllow:
+      // MANAGER })` covers GET, POST, accept, reject and cancel. But its only
+      // inbound link was the manager card grid on the portal home, and the
+      // de-duplication pass deleted that grid: from then on the route had no
+      // nav entry and NO link anywhere in the app, so the capability was
+      // reachable only by typing the URL. A teacher's request to this centre
+      // could sit unanswered with nobody able to find it.
+      //
+      // The bar is DERIVED from this array, so adding the row here is what
+      // puts it on a phone too.
+      { href: `${base}/collaborations`, icon: "clipboard", label: "Collaboration Requests", tour: "nav-collaborations" },
       { href: `${base}/rooms`, icon: "home", label: "Rooms", tour: "nav-rooms" },
       { href: `${base}/reports`, icon: "report", label: "Reports", tour: "nav-reports" },
     );

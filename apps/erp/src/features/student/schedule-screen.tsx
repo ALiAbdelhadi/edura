@@ -32,7 +32,7 @@ import {
   sessionsOnDay,
   todayKey,
   weekDayKeys,
-} from "@/features/student/session-time";
+} from "@/features/sessions/session-time";
 
 type Session = {
   id?: string;

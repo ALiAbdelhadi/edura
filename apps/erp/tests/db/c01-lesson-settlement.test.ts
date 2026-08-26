@@ -231,6 +231,12 @@ async function settleLesson(opts: {
   await call("POST", "/api/v1/enrollments", opts.adminSession, { studentId: opts.studentId, courseId });
   await call("POST", "/api/v1/center/subscriptions", opts.receptionSession,
     { studentId: opts.studentId, courseId, plan: "per_session", sessionId: sess.id, markAttendance: true });
+  // Phase 4 (D5): this proof measures the split through WALLET deltas, so the
+  // coverage must be a PLATFORM-HELD funding leg. The walk-in default is cash
+  // (= center-held), whose center-side deltas land on credit_balance instead —
+  // that path is proven by center-credit-clearing.test.ts and
+  // center-held-refund.test.ts; this suite keeps proving the split math.
+  await pool.query(`update subscriptions set payment_method='online_paymob' where course_id=$1`, [courseId]);
   await call("PATCH", "/api/v1/teacher/attendance-mode", opts.teacherSession, { mode: "counter_and_door" });
   await call("POST", "/api/v1/door-checkin", opts.assistantSession ?? opts.teacherSession, { studentId: opts.studentId, sessionId: sess.id });
   const present = (await q(`select count(*)::int c from attendance_records where session_id=$1 and status='present'`, [sess.id]))[0].c;

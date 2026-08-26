@@ -4,7 +4,7 @@
 // the primary chat contact for the teacher's students & parents (the teacher
 // handles escalations only — see the conversation policy).
 import React, { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { Lock, Plus, Trash2, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { HTTPError } from "ky";
 import { Card } from "@repo/ui/components/card";
@@ -35,6 +35,71 @@ type AssistantRow = {
   createdAt: string;
   user: { id: string; name: string; email: string | null; status: string } | null;
 };
+
+/**
+ * What handing your practice to an assistant actually grants.
+ *
+ * A teacher creates an assistant from THIS screen and was told nothing about
+ * what that gives away. The centre's staff screen has had the answer for its
+ * own tiers all along — capabilities listed plainly, the hard exclusions in
+ * red, and the audit note underneath — and a teacher delegating attendance,
+ * grades and the power to CLOSE A LESSON deserves the same sheet.
+ *
+ * STATIC WORDS, no endpoint. Every line is the Step 8 boundary as
+ * `lib/authz/teacher-actor.ts` enforces it: full delegation EXCEPT wallet,
+ * payouts, financial settings and managing other assistants. Closing a lesson
+ * IS included and is called out, because it moves money and surprises people.
+ *
+ * If that boundary ever moves, this sheet moves with it — it is a promise
+ * about behaviour, not decoration.
+ */
+const ASSISTANT_CAN = [
+  "attendance",
+  "door",
+  "closeLesson",
+  "grades",
+  "materials",
+  "messages",
+  "notes",
+] as const;
+
+function DelegationBoundary() {
+  const t = useTranslations();
+  return (
+    <Card className="p-5">
+      <p className="m-0 text-sm font-semibold text-foreground">
+        {t("team.boundaryTitle")}
+      </p>
+      <p className="m-0 mt-1 text-xs leading-relaxed text-muted-foreground">
+        {t("team.boundaryIntro")}
+      </p>
+
+      <ul className="m-0 mt-3 flex list-none flex-col p-0">
+        {ASSISTANT_CAN.map((cap) => (
+          <li
+            key={cap}
+            className="border-b border-border py-2 text-[13px] text-foreground last:border-b-0"
+          >
+            {t(`team.can.${cap}` as Parameters<typeof t>[0])}
+          </li>
+        ))}
+      </ul>
+
+      {/* Red, not amber: these are not "not yet", they are permanently out of
+          an assistant's reach — the money exclusions Step 8 is built on. */}
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3">
+        <Lock className="mt-px size-3.5 shrink-0 text-destructive" />
+        <span className="text-xs leading-relaxed text-destructive">
+          {t("team.boundaryExcluded")}
+        </span>
+      </div>
+
+      <p className="m-0 mt-2 text-[11px] text-muted-foreground">
+        {t("team.boundaryAudit")}
+      </p>
+    </Card>
+  );
+}
 
 export function TeacherTeamScreen() {
   const t = useTranslations();
@@ -129,6 +194,8 @@ export function TeacherTeamScreen() {
           </ul>
         )}
       </Card>
+
+      <DelegationBoundary />
     </div>
   );
 }

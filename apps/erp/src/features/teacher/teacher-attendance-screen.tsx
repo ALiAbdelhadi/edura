@@ -15,6 +15,7 @@ import {
   CalendarOff,
   AlertTriangle,
   CloudOff,
+  DoorOpen,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { SettleLessonCard } from "../attendance/settle-lesson-card";
@@ -29,13 +30,13 @@ import { Alert, AlertTitle, AlertDescription } from "@repo/ui/components/alert";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
 import { toast } from "@repo/ui/components/sonner";
 import { resolveStudentCode } from "@repo/database/student-code";
+import { platformDayKey, todayKey } from "@repo/server-core/lib/date-key";
+import { useParamSeed } from "@/lib/api/use-param-seed";
 import { codeFromScan } from "@/lib/attendance/scanned-code";
 import { QrScannerButton } from "@/components/kit/qr-scanner-button";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner, PageSpinner } from "@/components/kit/spinner";
-import { BarChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -60,6 +61,15 @@ type SessionRow = {
   startTime?: string;
   endTime?: string;
   status: string;
+  /* WHICH GROUP, AND WHERE. Both come from `GET /api/v1/sessions`, which has
+     always enriched every row with `courseName`, `subject`, `teacherName` and
+     `roomName` — this screen simply never rendered them, and listed lessons by
+     date and time alone. A teacher with four groups was picking a register by
+     the clock, and two groups an hour apart looked identical. Optional in the
+     type because a session whose course row is gone still has a date and a
+     status, and losing its name must not lose the row. */
+  courseName?: string;
+  roomName?: string;
 };
 type AttendanceRecord = {
   studentId: string;
@@ -69,12 +79,15 @@ type AttendanceRecord = {
 // counter_and_door mode — visible to the teacher, NOT counted as present.
 type AttendanceStatus = "present" | "absent" | "excused" | "counter_only";
 
-const statusTone: Record<AttendanceStatus, StatusTone> = {
-  present: "success",
-  absent: "danger",
-  excused: "warning",
-  counter_only: "warning",
-};
+/**
+ * How far back this screen will show a lesson.
+ *
+ * EXPORTED because another screen links INTO here. The group list marks a past
+ * lesson "لسه متقفلتش" and offers `?sessionId=`, and a link to a lesson older
+ * than this window would land the teacher on a list that cannot contain it —
+ * a door that opens onto nothing. One definition, both readers.
+ */
+export const ATTENDANCE_WINDOW_DAYS = 14;
 
 export function TeacherAttendanceScreen() {
   const t = useTranslations();
@@ -102,7 +115,7 @@ export function TeacherAttendanceScreen() {
       .filter((s) => {
         const d = dayjs(s.date);
         return (
-          d.isAfter(now.subtract(14, "day")) &&
+          d.isAfter(now.subtract(ATTENDANCE_WINDOW_DAYS, "day")) &&
           d.isBefore(now.add(1, "day")) &&
           s.status !== "cancelled"
         );
@@ -110,10 +123,62 @@ export function TeacherAttendanceScreen() {
       .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
   }, [allSessions]);
 
+  /* TODAY IS A CAIRO DAY, not the browser's, and a session's day is the CAIRO
+     day its instant falls in — not the UTC date printed on the front of it.
+     ════════════════════════════════════════════════════════════════════════
+     `todayKey()` is the platform-clock helper the door screen already uses to
+     ask the server for today's sessions, and the boundary the money screens
+     settled on (docs/decisions/money-day-boundary.md).
+
+     The second half is the trap, and it was measured on dev rather than
+     assumed: `Session.date` is `@db.Timestamptz(6)`, NOT `@db.Date`, and rows
+     do not sit at midnight UTC — one demo teacher's lessons are stored at
+     12:00Z and another's at 21:00Z. `toDateKey`, whose doc comment names "a
+     session's date" as its case, slices the UTC prefix; on the 21:00Z row that
+     reads 2026-08-19 while Cairo has already turned over to the 20th, so a
+     lesson happening TODAY would have filed itself under "earlier". Every
+     Cairo-evening lesson is stored that way.
+
+     `platformDayKey` resolves the instant to the Cairo day it falls in, which
+     is right for all three shapes: a midnight-UTC date-only value, a midday
+     timestamp, and a Cairo-midnight-stored-as-21:00Z one. */
+  const today = todayKey();
+  const dayKeyOf = (s: SessionRow) => platformDayKey(String(s.date));
+  const todaySessions = useMemo(
+    () => recentSessions.filter((s) => dayKeyOf(s) === today),
+    [recentSessions, today],
+  );
+  const earlierSessions = useMemo(
+    () => recentSessions.filter((s) => dayKeyOf(s) !== today),
+    [recentSessions, today],
+  );
+
   const [selectedSession, setSelectedSession] = useState<SessionRow | null>(
     null,
   );
   const sessionId = selectedSession?.id || selectedSession?._id;
+
+  /* ARRIVING ON ONE LESSON'S REGISTER.
+     The dashboard hero and the "لسه متقفلتش" chip on a group's session list
+     both point at A LESSON, not at the list of them. This screen selects by
+     object rather than by id, and the list is not loaded when the parameter
+     arrives, so the seed is LATCHED into state and resolved once the sessions
+     land. Same `useParamSeed` hand-off the gradebook and the group list
+     already take for `?courseId=`.
+
+     A seed that matches nothing — a lesson older than the 14-day window, or
+     another teacher's — simply leaves the reader on the list, which is the
+     honest outcome. */
+  const [seedSessionId, setSeedSessionId] = useState<string | null>(null);
+  useParamSeed("sessionId", setSeedSessionId);
+  React.useEffect(() => {
+    if (!seedSessionId || selectedSession) return;
+    const hit = recentSessions.find((s) => (s.id || s._id) === seedSessionId);
+    if (hit) {
+      setSelectedSession(hit);
+      setSeedSessionId(null);
+    }
+  }, [seedSessionId, recentSessions, selectedSession]);
 
   const { result: enrollmentsResult } = useList<EnrollmentRow>({
     resource: "enrollments",
@@ -259,175 +324,177 @@ export function TeacherAttendanceScreen() {
     }
   };
 
-  const sessionColumns: ColumnDef<SessionRow>[] = [
-    {
-      id: "date",
-      header: t("teacher.date"),
-      cell: ({ row }) => {
-        const s = row.original;
-        return (
-          <span>
-            {formatDate(s.date, {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            })}{" "}
-            · {formatClockRange(s.startTime, s.endTime)}
-          </span>
-        );
-      },
-    },
-    {
-      id: "status",
-      header: t("teacher.status"),
-      cell: ({ row }) => {
-        const s = row.original;
-        return (
-          <StatusBadge
-            tone={
-              s.status === "completed"
-                ? "success"
-                : s.status === "scheduled"
-                  ? "info"
-                  : "neutral"
-            }
-          >
-            {t(asKey("status." + s.status))}
-          </StatusBadge>
-        );
-      },
-    },
-    {
-      id: "action",
-      header: t("common.colActions"),
-      cell: ({ row }) => (
-        <Button size="sm" onClick={() => setSelectedSession(row.original)}>
-          {t("teacher.markAttendance")}
-        </Button>
-      ),
-    },
-  ];
+  const groupNameOf = (s: SessionRow) => s.courseName || t("teacher.groupUnnamed");
 
-  const rosterColumns: ColumnDef<EnrollmentRow>[] = [
-    {
-      id: "name",
-      header: t("teacher.student"),
-      cell: ({ row }) => {
-        const e = row.original;
-        return (
-          <div className="flex flex-col">
-            <span className="font-semibold">
-              {e.studentName || e.studentId}
+  const sessionStatusTone = (status: string): StatusTone =>
+    status === "completed" ? "success" : status === "scheduled" ? "info" : "neutral";
+
+  /* A LESSON ROW, not a table row.
+     The list was a three-column DataTable — date, status, a button — read on a
+     375px phone between lessons. A row now leads with the GROUP, carries the
+     hall beside the clock, and is itself the control: the whole row opens the
+     register, so the tap target is the row rather than a button at the end of
+     it.
+
+     RENDER FUNCTIONS, NOT INNER COMPONENTS. Declaring these as components
+     inside the screen gives React a NEW component type on every render, so it
+     unmounts and remounts the subtree each time — which on the roster means
+     every `ToggleGroup` is rebuilt on every status change, losing focus and
+     any in-flight interaction. Returning elements from a plain function keeps
+     one identity and still lets them close over `statuses` and `locked`. */
+  const sessionRow = (s: SessionRow) => (
+    <button
+      type="button"
+      onClick={() => setSelectedSession(s)}
+      className="flex w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold text-foreground">
+          {groupNameOf(s)}
+        </span>
+        {/* WRAPS, never truncates. Measured at 375px: with the day, the date
+            and a 12-hour range already on this line, the hall was the part
+            that fell off the end — "قاعة الأمل" rendering as "قاع…" — and the
+            hall is the half of "where am I going?" that a teacher working
+            three buildings actually needs. Two short lines beat one clipped
+            one. */}
+        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+          {formatDate(s.date, { weekday: "short", month: "short", day: "numeric" })}
+          {" · "}
+          {formatClockRange(s.startTime, s.endTime)}
+          {s.roomName ? ` · ${s.roomName}` : ""}
+        </span>
+      </span>
+      <StatusBadge tone={sessionStatusTone(s.status)}>
+        {t(asKey("status." + s.status))}
+      </StatusBadge>
+    </button>
+  );
+
+  const sessionGroup = (key: string, heading: string, rows: SessionRow[]) => {
+    if (rows.length === 0) return null;
+    return (
+      <div key={key}>
+        <p className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {heading}
+        </p>
+        <ul className="divide-y divide-border border-y border-border">
+          {rows.map((s) => (
+            <li key={s.id || s._id}>{sessionRow(s)}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
+  /* THE ROSTER ROW. Name, then the student CODE — not the email.
+     The code is what a teacher reads off a card at the door and what a family
+     quotes at a counter; the email is a login credential nobody says out loud,
+     and it was taking the one subordinate line a phone row has. */
+  const rosterRow = (e: EnrollmentRow, options: AttendanceStatus[]) => {
+    const v = statuses[e.studentId] ?? "present";
+    return (
+      <div
+        key={e.studentId}
+        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-medium text-foreground">
+            {e.studentName || e.studentId}
+          </span>
+          {e.studentCode ? (
+            <span
+              className="mt-0.5 block font-mono text-xs text-muted-foreground"
+              dir="ltr"
+            >
+              {e.studentCode}
             </span>
-            {e.studentEmail && (
-              <span className="text-xs text-muted-foreground">
-                {e.studentEmail}
-              </span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "status",
-      header: t("teacher.status"),
-      cell: ({ row }) => {
-        const e = row.original;
-        const v = statuses[e.studentId] ?? "present";
-        if (v === "counter_only") {
-          // Step 6 distinct state: at the center, never door-confirmed. The
-          // teacher resolves it via the toggle (or the assistant door-checks).
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge tone="warning">{t("teacher.statusCounterOnly")}</StatusBadge>
-              <ToggleGroup
-                type="single"
-                value=""
-                disabled={locked}
-                onValueChange={(val) => {
-                  if (val)
-                    setStatuses((s) => ({
-                      ...s,
-                      [e.studentId]: val as AttendanceStatus,
-                    }));
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <ToggleGroupItem value="present">
-                  <CheckCircle2 className="size-3.5" /> {t("status.present")}
-                </ToggleGroupItem>
-                <ToggleGroupItem value="absent">
-                  <XCircle className="size-3.5" /> {t("status.absent")}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          );
-        }
-        return (
-          <ToggleGroup
-            type="single"
-            value={v}
-            disabled={locked}
-            onValueChange={(val) => {
-              if (val)
-                setStatuses((s) => ({
-                  ...s,
-                  [e.studentId]: val as AttendanceStatus,
-                }));
-            }}
-            variant="outline"
-            size="sm"
-          >
+          ) : null}
+        </span>
+        {/* No status badge beside the toggle. The toggle already SHOWS which
+            value is selected; the badge that used to sit in a "الوسم" column
+            40px away was the page saying the same thing twice. */}
+        <ToggleGroup
+          type="single"
+          value={options.includes(v) ? v : ""}
+          disabled={locked}
+          onValueChange={(val) => {
+            if (val)
+              setStatuses((s) => ({
+                ...s,
+                [e.studentId]: val as AttendanceStatus,
+              }));
+          }}
+          variant="outline"
+          size="sm"
+        >
+          {options.includes("present") && (
             <ToggleGroupItem value="present">
               <CheckCircle2 className="size-3.5" /> {t("status.present")}
             </ToggleGroupItem>
+          )}
+          {options.includes("absent") && (
             <ToggleGroupItem value="absent">
               <XCircle className="size-3.5" /> {t("status.absent")}
             </ToggleGroupItem>
+          )}
+          {options.includes("excused") && (
             <ToggleGroupItem value="excused">
               <Clock className="size-3.5" /> {t("status.excused")}
             </ToggleGroupItem>
-          </ToggleGroup>
-        );
-      },
-    },
-    {
-      id: "tag",
-      header: t("teacher.tag"),
-      cell: ({ row }) => {
-        const v = statuses[row.original.studentId] ?? "present";
-        return (
-          <StatusBadge tone={statusTone[v]}>
-            {t(asKey("status." + v))}
-          </StatusBadge>
-        );
-      },
-    },
-  ];
+          )}
+        </ToggleGroup>
+      </div>
+    );
+  };
 
   let content: React.ReactNode;
 
   if (selectedSession) {
-    const sessionComposition = [
-      {
-        label: formatDate(selectedSession.date, {
-          month: "short",
-          day: "numeric",
-        }),
-        present: Object.values(statuses).filter((s) => s === "present").length,
-        absent: Object.values(statuses).filter((s) => s === "absent").length,
-        excused: Object.values(statuses).filter((s) => s === "excused").length,
-      },
-    ];
+    /* THE STATE THIS SCREEN EXISTS TO CATCH GETS ITS OWN SECTION.
+       `counter_only` means a student paid at the counter, walked into the
+       building, and never reached the classroom. It does NOT count as present
+       and it is the teacher's money. It used to render as a `warning` badge
+       — the identical amber as "excused" — sitting wherever the roster happened
+       to sort it, so the one row that means "a child is lost in this building"
+       was tonally indistinguishable from an authorised absence and had to be
+       hunted for. Colour alone was never a signal; position and a count are.
+       Resolving a row moves it out of this section and into the roster below,
+       so the section is a queue that empties. */
+    const pending = enrollments.filter(
+      (e) => (statuses[e.studentId] ?? "present") === "counter_only",
+    );
+    const settled = enrollments.filter(
+      (e) => (statuses[e.studentId] ?? "present") !== "counter_only",
+    );
+    const counts = {
+      present: settled.filter((e) => statuses[e.studentId] === "present").length,
+      absent: settled.filter((e) => statuses[e.studentId] === "absent").length,
+      excused: settled.filter((e) => statuses[e.studentId] === "excused").length,
+    };
 
     content = (
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>
-            {`${t("teacher.attendance")} — ${formatDate(selectedSession.date, { weekday: "short", month: "short", day: "numeric" })} · ${formatClockRange(selectedSession.startTime, selectedSession.endTime)}`}
-          </CardTitle>
-          <div className="flex items-center gap-2">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="truncate">
+              {groupNameOf(selectedSession)}
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatDate(selectedSession.date, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
+              {" · "}
+              {formatClockRange(
+                selectedSession.startTime,
+                selectedSession.endTime,
+              )}
+              {selectedSession.roomName ? ` · ${selectedSession.roomName}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {/* Present on any device with a camera, iPhones included. Only a
                 machine with no camera hides it, and there the roster's
                 toggles are untouched, so nobody loses a capability. */}
@@ -461,46 +528,56 @@ export function TeacherAttendanceScreen() {
               <AlertDescription>{t("teacher.editClosedDesc")}</AlertDescription>
             </Alert>
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {t("teacher.composition")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BarChart
-                data={sessionComposition}
-                series={[
-                  {
-                    key: "present",
-                    label: t("status.present"),
-                    color: "var(--success)",
-                  },
-                  {
-                    key: "absent",
-                    label: t("status.absent"),
-                    color: "var(--destructive)",
-                  },
-                  {
-                    key: "excused",
-                    label: t("status.excused"),
-                    color: "var(--warning)",
-                  },
-                ]}
-                stacked
-              />
-            </CardContent>
-          </Card>
+
           {attendanceQuery.isLoading ? (
             <PageSpinner />
           ) : (
-            <DataTable
-              columns={rosterColumns}
-              data={enrollments}
-              pageSize={100}
-              emptyState={t("teacher.noStudents")}
-            />
+            <>
+              {pending.length > 0 && (
+                <section className="overflow-hidden rounded-lg border-2 border-warning/50 bg-warning/5">
+                  <header className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-3">
+                    <DoorOpen className="size-4 shrink-0 text-warning" />
+                    <h3 className="font-semibold text-warning">
+                      {t("teacher.statusCounterOnly")}
+                    </h3>
+                    <span
+                      className="rounded-full bg-warning/20 px-2 text-sm font-semibold text-warning"
+                      dir="ltr"
+                    >
+                      {pending.length}
+                    </span>
+                  </header>
+                  <p className="px-4 pb-2 text-xs text-muted-foreground">
+                    {t("teacher.counterOnlyHint")}
+                  </p>
+                  <div className="divide-y divide-warning/20 border-t border-warning/20">
+                    {pending.map((e) => rosterRow(e, ["present", "absent"]))}
+                  </div>
+                </section>
+              )}
+
+              {/* The three counts, in one line of text.
+                  This replaces a stacked bar chart that plotted exactly ONE
+                  bar — three numbers rendered as a graph, directly above the
+                  roster those same three numbers were being counted from. */}
+              {enrollments.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t("teacher.rosterCounts", counts)}
+                </p>
+              )}
+
+              {enrollments.length === 0 ? (
+                <EmptyState title={t("teacher.noStudents")} />
+              ) : (
+                <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                  {settled.map((e) =>
+                    rosterRow(e, ["present", "absent", "excused"]),
+                  )}
+                </div>
+              )}
+            </>
           )}
+
           {/* Attendance is what the settlement reads, so closing the lesson
               belongs at the END of taking it — not on another screen. */}
           {sessionId ? <SettleLessonCard sessionId={sessionId} /> : null}
@@ -516,21 +593,25 @@ export function TeacherAttendanceScreen() {
             {t("teacher.last14Days")}
           </span>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           {sessionsQuery.isLoading ? (
             <PageSpinner label={t("teacher.loadingSessions")} />
           ) : recentSessions.length === 0 ? (
-            <EmptyState
-              icon={CalendarOff}
-              title={t("teacher.noRecentSessions")}
-            />
+            <div className="px-4">
+              <EmptyState
+                icon={CalendarOff}
+                title={t("teacher.noRecentSessions")}
+              />
+            </div>
           ) : (
-            <DataTable
-              columns={sessionColumns}
-              data={recentSessions}
-              pageSize={10}
-              emptyState={t("teacher.noRecentSessions")}
-            />
+            <div>
+              {sessionGroup("today", t("teacher.todayHeading"), todaySessions)}
+              {sessionGroup(
+                "earlier",
+                t("teacher.earlierHeading"),
+                earlierSessions,
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

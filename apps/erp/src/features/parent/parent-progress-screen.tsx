@@ -24,10 +24,7 @@ import { Progress } from "@repo/ui/components/progress";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import {
-  useChildSelector,
-  ChildSelectorBar,
-} from "@/components/ui/child-selector";
+import { useChildSelector } from "@/components/ui/child-selector";
 import { BarChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
 import { bandForPercent, percentOf } from "@repo/database/grading-scale";
@@ -51,7 +48,7 @@ const SERIES = [
 export function ParentProgressScreen() {
   const t = useTranslations();
   const { formatPercent } = useFormatters();
-  const { childId, isLoading: childrenLoading } = useChildSelector();
+  const { childId, childName, isLoading: childrenLoading } = useChildSelector();
 
   const { query: gradesQuery, result: gradesResult } = useList({
     resource: "grades",
@@ -178,10 +175,18 @@ export function ParentProgressScreen() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* The title names the child. A page of percentages headed "التقدم"
+          is a record about nobody — and for a single-child parent the old chip
+          bar rendered nothing at all, so the name appeared on no screen in the
+          portal. The child context bar above states it too; this states it in
+          the sentence a screenshot captures. */}
       <PageHeader
         eyebrow={t("roles.parent")}
-        title={t("nav.progress")}
-        actions={<ChildSelectorBar />}
+        title={
+          childName
+            ? t("parentProgress.titleFor", { name: childName })
+            : t("nav.progress")
+        }
       />
 
       {isLoading && childGrades.length === 0 ? (

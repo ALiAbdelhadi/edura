@@ -16,6 +16,9 @@ import { nextTxnRef } from "../../services/finance/ref-numbers";
 import { computeTeacherDirectSplit } from "../../services/finance/fees";
 import { resolveCommission } from "../../services/finance/commission";
 import { assertNotBlacklisted } from "../../services/blacklist/blacklist";
+import { lockSessionRow } from "../attendance/lesson-lock";
+import { openShiftIdFor } from "../center/shifts";
+import { fundingOfMethod } from "../finance/center-credit";
 import { walletDebit } from "../../services/wallet/wallet";
 import {
   parentWalletDebit,
@@ -49,11 +52,16 @@ async function resolvePlan(
   if (!choice.sessionId) {
     throw new BusinessRuleError("sessionId is required for a per-session pass");
   }
+  // Phase 0 discipline: a pass sale can mark attendance below, so it takes the
+  // same session-row lock every attendance writer takes — a pass sold while
+  // the lesson is being settled blocks briefly, then sees the committed claim
+  // and refuses, instead of racing the distribution's attendance read.
+  await lockSessionRow(tx, choice.sessionId);
   const session = await tx.session.findUnique({ where: { id: choice.sessionId } });
   if (!session || session.courseId !== course.id) {
     throw new NotFoundError("Session not found on this course");
   }
-  if (session.status === "cancelled" || session.status === "completed") {
+  if (session.status === "cancelled" || session.status === "completed" || session.distributedAt) {
     throw new BusinessRuleError("This session can no longer be booked");
   }
   return { price: course.pricePerSession, session };
@@ -113,6 +121,29 @@ async function assertNoDuplicateActive(
 }
 
 // ---------------------------------------------------------------------------
+// Funding methods (Phase 1, revenue-operations spec §2.2)
+//
+// The COUNTER takes money four ways in a real Egyptian center; the drawer
+// cannot be reconciled if three of them are recorded as the fourth. Only
+// `cash` sits in the drawer — instapay / pos_card reconcile against the bank,
+// mobile_wallet against the wallet provider (Phase 2 reads this split).
+// `online_paymob` is the gateway path and `wallet` the internal transfer,
+// exactly as before.
+// ---------------------------------------------------------------------------
+
+/** What a center's counter may record. */
+export const COUNTER_METHODS = ["cash", "instapay", "pos_card", "mobile_wallet"] as const;
+export type CounterMethod = (typeof COUNTER_METHODS)[number];
+
+/** Every funding leg a subscription can settle with. */
+export type FundingMethod = CounterMethod | "online_paymob" | "wallet";
+
+/** Collected in person at the counter (vs the gateway / internal transfer). */
+function isCounterMethod(method: FundingMethod): method is CounterMethod {
+  return (COUNTER_METHODS as readonly string[]).includes(method);
+}
+
+// ---------------------------------------------------------------------------
 // Activation (shared): coverage window + the wrapped enrollment
 // ---------------------------------------------------------------------------
 
@@ -120,7 +151,7 @@ async function activateSubscription(
   tx: TenantTx,
   subscriptionId: string,
   opts: {
-    paymentMethod: "cash" | "online_paymob" | "wallet";
+    paymentMethod: FundingMethod;
     paymentId?: string | null;
     enrolledBy: string;
   },
@@ -197,7 +228,7 @@ async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
 async function settleSubscriptionMoney(
   tx: TenantTx,
   sub: Subscription,
-  method: "cash" | "online_paymob" | "wallet",
+  method: FundingMethod,
   gatewayRef: string | null,
   recordedBy: string,
   payerUserId: string | null = null,
@@ -250,11 +281,23 @@ async function settleSubscriptionMoney(
       payerUserId,
       courseId: sub.courseId,
       amount: sub.price,
-      note: `Subscription (${sub.plan}, ${method === "cash" ? "cash" : "online"}${
+      // MC-3: the funding leg, exactly as the ledger row below records it —
+      // cash, online_paymob, or wallet (an internal transfer, its own bucket).
+      paymentMethod: method,
+      // The note names the counter channel (a receipt saying "online" for an
+      // InstaPay transfer taken at the desk would be a small lie); the three
+      // pre-existing methods keep their exact wording.
+      note: `Subscription (${sub.plan}, ${
+        method === "cash" ? "cash" : isCounterMethod(method) ? method : "online"
+      }${
         payerUserId ? ", paid by parent" : ""
       })`,
       receiptNumber,
       recordedBy,
+      // Phase 2: the recorder's open drawer session, or NULL. Derived from
+      // recordedBy inside this same tx — a student settling online has no
+      // shift and stamps nothing.
+      shiftId: await openShiftIdFor(tx, recordedBy),
       paidAt: new Date(),
       // Carried from the subscription, which took it from the group. The whole
       // chain group -> subscription -> payment -> ledger therefore agrees by
@@ -275,6 +318,9 @@ async function settleSubscriptionMoney(
         centerId: sub.centerId,
         status: "completed",
         paymentMethod: method,
+        // D5: who holds this collection — a counter method sits with the
+        // center, the gateway/wallet with the platform.
+        funding: fundingOfMethod(method),
         gatewayRef,
         notes: `Subscription payment (${sub.plan}, subscription ${sub.id})`,
         dataSource: sub.dataSource,
@@ -300,6 +346,7 @@ async function settleSubscriptionMoney(
           centerId: null,
           status: "completed",
           paymentMethod: method,
+          funding: fundingOfMethod(method),
           gatewayRef,
           notes: `Teacher-direct subscription payment (subscription ${sub.id})`,
           dataSource: sub.dataSource,
@@ -327,8 +374,16 @@ async function settleSubscriptionMoney(
   // cash at the counter was landing in the points ledger as `online_payment`
   // with a reason that said "(cash)" — the row contradicted itself, and the
   // ledger is append-only, so it could never be corrected afterwards.
-  await awardPoints(tx, sub.studentId, method === "cash" ? "cash_payment" : "online_payment", {
-    reason: method === "cash" ? "Subscription paid (cash)" : "Subscription paid (online)",
+  // Counter-collected methods (cash, instapay, pos_card, mobile_wallet) are
+  // all in-person payments — the channel changes the reconciliation, not the
+  // event. Gateway + wallet stay `online_payment`.
+  await awardPoints(tx, sub.studentId, isCounterMethod(method) ? "cash_payment" : "online_payment", {
+    reason:
+      method === "cash"
+        ? "Subscription paid (cash)" // byte-identical to before Phase 1
+        : isCounterMethod(method)
+          ? `Subscription paid at the counter (${method})`
+          : "Subscription paid (online)",
   });
 
   return { paymentId: payment.id, receiptNumber };
@@ -597,9 +652,13 @@ export async function createWalkInSubscription(
     plan: "monthly" | "per_session";
     sessionId?: string;
     markAttendance?: boolean;
+    /** How the counter took the money (Phase 1). Absent = cash — this route IS
+     *  the cash desk, and that default lives here, nowhere else. */
+    paymentMethod?: CounterMethod;
   },
   user: SessionUser,
 ) {
+  const method: CounterMethod = input.paymentMethod ?? "cash";
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
 
   await assertNotBlacklisted(input.studentId, user.centerId);
@@ -635,12 +694,12 @@ export async function createWalkInSubscription(
     const { paymentId, receiptNumber } = await settleSubscriptionMoney(
       tx,
       created,
-      "cash",
+      method,
       null,
       user.id,
     );
     const sub = await activateSubscription(tx, created.id, {
-      paymentMethod: "cash",
+      paymentMethod: method,
       paymentId,
       enrolledBy: user.id,
     });

@@ -1,5 +1,6 @@
 import type { CenterStaffRole, Prisma } from "@repo/database";
 import {
+  exactQuery,
   literalFragments,
   narrowFragments,
   matchesSearchTerms,
@@ -437,17 +438,20 @@ async function centerExternalTeachers(
 
 async function centerRooms(
   p: Extract<SearchPrincipal, { kind: "center" }>,
-  { terms, frags }: Ctx,
+  ctx: Ctx,
 ): Promise<SearchHit[]> {
+  const { terms } = ctx;
   return scopedDb(p.acting, async (tx) => {
     const candidates = await tx.room.findMany({
       where: {
         centerId: p.acting.centerId,
         isActive: true,
-        AND: narrow(frags, (f) => [
-          { name: contains(f) },
-          { description: contains(f) },
-        ]),
+        // `rooms.search_text` covers both columns this used to narrow on, so
+        // the pre-filter is now exact and indexed. The JS pass below is kept
+        // for one honest reason: it is what every other provider in this file
+        // runs, and a single provider deciding differently is the drift the
+        // two-stage note above exists to prevent.
+        AND: exactQuery(ctx.q, (t) => ({ searchText: { contains: t } })),
       },
       select: { id: true, name: true, description: true },
       take: SEARCH_SCAN_LIMIT,
@@ -573,8 +577,16 @@ async function centerPayments(
       .slice(0, PER_KIND);
     if (!payments.length) return [];
 
+    // A parent wallet top-up carries no student. It is also not reachable here —
+    // this provider is the CENTER's search and every candidate is narrowed to
+    // the caller's center, while a top-up has a NULL center_id. The filter is
+    // therefore about types being honest, not about a row that arrives: if the
+    // narrowing ever widens, the search falls back to the receipt number rather
+    // than crashing on a NULL id.
     const students = await tx.user.findMany({
-      where: { id: { in: [...new Set(payments.map((x) => x.studentId))] } },
+      where: {
+        id: { in: [...new Set(payments.map((x) => x.studentId).filter(Boolean) as string[])] },
+      },
       select: { id: true, name: true },
     });
     const studentName = new Map(students.map((s) => [s.id, s.name]));
@@ -582,7 +594,7 @@ async function centerPayments(
     return payments.map((x) => ({
       kind: "payment" as const,
       id: x.id,
-      title: studentName.get(x.studentId) ?? x.receiptNumber,
+      title: (x.studentId ? studentName.get(x.studentId) : null) ?? x.receiptNumber,
       // Signed, so a refund reads as a negative amount rather than needing an
       // English `status` token beside it.
       amount: x.amount,

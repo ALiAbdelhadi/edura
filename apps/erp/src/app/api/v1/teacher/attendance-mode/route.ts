@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { delegated } from "@/lib/authz/teacher-actor";
-import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { platformDb } from "@/lib/db/scope";
@@ -13,8 +11,15 @@ const bodySchema = z
   .object({ mode: z.enum(["counter_only", "counter_and_door"]) })
   .strict();
 
-export const GET = withErrors(async () => {
-  const user = await requireRole("teacher");
+/**
+ * T-2: `delegated()`, matching its own PATCH below. The old
+ * `requireRole("teacher")` GET meant an assistant could CHANGE the attendance
+ * mode but not READ it — so the assistant's settings card could not show the
+ * value it may edit, and the door screen's counter-only notice (the one that
+ * says the door adds nothing here) silently never rendered for the very
+ * person standing at that door (the fetch 403'd into a catch).
+ */
+export const GET = delegated(async (_req, _ctx, { acting: user }) => {
   const profile = await platformDb((tx) =>
     tx.teacherProfile.findUnique({
       where: { userId: user.id },

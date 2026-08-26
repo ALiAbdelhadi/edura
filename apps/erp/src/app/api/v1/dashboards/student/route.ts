@@ -6,6 +6,7 @@ import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import {
   getStudentGradeTrend,
 } from "@/lib/services/reports/reports";
+import { enrichSessions } from "@/lib/services/sessions/enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,17 @@ export const GET = withErrors(async () => {
       select: { id: true, title: true, subject: true },
     });
 
-    const todaySessions = await tx.session.findMany({
-      where: {
-        courseId: { in: courseIds },
-        date: { gte: todayStart, lt: todayEnd },
-        status: { in: ["scheduled", "postponed"] },
-      },
-      orderBy: { startTime: "asc" },
-    });
+    const todaySessions = await enrichSessions(
+      tx,
+      await tx.session.findMany({
+        where: {
+          courseId: { in: courseIds },
+          date: { gte: todayStart, lt: todayEnd },
+          status: { in: ["scheduled", "postponed"] },
+        },
+        orderBy: { startTime: "asc" },
+      }),
+    );
 
     const upcomingSessions = await tx.session.findMany({
       where: {
@@ -124,13 +128,33 @@ export const GET = withErrors(async () => {
     // marks it claimed to summarise. The percentage is the record.
     averagePercent: avgPct,
     averageBand,
-    unreadMessages: 0,
+    // `unreadMessages` WAS HERE, hardcoded to `0`. It was never a count of
+    // anything — no messaging read reached this route — so any consumer that
+    // trusted it would have shown "no unread messages" to a student with a
+    // full inbox. `assignmentsDue` / `dueSoon` / `assignmentsTrend` stood
+    // beside it, derived from scoreless grade rows against an Assignment model
+    // that does not exist; they came out with the student IA restructure.
+    //
+    // Verified zero consumers across the repo before removal — no component, no
+    // emulator screen, no test, no contract. A field nothing reads and nothing
+    // could answer correctly is worse than a missing one: it is the shape of an
+    // answer, and the next person to need an unread count will find it already
+    // there and wire a badge to a lie. (STUDENT_IA_AUDIT.md §5.1 finding 1.)
+    //
+    // A REAL count needs a messaging read with its own tenancy rules; that is
+    // the same still-open gap the student and parent audits both record, and it
+    // is deliberately not faked here in the meantime.
+    // `room` and `teacher` were `""` BY CONSTRUCTION here — the two survivors
+    // of the fabricated-fields cleanup above, sitting four lines under the
+    // comment explaining why their siblings were removed. Now served through
+    // `enrichSessions`, the same joins the sessions route makes — one shape,
+    // and an empty room stays honestly `""` (a session with no hall).
     todaySchedule: todaySessions.map((s) => ({
       id: s.id,
       time: s.startTime,
       subject: courseNameMap.get(s.courseId) ?? "",
-      room: "",
-      teacher: "",
+      room: s.roomName,
+      teacher: s.teacherName,
     })),
     upcoming: upcomingSessions.map((s) => ({
       id: s.id,

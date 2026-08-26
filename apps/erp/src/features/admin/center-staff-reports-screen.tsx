@@ -15,11 +15,7 @@ type Dash = {
   };
 };
 
-/**
- * The manager's operational read. No money — a manager sees the shape of the
- * operation, not the books; that is the accountant's tier. So no ledger money
- * treatment here, just mono figures and the same paper.
- */
+
 export function CenterStaffReportsScreen() {
   const t = useTranslations();
   const { formatPercent } = useFormatters();
@@ -31,7 +27,7 @@ export function CenterStaffReportsScreen() {
 
   if (!d) {
     return (
-      <div className="p-8 text-center text-[13px] text-[var(--ink-3)]">
+      <div className="p-8 text-center text-[13px] text-(--ink-3)">
         {t("centerStaff.loading")}
       </div>
     );
@@ -45,7 +41,7 @@ export function CenterStaffReportsScreen() {
       />
 
       <Sheet>
-        <div className="flex flex-wrap gap-x-8 gap-y-4 p-[18px]">
+        <div className="flex flex-wrap gap-x-8 gap-y-4 p-4.5">
           <Figure label={t("nav.students")} value={d.totals.students} />
           <Figure label={t("nav.teachers")} value={d.totals.teachers} />
           <Figure label={t("nav.courses")} value={d.totals.activeCourses} />
@@ -78,15 +74,15 @@ export function CenterStaffReportsScreen() {
               {d.analytics.courseFillRates.map((c, i) => (
                 <tr key={i}>
                   <td>
-                    <span className="text-[13px] text-[var(--ink)]">{c.title}</span>
+                    <span className="text-[13px] text-(--ink)">{c.title}</span>
                   </td>
                   <td data-numeric="true">
-                    <Num className="text-[13px] text-[var(--ink-2)]">
+                    <Num className="text-[13px] text-(--ink-2)">
                       {c.enrolled}/{c.max}
                     </Num>
                   </td>
                   <td data-numeric="true">
-                    <Num className="text-[13px] font-semibold text-[var(--ink)]">
+                    <Num className="text-[13px] font-semibold text-(--ink)">
                       {formatPercent(c.pct)}
                     </Num>
                   </td>
@@ -103,10 +99,10 @@ export function CenterStaffReportsScreen() {
 
 function Figure({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="min-w-[112px]">
+    <div className="min-w-28">
       <Eyebrow>{label}</Eyebrow>
       <p className="mt-1 mb-0">
-        <Num className="text-[27px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
+        <Num className="text-[27px] font-semibold tracking-[-0.01em] text-(--ink)">
           {value}
         </Num>
       </p>

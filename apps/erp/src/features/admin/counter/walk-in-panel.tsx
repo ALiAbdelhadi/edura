@@ -9,20 +9,6 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Eyebrow } from "../ledger";
 
-/**
- * WALK-IN REGISTRATION — the form, and the one POST behind it.
- *
- * A parent at the desk with a child who has no account is the same event on
- * every counter surface, so it is one component rather than one per screen.
- * What differs is what each screen does AFTERWARDS: the check-in screen selects
- * the new student and offers their sessions; the board refreshes the lesson it
- * is showing. Both of those are the caller's business, which is why this
- * component reports and does not navigate.
- *
- * The invite that comes back is handed UP rather than rendered here: the
- * check-in screen also produces one from "resend", and one panel owning the
- * display keeps the two from disagreeing about what is on screen.
- */
 
 export type WalkInInvite = {
   link: string;
@@ -72,8 +58,6 @@ export function WalkInPanel({
         values: {
           fullName: walkName.trim(),
           phone: walkPhone.trim(),
-          // Guardian contact: email if the family has one, otherwise the phone.
-          // Both optional — registration is never blocked on this.
           ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim() } : {}),
           ...(guardianPhone.trim() ? { guardianPhone: guardianPhone.trim() } : {}),
         },
@@ -90,9 +74,6 @@ export function WalkInPanel({
       if (invite?.email?.status === "sent") {
         toast.success(t("shared.checkin.inviteEmailSent"));
       } else if (invite?.guardianEmailRequired) {
-        // The child-safety path: a MINOR with no guardian email. We do NOT mail
-        // the child. Surface the link so the counter hands it to the guardian
-        // who is standing right there, and say plainly what is still owed.
         toast.warning(t("shared.checkin.guardianEmailMissing"));
       }
       if (invite?.claimLink) {
@@ -141,7 +122,7 @@ export function WalkInPanel({
         value={walkPhone}
         onChange={(e) => setWalkPhone(e.target.value)}
       />
-      <div className="rounded-lg border border-[var(--rule)] bg-[var(--sheet)] p-3">
+      <div className="rounded-lg border border-(--rule) bg-(--sheet) p-3">
         <Eyebrow>{t("shared.checkin.guardianContactTitle")}</Eyebrow>
         <div className="mt-2 flex flex-col gap-2">
           <Input
@@ -161,7 +142,7 @@ export function WalkInPanel({
             onChange={(e) => setGuardianPhone(e.target.value)}
           />
         </div>
-        <p className="mt-2 mb-0 text-xs leading-relaxed text-[var(--ink-2)]">
+        <p className="mt-2 mb-0 text-xs leading-relaxed text-(--ink-2)">
           {t("shared.checkin.guardianContactHint")}
         </p>
       </div>

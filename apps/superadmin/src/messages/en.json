@@ -452,7 +452,10 @@
   "methods": {
     "card": "Card",
     "wallet": "Wallet",
-    "cash": "Cash"
+    "cash": "Cash",
+    "instapay": "InstaPay",
+    "pos_card": "Card (POS)",
+    "mobile_wallet": "Mobile wallet"
   },
   "plans": {
     "monthly": "Monthly",
@@ -732,7 +735,8 @@
     "prev": "Previous",
     "next": "Next",
     "settlementCount": "settlements",
-    "exportXlsx": "Export to Excel"
+    "exportXlsx": "Export to Excel",
+    "methodNoRoom": "No hall (default model)"
   },
   "auditLog": {
     "title": "Audit log",
@@ -1793,5 +1797,18 @@
         "body": "The tour is done. Your day starts at “Payouts & disbursement” — that's where people are waiting on you."
       }
     }
+  },
+  "agreements": {
+    "queueTitle": "Teacher agreement proposals",
+    "queueEmpty": "No pending proposals.",
+    "percentLine": "{rate} of net — {side}",
+    "fixedLine": "Per present student — {side}: ",
+    "sideTeacher": "the teacher's take",
+    "sideCenter": "the center's share",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Agreement approved",
+    "rejected": "Proposal rejected",
+    "failed": "The action did not complete"
   }
 }

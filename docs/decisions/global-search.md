@@ -479,3 +479,140 @@ does not model generated columns, so `prisma migrate dev` would propose turning
 them back into ordinary ones. This repo writes its migrations by hand and checks
 shape with `verify-db`, so the exposure is a developer running `migrate dev` —
 which is why it belongs in a decision Ali makes, not in this one.
+
+### The generated columns — the paginated lists become exact (2026-08-20, Ali: "اعمل الـ generated columns")
+
+Migration `20260820160000_search_text_columns`. **Applied to dev AND to
+production**, in that order, before any code that reads the column shipped.
+
+Migration 55 put the normalizer in the database, but Prisma cannot express
+`WHERE f(col) LIKE …` in a typed `where`, so the paginated lists still could not
+use it and were left returning a superset. A STORED generated column is the way
+out that costs no second source of truth: Postgres maintains it, Prisma filters
+it with a plain `contains`, and the result is exact, indexed, paginable AND
+countable — all four at once, which was the thing that could not be had before.
+
+1. **ONE COLUMN PER TABLE, NOT ONE PER FIELD.** Fourteen columns would have been
+   the literal translation of what the lists search. One per table, holding
+   every searchable field joined, is the same thing — and is exactly what the JS
+   matcher already does: `matchesSearchTerms` joins the parts, normalizes once,
+   and requires EVERY term to appear. `search_text` is that haystack,
+   precomputed.
+
+2. **IT CARRIES BOTH OF THE MATCHER'S CHANCES, which is why it is equal and not
+   merely similar.** `matchesSearchTerms` tries the normalized haystack AND the
+   same haystack with its spaces closed up, so «عبدالرحمن» finds «عبد الرحمن» —
+   one Egyptian name written two ways. `edura_search_haystack` stores both
+   halves in the one column, so `search_text LIKE '%term%'` is true in exactly
+   the cases the JS matcher returns true. Measured before applying anything:
+   **2056/2056** agreements over 257 real users × 8 queries, in a transaction
+   that was then rolled back.
+
+3. **A SEPARATE FUNCTION FROM THE NORMALIZER, because it answers a different
+   question.** `edura_search_normalize` gives THE canonical form of a string;
+   `edura_search_haystack` gives the form a ROW is findable by. Keeping them
+   apart means the first stays the single definition of "the same word" and the
+   second stays the single definition of "what a row is findable by".
+
+4. **THE HAZARD IS SILENT, SO IT GOT AN ASSERTION RATHER THAN A PARAGRAPH.** A
+   STORED column is computed on write; `CREATE OR REPLACE FUNCTION` on the
+   normalizer would NOT recompute rows already stored, and the database would
+   hold two definitions of the same word with nothing to say so. **Changing the
+   normalizer requires rebuilding these columns.** The DB suite now compares
+   every stored value against a live call, per table — a red line instead of a
+   quiet divergence.
+
+5. **THE FIVE EXPRESSION INDEXES FROM MIGRATION 55 WERE DROPPED.** They served
+   `edura_search_normalize(col) LIKE …`, a query the application no longer
+   issues. An index no reader can use is write cost with nothing on the other
+   side of it. `rollback.sql` restores them.
+
+6. **THE PRISMA COST, stated rather than discovered later.** Prisma does not
+   model generated columns, so `migrate dev` will propose turning them into
+   ordinary ones. They are named in `schema.prisma` only so a typed `where` can
+   filter them, each carrying that warning; writing to one fails at the
+   database, which is a loud failure and not a silent corruption. Checked before
+   committing to the design: no `create`/`update` in this repo spreads a row
+   into `users`, `centers`, `courses` or `contact_submissions`, so nothing
+   existed that would start failing.
+
+7. **NINE CALL SITES CONVERTED, and two deliberately not.** The three superadmin
+   paginated lists (users directory, teacher directory, contact queue), the
+   three `discovery` lists, and the three bounded sub-lookups (collaboration,
+   subscriptions, payment-intents' payer) now filter the column. The sub-lookups
+   lost their JS decide pass entirely — there is nothing left for it to decide.
+   `whatsapp-messages` and the payment-intents REFERENCE arm keep `narrowQuery`:
+   their columns are ASCII, ILIKE already served them, and a generated column
+   there would be storage for nothing.
+
+Proof — dev `apps/erp/tests/db/search-normalize.test.ts` **43/43** (was 35): the
+function properties, every fold, every distinct value in eight columns, the fuzz
+pass, the four indexes, plus the new `is_generated = ALWAYS` check per table, the
+per-table desync check, and the row-by-row parity between `search_text` and
+`matchesSearchTerms`. `verify-db` **28/28 on dev and on production**, both at 56
+migrations and identical in shape. ERP DB suites `global-search` 41/41,
+`counter-board` 39/39, `external-teachers` 104/104, `center-directory-search`
+7/7; superadmin `admin-users` 67/67, `global-search` 34/34, `center-platform`
+45/45, `center-people` 66/66, `center-collab-create` 29/29. `check-types` 9/9,
+ERP unit 81 files / 1284 pass.
+
+### "كمل على كل الجداول" — and why that turned out to be two (2026-08-20)
+
+Migration `20260820180000_search_text_remaining`, on dev and production.
+
+Ali asked to extend the generated columns to every table. Measured before
+building anything, because "every table" is 79 of them:
+
+| | |
+|---|---|
+| tables in the database | **79** |
+| carrying a candidate free-text column | **58** |
+| **actually reached by a free-text search** | **6** |
+| already done in migration 56 | 4 |
+| remaining | `student_profiles`, `rooms` |
+
+The other 52 have **no code searching them** — no Prisma `contains`, no refine
+`operator: "contains"`, nothing. A generated column there is write cost on every
+insert and update with no reader on the other side, and on `transactions`,
+`points_ledger`, `wallet_ledger` and `audit_logs` — append-only, money, the
+highest-volume tables here — it is that cost per ledger row forever. The
+`chatbot_*` tables are descoped product surface and were not touched at all.
+
+So the deliverable is the *rule*, not the count: **every table a free-text search
+reaches carries `search_text`.** One sentence, and the DB suite asserts that
+exact set of six, so a column appearing or disappearing is a red line rather than
+a discovery.
+
+1. **`student_code` AND THE GUARDIAN COLUMNS ARE ABSENT FROM THE STUDENT
+   HAYSTACK, and this is the decision in this migration.** Both would widen
+   reach, which rule 1 above forbids. The code is matched through
+   `readStudentScan`, whose check character means a single mistype resolves to
+   NOBODY rather than to a different child; put it in a substring haystack and
+   six characters of a code match again, which is the weaker rule the check
+   character exists to replace. A guardian's email or phone would make a CHILD
+   findable by their parent's contact details — nothing searches that today, and
+   nothing should start because a column made it easy.
+
+2. **`lookupStudents` KEEPS ITS JS DECIDE PASS, and that is not belt-and-braces.**
+   Its haystack spans TWO tables — the profile's own name and phone, and the user
+   row's name and phone — and a generated column cannot reference another table.
+   A query naming the student by their user-row name and their profile phone
+   satisfies the joined haystack `matchesSearchTerms` builds and satisfies
+   NEITHER column alone. So the two columns are an OR'd pre-filter that cannot
+   miss such a row (every term appears somewhere), and JS makes the decision.
+
+3. **WHAT THESE TWO BUY, stated precisely.** Both call sites were ALREADY EXACT —
+   they are not paginated, so they narrowed in SQL and decided in JS. What
+   changes is the NARROWING: from a loose fragment (`contains 'حمد'`, which also
+   matches «محمد») over an unindexed column, to a tight indexed match on the
+   haystack. On `lookupStudents` that matters, because it is the counter search
+   and it runs on every keystroke while somebody is standing at the desk.
+
+Proof: `search-normalize.test.ts` **50/50** (was 43) — the new assertions are the
+six-table invariant, plus `is_generated = ALWAYS`, the stored-vs-live desync check
+and the field list for each new table. Parity measured before applying:
+**455/455** over 300 student profiles. ERP DB `global-search` 41/41,
+`counter-board` 39/39, `student-qr-credential` 88/88, `offline-sync` 27/27,
+`center-directory-search` 7/7. `verify-db` **28/28 on dev and production**, both
+at 57 migrations, identical in shape. `check-types` 9/9, ERP unit 1284,
+superadmin unit 106.

@@ -10,7 +10,7 @@ import { GuardianContactNotice } from "@/features/student/guardian-contact-notic
 import { GuardianVerificationNotice } from "@/features/student/guardian-verification-notice";
 import { PracticeInvite } from "@/features/student/emulator/practice-invite";
 import { SubscriptionAlert } from "@/features/student/subscription-alert";
-import { LatestGradeCard } from "@/features/student/latest-grade-card";
+import { LatestGradeCard } from "@/features/grades/latest-grade-card";
 import { GuidedTour } from "@/features/tour/guided-tour";
 import { useTourGate } from "@/features/tour/use-tour-gate";
 import { STUDENT_TOUR_STEPS } from "@/features/student/tour/steps";
@@ -31,7 +31,7 @@ import {
   isHappeningNow,
   todayKey,
   upcomingSessions,
-} from "@/features/student/session-time";
+} from "@/features/sessions/session-time";
 import { asRecord } from "@/lib/refine/as-record";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { GradeBandId } from "@repo/database/grading-scale";
@@ -186,12 +186,13 @@ function QuickAction({
  * clock with the day period written out (docs/decisions/lesson-times-12h.md).
  * The hero was the last surface still printing a raw 24-hour string.
  *
- * KNOWN, STILL OPEN: `dashboards/student` continues to derive `unreadMessages`
- * (hardcoded `0`), `assignmentsDue`, `dueSoon` and `assignmentsTrend` from
- * grade rows with no score, and to ship `todaySchedule.room`/`.teacher` as the
- * empty string. Nothing renders any of them any more. They should come out of
- * the endpoint contract, which is a change to that route and its consumers
- * rather than to this file.
+ * KNOWN, STILL OPEN: `dashboards/student` still ships `todaySchedule.room` and
+ * `.teacher` as the empty string — the hero reads the room and the teacher from
+ * `GET /sessions` instead, so nothing renders those two. The fabricated fields
+ * that used to stand beside them (`unreadMessages`, `assignmentsDue`,
+ * `dueSoon`, `assignmentsTrend`) are gone from that route; the reasoning is
+ * written at the removal site. A real unread count is still an open product
+ * gap (STUDENT_IA_AUDIT.md §5.1 finding 4) — do not fill it with a placeholder.
  */
 export function StudentDashboard() {
   const t = useTranslations();
@@ -357,7 +358,13 @@ export function StudentDashboard() {
           The average below answers "how am I doing"; this answers "what did I
           get", which is the question actually asked after an exam. It renders
           nothing until something has been marked. */}
-      <LatestGradeCard />
+      <LatestGradeCard
+            href="/dashboard/student/grades"
+            label={t("studentClass.latestGrade")}
+            openLabel={t("studentDashboard.openRecord", {
+              record: t("studentClass.latestGrade"),
+            })}
+          />
 
       {/*
         ── Your record — every figure links to the entries behind it ────────

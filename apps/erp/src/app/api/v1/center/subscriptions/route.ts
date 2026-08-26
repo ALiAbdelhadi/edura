@@ -16,6 +16,11 @@ const bodySchema = z
     sessionId: z.string().uuid().optional(),
     // Classic counter workflow: cash for a single session + check-in in ONE step.
     markAttendance: z.boolean().optional(),
+    // Phase 1: how the counter took the money. Absent = cash (the service owns
+    // that default). Only counter channels are accepted here — the gateway and
+    // internal-wallet methods have their own routes and must not be spoofable
+    // from the desk.
+    paymentMethod: z.enum(["cash", "instapay", "pos_card", "mobile_wallet"]).optional(),
   })
   .strict();
 

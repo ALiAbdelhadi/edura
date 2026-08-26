@@ -27,16 +27,37 @@ import { useLocale, useTranslations } from "next-intl";
  * caller's staff tier may not read (a manager cannot export revenue). Listing
  * them all and letting the server say no keeps one source of truth for the
  * money boundary, at the cost of a possible refusal the operator can read.
+ *
+ * `only` NARROWS THE LIST, and never widens it. That argument above holds for
+ * a screen several tiers share — the centre owner's reports page, where who is
+ * reading is not known here. It does not hold for a screen exactly ONE tier can
+ * open: the accountant's finance page would otherwise offer three operational
+ * exports that are guaranteed to 403, and an excluded capability is meant to be
+ * ABSENT rather than present-and-failing (the same rule the counter's scanner
+ * button and the accountant's missing message inbox already follow). The server
+ * still decides; this only stops advertising doors we know are shut.
  */
 
-const MONEY_REPORTS = ["net-profit", "revenue-by-course", "expenses"] as const;
+const MONEY_REPORTS = ["net-profit", "revenue-by-course", "expenses", "shift-reconciliation"] as const;
 const OPS_REPORTS = ["course-fill-rates", "attendance-by-course", "enrollment-funnel"] as const;
 
 type ReportKey = (typeof MONEY_REPORTS)[number] | (typeof OPS_REPORTS)[number];
 
-export function ReportExportMenu({ from, to }: { from?: string; to?: string }) {
+export function ReportExportMenu({
+  from,
+  to,
+  only,
+}: {
+  from?: string;
+  to?: string;
+  /** Omit for every report. `"money"` is the accountant tier's five. */
+  only?: "money";
+}) {
   const t = useTranslations();
   const locale = useLocale();
+
+  const shown: readonly ReportKey[] =
+    only === "money" ? MONEY_REPORTS : [...MONEY_REPORTS, ...OPS_REPORTS];
 
   const qs = (report: ReportKey, extra: Record<string, string> = {}) => {
     const p = new URLSearchParams({ report, locale, ...extra });
@@ -80,6 +101,8 @@ export function ReportExportMenu({ from, to }: { from?: string; to?: string }) {
         return t("adminManage.reports.export_attendance_by_course");
       case "enrollment-funnel":
         return t("adminManage.reports.export_enrollment_funnel");
+      case "shift-reconciliation":
+        return t("adminManage.reports.export_shift_reconciliation");
     }
   };
 
@@ -96,7 +119,7 @@ export function ReportExportMenu({ from, to }: { from?: string; to?: string }) {
           <FileSpreadsheet className="size-3.5" />
           {t("adminManage.reports.exportCsv")}
         </DropdownMenuLabel>
-        {[...MONEY_REPORTS, ...OPS_REPORTS].map((r) => (
+        {shown.map((r) => (
           <DropdownMenuItem key={`csv-${r}`} onSelect={() => downloadCsv(r)}>
             {label(r)}
           </DropdownMenuItem>
@@ -106,7 +129,7 @@ export function ReportExportMenu({ from, to }: { from?: string; to?: string }) {
           <Printer className="size-3.5" />
           {t("adminManage.reports.exportPrint")}
         </DropdownMenuLabel>
-        {[...MONEY_REPORTS, ...OPS_REPORTS].map((r) => (
+        {shown.map((r) => (
           <DropdownMenuItem key={`print-${r}`} onSelect={() => openPrint(r)}>
             {label(r)}
           </DropdownMenuItem>

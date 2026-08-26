@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
@@ -9,6 +8,12 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation, useList } from "@refinedev/core";
+import {
+  NOTIFICATION_PORTALS,
+  notificationPath,
+  portalForRole,
+  type NotificationPortal,
+} from "@repo/server-core/services/notifications/deep-link";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
@@ -35,20 +40,15 @@ import {
   StickyNote,
   UserCheck,
   UserPlus,
-  Users,
   UserX,
+  Users,
   Wallet,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import {
-  NOTIFICATION_PORTALS,
-  notificationPath,
-  portalForRole,
-  type NotificationPortal,
-} from "@repo/server-core/services/notifications/deep-link";
+import { useMemo, useState } from "react";
 interface Notification {
   id: string;
   type: string;
@@ -58,9 +58,6 @@ interface Notification {
   createdAt: string;
 }
 
-// One entry per `notifType_*` i18n key — a notification's tone AND icon both
-// come from here, so the badge colour and the leading glyph never disagree.
-// `default` is the fallback for any type that ships without a matching entry.
 const TYPE_META: Record<string, { tone: StatusTone; icon: LucideIcon }> = {
   absence_marked: { tone: "warning", icon: UserX },
   admin_broadcast: { tone: "primary", icon: Megaphone },
@@ -179,7 +176,7 @@ export function NotificationsScreen() {
         values: {},
       });
       query.refetch();
-    } catch {}
+    } catch { }
   };
 
   const handleNotificationClick = async (n: Notification) => {
@@ -196,7 +193,7 @@ export function NotificationsScreen() {
         values: {},
       });
       query.refetch();
-    } catch {}
+    } catch { }
   };
 
   const unread = notifications.filter((n) => !n.read).length;
@@ -249,7 +246,7 @@ export function NotificationsScreen() {
   };
 
   return (
-    <div className="flex w-full max-w-[1440px] flex-col gap-6">
+    <div className="flex w-full mx-auto flex-col gap-6">
       <PageHeader
         title={t("nav.notifications")}
         description={
@@ -259,111 +256,164 @@ export function NotificationsScreen() {
         }
         actions={
           unread > 0 && (
-            <Button size="sm" variant="outline" onClick={markAllRead}>
-              <Check className="size-4" />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={markAllRead}
+              className="gap-2"
+            >
+              <CheckCheck className="size-4" />
               {t("shared.notifMarkAllRead")}
             </Button>
           )
         }
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")}>
-        <TabsList>
-          <TabsTrigger value="all">{t("shared.notifTabAll")}</TabsTrigger>
-          <TabsTrigger value="unread">
-            {t("shared.notifUnreadLabel")}
-            {unread > 0 && (
-              <span className="ms-1 rounded-full bg-indigo-soft px-1.5 py-0.5 text-[10px] font-semibold text-indigo">
-                {formatNumber(unread)}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col gap-5">
+        {/* Filter */}
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as "all" | "unread")}
+        >
+          <TabsList className="h-9 w-fit">
+            <TabsTrigger value="all" className="px-3">
+              {t("shared.notifTabAll")}
+            </TabsTrigger>
 
-      {visible.length === 0 ? (
-        <EmptyState icon={CheckCheck} title={t("shared.notifAllCaughtUp")} />
-      ) : (
-        <div className="flex flex-col gap-6">
-          {groups.map((group) => (
-            <div key={group.key} className="flex flex-col gap-2.5">
-              <span className="px-1 text-[12px] font-semibold text-ink-3">
-                {GROUP_LABEL[group.key]}
-              </span>
-              {/* Bento: dense auto-flow, tone-driven span. An unread notification
-                  that needs a decision (warning/danger tone) gets a wide, taller
-                  tile so it reads as more important WITHOUT a fifth colour —
-                  size is the second signal, after the icon/badge colour. A read
-                  or routine notification stays a compact single cell. */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 [grid-auto-flow:dense]">
-                {group.items.map((n) => {
-                  const meta = TYPE_META[n.type] ?? TYPE_META.default;
-                  const Icon = meta.icon;
-                  const typeKey = `shared.notifType_${n.type}`;
-                  const typeLabel = t.has(asKey(typeKey)) ? t(asKey(typeKey)) : null;
-                  const typeText = typeLabel ?? n.type.replace(/_/g, " ");
-                  const featured =
-                    !n.read && (meta.tone === "danger" || meta.tone === "warning");
-                  return (
-                    <Card
-                      key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      className={cn(
-                        "cursor-pointer overflow-hidden border-s-2 py-0 transition-colors hover:bg-accent",
-                        n.read ? "border-s-transparent" : "border-s-indigo bg-sheet",
-                        featured && "sm:col-span-2",
-                      )}
-                    >
-                      <CardContent
+            <TabsTrigger value="unread" className="gap-1.5 px-3">
+              {t("shared.notifUnreadLabel")}
+
+              {unread > 0 && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-soft px-1.5 py-0.5 text-[10px] font-semibold leading-none text-indigo">
+                  {formatNumber(unread)}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {visible.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-sheet px-6 py-14">
+            <EmptyState
+              icon={CheckCheck}
+              title={t("shared.notifAllCaughtUp")}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {groups.map((group) => (
+              <section key={group.key} className="flex flex-col gap-3">
+                {/* Group heading */}
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+                    {GROUP_LABEL[group.key]}
+                  </span>
+
+                  <div className="h-px flex-1 bg-border/70" />
+
+                  <span className="text-[11px] tabular-nums text-ink-3">
+                    {formatNumber(group.items.length)}
+                  </span>
+                </div>
+
+                {/* Notifications */}
+                <div className="overflow-hidden rounded-2xl border border-border/70 bg-sheet">
+                  {group.items.map((n, index) => {
+                    const meta = TYPE_META[n.type] ?? TYPE_META.default;
+                    const Icon = meta.icon;
+
+                    const typeKey = `shared.notifType_${n.type}`;
+                    const typeLabel = t.has(asKey(typeKey))
+                      ? t(asKey(typeKey))
+                      : null;
+
+                    const typeText =
+                      typeLabel ?? n.type.replace(/\_/g, " ");
+
+                    const isLast = index === group.items.length - 1;
+
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => handleNotificationClick(n)}
                         className={cn(
-                          "flex h-full items-start gap-3 p-3.5",
-                          featured && "sm:p-4",
+                          "group relative flex w-full items-start gap-4 px-4 py-4 text-start transition-colors",
+                          "hover:bg-accent/45",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo/30 focus-visible:ring-inset",
+                          !isLast && "border-b border-border/60",
+                          !n.read && "bg-indigo-soft/20",
                         )}
                       >
+                        {/* Unread indicator */}
                         <span
                           className={cn(
-                            "flex shrink-0 items-center justify-center rounded-full",
-                            featured ? "mt-0.5 size-11" : "mt-0.5 size-9",
+                            "absolute inset-y-0 start-0 w-0.5 transition-opacity",
+                            n.read ? "opacity-0" : "bg-indigo opacity-100",
+                          )}
+                        />
+
+                        {/* Icon */}
+                        <span
+                          className={cn(
+                            "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl",
                             TONE_CIRCLE[meta.tone],
                           )}
                         >
-                          <Icon className={featured ? "size-5" : "size-4"} aria-hidden="true" />
+                          <Icon
+                            className="size-[18px]"
+                            aria-hidden="true"
+                          />
                         </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
+
+                        {/* Content */}
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                             <span
                               className={cn(
-                                featured ? "text-[15px]" : "text-sm",
-                                n.read ? "font-normal text-ink-2" : "font-semibold text-ink",
+                                "min-w-0 text-sm leading-5",
+                                n.read
+                                  ? "font-medium text-ink-2"
+                                  : "font-semibold text-ink",
                               )}
                             >
                               {n.title}
                             </span>
-                            <span className="shrink-0 text-[11px] text-ink-3">
+
+                            <span className="shrink-0 text-[11px] tabular-nums text-ink-3">
                               {timeAgo(n.createdAt, t, formatNumber)}
                             </span>
-                          </div>
-                          <p
+                          </span>
+
+                          <span
                             className={cn(
-                              "m-0 mt-0.5 text-[13px] text-ink-2",
-                              featured ? "line-clamp-3" : "line-clamp-2",
+                              "mt-1 block max-w-[760px] text-[13px] leading-5",
+                              n.read ? "text-ink-3" : "text-ink-2",
+                              "line-clamp-2",
                             )}
                           >
                             {n.body}
-                          </p>
-                          <div className="mt-2">
-                            <StatusBadge tone={meta.tone}>{typeText}</StatusBadge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                          </span>
+
+                          <span className="mt-2.5 flex items-center gap-2">
+                            <StatusBadge tone={meta.tone}>
+                              {typeText}
+                            </StatusBadge>
+
+                            {!n.read && (
+                              <span className="size-1.5 rounded-full bg-indigo" />
+                            )}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

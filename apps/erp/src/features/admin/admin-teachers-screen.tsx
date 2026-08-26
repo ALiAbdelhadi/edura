@@ -2,8 +2,8 @@
 "use client";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { AgreementProposeDialog } from "./agreement-propose-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 import { asKey } from "@/lib/i18n/keys";
 import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
@@ -52,6 +52,7 @@ export function AdminTeachersScreen() {
   const { mutate: inviteTeacher, mutation: inviteMutation } = useCustomMutation();
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [agreementFor, setAgreementFor] = useState<{ id: string; name: string } | null>(null);
 
   const inviteSchema = z.object({
     email: z.string().email({ message: t("adminHome.teachers_invalidEmail") }),
@@ -170,6 +171,17 @@ export function AdminTeachersScreen() {
         const canReinvite = r.affiliation?.status === "pending" || r.status === "shell";
         return (
           <div className="flex items-center justify-end gap-1">
+            {r.affiliation?.status === "active" && (
+              // Phase 5 (D2): propose a money agreement — a PROPOSAL only;
+              // the platform's approval is what puts a rate in force.
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAgreementFor({ id: r.id || r._id, name: r.name })}
+              >
+                {t("adminHome.agreements_action")}
+              </Button>
+            )}
             {canReinvite && (
               <Button
                 variant="ghost"
@@ -191,7 +203,7 @@ export function AdminTeachersScreen() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-[var(--red)]"
+                    className="text-destructive"
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="size-4" />
@@ -222,8 +234,6 @@ export function AdminTeachersScreen() {
           </Button>
         }
       />
-
-      <CollaborationPanel role="center" />
 
       {query.isLoading ? (
         <PageSpinner />
@@ -302,6 +312,14 @@ export function AdminTeachersScreen() {
           </Form>
         </DialogContent>
       </Dialog>
+      <AgreementProposeDialog
+        teacherId={agreementFor?.id ?? null}
+        teacherName={agreementFor?.name ?? ""}
+        open={agreementFor !== null}
+        onOpenChange={(o) => {
+          if (!o) setAgreementFor(null);
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,10 @@
 "use client";
 
 import DashboardShell from "@/components/refine/dashboard-shell";
-import { ChildSelectorProvider } from "@/components/ui/child-selector";
+import {
+  ChildContextBar,
+  ChildSelectorProvider,
+} from "@/components/ui/child-selector";
 
 // Labels are lookup keys into DashboardShell's NAV_KEY table, not display
 // text. Three of these were prose ("Child Progress", "My Children", "Fees &
@@ -40,6 +43,12 @@ const navGroups = [
     // the balance behind it is.
     label: "@money",
     items: [
+      // Whether the child is COVERED comes before what was paid — the same
+      // reason Children leads @children. Added with the page it points at:
+      // this portal's bar hides the sidebar toggle on phones, so a destination
+      // with no entry here is a screen no parent on a phone can open. The bar's
+      // own reordering is a separate step; this only makes the page reachable.
+      { href: "/dashboard/parent/subscriptions", icon: "calendar", label: "Child Subscriptions", tour: "nav-subscriptions" },
       { href: "/dashboard/parent/fees", icon: "dollar", label: "Fees", tour: "nav-fees" },
       { href: "/dashboard/parent/pay", icon: "dollar", label: "Pay for a Lesson", tour: "nav-pay" },
       { href: "/dashboard/parent/wallet", icon: "wallet", label: "My Wallet", tour: "nav-wallet" },
@@ -93,6 +102,7 @@ const BAR_ORDER = [
   "/dashboard/parent/children",
   "/dashboard/parent/progress",
   "/dashboard/parent/oversight",
+  "/dashboard/parent/subscriptions",
   "/dashboard/parent/pay",
   "/dashboard/parent/wallet",
   "/dashboard/parent/notifications",
@@ -120,6 +130,14 @@ export default function PortalChrome({
         navGroups={navGroups}
         bottomNav={BAR_ORDER}
       >
+        {/* WHOSE RECORD YOU ARE READING, STATED ONCE, BY THE CHROME.
+            It was rendered by five screens that each remembered to pass it
+            into their own PageHeader — and six screens did not, two of which
+            were about a child. A context that a screen can forget is not a
+            context. `ChildContextBar` decides for itself which routes are
+            per-child (see PER_CHILD_ROUTES), so this renders on every page and
+            appears only where it means something. */}
+        <ChildContextBar />
         {children}
       </DashboardShell>
     </ChildSelectorProvider>

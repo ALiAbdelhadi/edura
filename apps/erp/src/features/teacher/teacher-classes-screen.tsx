@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useList, useCustomMutation } from "@refinedev/core";
+import { useMemo, useState, useEffect } from "react";
+import {
+  useCustom,
+  useGetIdentity,
+  useList,
+  useCustomMutation,
+} from "@refinedev/core";
 import dayjs from "dayjs";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, AlertTriangle } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckSquare, GraduationCap } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useParamSeed } from "@/lib/api/use-param-seed";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
@@ -20,8 +25,20 @@ import {
 } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { Progress } from "@repo/ui/components/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
+import { platformDayKey, todayKey } from "@repo/server-core/lib/date-key";
+import { asArray } from "@/lib/refine/as-array";
+import { ATTENDANCE_WINDOW_DAYS } from "@/features/teacher/teacher-attendance-screen";
 import { TeacherCreateGroupDialog } from "@/features/teacher/teacher-create-group-dialog";
 
 type Session = Record<string, any>;
@@ -49,6 +66,25 @@ export function TeacherClassesScreen() {
   ];
   const courseLabel = (c: any) =>
     c.title || [c.subject, c.gradeTag].filter(Boolean).join(" — ");
+
+  /* CREATING A GROUP IS THE TEACHER'S, NOT THE ASSISTANT'S.
+     ════════════════════════════════════════════════════════════════════════
+     This screen is mounted by BOTH portals, and it rendered the create dialog
+     unconditionally — so an assistant saw a real button, filled a real form,
+     and was refused at submit. `POST /api/v1/courses` has no assistant branch
+     and that is deliberate: the assistant tour's own header records it, since
+     plan prices are financial settings and Step 8 excludes those from
+     delegation.
+
+     The API is unchanged. This only stops the UI OFFERING what the API has
+     always refused — the standard the centre pass set: an excluded capability
+     is ABSENT, never a button that 403s.
+
+     Keyed on the POSITIVE `role === "teacher"`, so an identity still loading
+     hides the button rather than flashing it at an assistant and taking it
+     away. Default-closed, the same posture as the delegation gate itself. */
+  const { data: identity } = useGetIdentity<{ role?: string }>();
+  const canCreateGroup = identity?.role === "teacher";
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
     filters: [{ field: "teacherId", operator: "eq", value: "me" }],
@@ -59,6 +95,32 @@ export function TeacherClassesScreen() {
   useParamSeed("courseId", setSelectedId);
 
   const classes = (coursesResult?.data ?? []) as any[];
+
+  /* WHOSE GROUP IS THIS. A teacher's list mixes their OWN groups with every
+     centre's, and nothing on the row said which — the teacher's version of the
+     child-context problem the parent portal had. `courses` carries `centerId`
+     (NULL = teacher-direct, decision #2) and the free-text `location`;
+     `me/affiliations` carries each centre's name. Both are reads this portal
+     already makes. */
+  const { result: affiliationsResult } = useCustom<any[]>({
+    url: "me/affiliations",
+    method: "get",
+  });
+  const centerNames = useMemo(() => {
+    const map = new Map<string, string>();
+    // asArray, not `?? []`: refine returns a frozen `{}` placeholder while a
+    // useCustom query is idle, and iterating that throws.
+    for (const a of asArray<any>(affiliationsResult?.data)) {
+      if (a?.center?.id && a?.center?.name) map.set(a.center.id, a.center.name);
+    }
+    return map;
+  }, [affiliationsResult?.data]);
+
+  /** The centre's name, the teacher's own venue, or "your own group". */
+  const placeOf = (c: any): string =>
+    c?.centerId
+      ? (centerNames.get(c.centerId) ?? "")
+      : (c?.location?.trim() || t("teacher.yourGroup"));
 
   useEffect(() => {
     if (classes.length > 0 && !selectedId) {
@@ -75,213 +137,105 @@ export function TeacherClassesScreen() {
   const { mutate: cancelSessionMut, mutation: cancelMutation } = useCustomMutation();
   const { mutate: postponeSessionMut, mutation: postponeMutation } = useCustomMutation();
 
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [postponingId, setPostponingId] = useState<string | null>(null);
-  const [postponeDate, setPostponeDate] = useState<dayjs.Dayjs | null>(null);
-  const [postponeStart, setPostponeStart] = useState<dayjs.Dayjs | null>(null);
-  const [postponeEnd, setPostponeEnd] = useState<dayjs.Dayjs | null>(null);
-  const [postponeReason, setPostponeReason] = useState("");
+  /* CANCEL AND POSTPONE MOVED OUT OF THE TABLE CELL.
+     Postponing asked for a date, two times and a reason — six controls — and
+     rendered them INSIDE a table cell, which at 375px wrapped into an
+     unusable pile. Same endpoints, same required reason; a dialog is simply
+     where a four-field form belongs. */
+  const [editing, setEditing] = useState<
+    { mode: "cancel" | "postpone"; session: Session } | null
+  >(null);
+  const [reason, setReason] = useState("");
+  const [postponeDate, setPostponeDate] = useState("");
+  const [postponeStart, setPostponeStart] = useState("");
+  const [postponeEnd, setPostponeEnd] = useState("");
+
+  const closeEditor = () => {
+    setEditing(null);
+    setReason("");
+    setPostponeDate("");
+    setPostponeStart("");
+    setPostponeEnd("");
+  };
+
+  const openCancel = (s: Session) => {
+    setEditing({ mode: "cancel", session: s });
+    setReason("");
+  };
+
+  const openPostpone = (s: Session) => {
+    setEditing({ mode: "postpone", session: s });
+    setReason("");
+    setPostponeDate(dayjs(s.date).format("YYYY-MM-DD"));
+    setPostponeStart(s.startTime ?? "");
+    setPostponeEnd(s.endTime ?? "");
+  };
 
   const courseSessions = (sessionsResult?.data ?? []) as any[];
 
-  const handleCancelSession = async (session: any) => {
-    if (!cancelReason || !selectedId) return;
+  const today = todayKey();
+  /** Taught, but never closed — so the teacher's share was never credited. */
+  const isUnsettled = (s: Session) =>
+    platformDayKey(String(s.date)) < today &&
+    (s.status === "scheduled" || s.status === "postponed");
+
+  /* THE CHIP ALWAYS TELLS THE TRUTH; IT ONLY LINKS WHERE THE DOOR OPENS.
+     The register shows the last ATTENDANCE_WINDOW_DAYS days, so a link to an
+     older lesson lands the teacher on a list that cannot contain it. Measured
+     on dev: a group's session list runs back to June, and the first unsettled
+     chip on it was a June lesson — the link went nowhere and said nothing
+     about why. An unsettled lesson older than the window still shows its chip,
+     because the fact is true and the teacher should know it; it just is not
+     dressed as a destination. */
+  const isReachable = (s: Session) =>
+    dayjs(s.date).isAfter(dayjs().subtract(ATTENDANCE_WINDOW_DAYS, "day"));
+
+  const handleCancelSession = () => {
+    const s = editing?.session;
+    if (!s || !reason.trim()) return;
     cancelSessionMut(
       {
-        url: `sessions/${session.id || session._id}/cancel`,
+        url: `sessions/${s.id || s._id}/cancel`,
         method: "post",
-        values: { reason: cancelReason },
+        values: { reason: reason.trim() },
       },
       {
         onSuccess: () => {
-          setCancellingId(null);
-          setCancelReason("");
+          toast.success(t("teacher.saved"));
+          closeEditor();
+          sessionsQuery.refetch();
         },
-      }
+        onError: (err) =>
+          toast.error((err as { message?: string })?.message || t("teacher.actionFailed")),
+      },
     );
   };
 
-  const handlePostponeSession = async (session: any) => {
-    if (!postponeDate || !postponeStart || !postponeEnd || !postponeReason || !selectedId) return;
+  const handlePostponeSession = () => {
+    const s = editing?.session;
+    if (!s || !postponeDate || !postponeStart || !postponeEnd || !reason.trim()) return;
     postponeSessionMut(
       {
-        url: `sessions/${session.id || session._id}/postpone`,
+        url: `sessions/${s.id || s._id}/postpone`,
         method: "post",
         values: {
-          newDate: postponeDate.format("YYYY-MM-DD"),
-          newStartTime: postponeStart.format("HH:mm"),
-          newEndTime: postponeEnd.format("HH:mm"),
-          reason: postponeReason,
+          newDate: postponeDate,
+          newStartTime: postponeStart,
+          newEndTime: postponeEnd,
+          reason: reason.trim(),
         },
       },
       {
         onSuccess: () => {
-          setPostponingId(null);
-          setPostponeDate(null);
-          setPostponeStart(null);
-          setPostponeEnd(null);
-          setPostponeReason("");
+          toast.success(t("teacher.saved"));
+          closeEditor();
+          sessionsQuery.refetch();
         },
-      }
+        onError: (err) =>
+          toast.error((err as { message?: string })?.message || t("teacher.actionFailed")),
+      },
     );
   };
-
-  const selectedCourse = classes.find((c: any) => (c.id || c._id) === selectedId) || classes[0];
-
-  const sessionColumns: ColumnDef<Session>[] = [
-    {
-      id: "date",
-      header: t("teacher.date"),
-      cell: ({ row }) => {
-        const s = row.original;
-        return (
-          <span className="font-semibold">
-            {formatDate(s.date)} ({formatClockRange(s.startTime, s.endTime)})
-          </span>
-        );
-      },
-    },
-    {
-      id: "status",
-      header: t("teacher.status"),
-      cell: ({ row }) => {
-        const s = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            <StatusBadge tone={statusTones[s.status] ?? "neutral"}>
-              {t(asKey("status." + s.status))}
-            </StatusBadge>
-            {s.cancelReason && (
-              <span className="text-xs text-muted-foreground">{s.cancelReason}</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: t("teacher.actions"),
-      cell: ({ row }) => {
-        const s = row.original;
-        if (s.status !== "scheduled") return null;
-        const sid = s.id || s._id;
-
-        if (cancellingId === sid) {
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                placeholder={t("teacher.reason")}
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                className="h-8 w-32"
-              />
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => handleCancelSession(s)}
-                disabled={cancelMutation.isPending}
-              >
-                {cancelMutation.isPending ? <Spinner /> : null}
-                {t("actions.cancel")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setCancellingId(null);
-                  setCancelReason("");
-                }}
-              >
-                {t("teacher.abort")}
-              </Button>
-            </div>
-          );
-        }
-
-        if (postponingId === sid) {
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                type="date"
-                aria-label={t("teacher.date")}
-                value={postponeDate ? postponeDate.format("YYYY-MM-DD") : ""}
-                onChange={(e) =>
-                  setPostponeDate(e.target.value ? dayjs(e.target.value) : null)
-                }
-                className="h-8 w-auto"
-              />
-              <Input
-                type="time"
-                aria-label={t("teacher.start")}
-                value={postponeStart ? postponeStart.format("HH:mm") : ""}
-                onChange={(e) =>
-                  setPostponeStart(e.target.value ? dayjs(e.target.value, "HH:mm") : null)
-                }
-                className="h-8 w-auto"
-              />
-              <Input
-                type="time"
-                aria-label={t("teacher.end")}
-                value={postponeEnd ? postponeEnd.format("HH:mm") : ""}
-                onChange={(e) =>
-                  setPostponeEnd(e.target.value ? dayjs(e.target.value, "HH:mm") : null)
-                }
-                className="h-8 w-auto"
-              />
-              <Input
-                placeholder={t("teacher.reason")}
-                value={postponeReason}
-                onChange={(e) => setPostponeReason(e.target.value)}
-                className="h-8 w-32"
-              />
-              <Button
-                size="sm"
-                onClick={() => handlePostponeSession(s)}
-                disabled={postponeMutation.isPending}
-              >
-                {postponeMutation.isPending ? <Spinner /> : null}
-                {t("teacher.postpone")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setPostponingId(null);
-                  setPostponeDate(null);
-                  setPostponeStart(null);
-                  setPostponeEnd(null);
-                  setPostponeReason("");
-                }}
-              >
-                {t("teacher.abort")}
-              </Button>
-            </div>
-          );
-        }
-
-        return (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setPostponingId(sid);
-                setPostponeDate(dayjs(s.date));
-                setPostponeStart(dayjs(s.startTime, "HH:mm"));
-                setPostponeEnd(dayjs(s.endTime, "HH:mm"));
-              }}
-            >
-              {t("teacher.postpone")}
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => setCancellingId(sid)}>
-              {t("actions.cancel")}
-            </Button>
-          </div>
-        );
-      },
-    },
-  ];
 
   if (coursesQuery.isLoading && classes.length === 0) {
     return <PageSpinner label={t("teacher.loadingClasses")} />;
@@ -294,118 +248,339 @@ export function TeacherClassesScreen() {
   if (classes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
-        </div>
+        {canCreateGroup ? (
+          <div className="flex justify-end">
+            <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
+          </div>
+        ) : null}
         <EmptyState icon={BookOpen} title={t("teacher.noClasses")} />
       </div>
     );
   }
 
+  const selectedCourse =
+    classes.find((c: any) => (c.id || c._id) === selectedId) || classes[0];
+  const selectedPlace = placeOf(selectedCourse);
+  const unpriced =
+    !selectedCourse.pricePerMonth && !selectedCourse.pricePerSession;
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
-      </div>
+      {canCreateGroup ? (
+        <div className="flex justify-end">
+          <TeacherCreateGroupDialog onCreated={() => coursesQuery.refetch()} />
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-      <div className="flex flex-col gap-2 lg:col-span-1">
-        {classes.map((c: any, i: number) => {
-          const isSelected = selectedId === (c.id || c._id);
-          return (
-            <Card
-              key={c.id || c._id || i}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedId(c.id || c._id)}
-              className={cn(
-                "cursor-pointer gap-0 p-3 transition-colors",
-                isSelected
-                  ? "border-2 border-primary"
-                  : "border-2 border-border hover:border-primary/40"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <BookOpen className="size-4 shrink-0 text-primary" />
-                <div>
-                  <div className="font-semibold">{courseLabel(c)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span dir="ltr">
-                      {c.enrolledStudentsCount || 0}/{c.maxStudents}
-                    </span>{" "}
-                    {t("teacher.students")}
+        <div className="flex flex-col gap-2 lg:col-span-1">
+          {classes.map((c: any, i: number) => {
+            const isSelected = selectedId === (c.id || c._id);
+            const place = placeOf(c);
+            return (
+              <Card
+                key={c.id || c._id || i}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedId(c.id || c._id)}
+                className={cn(
+                  "cursor-pointer gap-0 p-3 transition-colors",
+                  isSelected
+                    ? "border-2 border-primary"
+                    : "border-2 border-border hover:border-primary/40"
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <BookOpen className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <div className="font-semibold">{courseLabel(c)}</div>
+                    {/* The attribution chip. A teacher at three centres could
+                        not tell one group's row from another's. */}
+                    {place ? (
+                      <div className="mt-1">
+                        <StatusBadge tone={c.centerId ? "info" : "neutral"}>
+                          {place}
+                        </StatusBadge>
+                      </div>
+                    ) : null}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      <span dir="ltr">
+                        {c.enrolledStudentsCount || 0}/{c.maxStudents}
+                      </span>{" "}
+                      {t("teacher.students")}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
 
-      <div className="flex flex-col gap-4 lg:col-span-3">
-        <Card>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-base font-bold">{courseLabel(selectedCourse)}</span>
-              <StatusBadge
-                tone={selectedCourse.status === "active" ? "success" : "neutral"}
-              >
-                {t(asKey("status." + selectedCourse.status))}
-              </StatusBadge>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              <span>{selectedCourse.roomName || t("teacher.tbd")}</span>
-              <span>
-                {selectedCourse.schedulePattern?.daysOfWeek
-                  ?.map((d: number) => dayNames[d] ?? d)
-                  .join(listSeparator) || t("teacher.tbd")}{" "}
-                ·{" "}
-                {formatClockRange(
-                  selectedCourse.schedulePattern?.startTime,
-                  selectedCourse.schedulePattern?.endTime,
+        <div className="flex flex-col gap-4 lg:col-span-3">
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-base font-bold">{courseLabel(selectedCourse)}</span>
+                <StatusBadge
+                  tone={selectedCourse.status === "active" ? "success" : "neutral"}
+                >
+                  {t(asKey("status." + selectedCourse.status))}
+                </StatusBadge>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {/* WHERE, in full: the centre (or the teacher's own venue)
+                    AND the hall. The screen used to print only the hall, which
+                    is meaningless across three buildings. */}
+                {selectedPlace ? (
+                  <span className="font-medium text-foreground">{selectedPlace}</span>
+                ) : null}
+                <span>{selectedCourse.roomName || t("teacher.tbd")}</span>
+                <span>
+                  {selectedCourse.schedulePattern?.daysOfWeek
+                    ?.map((d: number) => dayNames[d] ?? d)
+                    .join(listSeparator) || t("teacher.tbd")}{" "}
+                  ·{" "}
+                  {formatClockRange(
+                    selectedCourse.schedulePattern?.startTime,
+                    selectedCourse.schedulePattern?.endTime,
+                  )}
+                </span>
+                <span>
+                  <span dir="ltr">
+                    {selectedCourse.enrolledStudentsCount || 0}/
+                    {selectedCourse.maxStudents}
+                  </span>{" "}
+                  {t("teacher.students")}
+                </span>
+              </div>
+              <Progress
+                value={Math.round(
+                  ((selectedCourse.enrolledStudentsCount || 0) /
+                    selectedCourse.maxStudents) *
+                    100
                 )}
-              </span>
-              <span>
-                <span dir="ltr">
-                  {selectedCourse.enrolledStudentsCount || 0}/
-                  {selectedCourse.maxStudents}
-                </span>{" "}
-                {t("teacher.students")}
-              </span>
-            </div>
-            <Progress
-              value={Math.round(
-                ((selectedCourse.enrolledStudentsCount || 0) /
-                  selectedCourse.maxStudents) *
-                  100
-              )}
-            />
-            {!selectedCourse.pricePerMonth && !selectedCourse.pricePerSession ? (
-              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
-                {t("teacher.unpricedNotice")}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("nav.sessions")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessionsQuery.isLoading ? (
-              <PageSpinner />
-            ) : (
-              <DataTable
-                columns={sessionColumns}
-                data={courseSessions}
-                pageSize={courseSessions.length || 1}
-                emptyState={t("teacher.noSessions")}
               />
+
+              {/* The group named a problem and offered nothing to do about it.
+                  These two go where the work is. */}
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/dashboard/teacher/attendance">
+                    <CheckSquare className="size-4" />
+                    {t("teacher.openRegister")}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={`/dashboard/teacher/grades?courseId=${selectedCourse.id || selectedCourse._id}`}
+                  >
+                    <GraduationCap className="size-4" />
+                    {t("nav.gradebook")}
+                  </Link>
+                </Button>
+              </div>
+
+              {/* HONEST PER CONTEXT. The old copy said "until the CENTRE sets a
+                  price" for every group — including a teacher-direct one, which
+                  has no centre by design, so it named a party that does not
+                  exist and left the teacher with nowhere to go. A teacher
+                  cannot edit any course today (courses/[id] PATCH is
+                  center_admin only), so neither branch may promise a screen. */}
+              {unpriced ? (
+                <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+                  {selectedCourse.centerId
+                    ? t("teacher.unpricedCenter")
+                    : t("teacher.unpricedOwn")}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("nav.sessions")}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-0">
+              {sessionsQuery.isLoading ? (
+                <PageSpinner />
+              ) : courseSessions.length === 0 ? (
+                <div className="px-6">
+                  <EmptyState title={t("teacher.noSessions")} />
+                </div>
+              ) : (
+                <ul className="divide-y divide-border border-y border-border">
+                  {courseSessions.map((s: any) => {
+                    const sid = s.id || s._id;
+                    return (
+                      <li
+                        key={sid}
+                        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">
+                            {formatDate(s.date, {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {" · "}
+                            {formatClockRange(s.startTime, s.endTime)}
+                          </span>
+                          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <StatusBadge tone={statusTones[s.status] ?? "neutral"}>
+                              {t(asKey("status." + s.status))}
+                            </StatusBadge>
+                            {/* Money already earned and not yet credited. */}
+                            {isUnsettled(s) ? (
+                              isReachable(s) ? (
+                                <Link href={`/dashboard/teacher/attendance?sessionId=${sid}`}>
+                                  <StatusBadge tone="warning">
+                                    {t("teacher.notClosedYet")}
+                                  </StatusBadge>
+                                </Link>
+                              ) : (
+                                <StatusBadge tone="warning">
+                                  {t("teacher.notClosedYet")}
+                                </StatusBadge>
+                              )
+                            ) : null}
+                            {s.cancelReason ? (
+                              <span className="text-xs text-muted-foreground">
+                                {s.cancelReason}
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
+                        {s.status === "scheduled" ? (
+                          <span className="flex shrink-0 items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openPostpone(s)}
+                            >
+                              {t("teacher.postpone")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openCancel(s)}
+                            >
+                              {t("actions.cancel")}
+                            </Button>
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Dialog open={!!editing} onOpenChange={(open) => (open ? null : closeEditor())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editing?.mode === "cancel"
+                ? t("teacher.cancelSessionTitle")
+                : t("teacher.postponeSessionTitle")}
+            </DialogTitle>
+          </DialogHeader>
+
+          {editing ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {formatDate(editing.session.date, {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+                {" · "}
+                {formatClockRange(editing.session.startTime, editing.session.endTime)}
+              </p>
+
+              {editing.mode === "postpone" ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="postpone-date">{t("teacher.date")}</Label>
+                    <Input
+                      id="postpone-date"
+                      type="date"
+                      value={postponeDate}
+                      onChange={(e) => setPostponeDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="postpone-start">{t("teacher.start")}</Label>
+                    <Input
+                      id="postpone-start"
+                      type="time"
+                      value={postponeStart}
+                      onChange={(e) => setPostponeStart(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="postpone-end">{t("teacher.end")}</Label>
+                    <Input
+                      id="postpone-end"
+                      type="time"
+                      value={postponeEnd}
+                      onChange={(e) => setPostponeEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <Label htmlFor="session-reason">{t("teacher.reason")}</Label>
+                <Input
+                  id="session-reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={t("teacher.reason")}
+                />
+                {/* The reason stays REQUIRED — it is what a student and a
+                    parent are told when a lesson moves or disappears. */}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("teacher.reasonRequired")}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEditor}>
+              {t("teacher.abort")}
+            </Button>
+            {editing?.mode === "cancel" ? (
+              <Button
+                variant="destructive"
+                disabled={!reason.trim() || cancelMutation.isPending}
+                onClick={handleCancelSession}
+              >
+                {cancelMutation.isPending ? <Spinner /> : null}
+                {t("actions.cancel")}
+              </Button>
+            ) : (
+              <Button
+                disabled={
+                  !reason.trim() ||
+                  !postponeDate ||
+                  !postponeStart ||
+                  !postponeEnd ||
+                  postponeMutation.isPending
+                }
+                onClick={handlePostponeSession}
+              >
+                {postponeMutation.isPending ? <Spinner /> : null}
+                {t("teacher.postpone")}
+              </Button>
             )}
-          </CardContent>
-        </Card>
-      </div>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

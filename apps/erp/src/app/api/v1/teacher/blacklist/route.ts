@@ -1,15 +1,17 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { delegated } from "@/lib/authz/teacher-actor";
-import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { listTeacherBlacklist, teacherBlacklistStudent } from "@/lib/services/blacklist/blacklist";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  const user = await requireRole("teacher");
+/**
+ * T-2: `delegated()`, matching its own POST below — the same GET/PATCH
+ * inversion attendance-mode had. An assistant who may ADD to the teacher's
+ * blacklist could not LIST it, which made the write surface unbuildable.
+ */
+export const GET = delegated(async (_req, _ctx, { acting: user }) => {
   return ok(await listTeacherBlacklist(user.id));
 });
 

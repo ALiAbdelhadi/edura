@@ -29,12 +29,40 @@ subscription engine — not by adding a second money path. Nothing was rebuilt.
    money code — widening it would have changed the meaning of every one of them.
    One extra column the student ledger has no use for: `beneficiary_student_id`,
    naming WHICH child a spend was for.
-5. **A parent top-up writes NO Payment row** — it is a float deposit by a
-   guardian, not a center/teacher receipt. Its receipt number lives on the
-   Transaction and the ledger row's `ref_number`. That is why
-   `payments.student_id` stayed NOT NULL while `payment_intents.student_id`
-   became nullable (guarded by CHECK `payment_intents_student_required` so the
-   NULL can only ever mean `purpose = 'parent_wallet_topup'`).
+5. **~~A parent top-up writes NO Payment row~~ — REVERSED 2026-08-20 (Ali).**
+
+   > **What this said, and why it is no longer true.** The original reasoning:
+   > a top-up is a float deposit by a guardian, not a center/teacher receipt, so
+   > its receipt number lives on the Transaction and the ledger row's
+   > `ref_number` — and that is why `payments.student_id` stayed NOT NULL while
+   > `payment_intents.student_id` became nullable (guarded by CHECK
+   > `payment_intents_student_required`).
+   >
+   > It broke its own promise in practice. The settler still MINTED a receipt
+   > number and announced it — "Receipt RCP-EDURA-2026-00042 has been issued" —
+   > while `sendPaymentReceiptEmail` looked it up, found no `payments` row and
+   > returned `no_payment_row`. The parent held a number nothing could produce
+   > (PARENT_IA_AUDIT.md §7.1 finding 4). The student online top-up had been
+   > writing a Payment row the whole time, so the parent path was also the only
+   > inconsistent one.
+   >
+   > **Now:** the parent top-up writes Payment + Transaction + ledger row in one
+   > transaction — the same trio `topUpWalletCash` has always written at the
+   > cash desk. `payments.student_id` is nullable, guarded by CHECK
+   > `payments_student_required` so a NULL can only ever mean *payer set, no
+   > center, no course* — the shape of a float deposit and nothing else.
+   > Migration `20260820200000_parent_topup_receipt`.
+   >
+   > **The money model is UNCHANGED.** `center_id` and `course_id` stay NULL, so
+   > no center's revenue report, P&L, payout or statement sees a piaster of it,
+   > and the Transaction still records the float direction it always did
+   > (parent → NULL, no center). What changed is the receipt, not the money.
+   >
+   > One read rule follows from it: **whoever PAID owns the receipt**
+   > (`getPayment`), which is the rule `getIntentForStudent` already applied to
+   > intents. It grants a payer their own row and nothing about a child — a
+   > child's own payments carry a NULL payer, and reading a child still goes
+   > through the approved-link check, unchanged.
 6. **Ownership of an intent = who is PAYING it.** A student for their own, a
    parent for the ones they funded. A parent is deliberately NOT given their
    child's own checkout intents — that is the child's, and parent oversight is a

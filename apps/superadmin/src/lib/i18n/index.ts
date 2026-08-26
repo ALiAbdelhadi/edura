@@ -3,19 +3,11 @@ import ar from "@/messages/ar.json";
 
 import adminHomeEn from "@/messages/en/admin-home.json";
 import adminManageEn from "@/messages/en/admin-manage.json";
-import teacherEn from "@/messages/en/teacher.json";
-import studentEn from "@/messages/en/student.json";
-import studentClassEn from "@/messages/en/student-class.json";
-import parentEn from "@/messages/en/parent.json";
 import sharedEn from "@/messages/en/shared.json";
 import catalogEn from "@/messages/en/catalog.json";
 import onboardingEn from "@/messages/en/onboarding.json";
 import adminHomeAr from "@/messages/ar/admin-home.json";
 import adminManageAr from "@/messages/ar/admin-manage.json";
-import teacherAr from "@/messages/ar/teacher.json";
-import studentAr from "@/messages/ar/student.json";
-import studentClassAr from "@/messages/ar/student-class.json";
-import parentAr from "@/messages/ar/parent.json";
 import sharedAr from "@/messages/ar/shared.json";
 import catalogAr from "@/messages/ar/catalog.json";
 import onboardingAr from "@/messages/ar/onboarding.json";
@@ -26,12 +18,8 @@ export const DEFAULT_LOCALE: Locale = "ar";
 
 const enMerged = {
   ...en,
-  ...studentEn,
-  ...parentEn,
   adminHome: adminHomeEn,
   adminManage: adminManageEn,
-  teacher: teacherEn,
-  studentClass: studentClassEn,
   shared: sharedEn,
   catalog: catalogEn,
   onboarding: onboardingEn,
@@ -41,12 +29,8 @@ export type Messages = typeof enMerged;
 
 const arMerged = {
   ...ar,
-  ...studentAr,
-  ...parentAr,
   adminHome: adminHomeAr,
   adminManage: adminManageAr,
-  teacher: teacherAr,
-  studentClass: studentClassAr,
   shared: sharedAr,
   catalog: catalogAr,
   onboarding: onboardingAr,

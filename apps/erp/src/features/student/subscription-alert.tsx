@@ -6,8 +6,8 @@ import { CalendarClock } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { asArray } from "@/lib/refine/as-array";
 import { LedgerButton, Sheet } from "@/features/student/ledger";
-import { mostUrgent, type SubscriptionRow } from "@/features/student/subscriptions";
-import { useCoverageWords } from "@/features/student/subscription-state-chip";
+import { mostUrgent, type SubscriptionRow } from "@/features/subscriptions/subscription-state";
+import { useCoverageWords } from "@/features/subscriptions/subscription-state-chip";
 
 /**
  * "اشتراكك في الكيميا بيخلص بعد ٣ أيام" — on the home screen, and nowhere else.
@@ -33,6 +33,9 @@ import { useCoverageWords } from "@/features/student/subscription-state-chip";
  */
 export function SubscriptionAlert() {
   const t = useTranslations("studentSubscriptions");
+  // "جدّد" says nothing about who; it lives with the rest of the neutral
+  // subscription vocabulary under `shared.subscriptions`.
+  const tShared = useTranslations("shared.subscriptions");
   const words = useCoverageWords();
   const { result } = useCustom({ url: "me/subscriptions", method: "get" });
 
@@ -69,7 +72,7 @@ export function SubscriptionAlert() {
 
       <div className="flex shrink-0 flex-wrap gap-2">
         <LedgerButton variant="primary" asChild>
-          <Link href="/dashboard/student/subjects">{t("renew")}</Link>
+          <Link href="/dashboard/student/subjects">{tShared("renew")}</Link>
         </LedgerButton>
         <LedgerButton asChild>
           <Link href="/dashboard/student/subscriptions">{t("alertOpen")}</Link>

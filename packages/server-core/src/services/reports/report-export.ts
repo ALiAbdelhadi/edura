@@ -78,7 +78,8 @@ export type ReportExportKey =
   | "revenue-by-course"
   | "course-fill-rates"
   | "attendance-by-course"
-  | "enrollment-funnel";
+  | "enrollment-funnel"
+  | "shift-reconciliation";
 
 type LoadArgs = {
   user: SessionUser;
@@ -262,6 +263,48 @@ export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
           { key: "count", header: { ar: "العدد", en: "Count" }, type: "number" },
         ],
         rows: r.items.map((i) => ({ status: i.status, count: i.count })),
+      };
+    },
+  },
+
+  // Phase 2 (revenue-operations spec §2.4): the drawer reconciliation. Runs
+  // listShiftReconciliation — the SAME function the shifts screen reads — so
+  // the export can never be a second set of books.
+  "shift-reconciliation": {
+    tier: "accountant",
+    title: { ar: "تسوية الورديات والدرج", en: "Shift and drawer reconciliation" },
+    load: async ({ user, from, to }) => {
+      const { listShiftReconciliation } = await import("../center/shifts");
+      const rows = await listShiftReconciliation(user, { from, to });
+      return {
+        columns: [
+          { key: "openedAt", header: { ar: "فُتحت", en: "Opened" }, type: "text" },
+          { key: "closedAt", header: { ar: "أُقفلت", en: "Closed" }, type: "text" },
+          { key: "staffName", header: { ar: "الموظف", en: "Staff" }, type: "text" },
+          { key: "openingFloat", header: { ar: "رصيد البداية", en: "Opening float" }, type: money() },
+          { key: "cashNet", header: { ar: "صافي الكاش", en: "Cash net" }, type: money() },
+          { key: "expectedCash", header: { ar: "المتوقع في الدرج", en: "Expected cash" }, type: money() },
+          { key: "countedCash", header: { ar: "المعدود", en: "Counted cash" }, type: money() },
+          { key: "variance", header: { ar: "الفرق", en: "Variance" }, type: money() },
+          { key: "bankNet", header: { ar: "بنكي (إنستاباي + POS)", en: "Bank (InstaPay + POS)" }, type: money() },
+          { key: "providerNet", header: { ar: "محافظ الموبايل", en: "Mobile wallets" }, type: money() },
+          { key: "note", header: { ar: "ملاحظة", en: "Note" }, type: "text" },
+        ],
+        rows: rows.map((r) => ({
+          // ISO strings — ExportColumn has no date type; text keeps the CSV
+          // unambiguous and sortable.
+          openedAt: r.openedAt.toISOString(),
+          closedAt: r.closedAt ? r.closedAt.toISOString() : "",
+          staffName: r.staffName,
+          openingFloat: r.openingFloat,
+          cashNet: r.cashNet,
+          expectedCash: r.expectedCash,
+          countedCash: r.countedCash,
+          variance: r.variance,
+          bankNet: r.bankNet,
+          providerNet: r.providerNet,
+          note: r.note,
+        })),
       };
     },
   },

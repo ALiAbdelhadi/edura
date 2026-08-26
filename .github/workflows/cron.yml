@@ -52,7 +52,7 @@ jobs:
         run: |
           case "${{ github.event.schedule }}" in
             "0 * * * *")  JOBS="expire-payment-intents,data-exports,lesson-reminders" ;;
-            "30 1 * * *") JOBS="expire-subscriptions,expire-collaboration-requests,guardian-contact-reminders" ;;
+            "30 1 * * *") JOBS="expire-subscriptions,subscription-renewal-reminders,expire-collaboration-requests,guardian-contact-reminders" ;;
             "0 2 * * 0")  JOBS="weekly-center-digest" ;;
             "0 3 1 * *")  JOBS="month-end-statements" ;;
             *)            JOBS="${{ inputs.jobs }}" ;;

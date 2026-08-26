@@ -95,6 +95,11 @@ type Labels = {
   note: string;
   systemGenerated: string;
   print: string;
+  /** Phase 1: the payment-method row. `methods` maps enum value -> label; a
+   *  method with no label (or a NULL method — an `unknown` row) renders no
+   *  row at all: an admitted gap, never a guess. */
+  method: string;
+  methods: Record<string, string>;
 };
 
 export function ReceiptSheet({
@@ -135,6 +140,12 @@ export function ReceiptSheet({
   }
   if (doc.course) {
     rows.push({ label: labels.course, value: <span className="text-ink">{doc.course.title}</span> });
+  }
+  if (doc.paymentMethod && labels.methods[doc.paymentMethod]) {
+    rows.push({
+      label: labels.method,
+      value: <span className="text-ink">{labels.methods[doc.paymentMethod]}</span>,
+    });
   }
   rows.push({
     label: labels.issuer,

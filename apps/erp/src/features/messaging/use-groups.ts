@@ -1,15 +1,7 @@
 "use client";
 
-// Group-channel state. Deliberately simpler than useChat: channels are
-// announcement-shaped (owner_only by default), so there is no typing
-// indicator, no presence and no read receipts — just a thread, unread counts
-// and mute. Posting goes over REST; recipients get a push notification.
-//
-// Membership is never computed here. The server derives it live from the class
-// roster on every read and every post, so this hook only renders what it is
-// handed — `canPost` included.
-import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
+import { useCallback, useEffect, useState } from "react";
 import type { Envelope } from "./chat-types";
 
 export type WireGroup = {
@@ -74,10 +66,6 @@ export function useGroups() {
       setGroups(res.data);
       setError(null);
     } catch {
-      // The catch was already here, but it recorded nothing — so a failed load
-      // rendered as "no channels yet", which claims this user has none when we
-      // never found out. `open` has always set `load_failed`; the list needs to
-      // say it too.
       setGroups([]);
       setError("load_failed");
     } finally {

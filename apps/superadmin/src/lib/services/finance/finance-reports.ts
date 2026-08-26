@@ -205,6 +205,7 @@ export function financeAlerts() {
       pendingPayouts,
       negativeTeacherWallets,
       negativeCenterWallets,
+      centersInCreditArrears,
       largeRefunds,
     ] = await Promise.all([
       tx.payout.aggregate({
@@ -214,6 +215,8 @@ export function financeAlerts() {
       }),
       tx.teacherProfile.count({ where: { walletBalance: { lt: 0 } } }),
       tx.center.count({ where: { walletBalance: { lt: 0 } } }),
+      // Phase 4 (D4): centers in credit arrears — the platform's receivables.
+      tx.center.count({ where: { creditBalance: { lt: 0 } } }),
       tx.transaction.count({
         where: { type: "refund", amount: { gt: 5000000 } },
       }),
@@ -245,6 +248,13 @@ export function financeAlerts() {
         code: "negative_center_wallets",
         message: `${negativeCenterWallets} center wallets are negative`,
         value: negativeCenterWallets,
+      });
+    if (centersInCreditArrears > 0)
+      alerts.push({
+        level: "warning",
+        code: "centers_credit_arrears",
+        message: `${centersInCreditArrears} centers owe the platform (credit arrears)`,
+        value: centersInCreditArrears,
       });
     if (largeRefunds > 0)
       alerts.push({

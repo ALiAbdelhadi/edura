@@ -1,6 +1,3 @@
-// Client-side chat types: the domain wire types (@repo/database — type-only
-// imports, nothing runtime crosses into the browser bundle) with Date fields
-// re-typed as the ISO strings they become over JSON, plus local-only UI state.
 import type {
   ContactView,
   ConversationView,

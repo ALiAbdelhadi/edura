@@ -22,7 +22,12 @@
     "notePaidByParent": "Subscription ({plan}, {method}) — paid by parent",
     "systemGenerated": "System-generated document — no signature required. Amounts in Egyptian pounds.",
     "print": "Print / Save as PDF",
-    "download": "Download receipt"
+    "download": "Download receipt",
+    "method": "Payment method",
+    "methodInstapay": "InstaPay",
+    "methodPosCard": "Card (POS)",
+    "methodMobileWallet": "Mobile wallet",
+    "methodWalletBalance": "Wallet balance"
   },
   "centerAudit": {
     "title": "Audit log",

@@ -7,12 +7,11 @@ import {
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../../services/notifications/notify";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
+import { lessonClosed, lockSessionRow } from "./lesson-lock";
 import { readStudentScan } from "../students/student-qr";
 import { Prisma } from "@repo/database";
 import {
-  literalFragments,
   matchesSearchTerms,
-  narrowFragments,
   normalizeIdentifier,
   normalizeSearchText,
   searchTerms,
@@ -154,8 +153,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
     // the query that survive normalization unchanged and can therefore be
     // compared byte-wise; `matchesSearchTerms` then makes the real decision.
     const terms = searchTerms(query);
-    const frags = literalFragments(query);
-    const narrow = <W,>(on: (needle: string) => W[]) => narrowFragments(frags, on);
 
     const reach: Prisma.StudentProfileWhereInput[] = [
       ...(code ? [{ studentCode: code }] : []),
@@ -165,16 +162,27 @@ export async function lookupStudents(q: string, admin: SessionUser) {
             { user: { phone: { contains: phone } } },
           ]
         : []),
+      // The free-text branch narrows on the `search_text` columns — the
+      // profile's own (full_name + phone) and the user row's (name + email +
+      // phone) — either of which may carry the match, hence the OR.
+      //
+      // AND THE JS PASS BELOW STILL DECIDES, which is not belt-and-braces: the
+      // haystack this lookup matches on spans TWO TABLES, and a generated
+      // column cannot reference another one. A query naming the student by
+      // their user-row name and their profile phone satisfies the joined
+      // haystack `matchesSearchTerms` builds, and satisfies NEITHER column
+      // alone. So this OR is a pre-filter that cannot miss such a row — every
+      // term appears somewhere — and JS makes the actual decision.
       ...(ourStudentIds.length
         ? [
             {
               userId: { in: ourStudentIds },
-              AND: narrow((f) => [
-                { phone: { contains: f } },
-                { fullName: { contains: f, mode: "insensitive" as const } },
-                { user: { name: { contains: f, mode: "insensitive" as const } } },
-                { user: { phone: { contains: f } } },
-              ]),
+              AND: terms.map((t) => ({
+                OR: [
+                  { searchText: { contains: t } },
+                  { user: { searchText: { contains: t } } },
+                ],
+              })),
             },
           ]
         : []),
@@ -355,13 +363,32 @@ export async function counterCheckin(
 
   const { result, crossCenterNotify } = await platformDb(
     async (tx) => {
+      // Phase 0: serialize against settlement, then act on committed truth —
+      // see lesson-lock.ts for the interleaving this closes.
+      await lockSessionRow(tx, input.sessionId);
       const session = await tx.session.findUnique({
         where: { id: input.sessionId },
-        select: { id: true, courseId: true, teacherId: true, date: true, status: true },
+        select: {
+          id: true,
+          courseId: true,
+          teacherId: true,
+          date: true,
+          status: true,
+          distributedAt: true,
+        },
       });
       if (!session) throw new NotFoundError("Session not found");
       if (session.status === "cancelled") {
         throw new BusinessRuleError("Session is cancelled");
+      }
+      // Phase 0: "إنهاء الحصة" closes the counter register immediately. Before
+      // this, a counter check-in landed on a SETTLED lesson — a student the
+      // money was never computed for.
+      if (lessonClosed(session)) {
+        throw new BusinessRuleError(
+          "This lesson has ended — the counter register is closed",
+          { code: "session_closed" },
+        );
       }
       const course = await tx.course.findUnique({
         where: { id: session.courseId },
@@ -489,20 +516,28 @@ export async function counterCheckin(
 // Door: assistant (teacher fallback) — strictly after counter
 // ---------------------------------------------------------------------------
 
-export type DoorOutcome = "present" | "already_present" | "no_counter" | "error";
+export type DoorOutcome = "present" | "already_present" | "no_counter" | "settled" | "error";
 
 /** Shared transition, used by the door route AND the offline sync path. */
 export async function doorTransitionTx(
   tx: TenantTx,
   input: { studentId: string; sessionId: string; actorId: string; teacherId: string; at?: Date },
 ): Promise<{ outcome: DoorOutcome; reason?: string }> {
+  // Phase 0: serialize against settlement — see lesson-lock.ts.
+  await lockSessionRow(tx, input.sessionId);
   const session = await tx.session.findUnique({
     where: { id: input.sessionId },
-    select: { teacherId: true },
+    select: { teacherId: true, status: true, distributedAt: true },
   });
   if (!session) return { outcome: "error", reason: "session_not_found" };
   if (session.teacherId !== input.teacherId) {
     return { outcome: "error", reason: "not_your_session" };
+  }
+  // Phase 0: the worst of the five doors this closes — the door flip promotes
+  // `counter_only` (deliberately excluded from distribution) to `present`, so
+  // doing it AFTER settlement rewrites the fact the money already ignored.
+  if (lessonClosed(session)) {
+    return { outcome: "settled", reason: "session_closed" };
   }
 
   const record = await tx.attendanceRecord.findUnique({
@@ -570,6 +605,11 @@ export async function doorCheckin(
       if (res.outcome === "no_counter") {
         throw new BusinessRuleError(
           "Student has not been checked in at the counter — door check-in requires the counter first",
+        );
+      }
+      if (res.outcome === "settled") {
+        throw new BusinessRuleError(
+          "This lesson has ended — the door register is closed",
         );
       }
       if (res.outcome === "error") {

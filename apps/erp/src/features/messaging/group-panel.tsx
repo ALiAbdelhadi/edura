@@ -1,17 +1,5 @@
 "use client";
 
-// Group-channel pane — the "Channels" tab of the messages screen. Same visual
-// language as the 1:1 pane (list + thread + composer) so the two tabs read as
-// one product.
-//
-// Two things the UI states explicitly, because they are the whole point of the
-// derived-membership model:
-//   - the member count is described as coming FROM the class roster, not from
-//     a hand-picked list;
-//   - when the channel is announcement-only, the composer is replaced by a
-//     plain explanation instead of a disabled box with no reason given.
-
-
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -260,13 +248,11 @@ function GroupThread({
           )}
         </div>
       </ScrollArea>
-
       {ctl.error === "rate_limited" ? (
         <div className="border-t border-rule bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
           {t("chat.rateLimited")}
         </div>
       ) : null}
-
       {group.canPost ? (
         <div className="border-t border-rule bg-sheet p-4">
           <div className="flex items-center gap-2">
@@ -296,7 +282,6 @@ function GroupThread({
           </div>
         </div>
       ) : (
-        // Explain WHY, rather than showing a dead disabled input.
         <div className="border-t border-rule bg-rule-2 p-4 text-center text-xs text-ink-2">
           {t("chat.channels.readOnly")}
         </div>

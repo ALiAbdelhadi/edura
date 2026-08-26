@@ -23,6 +23,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Eye, MessageSquare, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api/client";
+import { useChildSelector } from "@/components/ui/child-selector";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -104,7 +105,23 @@ function DisclosureStrip({ children }: { children: React.ReactNode }) {
 export function OversightScreen() {
   const t = useTranslations();
   const [children, setChildren] = useState<Async<Child[]>>(LOADING);
-  const [child, setChild] = useState<Child | null>(null);
+  const { childId: contextChildId, setChildId } = useChildSelector();
+  /**
+   * "Back to the children" — the ONE reason this screen shows its grid while a
+   * child is selected everywhere else in the portal.
+   *
+   * ── WHY THIS SCREEN NO LONGER OWNS THE CHOICE ─────────────────────────
+   *
+   * It used to hold `child` in its own state, so it was the portal's SECOND
+   * way of saying which child: a parent picked يوسف on Attendance, opened Child
+   * Safety, and was handed a two-card chooser starting from nothing. The
+   * choice now lives in the portal's child context, and this screen reads it —
+   * which is also what makes the switcher above the page work here.
+   *
+   * The grid is not lost. It is the entry when the selected child cannot be
+   * monitored, and it is where "back" returns.
+   */
+  const [browsing, setBrowsing] = useState(false);
 
   const load = useCallback(async () => {
     setChildren(LOADING);
@@ -122,6 +139,25 @@ export function OversightScreen() {
     void load();
   }, [load]);
 
+  // Switching child in the context bar re-opens the reading view: the parent
+  // asked for a different child, not for the chooser.
+  useEffect(() => {
+    setBrowsing(false);
+  }, [contextChildId]);
+
+  /**
+   * A verified ADULT child is deliberately absent from this lookup, not merely
+   * filtered out of the view. `isMinor` is the server's answer, and when it is
+   * false there is no thread to open at any permission — so the grid renders,
+   * carrying that child as a non-card with the reason. See `ChildrenList`.
+   */
+  const monitored =
+    children.status === "ok"
+      ? (children.data.find((c) => c.studentId === contextChildId && c.isMinor) ??
+        null)
+      : null;
+  const child = browsing ? null : monitored;
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -131,9 +167,19 @@ export function OversightScreen() {
       />
 
       {child ? (
-        <ChildConversations child={child} onBack={() => setChild(null)} />
+        <ChildConversations child={child} onBack={() => setBrowsing(true)} />
       ) : (
-        <ChildrenList state={children} onPick={setChild} onRetry={load} />
+        <ChildrenList
+          state={children}
+          // Picking here sets the PORTAL's child, not a local copy — so
+          // Attendance, Fees and Pay follow the parent out of this screen
+          // rather than silently staying on whoever was selected before.
+          onPick={(c) => {
+            setChildId(c.studentId);
+            setBrowsing(false);
+          }}
+          onRetry={load}
+        />
       )}
     </div>
   );

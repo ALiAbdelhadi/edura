@@ -23,10 +23,6 @@ import type {
 
 const PAGE_SIZE = 50;
 
-/**
- * Ack codes that mean "the server decided no". Retrying over REST cannot change
- * any of them — same authorization module, same rate-limit buckets.
- */
 const TERMINAL_SEND_CODES = new Set([
   "rate_limited",
   "blocked",
@@ -36,7 +32,6 @@ const TERMINAL_SEND_CODES = new Set([
   "invalid_body",
 ]);
 
-/** Whether a parent can view the open thread (see chat-oversight.ts). */
 export type OversightNotice = {
   monitored: boolean;
   minorParticipantId: string | null;
@@ -96,27 +91,16 @@ export function useChat(meId: string) {
   const [status, setStatus] = useState<ChatConnectionStatus>("connecting");
   const [conversations, setConversations] = useState<WireConversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
-  /**
-   * Whether the LAST list load failed. Two things depended on this existing.
-   * The loaders below are all reached as floating `void load()` calls — the
-   * mount effect and the socket's reconnect handler — so a rejection had no
-   * catch anywhere and became an unhandled rejection: a bare
-   * "Runtime TimeoutError" on the dev overlay, and nothing at all in
-   * production. And with the failure swallowed, the list fell through to the
-   * "no conversations yet" empty state, which tells the user their account is
-   * empty when the truth is that we do not know.
-   */
+
   const [conversationsError, setConversationsError] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, UiMessage[]>>({});
   const [hasOlder, setHasOlder] = useState<Record<string, boolean>>({});
   const [threadLoading, setThreadLoading] = useState(false);
-  /** Same reasoning as `conversationsError`, for the open thread. */
   const [threadError, setThreadError] = useState(false);
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [typingIn, setTypingIn] = useState<Record<string, boolean>>({});
   const [oversight, setOversight] = useState<OversightNotice | null>(null);
-  /** Last send rejection worth surfacing ("rate_limited" | "blocked"). */
   const [sendBlock, setSendBlock] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
@@ -126,9 +110,6 @@ export function useChat(meId: string) {
   );
   activeIdRef.current = activeId;
 
-  // ---------------------------------------------------------------------
-  // REST loaders
-  // ---------------------------------------------------------------------
   const refreshConversations = useCallback(async () => {
     try {
       const res = await api
@@ -137,11 +118,6 @@ export function useChat(meId: string) {
       setConversations(sortConversations(res.data));
       setConversationsError(false);
     } catch {
-      // Never rethrow: every caller is a floating `void refreshConversations()`
-      // (mount, socket reconnect, an unknown conversation arriving), so a
-      // rejection here has nowhere to go but the unhandled-rejection channel.
-      // Keep whatever list we already had — a failed refresh is not evidence
-      // the conversations are gone — and let the UI say the load failed.
       setConversationsError(true);
     } finally {
       setConversationsLoading(false);
@@ -164,11 +140,8 @@ export function useChat(meId: string) {
             oversight: OversightNotice;
           }>
         >();
-      // Disclosure state travels with the thread so the banner can never be
-      // out of date relative to the messages being shown.
       setOversight(res.data.oversight ?? null);
       setMessages((prev) => {
-        // Keep any local pending messages that are still in flight.
         const pending = (prev[conversationId] ?? []).filter((m) => m.pending);
         return {
           ...prev,
@@ -189,10 +162,6 @@ export function useChat(meId: string) {
         return sortConversations(next);
       });
     } catch {
-      // Reached as `void loadThread(...)` from openConversation and from the
-      // socket's reconnect resync — same unhandled-rejection channel as the
-      // list. An empty thread and a thread we failed to fetch are not the same
-      // thing, and the reader is the one who has to know which.
       setThreadError(true);
     } finally {
       setThreadLoading(false);
@@ -221,9 +190,6 @@ export function useChat(meId: string) {
     [messages],
   );
 
-  // ---------------------------------------------------------------------
-  // Read marking (socket first, REST fallback — both fan receipts out)
-  // ---------------------------------------------------------------------
   const markRead = useCallback((conversationId: string) => {
     setConversations((prev) =>
       prev.map((c) =>
@@ -240,9 +206,6 @@ export function useChat(meId: string) {
     }
   }, []);
 
-  // ---------------------------------------------------------------------
-  // Socket lifecycle
-  // ---------------------------------------------------------------------
   useEffect(() => {
     let disposed = false;
     let socket: Socket | null = null;
@@ -255,14 +218,6 @@ export function useChat(meId: string) {
         .get("realtime/token")
         .json<Envelope<{ token: string; url: string }>>();
 
-    /**
-     * socket.io does NOT retry when the server's auth middleware rejects the
-     * handshake — it flips `socket.active` to false and stays down for good. So
-     * one transient hiccup (an expired session, a token request that lost a
-     * race with a server restart) left the socket dead until a full page
-     * reload, showing "reconnecting" while nothing was reconnecting. Retry
-     * those ourselves, with a capped backoff.
-     */
     const scheduleManualReconnect = () => {
       if (disposed || retryTimer) return;
       retryTimer = setTimeout(() => {
@@ -273,7 +228,6 @@ export function useChat(meId: string) {
       }, retryDelay);
     };
 
-    /** Network came back / the tab was resumed — attempt immediately. */
     const wake = () => {
       if (disposed || !socket || socket.connected) return;
       if (retryTimer) {
@@ -292,14 +246,12 @@ export function useChat(meId: string) {
         const first = await fetchToken();
         if (first.data.url) url = resolveRealtimeUrl(first.data.url);
       } catch {
-        // Session missing or endpoint down — socket auth callback will retry.
       }
       if (disposed) return;
 
       socket = io(url, {
         transports: ["websocket"],
         reconnectionDelayMax: 10_000,
-        // Called on EVERY (re)connection attempt → always a fresh token.
         auth: (cb) => {
           fetchToken()
             .then((res) => cb({ token: res.data.token }))
@@ -308,9 +260,6 @@ export function useChat(meId: string) {
       });
       socketRef.current = socket;
 
-      // Mobile suspends the tab (and silently kills the socket) whenever the
-      // app is backgrounded; these two events are what actually fire on the way
-      // back, so they drive the reconnect instead of waiting on a ping timeout.
       const onVisible = () => {
         if (document.visibilityState === "visible") wake();
       };
@@ -324,7 +273,6 @@ export function useChat(meId: string) {
       socket.on("connect", () => {
         retryDelay = 1000;
         setStatus("online");
-        // Resync anything missed while disconnected.
         void refreshConversations();
         const active = activeIdRef.current;
         if (active) void loadThread(active);
@@ -332,7 +280,6 @@ export function useChat(meId: string) {
       socket.on("disconnect", () => setStatus("offline"));
       socket.on("connect_error", () => {
         setStatus("offline");
-        // `active === false` ⇒ the server denied us; socket.io has stopped.
         if (socket && !socket.active) scheduleManualReconnect();
       });
 
@@ -342,7 +289,7 @@ export function useChat(meId: string) {
         const isActive = activeIdRef.current === msg.conversationId;
 
         setMessages((prev) => {
-          if (!(msg.conversationId in prev)) return prev; // thread not loaded
+          if (!(msg.conversationId in prev)) return prev;
           return {
             ...prev,
             [msg.conversationId]: insertMessage(
@@ -398,7 +345,6 @@ export function useChat(meId: string) {
 
       socket.on("conversation:read", (ev: ConversationReadEvent) => {
         if (ev.readerId === meId) {
-          // Another of my tabs read it — clear the badge here too.
           setConversations((prev) =>
             prev.map((c) =>
               c.id === ev.conversationId ? { ...c, unreadCount: 0 } : c,
@@ -406,7 +352,6 @@ export function useChat(meId: string) {
           );
           return;
         }
-        // Partner read my messages.
         setMessages((prev) => {
           const list = prev[ev.conversationId];
           if (!list) return prev;
@@ -470,9 +415,6 @@ export function useChat(meId: string) {
     };
   }, [meId, refreshConversations, loadThread, markRead]);
 
-  // ---------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------
   const openConversation = useCallback(
     (conversationId: string) => {
       setActiveId(conversationId);
@@ -566,10 +508,6 @@ export function useChat(meId: string) {
                 finalize(ack.message as unknown as WireMessage);
                 return;
               }
-              // A REFUSAL is final — REST runs the same authorization and the
-              // same shared rate-limit buckets, so retrying there would just
-              // burn a second call and report the same answer. Only transport
-              // failures fall back.
               const code = !err && ack && !ack.ok ? ack.code : undefined;
               if (code && TERMINAL_SEND_CODES.has(code)) {
                 if (code === "rate_limited" || code === "blocked") {

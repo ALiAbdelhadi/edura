@@ -29,7 +29,7 @@ export const POST = withErrors(async (req, ctx) => {
     throw new BusinessRuleError("mock-complete is only available when PAYMENTS_MODE=mock");
   }
 
-  const user = await requireRole("student", "parent");
+  const user = await requireRole("student", "parent", "center_admin");
   const { id } = await ctx.params;
   const { outcome } = await parseJson(req, bodySchema);
 
@@ -43,7 +43,12 @@ export const POST = withErrors(async (req, ctx) => {
     (user.role === "student" &&
       intent.payerUserId === null &&
       intent.studentId === user.id) ||
-    (user.role === "parent" && intent.payerUserId === user.id);
+    (user.role === "parent" && intent.payerUserId === user.id) ||
+    // Phase 4: a center owner completing their own credit top-up.
+    (user.role === "center_admin" &&
+      intent.purpose === "center_credit_topup" &&
+      intent.payerUserId === user.id &&
+      intent.centerId === user.centerId);
   if (!owns) throw new ForbiddenError();
   if (!intent.gatewayOrderId) {
     throw new BusinessRuleError("Intent has no gateway order yet");

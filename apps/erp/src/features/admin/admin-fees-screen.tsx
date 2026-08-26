@@ -50,9 +50,11 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { useParamSeed } from "@/lib/api/use-param-seed";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Amount, Badge, Computation, DateText, Eyebrow, FinalityNotice, Num, PageHead, Sheet, SheetHead, TwoStepCommit, postMoney, readApiError } from "./ledger";
+import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -77,6 +79,13 @@ export function AdminFeesScreen() {
   // strings kept in sync with a dayjs tuple). The field speaks YYYY-MM-DD, which
   // is already the query's language, so nothing is converted here at all.
   const [range, setRange] = useState<DateKeyRange>(EMPTY_RANGE);
+  // Arrived from «اتحصّل النهاردة» on the home: land on the SAME rows that
+  // figure summed, rather than on the whole log with the day still to pick.
+  // A total you cannot open is a claim; a total whose rows you can read is a
+  // record. Seeds once and then leaves the operator's own edits alone — see
+  // `useParamSeed`.
+  useParamSeed("from", (v) => setRange((r) => ({ ...r, from: v })));
+  useParamSeed("to", (v) => setRange((r) => ({ ...r, to: v })));
   const dateQuery = useMemo(
     () => ({
       ...(range.from ? { from: range.from } : {}),
@@ -117,9 +126,66 @@ export function AdminFeesScreen() {
 
   // Center wallet + withdraw (Step 4.5).
   const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
+  // Phase 4 (D4): the center<->platform credit position.
+  const { query: creditQuery, result: creditRes } = useCustom({ url: "center/credit", method: "get" });
   const { query: centerPayoutsQuery, result: centerPayoutsRes } = useCustom({ url: "center/wallet/payouts", method: "get" });
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [withdrawEgp, setWithdrawEgp] = useState("");
+
+  const centerCredit = ((creditRes as { data?: unknown })?.data ?? null) as
+    | { creditBalance: number; entries: { id: string; type: string; delta: number; balanceAfter: number; reason: string | null; createdAt: string }[] }
+    | null;
+  const [creditTopupEgp, setCreditTopupEgp] = useState("");
+  const [creditBusy, setCreditBusy] = useState(false);
+  const [creditMockIntent, setCreditMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
+
+  const initiateCreditTopup = async () => {
+    const egp = Number(creditTopupEgp);
+    if (!Number.isFinite(egp) || egp < 10) {
+      toast.error(t("adminManage.fees.creditTopupInvalid"));
+      return;
+    }
+    setCreditBusy(true);
+    try {
+      const intent = await postMoney<{ id: string; amount: number; checkout?: { url?: string } }>(
+        "center/credit/topup",
+        {
+          amount: Math.round(egp * 100),
+          method: "card",
+          idempotencyKey: `cctop-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        },
+      );
+      if (intent?.checkout?.url?.includes("mock-checkout")) {
+        setCreditMockIntent({ intentId: intent.id, amount: intent.amount });
+      } else if (intent?.checkout?.url) {
+        goToCheckout(intent.checkout.url);
+      }
+    } catch (err) {
+      const e = await readApiError(err);
+      toast.error(e.message || t("adminManage.fees.creditTopupFailed"));
+    } finally {
+      setCreditBusy(false);
+    }
+  };
+
+  const completeCreditMock = async () => {
+    if (!creditMockIntent) return;
+    setCreditBusy(true);
+    try {
+      await postMoney(`payments/intents/${creditMockIntent.intentId}/mock-complete`, {
+        outcome: "success",
+      });
+      toast.success(t("adminManage.fees.creditTopupDone"));
+      setCreditMockIntent(null);
+      setCreditTopupEgp("");
+      creditQuery.refetch();
+    } catch (err) {
+      const e = await readApiError(err);
+      toast.error(e.message || t("adminManage.fees.creditTopupFailed"));
+    } finally {
+      setCreditBusy(false);
+    }
+  };
 
   const centerWallet = walletRes?.data as
     | { balance: number; available: number; pendingPayouts?: { count: number; amount: number } }
@@ -296,6 +362,8 @@ export function AdminFeesScreen() {
         studentId: z.string().min(1, t("adminManage.fees.selectStudentRequired")),
         courseId: z.string().min(1, t("adminManage.fees.selectClassRequired")),
         amount: z.number({ error: t("adminManage.fees.enterAmountRequired") }),
+        // Phase 1: how the desk took the money. Cash preselected.
+        paymentMethod: z.enum(["cash", "instapay", "pos_card", "mobile_wallet"]),
       }),
     [t],
   );
@@ -306,6 +374,7 @@ export function AdminFeesScreen() {
     studentId: "",
     courseId: "",
     amount: undefined as unknown as number,
+    paymentMethod: "cash",
   };
 
   const form = useForm<FormValues>({
@@ -426,6 +495,7 @@ export function AdminFeesScreen() {
     studentId: string;
     courseId: string;
     amount: number;
+    paymentMethod: "cash" | "instapay" | "pos_card" | "mobile_wallet";
   }) => {
     const amountPiastres = Math.round(Number(values.amount) * 100);
     if (!Number.isFinite(amountPiastres) || amountPiastres <= 0) {
@@ -439,6 +509,7 @@ export function AdminFeesScreen() {
         studentId: values.studentId,
         courseId: values.courseId,
         amount: amountPiastres,
+        paymentMethod: values.paymentMethod,
       });
       setIsFormOpen(false);
       form.reset(defaultValues);
@@ -561,7 +632,7 @@ export function AdminFeesScreen() {
             locale={locale}
             className={cn(
               "text-[13px] font-semibold",
-              isRefundRow(record) ? "text-[var(--red)]" : "text-[var(--teal)]",
+              isRefundRow(record) ? "text-destructive" : "text-[var(--teal)]",
             )}
           />
         );
@@ -628,7 +699,7 @@ export function AdminFeesScreen() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-[var(--red)]"
+            className="text-destructive"
             onClick={() => openRefund(row.original)}
           >
             <Undo2 className="size-4" aria-hidden />
@@ -675,7 +746,7 @@ export function AdminFeesScreen() {
               <Amount
                 piasters={-expenses}
                 locale={locale}
-                className="text-[15px] text-[var(--red)]"
+                className="text-[15px] text-destructive"
               />
             </div>
             <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
@@ -729,7 +800,7 @@ export function AdminFeesScreen() {
               <Amount
                 piasters={-(centerWallet?.pendingPayouts?.amount ?? 0)}
                 locale={locale}
-                className="text-[15px] text-[var(--red)]"
+                className="text-[15px] text-destructive"
               />
             </div>
             <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
@@ -774,6 +845,92 @@ export function AdminFeesScreen() {
             </div>
           ) : null}
         </Sheet>
+
+        {/* Phase 4 (D4): the center<->platform CREDIT position. Separate from
+            the wallet above on purpose — wallet_balance is platform-held money
+            owed TO the center; this is the two-way position the settlement
+            debits land on. Negative = arrears. */}
+        <Sheet>
+          <SheetHead title={t("adminManage.fees.creditTitle")} />
+          <div className="flex flex-col p-[18px]">
+            <div className="flex items-baseline justify-between gap-3 pb-3.5">
+              <span className="text-[13px] text-[var(--ink-2)]">
+                {t("adminManage.fees.creditBalance")}
+              </span>
+              <Amount
+                piasters={centerCredit?.creditBalance ?? 0}
+                locale={locale}
+                className={
+                  (centerCredit?.creditBalance ?? 0) < 0
+                    ? "text-[17px] font-semibold text-destructive"
+                    : "text-[17px] font-semibold text-[var(--money)]"
+                }
+              />
+            </div>
+            {(centerCredit?.creditBalance ?? 0) < 0 ? (
+              <p className="m-0 mb-3 text-[12.5px] leading-relaxed text-destructive">
+                {t("adminManage.fees.creditArrearsHint")}
+              </p>
+            ) : null}
+            {creditMockIntent ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-[var(--rule)] bg-[var(--field)] p-3">
+                <span className="text-[13px] text-[var(--ink-2)]">
+                  {t("adminManage.fees.creditMockConfirm", {
+                    amount: formatEGP(creditMockIntent.amount, { decimals: true }),
+                  })}
+                </span>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={creditBusy} onClick={() => void completeCreditMock()}>
+                    {t("adminManage.fees.creditMockPay")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setCreditMockIntent(null)}>
+                    {t("actions.cancel")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label htmlFor="credit-topup" className="mb-1 block text-[12px] text-[var(--ink-2)]">
+                    {t("adminManage.fees.creditTopupAmount")}
+                  </label>
+                  <Input
+                    id="credit-topup"
+                    type="number"
+                    min={10}
+                    step="0.01"
+                    inputMode="decimal"
+                    dir="ltr"
+                    className="num h-10"
+                    placeholder="1000"
+                    value={creditTopupEgp}
+                    onChange={(e) => setCreditTopupEgp(e.target.value)}
+                  />
+                </div>
+                <Button className="h-10" disabled={creditBusy} onClick={() => void initiateCreditTopup()}>
+                  {t("adminManage.fees.creditTopup")}
+                </Button>
+              </div>
+            )}
+            {(centerCredit?.entries?.length ?? 0) > 0 ? (
+              <div className="mt-4 border-t border-[var(--rule)] pt-2">
+                <Eyebrow>{t("adminManage.fees.creditLedger")}</Eyebrow>
+                {centerCredit!.entries.slice(0, 6).map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center justify-between gap-3 border-b border-[var(--rule-2)] py-2 last:border-b-0"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-[var(--ink-2)]">
+                      {e.reason ?? e.type}
+                    </span>
+                    <Amount piasters={e.delta} locale={locale} className="text-[13px]" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </Sheet>
+
       </div>
 
       <Dialog
@@ -906,7 +1063,7 @@ export function AdminFeesScreen() {
                 id="refund-amount-hint"
                 className={cn(
                   "mt-1 text-[12px]",
-                  refundExceeds ? "text-[var(--red)]" : "text-[var(--ink-3)]",
+                  refundExceeds ? "text-destructive" : "text-[var(--ink-3)]",
                 )}
               >
                 {refundExceeds
@@ -1207,6 +1364,48 @@ export function AdminFeesScreen() {
                           );
                         }}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("shared.checkin.methodLabel")}</FormLabel>
+                    <FormControl>
+                      {/* Phase 1: same four counter channels as the check-in
+                          desk — big targets, one always selected. */}
+                      <div className="grid grid-cols-2 gap-2" role="radiogroup">
+                        {(["cash", "instapay", "pos_card", "mobile_wallet"] as const).map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            role="radio"
+                            aria-checked={field.value === m}
+                            onClick={() => field.onChange(m)}
+                            className={cn(
+                              "h-10 rounded-lg border text-[13px] font-medium transition-colors",
+                              field.value === m
+                                ? "border-(--ink) bg-(--ink) text-(--paper)"
+                                : "border-(--rule) bg-(--sheet) text-(--ink-2)",
+                            )}
+                          >
+                            {t(
+                              m === "cash"
+                                ? "shared.checkin.methodCash"
+                                : m === "instapay"
+                                  ? "shared.checkin.methodInstapay"
+                                  : m === "pos_card"
+                                    ? "shared.checkin.methodPosCard"
+                                    : "shared.checkin.methodMobileWallet",
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

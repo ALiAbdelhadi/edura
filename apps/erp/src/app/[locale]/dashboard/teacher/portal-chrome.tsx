@@ -24,7 +24,7 @@ const navGroups = [
       { href: "/dashboard/teacher/attendance", icon: "check", label: "Attendance", tour: "nav-attendance" },
       { href: "/dashboard/teacher/door", icon: "check", label: "Door Check-in", tour: "nav-door" },
       { href: "/dashboard/teacher/grades", icon: "chart", label: "Gradebook", tour: "nav-grades" },
-      { href: "/dashboard/teacher/materials", icon: "book", label: "Materials", tour: "nav-materials" },
+      { href: "/dashboard/teacher/materials", icon: "book", label: "Teacher Materials", tour: "nav-materials" },
       // Reviews are what students wrote about these lessons — the teaching
       // group is where a teacher is already looking when they wonder.
       { href: "/dashboard/teacher/reviews", icon: "star", label: "Reviews" },
@@ -70,16 +70,27 @@ const navGroups = [
 ];
 
 /**
- * First four = the thumb slots, chosen by what a teacher opens while standing
+ * First FIVE = the thumb slots, chosen by what a teacher opens while standing
  * in a hall. The tail is the sidebar's order, so the "more" sheet and the
  * sidebar never disagree. Every href is listed — the bar is the phone's only
  * navigation.
+ *
+ * WHY THE WALLET IS UP HERE. This portal holds a teacher's income, and the
+ * wallet sat in the "more" sheet: two taps and a scroll to the answer to
+ * "امتى أقدر أسحب؟". The centre owner's bar seats the payments log on exactly
+ * this argument. It takes the fifth slot rather than displacing anything,
+ * which is what the sixth target buys.
+ *
+ * GRADES STAYS IN "MORE", deliberately. Marking is a sit-down batch task done
+ * in the evening, not a between-lessons reach, and the home screen's hero now
+ * links straight into the register a teacher wants while standing up.
  */
 const BAR_ORDER = [
   "/dashboard/teacher",
   "/dashboard/teacher/attendance",
   "/dashboard/teacher/classes",
   "/dashboard/teacher/door",
+  "/dashboard/teacher/wallet",
   // — the "more" sheet, in sidebar order —
   "/dashboard/teacher/grades",
   "/dashboard/teacher/materials",
@@ -87,7 +98,6 @@ const BAR_ORDER = [
   "/dashboard/teacher/centers",
   "/dashboard/teacher/team",
   "/dashboard/teacher/notes",
-  "/dashboard/teacher/wallet",
   "/dashboard/teacher/messages",
   "/dashboard/teacher/notifications",
   "/dashboard/teacher/tour",
@@ -104,6 +114,7 @@ export default function PortalChrome({
       role="teacher"
       navGroups={navGroups}
       bottomNav={BAR_ORDER}
+      bottomNavMaxVisible={6}
     >
       {children}
     </DashboardShell>

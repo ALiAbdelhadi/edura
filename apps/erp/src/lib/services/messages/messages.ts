@@ -118,6 +118,49 @@ export function getUnreadTotal(user: SessionUser) {
   return run(user, (tx) => chat.getTotalUnread(tx, user.id));
 }
 
+/**
+ * B.1#11 — the unread counts, finally served. `getUnreadTotal` above existed
+ * with ZERO callers while three portals' phone bars had no badge and the
+ * student dashboard once shipped a hardcoded `unreadMessages: 0` (removed
+ * rather than faked — this is the real read that removal note promised).
+ *
+ * `messages` = the caller's own denormalized per-conversation counters summed.
+ * `notifications` = the caller's unread notification rows.
+ * `children` (parents only) = each approved child's OWN unread-message total —
+ * for MINORS under oversight only, exactly the population whose conversations
+ * the parent can already open (`chat-oversight` shows minors and refuses adult
+ * children). An adult child answers `null`, not 0: the parent is told nothing,
+ * which is different from "nothing unread". THIS ADDS NO REACH — a count over
+ * conversations the role already reads, same rule as global search.
+ *
+ * What this deliberately does NOT do: attribute the PARENT's own unread
+ * messages to a child. Conversations carry no student context in the schema,
+ * so "which child does this message concern" is not derivable — inventing an
+ * attribution would repeat the «الرسوم المستحقة» mistake.
+ */
+export function getUnreadCounts(user: SessionUser) {
+  return run(user, async (tx) => {
+    const [messages, notifications] = await Promise.all([
+      chat.getTotalUnread(tx, user.id),
+      tx.notification.count({ where: { userId: user.id, readAt: null } }),
+    ]);
+
+    let children: { studentId: string; unreadMessages: number | null }[] | null = null;
+    if (user.role === "parent") {
+      const kids = await oversight.listOversightChildren(tx, user.id);
+      children = [];
+      for (const kid of kids) {
+        children.push({
+          studentId: kid.studentId,
+          unreadMessages: kid.isMinor ? await chat.getTotalUnread(tx, kid.studentId) : null,
+        });
+      }
+    }
+
+    return { messages, notifications, children };
+  });
+}
+
 export async function sendMessage(
   user: SessionUser,
   input: {

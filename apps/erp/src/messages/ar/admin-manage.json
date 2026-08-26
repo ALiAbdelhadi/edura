@@ -244,7 +244,18 @@
     "refundFinality": "الاسترداد قيد جديد في الدفتر ولا يُحذف — الإيصال الأصلي يظل ظاهرًا كما هو، ويُضاف تحته قيد بالسالب. لا يمكن التراجع، ويصل إشعار للطالب وولي أمره.",
     "refundArm": "استرداد {amount}",
     "refundConfirmFinal": "تأكيد نهائي — اضغط لتسجيل الاسترداد",
-    "refundDone": "تم تسجيل الاسترداد"
+    "refundDone": "تم تسجيل الاسترداد",
+    "creditTitle": "رصيد المنصة (الائتمان)",
+    "creditBalance": "الرصيد الحالي",
+    "creditArrearsHint": "رصيدك بالسالب — مستحقات المنصة وأنصبة المدرسين على المحصّل نقديًا تُخصم من هنا. اشحن الرصيد لتسوية المتأخرات.",
+    "creditTopupAmount": "مبلغ الشحن (ج.م)",
+    "creditTopup": "شحن الرصيد",
+    "creditTopupInvalid": "أدخل مبلغًا من 10 ج.م على الأقل",
+    "creditTopupFailed": "لم يكتمل الشحن — أعد المحاولة.",
+    "creditTopupDone": "تم شحن الرصيد",
+    "creditMockConfirm": "وضع المحاكاة: تأكيد دفع {amount}؟",
+    "creditMockPay": "تأكيد الدفع (محاكاة)",
+    "creditLedger": "آخر الحركات"
   },
   "expenses": {
     "categories": {
@@ -313,7 +324,8 @@
     "export_expenses": "المصروفات حسب البند",
     "export_course_fill_rates": "نسبة إشغال المجموعات",
     "export_attendance_by_course": "الحضور حسب المجموعة",
-    "export_enrollment_funnel": "مسار طلبات التسجيل"
+    "export_enrollment_funnel": "مسار طلبات التسجيل",
+    "export_shift_reconciliation": "تسوية الورديات والدرج"
   },
   "enroll": {
     "title": "طلبات التسجيل",

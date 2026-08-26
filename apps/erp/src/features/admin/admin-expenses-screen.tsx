@@ -229,7 +229,7 @@ export function AdminExpensesScreen() {
         <Amount
           piasters={-(r.amount ?? 0)}
           locale={locale}
-          className="text-[13px] font-semibold text-[var(--red)]"
+          className="text-[13px] font-semibold text-destructive"
         />
       ),
     },
@@ -256,7 +256,7 @@ export function AdminExpensesScreen() {
                 and still confirms. */}
             <ConfirmDialog
               trigger={
-                <Button variant="ghost" size="sm" className="text-[var(--red)]">
+                <Button variant="ghost" size="sm" className="text-destructive">
                   <Trash2 className="size-4" />
                   {t("actions.delete")}
                 </Button>
@@ -316,7 +316,7 @@ export function AdminExpensesScreen() {
                 <Amount
                   piasters={-total}
                   locale={locale}
-                  className="text-[17px] font-semibold text-[var(--red)]"
+                  className="text-[17px] font-semibold text-destructive"
                 />
               </div>
             </Sheet>

@@ -8,35 +8,15 @@ import { Num } from "./num";
 import { EmptyState, ErrorState } from "./primitives";
 
 export type Column<T> = {
-  /** Stable key. Also the fallback accessible name if `header` is not a string. */
   id: string;
-  /**
-   * REQUIRED, and required to be non-empty. The old registrations queue shipped
-   * three columns with `header: ""`, so date and actions had no accessible name.
-   * If a column is visually headerless, pass the name and set `srOnly`.
-   */
   header: React.ReactNode;
-  /** Hide the header visually but keep it for assistive tech. */
   srOnly?: boolean;
-  /** Uppercase the header (Latin strings only — Arabic must never be transformed). */
   latin?: boolean;
-  /** End-align. Numeric columns are ALWAYS end-aligned; text columns start. */
   numeric?: boolean;
   cell: (row: T) => React.ReactNode;
   width?: string;
 };
 
-/**
- * DataTable — the Ledger table.
- *
- * Density is a prop, not a fork, because /dashboard/admin/** and
- * /dashboard/staff/** render the SAME screen components: admin is `compact` at a
- * desk, staff is `touch` at a counter. Two components would fork ~6,900 lines.
- * The `touch` values live in ledger.css (48px targets, 16px type, 12px gaps).
- *
- * Density is inherited from the `.led` wrapper's data-density by default; pass
- * `density` only to override for one table.
- */
 export function DataTable<T>({
   columns,
   rows,
@@ -64,7 +44,6 @@ export function DataTable<T>({
   pageSize?: number;
   total?: number;
   onPageChange?: (page: number) => void;
-  /** Accessible description of the table as a whole. */
   caption?: React.ReactNode;
 }) {
   const t = useTranslations();
@@ -146,14 +125,12 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-
       {paginated ? (
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--rule)] bg-[var(--field)] px-[18px] py-3">
-          <Num className="text-[11px] text-[var(--ink-3)]">
+        <div className="flex items-center justify-between gap-3 border-t border-(--rule) bg-(--field) px-4.5 py-3">
+          <Num className="text-[11px] text-(--ink-3)">
             {from}–{to} / {total}
           </Num>
           <div className="flex items-center gap-1.5">
-            {/* aria-labels are localized. They were hard-coded English. */}
             <PagerButton
               label={t("actions.previousPage")}
               disabled={page <= 1}
@@ -173,7 +150,6 @@ export function DataTable<T>({
   );
 }
 
-/** Chevrons are directional: they mirror in RTL. Lock/shield/clock do not. */
 function PagerButton({
   label,
   disabled,
@@ -193,9 +169,9 @@ function PagerButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex size-7 items-center justify-center rounded-md border border-[var(--rule)] bg-[var(--sheet)] text-[var(--ink-2)]",
+        "flex size-7 items-center justify-center rounded-md border border-(--rule) bg-(--sheet) text-(--ink-2)",
         "disabled:opacity-40",
-        !disabled && "hover:bg-[var(--rule-2)]",
+        !disabled && "hover:bg-(--rule-2)",
       )}
     >
       <Icon className="size-4 rtl:-scale-x-100" />

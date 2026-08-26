@@ -26,11 +26,12 @@ import {
   Sheet,
 } from "@/features/student/ledger";
 import { newIdempotencyKey } from "@/features/student/idempotency";
+import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
-import { stateBySubject, type SubscriptionRow } from "@/features/student/subscriptions";
-import { SubscriptionStateChip } from "@/features/student/subscription-state-chip";
+import { stateBySubject, type SubscriptionRow } from "@/features/subscriptions/subscription-state";
+import { SubscriptionStateChip } from "@/features/subscriptions/subscription-state-chip";
 
 type CatalogSubject = { id: string; code: string; nameAr: string; nameEn: string };
 
@@ -146,7 +147,11 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
-        window.open(intent.checkout.url, "_blank");
+        // Was `window.open(url, "_blank")`. Called after the await above it
+        // sits outside the click's gesture stack and mobile Safari blocks it —
+        // the student pressed subscribe and nothing happened, with no error.
+        // See lib/payments/checkout-redirect.ts.
+        goToCheckout(intent.checkout.url);
       }
     } catch (err: any) {
       toast.error(err?.message || t("studentSubjects.checkoutFailed"));

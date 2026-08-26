@@ -37,9 +37,13 @@ half-migrated.
 
 1. **Add the new names alongside the old ones.** Do not remove anything yet.
 
-   ```bash
-   bash scripts/add-better-auth-env-to-vercel.sh
-   ```
+   > `scripts/add-better-auth-env-to-vercel.sh` used to do this in one shot; it
+   > was retired in the 2026-08-26 cleanup — it targeted the Vercel projects
+   > deleted on 2026-08-19. The estate still runs on the OLD names (the
+   > `.env-*` sheets from `scripts/gen-vercel-env.py` carry `NEXTAUTH_*`,
+   > which the code accepts). To perform this cutover now: add the new names
+   > via the dashboard or `vercel env add`, or extend gen-vercel-env.py's
+   > per-app allowlists with the new keys.
 
    | Old | New |
    |---|---|

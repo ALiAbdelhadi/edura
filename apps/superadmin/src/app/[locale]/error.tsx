@@ -36,7 +36,7 @@ export default function ErrorPage({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--paper)] px-6 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--red-soft)] text-[var(--red)]">
+      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--red-soft)] text-destructive">
         <AlertTriangle className="size-7" />
       </div>
       <h1 className="text-2xl font-bold text-[var(--ink)]">{t("errorTitle")}</h1>

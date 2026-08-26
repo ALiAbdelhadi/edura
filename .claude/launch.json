@@ -92,6 +92,54 @@
         "3097"
       ],
       "port": 3097
+    },
+    {
+      "name": "edura-erp-attendance",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-attendance",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3096"
+      ],
+      "port": 3096
+    },
+    {
+      "name": "edura-erp-counter",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-counter",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3094"
+      ],
+      "port": 3094
+    },
+    {
+      "name": "edura-erp-settle",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_DIST_DIR=.next-settle",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3095"
+      ],
+      "port": 3095
     }
   ]
 }

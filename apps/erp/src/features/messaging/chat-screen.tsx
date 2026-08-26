@@ -6,13 +6,12 @@ import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
 import { useGetIdentity } from "@refinedev/core";
-
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card } from "@repo/ui/components/card";
 import { ConfirmDialog } from "@repo/ui/components/confirm-dialog";
-import { toast } from "@repo/ui/components/sonner";
+import { ConnectionBanner } from "@repo/ui/components/connection-banner";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +28,10 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { SearchInput } from "@repo/ui/components/search-input";
+import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { cn } from "@repo/ui/lib/utils";
 import { AlertCircle, Ban, Check, CheckCheck, ChevronUp, Clock3, Eye, Flag, MessageSquare, MoreVertical, Plus, Send, ShieldAlert, User } from "lucide-react";
-import { ConnectionBanner } from "@repo/ui/components/connection-banner";
 import { useTranslations } from "next-intl";
 import {
   useCallback,
@@ -68,18 +67,11 @@ function ChatScreenInner({ meId }: { meId: string }) {
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
-      {/* The shared strip owns this state for every surface that can lose a
-          socket. `connecting` is deliberately mapped to `connected` rather than
-          to `reconnecting`: every mount passes through it, so surfacing it would
-          flash a warning on a healthy load — and a banner that appears when
-          nothing is wrong is one people learn to ignore. Only a socket that has
-          actually dropped is worth interrupting for. */}
       <ConnectionBanner
         state={chat.status === "offline" ? "offline" : "connected"}
         unavailable={t("chat.connectionLost")}
         stillWorks={t("chat.connectionStillWorks")}
       />
-
       <div className="flex items-center gap-1 border-b border-border px-3 pt-3">
         <TabButton
           active={tab === "direct"}
@@ -93,7 +85,6 @@ function ChatScreenInner({ meId }: { meId: string }) {
           badge={groupUnread}
         />
       </div>
-
       <div className="grid h-[calc(100vh-250px)] min-h-140 grid-cols-1 md:grid-cols-3">
         {tab === "direct" ? (
           <>
@@ -140,9 +131,6 @@ function TabButton({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Conversation list (left pane)
-// ---------------------------------------------------------------------------
 function ConversationList({
   chat,
   meId,
@@ -165,9 +153,6 @@ function ConversationList({
             <Spinner />
           </div>
         ) : chat.conversationsError && chat.conversations.length === 0 ? (
-          // A failed load is NOT an empty inbox. Saying "no conversations yet"
-          // here would claim we know the account is empty when the fetch never
-          // answered — the same lie `EmptyState`'s `error` tone exists to stop.
           <div className="p-6">
             <EmptyState
               icon={MessageSquare}
@@ -290,9 +275,6 @@ function ConversationListItem({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Thread pane (right pane): header + ScrollArea of messages + composer
-// ---------------------------------------------------------------------------
 function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
   const t = useTranslations();
 
@@ -366,10 +348,6 @@ function ThreadPane({ chat, meId }: { chat: ChatController; meId: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Block / report. Both are server-enforced in the single authorization module;
-// this menu is only the entry point.
-// ---------------------------------------------------------------------------
 function SafetyMenu({
   conversationId,
   partnerId,
@@ -392,14 +370,6 @@ function SafetyMenu({
         json: { userId: partnerId, conversationId: conversationId ?? undefined },
       });
     } catch {
-      // An uncaught rejection here told the user nothing, so a block that never
-      // reached the server was indistinguishable from one that did. Someone who
-      // believes they have blocked a contact and has not is exactly who this
-      // feature exists for.
-      //
-      // It was a `window.alert`, which is modal, unstyled, and carries the
-      // browser's own OK button in the browser's language. A toast is the
-      // surface this app already uses for a failed write everywhere else.
       toast.error(t("chat.blockFailed"));
     } finally {
       setBusy(false);
@@ -431,18 +401,12 @@ function SafetyMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
       <ReportDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
         conversationId={conversationId}
         partnerId={partnerId}
       />
-
-      {/* A block is reversible, so this is the one-press <ConfirmDialog> rather
-          than <TwoStepCommit>. It is CONTROLLED because the action is reached
-          from a dropdown item, which cannot also be an AlertDialog trigger
-          without the two Radix layers fighting over focus. */}
       <ConfirmDialog
         open={blockOpen}
         onOpenChange={setBlockOpen}
@@ -506,10 +470,6 @@ function ReportDialog({
       });
       setSent(true);
     } catch {
-      // `void submit()` — an uncaught rejection here left the button spinning
-      // back to idle with no word either way, so a report that never reached
-      // the platform looked identical to one that did. On a child-safety
-      // surface that silence is the worst possible outcome.
       setFailed(true);
     } finally {
       setSending(false);
@@ -588,14 +548,10 @@ function MessageThread({ chat, meId }: { chat: ChatController; meId: string }) {
   const restoreAnchor = useRef<{ height: number; top: number } | null>(null);
   const conversationId = chat.activeId;
 
-  // Auto-scroll to the latest message — on open, and on new messages while
-  // the user is already near the bottom (don't yank them while reading old
-  // history).
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
     if (restoreAnchor.current) {
-      // Older page was prepended: keep the user's position stable.
       viewport.scrollTop =
         viewport.scrollHeight -
         restoreAnchor.current.height +
@@ -631,9 +587,6 @@ function MessageThread({ chat, meId }: { chat: ChatController; meId: string }) {
     try {
       await chat.loadOlder(conversationId);
     } catch {
-      // An async onClick handler that rejects is an unhandled rejection, same
-      // as the loaders in useChat. The page keeps whatever it already had; the
-      // button is simply available to press again.
       restoreAnchor.current = null;
     } finally {
       setLoadingOlder(false);
@@ -732,7 +685,6 @@ function MessageBubble({
           msg.failed && "opacity-70",
         )}
       >
-
         <div
           className={cn(
             "wrap-break-word whitespace-pre-wrap",
@@ -771,10 +723,6 @@ function DeliveryTicks({ message: msg }: { message: UiMessage }) {
   return <Check className="size-3.5" />;
 }
 
-// ---------------------------------------------------------------------------
-// Composer — typing indicator emission is throttled (start once, stop after
-// 2.5s idle), Enter sends.
-// ---------------------------------------------------------------------------
 function Composer({ chat }: { chat: ChatController }) {
   const t = useTranslations();
   const [draft, setDraft] = useState("");
@@ -864,14 +812,6 @@ function Composer({ chat }: { chat: ChatController }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// New conversation — contact directory (server-computed from the conversation
-// matrix + real relationships), searchable, grouped; escalation contacts are
-// visually separated so assistant-first communication stays the norm.
-// ---------------------------------------------------------------------------
-// Display order only — authorization is entirely server-side. Assistants stay
-// first for students/parents so "ask the assistant" remains the visual default
-// even though the teacher is now directly reachable.
 const GROUP_ORDER: WireContact["group"][] = [
   "assistants",
   "team",
@@ -883,7 +823,6 @@ const GROUP_ORDER: WireContact["group"][] = [
   "platform",
 ];
 
-/** Role chips for the directory. Only roles the server returns can ever show. */
 const ROLE_FILTERS = [
   "teacher",
   "assistant",
@@ -929,18 +868,11 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // `chat` is a fresh object on every render of the screen, so a `[chat]`
-  // dependency here made `load` — and the reset effect below — re-run on every
-  // presence tick, typing indicator and incoming message, wiping whatever the
-  // user had typed and re-showing the unfiltered list. Reading the (stable)
-  // searchContacts through a ref keeps `load` identity-stable, so the reset
-  // fires only when the dialog actually opens.
   const searchContacts = chat.searchContacts;
   const searchRef = useRef(searchContacts);
   useEffect(() => {
     searchRef.current = searchContacts;
   }, [searchContacts]);
-  /** Guards against a slow earlier query overwriting a newer one's results. */
   const requestId = useRef(0);
 
   const load = useCallback(async (term: string) => {
@@ -983,16 +915,11 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
       await chat.startConversation(contact.id);
       setOpen(false);
     } catch {
-      // Denied by policy/relationship on the server — nothing to do client
-      // side; the directory should not have offered it.
     } finally {
       setStarting(null);
     }
   };
 
-  // Client-side role narrowing on top of the server's already-scoped result.
-  // This can only ever REMOVE rows — it never widens reach, because the list it
-  // filters is exactly the set the server would let this actor message.
   const visible = (contacts ?? []).filter(
     (c) => !roleFilter || c.role === roleFilter,
   );

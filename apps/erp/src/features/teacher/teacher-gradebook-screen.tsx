@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useList, useCustomMutation, useCreate } from "@refinedev/core";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Save, Plus, GraduationCap } from "lucide-react";
+import { Save, Plus, GraduationCap, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useParamSeed } from "@/lib/api/use-param-seed";
@@ -68,11 +68,6 @@ interface RawGrade {
  */
 const BAND_OPTIONS = [...GRADE_BANDS].sort((a, b) => b.ordinal - a.ordinal);
 
-interface RawStudent {
-  _id: string;
-  name: string;
-}
-
 interface GradeEntry {
   _id: string;
   title: string;
@@ -88,6 +83,9 @@ interface StudentGradeRow {
   scores: Record<string, number>;
 }
 
+/** Focus target for the entry list — one per student row, in display order. */
+const ENTRY_ATTR = "data-grade-entry";
+
 export function TeacherGradebookScreen() {
   const t = useTranslations();
   const { formatDate, formatPercent } = useFormatters();
@@ -95,9 +93,17 @@ export function TeacherGradebookScreen() {
   // The teacher portal has no student record page, so a student found in the
   // global palette opens the gradebook of the group they are in.
   useParamSeed("courseId", setSelectedCourseId);
-  const [selectedDistributionEntryId, setSelectedDistributionEntryId] = useState<string | null>(null);
+  /* ONE SELECTED ASSESSMENT, not two.
+     This used to be `selectedDistributionEntryId`, steering the chart only,
+     while the grid showed every assessment at once. The entry list and the
+     distribution now read the SAME selection: a teacher marking an exam and a
+     teacher looking at how that exam went are the same person, on the same
+     exam, and two independent pickers for one question is how the two drift. */
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editedGrades, setEditedGrades] = useState<Record<string, Record<string, number>>>({});
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showMatrix, setShowMatrix] = useState(false);
 
   const createSchema = useMemo(
     () =>
@@ -202,18 +208,29 @@ export function TeacherGradebookScreen() {
     [rawGrades],
   );
 
+  /* NEWEST FIRST IN THE PICKER, because the exam a teacher has just finished
+     marking on paper is the one they came here to enter. The matrix below
+     keeps the payload's own order, so the overview does not reshuffle. */
+  const entriesByRecency = useMemo(
+    () =>
+      [...entries].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      ),
+    [entries],
+  );
+
   useEffect(() => {
-    if (entries.length === 0) {
-      setSelectedDistributionEntryId(null);
+    if (entriesByRecency.length === 0) {
+      setSelectedEntryId(null);
       return;
     }
     if (
-      !selectedDistributionEntryId ||
-      !entries.some((entry) => entry._id === selectedDistributionEntryId)
+      !selectedEntryId ||
+      !entriesByRecency.some((entry) => entry._id === selectedEntryId)
     ) {
-      setSelectedDistributionEntryId(entries[0]._id);
+      setSelectedEntryId(entriesByRecency[0]._id);
     }
-  }, [entries, selectedDistributionEntryId]);
+  }, [entriesByRecency, selectedEntryId]);
 
   const studentGrades: StudentGradeRow[] = useMemo(() => {
     const studentMap = new Map<string, StudentGradeRow>();
@@ -244,9 +261,28 @@ export function TeacherGradebookScreen() {
     return Array.from(studentMap.values());
   }, [rawGrades, studentNameMap, enrollmentsResult]);
 
+  const focusEntry = useMemo(
+    () => entries.find((e) => e._id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
+  );
+
+  /** The active value for one student on one assessment — edit wins over saved. */
+  const scoreFor = useCallback(
+    (row: StudentGradeRow, entryId: string): number | undefined => {
+      const edited = editedGrades[row.studentId]?.[entryId];
+      return edited !== undefined ? edited : row.scores?.[entryId];
+    },
+    [editedGrades],
+  );
+
+  const gradedCount = useMemo(() => {
+    if (!focusEntry) return 0;
+    return studentGrades.filter((r) => scoreFor(r, focusEntry._id) !== undefined)
+      .length;
+  }, [studentGrades, focusEntry, scoreFor]);
+
   const distributionData = useMemo(() => {
-    const selectedEntry = entries.find((entry) => entry._id === selectedDistributionEntryId);
-    if (!selectedEntry) return [];
+    if (!focusEntry) return [];
     const buckets: Record<string, number> = {
       "0-49": 0,
       "50-59": 0,
@@ -256,9 +292,9 @@ export function TeacherGradebookScreen() {
       "90-100": 0,
     };
     for (const row of studentGrades) {
-      const score = editedGrades[row.studentId]?.[selectedEntry._id] ?? row.scores?.[selectedEntry._id];
+      const score = scoreFor(row, focusEntry._id);
       if (score === undefined) continue;
-      const pct = Math.round((score / (selectedEntry.maxScore || 1)) * 100);
+      const pct = Math.round((score / (focusEntry.maxScore || 1)) * 100);
       if (pct < 50) buckets["0-49"] += 1;
       else if (pct < 60) buckets["50-59"] += 1;
       else if (pct < 70) buckets["60-69"] += 1;
@@ -267,22 +303,21 @@ export function TeacherGradebookScreen() {
       else buckets["90-100"] += 1;
     }
     return Object.entries(buckets).map(([label, count]) => ({ label, count }));
-  }, [entries, selectedDistributionEntryId, studentGrades, editedGrades]);
+  }, [focusEntry, studentGrades, scoreFor]);
 
   const completionByAssignment = useMemo(
     () =>
       entries.map((entry) => {
         const total = studentGrades.length;
-        const graded = studentGrades.filter((row) => {
-          const score = editedGrades[row.studentId]?.[entry._id] ?? row.scores?.[entry._id];
-          return score !== undefined;
-        }).length;
+        const graded = studentGrades.filter(
+          (row) => scoreFor(row, entry._id) !== undefined,
+        ).length;
         return {
           label: entry.title,
           completion: total > 0 ? Math.round((graded / total) * 100) : 0,
         };
       }),
-    [entries, studentGrades, editedGrades],
+    [entries, studentGrades, scoreFor],
   );
 
   const handleGradeChange = (studentId: string, entryId: string, value: string) => {
@@ -307,6 +342,53 @@ export function TeacherGradebookScreen() {
       }));
     }
   };
+
+  /* ── THE KEYBOARD PATH ────────────────────────────────────────────────────
+     Entering one exam's marks for thirty students is the teacher's highest-
+     volume task, and the matrix made it a diagonal walk: Tab moved along the
+     ROW, to the next assessment, while the marker's actual path is down one
+     COLUMN. There was no key for that, so it was thirty pointer trips.
+
+     Enter and ↓ now go to the next student on the same assessment, ↑ goes
+     back. Nothing here commits: saving is still the explicit button, because a
+     roster of marks is reviewed before it is published to families. */
+  const focusEntryAt = (index: number) => {
+    const el = document.querySelector<HTMLElement>(`[${ENTRY_ATTR}="${index}"]`);
+    if (!el) return false;
+    el.focus();
+    if (el instanceof HTMLInputElement) el.select();
+    return true;
+  };
+
+  const onEntryKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Enter" || e.key === "ArrowDown") {
+      e.preventDefault();
+      focusEntryAt(index + 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      focusEntryAt(index - 1);
+    }
+  };
+
+  /* Land the cursor on the first UNMARKED student when the assessment changes.
+     Only where a keyboard is the input device: on a touch screen an autofocus
+     throws the on-screen keyboard up over the list before the teacher has
+     chosen what to do, which is a worse start than one tap. */
+  const didAutoFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusEntry || studentGrades.length === 0) return;
+    if (didAutoFocus.current === focusEntry._id) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia?.("(pointer: fine)").matches) return;
+    didAutoFocus.current = focusEntry._id;
+    const first = studentGrades.findIndex(
+      (r) => scoreFor(r, focusEntry._id) === undefined,
+    );
+    const target = first === -1 ? 0 : first;
+    // After paint: the list for this assessment has to exist to be focused.
+    const id = window.requestAnimationFrame(() => focusEntryAt(target));
+    return () => window.cancelAnimationFrame(id);
+  }, [focusEntry, studentGrades, scoreFor]);
 
   const handleSave = async () => {
     if (!selectedCourseId) return;
@@ -335,6 +417,15 @@ export function TeacherGradebookScreen() {
     setEditedGrades({});
     gradesQuery.refetch();
   };
+
+  const dirtyCount = useMemo(
+    () =>
+      Object.values(editedGrades).reduce(
+        (n, forStudent) => n + Object.keys(forStudent).length,
+        0,
+      ),
+    [editedGrades],
+  );
 
   const isLoading = coursesQuery.isLoading || gradesQuery.isLoading;
 
@@ -445,9 +536,7 @@ export function TeacherGradebookScreen() {
         let totalScore = 0;
         let totalMax = 0;
         entries.forEach((entry) => {
-          const originalScore = record.scores?.[entry._id];
-          const editedScore = editedGrades[record.studentId]?.[entry._id];
-          const activeScore = editedScore !== undefined ? editedScore : originalScore;
+          const activeScore = scoreFor(record, entry._id);
           // Only GRADED assessments count. Averaging an unmarked exam as zero
           // drags a student's average down for work nobody has corrected yet.
           if (activeScore === undefined) return;
@@ -478,8 +567,83 @@ export function TeacherGradebookScreen() {
     },
   ];
 
+  /** One student, one mark — the row the whole screen is now built around. */
+  const entryRow = (row: StudentGradeRow, index: number) => {
+    if (!focusEntry) return null;
+    const active = scoreFor(row, focusEntry._id);
+    const isEdited = editedGrades[row.studentId]?.[focusEntry._id] !== undefined;
+
+    return (
+      <div
+        key={row.studentId}
+        className="flex items-center justify-between gap-3 px-4 py-2.5"
+      >
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+          {row.studentName}
+        </span>
+        {focusEntry.gradeType === "letter" ? (
+          <Select
+            value={active !== undefined ? String(active) : ""}
+            onValueChange={(val) => {
+              handleGradeChange(row.studentId, focusEntry._id, val);
+              // A تقدير is chosen, not typed, so there is no Enter to advance
+              // on — move to the next student when the value lands.
+              window.requestAnimationFrame(() => focusEntryAt(index + 1));
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              {...{ [ENTRY_ATTR]: index }}
+              onKeyDown={(e) => {
+                // Leave Radix its own keys; only the vertical walk is ours.
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") return;
+              }}
+              className={cn("w-28 shrink-0", isEdited && "border-info ring-1 ring-info")}
+            >
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              {BAND_OPTIONS.map((b) => (
+                <SelectItem key={b.ordinal} value={String(b.ordinal)}>
+                  {t(`gradeBands.${b.id}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="flex shrink-0 items-center gap-2">
+            <Input
+              {...{ [ENTRY_ATTR]: index }}
+              value={active ?? ""}
+              placeholder="—"
+              inputMode="decimal"
+              /* `step="any"`: the max score may be 12.5, and a step the value
+                 disagrees with blocks a submit with nothing shown — the trap
+                 already recorded on this screen's create dialog. */
+              step="any"
+              aria-label={row.studentName}
+              onChange={(ev) =>
+                handleGradeChange(row.studentId, focusEntry._id, ev.target.value)
+              }
+              onKeyDown={(e) => onEntryKeyDown(e, index)}
+              className={cn(
+                "h-10 w-20 text-center text-base",
+                isEdited && "border-info bg-info/10",
+              )}
+            />
+            <span className="w-16 text-xs text-muted-foreground" dir="ltr">
+              {active !== undefined
+                ? formatPercent(percentOf(active, focusEntry.maxScore))
+                : `/ ${focusEntry.maxScore}`}
+            </span>
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 pb-24">
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           <span className="font-semibold">{t("teacher.course")}</span>
@@ -508,10 +672,13 @@ export function TeacherGradebookScreen() {
         </CardContent>
       </Card>
 
+      {/* ENTRY FIRST. The screen used to open with two charts — roughly 600px
+          of analysis above the inputs the teacher came to fill in. The marks
+          are the job; the charts are what you read once the job is done. */}
       <Card>
         <CardHeader>
           <CardTitle>{t("nav.gradebook")}</CardTitle>
-          <CardAction className="flex flex-wrap items-center gap-2">
+          <CardAction>
             <Button
               variant="outline"
               size="sm"
@@ -521,57 +688,150 @@ export function TeacherGradebookScreen() {
               <Plus className="size-4" />
               {t("teacher.createAssignment")}
             </Button>
-            {Object.keys(editedGrades).length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setEditedGrades({})}>
-                {t("teacher.discard")}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saveMutation.isPending || Object.keys(editedGrades).length === 0}
-            >
-              {saveMutation.isPending ? <Spinner /> : <Save className="size-4" />}
-              {t("teacher.saveGrades")}
-            </Button>
           </CardAction>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("teacher.scoreDistribution")}</CardTitle>
-                <CardAction className="self-center">
-                  <Select
-                    value={selectedDistributionEntryId ?? ""}
-                    onValueChange={setSelectedDistributionEntryId}
-                  >
-                    <SelectTrigger size="sm" className="min-w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {entries.map((entry) => (
-                        <SelectItem key={entry._id} value={entry._id}>
-                          {entry.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
+        <CardContent className="space-y-4 px-0">
+          {entries.length === 0 ? (
+            <div className="px-6">
+              <EmptyState title={t("teacher.noGradeEntries")} />
+            </div>
+          ) : studentGrades.length === 0 ? (
+            <div className="px-6">
+              <EmptyState title={t("teacher.noStudentsEnrolled")} />
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3 px-6">
+                <span className="text-sm font-semibold">
+                  {t("teacher.assessment")}
+                </span>
+                <Select
+                  value={selectedEntryId ?? ""}
+                  onValueChange={(val) => setSelectedEntryId(val)}
+                >
+                  <SelectTrigger className="min-w-56 flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entriesByRecency.map((entry) => (
+                      <SelectItem key={entry._id} value={entry._id}>
+                        {entry.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* The date and the total live HERE, not inside the trigger.
+                  Measured at 375px: "title · 28 يوليو 2026" overflowed the
+                  trigger and the clipped year rendered as "026!" — a bidi
+                  artefact of cutting a Latin numeral inside Arabic text. A
+                  caption cannot clip, and it has room to carry the mark out of
+                  which every row below is scored. */}
+              {focusEntry ? (
+                <p className="px-6 text-xs text-muted-foreground">
+                  {formatDate(focusEntry.date)}
+                  {focusEntry.gradeType === "numeric" ? (
+                    <>
+                      {" · "}
+                      <span dir="ltr">/ {focusEntry.maxScore}</span>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+
+              <p className="px-6 text-xs text-muted-foreground">
+                {t("teacher.gradedOfTotal", {
+                  graded: gradedCount,
+                  total: studentGrades.length,
+                })}
+                {/* The Enter hint is for the device that HAS an Enter key.
+                    On a phone the marker taps each field, and promising a key
+                    the on-screen keyboard labels "Go" is a small lie in the
+                    one line that is supposed to teach the shortcut. */}
+                <span className="hidden sm:inline">
+                  {" · "}
+                  {t("teacher.entryHint")}
+                </span>
+              </p>
+
+              <div className="divide-y divide-border border-y border-border">
+                {studentGrades.map((row, i) => entryRow(row, i))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* The full matrix stays — it is the right shape for "how is this group
+          doing across everything", which is a reading task, not an entry one.
+          Collapsed by default, and never the first thing on a phone. */}
+      {entries.length > 0 && studentGrades.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("teacher.allAssessments")}</CardTitle>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMatrix((v) => !v)}
+                aria-expanded={showMatrix}
+              >
+                <ChevronDown
+                  className={cn("size-4 transition-transform", showMatrix && "rotate-180")}
+                />
+                {showMatrix ? t("teacher.hide") : t("teacher.show")}
+              </Button>
+            </CardAction>
+          </CardHeader>
+          {showMatrix ? (
+            <CardContent>
+              <DataTable
+                columns={columns}
+                data={studentGrades}
+                pageSize={9999}
+                emptyState={t("teacher.noStudentsEnrolled")}
+              />
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {entries.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("teacher.analysis")}</CardTitle>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAnalysis((v) => !v)}
+                aria-expanded={showAnalysis}
+              >
+                <ChevronDown
+                  className={cn("size-4 transition-transform", showAnalysis && "rotate-180")}
+                />
+                {showAnalysis ? t("teacher.hide") : t("teacher.show")}
+              </Button>
+            </CardAction>
+          </CardHeader>
+          {showAnalysis ? (
+            <CardContent className="space-y-4">
+              <div>
+                <p className="mb-2 text-sm font-medium">
+                  {t("teacher.scoreDistribution")}
+                  {focusEntry ? ` — ${focusEntry.title}` : ""}
+                </p>
                 <BarChart
                   data={distributionData}
                   series={[{ key: "count", label: t("teacher.scores"), color: "var(--primary)" }]}
                   emptyText={t("teacher.noDistribution")}
                 />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("teacher.completionByAssignment")}</CardTitle>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium">
+                  {t("teacher.completionByAssignment")}
+                </p>
                 <BarChart
                   data={completionByAssignment}
                   series={[{ key: "completion", label: t("teacher.completionPct"), color: "var(--success)" }]}
@@ -579,24 +839,33 @@ export function TeacherGradebookScreen() {
                   yValueFormatter={(value) => formatPercent(Math.round(value))}
                   emptyText={t("teacher.noCompletion")}
                 />
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
 
-          {entries.length === 0 ? (
-            <EmptyState title={t("teacher.noGradeEntries")} />
-          ) : studentGrades.length === 0 ? (
-            <EmptyState title={t("teacher.noStudentsEnrolled")} />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={studentGrades}
-              pageSize={9999}
-              emptyState={t("teacher.noStudentsEnrolled")}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {/* THE SAVE BAR FOLLOWS THE WORK DOWN THE PAGE.
+          It used to sit in the card header — above a grid the teacher had just
+          scrolled to the bottom of — so committing thirty marks meant scrolling
+          back up to find the button. It appears only when there is something to
+          save, so it costs an untouched screen nothing. */}
+      {dirtyCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-16 z-30 mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 border-t border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur sm:bottom-4 sm:rounded-xl sm:border">
+          <span className="text-sm font-medium">
+            {t("teacher.unsavedCount", { n: dirtyCount })}
+          </span>
+          <span className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditedGrades({})}>
+              {t("teacher.discard")}
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Spinner /> : <Save className="size-4" />}
+              {t("teacher.saveGrades")}
+            </Button>
+          </span>
+        </div>
+      ) : null}
 
       <Dialog
         open={isCreateOpen}

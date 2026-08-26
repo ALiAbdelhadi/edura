@@ -1,22 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Calendar } from "@/components/kit/calendar";
+import { Combobox } from "@/components/kit/combobox";
+import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { StatusBadge } from "@/components/kit/status-badge";
+import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
+import { amenityLabel } from "@/lib/rooms/amenities";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
-import dayjs from "dayjs";
-import {
-  Handshake,
-  Plus,
-  Check,
-  X as XIcon,
-  Ban,
-  Users,
-  ImageOff,
-  Clock,
-  Calendar as CalendarIcon,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
 import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
   Dialog,
@@ -26,7 +22,7 @@ import {
   DialogTitle,
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import {
   Select,
   SelectContent,
@@ -36,8 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { Calendar } from "@/components/kit/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
+import { toast } from "@repo/ui/components/sonner";
 import {
   Table,
   TableBody,
@@ -46,15 +41,21 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { toast } from "@repo/ui/components/sonner";
-import { Combobox } from "@/components/kit/combobox";
-import { ConfirmDialog } from "@/components/kit/confirm-dialog";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { useFormatters } from "@/lib/i18n/use-formatters";
-import { amenityLabel } from "@/lib/rooms/amenities";
-import { asArray } from "@/lib/refine/as-array";
+import { Textarea } from "@repo/ui/components/textarea";
+import dayjs from "dayjs";
+import {
+  Ban,
+  Calendar as CalendarIcon,
+  Check,
+  Clock,
+  Handshake,
+  ImageOff,
+  Plus,
+  Users,
+  X as XIcon,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
 
 const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   accepted: "success",
@@ -97,12 +98,6 @@ type GradeOption = {
   trackOptions: { id: string; nameAr: string; nameEn: string }[];
 };
 type StageGroup = { key: string; nameAr: string; nameEn: string; grades: GradeOption[] };
-
-/**
- * Shared collaboration-requests panel (Step 5) — replaces ClassroomBooking and
- * the existing-teacher affiliation invite. role decides direction:
- *   teacher → "apply to teach at a center"; center → "invite a teacher".
- */
 export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   const t = useTranslations();
   const { formatEGP, formatDate, formatClockRange, locale } = useFormatters();
@@ -126,7 +121,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   const name = (n: { nameAr: string; nameEn: string | null } | null) =>
     n ? (locale === "ar" ? n.nameAr : (n.nameEn ?? n.nameAr)) : "—";
 
-  // Incoming = the OTHER side initiated and it awaits MY decision.
   const isIncoming = (r: CollabRow) =>
     role === "teacher" ? r.initiator === "center" : r.initiator === "teacher";
 
@@ -137,9 +131,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
         ? t("shared.collab.methodPercent")
         : t("shared.collab.methodPendingChoice");
 
-  // Accepting a center invite on a both-methods hall requires the teacher's
-  // method choice — routed through a dedicated dialog instead of the plain
-  // confirm.
   const needsMethodChoice = (r: CollabRow) =>
     role === "teacher" &&
     r.initiator === "center" &&
@@ -242,8 +233,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
                         {methodLabel(r.proposedPricingMethod)}
                       </Badge>
                     ) : (
-                      // No-room arrangement: the flat share is platform config,
-                      // never a number either side proposed.
                       <Badge variant="outline">{t("shared.collab.byPlatform")}</Badge>
                     )}
                     {r.expectedStudents ? (
@@ -312,7 +301,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
           </Table>
         )}
       </CardContent>
-
       <CreateCollabDialog
         role={role}
         open={createOpen}
@@ -322,7 +310,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
           query.refetch();
         }}
       />
-
       {methodChoiceFor ? (
         <AcceptMethodDialog
           row={methodChoiceFor}
@@ -338,8 +325,6 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   );
 }
 
-// The teacher's pricing-method choice when accepting a center invite on a hall
-// that offers both methods. Labels only — the numbers are platform-set.
 function AcceptMethodDialog({
   row,
   onOpenChange,
@@ -384,7 +369,6 @@ function AcceptMethodDialog({
   );
 }
 
-// Shared two-option method picker (radio-style buttons, labels only).
 function MethodRadio({
   value,
   onChange,
@@ -445,9 +429,6 @@ function CreateCollabDialog({
   const { locale, formatEGP, formatDate } = useFormatters();
   const { mutateAsync: create } = useCustomMutation();
 
-  // Class-time picker options — 30-minute slots (06:00–22:00). The submitted
-  // value is unchanged ("HH:mm" strings); this only replaces the raw <input
-  // type=time> with a clear shadcn Select.
   const timeOptions = useMemo(() => {
     const out: string[] = [];
     for (let h = 6; h <= 22; h++) {
@@ -474,18 +455,12 @@ function CreateCollabDialog({
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // The picker types straight into the combobox, so debounce before hitting the
-  // API rather than firing a request per keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState("");
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(targetQuery.trim()), 300);
     return () => clearTimeout(id);
   }, [targetQuery]);
 
-  // Target directory: teachers search centers, centers search teachers.
-  // `includeEmpty` is what makes a center with no courses yet appear here — the
-  // student-facing default hides those, and a new center is exactly the one a
-  // teacher wants to apply to.
   const { result: targetsRes } = useCustom({
     url: role === "teacher" ? "search/centers" : "search/teachers",
     method: "get",
@@ -512,8 +487,6 @@ function CreateCollabDialog({
     method: "get",
     queryOptions: { enabled: open },
   });
-  // Academic years grouped by stage, with localized names — powers a clear,
-  // grouped year picker. `grades` stays a flat list for the track lookup.
   const stageGroups: StageGroup[] = useMemo(() => {
     const out: StageGroup[] = [];
     for (const sys of asArray<any>(treeRes?.data)) {
@@ -543,7 +516,6 @@ function CreateCollabDialog({
   const trackOptions = grades.find((g) => g.id === gradeId)?.trackOptions ?? [];
   const gradeLabel = (g: GradeOption) => (locale === "ar" ? g.nameAr : g.nameEn);
 
-  // Halls: only the center side can pick one of ITS rooms (name-only picker).
   const { result: roomsRes } = useList({
     resource: "rooms",
     pagination: { mode: "off" },
@@ -551,8 +523,6 @@ function CreateCollabDialog({
   });
   const rooms = (roomsRes?.data ?? []) as any[];
 
-  // Teacher side: browse the TARGET center's rooms (photos, capacity, features,
-  // price, busy times) to pick a hall. Fetched per selected center.
   const { result: centerRoomsRes } = useCustom({
     url: targetId ? `centers/${targetId}/rooms` : "centers/none/rooms",
     method: "get",
@@ -560,8 +530,6 @@ function CreateCollabDialog({
   });
   const centerRooms = ((centerRoomsRes as any)?.data?.rooms ?? []) as any[];
 
-  // Subject auto-fill: a teacher's picker is scoped to their specialization
-  // (TeacherSubject). Falls back to the full catalog if none are recorded.
   const { result: mySubjectsRes } = useCustom({
     url: "me/subjects",
     method: "get",
@@ -570,20 +538,16 @@ function CreateCollabDialog({
   const mySubjects = asArray<any>(mySubjectsRes?.data);
   const subjectOptions = role === "teacher" && mySubjects.length > 0 ? mySubjects : subjects;
 
-  // Auto-select the sole specialization subject for a teacher.
   useEffect(() => {
     if (role === "teacher" && !subjectId && mySubjects.length === 1) {
       setSubjectId(mySubjects[0].id);
     }
   }, [role, subjectId, mySubjects]);
 
-  // Changing the target center invalidates a previously-picked hall.
   useEffect(() => {
     setRoomId("");
   }, [targetId]);
 
-  // The picked hall's center-set method availability (teacher side reads the
-  // target center's rooms; center side its own).
   const pickedRoom =
     role === "teacher"
       ? centerRooms.find((r) => r.id === roomId)
@@ -592,16 +556,12 @@ function CreateCollabDialog({
     ? ((pickedRoom?.allowedPricingMethods ?? ["whole_room_percent"]) as PricingMethod[])
     : [];
   const forcedMethod = allowedMethods.length === 1 ? allowedMethods[0] : null;
-  // What this request will actually propose (teacher chooses on both-methods
-  // halls; the center never pre-picks — the teacher decides at accept time).
   const effectiveMethod: PricingMethod | null = roomId
     ? (forcedMethod ?? (role === "teacher" ? method : null))
     : null;
 
-  // Re-seed the choice whenever the hall changes.
   useEffect(() => {
     setMethod(forcedMethod ?? "whole_room_percent");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
   const dayNames = [
@@ -637,7 +597,6 @@ function CreateCollabDialog({
     }
     setSubmitting(true);
     try {
-      // The API derives self/target from the session role.
       const values: Record<string, unknown> = {
         ...(role === "teacher" ? { centerId: targetId } : { teacherId: targetId }),
         subjectId,
@@ -649,9 +608,6 @@ function CreateCollabDialog({
         endTime,
         startDate,
         ...(expected.trim() !== "" ? { expectedStudents: Number(expected) } : {}),
-        // NO money field is sent by either side — the server owns every rate.
-        // Teacher's method choice for the hall (or its forced method). Center-
-        // initiated requests never send one — the teacher picks at accept.
         ...(roomId && role === "teacher" && effectiveMethod
           ? { proposedPricingMethod: effectiveMethod }
           : {}),
@@ -687,8 +643,6 @@ function CreateCollabDialog({
             <div className="mb-1 text-sm font-medium">
               {role === "teacher" ? t("shared.collab.pickCenter") : t("shared.collab.pickTeacher")}
             </div>
-            {/* One search box, not two: the combobox's own input IS the server
-                query, so typing there can never filter an empty local list. */}
             <Combobox
               options={targets.map((x: any) => ({
                 value: String(x.id ?? x.userId),
@@ -705,7 +659,6 @@ function CreateCollabDialog({
               onSearchChange={setTargetQuery}
             />
           </div>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.subject")}</div>
@@ -748,7 +701,6 @@ function CreateCollabDialog({
               </Select>
             </div>
           </div>
-
           {trackOptions.length > 0 ? (
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.track")}</div>
@@ -768,7 +720,6 @@ function CreateCollabDialog({
               />
             </div>
           ) : null}
-
           {role === "center" && rooms.length > 0 ? (
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.hall")}</div>
@@ -797,8 +748,6 @@ function CreateCollabDialog({
               ) : null}
             </div>
           ) : null}
-
-          {/* Teacher-facing hall browser: photos, capacity, features, price. */}
           {role === "teacher" && targetId ? (
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.chooseHall")}</div>
@@ -827,7 +776,7 @@ function CreateCollabDialog({
                             </div>
                           )}
                           {selected ? (
-                            <span className="absolute end-1 top-1 rounded-full bg-primary p-1 text-primary-foreground">
+                            <span className="absolute inset-e-1 top-1 rounded-full bg-primary p-1 text-primary-foreground">
                               <Check className="size-3" />
                             </span>
                           ) : null}
@@ -835,22 +784,13 @@ function CreateCollabDialog({
                         <div className="space-y-1 p-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium">{r.name}</span>
-                            {/* Per-student pricing hides the hall price: the cost
-                                depends on attendance (server already nulls it for
-                                per-student-only halls). */}
                             {r.price != null &&
                             !(selected && effectiveMethod === "per_attending_student") ? (
                               <span className="text-sm font-semibold text-primary">{formatEGP(r.price)}</span>
                             ) : null}
                           </div>
-                          {/* What this hall takes per attending student. Shown
-                              on the CARD, not only after picking, because it is
-                              what the halls differ by — and because a
-                              per-student-only hall has no other price to
-                              compare. Left hidden until now, it was a cost the
-                              teacher agreed to and first saw at settlement. */}
                           {r.perStudentRate ? (
-                            <div className="text-xs font-medium text-[var(--teal)]">
+                            <div className="text-xs font-medium text-(--teal)">
                               {r.perStudentRate.bp != null
                                 ? t("shared.collab.perStudentRatePercent", {
                                     value: r.perStudentRate.bp / 100,
@@ -886,9 +826,6 @@ function CreateCollabDialog({
                   })}
                 </div>
               )}
-
-              {/* Pricing method for the picked hall: forced → read-only label;
-                  both offered → the teacher's choice (labels only, no numbers). */}
               {roomId ? (
                 <div className="mt-2">
                   <div className="mb-1 text-sm font-medium">
@@ -906,9 +843,6 @@ function CreateCollabDialog({
                   ) : (
                     <MethodRadio value={method} onChange={setMethod} allowed={allowedMethods} />
                   )}
-                  {/* At the moment of choosing, spell out what the method
-                      actually costs — the card line is for comparing halls,
-                      this one is for agreeing to one. */}
                   {effectiveMethod === "per_attending_student" && pickedRoom?.perStudentRate ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {pickedRoom.perStudentRate.bp != null
@@ -924,7 +858,6 @@ function CreateCollabDialog({
               ) : null}
             </div>
           ) : null}
-
           <div>
             <div className="mb-1 text-sm font-medium">{t("shared.collab.days")}</div>
             <div className="flex flex-wrap gap-1">
@@ -945,7 +878,6 @@ function CreateCollabDialog({
               ))}
             </div>
           </div>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.from")}</div>
@@ -1008,7 +940,6 @@ function CreateCollabDialog({
               </Popover>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.expected")}</div>
@@ -1020,10 +951,6 @@ function CreateCollabDialog({
                 onChange={(e) => setExpected(e.target.value)}
               />
             </div>
-            {/* No money input for EITHER side. Every rate — the hall split,
-                the per-student rate, and the flat no-room center share — is
-                platform (superadmin) config; the request only carries WHICH
-                method a hall uses. */}
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.revenueSplit")}</div>
               <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
@@ -1035,7 +962,6 @@ function CreateCollabDialog({
               </p>
             </div>
           </div>
-
           <div>
             <div className="mb-1 text-sm font-medium">{t("shared.collab.message")}</div>
             <Textarea

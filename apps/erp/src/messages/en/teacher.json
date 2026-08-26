@@ -14,12 +14,10 @@
   "averageRating": "Average Rating",
   "avg": "Avg",
   "back": "Back",
-  "center": "Center",
   "classesToday": "Classes Today",
   "comment": "Comment",
   "completionByAssignment": "Completion by Assignment",
   "completionPct": "Completion %",
-  "composition": "Session Composition",
   "course": "Course",
   "create": "Create",
   "createAssignment": "Create Assignment",
@@ -56,31 +54,31 @@
   "invitationDeclined": "Invitation declined",
   "invited": "Invited",
   "last14Days": "Last 14 days",
-  "loadError": "Failed to load classes",
+  "loadError": "Could not load your groups — try again.",
   "loadingClasses": "Loading classes…",
   "loadingDashboard": "Loading dashboard…",
   "loadingSessions": "Loading sessions…",
   "markAttendance": "Mark attendance",
-  "materialsHeading": "Materials",
+  "materialsHeading": "Handouts",
   "maxScore": "Max score",
   "maxScoreRequired": "Please enter a max score",
   "myCenters": "My Centers",
   "nameRequired": "Please enter a name",
-  "noAffiliations": "No center affiliations yet. An admin can invite you via email.",
+  "noAffiliations": "Not linked to a centre yet. A centre sends you the invite.",
   "noAttendanceTrend": "No attendance trend yet.",
-  "noClasses": "No classes assigned yet.",
+  "noClasses": "No groups yet.",
   "noClassesAssigned": "No classes assigned yet.",
-  "noClassesToday": "No classes scheduled for today.",
+  "noClassesToday": "No lessons today.",
   "noComment": "No comment",
   "noCompletion": "No completion data yet.",
   "noDistribution": "No distribution data yet.",
-  "noGradeEntries": "No grade entries yet. Create an assignment to get started.",
+  "noGradeEntries": "No assessments in this group yet.",
   "noGradeLoad": "No grade-load data yet.",
-  "noMaterials": "No materials found.",
-  "noRecentSessions": "No recent sessions to mark.",
+  "noMaterials": "No handouts uploaded yet.",
+  "noRecentSessions": "No lessons in the last 14 days.",
   "noReviews": "No reviews yet.",
-  "noSessions": "No sessions yet.",
-  "noStudents": "No students enrolled.",
+  "noSessions": "No lessons for this group.",
+  "noStudents": "No students in this group.",
   "noStudentsEnrolled": "No students enrolled.",
   "onlyPdfError": "Only PDF files are allowed",
   "pdfLink": "PDF Link",
@@ -132,7 +130,6 @@
   "syncOffline": "Still offline — will retry automatically",
   "syncedCount": "{n, plural, one {# change synced} other {# changes synced}}",
   "skippedCount": "{n, plural, one {# skipped} other {# skipped}}",
-  "tag": "Tag",
   "takeAttendance": "Take attendance",
   "tbd": "TBD",
   "time": "Time",
@@ -153,7 +150,7 @@
   "upcoming": "Upcoming",
   "upload": "Upload",
   "uploadFailed": "Failed to upload material",
-  "uploadMaterial": "Upload Material",
+  "uploadMaterial": "Upload a handout",
   "uploadPdf": "Upload PDF",
   "uploadSuccess": "Material uploaded",
   "uploaded": "Uploaded",
@@ -170,33 +167,39 @@
     "recentTransactions": "Recent wallet transactions",
     "noPayouts": "No payout requests yet",
     "noTransactions": "No transactions yet",
-    "amount": "Amount",
-    "status": "Status",
     "requestedAt": "Requested",
     "paidAt": "Paid",
-    "note": "Note",
-    "ref": "Ref",
-    "type": "Type",
-    "date": "Date",
     "availableNow": "Available now",
     "amountEgp": "Amount (EGP)",
     "fullBalancePlaceholder": "Leave empty to withdraw everything",
     "emptyMeansAll": "Empty = withdraw the full available balance.",
-    "confirmWithdraw": "Request payout",
     "invalidAmount": "Enter a valid amount",
     "requestSubmitted": "Payout request submitted",
     "requestFailed": "Payout request failed",
-    "loading": "Loading wallet…"
+    "loading": "Loading wallet…",
+    "availableLineage": "Balance minus {n, plural, one {# open payout request} other {# open payout requests}}.",
+    "availableLineageNone": "No open payout requests, so the whole balance is available.",
+    "showMore": "Show more",
+    "withdrawAction": "Withdraw {amount}",
+    "withdrawConfirm": "Final confirm — press to send",
+    "withdrawHint": "The request goes to the accountant, and the amount is held from your balance until it is actioned.",
+    "withdrawArmedHint": "A request cannot be cancelled once sent.",
+    "txType": {
+      "payment": "Lesson earnings",
+      "commission": "Commission",
+      "payout": "Payout",
+      "refund": "Refund",
+      "adjustment": "Adjustment"
+    }
   },
-  "unpricedNotice": "This class has no monthly or per-session price yet — students cannot subscribe until the center sets one.",
   "attendanceModeTitle": "Attendance mode",
   "attendanceModeSaved": "Attendance mode saved",
   "attendanceModeFailed": "Could not save the attendance mode",
   "modeCounterOnly": "Counter only",
   "modeCounterOnlyDesc": "The front-desk check-in alone marks the student present.",
   "modeCounterAndDoor": "Counter + door",
-  "modeCounterAndDoorDesc": "Your assistant confirms students at the classroom door; counter alone shows as \"at center — didn't attend class\" and does NOT count as present.",
-  "statusCounterOnly": "At center — didn't attend class",
+  "modeCounterAndDoorDesc": "Your assistant confirms students at the classroom door; counter alone shows as \"at the centre, not in the lesson\" and does NOT count as present.",
+  "statusCounterOnly": "At the centre, not in the lesson",
   "durationMins": "{mins} min",
   "createGroup": "Create group",
   "groupName": "Group name",
@@ -213,20 +216,24 @@
   "groupCreatedSessions": "Group created — {count} sessions generated",
   "fillRequired": "Fill the required fields",
   "notGraded": "Not graded",
-  "settleTitle": "Close the lesson and distribute it",
-  "settleAction": "Close the lesson and distribute EGP {amount} across {n} students",
+  "settleTitle": "Close the lesson",
+  "settleSubtitle": "Finalize attendance and calculate payout",
+  "settlePendingLabel": "Awaiting settlement",
+  "settleAction": "Complete lesson — EGP {amount}",
   "settleConfirm": "Final confirmation — press to distribute",
   "settleHint": "The distribution is written to the ledger once, and cannot be undone.",
   "settleArmedHint": "Written to the ledger in your name, and credited to the teacher's and the center's wallets immediately.",
   "settleDone": "Lesson closed and its revenue distributed",
   "settleError": "Could not close the lesson",
-  "settlePresent": "Students present",
+  "settlePresent": "Present",
   "settleLessonPrice": "Lesson price per student",
   "settlePerStudent": "Each party's share, per student",
-  "settleTeacherShare": "Teacher",
-  "settleCenterShare": "Center",
-  "settlePlatformShare": "Platform",
-  "settleTeacherTotal": "Teacher's total",
+  "settleTeacherShare": "Teacher share per student",
+  "settleCenterShare": "Center share per student",
+  "settlePlatformShare": "Platform share per student",
+  "settleTeacherTotal": "Teacher payout",
+  "settleFinalBadge": "Final",
+  "settleEconomics": "Session economics",
   "settleAlready": "This lesson was already closed and distributed on",
   "settleCancelled": "The lesson is cancelled, so there is nothing to distribute.",
   "settleNoPresent": "No students are marked present, so there is nothing to distribute. Take attendance first.",
@@ -244,7 +251,7 @@
     "gotIt": "Got it",
     "missHint": "Not that one — look for the control with the indigo outline and press it.",
     "finishedTitle": "Tour complete 🎉",
-    "finishedBody": "You can now read your day, price a class, take attendance and fix an “at center — didn't attend class” row, close a lesson so your share lands, and request a payout. Your real account works exactly the same way.",
+    "finishedBody": "You can now read your day, price a class, take attendance and fix an “at the centre, not in the lesson” row, close a lesson so your share lands, and request a payout. Your real account works exactly the same way.",
     "finishCta": "Start for real",
     "sandboxNote": "Everything above is practice — the data and prices are invented, no real money moves and nothing is recorded on your account. The real platform and centre shares appear on your own screen before any closing.",
     "firstRun": {
@@ -256,8 +263,8 @@
     },
     "nav": {
       "label": "Practice sections",
-      "dashboard": "Dashboard",
-      "classes": "My Classes",
+      "dashboard": "Home",
+      "classes": "Groups",
       "attendance": "Attendance",
       "wallet": "Wallet"
     },
@@ -294,7 +301,7 @@
       "markCta": "Mark attendance",
       "roster": "Students",
       "presentCount": "{n} of {total} present",
-      "counterOnly": "At center — didn't attend class",
+      "counterOnly": "At the centre, not in the lesson",
       "status_present": "Present",
       "status_absent": "Absent",
       "status_excused": "Excused",
@@ -335,7 +342,10 @@
       "ref": "Ref",
       "type": "Type",
       "kind_payment": "Payment",
-      "kind_payout": "Payout"
+      "kind_payout": "Payout",
+      "withdrawConfirm": "Final confirm — press to send",
+      "withdrawArmedHint": "A request cannot be cancelled once sent.",
+      "counterOnlyHint": "They paid and entered the centre but never reached the lesson. Not counted present until you decide."
     },
     "steps": {
       "welcome": {
@@ -392,7 +402,7 @@
       },
       "counterOnly": {
         "title": "Look at Mariam — this is the row that costs you money",
-        "body": "Mariam paid and passed the counter, but nobody confirmed her at the classroom door, so her state is “At center — didn't attend class”. She is not counted present and will not enter the distribution — your share shrinks while she has paid."
+        "body": "Mariam paid and passed the counter, but nobody confirmed her at the classroom door, so her state is “At the centre, not in the lesson”. She is not counted present and will not enter the distribution — your share shrinks while she has paid."
       },
       "fixCounterOnly": {
         "title": "Fix it yourself",
@@ -449,6 +459,10 @@
       "done": {
         "title": "You have walked the whole path",
         "body": "You priced, took attendance, fixed a counter-only row, closed a lesson and requested a payout. Press “Got it” to finish."
+      },
+      "withdrawConfirm": {
+        "title": "Then confirm again",
+        "body": "The button names the amount and waits for a second press. That is deliberate: a request cannot be cancelled once sent."
       }
     }
   },
@@ -469,10 +483,10 @@
         "title": "First: make sure your group has a price",
         "body": "A group with no price cannot be subscribed to, and its lessons refuse to close — so you will not be paid a piastre for them.",
         "how": {
-          "1": "Press “My Classes” in the menu and open the group",
-          "2": "If you see a notice that the class has no price, it needs pricing",
-          "3": "If it's your own group (no centre): you set the price when you create it, in the new-group dialog",
-          "4": "If the group came from a centre: **the centre** sets the price — ask them to add it"
+          "1": "Open \"Groups\" from the menu and pick the group",
+          "2": "If it warns that the group has no price, it needs pricing",
+          "3": "Your own group (no centre): the price is set when you create it, and there is no screen to change it afterwards yet — contact us and we will set it",
+          "4": "A group from a centre: **the centre** sets the price — ask them to"
         },
         "note": "The price is not editable from the classes screen after creation. A group created by accepting a centre's collaboration request starts at zero, and the centre is who prices it."
       },
@@ -480,10 +494,10 @@
         "title": "How to take attendance",
         "body": "This is what decides who counts when the lesson's revenue is distributed.",
         "how": {
-          "1": "Press “Attendance” in the menu",
-          "2": "Pick the lesson",
-          "3": "Mark each student: present / late / absent",
-          "4": "Press “Save attendance”"
+          "1": "Tap \"Attendance\" in the bar",
+          "2": "Pick the lesson — every row names the group and the hall, not just the time",
+          "3": "Anyone \"at the centre, not in the lesson\" sits in a box above the register — mark them present or absent",
+          "4": "Mark the rest present / absent / excused, then \"Save attendance\""
         },
         "note": "If a student shows as “at the centre — did not attend the lesson”, they checked in at the counter but never entered the hall. That is not attendance and does not count in the distribution — even if they paid."
       },
@@ -491,10 +505,10 @@
         "title": "Then close the lesson — this is what pays you",
         "body": "Distribution does not happen by itself. A lesson you never close puts nothing in your wallet.",
         "how": {
-          "1": "After saving attendance, press “Close the lesson and distribute its revenue”",
-          "2": "The button states the amount and the number of students before you press",
+          "1": "After saving attendance, scroll to the \"Close the lesson\" card under the register",
+          "2": "The button names the amount and the number of students before you press it",
           "3": "Check the teacher, centre and platform shares",
-          "4": "Press “Final confirmation — press to distribute”"
+          "4": "Press \"Final confirm — press to distribute\""
         },
         "note": "The distribution is written to the ledger once and cannot be undone. A closed lesson cannot be closed again."
       },
@@ -511,12 +525,12 @@
       },
       "wallet": {
         "title": "Your wallet and withdrawing earnings",
-        "body": "Where you see what you've earned, and request it.",
+        "body": "Where you see what you have earned, and ask for it. It is in the bar now.",
         "how": {
-          "1": "Press “Wallet” in the menu",
-          "2": "Look at “Wallet balance” and “Available to withdraw”",
-          "3": "Press “Withdraw earnings”",
-          "4": "Enter an amount — or leave it empty to withdraw everything — and press “Send withdrawal request”"
+          "1": "Tap \"Wallet\" in the bar",
+          "2": "Read \"Wallet balance\" and \"Available\" — the gap between them is held by open requests",
+          "3": "Press \"Withdraw\", and type an amount or leave it empty to take everything",
+          "4": "The button names the amount — press once to arm it, again to send. There is no cancel afterwards"
         },
         "note": "“Available to withdraw” is not the same as “Wallet balance”: any open request reserves its amount until it is settled. If available looks low, you probably have a request still in flight."
       },
@@ -543,10 +557,10 @@
         "title": "How to work with a centre",
         "body": "Collaboration starts as a request from either side, and accepting is what creates the group and its schedule.",
         "how": {
-          "1": "Press “My Centers” in the menu",
-          "2": "Look at the requests centres have sent you",
-          "3": "Check the subject, year, room, times and the share",
-          "4": "Accept or reject"
+          "1": "Open \"My centres\" from the menu",
+          "2": "The centres you already work with are at the top, collaboration requests below them",
+          "3": "Check the subject, year, hall, times and share",
+          "4": "Accept or decline"
         },
         "note": "Accepting creates the group and the schedule immediately. Check the centre's share before you accept — it comes out of every lesson's revenue."
       },
@@ -554,10 +568,10 @@
         "title": "How to add an assistant",
         "body": "An assistant does everything you do except money, and every action is recorded as theirs “on behalf of” you.",
         "how": {
-          "1": "Press “Team” in the menu",
-          "2": "Press add assistant",
-          "3": "Enter their name and email and send the invite",
-          "4": "They set their own password from the link"
+          "1": "Open \"Team\" from the menu",
+          "2": "Press add assistant, enter their name and email, and send the invite",
+          "3": "They set their own password from the link",
+          "4": "At the bottom of the page is a panel saying exactly what an assistant can do — and which doors are shut to them (your wallet, payouts, prices, assistants)"
         },
         "note": "An assistant cannot reach your wallet, request a payout, or add other assistants. Everything they do is logged on your behalf."
       },
@@ -586,5 +600,39 @@
         "body": "The tour is done. If any group has no price, sort that first — without it there are no subscriptions, no closing, and no money. And if you'd rather rehearse, “Practice” is in the menu."
       }
     }
-  }
+  },
+  "todayHeading": "Today",
+  "earlierHeading": "Earlier",
+  "groupUnnamed": "Unnamed group",
+  "counterOnlyHint": "They paid and entered the centre but never reached the lesson. Not counted present until you decide.",
+  "rosterCounts": "{present} present · {absent} absent · {excused} excused",
+  "assessment": "Assessment",
+  "gradedOfTotal": "{graded} of {total} marked",
+  "entryHint": "Type the mark and press Enter to drop to the next student.",
+  "allAssessments": "All assessments",
+  "analysis": "Analysis",
+  "show": "Show",
+  "hide": "Hide",
+  "unsavedCount": "{n, plural, one {# unsaved mark} other {# unsaved marks}}",
+  "nextLesson": "Next lesson",
+  "noNextLesson": "No upcoming lessons.",
+  "nowLabel": "Now",
+  "moreToday": "{n, plural, one {and one more lesson today} other {and # more lessons today}}",
+  "yourMoney": "Your money",
+  "yourGroup": "Your own group",
+  "lifetimeHint": "all time",
+  "unsettledCount": "{n, plural, one {# lesson still not closed} other {# lessons still not closed}}",
+  "counterOnlyToday": "{n, plural, one {# student at the centre, not in the lesson today} other {# students at the centre, not in the lesson today}}",
+  "openRegister": "Register",
+  "notClosedYet": "Not closed yet",
+  "cancelSessionTitle": "Cancel the lesson",
+  "postponeSessionTitle": "Postpone the lesson",
+  "reasonRequired": "The reason reaches students and parents, so write it clearly.",
+  "unpricedCenter": "This group has no price yet. The centre sets it — ask them to, and until then there is no subscription and no closing a lesson.",
+  "unpricedOwn": "This group has no price yet, and without one there is no subscription and no closing a lesson. The price is set when the group is created and there is no screen to change it here yet — contact us and we will set it for you.",
+  "averageRatingOfLast": "Average of the last {n}",
+  "fiveStarOfLast": "5 stars — in the last {n}",
+  "reviewsTruncated": "Showing {shown} of {total} reviews — older ones are not listed here.",
+  "settleCounterOnlyWarning": "{n} student(s) passed the counter but were never door-checked — they will NOT be counted in this lesson's money. Door-check them first if they actually attended.",
+  "settleCenterHeldNote": "Of which collected by the center (not added to the wallet; the teacher's share and platform fees on it are debited from platform credit):"
 }

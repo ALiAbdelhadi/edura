@@ -1,5 +1,5 @@
 import type { ContactSubmissionStatus, Prisma } from "@repo/database";
-import { narrowQuery } from "@repo/database/search-text";
+import { exactQuery } from "@repo/database/search-text";
 import type { SessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
@@ -65,13 +65,7 @@ export function listContactSubmissions(filters: ContactFilters) {
       // This one is written IN Arabic by the public — a name, a subject and a
       // free-text message straight off the marketing site — so it was the list
       // in this app most certain to be searched in the script it cannot match.
-      where.AND = narrowQuery(q, (f) => [
-        { name: { contains: f, mode: "insensitive" as const } },
-        { email: { contains: f, mode: "insensitive" as const } },
-        { phone: { contains: f } },
-        { subject: { contains: f, mode: "insensitive" as const } },
-        { message: { contains: f, mode: "insensitive" as const } },
-      ]);
+      where.AND = exactQuery(q, (t) => ({ searchText: { contains: t } }));
     }
 
     if (filters.from || filters.to) {

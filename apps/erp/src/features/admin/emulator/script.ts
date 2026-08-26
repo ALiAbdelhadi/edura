@@ -1,52 +1,14 @@
-/**
- * The centre emulator's script: what the owner is asked to do, in order.
- *
- * DATA, NOT CODE — the same contract the student and teacher scripts hold.
- * Adding a mission is adding an entry here, never editing the engine.
- *
- * Copy lives in `messages/<locale>/admin-home.json` under
- * `centerEmulator.steps.*`, so the script holds STRUCTURE and the translators
- * hold WORDS.
- *
- * WHY THIS ORDER — it is the order in which a CENTRE loses money by not knowing,
- * which is a different order from the teacher's:
- *
- *   1. read the day        — orients, costs nothing
- *   2. PRICE THE CLASS     — the centre owns pricing, and the counter's own
- *                            error message says so ("the centre owner sets it
- *                            from the classes screen"). An unpriced class does
- *                            not just block a teacher — it stops the front desk
- *                            from taking money at all.
- *   3. work the counter    — cash + check-in in ONE commit, which is the single
- *                            most-used screen in an Egyptian centre, and the
- *                            walk-in who is not on the roster
- *   4. close the lesson    — where the centre's OWN share is credited, and the
- *                            step nobody performs by accident
- *   5. read the books      — the receipt, the net profit, and why a refund is a
- *                            new entry rather than a deletion
- *
- * 2 → 3 → 4 is a chain: pricing is what lets the counter collect, and the cash
- * collected is what the closing distributes. An owner who finishes has run their
- * centre's whole money path once.
- */
-
-/** The simulated screens the engine can show. */
 export type EmuScreen = "dashboard" | "classes" | "counter" | "books";
 
 export type EmuStep = {
-  /** i18n key suffix under `centerEmulator.steps`. */
   id: string;
   screen: EmuScreen;
-  /** The control the owner must press to move on. Undefined = an explanation,
-   *  advanced by a "got it" button. */
   target?: string;
-  /** Points at a region to look at while the step is read (no click needed). */
   spotlight?: string;
 };
 
 export type EmuMission = {
   id: string;
-  /** Lucide icon name rendered in the mission rail. */
   icon: "home" | "book" | "counter" | "coins" | "ledger";
   steps: EmuStep[];
 };
@@ -114,7 +76,6 @@ export const MISSIONS: EmuMission[] = [
 
 export const TOTAL_STEPS = MISSIONS.reduce((n, m) => n + m.steps.length, 0);
 
-/** Flat walk order, so the engine advances without knowing about missions. */
 export type FlatStep = EmuStep & { mission: string; missionIndex: number; indexInMission: number };
 
 export const FLAT_STEPS: FlatStep[] = MISSIONS.flatMap((m, mi) =>

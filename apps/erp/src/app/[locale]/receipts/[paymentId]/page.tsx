@@ -42,12 +42,20 @@ export default async function ReceiptPage({
   // "Subscription (per_session, cash)" — which landed verbatim (in English) on
   // Arabic receipts. The stored value stays untouched; only the DISPLAY
   // translates it, and a note that is not that exact shape passes through as-is.
+  // Phase 1 widened the machine note's method slot to the counter channels.
+  const methodLabels: Record<string, string> = {
+    cash: t("noteMethodCash"),
+    online: t("noteMethodOnline"),
+    instapay: t("methodInstapay"),
+    pos_card: t("methodPosCard"),
+    mobile_wallet: t("methodMobileWallet"),
+  };
   const noteMatch = doc.note?.match(
-    /^Subscription \((monthly|per_session), (cash|online)(, paid by parent)?\)$/,
+    /^Subscription \((monthly|per_session), (cash|online|instapay|pos_card|mobile_wallet)(, paid by parent)?\)$/,
   );
   if (noteMatch) {
     const plan = t(noteMatch[1] === "monthly" ? "notePlanMonthly" : "notePlanPerSession");
-    const method = t(noteMatch[2] === "cash" ? "noteMethodCash" : "noteMethodOnline");
+    const method = methodLabels[noteMatch[2]] ?? noteMatch[2];
     doc = {
       ...doc,
       note: t(noteMatch[3] ? "notePaidByParent" : "noteSubscription", { plan, method }),
@@ -76,6 +84,16 @@ export default async function ReceiptPage({
         note: t("note"),
         systemGenerated: t("systemGenerated"),
         print: t("print"),
+        method: t("method"),
+        methods: {
+          cash: t("noteMethodCash"),
+          online_paymob: t("noteMethodOnline"),
+          online_fawry: t("noteMethodOnline"),
+          wallet: t("methodWalletBalance"),
+          instapay: t("methodInstapay"),
+          pos_card: t("methodPosCard"),
+          mobile_wallet: t("methodMobileWallet"),
+        },
       }}
     />
   );

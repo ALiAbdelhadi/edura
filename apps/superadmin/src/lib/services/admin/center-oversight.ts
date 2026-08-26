@@ -561,7 +561,7 @@ export function centerFinanceSummary(centerId: string, args: { from?: string; to
   return platformDb(async (tx) => {
     const center = await tx.center.findUnique({
       where: { id: centerId },
-      select: { id: true, name: true, walletBalance: true },
+      select: { id: true, name: true, walletBalance: true, creditBalance: true },
     });
     if (!center) throw new NotFoundError("Center not found");
 
@@ -616,6 +616,8 @@ export function centerFinanceSummary(centerId: string, args: { from?: string; to
       // The cached wallet balance is DISPLAYED here and editable nowhere:
       // it only ever moves through settlement / refund / payout.
       walletBalance: center.walletBalance,
+      // Phase 4 (D4): the signed center<->platform position; negative = arrears.
+      creditBalance: center.creditBalance,
       transactions: byType.map((t) => ({
         type: t.type,
         status: t.status,
@@ -681,12 +683,19 @@ export function centerPayments(centerId: string, args: PageArgs & { status?: str
       tx.payment.findMany({ where, orderBy: { paidAt: "desc" }, skip, take }),
       tx.payment.count({ where }),
     ]);
-    const students = await userMap(tx, rows.map((r) => r.studentId));
+    // A parent wallet top-up names no student. It cannot reach this list — the
+    // query is narrowed to one center and a top-up carries a NULL center_id —
+    // but the shape is handled rather than asserted away, so a future widening
+    // of the narrowing shows a null name instead of throwing on a null id.
+    const students = await userMap(
+      tx,
+      rows.map((r) => r.studentId).filter(Boolean) as string[],
+    );
     const recorders = await userMap(tx, rows.map((r) => r.recordedBy));
     return {
       data: rows.map((p) => ({
         ...p,
-        studentName: students.get(p.studentId)?.name ?? null,
+        studentName: (p.studentId ? students.get(p.studentId)?.name : null) ?? null,
         recordedByName: recorders.get(p.recordedBy)?.name ?? null,
       })),
       total,

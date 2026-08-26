@@ -2,6 +2,7 @@ import { platformDb } from "@/lib/db/scope";
 import { notify } from "@/lib/services/notifications/notify";
 import type { SessionUser } from "@/lib/auth/session";
 import { doorTransitionTx, resolveAssistantTeacher } from "./checkin";
+import { lessonClosed, lockSessionRow } from "@repo/server-core/services/attendance/lesson-lock";
 
 export type OfflineRecord = {
   sessionId: string;
@@ -29,16 +30,24 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
       // Step 6: assistants sync door-stage records for THEIR teacher's
       // sessions (teacher's own account works as fallback, unchanged).
       const teacherId = await resolveAssistantTeacher(tx, caller);
-      const sessionCache = new Map<string, { teacherId: string; courseId: string; centerId: string } | null>();
+      const sessionCache = new Map<
+        string,
+        { teacherId: string; courseId: string; centerId: string; cancelled: boolean; closed: boolean } | null
+      >();
 
       for (const rec of records) {
         const key = { sessionId: rec.sessionId, studentId: rec.studentId };
 
         let meta = sessionCache.get(rec.sessionId);
         if (meta === undefined) {
+          // Phase 0: lock BEFORE reading, so the cached closed state is the
+          // committed truth — the whole batch is one tx, so the row lock keeps
+          // that answer stable for every record naming this session
+          // (see lesson-lock.ts). A missing session locks nothing, harmlessly.
+          await lockSessionRow(tx, rec.sessionId);
           const session = await tx.session.findUnique({
             where: { id: rec.sessionId },
-            select: { teacherId: true, courseId: true },
+            select: { teacherId: true, courseId: true, status: true, distributedAt: true },
           });
           if (!session) {
             meta = null;
@@ -47,7 +56,13 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
               where: { id: session.courseId },
               select: { centerId: true },
             });
-            meta = { teacherId: session.teacherId, courseId: session.courseId, centerId: course?.centerId ?? "" };
+            meta = {
+              teacherId: session.teacherId,
+              courseId: session.courseId,
+              centerId: course?.centerId ?? "",
+              cancelled: session.status === "cancelled",
+              closed: lessonClosed(session),
+            };
           }
           sessionCache.set(rec.sessionId, meta);
         }
@@ -58,6 +73,18 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
         }
         if (meta.teacherId !== teacherId) {
           results.push({ ...key, result: "error", reason: "not_your_session" });
+          continue;
+        }
+        // Phase 0: a device that was offline while the counter closed the
+        // lesson syncs into a settled register. The honest server-wins answer
+        // is a per-record CONFLICT — the batch degrades record by record, it
+        // never dies on one, and the device learns which facts the server kept.
+        if (meta.closed) {
+          results.push({
+            ...key,
+            result: "conflict",
+            reason: meta.cancelled ? "session_cancelled" : "session_settled",
+          });
           continue;
         }
 
@@ -74,6 +101,8 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
           });
           if (res.outcome === "present" || res.outcome === "already_present") {
             results.push({ ...key, result: "synced", reason: res.outcome });
+          } else if (res.outcome === "settled") {
+            results.push({ ...key, result: "conflict", reason: "session_settled" });
           } else if (res.outcome === "no_counter") {
             results.push({ ...key, result: "error", reason: "no_counter_checkin" });
           } else {

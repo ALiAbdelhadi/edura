@@ -33,6 +33,16 @@ async function main() {
     await tx.enrollment.create({ data: { studentId: su.id, courseId: course.id, centerId: center.id, status: "active", enrolledBy: teacher.id } });
     const s1 = await tx.session.create({ data: { courseId: course.id, teacherId: teacher.id, originalDate: new Date("2026-02-02T10:00:00Z"), date: new Date("2026-02-02T10:00:00Z"), startTime: "10:00", endTime: "11:00", status: "scheduled" } });
     await tx.attendanceRecord.create({ data: { sessionId: s1.id, studentId: su.id, courseId: course.id, centerId: center.id, status: "present", markedBy: teacher.id } });
+    // Phase 4 (D5): this proof measures reversal math through WALLET deltas,
+    // so the coverage must be PLATFORM-HELD (no coverage = center-held, whose
+    // deltas land on credit_balance — proven by center-held-refund.test.ts).
+    await tx.subscription.create({
+      data: {
+        studentId: su.id, targetType: "center", teacherId: teacher.id, centerId: center.id,
+        courseId: course.id, sessionId: s1.id, plan: "per_session", price: 20000,
+        paymentMethod: "online_paymob", status: "active", source: "online", activatedAt: new Date(),
+      },
+    });
     return { teacher: teacher.id, center: center.id, course: course.id, s1: s1.id, student: su.id };
   });
 
@@ -93,6 +103,7 @@ async function main() {
       await c.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [[fx.student]]);
       await c.query(`DELETE FROM points_ledger WHERE student_id = $1`, [fx.student]);
       await c.query(`DELETE FROM attendance_records WHERE session_id = $1`, [fx.s1]);
+      await c.query(`DELETE FROM subscriptions WHERE session_id = $1`, [fx.s1]);
       await c.query(`DELETE FROM sessions WHERE id = $1`, [fx.s1]);
       await c.query(`DELETE FROM enrollments WHERE course_id = $1`, [fx.course]);
       await c.query(`DELETE FROM courses WHERE id = $1`, [fx.course]);

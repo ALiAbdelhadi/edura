@@ -83,10 +83,14 @@ const METHOD_LABEL: Record<"ar" | "en", Record<string, string>> = {
   ar: {
     whole_room_percent: "نسبة القاعة كاملة",
     per_attending_student: "لكل طالب حاضر",
+    // Phase 3: pricing_method is NULL for the legacy no-room fee model —
+    // every settled lesson files a record now, not only room-based ones.
+    no_room: "بدون قاعة (النموذج الافتراضي)",
   },
   en: {
     whole_room_percent: "Whole-room percent",
     per_attending_student: "Per attending student",
+    no_room: "No hall (default model)",
   },
 };
 
@@ -140,7 +144,7 @@ export async function buildSettlementWorkbook(
       teacherName: s.teacherName ?? "—",
       courseTitle: s.courseTitle ?? "—",
       roomName: s.roomName ?? "—",
-      pricingMethod: METHOD_LABEL[locale][s.pricingMethod] ?? s.pricingMethod,
+      pricingMethod: METHOD_LABEL[locale][s.pricingMethod ?? "no_room"] ?? s.pricingMethod,
       perSessionPrice: toPounds(s.perSessionPrice),
       presentCount: s.presentCount,
       livePresentCount: s.livePresentCount,

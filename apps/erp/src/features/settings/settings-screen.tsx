@@ -1,62 +1,62 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  User,
-  Phone,
-  Save,
-  CheckCircle2,
-  X,
-  Bell,
-  Lock,
-  ShieldCheck,
-  Users,
-  ChevronRight,
-  CircleCheck,
-  type LucideIcon,
-} from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@repo/ui/components/select";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@repo/ui/components/form";
-import { Alert, AlertDescription } from "@repo/ui/components/alert";
-import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
-import { SkeletonRows } from "@repo/ui/components/ledger";
-import { asKey } from "@/lib/i18n/keys";
-import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
 import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
-import { ProfileImageCard } from "@/features/settings/profile-image-card";
 import { CenterProfileCard } from "@/features/settings/center-profile-card";
 import { ChildrenGuardianCards } from "@/features/settings/children-guardian-cards";
 import { DataRightsCard } from "@/features/settings/data-rights-card";
 import { EmailCard } from "@/features/settings/email-card";
 import { GuardianContactCard } from "@/features/settings/guardian-contact-card";
 import { OnboardingProfileCard } from "@/features/settings/onboarding-profile-card";
-import { SessionsCard } from "@/features/settings/sessions-card";
-import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
-import { TwoFactorCard } from "@/features/settings/two-factor-card";
 import { PasswordCard } from "@/features/settings/password-card";
+import { ProfileImageCard } from "@/features/settings/profile-image-card";
+import { SessionsCard } from "@/features/settings/sessions-card";
+import { TwoFactorCard } from "@/features/settings/two-factor-card";
+import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
+import { asKey } from "@/lib/i18n/keys";
+import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useCustom, useCustomMutation } from "@refinedev/core";
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
+import { Button } from "@repo/ui/components/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@repo/ui/components/form";
+import { Input } from "@repo/ui/components/input";
+import { SkeletonRows } from "@repo/ui/components/ledger";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import { toast } from "@repo/ui/components/sonner";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  CircleCheck,
+  Lock,
+  Phone,
+  Save,
+  ShieldCheck,
+  User,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 type SettingsNavItem = {
   id: string;
@@ -79,7 +79,7 @@ function SettingsSidebar({
     <>
       {/* Desktop sidebar */}
       <aside className="hidden lg:block">
-        <div className="sticky top-24">
+        <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pb-6">
           <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
             {navLabel}
           </div>
@@ -97,7 +97,7 @@ function SettingsSidebar({
                   className={[
                     "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start text-[13px] font-medium transition-all",
                     active
-                      ? "bg-ink text-white shadow-sm"
+                      ? "bg-ink text-paper shadow-sm"
                       : "text-ink-2 hover:bg-field hover:text-ink",
                   ].join(" ")}
                 >
@@ -105,7 +105,7 @@ function SettingsSidebar({
                     className={[
                       "flex size-7 shrink-0 items-center justify-center rounded-lg",
                       active
-                        ? "bg-white/10 text-white"
+                        ? "bg-paper/10 text-paper"
                         : "bg-field text-ink-3 group-hover:text-ink-2",
                     ].join(" ")}
                   >
@@ -132,9 +132,9 @@ function SettingsSidebar({
 
       {/* Mobile navigation */}
       <div className="lg:hidden">
-        <div className="sticky top-20 z-20 -mx-4 overflow-hidden border-y border-rule bg-paper/95 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6">
+        <div className="sticky top-16 z-30 -mx-4 overflow-hidden border-y border-rule bg-paper/95 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6">
           <nav
-            className="flex gap-1 overflow-x-auto"
+            className="flex gap-1 overflow-x-auto no-scrollbar"
             aria-label={navLabel}
           >
             {items.map((item) => {
@@ -146,9 +146,9 @@ function SettingsSidebar({
                   type="button"
                   onClick={() => onNavigate(item.id)}
                   className={[
-                    "shrink-0 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors",
+                    "shrink-0 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors",
                     active
-                      ? "bg-ink text-white"
+                      ? "bg-ink text-paper"
                       : "text-ink-2 hover:bg-field",
                   ].join(" ")}
                 >
@@ -179,31 +179,31 @@ function SettingsSection({
   return (
     <section
       id={id}
-      className="scroll-mt-28"
+      className="scroll-mt-32 lg:scroll-mt-28" // Adjusted for sticky header clearance
       aria-labelledby={`${id}-title`}
     >
-      <div className="mb-4 flex items-start gap-3">
+      <div className="mb-5 flex items-start gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-soft text-indigo">
           <Icon className="size-4" aria-hidden="true" />
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 pt-0.5">
           <h2
             id={`${id}-title`}
-            className="text-[15px] font-semibold tracking-[-0.01em] text-ink"
+            className="text-[16px] font-semibold tracking-[-0.01em] text-ink"
           >
             {label}
           </h2>
 
           {description ? (
-            <p className="mt-1 max-w-2xl text-[12.5px] leading-5 text-ink-3">
+            <p className="mt-1 max-w-2xl text-[13px] leading-5 text-ink-3">
               {description}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-rule bg-sheet shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <div className="rounded-2xl border border-rule bg-sheet shadow-sm">
         {children}
       </div>
     </section>
@@ -226,27 +226,31 @@ function SettingRow({
   return (
     <div
       className={[
-        "flex items-center gap-4 px-4 py-4 sm:px-5",
+        "flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-5", // Better spacing for responsive layout
         !last ? "border-b border-rule" : "",
       ].join(" ")}
     >
-      {Icon ? (
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-field text-ink-3">
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
-      ) : null}
-
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-ink">{title}</div>
-
-        {description ? (
-          <div className="mt-1 text-[12px] leading-5 text-ink-3">
-            {description}
+      <div className="flex flex-1 items-start gap-4 min-w-0">
+        {Icon ? (
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-field text-ink-3">
+            <Icon className="size-4" aria-hidden="true" />
           </div>
         ) : null}
+
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="text-[14px] font-medium text-ink">{title}</div>
+
+          {description ? (
+            <div className="mt-1.5 text-[13px] leading-5 text-ink-3">
+              {description}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      <div className="shrink-0">{action}</div>
+      <div className="shrink-0 flex items-center justify-start sm:justify-end sm:ps-0 ps-13">
+        {action}
+      </div>
     </div>
   );
 }
@@ -261,7 +265,7 @@ function StatusBadge({
   return (
     <span
       className={[
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
         tone === "success"
           ? "bg-teal-soft text-teal"
           : "bg-field text-ink-2",
@@ -308,7 +312,7 @@ function PushNotificationsCard() {
         : t("shared.pushDescDisabled");
 
   return (
-    <div>
+    <div className="flex flex-col empty:hidden">
       <SettingRow
         icon={Bell}
         title={t("shared.pushTitle")}
@@ -517,184 +521,154 @@ export function SettingsScreen() {
     : "";
 
   return (
-    <div className="w-full">
-      <div className="mx-auto flex w-full flex-col gap-6 pb-16">
-        {/* Header */}
+    <div className="w-full min-h-screen bg-background">
+      <div className="flex w-full flex-col gap-8 pb-20">
         <PageHeader title={t("nav.settings")} />
-        <section className="overflow-hidden rounded-2xl border border-rule bg-sheet shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-field text-lg font-semibold text-ink">
+        <section className="overflow-hidden rounded-2xl border border-rule bg-sheet shadow-sm">
+          <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex min-w-0 items-center gap-5">
+              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-field text-xl font-bold text-ink">
                 {me?.name?.slice?.(0, 1)?.toUpperCase?.() || (
-                  <User className="size-5 text-ink-3" />
+                  <User className="size-6 text-ink-3" />
                 )}
               </div>
-
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-[17px] font-semibold tracking-[-0.02em] text-ink">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="truncate text-[18px] font-bold tracking-tight text-ink">
                     {me?.name || "—"}
                   </h1>
-
                   {displayStatus ? (
                     <StatusBadge tone="success">
                       {displayStatus}
                     </StatusBadge>
                   ) : null}
                 </div>
-
-                <div className="mt-1 truncate text-[12.5px] text-ink-3">
+                <div className="mt-1.5 truncate text-[14px] text-ink-3">
                   {me?.email || "—"}
                 </div>
-
-                {displayRole ? (
-                  <div className="mt-2 text-[12px] font-medium text-ink-2">
-                    {displayRole}
-                  </div>
-                ) : null}
               </div>
             </div>
-
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 gap-3 pt-2 sm:pt-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => navigateToSection("profile")}
               >
-                <User className="size-3.5" />
+                <User className="size-4" />
                 {t("shared.settingsGroupProfile")}
               </Button>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 border-t border-rule sm:grid-cols-3">
-            <div className="border-b border-rule px-5 py-3.5 sm:border-b-0 sm:border-e">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+          <div className="grid grid-cols-1 border-t border-rule sm:grid-cols-3 bg-paper/50">
+            <div className="border-b border-rule p-5 sm:border-b-0 sm:border-e">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
                 {t("shared.settingsRole")}
               </div>
-              <div className="mt-1.5 truncate text-[12.5px] font-medium text-ink">
+              <div className="mt-2 truncate text-[14px] font-medium text-ink">
                 {displayRole || "—"}
               </div>
             </div>
-
-            <div className="border-b border-rule px-5 py-3.5 sm:border-b-0 sm:border-e">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+            <div className="border-b border-rule p-5 sm:border-b-0 sm:border-e">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
                 {t("shared.settingsStatus")}
               </div>
-              <div className="mt-1.5 truncate text-[12.5px] font-medium text-ink">
+              <div className="mt-2 truncate text-[14px] font-medium text-ink">
                 {displayStatus || "—"}
               </div>
             </div>
-
-            <div className="px-5 py-3.5">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+            <div className="p-5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
                 {t("shared.settingsLanguage")}
               </div>
-              <div className="mt-1.5 truncate text-[12.5px] font-medium text-ink">
+              <div className="mt-2 truncate text-[14px] font-medium text-ink">
                 {me?.locale === "en" ? "English" : "العربية"}
               </div>
             </div>
           </div>
         </section>
-
-        {/* Main settings workspace */}
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-10">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-stretch lg:gap-12 mt-2">
           <SettingsSidebar
             items={navigation}
             activeSection={activeSection}
             onNavigate={navigateToSection}
             navLabel={t("shared.settingsNavLabel")}
           />
-
-          <main className="min-w-0 space-y-10">
-            {/* PROFILE */}
+          <main className="min-w-0 space-y-10 pb-12">
             <SettingsSection
               id="profile"
               icon={User}
               label={t("shared.settingsGroupProfile")}
               description={t("shared.settingsSectionProfileDesc")}
             >
-              <div className="divide-y divide-rule">
-                {/* Role-specific settings */}
-                {me?.role === "teacher" ||
-                  me?.role === "assistant" ? (
-                  <div className="p-5">
+              <div className="flex flex-col divide-y divide-rule">
+                {me?.role === "teacher" || me?.role === "assistant" ? (
+                  <div className="p-5 empty:hidden flex flex-col">
                     <AttendanceModeCard />
                   </div>
                 ) : null}
-
                 {me?.role === "teacher" ? (
-                  <div className="p-5">
+                  <div className="p-5 empty:hidden flex flex-col">
                     <ProfileImageCard
                       variant="teacherPhoto"
                       name={me?.name}
                     />
                   </div>
                 ) : null}
-
                 {me?.role === "center_admin" ||
                   (me?.role === "center_staff" &&
                     me?.staffRole === "manager") ? (
-                  <div className="p-5">
+                  <div className="p-5 empty:hidden flex flex-col">
                     <ProfileImageCard
                       variant="centerLogo"
                       name={me?.name}
                     />
                   </div>
                 ) : null}
-
                 {me?.role === "center_admin" ? (
-                  <div className="p-5">
+                  <div className="p-5 empty:hidden flex flex-col">
                     <CenterProfileCard />
                   </div>
                 ) : null}
-
                 {me?.role === "student" ? (
-                  <div className="p-5">
+                  <div className="p-5 empty:hidden flex flex-col">
                     <StudentIdSettingsCard />
                   </div>
                 ) : null}
-
-                <div className="p-5 empty:hidden">
+                <div className="p-5 empty:hidden flex flex-col">
                   <OnboardingProfileCard />
                 </div>
-
-                {/* Personal information */}
-                <div className="p-5">
-                  <div className="mb-5">
-                    <div className="text-[13px] font-semibold text-ink">
+                <div className="p-5 flex flex-col">
+                  <div className="mb-6">
+                    <div className="text-[14px] font-semibold text-ink">
                       {t("shared.settingsProfile")}
                     </div>
-                    <div className="mt-1 text-[12px] text-ink-3">
+                    <div className="mt-1.5 text-[13px] text-ink-3">
                       {t("shared.settingsProfileFormDesc")}
                     </div>
                   </div>
-
                   <Form {...form}>
                     <form
                       onSubmit={form.handleSubmit(handleSave)}
-                      className="space-y-5"
+                      className="space-y-6"
                     >
                       {saved ? (
                         <Alert className="relative border-rule bg-teal-soft text-teal">
-                          <CheckCircle2 />
-                          <AlertDescription className="text-teal">
+                          <CheckCircle2 className="size-5" />
+                          <AlertDescription className="text-teal font-medium mt-0.5">
                             {t("shared.settingsSavedAlert")}
                           </AlertDescription>
-
                           <button
                             type="button"
                             onClick={() => setSaved(false)}
                             aria-label={t("actions.dismiss")}
-                            className="absolute inset-y-0 inset-e-0 flex items-center pe-3 text-teal transition-opacity hover:opacity-70"
+                            className="absolute inset-y-0 inset-e-0 flex items-center pe-4 text-teal transition-opacity hover:opacity-70"
                           >
                             <X className="size-4" />
                           </button>
                         </Alert>
                       ) : null}
-
-                      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <FormField
                           control={form.control}
                           name="name"
@@ -703,13 +677,11 @@ export function SettingsScreen() {
                               <FormLabel>
                                 {t("shared.settingsName")}
                               </FormLabel>
-
                               <FormControl>
                                 <div className="relative">
-                                  <User className="pointer-events-none absolute inset-y-0 inset-s-3 my-auto size-4 text-ink-3" />
-
+                                  <User className="pointer-events-none absolute inset-y-0 inset-s-3.5 my-auto size-4 text-ink-3" />
                                   <Input
-                                    className="ps-9"
+                                    className="ps-10"
                                     placeholder={t(
                                       "shared.settingsNamePlaceholder",
                                     )}
@@ -717,12 +689,10 @@ export function SettingsScreen() {
                                   />
                                 </div>
                               </FormControl>
-
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-
                         <FormField
                           control={form.control}
                           name="phone"
@@ -731,13 +701,11 @@ export function SettingsScreen() {
                               <FormLabel>
                                 {t("shared.settingsPhone")}
                               </FormLabel>
-
                               <FormControl>
                                 <div className="relative">
-                                  <Phone className="pointer-events-none absolute inset-y-0 inset-s-3 my-auto size-4 text-ink-3" />
-
+                                  <Phone className="pointer-events-none absolute inset-y-0 inset-s-3.5 my-auto size-4 text-ink-3" />
                                   <Input
-                                    className="ps-9"
+                                    className="ps-10"
                                     placeholder={t(
                                       "shared.settingsPhonePlaceholder",
                                     )}
@@ -745,12 +713,10 @@ export function SettingsScreen() {
                                   />
                                 </div>
                               </FormControl>
-
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-
                         <FormField
                           control={form.control}
                           name="locale"
@@ -759,7 +725,6 @@ export function SettingsScreen() {
                               <FormLabel>
                                 {t("shared.settingsLanguage")}
                               </FormLabel>
-
                               <Select
                                 value={field.value}
                                 onValueChange={field.onChange}
@@ -769,39 +734,34 @@ export function SettingsScreen() {
                                     <SelectValue />
                                   </SelectTrigger>
                                 </FormControl>
-
                                 <SelectContent>
                                   <SelectItem value="ar">
                                     العربية (Arabic)
                                   </SelectItem>
-
                                   <SelectItem value="en">
                                     English
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
-
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
-
-                      <div className="flex items-center justify-between gap-4 border-t border-rule pt-5">
-                        <p className="text-[11.5px] leading-5 text-ink-3">
+                      <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-5 border-t border-rule pt-6 mt-6">
+                        <p className="text-[12px] leading-5 text-ink-3">
                           {t("shared.settingsProfileFormFooter")}
                         </p>
-
                         <Button
                           type="submit"
                           disabled={loading}
+                          className="w-full sm:w-auto shrink-0"
                         >
                           {loading ? (
                             <Spinner />
                           ) : (
                             <Save className="size-4" />
                           )}
-
                           {t("shared.settingsSaveChanges")}
                         </Button>
                       </div>
@@ -817,7 +777,7 @@ export function SettingsScreen() {
                 label={t("shared.settingsGroupFamily")}
                 description={t("shared.settingsSectionFamilyDesc")}
               >
-                <div className="p-5 empty:hidden">
+                <div className="flex flex-col gap-6 p-5 empty:hidden">
                   {me?.role === "student" ? (
                     <GuardianContactCard />
                   ) : null}
@@ -833,8 +793,8 @@ export function SettingsScreen() {
               label={t("shared.settingsGroupSecurity")}
               description={t("shared.settingsSectionSecurityDesc")}
             >
-              <div className="divide-y divide-rule">
-                <div className="p-5">
+              <div className="flex flex-col divide-y divide-rule">
+                <div className="p-5 empty:hidden flex flex-col">
                   <EmailCard
                     email={me?.email}
                     hasPassword={!!me?.hasPassword}
@@ -842,16 +802,16 @@ export function SettingsScreen() {
                     onChanged={() => query.refetch()}
                   />
                 </div>
-                <div className="p-5">
+                <div className="p-5 empty:hidden flex flex-col">
                   <PasswordCard locale={locale} />
                 </div>
                 {me?.role === "center_admin" ||
                   me?.role === "teacher" ? (
-                  <div className="p-5">
+                  <div className="p-5 empty:hidden flex flex-col">
                     <TwoFactorCard />
                   </div>
                 ) : null}
-                <div className="p-5">
+                <div className="p-5 empty:hidden flex flex-col">
                   <SessionsCard />
                 </div>
               </div>
@@ -870,15 +830,15 @@ export function SettingsScreen() {
               label={t("shared.settingsGroupPrivacy")}
               description={t("shared.settingsSectionPrivacyDesc")}
             >
-              <div className="divide-y divide-rule">
-                <div className="p-5">
+              <div className="flex flex-col divide-y divide-rule">
+                <div className="p-5 empty:hidden flex flex-col">
                   <DataRightsCard />
                 </div>
               </div>
             </SettingsSection>
-            <div className="flex items-center justify-center pt-2">
-              <div className="flex items-center gap-2 text-[11px] text-ink-3">
-                <CircleCheck className="size-3.5" />
+            <div className="flex items-center justify-center pt-6 pb-4">
+              <div className="flex items-center gap-2 text-[12px] text-ink-3">
+                <CircleCheck className="size-4" />
                 {t("shared.settingsFooterNote")}
               </div>
             </div>

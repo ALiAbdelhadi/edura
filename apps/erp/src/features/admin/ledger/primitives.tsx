@@ -4,17 +4,6 @@ import { cn } from "@repo/ui/lib/utils";
 import * as React from "react";
 import { Num } from "./num";
 
-/* ------------------------------------------------------------------------ */
-/* Eyebrow                                                                   */
-/* ------------------------------------------------------------------------ */
-
-/**
- * Mono eyebrow. Labels every section and table header.
- *
- * `latin` gates `text-transform: uppercase` — Arabic has no case, and
- * uppercasing it is a no-op at best and a shaping bug at worst. Callers pass
- * latin only for Latin/mono strings.
- */
 export function Eyebrow({
   children,
   latin = false,
@@ -31,10 +20,6 @@ export function Eyebrow({
     </span>
   );
 }
-
-/* ------------------------------------------------------------------------ */
-/* Card / sheet                                                              */
-/* ------------------------------------------------------------------------ */
 
 export function Sheet({
   children,
@@ -53,7 +38,6 @@ export function Sheet({
   );
 }
 
-/** Section heading inside a sheet: eyebrow + optional right-hand link. */
 export function SheetHead({
   title,
   latin,
@@ -64,17 +48,12 @@ export function SheetHead({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[var(--rule)] px-4 py-3">
+    <div className="flex items-center justify-between gap-3 border-b border-(--rule) px-4 py-3">
       <Eyebrow latin={latin}>{title}</Eyebrow>
       {action}
     </div>
   );
 }
-
-/* ------------------------------------------------------------------------ */
-/* Page header                                                               */
-/* ------------------------------------------------------------------------ */
-
 export function PageHead({
   title,
   subtitle,
@@ -90,15 +69,15 @@ export function PageHead({
     <div
       className={cn(
         "flex flex-wrap items-end justify-between gap-4",
-        rule && "border-b border-[var(--rule)] pb-[18px]",
+        rule && "border-b border-(--rule) pb-4.5",
       )}
     >
       <div className="min-w-0 flex-1">
-        <h1 className="m-0 text-[26px] font-bold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+        <h1 className="m-0 text-[26px] font-bold leading-tight tracking-[-0.02em] text-(--ink)">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-2 max-w-[68ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <p className="mt-2 max-w-[68ch] text-sm leading-relaxed text-(--ink-2)">
             {subtitle}
           </p>
         ) : null}
@@ -108,29 +87,16 @@ export function PageHead({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/* Status badge                                                              */
-/* ------------------------------------------------------------------------ */
-
 export type BadgeTone = "pending" | "done" | "failed" | "neutral" | "info";
 
 const BADGE_TONE: Record<BadgeTone, string> = {
   pending: "text-[var(--amber)] bg-[var(--amber-soft)]",
   done: "text-[var(--teal)] bg-[var(--teal-soft)]",
-  failed: "text-[var(--red)] bg-[var(--red-soft)]",
+  failed: "text-destructive bg-[var(--red-soft)]",
   neutral: "text-[var(--ink-2)] bg-[var(--rule-2)]",
   info: "text-[var(--indigo)] bg-[var(--indigo-soft)]",
 };
 
-/**
- * Colour discipline: amber = waiting, teal = money out / confirmed, red =
- * irreversible or blocking, indigo = brand. A badge is never coloured for
- * decoration, and never two saturated colours in one row.
- *
- * `age` exists because waiting is the operator's real metric — a pending badge
- * that does not say how long it has been pending is withholding the number the
- * screen exists to surface.
- */
 export function Badge({
   tone = "neutral",
   icon,
@@ -145,7 +111,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-[5px] px-2 py-[2px] text-xs font-semibold",
+        "inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-xs font-semibold",
         BADGE_TONE[tone],
       )}
     >
@@ -162,8 +128,6 @@ export function Badge({
     </span>
   );
 }
-
-/** The permanence stamp. Only ever on a row that just became irreversible. */
 export function Seal({ children }: { children: React.ReactNode }) {
   return (
     <span className="lg-seal" dir="ltr">
@@ -172,14 +136,6 @@ export function Seal({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/* Row identity                                                              */
-/* ------------------------------------------------------------------------ */
-
-/**
- * Used in every table that lists people or centers. Initials tile + name +
- * a mono second line carrying the code/email, wrapped ltr when it is Latin.
- */
 export function RowIdentity({
   name,
   meta,
@@ -191,7 +147,6 @@ export function RowIdentity({
   meta?: React.ReactNode;
   kind?: "person" | "center";
   metaLatin?: boolean;
-  /** Supply when `name` is a node (e.g. a link) rather than a plain string. */
   initialsFrom?: string;
 }) {
   const initials = React.useMemo(() => {
@@ -213,25 +168,25 @@ export function RowIdentity({
       <span
         aria-hidden
         className={cn(
-          "flex size-[30px] shrink-0 items-center justify-center rounded-[7px] text-xs font-semibold",
+          "flex size-7.5 shrink-0 items-center justify-center rounded-[7px] text-xs font-semibold",
           kind === "center"
-            ? "bg-[var(--teal-soft)] text-[var(--teal)]"
-            : "bg-[var(--indigo-soft)] text-[var(--indigo)]",
+            ? "bg-(--teal-soft) text-(--teal)"
+            : "bg-(--indigo-soft) text-(--indigo)",
         )}
       >
         {initials}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold text-[var(--ink)]">
+        <span className="block truncate text-[13px] font-semibold text-(--ink)">
           {name}
         </span>
         {meta ? (
           metaLatin ? (
-            <Num className="block truncate text-[11px] text-[var(--ink-3)]">
+            <Num className="block truncate text-[11px] text-(--ink-3)">
               {meta}
             </Num>
           ) : (
-            <span className="block truncate text-[11px] text-[var(--ink-3)]">
+            <span className="block truncate text-[11px] text-(--ink-3)">
               {meta}
             </span>
           )
@@ -240,10 +195,6 @@ export function RowIdentity({
     </div>
   );
 }
-
-/* ------------------------------------------------------------------------ */
-/* Empty & error states                                                      */
-/* ------------------------------------------------------------------------ */
 
 export function EmptyState({
   icon,
@@ -258,10 +209,10 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-      {icon ? <div className="text-[var(--ink-3)]">{icon}</div> : null}
-      <p className="m-0 text-sm font-semibold text-[var(--ink)]">{title}</p>
+      {icon ? <div className="text-(--ink-3)">{icon}</div> : null}
+      <p className="m-0 text-sm font-semibold text-(--ink)">{title}</p>
       {hint ? (
-        <p className="m-0 max-w-[46ch] text-[13px] leading-relaxed text-[var(--ink-2)]">
+        <p className="m-0 max-w-[46ch] text-[13px] leading-relaxed text-(--ink-2)">
           {hint}
         </p>
       ) : null}
@@ -283,9 +234,9 @@ export function ErrorState({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <p className="m-0 text-sm font-semibold text-[var(--red)]">{title}</p>
+      <p className="m-0 text-sm font-semibold text-destructive">{title}</p>
       {hint ? (
-        <p className="m-0 max-w-[46ch] text-[13px] leading-relaxed text-[var(--ink-2)]">
+        <p className="m-0 max-w-[46ch] text-[13px] leading-relaxed text-(--ink-2)">
           {hint}
         </p>
       ) : null}
@@ -293,7 +244,7 @@ export function ErrorState({
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 h-9 rounded-lg border border-[var(--rule)] bg-[var(--sheet)] px-3 text-[13px] font-semibold text-[var(--ink)]"
+          className="mt-2 h-9 rounded-lg border border-(--rule) bg-(--sheet) px-3 text-[13px] font-semibold text-(--ink)"
         >
           {retryLabel}
         </button>

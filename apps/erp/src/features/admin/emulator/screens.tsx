@@ -1,33 +1,4 @@
 "use client";
-
-/**
- * The simulated centre screens.
- *
- * Built from the REAL Ledger primitives, exactly as the student and teacher
- * emulators are, so the owner practises on the product's own visual language.
- * Every interactive control carries a `data-emu` id via `EmuTarget`; screens
- * know nothing about steps, missions or progress.
- *
- * THREE THINGS COPIED FROM THE REAL PRODUCT ON PURPOSE, because they are what
- * the tour exists to teach:
- *
- *  1. The counter commits CASH AND ATTENDANCE IN ONE ACTION, with the amount on
- *     the button and a second confirmation — the real screen's two-step commit
- *     (`design/CONSTITUTION.md` §2). A receptionist who learns "collect, then
- *     separately mark present" learns the wrong thing.
- *  2. An unpriced class disables the counter and SAYS SO IN THE COUNTER'S OWN
- *     WORDS — the real hint names the centre owner as the person who fixes it,
- *     which is the whole reason pricing comes before the counter in this script.
- *  3. A refund is a NEW ENTRY beneath the original receipt, never a deletion —
- *     the ledger's actual behaviour, and the thing owners most expect to be
- *     able to "undo".
- */
-
-import { useLocale, useTranslations } from "next-intl";
-import { Check, Clock } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
-import { asKey } from "@/lib/i18n/keys";
-import { formatPercent } from "@/lib/i18n/format";
 import {
   Chip,
   DoubleTotal,
@@ -44,6 +15,11 @@ import {
   Tr,
 } from "@/components/ledger";
 import { EmuTarget } from "@/features/emulator/target";
+import type { Locale } from "@/lib/i18n";
+import { formatPercent } from "@/lib/i18n/format";
+import { asKey } from "@/lib/i18n/keys";
+import { Check, Clock } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   EMU_CENTRE,
   EMU_CLASS,
@@ -57,8 +33,6 @@ import {
   type EmuReceipt,
 } from "./world";
 
-/* ── Overview ──────────────────────────────────────────────────────────── */
-
 export function EmuCentreDashboard({ revenue }: { revenue: number }) {
   const t = useTranslations("adminHome.centerEmulator");
   const locale = useLocale() as Locale;
@@ -68,7 +42,6 @@ export function EmuCentreDashboard({ revenue }: { revenue: number }) {
       <h2 className="text-xl font-semibold" style={{ color: "var(--ink)" }}>
         {t("screens.dashboardTitle")}
       </h2>
-
       <div data-emu-region="figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Sheet className="p-3.5">
           <Eyebrow>{t("screens.totalStudents")}</Eyebrow>
@@ -95,7 +68,6 @@ export function EmuCentreDashboard({ revenue }: { revenue: number }) {
           </p>
         </Sheet>
       </div>
-
       <div data-emu-region="pending">
         <Sheet className="p-4">
           <SectionHeading title={t("screens.pendingActions")} />
@@ -120,7 +92,6 @@ export function EmuCentreDashboard({ revenue }: { revenue: number }) {
           </div>
         </Sheet>
       </div>
-
       <Sheet className="p-4">
         <SectionHeading title={t("screens.todaySnapshot")} />
         <div className="mt-3 flex items-center gap-3">
@@ -141,8 +112,6 @@ export function EmuCentreDashboard({ revenue }: { revenue: number }) {
   );
 }
 
-/* ── Classes + pricing (the centre owns this) ──────────────────────────── */
-
 export function EmuCentreClasses({
   open,
   priced,
@@ -160,7 +129,6 @@ export function EmuCentreClasses({
   return (
     <div className="space-y-4">
       <SectionHeading eyebrow={t("nav.classes")} title={t("screens.classesTitle")} />
-
       <EmuTarget id="class-c1" onClick={onOpen}>
         <Sheet className="p-4">
           <div className="flex items-center gap-3">
@@ -182,7 +150,6 @@ export function EmuCentreClasses({
           </div>
         </Sheet>
       </EmuTarget>
-
       {open ? (
         priced ? (
           <div data-emu-region="price">
@@ -228,8 +195,6 @@ export function EmuCentreClasses({
     </div>
   );
 }
-
-/* ── The counter ───────────────────────────────────────────────────────── */
 
 export function EmuCentreCounter({
   teacherPicked,
@@ -277,12 +242,10 @@ export function EmuCentreCounter({
   return (
     <div className="space-y-4">
       <SectionHeading eyebrow={t("nav.counter")} title={t("screens.counterTitle")} />
-
-      {/* The chooser: one line once chosen, open while it IS the task. */}
       <Sheet className="p-3.5">
         <Eyebrow>{t("screens.teacherLabel")}</Eyebrow>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="w-[13rem]">
+          <span className="w-52">
             <EmuTarget id="teacher-t1" onClick={onPickTeacher}>
               <span
                 className="inline-flex w-full items-center gap-2 rounded-(--radius-step-md) px-3 py-2 text-sm"
@@ -296,9 +259,8 @@ export function EmuCentreCounter({
               </span>
             </EmuTarget>
           </span>
-
           {teacherPicked ? (
-            <span className="w-[15rem]">
+            <span className="w-60">
               <EmuTarget id="lesson-s1" onClick={onPickLesson}>
                 <span
                   className="inline-flex w-full items-center justify-between gap-2 rounded-(--radius-step-md) px-3 py-2 text-sm"
@@ -318,7 +280,6 @@ export function EmuCentreCounter({
           ) : null}
         </div>
       </Sheet>
-
       {!lessonPicked ? (
         <Sheet className="p-4">
           <p className="text-sm" style={{ color: "var(--ink-2)" }}>
@@ -347,7 +308,6 @@ export function EmuCentreCounter({
               );
             })}
           </div>
-
           <Sheet className="p-4">
             <div className="divide-y" style={{ borderColor: "var(--rule-2)" }}>
               {shown.map((s) => (
@@ -366,7 +326,6 @@ export function EmuCentreCounter({
                       {!s.onRoster ? ` · ${t("screens.offRoster")}` : ""}
                     </span>
                   </span>
-
                   {s.checkedIn ? (
                     <Chip tone="teal">{t("screens.checkedIn")}</Chip>
                   ) : s.covered ? (
@@ -374,10 +333,7 @@ export function EmuCentreCounter({
                   ) : (
                     <Chip tone="red">{t("screens.unpaid")}</Chip>
                   )}
-
-                  {/* Fixed-width action column: the button must land in the same
-                      place for every student, or the operator hunts for it. */}
-                  <span className="w-[15rem] shrink-0">
+                  <span className="w-60 shrink-0">
                     {s.checkedIn ? (
                       <span
                         className="inline-flex w-full items-center justify-center gap-1.5 rounded-(--radius-step-md) px-3 py-2 text-sm"
@@ -434,15 +390,12 @@ export function EmuCentreCounter({
               ))}
             </div>
           </Sheet>
-
-          {/* ── Closing the lesson, from the centre's side ─────────────────── */}
           <div data-emu-region="settle">
             <Sheet
               className="p-4"
               style={{ borderColor: settled ? "var(--rule)" : "var(--indigo)" }}
             >
               <SectionHeading eyebrow={t("screens.settleEyebrow")} title={t("screens.settleTitle")} />
-
               {settled ? (
                 <div data-emu-region="settled" className="mt-3 space-y-2">
                   <Chip tone="teal">{t("screens.settledChip")}</Chip>
@@ -468,7 +421,6 @@ export function EmuCentreCounter({
                       <Num>{present}</Num>
                     </span>
                   </div>
-
                   <div data-emu-region="shares" className="mt-3">
                     <Eyebrow>{t("screens.perStudentShares")}</Eyebrow>
                     <div className="mt-1.5 space-y-1.5">
@@ -488,11 +440,9 @@ export function EmuCentreCounter({
                       ))}
                     </div>
                   </div>
-
                   <DoubleTotal label={t("screens.centreTotal")}>
                     <Money piasters={centreTotal} tone="ink" weight={600} />
                   </DoubleTotal>
-
                   <div className="mt-3">
                     {settleArmed ? (
                       <EmuTarget id="settle-confirm" onClick={onSettle}>
@@ -538,8 +488,6 @@ export function EmuCentreCounter({
   );
 }
 
-/* ── The books ─────────────────────────────────────────────────────────── */
-
 export function EmuCentreBooks({
   revenue,
   receipts,
@@ -557,7 +505,6 @@ export function EmuCentreBooks({
   return (
     <div className="space-y-4">
       <SectionHeading eyebrow={t("nav.books")} title={t("screens.booksTitle")} />
-
       <div data-emu-region="net" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Sheet className="p-3.5">
           <Eyebrow>{t("screens.revenue")}</Eyebrow>
@@ -578,14 +525,13 @@ export function EmuCentreBooks({
           </p>
         </Sheet>
       </div>
-
       <div data-emu-region="receipts">
         <Sheet className="p-4">
           <SectionHeading
             title={t("screens.receipts")}
             action={
               refundable ? (
-                <span className="w-[9rem]">
+                <span className="w-36">
                   <EmuTarget id="refund-r3" onClick={() => onRefund("r3")}>
                     <span
                       className="inline-flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-sm font-semibold"
@@ -619,10 +565,6 @@ export function EmuCentreBooks({
                 </Td>
                 <Td>{pick(r.student, locale)}</Td>
                 <Td align="end">
-                  {/* `signed` is required, not decoration: <Money> renders
-                      Math.abs(v) and draws the − ONLY when asked, so a refund
-                      without it reads as another payment of the same size —
-                      the one row on this screen that must not be misread. */}
                   <Money
                     piasters={r.kind === "refund" ? -r.amount : r.amount}
                     tone={r.kind === "refund" ? "red" : "teal"}

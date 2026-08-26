@@ -6,7 +6,13 @@ import { getTeacherDashboard } from "@/lib/services/reports/reports";
 
 export const dynamic = "force-dynamic";
 
-export const GET = delegated(async (_req, _ctx, { acting: user }) => {
-  const result = await getTeacherDashboard(user);
+export const GET = delegated(async (req, _ctx, { acting: user }) => {
+  // `from`/`to` bound `avgAttendanceRate` to a period (T-7); omitted still
+  // means lifetime, and the response's `period` says which one you got.
+  const sp = new URL(req.url).searchParams;
+  const result = await getTeacherDashboard(user, {
+    from: sp.get("from") ?? undefined,
+    to: sp.get("to") ?? undefined,
+  });
   return ok(result);
 });

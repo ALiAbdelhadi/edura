@@ -160,7 +160,7 @@ export function CenterStaffScreen() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className={row.active ? "text-[var(--red)]" : "text-[var(--teal)]"}
+                        className={row.active ? "text-destructive" : "text-[var(--teal)]"}
                       >
                         {row.active ? t("centerStaff.deactivate") : t("centerStaff.activate")}
                       </Button>
@@ -235,9 +235,9 @@ function RolePermissionsPanel() {
 
       {/* The hard exclusions are red, not amber: these are not "waiting", they
           are permanently out of reach for every staff tier. */}
-      <div className="flex items-start gap-2 rounded-lg border border-[var(--red)] bg-[var(--red-soft)] p-3">
-        <Lock className="mt-px size-3.5 shrink-0 text-[var(--red)]" />
-        <span className="text-xs leading-relaxed text-[var(--red)]">
+      <div className="flex items-start gap-2 rounded-lg border border-destructive bg-[var(--red-soft)] p-3">
+        <Lock className="mt-px size-3.5 shrink-0 text-destructive" />
+        <span className="text-xs leading-relaxed text-destructive">
           {t("centerStaff.excluded")}
         </span>
       </div>

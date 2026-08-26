@@ -24,7 +24,7 @@
       "label": "Practice sections",
       "home": "Your account",
       "attendance": "Attendance",
-      "door": "Door check-in",
+      "door": "Door",
       "messages": "Messages",
       "notes": "Team notes",
       "noWalletNote": "There is no “Wallet” here — deliberate, not a fault."
@@ -52,7 +52,7 @@
       "markCta": "Mark attendance",
       "roster": "Students",
       "presentCount": "{n} of {total} present",
-      "counterOnly": "At center — didn't attend class",
+      "counterOnly": "At the centre, not in the lesson",
       "status_present": "Present",
       "status_absent": "Absent",
       "status_excused": "Excused",
@@ -119,7 +119,7 @@
       },
       "roster": {
         "title": "Six students",
-        "body": "Everyone arrives as “Present” by default. Note the two tagged “At center — didn't attend class”; we deal with them at the door in a moment."
+        "body": "Everyone arrives as “Present” by default. Note the two tagged “At the centre, not in the lesson”; we deal with them at the door in a moment."
       },
       "markAbsent": {
         "title": "Mark an absence",
@@ -235,10 +235,10 @@
         "title": "How to take attendance",
         "body": "This is most of your work, and it decides who counts when the lesson's revenue is distributed.",
         "how": {
-          "1": "Press “Attendance” in the menu",
-          "2": "Pick the lesson",
-          "3": "Mark each student: present / late / absent",
-          "4": "Press “Save attendance”"
+          "1": "Tap \"Attendance\" in the bar",
+          "2": "Pick the lesson — every row names the group and the hall",
+          "3": "Anyone \"at the centre, not in the lesson\" sits in a box above the register — mark them present or absent",
+          "4": "Mark the rest present / absent / excused, then \"Save attendance\""
         },
         "note": "If a student shows as “at the centre — did not attend the lesson”, they checked in at the counter but never entered the hall. That is not attendance and does not count in the distribution — even if they paid."
       },
@@ -246,10 +246,10 @@
         "title": "And you can close the lesson too",
         "body": "Yes — closing a lesson and distributing its revenue is allowed for you, not just the teacher. Without it, the teacher's wallet sees nothing from that lesson.",
         "how": {
-          "1": "After saving attendance, press “Close the lesson and distribute its revenue”",
-          "2": "The button states the amount and the number of students before you press",
+          "1": "After saving attendance, scroll to the \"Close the lesson\" card under the register",
+          "2": "The button names the amount and the number of students before you press it",
           "3": "Check the teacher, centre and platform shares",
-          "4": "Press “Final confirmation — press to distribute”"
+          "4": "Press \"Final confirm — press to distribute\""
         },
         "note": "This moves money: it is written to the ledger once, cannot be undone, and is recorded as yours on behalf of your teacher. Check the attendance first."
       },
@@ -268,9 +268,9 @@
         "title": "Your teacher's classes",
         "body": "Where you see the groups, their times, their students and their lessons.",
         "how": {
-          "1": "Press “My Classes” in the menu",
-          "2": "Open the group",
-          "3": "Look at the students, lessons and times"
+          "1": "Tap \"Groups\" in the bar",
+          "2": "Open the group — it names the centre it belongs to",
+          "3": "See the students, the lessons and the times"
         },
         "note": "If you see a notice that a class has no price, tell your teacher — pricing isn't yours to do, and the lesson cannot be closed without it."
       },
@@ -278,10 +278,10 @@
         "title": "How to record grades",
         "body": "You can add assessments and enter marks exactly as the teacher does.",
         "how": {
-          "1": "Press “Gradebook” in the menu",
-          "2": "Pick the group",
-          "3": "Add an assessment and set its maximum score",
-          "4": "Enter the marks and save"
+          "1": "Tap \"Gradebook\" in the bar",
+          "2": "Pick the group, then the assessment you are marking",
+          "3": "Type each student’s mark — on a computer, Enter moves you to the next student",
+          "4": "Press \"Save grades\" in the bar that appears at the bottom"
         },
         "note": "The student and their parent see the grade as soon as you save it."
       },
@@ -289,7 +289,7 @@
         "title": "How to upload a handout",
         "body": "What you upload reaches that group's students only.",
         "how": {
-          "1": "Press “Materials” in the menu",
+          "1": "Open \"Handouts\" from the menu",
           "2": "Pick the group",
           "3": "Upload the file and give it a clear name"
         }

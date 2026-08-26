@@ -1,17 +1,23 @@
 "use client";
 
-import { BarChart, DonutChart, LineChart } from "@/components/charts";
 import { PageSkeleton } from "@/components/ui/skeletons";
 import { SetupChecklist } from "@/features/activation/setup-checklist";
-import { revenueVsExpensesLineSeries, sessionStatusDonutData } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { useCustom } from "@refinedev/core";
-import { BookOpen, CalendarCheck, GraduationCap, Inbox, Users, Wallet } from "lucide-react";
+import { useCustom, useList } from "@refinedev/core";
+import { BookOpen, CalendarCheck, Coins, GraduationCap, Inbox, TriangleAlert, Users, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Amount, Eyebrow, MetricCard, Num, PageHead, Sheet, SheetHead } from "./ledger";
 import { GuidedTour } from "@/features/tour/guided-tour";
 import { useTourGate } from "@/features/tour/use-tour-gate";
 import { CENTER_TOUR_STEPS } from "@/features/admin/tour/steps";
+import { TodayTakingsCard } from "./today-takings-card";
+import { awaitingSettlement, liveNow, type CenterSession } from "./center-day";
+import {
+  clashingSessionIds,
+  type SchedulableSession,
+} from "@repo/server-core/services/sessions/conflict-detector";
+import { shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
+import { Link } from "@/i18n/navigation";
 
 interface DashboardData {
   totals: {
@@ -55,11 +61,45 @@ export function AdminDashboard() {
     method: "get",
   });
 
+  /*
+    THE CENTRE'S DAY — one read, three answers.
+
+    A week back to today, because two of the three questions are not about
+    today alone: a lesson that finished on Monday and is still unsettled on
+    Thursday is precisely the one worth surfacing, and it would fall out of a
+    one-day window. `sessions` returns the whole row (so `status` AND
+    `distributedAt` arrive) plus course, teacher and hall names, which is
+    everything the three sections below render. See center-day.ts.
+  */
+  const day = todayKey();
+  const { result: sessionsResult } = useList({
+    resource: "sessions",
+    filters: [
+      { field: "from", operator: "eq", value: shiftDayKey(day, -6) },
+      { field: "to", operator: "eq", value: day },
+    ],
+    pagination: { mode: "off" },
+  });
+
   const d = result?.data as DashboardData | undefined;
 
   if (query.isLoading) {
     return <PageSkeleton />;
   }
+
+  const weekSessions = (sessionsResult?.data ?? []) as CenterSession[];
+  const running = liveNow(weekSessions, new Date(), day);
+  const unsettled = awaitingSettlement(weekSessions);
+  // The SAME rule the booking gate applies (`checkConflicts`) and the same one
+  // the schedule screen draws in red, so a clash counted here is a booking the
+  // system would itself have refused. Today only: a clash three days ago is
+  // history, and this screen is a queue.
+  const todaysSessions = weekSessions.filter(
+    (x) => String(x.date ?? "").slice(0, 10) === day,
+  );
+  const clashCount = clashingSessionIds(
+    todaysSessions as unknown as SchedulableSession[],
+  ).size;
 
   const totals = d?.totals ?? { students: 0, teachers: 0, activeCourses: 0, revenue: 0 };
   // The off-system share the API always sends (reports.ts). Rendered whenever
@@ -72,9 +112,19 @@ export function AdminDashboard() {
   const feeDefaulters = d?.feeDefaulters ?? 0;
   const pendingRequests = d?.pendingEnrollmentRequests ?? 0;
 
-  // The headline count is the sum of everything actually awaiting a decision.
-  // Sessions today are work, not a decision, so they are not counted here.
-  const openDecisions = pendingRequests + feeDefaulters;
+  /*
+    The headline is the sum of everything actually awaiting a decision, and it
+    now includes the two this pass surfaced. Sessions today are WORK, not a
+    decision, so they are still not counted — but an unsettled lesson is money
+    that has not moved, and a clash is a room double-booked, and both need
+    somebody to act.
+
+    The two arrive from a second read, so the number can rise a moment after
+    first paint. That is honest: it grows toward the truth rather than opening
+    at a total it cannot yet justify, and the cards below it carry the same
+    figures.
+  */
+  const openDecisions = pendingRequests + feeDefaulters + unsettled.length + clashCount;
 
   return (
     <div className="flex flex-col gap-6">
@@ -128,21 +178,121 @@ export function AdminDashboard() {
           blocking={feeDefaulters > 0}
           blockingLabel={t("adminHome.queue_defaultersChip")}
         />
+        {/* THE COUNTER, not `/checkin`. This card has always linked to the
+            by-student check-in screen — the one the de-duplication pass
+            deliberately took out of the sidebar because the board is the answer
+            to "what is running today". The card's own question is the board's
+            question. */}
         <MetricCard
-          href="/dashboard/admin/checkin"
+          href="/dashboard/admin/counter"
           label={t("adminHome.queue_todayLabel")}
           icon={<CalendarCheck className="size-[15px]" />}
           tone="indigo"
           count={todaySessions}
           fact={t("adminHome.queue_todayFact")}
         />
+        {/*
+          MONEY THAT HAS NOT MOVED. A completed lesson with `distributedAt`
+          null is revenue collected and never split between platform, teacher
+          and centre — the single most consequential thing on this screen that
+          nobody was being told about. It was reachable only by opening the
+          schedule, finding the right week, and clicking the right cell.
+        */}
+        <MetricCard
+          href="/dashboard/admin/schedule"
+          label={t("adminHome.queue_unsettledLabel")}
+          icon={<Coins className="size-[15px]" />}
+          tone="amber"
+          count={unsettled.length}
+          fact={t("adminHome.queue_unsettledFact")}
+          blocking={unsettled.length > 0}
+          blockingLabel={t("adminHome.queue_unsettledChip")}
+        />
+        {/* A clash is a hall or a teacher double-booked TODAY. The schedule
+            draws them in red; this says one exists before anyone thinks to
+            look. Same rule as the booking gate, so a count here is a booking
+            the system would itself refuse. */}
+        <MetricCard
+          href="/dashboard/admin/schedule"
+          label={t("adminHome.queue_clashLabel")}
+          icon={<TriangleAlert className="size-[15px]" />}
+          tone="red"
+          count={clashCount}
+          fact={t("adminHome.queue_clashFact")}
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
+      {/* TODAY'S TAKINGS, directly under the decisions and ABOVE the record.
+          "النهاردة جبنا كام؟" is asked every evening and had no answer anywhere
+          in either centre portal; the figure below it is a LIFETIME total, so
+          putting today's above it is also what stops the two being read as the
+          same timeframe. It renders nothing while its own read is in flight. */}
+      <TodayTakingsCard />
+
+      {/*
+        «شغّال دلوقتي» — which lessons are running, in which hall, with whom.
+
+        "مين عنده حصة دلوقتي؟ القاعات مشغولة؟" could only be answered by opening
+        the counter board and picking teachers one at a time. It renders only
+        while something IS running: an empty "nothing on now" sheet at 2am is
+        furniture, and its absence is not ambiguous.
+
+        Each row opens the counter board, which is where the roster and the
+        check-in counts live — those are deliberately NOT repeated here, because
+        `sessions` does not carry them and inventing a second source for a
+        figure the board already owns is how two screens start disagreeing.
+      */}
+      {running.length > 0 ? (
+        <Sheet>
+          <SheetHead
+            title={t("adminHome.live_title")}
+            action={
+              <span className="text-[11px] text-[var(--ink-3)]">
+                {t("adminHome.live_count", { n: running.length })}
+              </span>
+            }
+          />
+          <div className="flex flex-col">
+            {running.map((x) => (
+              <Link
+                key={x.id}
+                href="/dashboard/admin/counter"
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-[var(--rule-2)] px-[18px] py-3 last:border-b-0 hover:bg-[var(--rule-2)]"
+              >
+                <Num.ClockRange
+                  start={x.startTime ?? ""}
+                  end={x.endTime ?? ""}
+                  locale={locale}
+                  className="shrink-0 text-[13px] font-semibold text-[var(--ink)]"
+                />
+                <span className="text-[13px] text-[var(--ink)]">{x.courseName || "—"}</span>
+                <span className="text-[12px] text-[var(--ink-2)]">{x.teacherName || "—"}</span>
+                {x.roomName ? (
+                  <span className="text-[12px] text-[var(--ink-3)]">· {x.roomName}</span>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
+
+      <div>
         {/* The record. Two big mono figures separated by a hairline, then the
             roster counts — reference, deliberately below the decisions. */}
         <Sheet>
-          <SheetHead title={t("adminHome.queue_ledgerTitle")} />
+          {/* NAMED AS LIFETIME. `dashboards/admin` accepts `from`/`to` now and
+              returns a `period`; this screen deliberately passes none, so every
+              figure below is since-the-beginning. With «اتحصّل النهاردة» sitting
+              directly above, two unlabelled money figures a few hundred pixels
+              apart would be read as the same window. */}
+          <SheetHead
+            title={t("adminHome.queue_ledgerTitle")}
+            action={
+              <span className="text-[11px] text-[var(--ink-3)]">
+                {t("adminHome.queue_allTime")}
+              </span>
+            }
+          />
           <div className="flex flex-wrap items-start gap-6 p-[18px]">
             <div className="min-w-[180px]">
               <Eyebrow>{t("adminHome.queue_revenueLabel")}</Eyebrow>
@@ -161,6 +311,25 @@ export function AdminDashboard() {
                   })}
                 </p>
               ) : null}
+            </div>
+            <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
+            {/*
+              ATTENDANCE MOVED HERE, out of a sheet titled «النهاردة».
+
+              It is a LIFETIME rate — `getAdminDashboard` counts every
+              attendance row this centre has ever had unless a period is passed,
+              and this screen passes none. Sitting inside a sheet called "today"
+              it read as today's, which is the one place a lifetime figure must
+              not be. Here it sits with the other lifetime figures, under the
+              heading that says so.
+            */}
+            <div className="min-w-[150px]">
+              <Eyebrow>{t("adminHome.queue_attendanceLabel")}</Eyebrow>
+              <p className="mt-1.5 mb-0">
+                <Num className="text-[27px] font-semibold tracking-[-0.01em] text-[var(--ink)]">
+                  {formatPercent(attendanceRate)}
+                </Num>
+              </p>
             </div>
             <div aria-hidden className="hidden h-[46px] w-px bg-[var(--rule)] sm:block" />
             <div className="min-w-[180px]">
@@ -186,100 +355,23 @@ export function AdminDashboard() {
           </div>
         </Sheet>
 
-        <Sheet>
-          <SheetHead title={t("adminHome.queue_todayTitle")} />
-          <div className="flex flex-col p-[18px]">
-            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5 first:pt-0">
-              <span className="text-[13px] text-[var(--ink-2)]">
-                {t("adminHome.queue_attendanceLabel")}
-              </span>
-              <Num className="text-[17px] font-semibold text-[var(--ink)]">
-                {formatPercent(attendanceRate)}
-              </Num>
-            </div>
-            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] py-3.5">
-              <span className="text-[13px] text-[var(--ink-2)]">
-                {t("adminHome.queue_sessionsLabel")}
-              </span>
-              <Num className="text-[17px] font-semibold text-[var(--ink)]">{todaySessions}</Num>
-            </div>
-            <div className="lg-total mt-1 flex items-baseline justify-between gap-3 pt-3">
-              <span className="text-[13px] font-semibold text-[var(--ink)]">
-                {t("adminHome.queue_openDecisions")}
-              </span>
-              <Num
-                className={`text-[17px] font-semibold ${
-                  openDecisions > 0 ? "text-[var(--amber)]" : "text-[var(--ink)]"
-                }`}
-              >
-                {openDecisions}
-              </Num>
-            </div>
-          </div>
-        </Sheet>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Sheet className="lg:col-span-2">
-          <SheetHead title={t("adminHome.dashboard_revenueVsExpensesTrend")} />
-          {/* Chart wrappers render dir="ltr" internally (recharts axis math)
-              while the card around them stays RTL. */}
-          <div className="p-[18px]">
-            <LineChart
-              series={revenueVsExpensesLineSeries(
-                (d?.analytics?.revenueVsExpenses ?? []).map((entry) => ({
-                  period: entry.label,
-                  label: entry.label,
-                  revenue: entry.revenue,
-                  expenses: entry.expenses,
-                  netProfit: entry.netProfit,
-                })),
-                {
-                  revenue: t("adminHome.chart_revenue"),
-                  expenses: t("adminHome.chart_expenses"),
-                },
-              )}
-              showArea
-              yValueFormatter={(value) => formatShortEGP(value)}
-              emptyText={t("adminHome.dashboard_noFinancialTrend")}
-            />
-          </div>
-        </Sheet>
-        <Sheet>
-          <SheetHead title={t("adminHome.dashboard_sessionStatusMix")} />
-          <div className="p-[18px]">
-            <DonutChart
-              data={sessionStatusDonutData(d?.analytics?.sessionStatusMix ?? [], (s) =>
-                t(`status.${s}` as Parameters<typeof t>[0]),
-              )}
-              centerLabel={t("nav.sessions")}
-              emptyText={t("adminHome.dashboard_noSessionStatus")}
-            />
-          </div>
-        </Sheet>
-      </div>
+      {/*
+        THE THREE CHARTS ARE GONE FROM HERE, and two of them were duplicates.
 
-      <Sheet>
-        <SheetHead title={t("adminHome.dashboard_attendanceByCourse")} />
-        <div className="p-[18px]">
-          <BarChart
-            data={(d?.analytics?.attendanceByCourse ?? []).map((entry) => ({
-              label: entry.title,
-              rate: entry.attendanceRatePct,
-            }))}
-            series={[
-              {
-                key: "rate",
-                label: t("adminHome.dashboard_attendancePercent"),
-                color: "var(--teal)",
-              },
-            ]}
-            horizontal
-            yValueFormatter={(value) => formatPercent(Math.round(value))}
-            emptyText={t("adminHome.dashboard_noCourseAttendance")}
-          />
-        </div>
-      </Sheet>
+        `/reports` already draws the revenue-vs-expenses series (as its cashflow
+        bars) and the identical session-status donut from the identical field.
+        Two renderings of one series on two screens is two things to keep in
+        agreement for no gain. The attendance-by-course bars were not duplicated
+        and so MOVED rather than went: `/reports` receives them from the
+        `attendanceByCourse` its net-profit payload already carries, with no new
+        request.
+
+        What is left here is a QUEUE. Three charts below a decision list pushed
+        every decision off a phone screen, and a chart is reference — the thing
+        this screen was rebuilt to stop being.
+      */}
     </div>
   );
 }

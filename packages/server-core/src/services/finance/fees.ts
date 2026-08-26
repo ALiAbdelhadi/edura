@@ -143,3 +143,78 @@ export function resolveLessonPrice(
   if (course.settlementBasis === "session_price") return perSession || amortised;
   return amortised || perSession;
 }
+
+/**
+ * TEACHER-AGREEMENT split (Phase 5, D1) — expressed THROUGH the same
+ * computeLessonSplit identity by deriving `centerShare`, so it is not a second
+ * money engine, and the settlement and the refund reversal share one
+ * derivation exactly as the no-room branch does.
+ *
+ * The agreement's rate prices the NON-RESIDUAL side out of the POST-FEE NET
+ * (net = price − both platform fees, each first capped so it never exceeds
+ * what remains — the same "a clamp only ever REDUCES a charge" discipline as
+ * computeNoRoomLessonSplit):
+ *
+ *   residual='teacher': the rate is the CENTER's share — today's direction
+ *     with a contract instead of the flat affiliation figure. The result is
+ *     handed to computeNoRoomLessonSplit's own clamps, so the H2 posture is
+ *     identical to the branch it refines.
+ *   residual='center' (the spec's direction): the rate is the TEACHER's take;
+ *     the center keeps the remainder. Ordered clamps per D1:
+ *       (1) teacher-side fee off the top, capped at the price;
+ *       (2) center-side fee capped at what remains (a fee is never invented);
+ *       (3) the teacher's amount capped at the remaining net → centerNet ≥ 0
+ *           BY CONSTRUCTION, and teacherNet ≥ 0 because the take is ≥ 0.
+ *     centerShare = price − teacherFee − teacherTake, which makes
+ *     computeLessonSplit return exactly (teacherTake, net − teacherTake).
+ *
+ * Both nets are non-negative by construction — the H2 floor is relied upon,
+ * never approached from below.
+ */
+export function computeAgreementSplit(
+  perSessionPrice: number,
+  agreement: {
+    basis: "percent_of_net" | "fixed_per_student";
+    rateBp: number | null;
+    rateFlat: number | null;
+    residual: "teacher" | "center";
+  },
+  resolved: { platformTeacherFee: number; platformCenterFee: number },
+): {
+  centerShare: number;
+  fees: { platformTeacherFee: number; platformCenterFee: number };
+  clamped: boolean;
+} {
+  const price = Math.max(0, perSessionPrice);
+  const teacherFee = Math.min(resolved.platformTeacherFee, price);
+  const centerFee = Math.min(resolved.platformCenterFee, price - teacherFee);
+  const net = price - teacherFee - centerFee;
+
+  const rawTake =
+    agreement.basis === "percent_of_net"
+      ? Math.round((net * (agreement.rateBp ?? 0)) / 10_000)
+      : Math.max(0, agreement.rateFlat ?? 0);
+
+  if (agreement.residual === "center") {
+    // The rate is the TEACHER's take; the center keeps net − take.
+    const teacherTake = Math.min(rawTake, net);
+    return {
+      centerShare: price - teacherFee - teacherTake,
+      fees: { platformTeacherFee: teacherFee, platformCenterFee: centerFee },
+      clamped:
+        teacherFee !== resolved.platformTeacherFee ||
+        centerFee !== resolved.platformCenterFee ||
+        teacherTake !== rawTake,
+    };
+  }
+
+  // residual='teacher': the rate is the CENTER's share — hand it to the
+  // no-room clamps, which already guarantee both nets ≥ 0.
+  const noRoom = computeNoRoomLessonSplit(price, Math.min(rawTake, net), resolved);
+  return {
+    centerShare: noRoom.centerShare,
+    fees: noRoom.fees,
+    clamped: noRoom.clamped || rawTake > net,
+  };
+}
+

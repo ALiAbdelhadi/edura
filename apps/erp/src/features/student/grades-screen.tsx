@@ -25,7 +25,7 @@ import {
   latestGrade,
   type GradeRow,
   type SubjectGrades,
-} from "@/features/student/grades";
+} from "@/features/grades/grade-record";
 
 /**
  * The band's semantic tone, spelled in this portal's chip vocabulary. The

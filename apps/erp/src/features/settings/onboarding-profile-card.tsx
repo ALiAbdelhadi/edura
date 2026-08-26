@@ -1,39 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { GraduationCap, Pencil } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { SectionHead } from "@repo/ui/components/ledger";
 import { DescriptionList } from "@/components/kit/description-list";
 import { Spinner } from "@/components/kit/spinner";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api/client";
+import { Button } from "@repo/ui/components/button";
+import { SectionHead } from "@repo/ui/components/ledger";
+import { GraduationCap, Pencil } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 
-/**
- * What the onboarding wizard chose, and the way back into it.
- *
- * WHY THIS EXISTS: the education system, grade, track and second language a
- * student picks on day one decide which subjects the whole app shows them. They
- * were written once by the wizard and then had no editor: `/onboarding` bounces
- * a completed account straight back to the dashboard, and the `?edit=1` escape
- * hatch it already supported was linked from precisely nowhere — the same dead
- * capability `CenterProfileCard` was written to end for the center's details.
- * A student who tapped the wrong track on their first day was stuck with a
- * subject list for someone else's education until staff edited the row.
- *
- * So this shows the current answers and links to the wizard in edit mode. There
- * is no second writer: `POST /me/onboarding` is the one the wizard already
- * calls, it re-validates the whole system→stage→grade→track chain, and student
- * code issuance is once-only inside it, so re-running it cannot move a code
- * that is already printed on a card.
- *
- * Teacher and center get the same card because they have the same problem —
- * their wizard answers (which grades and subjects they teach; which stages the
- * center serves) had no editor either. The summary is deliberately thin for
- * those two: it says how many are selected and hands over to the wizard, rather
- * than resolving catalog names this screen has no other use for.
- */
 type StudentState = {
   role: "student";
   onboardingCompleted: boolean;
@@ -96,7 +72,6 @@ export function OnboardingProfileCard() {
     const s = state as CenterState;
     items.push({ label: t("shared.academicStages"), value: String(s.stageIds?.length ?? 0) });
   } else if (state) {
-    // A role with no wizard (parent, assistant, staff) — nothing to show.
     return null;
   }
 

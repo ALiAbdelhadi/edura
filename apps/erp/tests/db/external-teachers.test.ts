@@ -71,7 +71,8 @@ import {
 } from "@/lib/services/external-teachers";
 import { createCourse } from "@repo/server-core/services/center/courses";
 import { createWalkInSubscription } from "@/lib/services/subscriptions/subscriptions";
-import { bulkMarkAttendance } from "@/lib/services/attendance/attendance";
+import { bulkMarkAttendance,
+  reopenAttendanceForSettlement } from "@/lib/services/attendance/attendance";
 import { completeSession } from "@/lib/services/finance/distribution";
 import {
   getRevenueReport,
@@ -496,6 +497,20 @@ async function main() {
     );
 
     // Attendance for the first lesson, then complete it so the engine settles.
+    //
+    // T-9 (2026-08-21): the 7-day edit window now binds `bulkMarkAttendance`
+    // too, and this fixture's lessons are deliberately dated in the past. That
+    // is not an obstacle to work around — it is THIS module's own workflow:
+    // an external teacher has no account, the centre enters lessons manually,
+    // and `buildGapReport` prompts exactly this catch-up. So the centre opens
+    // the audited door first, which is what a real centre now does.
+    // docs/decisions/attendance-reopen-settlement.md
+    await reopenAttendanceForSettlement(firstSession!.id, {
+      kind: "center",
+      centerId: fx.centerA,
+      actorId: fx.ownerA.id,
+      onBehalfOf: null,
+    });
     await bulkMarkAttendance(
       firstSession!.id,
       [{ studentId: s1.studentId, status: "present" }],

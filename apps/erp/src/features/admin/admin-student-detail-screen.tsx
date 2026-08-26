@@ -286,7 +286,7 @@ export function AdminStudentDetailScreen() {
             locale={locale}
             className={cn(
               "text-[13px] font-semibold",
-              amount < 0 ? "text-[var(--red)]" : "text-[var(--teal)]",
+              amount < 0 ? "text-destructive" : "text-[var(--teal)]",
             )}
           />
         );
@@ -476,7 +476,7 @@ export function AdminStudentDetailScreen() {
                 the reversal and reads as such. */}
             <Button
               variant="outline"
-              className={isBlacklisted ? "border-[var(--teal)] text-[var(--teal)]" : "border-[var(--red)] text-[var(--red)]"}
+              className={isBlacklisted ? "border-[var(--teal)] text-[var(--teal)]" : "border-destructive text-destructive"}
               disabled={actionLoading}
               onClick={() => {
                 if (isBlacklisted) {

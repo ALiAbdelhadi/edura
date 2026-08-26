@@ -187,7 +187,7 @@ export function AdminScheduleScreen() {
         <span
           className={
             clashes.length > 0
-              ? "flex items-center gap-1.5 font-semibold text-[var(--red)]"
+              ? "flex items-center gap-1.5 font-semibold text-destructive"
               : "text-[var(--ink-3)]"
           }
         >
@@ -239,7 +239,7 @@ export function AdminScheduleScreen() {
                           onClick={() => setSettling(s)}
                           className={`w-full cursor-pointer rounded-(--radius-step-md) border p-2.5 text-start text-[12.5px] ${
                             clashing
-                              ? "border-[var(--red)] bg-[var(--red-soft)]"
+                              ? "border-destructive bg-[var(--red-soft)]"
                               : "border-[var(--rule)]"
                           } ${dimmed ? "opacity-55" : ""}`}
                         >
@@ -268,7 +268,7 @@ export function AdminScheduleScreen() {
                             </div>
                           )}
                           {clashing && (
-                            <div className="mt-1.5 flex items-center gap-1 font-semibold text-[var(--red)]">
+                            <div className="mt-1.5 flex items-center gap-1 font-semibold text-destructive">
                               <TriangleAlert className="size-3.5" />
                               {clashKind.get(s.id) === "room"
                                 ? t("adminManage.schedule.clashRoom")

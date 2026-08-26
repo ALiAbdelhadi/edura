@@ -28,6 +28,9 @@ node_modules
 coverage
 test-results
 playwright-report
+# playwright-cli scratch artifacts (console/page dumps) — 10 of these were
+# accidentally committed on 2026-08-05 and removed in the 2026-08-26 cleanup
+.playwright-cli/
 
 # Turbo
 .turbo
@@ -80,3 +83,6 @@ apps/showcase/.auth/
 
 # QA audit local env (contains only throwaway local creds)
 QA/.env.qa
+
+# Local-only run logs (never committed)
+.local-logs/

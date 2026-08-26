@@ -4,3 +4,5 @@ next-env.d.ts
 
 # Review artifacts from `bun run capture` — regenerable, ~1MB each.
 shots/
+.vercel
+.env*

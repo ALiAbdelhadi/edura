@@ -1,12 +1,3 @@
-/* The paper canvas for every signed-out page, scoped under `.landing` inside
-   the Ledger shell scope.
- *
- * The landing page's own styles (hero, bento role grid, steps, feature bands,
- * CTA band) lived here and were removed with it — that page now lives in
- * apps/showcase. What remains is what `LandingShell` still applies, and the
- * shell is shared by every marketing page (pricing, help, faq, contact, terms,
- * privacy, changelog), so this file is NOT dead. */
-
 .landing {
   --landing-max: 68rem;
 }

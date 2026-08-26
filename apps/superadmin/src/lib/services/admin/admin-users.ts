@@ -1,5 +1,5 @@
 import type { Role } from "@repo/database";
-import { narrowQuery } from "@repo/database/search-text";
+import { exactQuery } from "@repo/database/search-text";
 import { WWW_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
 import { mintViewAsToken } from "@repo/server-core/auth/view-as-token";
 import { trustedClientIp } from "@repo/server-core/rate-limit/token-bucket";
@@ -117,18 +117,18 @@ export type UserListFilters = {
  * status filters are exact. Soft-deleted users are excluded by the client
  * extension, same as every other list in the app.
  *
- * THE SEARCH NARROWS ONLY — half of the two-stage match, deliberately.
- * `contains` with `mode: "insensitive"` is ILIKE, which folds ASCII case and
- * nothing else, so «احمد» matched none of the rows stored «أحمد» and this
- * directory answered "no such person" about people it holds.
- * `literalFragments` yields the pieces of the query that survive normalization
- * unchanged and can therefore be compared byte-wise, which fixes that.
+ * THE SEARCH IS EXACT, AND INDEXED. `contains` with `mode: "insensitive"` is
+ * ILIKE, which folds ASCII case and nothing else, so «احمد» matched none of the
+ * rows stored «أحمد» and this directory answered "no such person" about people
+ * it holds. It filters `users.search_text` now — a stored generated column
+ * (migration 20260820160000) holding the row's name, email and phone already
+ * normalized, plus the same text with its spaces closed up, which is exactly
+ * what `matchesSearchTerms` compares. One `contains` per typed term, ANDed.
  *
- * What is NOT done here is the JS decide pass, because this list is
- * CURSOR-paginated: a filter applied after the page is cut would return a short
- * page and a `nextCursor` that skips rows. So the result is a SUPERSET —
- * «احمد» also lists «محمد». The palette, which is not paginated, applies the
- * exact pass itself over these rows (see `services/admin/global-search.ts`).
+ * Between the two there was a narrow-only stage that returned a SUPERSET,
+ * because this list is CURSOR-paginated and a JS filter applied after the page
+ * is cut returns a short page and a `nextCursor` that skips rows. The column is
+ * what let the exact answer and the pagination coexist.
  */
 export function listUsers(filters: UserListFilters) {
   const take = Math.min(PAGE_MAX, Math.max(1, filters.take ?? 25));
@@ -138,11 +138,7 @@ export function listUsers(filters: UserListFilters) {
     if (filters.status) where.status = filters.status;
     const q = filters.q?.trim();
     if (q) {
-      where.AND = narrowQuery(q, (f) => [
-        { name: { contains: f, mode: "insensitive" as const } },
-        { email: { contains: f, mode: "insensitive" as const } },
-        { phone: { contains: f } },
-      ]);
+      where.AND = exactQuery(q, (t) => ({ searchText: { contains: t } }));
     }
 
     const rows = await tx.user.findMany({

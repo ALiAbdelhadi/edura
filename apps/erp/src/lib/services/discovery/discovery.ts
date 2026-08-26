@@ -1,5 +1,5 @@
 import { platformDb } from "@/lib/db/scope";
-import { narrowQuery } from "@repo/database/search-text";
+import { exactQuery } from "@repo/database/search-text";
 import type { Prisma } from "@repo/database";
 
 const TIME_BUCKETS: Record<string, { start: string; end: string }> = {
@@ -93,21 +93,21 @@ export async function searchCourses(
       if (bucket) where.startTime = { gte: bucket.start, lt: bucket.end };
     }
 
-    /* THE PUBLIC LIST FILTERS NARROW ONLY — deliberately half the two-stage
-     * match the search kernel runs.
+    /* THE PUBLIC LIST FILTERS ARE EXACT, AND INDEXED.
      *
-     * `%احمد%` matched none of the rows stored «أحمد», so these boxes returned
-     * nothing for a name typed the way Egyptians type it. `literalFragments`
-     * fixes that by asking only for the pieces that can be compared byte-wise.
+     * `%احمد%` matched none of the rows stored «أحمد» — ILIKE folds ASCII case
+     * and nothing else — so these boxes returned nothing for a name typed the
+     * way Egyptians type it. They filter `search_text` now: a stored generated
+     * column (migration 20260820160000) holding each row's searchable fields
+     * already normalized, plus the same text with its spaces closed up, which
+     * is exactly what `matchesSearchTerms` compares.
      *
-     * What is NOT done here is the JS decide pass — because THIS query is
-     * paginated (`skip`/`take`), and a filter applied after the page is cut
-     * would return a short page and a wrong total. The result is therefore a
-     * SUPERSET: a search for «احمد» also shows «محمد». For a browse-and-filter
-     * screen that is the right trade — a few extra rows are a nuisance, an
-     * empty list is a dead end. An exact, paginable version needs the match to
-     * happen inside Postgres (an IMMUTABLE normalize function plus expression
-     * indexes), which is a migration and needs its own approved plan. */
+     * These queries are offset-paginated with a `count`, which is why the
+     * column had to exist at all: a JS filter applied after the page is cut
+     * returns a short page and a wrong total, so before it these could only
+     * NARROW and returned a superset («احمد» also listed «محمد»). One
+     * `contains` per typed term against the column is exact, served by a GIN
+     * trigram index, and counts correctly. */
     // `AND`, not `OR`: each clause is already an OR over the three columns, and
     // they must be ANDed so a second typed word NARROWS the list. The centre arm
     // added further down merges into the same `AND`, so this survives it.
@@ -117,11 +117,7 @@ export async function searchCourses(
       // student every year's groups the moment they typed in the box.
       where.AND = [
         ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        ...narrowQuery(filters.q, (f) => [
-          { title: { contains: f, mode: "insensitive" as const } },
-          { subject: { contains: f, mode: "insensitive" as const } },
-          { description: { contains: f, mode: "insensitive" as const } },
-        ]),
+        ...exactQuery(filters.q, (t) => ({ searchText: { contains: t } })),
       ];
     }
 
@@ -296,11 +292,7 @@ export async function searchCenters(filters: CenterSearchInput) {
 
     // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q) {
-      where.AND = narrowQuery(filters.q, (f) => [
-        { name: { contains: f, mode: "insensitive" as const } },
-        { description: { contains: f, mode: "insensitive" as const } },
-        { area: { contains: f, mode: "insensitive" as const } },
-      ]);
+      where.AND = exactQuery(filters.q, (t) => ({ searchText: { contains: t } }));
     }
 
     const centers = await tx.center.findMany({
@@ -350,9 +342,7 @@ export async function searchTeachers(filters: TeacherSearchInput) {
     };
     // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q)
-      userFilter.AND = narrowQuery(filters.q, (f) => [
-        { name: { contains: f, mode: "insensitive" as const } },
-      ]);
+      userFilter.AND = exactQuery(filters.q, (t) => ({ searchText: { contains: t } }));
 
     const where: Prisma.TeacherProfileWhereInput = { user: userFilter };
     if (filters.subject) where.subjects = { has: filters.subject };

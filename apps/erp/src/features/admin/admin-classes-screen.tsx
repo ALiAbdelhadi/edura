@@ -5,8 +5,10 @@ import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { Link } from "@/i18n/navigation";
+import { useParamSeed } from "@/lib/api/use-param-seed";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { Amount, Badge, Num, PageHead } from "./ledger";
+import { track } from "@/lib/track";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useCreate,
@@ -15,9 +17,8 @@ import {
   useList,
   useUpdate,
 } from "@refinedev/core";
-import { Alert, AlertTitle } from "@repo/ui/components/alert";
-import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
+import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import {
@@ -37,7 +38,6 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Progress } from "@repo/ui/components/progress";
 import {
   Select,
   SelectContent,
@@ -60,11 +60,10 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useParamSeed } from "@/lib/api/use-param-seed";
-import { Link } from "@/i18n/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Amount, Badge, Num, PageHead } from "./ledger";
 
 export function AdminClassesScreen() {
   const t = useTranslations();
@@ -84,8 +83,6 @@ export function AdminClassesScreen() {
   const { mutate: updateCourse, mutation: updateMutation } = useUpdate();
   const invalidate = useInvalidate();
   const [search, setSearch] = useState("");
-  // Arrived here from the global palette: seed the box it would have been
-  // typed into. See `useParamSeed`.
   useParamSeed("q", setSearch);
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -131,11 +128,7 @@ export function AdminClassesScreen() {
     maxStudents: z
       .number({ message: t("adminManage.classes.required") })
       .min(1, t("adminManage.classes.mustBeOneOrMore")),
-    // Empty plan field = plan DISABLED (the placeholder promises exactly that),
-    // so the empty sentinel must be `undefined`, which `.optional()` accepts —
-    // it used to be NaN, which z.number() rejects with "expected number,
-    // received NaN" and silently blocked every save. handleEdit maps
-    // non-finite to null (plan disabled) on the wire.
+
     pricePerMonth: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
     pricePerSession: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
     settlementBasis: z.enum(["course_price", "session_price", "subscription"]).optional(),
@@ -188,10 +181,6 @@ export function AdminClassesScreen() {
       maxStudents: 1,
     },
   });
-
-  // A failed client-side validation used to be INVISIBLE: the errors rendered
-  // below the dialog's fold and the save button just "did nothing". Toast +
-  // make sure the field RHF focused is actually scrolled into view.
   const surfaceInvalid = () => {
     toast.error(t("adminManage.classes.checkFields"));
     setTimeout(() => {
@@ -202,8 +191,6 @@ export function AdminClassesScreen() {
     }, 50);
   };
 
-  // Server-side rejections carry per-field messages (mapError puts them on
-  // `errors`) — show them instead of a bare "Validation failed".
   const describeApiError = (err: unknown, fallback: string) => {
     const e = err as { message?: string; errors?: Record<string, string[]> };
     const fieldMsgs = e?.errors ? Object.values(e.errors).flat() : [];
@@ -434,9 +421,9 @@ export function AdminClassesScreen() {
                   piasters={c.pricePerMonth}
                   locale={locale}
                   decimals={false}
-                  className="text-[13px] text-[var(--ink)]"
+                  className="text-[13px] text-(--ink)"
                 />
-                <span className="text-[11px] text-[var(--ink-3)]">
+                <span className="text-[11px] text-(--ink-3)">
                   /{t("adminManage.classes.perMonthShort")}
                 </span>
               </span>
@@ -447,16 +434,13 @@ export function AdminClassesScreen() {
                   piasters={c.pricePerSession}
                   locale={locale}
                   decimals={false}
-                  className="text-[13px] text-[var(--ink)]"
+                  className="text-[13px] text-(--ink)"
                 />
-                <span className="text-[11px] text-[var(--ink-3)]">
+                <span className="text-[11px] text-(--ink-3)">
                   /{t("adminManage.classes.perSessionShort")}
                 </span>
               </span>
             ) : null}
-            {/* An unpriced class is BLOCKING, not merely failed: students cannot
-                subscribe to it at all, so it is the one thing on this row an
-                operator must act on. */}
             {unpriced ? <Badge tone="failed">{t("adminManage.classes.unpriced")}</Badge> : null}
           </div>
         );
@@ -473,15 +457,13 @@ export function AdminClassesScreen() {
         return (
           <div className="flex w-30 flex-col gap-1">
             <Num
-              className={`text-xs ${full ? "text-[var(--amber)]" : "text-[var(--ink-2)]"}`}
+              className={`text-xs ${full ? "text-(--amber)" : "text-(--ink-2)"}`}
             >
               {enrolled}/{max}
             </Num>
-            {/* The fill bar is the one measured against a total, so it is the
-                "of total" case: teal on --rule grey, never a decorative hue. */}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--rule)]">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--rule)">
               <div
-                className="h-full rounded-full bg-[var(--money)]"
+                className="h-full rounded-full bg-(--money)"
                 style={{ width: `${Math.round(pct)}%` }}
               />
             </div>
@@ -556,12 +538,12 @@ export function AdminClassesScreen() {
         actions={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-56">
-              <Search className="pointer-events-none absolute inset-s-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-[var(--ink-3)]" />
+              <Search className="pointer-events-none absolute inset-s-0 top-1/2 ms-2.5 size-4 -translate-y-1/2 text-(--ink-3)" />
               <Input
                 placeholder={t("adminManage.classes.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="border-[var(--rule)] bg-[var(--field)] ps-9 pe-9"
+                className="border-(--rule) bg-(--field) ps-9 pe-9"
               />
               {search ? (
                 <button
@@ -590,14 +572,12 @@ export function AdminClassesScreen() {
           </div>
         }
       />
-
       {courses.some((c: any) => c.status === "active" && !c.pricePerMonth && !c.pricePerSession) ? (
         <Alert className="bg-warning/12 text-warning">
           <Info />
           <AlertTitle>{t("adminManage.classes.unpricedBanner")}</AlertTitle>
         </Alert>
       ) : null}
-
       <Card>
         <CardContent className="space-y-4">
           {showFilters && (
@@ -675,7 +655,6 @@ export function AdminClassesScreen() {
               </div>
             </div>
           )}
-
           {query.isLoading ? (
             <PageSpinner />
           ) : (
@@ -704,7 +683,6 @@ export function AdminClassesScreen() {
           )}
         </CardContent>
       </Card>
-
       { }
       <Dialog
         open={!!cancelTarget}
@@ -754,7 +732,6 @@ export function AdminClassesScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       { }
       <Dialog
         open={isCreateOpen}
@@ -775,10 +752,6 @@ export function AdminClassesScreen() {
             </p>
           )}
           <Form {...createForm}>
-            {/* `noValidate` — zod is the only validator, so `surfaceInvalid`
-                below actually gets to run. With native validation on, the
-                browser blocks the submit before react-hook-form sees it and
-                nothing is surfaced at all. */}
             <form
               noValidate
               id="create-course-form"
@@ -825,7 +798,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={createForm.control}
@@ -900,7 +872,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <FormField
                 control={createForm.control}
                 name="daysOfWeek"
@@ -933,7 +904,6 @@ export function AdminClassesScreen() {
                   </FormItem>
                 )}
               />
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={createForm.control}
@@ -984,7 +954,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <div className="space-y-2">
                 <Label>{t("adminManage.classes.term")}</Label>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1022,7 +991,6 @@ export function AdminClassesScreen() {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={createForm.control}
@@ -1088,7 +1056,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <FormField
                 control={createForm.control}
                 name="description"
@@ -1185,7 +1152,6 @@ export function AdminClassesScreen() {
                   <Input value={editTarget?.subject || ""} disabled />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>{t("roles.teacher")}</Label>
@@ -1244,7 +1210,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <FormField
                 control={editForm.control}
                 name="daysOfWeek"
@@ -1277,7 +1242,6 @@ export function AdminClassesScreen() {
                   </FormItem>
                 )}
               />
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={editForm.control}
@@ -1323,7 +1287,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <div className="space-y-2">
                 <Label>{t("adminManage.classes.term")}</Label>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1361,7 +1324,6 @@ export function AdminClassesScreen() {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={editForm.control}
@@ -1446,11 +1408,6 @@ export function AdminClassesScreen() {
                     </FormItem>
                   )}
                 />
-                {/* WHICH of the two prices above a lesson settles at. The
-                    group carries both and they routinely differ, so this is a
-                    decision someone makes rather than an accident of which
-                    column the engine read. Changing it re-prices FUTURE lessons
-                    only — settled ones are append-only and never re-rated. */}
                 <FormField
                   control={editForm.control}
                   name="settlementBasis"
@@ -1515,7 +1472,6 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
-
               <FormField
                 control={editForm.control}
                 name="description"

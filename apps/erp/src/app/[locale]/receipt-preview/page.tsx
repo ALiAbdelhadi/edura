@@ -20,6 +20,7 @@ export default async function ReceiptPreviewPage({
     currency: "EGP",
     isRefund: false,
     note: "اشتراك شهري — الرياضيات البحتة، الصف الثالث الثانوي (دفع نقدي بالمركز)",
+    paymentMethod: "cash",
     paidAt: new Date("2026-08-02T10:15:00Z"),
     student: { id: "s1", name: "عبد الرحمن محمود السيد", code: "STU-000481" },
     payer: { id: "p1", name: "منى عبد الحكيم" },
@@ -50,6 +51,8 @@ export default async function ReceiptPreviewPage({
         note: t("note"),
         systemGenerated: t("systemGenerated"),
         print: t("print"),
+        method: t("method"),
+        methods: { cash: t("noteMethodCash") },
       }}
     />
   );

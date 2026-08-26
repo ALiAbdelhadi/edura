@@ -129,6 +129,14 @@ export function AdminReportsScreen() {
   const byCourse = data?.byCourse ?? [];
   const enrollmentRates = fillRates.length > 0 ? fillRates : (data?.enrollmentRates ?? []);
   const sessionStatusMix = data?.sessionStatusMix ?? [];
+  // MOVED FROM THE OWNER'S HOME, where three charts were pushing the decision
+  // queue off a phone screen. It needs no new request: `reports/net-profit`
+  // has always carried `attendanceByCourse`, and this screen has always read
+  // that payload — it simply never drew this one.
+  const attendanceByCourse = (data?.attendanceByCourse ?? []) as Array<{
+    title: string;
+    attendanceRatePct: number;
+  }>;
 
   const expenseDonut = expensesByCategory.map((entry, index) => ({
     id: entry._id,
@@ -305,6 +313,28 @@ export function AdminReportsScreen() {
         </Sheet>
       </div>
 
+      <Sheet>
+        <SheetHead title={t("adminHome.dashboard_attendanceByCourse")} />
+        <div className="p-[18px]">
+          <BarChart
+            data={attendanceByCourse.map((entry) => ({
+              label: entry.title,
+              rate: entry.attendanceRatePct,
+            }))}
+            series={[
+              {
+                key: "rate",
+                label: t("adminHome.dashboard_attendancePercent"),
+                color: CHART.count,
+              },
+            ]}
+            horizontal
+            yValueFormatter={(value) => formatPercent(Math.round(value))}
+            emptyText={t("adminHome.dashboard_noCourseAttendance")}
+          />
+        </div>
+      </Sheet>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Sheet ref={funnelRef}>
           <SheetHead title={t("adminManage.reports.enrollmentFunnel")} />
@@ -354,7 +384,7 @@ function StatementLine({
       <Amount
         piasters={piasters}
         locale={locale}
-        className={`text-[15px] ${tone === "out" ? "text-[var(--red)]" : "text-[var(--ink)]"}`}
+        className={`text-[15px] ${tone === "out" ? "text-destructive" : "text-[var(--ink)]"}`}
       />
     </div>
   );

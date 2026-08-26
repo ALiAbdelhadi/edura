@@ -151,6 +151,8 @@ export async function settleWalletTopUpFromIntentTx(
       studentId,
       courseId: null,
       amount: intent.amount,
+      // MC-3: mirrors the sibling Transaction's method.
+      paymentMethod: "online_paymob",
       note: `Wallet top-up (${intent.gateway}/${intent.method})`,
       receiptNumber,
       recordedBy: studentId, // self-service online top-up

@@ -16,10 +16,17 @@ import { appBaseUrl } from "../../http/app-url";
 // NEVER THROWS. Callers are notification sites that run after the money is
 // already committed.
 //
-// A wallet TOP-UP deliberately gets no receipt: it writes no Payment row (it is
-// a float deposit by the account holder, not a center/teacher receipt — see
-// CLAUDE.md "Parent pays for a child's lesson" §5), so the lookup finds nothing
-// and this no-ops. That is the correct outcome, not a miss.
+// A WALLET TOP-UP DOES GET A RECEIPT — both kinds. The student path has written
+// a Payment row since it was built; the parent path joined it on 2026-08-20
+// (migration 20260820200000_parent_topup_receipt), which is what this comment
+// used to deny. The row carries a NULL center_id and a NULL course_id, so
+// `payeeName` falls through to "Edura"/"إدورا" and `description` to the note —
+// both already handled below, because a float deposit has no center or course
+// to name.
+//
+// The lookup still no-ops for anything with no Payment row at all, and returns
+// `no_payment_row` rather than throwing. That path is now the exception, not
+// the top-up case.
 // =============================================================================
 
 export type ReceiptMethod = "card" | "wallet" | "cash";
@@ -53,7 +60,13 @@ export async function sendPaymentReceiptEmail(
     // The receipt goes to WHOEVER PAID. When a parent funded their child's
     // lesson the parent is the one who needs the record; the child already gets
     // the in-app "subscription active" notification through the normal fan-out.
+    //
+    // BOTH CAN NEVER BE NULL. The `payments_student_required` CHECK guarantees
+    // that a studentless row names its payer. Asserted rather than `!`-silenced,
+    // because a future row shape that breaks it should fail HERE, visibly, and
+    // not send somebody else's receipt to the wrong inbox.
     const recipientId = payment.payerUserId ?? payment.studentId;
+    if (!recipientId) return { sent: false, reason: "no_recipient" };
 
     const [recipient, center, course] = await Promise.all([
       platformDb((tx) =>

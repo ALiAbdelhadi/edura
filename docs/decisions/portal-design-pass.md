@@ -252,3 +252,84 @@ palette. The two suites failing are another session's in-flight work and contain
 none of this change: `route-conventions` (their new `v1/auth/view-as/claim`
 route) and `tailwind-dead-classes` (`bg-sheet-2` / `bg-page/95` in `apps/www`, a
 directory this change does not touch).
+
+### The rest of the overlays (2026-08-20, Ali: "نفس الشي للـ sheet و dropdown و popover")
+
+Same diagnosis, same treatment, and the same one rule doing the work: they were
+all still stock shadcn — `bg-popover`, `rounded-md`, Tailwind's soot `shadow-md`,
+`zoom-in-95` — while the shell around them had been redesigned.
+
+1. **`Select` WAS ADDED TO THE THREE HE NAMED, and that is not scope creep.**
+   It has **25 call sites**, more than dropdown (7), popover (4) and sheet (4)
+   combined, and a select popup sits beside a dropdown menu inside the same
+   form. Restyling one and not the other would have manufactured exactly the
+   inconsistency this pass exists to remove. `Tooltip` took the motion tokens
+   and the radius only: its inverted fill is a current, deliberate pattern and
+   was never what read as dated.
+
+2. **THREE FAMILIES, AND THE DIFFERENCE BETWEEN THEM IS THE DECISION.** Anchored
+   panels (dropdown, select, popover) hang off a control the pointer is already
+   touching, so they take `--chrome-radius-md`, the lighter `--chrome-shadow-md`
+   and `--chrome-fast` — this file's own rule, "fast is anything the pointer is
+   already touching". Big surfaces (modal, sheet) take over the screen, so they
+   take `--chrome-radius-lg`, `--chrome-shadow-lg` and `--chrome-base`. Giving a
+   modal the dropdown's 140ms makes it appear rather than arrive; giving a
+   dropdown the modal's 220ms makes a menu feel like it is deciding whether to
+   open.
+
+3. **THE IDENTITY MENU'S THREE SCOPED RULES WERE DELETED, not left beside the
+   new ones.** They lived under `.chrome-surface` because it was once the only
+   styled menu in the product. Every dropdown now gets that treatment, so
+   keeping the scoped copies would have meant the same thing said twice in two
+   places — which is how one of them eventually gets edited and the other does
+   not. The `:not([data-variant="destructive"])` guard came with them: logout is
+   the one destructive item in the chrome, and a blanket `color` would have
+   painted it the same grey as everything else. Verified still red.
+
+4. **A DEFECT FIXED IN PASSING, and it was a real one.** Stock shadcn drew a
+   select's CHOSEN row and its HOVERED row identically, so a reader could not
+   tell which option was already theirs. The checked row now carries
+   `--chrome-accent-soft` — the same mark the sidebar's active item and the
+   palette's selected row already use.
+
+5. **A SUBMENU NO LONGER FLOATS HIGHER THAN ITS PARENT.** `DropdownMenuSubContent`
+   carried `shadow-lg` against the parent panel's `shadow-md`. A nested menu
+   sitting above the menu it came out of reads as a mistake.
+
+6. **THE DRAWER: TWO ERRORS I MADE AND THE BROWSER CAUGHT.** Both are recorded
+   because both are the same class of mistake — reaching for a logical property
+   where the thing being described is physical.
+   - I changed the sheet's edge border and radius to `border-s` / `rounded-s`.
+     `side` is a PHYSICAL prop — a caller asking for `side="right"` means the
+     right of the screen in either script — so in Arabic those landed on the
+     right, the edge pressed against the screen. The drawer drew its hairline
+     and its radius on the side nobody can see and left the inner edge square.
+   - I then mapped the entrance keyframes per `dir`. `translate` is a physical
+     transform: `translate: -100% 0` moves left whatever `dir` says. So the
+     RTL drawer sat on the right and slid in from the LEFT, travelling across
+     the whole screen. Measured as `chrome-edge-in-start` on a `side="right"`
+     panel, and fixed to a direct side → keyframe map with no direction in it.
+
+7. **`duration-300` / `duration-500` are gone.** The stock sheet took half a
+   second to open — the slowest motion in the product, on a band this system
+   does not have.
+
+8. **THE PHONE NAV DRAWER IS PROTECTED BY TWO INDEPENDENT GUARDS.** It is a
+   Sheet, but it is not a form: `.chrome [data-slot="sheet-header"]` zeroes the
+   band, and `[data-slot="sheet-header"].sr-only` catches it again through the
+   class the sidebar already passes. The marketing mobile nav needed nothing —
+   it styles itself with inline `background`/`borderColor`, which outrank a
+   stylesheet rule.
+
+**Verified live**, Arabic/RTL and English/LTR, light and dark, desktop and
+375px. Computed off the running page: panel radius **10px** (was 6), item radius
+**6px** — the concentric rule, a nested radius being the outer one minus its
+padding; `box-shadow: none` in dark for panel and drawer alike; destructive item
+still `rgb(239,106,106)`; separator on `--chrome-border`; the drawer at
+`border-radius: 16px 0 0 16px` with `border-left: 1px` and
+`animation: chrome-edge-in-right` in BOTH directions. The bottom-nav sheet, the
+select's checked row and the submenu were each opened and read.
+
+Regressions: `check-types` **9/9**, ERP unit **81 files / 1284 pass, 1 skip** —
+all green, including `design-tokens`, `app-shell-chrome`, `design-contrast` and
+`tailwind-dead-classes`.

@@ -8,12 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/ca
 import { Button } from "@repo/ui/components/button";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
-import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { asArray } from "@/lib/refine/as-array";
 import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 
 type Affiliation = {
@@ -41,9 +41,9 @@ export function TeacherAffiliationsScreen() {
   const { mutate, mutation } = useCustomMutation();
   const invalidate = useInvalidate();
 
-  const affiliations: Affiliation[] = Array.isArray(result?.data)
-    ? (result.data as Affiliation[])
-    : [];
+  // asArray, not an inline Array.isArray: refine hands back a frozen `{}`
+  // placeholder while the query is idle, and the guard belongs in one helper.
+  const affiliations = asArray<Affiliation>(result?.data);
 
   const statusLabel = (s: Affiliation["status"]): string => {
     if (s === "pending") return t("status.pending");
@@ -67,128 +67,128 @@ export function TeacherAffiliationsScreen() {
     );
   };
 
-  const columns: ColumnDef<Affiliation>[] = [
-    {
-      id: "center",
-      header: t("teacher.center"),
-      cell: ({ row }) => {
-        const a = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            <Building2 className="size-4 text-info" />
-            <span className="font-semibold text-foreground">{a.center?.name ?? t("teacher.unknownCenter")}</span>
-            {a.center?.shortId && (
-              <span className="text-xs text-muted-foreground">#{a.center.shortId}</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "status",
-      header: t("teacher.status"),
-      cell: ({ row }) => (
-        <StatusBadge tone={statusTone[row.original.status]}>{statusLabel(row.original.status)}</StatusBadge>
-      ),
-    },
-    {
-      id: "invitedAt",
-      header: t("teacher.invited"),
-      cell: ({ row }) => (row.original.invitedAt ? formatDate(row.original.invitedAt) : "—"),
-    },
-    {
-      id: "expiresAt",
-      header: t("teacher.expires"),
-      cell: ({ row }) => {
-        const a = row.original;
-        if (a.status !== "pending" || !a.expiresAt) return "—";
-        const exp = dayjs(a.expiresAt);
-        const days = exp.diff(dayjs(), "day");
-        return (
-          <span className={cn(days <= 2 && "text-destructive")}>
-            {formatDate(a.expiresAt)}
-            {days >= 0 ? (
-              <>
-                {" · "}
-                <span dir="ltr">{days}</span> {t("teacher.daysLeft")}
-              </>
-            ) : (
-              ` · ${t("teacher.expiredLabel")}`
-            )}
-          </span>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: t("teacher.actions"),
-      cell: ({ row }) => {
-        const a = row.original;
-        if (a.status !== "pending") return null;
-        const id = a.id || a._id || "";
-        return (
-          <div className="flex items-center gap-2">
-            <ConfirmDialog
-              trigger={
-                <Button size="sm" disabled={mutation.isPending}>
-                  {mutation.isPending ? <Spinner /> : <Check className="size-4" />}
-                  {t("teacher.accept")}
-                </Button>
-              }
-              title={t("teacher.acceptConfirm")}
-              description={t("teacher.acceptConfirmDesc")}
-              confirmText={t("teacher.accept")}
-              onConfirm={() => handleAction(id, "accept")}
-            />
-            <ConfirmDialog
-              trigger={
-                <Button size="sm" variant="destructive">
-                  <X className="size-4" />
-                  {t("teacher.decline")}
-                </Button>
-              }
-              title={t("teacher.declineConfirm")}
-              confirmText={t("teacher.decline")}
-              destructive
-              onConfirm={() => handleAction(id, "decline")}
-            />
-          </div>
-        );
-      },
-    },
-  ];
-
   const pendingCount = affiliations.filter((a) => a.status === "pending").length;
+
+  /** The expiry line for a pending invite — red inside two days. */
+  const expiryNote = (a: Affiliation) => {
+    if (a.status !== "pending" || !a.expiresAt) return null;
+    const days = dayjs(a.expiresAt).diff(dayjs(), "day");
+    return (
+      <span className={cn("text-xs", days <= 2 ? "text-destructive" : "text-muted-foreground")}>
+        {t("teacher.expires")}: {formatDate(a.expiresAt)}
+        {days >= 0 ? (
+          <>
+            {" · "}
+            <span dir="ltr">{days}</span> {t("teacher.daysLeft")}
+          </>
+        ) : (
+          ` · ${t("teacher.expiredLabel")}`
+        )}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6">
-      <CollaborationPanel role="teacher" />
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <CardTitle>{t("teacher.myCenters")}</CardTitle>
-          {pendingCount > 0 && (
-            <StatusBadge tone="info">
-              <span dir="ltr">{pendingCount}</span> {t("teacher.pendingLabel")}
-            </StatusBadge>
+      {/* ── THE STANDING RELATIONSHIPS COME FIRST ───────────────────────────
+          The 1058-line collaboration panel used to render ABOVE this list, so
+          a teacher opening "مراكزي" met request traffic before they could see
+          which centres they actually work with. The panel stays on this page —
+          unlike the centre portal's copy, which was a queue mounted inside a
+          DIRECTORY OF PEOPLE, this page IS the centre relationship, and the
+          request volume is far too low to earn its own destination. What was
+          wrong was only the order. */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CardTitle>{t("teacher.myCenters")}</CardTitle>
+            {pendingCount > 0 && (
+              <StatusBadge tone="info">
+                <span dir="ltr">{pendingCount}</span> {t("teacher.pendingLabel")}
+              </StatusBadge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="px-0">
+          {query.isLoading ? (
+            <PageSpinner label={t("common.loading")} />
+          ) : affiliations.length === 0 ? (
+            <div className="px-6">
+              <EmptyState icon={Building2} title={t("teacher.noAffiliations")} />
+            </div>
+          ) : (
+            /* Rows, not a five-column table. This list is one to four entries
+               and it was rendering centre / status / invited / expires /
+               actions across a 375px phone. */
+            <ul className="divide-y divide-border border-y border-border">
+              {affiliations.map((a) => {
+                const id = a.id || a._id || "";
+                return (
+                  <li key={id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <Building2 className="size-4 shrink-0 text-info" />
+                        <span className="truncate font-semibold text-foreground">
+                          {a.center?.name ?? t("teacher.unknownCenter")}
+                        </span>
+                        {a.center?.shortId ? (
+                          <span className="shrink-0 text-xs text-muted-foreground" dir="ltr">
+                            #{a.center.shortId}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <StatusBadge tone={statusTone[a.status]}>{statusLabel(a.status)}</StatusBadge>
+                        {a.invitedAt ? (
+                          <span className="text-xs text-muted-foreground">
+                            {t("teacher.invited")}: {formatDate(a.invitedAt)}
+                          </span>
+                        ) : null}
+                        {expiryNote(a)}
+                      </span>
+                    </span>
+
+                    {/* The weighting is untouched: accept is the affirmative
+                        button behind a confirm, decline is destructive behind
+                        its own. Joining a centre changes who shares in the
+                        money from every lesson taught there. */}
+                    {a.status === "pending" ? (
+                      <span className="flex shrink-0 items-center gap-2">
+                        <ConfirmDialog
+                          trigger={
+                            <Button size="sm" disabled={mutation.isPending}>
+                              {mutation.isPending ? <Spinner /> : <Check className="size-4" />}
+                              {t("teacher.accept")}
+                            </Button>
+                          }
+                          title={t("teacher.acceptConfirm")}
+                          description={t("teacher.acceptConfirmDesc")}
+                          confirmText={t("teacher.accept")}
+                          onConfirm={() => handleAction(id, "accept")}
+                        />
+                        <ConfirmDialog
+                          trigger={
+                            <Button size="sm" variant="destructive">
+                              <X className="size-4" />
+                              {t("teacher.decline")}
+                            </Button>
+                          }
+                          title={t("teacher.declineConfirm")}
+                          confirmText={t("teacher.decline")}
+                          destructive
+                          onConfirm={() => handleAction(id, "decline")}
+                        />
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {query.isLoading ? (
-          <PageSpinner label={t("common.loading")} />
-        ) : affiliations.length === 0 ? (
-          <EmptyState icon={Building2} title={t("teacher.noAffiliations")} />
-        ) : (
-          <DataTable
-            columns={columns}
-            data={affiliations}
-            pageSize={Math.max(affiliations.length, 1)}
-            emptyState={t("teacher.noAffiliations")}
-          />
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <CollaborationPanel role="teacher" />
     </div>
   );
 }

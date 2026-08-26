@@ -7,7 +7,10 @@ import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moneySchema } from "@/lib/validation/common";
-import { updateCourse } from "@repo/server-core/services/center/courses";
+import {
+  updateCourse,
+  updateTeacherDirectPricing,
+} from "@repo/server-core/services/center/courses";
 
 export const dynamic = "force-dynamic";
 
@@ -102,9 +105,30 @@ const patchSchema = z.object({
   schedulePattern: schedulePatternSchema.optional(),
 });
 
+/**
+ * T-1: the teacher branch takes PRICING ONLY, on the caller's own
+ * teacher-direct (`centerId IS NULL`) groups. `.strict()` so a non-pricing
+ * field is refused loudly rather than silently dropped — a teacher must not
+ * learn "title edits work" from a request that quietly ignored the title.
+ * Deliberately NOT `delegated()`: plan prices are financial settings, which
+ * Step 8 excludes from assistant delegation.
+ */
+const teacherPatchSchema = z
+  .object({
+    price: moneySchema.optional(),
+    pricePerMonth: moneySchema.positive().nullish(),
+    pricePerSession: moneySchema.positive().nullish(),
+    settlementBasis: z.enum(["course_price", "session_price", "subscription"]).optional(),
+  })
+  .strict();
+
 export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("center_admin");
+  const user = await requireRole("center_admin", "teacher");
   const { id } = await ctx.params;
+  if (user.role === "teacher") {
+    const body = await parseJson(req, teacherPatchSchema);
+    return ok(await updateTeacherDirectPricing(user, id, body));
+  }
   const body = await parseJson(req, patchSchema);
   // Moved to the shared kernel — including the two money guards it carries:
   // the hall cannot be swapped (the pricing snapshot was frozen from it), and a
