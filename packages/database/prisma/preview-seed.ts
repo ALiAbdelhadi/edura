@@ -171,19 +171,31 @@ async function seed() {
 
   await withPlatformContext(
     async (tx) => {
-      const mkUser = (
+      const mkUser = async (
         email: string,
         name: string,
         role: "center_admin" | "center_staff" | "teacher" | "assistant" | "student" | "parent",
         status: "active" | "pending" = "active",
-      ) =>
-        tx.user.upsert({
+      ) => {
+        const u = await tx.user.upsert({
           where: { email },
           // `deletedAt: null` revives a row the purge soft-deleted — see the
           // same note in seed.ts and the raw hard-delete in purge() below.
           update: { isDemo: true, name, role, status, deletedAt: null },
           create: { email, name, role, status, passwordHash, isDemo: true },
         });
+        // Demo accounts present as RETURNING users: with tour_completed unset
+        // the first-run tour offers itself on every fresh seed, dims the
+        // portal nav, and (measured in CI) opens late enough to slip past any
+        // timing-based dismissal in the E2E smoke. A demo that ambushes its
+        // viewer is also a worse demo.
+        await tx.userPrefs.upsert({
+          where: { userId: u.id },
+          update: { tourCompleted: true },
+          create: { userId: u.id, tourCompleted: true },
+        });
+        return u;
+      };
 
       const centerDefs = [
         { shortId: "NILE", name: "Nile Educational Academy", status: "active", area: "المعادي" },
