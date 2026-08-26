@@ -488,6 +488,16 @@ jobs:
           E2E_BASE_URL: http://localhost:${{ env.E2E_PORT }}
         run: bun run test:e2e
 
+      # The smoke writes a screenshot + page dump per failing portal test —
+      # the only way to SEE what sat on top of the page on the runner.
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-artifacts
+          path: apps/erp/e2e-artifacts/
+          if-no-files-found: ignore
+
       - name: Show server log on smoke failure
         if: failure()
         run: tail -100 /tmp/e2e-server.log || true

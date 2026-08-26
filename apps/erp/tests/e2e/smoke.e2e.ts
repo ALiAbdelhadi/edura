@@ -62,6 +62,22 @@ async function dismissFirstRunOverlays(page: Page): Promise<void> {
   }
 }
 
+/** Screenshot + full-page dump on failure, then rethrow. CI uploads the dir. */
+async function runWithFailureShot(page: Page, name: string, body: () => Promise<void>): Promise<void> {
+  try {
+    await body();
+  } catch (err) {
+    const dir = "e2e-artifacts";
+    await import("node:fs/promises").then((fs) => fs.mkdir(dir, { recursive: true }));
+    await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false }).catch(() => {});
+    const html = await page.content().catch(() => "");
+    await import("node:fs/promises")
+      .then((fs) => fs.writeFile(`${dir}/${name}.html`, `<!-- ${page.url()} -->\n${html}`))
+      .catch(() => {});
+    throw err;
+  }
+}
+
 async function quickLogin(page: Page, label: string): Promise<void> {
   await page.goto(`${BASE}/ar/login`, { waitUntil: "networkidle", timeout: 60_000 });
   await sleep(1200); // hydration
@@ -124,6 +140,10 @@ describe("role portals", () => {
     it(`${role.portal} — quick-login lands on the portal and its nav works`, async () => {
       const { ctx, page } = await freshPage();
       try {
+        // Screenshot on ANY failure below — uploaded as a CI artifact, because
+        // "</html> intercepts pointer events" names the symptom, not the thing
+        // sitting on top of the page.
+        await runWithFailureShot(page, role.portal.split("/").pop()!, async () => {
         await quickLogin(page, role.label);
         expect(new URL(page.url()).pathname).toStartWith(role.portal);
         await sleep(2500);
@@ -166,6 +186,7 @@ describe("role portals", () => {
         // the page must still be responsive (regression guard for the 2026-07-30
         // infinite-render freeze)
         expect(await page.evaluate(() => 1 + 1)).toBe(2);
+        });
       } finally {
         await ctx.close();
       }
