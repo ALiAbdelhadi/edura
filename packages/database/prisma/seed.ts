@@ -139,13 +139,19 @@ async function main() {
       }
       const center = await tx.center.upsert({
         where: { shortId: "NILE" },
-        update: { isDemo: true },
+        // onboardingCompleted in BOTH branches: the demo center must present
+        // post-onboarding, or the server-side portal gate bounces the
+        // quick-login admin to the wizard. The update branch matters as much
+        // as create — an upsert that only sets it on create leaves any
+        // already-seeded row false forever (exactly what broke the E2E smoke).
+        update: { isDemo: true, onboardingCompleted: true },
         create: {
           name: "Nile Educational Academy",
           shortId: "NILE",
           status: "active",
           subjects: ["Math", "Physics", "Arabic"],
           address: "Cairo, Egypt",
+          onboardingCompleted: true,
           isDemo: true,
         },
       });

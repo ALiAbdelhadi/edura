@@ -195,7 +195,10 @@ async function seed() {
       for (const c of centerDefs) {
         const row = await tx.center.upsert({
           where: { shortId: c.shortId },
-          update: { isDemo: true, status: c.status },
+          // onboardingCompleted on update too: NILE pre-exists from seed.ts,
+          // so this upsert takes the update path — leaving the flag false sent
+          // the quick-login admin to the onboarding wizard (portal gate).
+          update: { isDemo: true, status: c.status, onboardingCompleted: true },
           create: {
             name: c.name,
             shortId: c.shortId,

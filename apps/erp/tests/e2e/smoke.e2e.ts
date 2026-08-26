@@ -40,6 +40,25 @@ async function freshPage(): Promise<{ ctx: BrowserContext; page: Page }> {
   return { ctx, page: await ctx.newPage() };
 }
 
+/**
+ * First entry into a portal offers itself once: the guided tour (students,
+ * parents — `user_prefs.tour_completed` is false on fresh seeds) or the
+ * emulator first-run dialog (teacher/center). Both are DESIGNED to skip on
+ * Esc and persist the dismissal, so pressing it is exactly what a human does
+ * — and their backdrop otherwise swallows every nav click below it.
+ */
+async function dismissFirstRunOverlays(page: Page): Promise<void> {
+  for (let i = 0; i < 3; i++) {
+    const overlay = page
+      .locator("[class*='guided-tour'][class*='dim'], [role=dialog][aria-modal=true]")
+      .first();
+    if (!(await overlay.isVisible({ timeout: 2_500 }).catch(() => false))) return;
+    await page.keyboard.press("Escape");
+    await overlay.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await sleep(400);
+  }
+}
+
 async function quickLogin(page: Page, label: string): Promise<void> {
   await page.goto(`${BASE}/ar/login`, { waitUntil: "networkidle", timeout: 60_000 });
   await sleep(1200); // hydration
@@ -78,7 +97,9 @@ describe("login page", () => {
       await page.getByPlaceholder("you@example.com").fill("nobody@example.com");
       await page.locator("input[type=password]").fill("wrongpassword");
       await page.getByRole("button", { name: "تسجيل الدخول" }).click();
-      await page.locator("p[role=alert]").waitFor({ state: "visible", timeout: 15_000 });
+      // The element carrying role=alert changed with the login redesign — what
+      // matters is that SOME alert becomes visible, not its tag.
+      await page.locator("[role=alert]").first().waitFor({ state: "visible", timeout: 15_000 });
       expect(page.url()).toContain("/login");
     } finally {
       await ctx.close();
@@ -88,7 +109,9 @@ describe("login page", () => {
 
 describe("role portals", () => {
   const ROLES: Array<{ label: string; portal: string; routes: string[] }> = [
-    { label: "مسؤول", portal: "/ar/dashboard/admin", routes: ["checkin", "students", "fees"] },
+    // "checkin" became the counter board during the counter-board work — the
+    // sidebar entry is /admin/counter now.
+    { label: "مسؤول", portal: "/ar/dashboard/admin", routes: ["counter", "students", "fees"] },
     { label: "مدرّس", portal: "/ar/dashboard/teacher", routes: ["classes", "attendance", "wallet"] },
     { label: "طالب", portal: "/ar/dashboard/student", routes: ["subjects", "schedule", "wallet"] },
     { label: "ولي أمر", portal: "/ar/dashboard/parent", routes: ["children", "fees", "wallet"] },
@@ -101,6 +124,7 @@ describe("role portals", () => {
         await quickLogin(page, role.label);
         expect(new URL(page.url()).pathname).toStartWith(role.portal);
         await sleep(2500);
+        await dismissFirstRunOverlays(page);
         for (const seg of role.routes) {
           // Real click on the portal nav; retry once — see hydration note above.
           for (let attempt = 1; attempt <= 2; attempt++) {
