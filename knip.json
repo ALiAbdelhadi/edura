@@ -1,0 +1,89 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.ts"],
+      "project": ["scripts/**/*.ts"]
+    },
+    "apps/erp": {
+      "entry": [
+        "src/app/**/{page,layout,route,loading,error,global-error,not-found,template,default,opengraph-image,twitter-image,icon,apple-icon,manifest,robots,sitemap,sw}.{ts,tsx}",
+        "src/middleware.ts",
+        "instrumentation.ts",
+        "instrumentation-client.ts",
+        "sentry.*.config.ts",
+        "next.config.ts",
+        "vitest.config.ts",
+        "playwright.config.ts",
+        "tests/**/*.{ts,tsx}",
+        "tools/**/*.ts",
+        "src/mdx-components.tsx"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["src/generated/**", "**/*.d.ts"],
+      "bun": false,
+      "playwright": false
+    },
+    "apps/superadmin": {
+      "entry": [
+        "src/app/**/{page,layout,route,loading,error,global-error,not-found,template,default,opengraph-image,icon,apple-icon,manifest,robots,sitemap}.{ts,tsx}",
+        "src/middleware.ts",
+        "instrumentation.ts",
+        "instrumentation-client.ts",
+        "sentry.*.config.ts",
+        "next.config.ts",
+        "vitest.config.ts",
+        "tests/**/*.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["**/*.d.ts"]
+    },
+    "apps/www": {
+      "entry": [
+        "src/app/**/{page,layout,route,loading,error,global-error,not-found,template,default,opengraph-image,icon,apple-icon,manifest,robots,sitemap}.{ts,tsx}",
+        "src/middleware.ts",
+        "next.config.ts",
+        "tools/**/*.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["**/*.d.ts"]
+    },
+    "apps/realtime": {
+      "entry": ["src/server.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/database": {
+      "entry": ["src/index.ts", "scripts/**/*.ts", "prisma.config.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["src/generated/**", "**/*.d.ts"]
+    },
+    "packages/server-core": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
+      "ignore": ["**/*.d.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts", "src/index.tsx"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["**/*.d.ts"]
+    },
+    "packages/notifications": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/observability": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/eslint-config": {
+      "entry": ["*.js"],
+      "project": ["*.js"]
+    },
+    "packages/typescript-config": {
+      "entry": ["*.json"],
+      "project": ["*.json"]
+    }
+  },
+  "ignoreBinaries": ["bun", "bunx", "graphify"],
+  "ignoreDependencies": ["sharp"]
+}
