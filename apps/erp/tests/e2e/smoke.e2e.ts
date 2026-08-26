@@ -66,7 +66,7 @@ async function freshPage(): Promise<{ ctx: BrowserContext; page: Page }> {
 async function dismissFirstRunOverlays(page: Page): Promise<void> {
   for (let i = 0; i < 3; i++) {
     const overlay = page
-      .locator("[class*='guided-tour'][class*='dim'], [role=dialog][aria-modal=true]")
+      .locator("[class*='guided-tour'][class*='dim'], [role=dialog][aria-modal=true], [role=menu]")
       .first();
     if (!(await overlay.isVisible({ timeout: 2_500 }).catch(() => false))) return;
     await page.keyboard.press("Escape");
@@ -99,9 +99,17 @@ async function quickLogin(page: Page, label: string): Promise<void> {
   await page.goto(`${BASE}/ar/login`, { waitUntil: "networkidle", timeout: 60_000 });
   await sleep(1200); // hydration
   for (let attempt = 1; attempt <= 4; attempt++) {
-    await page.getByRole("button", { name: label }).click({ timeout: 15_000 });
+    // Re-click ONLY while still on the login page. On a slow runner the first
+    // click's navigation can outlive the wait below; a blind second click then
+    // finds the PORTAL's user chip — whose accessible name also contains the
+    // role word («Demo Admin مسؤول») — and opens its menu, which as a Radix
+    // popover swallows every nav click after it. (The blank-looking CI shots
+    // with a fully-rendered DOM were exactly this.)
+    if (new URL(page.url()).pathname.includes("/login")) {
+      await page.getByRole("button", { name: label }).click({ timeout: 15_000 });
+    }
     const arrived = await page
-      .waitForURL("**/dashboard/**", { timeout: 20_000 })
+      .waitForURL("**/dashboard/**", { timeout: 30_000 })
       .then(() => true)
       .catch(() => false);
     if (arrived) return;
