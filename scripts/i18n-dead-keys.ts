@@ -42,6 +42,12 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const SKIP_DIRS = new Set([
   "node_modules", ".next", ".git", ".turbo", "graphify-out", "dist", "build",
   "coverage", "test-results", "playwright-report", ".vercel",
+  // GENERATED CODE IS NOT A CONSUMER. packages/database/src/generated holds the
+  // Prisma client, which is ~2000 extra quoted literals that exist only where
+  // someone has run `generate` — so scanning it makes the answer depend on the
+  // state of a build artifact, and two runs of this script stop being
+  // comparable. That is exactly what the two-run method cannot tolerate.
+  "generated",
 ]);
 
 /** Everything a translation key can be named from. `.mdx` is deliberate. */
@@ -107,13 +113,21 @@ function harvest(files: string[]): { literals: Set<string>; prefixes: Set<string
     }
 
     // `t(`studentWallet.type_${e.type}`)` → live prefix `studentWallet.type_`.
-    // Any head ending at a `.` or `_` qualifies; anything else would be a
-    // sentence, not a namespace.
     for (const m of text.matchAll(/`([^`\\\n]*?)\$\{/g)) {
       const head = m[1];
-      if (head && /[._]$/.test(head) && /^[A-Za-z][\w.]*[._]$/.test(head)) {
+      if (!head || !/^[A-Za-z][\w.]*$/.test(head)) continue;
+      // A head ending at a `.` or `_` is unambiguously a namespace boundary.
+      if (/[._]$/.test(head)) {
         prefixes.add(head);
+        continue;
       }
+      // A head that ends MID-WORD is a namespace too, when the interpolation
+      // supplies a capitalised tail: `` t(asKey(`status${Cap(p.status)}`)) `` in
+      // payouts-screen.tsx is how `payouts.statusPending` and its three siblings
+      // are reached, and requiring a `.`/`_` boundary called all four dead.
+      // Three characters is the floor — `` `w${…}` `` occurs here as a Tailwind
+      // class and must not become a live prefix matching every key from `w`.
+      if (head.length >= 3) prefixes.add(head);
     }
 
     // The mirror image: `` t(asKey(`${stem}_one`)) `` — the VARIABLE is the head

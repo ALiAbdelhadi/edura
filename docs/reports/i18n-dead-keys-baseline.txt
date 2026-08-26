@@ -1,24 +1,7 @@
 
-=== erp — 713 keys, 17 unreferenced
-    actions.signIn
-    actions.export
-    auth.enterEmailAndPassword
-    common.anyField
-    common.emptyStateCta
-    financeHome.platformCommission
-    chat.unblock
-    chat.blockedEmpty
-    chat.blockedList
-    chat.channels.createTitle
-    chat.channels.pickCourse
-    chat.channels.pickSession
-    chat.channels.announcementOnly
-    chat.channels.allowReplies
-    centerStaff.shortcuts
-    guardian.verifiedTitle
-    security.signedInSince
+=== erp — 696 keys, 0 unreferenced
 
-=== superadmin — 1624 keys, 16 unreferenced
+=== superadmin — 1610 keys, 0 unreferenced
     PARITY GAP: 0 en-only, 14 ar-only
       ! payouts.session_two
       ! payouts.session_few
@@ -30,22 +13,6 @@
       ! oversight.settlement_few
       ! oversight.pf_enroll_two
       ! oversight.pf_enroll_few
-    actions.export
-    actions.signIn
-    auth.enterEmailAndPassword
-    common.anyField
-    common.emptyStateCta
-    financeHome.platformCommission
-    payouts.statusPending
-    payouts.statusApproved
-    payouts.statusPaid
-    payouts.statusRejected
-    payouts.deferSoon
-    oversight.op_send
-    oversight.ac_only
-    oversight.ac_this
-    centersAdmin.saveSplit
-    security.regenerate
 
-33 unreferenced keys across 2 apps, from 1874 source files (27840 distinct quoted literals, 82 runtime prefixes, 31 runtime tails).
+0 unreferenced keys across 2 apps, from 1822 source files (24582 distinct quoted literals, 91 runtime prefixes, 28 runtime tails).
 NOT a delete list — diff this against a second run. See the header.
