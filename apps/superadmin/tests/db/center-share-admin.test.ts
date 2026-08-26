@@ -161,15 +161,21 @@ async function main() {
   console.log("\nVP2 — superadmin sets it; the no-room session settles at that value");
   await updateAffiliationCenterShare(fx.center, fx.aff, 2500, su); // 25 EGP/student
 
-  const before = await withPlatformContext(async (tx) => ({
-    center: (await tx.center.findUnique({ where: { id: fx.center }, select: { walletBalance: true } }))!.walletBalance,
-    teacher: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))!.walletBalance,
-  }));
+  const snapshot = () =>
+    withPlatformContext(async (tx) => {
+      const c = (await tx.center.findUnique({
+        where: { id: fx.center },
+        select: { walletBalance: true, creditBalance: true },
+      }))!;
+      return {
+        center: c.walletBalance,
+        credit: c.creditBalance,
+        teacher: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))!.walletBalance,
+      };
+    });
+  const before = await snapshot();
   const dist = await completeSession(fx.sessionId, { id: fx.teacher, role: "teacher" } as never);
-  const after = await withPlatformContext(async (tx) => ({
-    center: (await tx.center.findUnique({ where: { id: fx.center }, select: { walletBalance: true } }))!.walletBalance,
-    teacher: (await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } }))!.walletBalance,
-  }));
+  const after = await snapshot();
 
   // Legacy no-room path: center gets share − platform center fee; teacher gets
   // price − platform teacher fee − share. Fees come from commission_settings.
@@ -200,9 +206,17 @@ async function main() {
     centerNet === (2500 - cFee) * (seen ?? 0),
     `settlement used the SUPERADMIN share (center net ${centerNet} === (2500 − ${cFee}) × ${seen})`,
   );
+  // D5 (Phase 4): this student has NO subscription, so the lesson settles
+  // CENTER-HELD — the center's net (share − centre fee) stays in its drawer,
+  // wallet_balance never moves, and the credit POSITION is debited what the
+  // center owes on: the teacher's net plus both platform fees.
   assert(
-    after.center - before.center === 2500 - cFee,
-    `center wallet moved by share − platform fee (got ${after.center - before.center})`,
+    after.center - before.center === 0,
+    `center wallet NOT credited, center-held (got ${after.center - before.center})`,
+  );
+  assert(
+    after.credit - before.credit === -(PRICE - tFee - 2500 + tFee + cFee),
+    `center credit debited teacher net + fees (got ${after.credit - before.credit})`,
   );
   assert(
     after.teacher - before.teacher === PRICE - tFee - 2500,
