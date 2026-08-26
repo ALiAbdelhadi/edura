@@ -87,7 +87,7 @@ async function main() {
       const txns = await tx.transaction.findMany({ where: { lessonId: fx.s1 } });
       const refs = new Set(txns.map((t) => t.refNumber));
       const teacher = await tx.teacherProfile.findUnique({ where: { userId: fx.teacher }, select: { walletBalance: true } });
-      const center = await tx.center.findUnique({ where: { id: fx.center }, select: { walletBalance: true } });
+      const center = await tx.center.findUnique({ where: { id: fx.center }, select: { walletBalance: true, creditBalance: true } });
       const sess = await tx.session.findUnique({ where: { id: fx.s1 }, select: { distributedAt: true, status: true } });
       return { txns, refCount: refs.size, teacher, center, sess };
     });
@@ -98,7 +98,15 @@ async function main() {
     assert(after.sess?.status === "completed", "session status = completed");
 
     assert(after.teacher?.walletBalance === 14800 * 2, `teacher wallet = 29600 (got ${after.teacher?.walletBalance})`);
-    assert(after.center?.walletBalance === 4800 * 2, `center wallet = 9600 (got ${after.center?.walletBalance})`);
+    // D5 (Phase 4): these students have NO subscription, so the lesson is
+    // CENTER-HELD — the center's net (4800/student) stays in its own drawer,
+    // wallet_balance is never credited, and its credit POSITION is debited
+    // the teacher's net + the platform fees (14800 + 400 per student).
+    assert(after.center?.walletBalance === 0, `center wallet NOT credited, center-held (got ${after.center?.walletBalance})`);
+    assert(
+      after.center?.creditBalance === -(14800 + 400) * 2,
+      `center credit debited teacher+fees ×2 = -30400 (got ${after.center?.creditBalance})`,
+    );
 
     const rerun = await withPlatformContext((tx) => distributeSessionRevenue(tx, fx.s1));
     assert(rerun.distributed === false && rerun.reason === "already_distributed", "re-distribution is a no-op");
@@ -122,6 +130,7 @@ async function main() {
       await c.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [fx.students]);
       await c.query(`DELETE FROM teacher_profiles WHERE user_id = $1`, [fx.teacher]);
       await c.query(`DELETE FROM audit_logs WHERE actor_id = $1`, [fx.teacher]);
+      await c.query(`DELETE FROM center_wallet_ledger WHERE center_id = $1`, [fx.center]);
       await c.query(`DELETE FROM centers WHERE id = $1`, [fx.center]);
       await c.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[...fx.students, fx.teacher]]);
     } finally {
