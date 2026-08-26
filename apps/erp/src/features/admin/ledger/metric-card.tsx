@@ -26,6 +26,7 @@ export function MetricCard({
   factIcon,
   blocking = false,
   blockingLabel,
+  className,
 }: {
   href: string;
   label: React.ReactNode;
@@ -38,6 +39,8 @@ export function MetricCard({
   factIcon?: React.ReactNode;
   blocking?: boolean;
   blockingLabel?: React.ReactNode;
+  /** Grid placement (e.g. `lg:col-span-2`) — the card is the grid item itself. */
+  className?: string;
 }) {
   return (
     <Link
@@ -45,6 +48,7 @@ export function MetricCard({
       className={cn(
         "lg-card flex flex-col gap-3.5 p-4.5 transition-colors",
         "hover:bg-(--rule-2)",
+        className,
       )}
       data-blocking={blocking || undefined}
     >

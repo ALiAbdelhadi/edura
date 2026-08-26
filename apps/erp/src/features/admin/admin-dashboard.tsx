@@ -211,7 +211,15 @@ export function AdminDashboard() {
         {/* A clash is a hall or a teacher double-booked TODAY. The schedule
             draws them in red; this says one exists before anyone thinks to
             look. Same rule as the booking gate, so a count here is a booking
-            the system would itself refuse. */}
+            the system would itself refuse.
+
+            `sm:col-span-2`: FIVE cards in a grid whose last row never fills
+            (2 of 3 columns at `lg`, 1 of 2 at `sm`) leave a dead cell the
+            width of a whole card, in the one product area whose own thesis
+            (`docs/decisions/counter-board.md`) is that every read here is
+            real state, never furniture. This card is last, so spanning the
+            remaining columns closes that cell at both grid widths rather
+            than reflowing the four cards before it. */}
         <MetricCard
           href="/dashboard/admin/schedule"
           label={t("adminHome.queue_clashLabel")}
@@ -219,6 +227,7 @@ export function AdminDashboard() {
           tone="red"
           count={clashCount}
           fact={t("adminHome.queue_clashFact")}
+          className="sm:col-span-2"
         />
       </div>
 

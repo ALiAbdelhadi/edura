@@ -300,8 +300,6 @@
   border-radius: 6px;
 }
 
-/* The one animation in the system is the seal. Everything else is instant or
-   a ≤120ms colour transition, and reduced-motion removes even that. */
 @media (prefers-reduced-motion: reduce) {
   .scope * {
     transition-duration: 0.01ms !important;

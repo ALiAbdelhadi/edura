@@ -209,11 +209,17 @@ export function SuperAdminDashboard() {
             }
           />
 
+          {/* `md:col-span-2` only when Blocked (below) will NOT render: two
+              cards in a 3-column grid leave the third cell of THIS row
+              empty whenever nothing is blocked — the common day. Blocked is
+              conditional and always renders last, so this, the last card
+              when it is absent, is the one that has to close the gap. */}
           <MetricCard
             href="/dashboard/superadmin/registrations"
             icon={ClipboardList}
             tone="neutral"
             label={t("today_registrationsLabel")}
+            className={d.blocked.count > 0 ? undefined : "md:col-span-2"}
             value={<Num.Figure value={d.registrations.count} locale={locale} />}
             fact={
               <>

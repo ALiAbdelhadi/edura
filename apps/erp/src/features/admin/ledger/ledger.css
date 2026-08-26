@@ -19,69 +19,30 @@
   .led .shadow-glow {
     box-shadow: var(--lift) !important;
   }
-  html[data-portal="ledger"] {
-    --sidebar-width: 248px;
-  }
 
-  html[data-portal="ledger"] [data-slot="sidebar-container"] {
-    border-inline-end: 1px solid var(--sidebar-border);
-  }
-
-  html[data-portal="ledger"]
-    [data-slot="sidebar-menu-button"][data-active="true"] {
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--sidebar-primary);
-  }
-  [dir="rtl"]
-    html[data-portal="ledger"]
-    [data-slot="sidebar-menu-button"][data-active="true"],
-  html[data-portal="ledger"]
-    [dir="rtl"]
-    [data-slot="sidebar-menu-button"][data-active="true"] {
-    box-shadow: inset -3px 0 0 var(--sidebar-primary);
-  }
-
-  html[data-portal="ledger"] [data-slot="sidebar-menu-button"] {
-    border-radius: 8px;
-    font-size: 14px;
-  }
-
-  html[data-portal="ledger"] [data-slot="sidebar-menu-badge"] {
-    font-family: var(--font-plex-mono), ui-monospace, monospace;
-    font-variant-numeric: tabular-nums;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 5px;
-    padding: 1px 6px;
-    color: #a35a06;
-    background: #fbf0dd;
-  }
-  html[data-portal="ledger"][data-theme="dark"]
-    [data-slot="sidebar-menu-badge"] {
-    color: #e0a44a;
-    background: #33260f;
-  }
-
-  html[data-portal="ledger"] [data-slot="sidebar-group-label"] {
-    font-family: var(--font-plex-mono), ui-monospace, monospace;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    color: #8b91a1;
-  }
-  html[data-portal="ledger"][data-theme="dark"]
-    [data-slot="sidebar-group-label"] {
-    color: #7c7e78;
-  }
-  html[data-portal="ledger"] [data-slot="sidebar-header"],
-  html[data-portal="ledger"] [data-slot="sidebar-footer"] {
-    border-color: var(--sidebar-border);
-  }
-
-  html[data-portal="ledger"] header {
-    background: var(--sidebar);
-    border-color: var(--sidebar-border);
-  }
+  /* ── The chrome — REMOVED, and deliberately not replaced here ──────────────
+   *
+   * This block used to fix the sidebar to 248px, draw the pre-2026-08-14 edge
+   * bar on the active nav item (`box-shadow: inset 3px 0 0 var(--sidebar-
+   * primary)`, RTL-mirrored), redraw the sidebar/header border in the old
+   * `--sidebar-border` token, and recolour the badge in hardcoded amber hex
+   * (#a35a06/#fbf0dd) instead of the accent tokens. `packages/ui/src/styles/
+   * chrome-2026.css` already owns every one of those slots for all eight
+   * portals plus the back office — the SAME two attribute selectors
+   * (`html[data-portal="ledger"]` + `[data-slot=...]`) at equal specificity,
+   * so which one an admin or staff reader saw came down to import order. That
+   * is exactly the drift `tests/unit/design-tokens.test.ts` exists to catch,
+   * and it is why `components/ledger/ledger.module.css` (the student/public
+   * scope) had the equivalent block removed on 2026-08-14 — this file was the
+   * one copy nobody had gone back for. See that file's own header for the
+   * fuller account.
+   *
+   * Nothing is lost by deleting it: the fluid `clamp()` sidebar width, the
+   * wash-only active mark, and the chrome's own badge/border treatment now
+   * apply to admin and staff exactly as they already did to every other
+   * portal. What stays below is genuinely this scope's own: the content
+   * canvas (`.led`), the mono/table/chip/tile record primitives — none of
+   * which chrome-2026.css touches. */
 
   .led .num {
     font-family:

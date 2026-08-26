@@ -106,7 +106,9 @@ function DialogContent({
           // `svh`, not `vh`: on iOS Safari `vh` measures the viewport with the
           // browser chrome hidden, so a sheet capped in `vh` is taller than the
           // screen it is on and its last row sits under the address bar.
-          "fixed inset-x-0 bottom-0 max-h-[92svh] w-full",
+          // 100% (Ali, 2026-08-27): tried 80, then 92 — full height read
+          // better than either.
+          "fixed inset-x-0 bottom-0 max-h-[100svh] w-full",
           "rounded-t-(--chrome-radius-lg) border-t",
           // ── the desktop form: a centred card ────────────────────────────
           // `left-1/2` + `-translate-x-1/2` and not the logical `start-1/2`:

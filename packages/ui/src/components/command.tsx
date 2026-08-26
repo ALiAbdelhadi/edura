@@ -52,10 +52,6 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         // An explicit width, rather than inheriting the Dialog's. A palette
         // draws grouped results with a title, a subtitle and a trailing code on
@@ -64,6 +60,19 @@ function CommandDialog({
         className={cn("overflow-hidden p-0 sm:max-w-xl", className)}
         showCloseButton={showCloseButton}
       >
+        {/* Title/description live INSIDE DialogContent, not as a sibling of
+            it — a sibling of Dialog.Root renders unconditionally in normal
+            page flow (Root does not portal or gate on `open`), so it stayed
+            mounted, un-clipped by `sr-only`'s own `position: sticky` (from
+            this component's later utility classes winning the cascade over
+            `sr-only`'s `position: absolute`), and ate real layout width from
+            whatever it sat beside — the empty strip along a narrow page's
+            trailing edge. Radix also needs both as DESCENDANTS of Content to
+            wire `aria-labelledby`/`aria-describedby` at all. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         <Command
           {...(shouldFilter === undefined ? {} : { shouldFilter })}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">

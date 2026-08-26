@@ -205,24 +205,9 @@ export default function DashboardShell({
   children,
 }: {
   role: string;
-  /** Flat list. Pass this OR `navGroups`, never both. */
   navItems?: NavItem[];
-  /**
-   * Grouped list. Preferred once a portal outgrows ~8 destinations: an
-   * unbroken column of twenty is scanned linearly every single time, while
-   * four labelled runs are scanned by heading first.
-   */
   navGroups?: NavGroup[];
-  /**
-   * Phone chrome. Hrefs in BAR ORDER, drawn from navItems — the bar's own
-   * `maxVisible` decides how many get a slot and puts the remainder behind
-   * "more", so this is the full list, not the first four.
-   *
-   * LIST EVERY href IN `navItems`. Passing this hides the sidebar toggle on
-   * phones, so an href left out is a destination a phone user cannot reach.
-   */
   bottomNav?: string[];
-  /** Targets in the phone bar, "more" included. See AppShell for the trade. */
   bottomNavMaxVisible?: number;
   children: React.ReactNode;
 }) {
@@ -255,16 +240,6 @@ export default function DashboardShell({
 
   const displayName = identity?.name || roleLabels[role] || "User";
 
-  /* ── record search ──────────────────────────────────────────────────────
-   * The palette's query lives here rather than in the shell because THIS is
-   * the layer that can fetch. The shell stays a renderer, which is what lets
-   * apps/superadmin keep the destination-only palette without a branch.
-   *
-   * The kind → heading catalogue is the app's too: @repo/ui has no message
-   * catalogue, and a heading it invented would be English on an Arabic screen.
-   * An UNKNOWN kind falls back to its own key rather than to a blank heading —
-   * a provider added on the server before its translation lands should read
-   * oddly, not silently render an unlabelled run of rows. */
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchResults = useGlobalSearch(searchQuery);
   const remote = React.useMemo(
@@ -295,7 +270,6 @@ export default function DashboardShell({
       notificationsHref={`/dashboard/${PORTAL_BASE[role] ?? role}/notifications`}
       dir={dir === "rtl" ? "rtl" : "ltr"}
       locale={locale}
-      // `usePathname` from @/i18n/navigation already strips the locale prefix.
       pathname={pathname || "/"}
       linkAs={Link}
       translateNav={tNav}
@@ -303,26 +277,6 @@ export default function DashboardShell({
       onNavigate={(href) => router.push(href)}
       moreTour="bar-more"
       logo={
-        // A BARE <img>, NOT next/image, and `alt=""`. Two separate reasons,
-        // both of which produced a visible defect:
-        //
-        // 1. Next's image optimizer REFUSES SVG unless `dangerouslyAllowSVG`
-        //    is set, and this app does not set it (next.config.ts `images`
-        //    carries only `remotePatterns`). So `<Image src="/edura-mark.svg">`
-        //    returned 400 and the browser painted its broken-image icon —
-        //    together with the alt text, which is why the sidebar appeared to
-        //    show the word "Edura" twice. There is nothing for the optimizer to
-        //    do here anyway: the mark is 1.8 KB of vector at a fixed 36px.
-        //
-        // 2. `alt="Edura"` and NOT `alt=""`. It was empty for one revision, and
-        //    correctly so: the shell rendered the wordmark right beside it, and
-        //    a logo next to its own name is decorative — alt text there makes a
-        //    screen reader announce "Edura Edura". The wordmark is gone now
-        //    (Ali, 2026-08-14), so this mark is the ONLY thing naming the
-        //    product in the sidebar header and an empty alt would leave it
-        //    nameless. The alt follows what else is on screen, not the file.
-        //
-        // eslint-disable-next-line @next/next/no-img-element
         <img src="/edura-mark.svg" alt="Edura" className="size-9 shrink-0" />
       }
       headerSettings={

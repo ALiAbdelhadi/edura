@@ -115,7 +115,7 @@ export function MetricCard({
 
   if (!href) return inner;
   return (
-    <a href={href} className="focus-ledger block rounded-xl">
+    <a href={href} className={cn("focus-ledger block rounded-xl", className)}>
       {inner}
     </a>
   );

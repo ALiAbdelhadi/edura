@@ -14,8 +14,6 @@ export default async function DashboardLayout({
   if (hasLocale(routing.locales, locale)) setRequestLocale(locale);
   return (
     <NextIntlClientProvider messages={await getMessages()}>
-      {/* Above every portal, unconditional and undismissable. It renders
-          nothing at all for an ordinary session. */}
       <ViewAsBanner />
       {children}
     </NextIntlClientProvider>

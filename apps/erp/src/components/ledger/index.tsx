@@ -37,19 +37,6 @@ function NumBase({
     </span>
   );
 }
-
-/* ── Clock ─────────────────────────────────────────────────────────────────
-   A lesson time — `4:00 عصرًا`, `4:00 عصرًا – 6:00 مساءً`. The numerals are data
-   and stay in the figure face; the day period is a WORD and must not be, because
-   the mono face ships no Arabic glyphs and would drop it into a fallback family
-   with no error.
-
-   ONE `dir="ltr"` wrapper around the WHOLE range, never one per time: two
-   separately isolated times in an RTL row lay out right-to-left, so
-   `4:00 – 6:00` renders as `6:00 – 4:00` — a lesson that ends before it starts.
-
-   Only the MARKUP is local. Which 12-hour face and which day period an hour
-   carries comes from `clockParts` in @repo/ui, the one place it is decided. */
 const clockWrap = "inline-flex items-baseline gap-1 whitespace-nowrap";
 
 function ClockPeriod({ children }: { children: string }) {
@@ -140,29 +127,6 @@ function ClockText({
 
 export const Num = Object.assign(NumBase, { Clock, ClockRange, ClockText });
 
-/**
- * A DATE that carries a month NAME — "٢٠ أغسطس ٢٠٢٦", "Aug 20, 2026".
- *
- * ── WHY A DATE IS NOT A FIGURE ────────────────────────────────────────────
- *
- * `<Num>` isolates its content `dir="ltr"` so a minus sign or a decimal point
- * cannot reorder inside an Arabic sentence, and sets it in the mono face. Both
- * are right for money, ids and counts. Neither is right for a date, because
- * `formatDate` resolves an Arabic month to a WORD:
- *
- *   · isolated LTR, "٢٠ أغسطس ٢٠٢٦" lays the day out AFTER the month —
- *     "أغسطس ٢٠٢٦ ٢٠" — which is not how anyone writes a date; and
- *   · the mono face ships no Arabic glyphs, so the month silently drops into
- *     a fallback family, which is the same trap `Clock` lifts its day period
- *     out of the isolate to avoid.
- *
- * The string is one opaque localized value, so its numerals cannot be split
- * from its word the way a clock's can. So a date goes in the body face, in the
- * ambient direction, and lets the bidi algorithm do what CLDR already ordered.
- *
- * A date formatted with NUMERIC fields only (`2026-08-20`, `20/08/2026`) has no
- * word in it and may stay in `<Num>`.
- */
 export function DateText({
   children,
   className,
@@ -175,30 +139,12 @@ export function DateText({
   );
 }
 
-/* ── Money ─────────────────────────────────────────────────────────────────
-   Outflow negative with a leading − in --red; inflow + in --teal; the
-   decisive net figure in --ink; neutral context in --ink-2 (handoff §4).
-   `tone="inherit"` is for a figure sitting inside a colored control (a
-   button's own `color`, e.g. --indigo-ink) rather than on the --sheet
-   background — --ink assumes the latter and goes near-illegible on the
-   former in both themes. */
 export function Money({
   piasters,
   signed = false,
   tone = "auto",
   className,
   weight = 500,
-  /**
-   * Show the piasters.
-   *
-   * OFF by default, which is every existing call site unchanged: most figures
-   * in this product are whole pounds and a trailing `.00` is noise. Turn it ON
-   * wherever a rounded figure would CONTRADICT another number on the same
-   * screen — a wallet balance beside a commit button that names the exact
-   * amount it is about to move, for instance, where `formatEGP`'s default of
-   * zero fraction digits rendered 2365.50 as "2,366" next to a button reading
-   * "2365.50".
-   */
   decimals = false,
 }: {
   piasters: number | null | undefined;
@@ -231,9 +177,6 @@ export function Money({
   );
 }
 
-/* ── Eyebrow ───────────────────────────────────────────────────────────────
-   Mono, letterspaced, labels every section. Uppercase is applied ONLY to
-   Latin strings — Arabic never receives text-transform: uppercase. */
 export function Eyebrow({
   children,
   className,
@@ -252,10 +195,6 @@ export function Eyebrow({
   );
 }
 
-/* ── Sheet ─────────────────────────────────────────────────────────────────
-   The paper card. `blocking` swaps the hairline for a --red border; it never
-   fills the card, because a red wash reads as an error state rather than a
-   held decision. */
 export function Sheet({
   children,
   className,
@@ -275,7 +214,6 @@ export function Sheet({
   );
 }
 
-/* ── Page + section headings ─────────────────────────────────────────────── */
 export function PageTitle({
   eyebrow,
   title,
@@ -333,10 +271,6 @@ export function SectionHeading({
   );
 }
 
-/* ── Chip ──────────────────────────────────────────────────────────────────
-   amber = waiting · teal = confirmed / money out · red = irreversible or
-   blocking · indigo = brand · neutral = draft. A chip is never coloured for
-   decoration. */
 const CHIP_TONES = {
   amber: styles.chipAmber,
   teal: styles.chipTeal,
@@ -361,10 +295,6 @@ export function Chip({
   );
 }
 
-/* ── InitialsTile ──────────────────────────────────────────────────────────
-   Identity and orientation. The student portal is explicitly allowed to use
-   the softs and this pattern generously — it is warmth inside the range, not
-   a deviation from the system. */
 const TILE_TONES = {
   indigo: { color: "var(--indigo)", background: "var(--indigo-soft)" },
   teal: { color: "var(--teal)", background: "var(--teal-soft)" },
@@ -380,9 +310,6 @@ export function InitialsTile({
   tone?: keyof typeof TILE_TONES;
   size?: number;
 }) {
-  // Split on whitespace but keep only word-initial letters. Course names here
-  // routinely contain separators ("التفسير — الثالث الثانوي"), and taking the
-  // first character of every token turns the dash into an initial.
   const initials = name
     .trim()
     .split(/\s+/)
@@ -406,9 +333,6 @@ export function InitialsTile({
   );
 }
 
-/* ── Rules ─────────────────────────────────────────────────────────────────
-   The closing line of any total. Kept as a component so the 2px-double
-   treatment cannot drift between screens. */
 export function DoubleTotal({
   label,
   children,
@@ -431,18 +355,10 @@ export function DoubleTotal({
   );
 }
 
-/* A bare rule: `border-top` on a zero-height box, carrying NO margin of its
-   own. Separation is the caller's decision — a rule inside a dense table row
-   and one splitting a sheet in two want different air — so the space is passed
-   in rather than baked here. Without `className` there was no way to give it
-   any, and the rule butted against whatever sat on either side. */
 export function Hairline({ className }: { className?: string }) {
   return <div className={cx(styles.hairline, className)} />;
 }
 
-/* ── Empty state ───────────────────────────────────────────────────────────
-   States what is absent and, where there is one, the way out. An empty state
-   with no next step reads as a broken screen. */
 export function LedgerEmpty({
   title,
   hint,
@@ -467,8 +383,6 @@ export function LedgerEmpty({
   );
 }
 
-/* ── Table shells ──────────────────────────────────────────────────────────
-   `comfortable` density per the student brief: th 42px / td 13px 14px. */
 export function LedgerTable({
   head,
   children,
@@ -521,8 +435,6 @@ export function Td({
 }) {
   return (
     <td
-      // Never wraps — the table is allowed to outgrow the phone and scroll inside
-      // LedgerTable's container; a wrapped amount reads as two amounts.
       className={cx("px-3.5 py-3 whitespace-nowrap", className)}
       style={{ textAlign: align, color: "var(--ink)" }}
     >
@@ -535,9 +447,6 @@ export function Tr({ children }: { children: ReactNode }) {
   return <tr className={styles.rowDivider}>{children}</tr>;
 }
 
-/* ── Buttons ───────────────────────────────────────────────────────────────
-   Primary is indigo; secondary is bordered, never filled. A destructive
-   action is bordered red text — never an equal-weight twin of the safe one. */
 const BUTTON_BASE =
   "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50";
 
@@ -549,7 +458,6 @@ export function LedgerButton({
   ...rest
 }: {
   variant?: "primary" | "secondary" | "danger";
-  /** Render the single child element as the control (e.g. a <Link>). */
   asChild?: boolean;
 } & ComponentProps<"button">) {
   const style =
@@ -559,9 +467,6 @@ export function LedgerButton({
         ? { background: "transparent", color: "var(--red)", border: "1px solid var(--red)" }
         : { background: "var(--sheet)", color: "var(--ink)", border: "1px solid var(--rule)" };
 
-  // A local `asChild` rather than Radix's Slot: @radix-ui/react-slot is a
-  // dependency of packages/ui, not of this app, and one cloneElement is
-  // cheaper than adding a direct dep for a single prop.
   if (asChild && isValidElement(children)) {
     const child = children as ReactElement<{ className?: string; style?: CSSProperties }>;
     return cloneElement(child, {

@@ -65,9 +65,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           position={dir === "rtl" ? "bottom-left" : "bottom-right"}
         />
         <InstallPrompt />
-        {/* Listens for the two refusals that mean the session is not who the
-            screen says it is. Renders nothing; mounted here so every portal
-            gets it without remembering to. */}
         <SessionIntegrityGuard />
       </DirectionProvider>
     </ThemeModeProvider>
