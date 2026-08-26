@@ -17,10 +17,12 @@
  * PATCH follows; if the write fails the worst case is the tour offering itself
  * one more time, which is better than a spinner between a student and their day.
  *
- * This is the same contract `features/emulator/first-run-tour.tsx` implements
- * inline for the roles whose first run is the EMULATOR. Extracted here because
- * the student's first run is the guided tour instead, and two components had
- * begun to need the same three lines of persistence.
+ * Extracted because two first-run surfaces had begun to need the same three
+ * lines of persistence: the student dashboard's guided tour and the assistant's
+ * (`features/assistant/assistant-first-run.tsx`). It was shared originally with
+ * an overlay that opened the EMULATOR on first run; that overlay is gone,
+ * because each role's emulator is now a route of its own under
+ * `dashboard/<role>/tour`.
  */
 
 import { useCallback, useEffect, useState } from "react";
