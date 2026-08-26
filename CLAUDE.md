@@ -778,6 +778,16 @@ docs/security/security-audit.md for the full report and severities.
   www unit suite (48 pass/1 skip), and `bun run build` (both apps) all green. No
   security-sensitive runtime dep (next/react/next-auth/prisma/bcryptjs/zod/
   jose/socket.io/ioredis) was bumped — deliberately out of scope.
+  **`brace-expansion` IS ALSO A ROOT `dependency` (^5.0.9), AND THAT IS ON
+  PURPOSE.** The `brace-expansion@1` / `@2` entries above pin the patched
+  versions of the transitive copies; the root declaration is what anchors them.
+  It is not application code and no file imports it, so every unused-dependency
+  tool — `knip`, `depcheck` — reports it as dead, every time. **Do not remove
+  it**; doing so un-pins a patched transitive and the advisory returns silently.
+  **[2026-08-27] The "0 vulnerabilities" claim above is stale**: `bun audit` now
+  reports **9 (7 high, 2 moderate)** — dompurify via posthog-js, deepmerge-ts and
+  others, all published after 2026-07-30. Nothing regressed; the advisory
+  database moved. Re-clearing them is its own task.
 - Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
   **M6** (materials %PDF- magic-byte check).
 - **M8** — *Done (2026-08-26):* the last `$queryRawUnsafe` (a fully static
