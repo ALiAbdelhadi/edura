@@ -119,12 +119,17 @@ function parseCounts(out: string): { pass: number; fail: number } | null {
 }
 
 function indent(out: string): string {
-  return out
-    .trimEnd()
-    .split("\n")
-    .slice(-25)
-    .map((l) => `        │ ${l}`)
-    .join("\n");
+  const lines = out.trimEnd().split("\n");
+  const tail = lines.slice(-25);
+  // Failing assertions must ALWAYS survive the window: a suite that fails
+  // early in a long run otherwise prints 25 lines of ✓ and hides its own ✗ —
+  // which is exactly how a CI failure spent a night unnameable (global-search,
+  // 2026-08-26). Prepend any ✗ lines the tail cut off.
+  const cutoff = lines.length - tail.length;
+  const missedFailures = lines.filter((l, i) => i < cutoff && l.includes("✗"));
+  return [...missedFailures.map((l) => `        │ ${l}   [above the window]`), ...tail.map((l) => `        │ ${l}`)].join(
+    "\n",
+  );
 }
 
 type Attempt = { res: SuiteResult; out: string };
