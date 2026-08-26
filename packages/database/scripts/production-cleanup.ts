@@ -222,9 +222,13 @@ async function main() {
             }
             await c.query("RELEASE SAVEPOINT del_one");
           } catch (err) {
-            // FK violation this pass — restore the tx, children go first on a
-            // later pass.
-            if ((err as { code?: string }).code === "23503") {
+            // FK violation this pass — restore the tx, children go first on
+            // a later pass. TWO codes, both needed: 23503 is the generic
+            // foreign_key_violation, 23001 is restrict_violation — an ON
+            // DELETE RESTRICT edge reports the LATTER, which is exactly what
+            // the first production run failed on (teacher_subjects →
+            // teacher_profiles).
+            if (["23503", "23001"].includes((err as { code?: string }).code ?? "")) {
               await c.query("ROLLBACK TO SAVEPOINT del_one");
               continue;
             }
