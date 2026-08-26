@@ -36,3 +36,5 @@ bruno/environments/Local.bru
 .claude/launch.json
 .vercel
 .env*
+# the committed template CI materialises .env.test from (same carve-out as root)
+!.env.*.example
