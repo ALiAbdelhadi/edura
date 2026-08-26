@@ -23,7 +23,10 @@ import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout } from "bu
 import { chromium, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3002";
-setDefaultTimeout(120_000);
+// Dev mode compiles each route on FIRST visit; on a cold 2-core CI runner a
+// portal walk pays that three times over, so the per-test budget must absorb
+// several ~60s compiles — see the waitForURL note in the portal loop.
+setDefaultTimeout(300_000);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -127,13 +130,20 @@ describe("role portals", () => {
         await dismissFirstRunOverlays(page);
         for (const seg of role.routes) {
           // Real click on the portal nav; retry once — see hydration note above.
-          for (let attempt = 1; attempt <= 2; attempt++) {
+          // WAIT for the URL rather than sampling it after a fixed sleep: in
+          // dev mode the first visit to a route compiles it, which on a cold
+          // CI runner takes tens of seconds — a 2s sample reads the OLD url
+          // and fails a navigation that was merely still compiling.
+          let arrived = false;
+          for (let attempt = 1; attempt <= 2 && !arrived; attempt++) {
             await page
               .locator(`a[href*='${role.portal}/${seg}']`)
               .first()
-              .click({ timeout: 10_000 });
-            await sleep(2000);
-            if (new URL(page.url()).pathname.includes(seg)) break;
+              .click({ timeout: 15_000 });
+            arrived = await page
+              .waitForURL(`**${role.portal}/${seg}**`, { timeout: 60_000 })
+              .then(() => true)
+              .catch(() => false);
           }
           expect(new URL(page.url()).pathname).toContain(seg);
         }
