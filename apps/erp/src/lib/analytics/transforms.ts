@@ -1,16 +1,9 @@
 import type { HeatmapCell } from "@repo/ui/components/charts";
 import type {
-  AttendanceByCoursePoint,
-  CourseFillRatePoint,
   EnrollmentFunnelPoint,
-  ParentPaymentTrendPoint,
-  ParentSubjectComparisonPoint,
-  RevenueTimeseriesPoint,
   SessionStatusPoint,
-  StudentGradeTrendPoint,
   TeacherAttendanceTrendPoint,
   TeacherGradeLoadPoint,
-  TeacherScoreDistributionPoint,
 } from "@/lib/analytics/contracts";
 
 // Series colours come from the token layer, never from literals. The token is
@@ -30,26 +23,6 @@ const DEFAULT_COLORS = [
 // `labels` / `labelFor` exist because these strings land on ARABIC screens:
 // the hardcoded English defaults are only the fallback for callers that have
 // no translator in scope, never the intended display.
-export function revenueVsExpensesLineSeries(
-  points: RevenueTimeseriesPoint[],
-  labels?: { revenue: string; expenses: string },
-) {
-  return [
-    {
-      id: "revenue",
-      label: labels?.revenue ?? "Revenue",
-      color: "var(--chart-1)",
-      points: points.map((row) => ({ x: row.label, value: row.revenue })),
-    },
-    {
-      id: "expenses",
-      label: labels?.expenses ?? "Expenses",
-      color: "var(--chart-3)",
-      points: points.map((row) => ({ x: row.label, value: row.expenses })),
-    },
-  ];
-}
-
 export function sessionStatusDonutData(
   items: SessionStatusPoint[],
   labelFor?: (status: string) => string,
@@ -59,20 +32,6 @@ export function sessionStatusDonutData(
     label: labelFor ? labelFor(row.status) : row.status[0].toUpperCase() + row.status.slice(1),
     value: row.count,
     color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-  }));
-}
-
-export function attendanceByCourseBarData(items: AttendanceByCoursePoint[]) {
-  return items.map((row) => ({
-    label: row.title,
-    rate: row.attendanceRatePct,
-  }));
-}
-
-export function courseFillRateBarData(items: CourseFillRatePoint[]) {
-  return items.map((row) => ({
-    label: row.title,
-    fillRate: row.fillRatePct,
   }));
 }
 
@@ -102,49 +61,6 @@ export function teacherGradeLoadBarData(items: TeacherGradeLoadPoint[]) {
     label: row.title,
     pending: row.pending,
     graded: row.graded,
-  }));
-}
-
-export function scoreDistributionBarData(items: TeacherScoreDistributionPoint[]) {
-  return items.map((row) => ({
-    label: row.bucket,
-    count: row.count,
-  }));
-}
-
-export function studentGradeTrendLineSeries(points: StudentGradeTrendPoint[]) {
-  return [
-    {
-      id: "grades",
-      label: "Grade %",
-      color: "var(--chart-1)",
-      points: points.map((row) => ({ x: row.label, value: row.percentage })),
-    },
-  ];
-}
-
-
-export function paymentTrendLineSeries(points: ParentPaymentTrendPoint[]) {
-  return [
-    {
-      id: "paid",
-      label: "Paid",
-      color: "var(--chart-2)",
-      points: points.map((row) => ({ x: row.label, value: row.paid })),
-    },
-    {
-      id: "net",
-      label: "Net",
-      color: "var(--chart-1)",
-      points: points.map((row) => ({ x: row.label, value: row.net })),
-    },
-  ];
-}
-
-export function subjectComparisonBarData(items: ParentSubjectComparisonPoint[]) {
-  return items.map((row) => ({
-    label: row.courseTitle,
-    average: row.averagePct,
   }));
 }
 
