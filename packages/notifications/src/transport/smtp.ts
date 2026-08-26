@@ -105,6 +105,27 @@ async function getTransporter(): Promise<Transporter> {
 }
 
 /**
+ * Connect + authenticate against the configured SMTP host WITHOUT sending —
+ * the deep half of the mail health check (MVP blocker #3's proof). Returns a
+ * coarse code, never the provider's raw error text: the endpoint is public
+ * and a boolean-grade answer is all operations needs.
+ */
+export async function verifySmtp(): Promise<{ ok: boolean; code?: string }> {
+  if (!isMailConfigured()) return { ok: false, code: "unconfigured" };
+  try {
+    const t = await getTransporter();
+    await t.verify();
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      code: /auth|password|credentials|534|535/i.test(msg) ? "auth_failed" : "connect_failed",
+    };
+  }
+}
+
+/**
  * Send one email.
  *
  * NEVER THROWS. Delivery is best-effort across every call site (invites,

@@ -14,7 +14,12 @@ import { rateLimiterDegraded } from "../rate-limit/token-bucket";
 // 2. ONLY HARD DEPENDENCIES AFFECT THE STATUS. The database is the one thing
 //    whose absence makes the app useless. SMTP, Redis and the realtime server
 //    are degradations, not outages — checking them here would page someone at
-//    3am because a mail relay hiccuped. They are deliberately not checked.
+//    3am because a mail relay hiccuped. They are deliberately not checked
+//    BY THE DEFAULT PROBE. `?deep=mail` (added 2026-08-26, MVP blocker #3's
+//    proof) is the opt-in exception: a MANUAL diagnostic that dials the SMTP
+//    host and authenticates without sending, reports a coarse code, and never
+//    touches `status` or the HTTP code — a monitor that never passes the flag
+//    sees byte-identical behaviour.
 //
 //    `rateLimiter` below does NOT breach this. It is not a probe: nothing is
 //    dialled, nothing can hang, nothing can fail. It reports a flag the process
@@ -76,6 +81,8 @@ export type HealthBody = {
    * Alert on it in production; ignore it in dev.
    */
   rateLimiter: "shared" | "local";
+  /** Present only when the caller asked (?deep=mail). Never affects status. */
+  mail?: { ok: boolean; code?: string };
   time: string;
 };
 
@@ -104,8 +111,16 @@ async function checkDb(): Promise<boolean> {
  * health endpoint's body should be exactly what a status page renders and what
  * a monitor's keyword check reads — not something nested.
  */
-export async function healthResponse(): Promise<Response> {
+export async function healthResponse(opts?: { deepMail?: boolean }): Promise<Response> {
   const dbUp = await checkDb();
+  // Opt-in SMTP verify (connect + auth, no send). Lazily imported so the
+  // default probe never pulls the mail stack in; bounded by the transporter's
+  // own 10s connection timeout.
+  let mail: { ok: boolean; code?: string } | undefined;
+  if (opts?.deepMail) {
+    const { verifySmtp } = await import("@repo/notifications/transport/smtp");
+    mail = await verifySmtp();
+  }
   // Configured AND currently usable. Both halves matter: an unset REDIS_URL in
   // a deployment is a misconfiguration that looks identical, from the outside,
   // to Redis being down — in both cases the limits are not shared.
@@ -117,6 +132,7 @@ export async function healthResponse(): Promise<Response> {
     status: dbUp ? "ok" : "degraded",
     db: dbUp ? "up" : "down",
     rateLimiter: limitsShared ? "shared" : "local",
+    ...(mail ? { mail } : {}),
     time: new Date().toISOString(),
   };
 

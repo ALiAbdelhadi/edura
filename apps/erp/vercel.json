@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "bun run --filter @repo/database generate && bun run build",
+  "buildCommand": "bun run --filter @repo/database generate && bun run build:light",
   "build": {
     "env": {
       "NODE_OPTIONS": "--max-old-space-size=6144"

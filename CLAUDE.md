@@ -558,6 +558,19 @@ governs. Violating one of these is never a local change.
   proved exactly ONE migration was pending (no sibling branch riding along), and
   a SELECT proved `reviews` held 0 rows with no duplicate that either new index
   could reject.
+- **[production, WIPED CLEAN 2026-08-26] MVP blocker #7 executed.** The
+  walkthrough residue (7 users, 2 centers — Neyora + el maged, 1 course, 26
+  sessions, 137 rows across 20 tables) was deleted via the migrate-production
+  workflow's new `census`/`cleanup` modes (`packages/database/scripts/
+  production-cleanup.ts` — census-then-confirm two-man rule, one transaction,
+  catalog counts asserted identical inside it, sequences restarted so the
+  first real receipt is 00001). KEPT: the two real staff accounts (super_admin
+  + accountant) with their auth rows, the full catalog, and the config
+  singletons. verify-db 28/28 immediately after, on ep-solitary-river. A fresh
+  encrypted dump was uploaded to B2 minutes before the wipe (the weekly
+  restore-proof step still fails on the known B2 key gap — blocker #5).
+  Diagnosis note for future FK work: ON DELETE RESTRICT reports SQLSTATE
+  23001, NOT 23503 — the first cleanup run failed exactly there.
 - **[test] THERE IS NO TEST DATABASE.** Both `.env.test` files point at DEV, and
   `db-guard` reports them as `labelled 'dev'` — the 2026-08-03 decision still
   holding, not a gap. Do NOT read any `[test]` line in a decision doc as work

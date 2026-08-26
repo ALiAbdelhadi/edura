@@ -39,11 +39,11 @@ honest without a gateway.
 |---|---|---|---|
 | 1 | **Ali reviews Phases 0–5** (docs/reports/revenue-operations-spec-audit.md records each proof) | review | All money-engine changes await the stop-per-phase review |
 | 2 | ~~Hide online-payment CTAs when mock-in-production~~ **DONE 2026-08-26**: `onlineCheckoutAvailable()` (gateway/types.ts) asserted by all FIVE initiators server-side + `GET /api/v1/payments/availability` + `useOnlineCheckout()` consulted by the five CTA surfaces (student/parent wallet top-ups, subjects subscribe → honest "subscribe at the center" note, parent-pay card leg, center credit top-up controls). Internal-wallet legs untouched. Proof: online-checkout-gate.test.ts 4/4 (prod+mock refuses before DB), route-conventions guard updated, erp unit 1435 | ~~S~~ | ✅ |
-| 3 | **`SMTP_PASS`** (Gmail app password — only Ali can generate). Without it INVITE_CHANNELS=email delivers nothing: no walk-in claim links, no guardian verification | XS (Ali) | Walk-in onboarding is half the MVP loop |
+| 3 | ~~SMTP_PASS~~ **PROVIDED 2026-08-26** — set on edura-erp Production alongside the full SMTP_* family (verified via `vercel env ls`; the running deployment already reads it). Password-validity proof: the new `?deep=mail` health probe (connect+auth, no send, opt-in, never flips status) is in the tree awaiting the next successful deploy — the local `.env.production` turned out fully redacted (`"[SENSITIVE]"` values), so no local send-proof is possible by design | ~~XS~~ | ✅ (proof pending one deploy) |
 | 4 | **Schedule the cron jobs** (`CRON_BASE_URL` + `CRON_SECRET` repo secrets; workflow exists, fails closed today). Gates renewal reminders, weekly digest, subscription expiry sweep | XS | Subscriptions expire silently without the sweep |
 | 5 | **Resume backups** (95% done per edura-backup-provisioning-state; needs the B2 Read+Write key; Neon PITR is the only protection today) | S (Ali key) | Real money data with no scheduled dumps |
 | 6 | ~~M4 + M8~~ **DONE 2026-08-26** — M4 was already implemented in the shared `toErrorResponse` (proof m4-error-messages 4/4; the audit list was stale); M8's last static-string site converted to the tagged template + a permanent repo-wide guard test (m8-no-raw-unsafe) | ~~S~~ | ✅ |
-| 7 | **Pre-launch census + wipe on production** (9 users / 2 centers today — walkthrough residue; verify-db then wipe non-seed rows per Step 9 discipline) | S | First real center starts on clean books |
+| 7 | ~~Pre-launch census + wipe~~ **DONE 2026-08-26** — census named all 9 users; cleanup deleted the 7 residue users + 2 centers (137 rows / 20 tables, one tx, 3 FK passes) keeping the 2 staff + catalog byte-identical; sequences restarted; verify-db 28/28 after; fresh B2 dump taken minutes before | ~~S~~ | ✅ |
 
 Deliberately NOT MVP: CSP enforce (Report-Only is acceptable at MVP scale),
 M5/M6, Paymob driver (Phase 6 — needs keys), the Next.js caching pass
@@ -57,10 +57,14 @@ M5/M6, Paymob driver (Phase 6 — needs keys), the Next.js caching pass
   fails fast and visibly. Enhanced machines are NOT available on the Hobby
   plan (`err_build_machines_not_available`) — accepted, since Vercel is test
   only.
-- `bun run build:light` (`SERWIST_DISABLE=1`): skips the service-worker
-  compilation — the optional lever if test builds ever strain again. Wire it
-  as the Vercel buildCommand only if needed; production/VPS builds keep the
-  PWA.
+- `bun run build:light` (`SERWIST_DISABLE=1`, webpack, in-process compile) is
+  now the Vercel buildCommand. The full escalation was burned through on
+  2026-08-26 afternoon: three consecutive silent hangs (with the memory flag,
+  without serwist, and even in-process) after three morning successes —
+  the freeze is infrastructure-side and time-variable, not one knob. turbopack
+  dies with SIGILL on Vercel's image. VERDICT: free-plan Vercel builds of this
+  app are structurally unreliable; retry when they hang, and treat the VPS
+  (§5) as the real fix — which was already the plan.
 
 ## 5. VPS migration (after MVP validates)
 

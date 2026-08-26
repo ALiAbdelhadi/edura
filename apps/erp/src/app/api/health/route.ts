@@ -10,8 +10,10 @@ import { healthResponse } from "@repo/server-core/http/health";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(): Promise<Response> {
-  return healthResponse();
+export async function GET(req: Request): Promise<Response> {
+  // `?deep=mail` — the opt-in SMTP verify (see @repo/server-core/http/health).
+  const deepMail = new URL(req.url).searchParams.get("deep") === "mail";
+  return healthResponse({ deepMail });
 }
 
 /** Monitors that use HEAD get the same status code with no body. */

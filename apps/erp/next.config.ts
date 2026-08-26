@@ -220,6 +220,15 @@ const nextConfig = {
     // flip.
     webpackMemoryOptimizations: true,
 
+    // TEST-BUILD ONLY (rides the SERWIST_DISABLE lever): run the webpack
+    // compile IN-PROCESS instead of in the detached build worker. The hang's
+    // exact signature — "Creating an optimized production build ..." then
+    // silence until the platform kill — is a parent waiting on a worker the
+    // container OOM-killed; in-process, the same death is a LOUD crash within
+    // seconds. turbopack was tried first and dies with SIGILL on Vercel's
+    // image (2026-08-26). Production/VPS builds keep the default worker.
+    ...(process.env.SERWIST_DISABLE === "1" ? { webpackBuildWorker: false } : {}),
+
     // Enables the `"use cache"` directive ONLY. This is deliberately NOT
     // `cacheComponents` (Next 16's renamed dynamicIO): that flag changes
     // caching semantics for all 303 route handlers at once, which is the
