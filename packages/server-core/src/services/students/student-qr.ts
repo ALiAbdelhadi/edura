@@ -176,7 +176,7 @@ export function parseStudentQr(raw: string): ParsedStudentQr | null {
   if (text.includes("/")) {
     const withoutQuery = text.split(/[?#]/)[0] as string;
     const segments = withoutQuery.split("/").filter(Boolean);
-    text = segments[segments.length - 1] ?? "";
+    text = segments.at(-1) ?? "";
   }
 
   const match = PAYLOAD_PATTERN.exec(text.toUpperCase());

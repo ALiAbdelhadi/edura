@@ -164,7 +164,7 @@ export function listUsers(filters: UserListFilters) {
     const page = hasMore ? rows.slice(0, take) : rows;
     return {
       users: page,
-      nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
+      nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
     };
   });
 }

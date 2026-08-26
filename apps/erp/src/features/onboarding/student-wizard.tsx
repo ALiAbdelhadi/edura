@@ -107,8 +107,9 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
   useEffect(() => {
     if (stepId !== "review" || !sel.gradeLevelId) return;
     setPreview(null);
-    const q = sel.trackId ? `&trackId=${sel.trackId}` : "";
-    fetch(`/api/v1/catalog/subjects?gradeLevelId=${sel.gradeLevelId}${q}`)
+    const q = new URLSearchParams({ gradeLevelId: sel.gradeLevelId });
+    if (sel.trackId) q.set("trackId", sel.trackId);
+    fetch(`/api/v1/catalog/subjects?${q}`)
       .then((r) => r.json())
       .then((j) => setPreview(Array.isArray(j.data) ? j.data : []))
       .catch(() => setPreview([]));
