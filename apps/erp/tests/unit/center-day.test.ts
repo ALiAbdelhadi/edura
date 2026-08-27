@@ -78,6 +78,28 @@ describe("liveNow", () => {
     expect(liveNow([s({ startTime: "16:00", endTime: "09:00" })], AT_1700_CAIRO, day)).toHaveLength(0);
   });
 
+  it("takes the day it is GIVEN and never asks the clock itself", () => {
+    // The third argument is required precisely so the answer cannot come from
+    // anywhere else. Handed a day that is not the instant's, liveNow must use
+    // the day — that is what makes the center portal's Cairo day authoritative
+    // over whatever zone the browser is in.
+    //
+    // Before 2026-08-27 the parameter was optional and fell back to the UTC day
+    // of `now`. At this instant — 00:30 Cairo on the 21st — that fallback would
+    // have answered "2026-08-20" and blanked a board with a class still in it.
+    const justAfterCairoMidnight = new Date("2026-08-20T21:30:00.000Z");
+    const late = s({ date: "2026-08-21", startTime: "00:00", endTime: "02:00" });
+    expect(liveNow([late], justAfterCairoMidnight, "2026-08-21")).toHaveLength(1);
+  });
+
+  it("cannot be called without a day — the UTC fallback is gone", () => {
+    // A TYPE-level guard, asserted at runtime so it is visible in a test run.
+    // TypeScript rejects `liveNow(x, now)` outright; `length` records that the
+    // signature still declares three required parameters, so a default value
+    // quietly reappearing (which type-checks fine) also trips this.
+    expect(liveNow.length).toBe(3);
+  });
+
   it("sorts by start time", () => {
     const a = s({ id: "a", startTime: "16:30", endTime: "19:00" });
     const b = s({ id: "b", startTime: "15:00", endTime: "19:00" });
