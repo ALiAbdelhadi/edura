@@ -1,0 +1,18 @@
+
+=== erp — 696 keys, 0 unreferenced
+
+=== superadmin — 1610 keys, 0 unreferenced
+    PARITY GAP: 0 en-only, 14 ar-only
+      ! payouts.session_two
+      ! payouts.session_few
+      ! oversight.payment_two
+      ! oversight.payment_few
+      ! oversight.refund_two
+      ! oversight.refund_few
+      ! oversight.settlement_two
+      ! oversight.settlement_few
+      ! oversight.pf_enroll_two
+      ! oversight.pf_enroll_few
+
+0 unreferenced keys across 2 apps, from 1822 source files (24582 distinct quoted literals, 91 runtime prefixes, 28 runtime tails).
+NOT a delete list — diff this against a second run. See the header.

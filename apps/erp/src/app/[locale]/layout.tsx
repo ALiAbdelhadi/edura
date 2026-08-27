@@ -1,6 +1,5 @@
 import { AppProviders } from "@/components/providers/app-providers";
 import { isRtlLocale, routing } from "@/i18n/routing";
-import { getSessionUser } from "@/lib/auth/session";
 import { baseMessages } from "@/lib/i18n/scope";
 import { AnalyticsProvider } from "@/lib/observability/analytics-provider";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
@@ -126,6 +125,22 @@ export async function generateMetadata({
   };
 }
 
+/* THE ROOT LAYOUT READS NOTHING PER-REQUEST, AND THAT IS THE POINT.
+ *
+ * It used to `await getSessionUser()` here, purely to hand PostHog an identity
+ * on the first render. Reading cookies in the layout that every page renders
+ * under made all 122 pages server-rendered on every request — including /help,
+ * /faq, /terms, /privacy, /changelog, /contact and /pricing, which declare
+ * `generateStaticParams` and hold nothing per-user. apps/superadmin's root
+ * layout never made that call, which is exactly why its /login and /two-factor
+ * prerender and erp's did not.
+ *
+ * Identity moved to `AnalyticsIdentity`, mounted by the six portal layouts,
+ * which read the session anyway via `requirePortal`. Nothing is fetched twice.
+ *
+ * Anything added here that touches cookies(), headers() or the session will
+ * silently make the whole app dynamic again. The route census in
+ * cleanup-plan-phase3.md is the check. */
 export default async function RootLayout({
   children,
   params,
@@ -140,10 +155,6 @@ export default async function RootLayout({
   setRequestLocale(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
   const messages = baseMessages(await getMessages());
-  const actor = await getSessionUser();
-  const analyticsSession = actor
-    ? { id: actor.id, role: actor.role, centerId: actor.centerId ?? null }
-    : null;
 
   return (
     <html
@@ -155,7 +166,7 @@ export default async function RootLayout({
       <body>
         <script src="/theme-init.js" async />
         <NextIntlClientProvider messages={messages}>
-          <AnalyticsProvider session={analyticsSession}>
+          <AnalyticsProvider>
             <AppProviders>{children}</AppProviders>
           </AnalyticsProvider>
         </NextIntlClientProvider>

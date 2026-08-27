@@ -17,10 +17,9 @@
  * PATCH follows; if the write fails the worst case is the tour offering itself
  * one more time, which is better than a spinner between a student and their day.
  *
- * This is the same contract `features/emulator/first-run-tour.tsx` implements
- * inline for the roles whose first run is the EMULATOR. Extracted here because
- * the student's first run is the guided tour instead, and two components had
- * begun to need the same three lines of persistence.
+ * Extracted because two first-run surfaces need the same three lines of
+ * persistence: `features/tour/first-run.tsx` for the super admin and
+ * `features/tour/finance-first-run.tsx` for the accountant.
  */
 
 import { useCallback, useEffect, useState } from "react";

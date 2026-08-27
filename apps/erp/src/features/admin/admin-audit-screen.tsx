@@ -99,7 +99,7 @@ export function AdminAuditScreen() {
   const days: { day: string; rows: Row[] }[] = [];
   for (const r of rows) {
     const k = dayKey(r.createdAt);
-    const last = days[days.length - 1];
+    const last = days.at(-1);
     if (last && last.day === k) last.rows.push(r);
     else days.push({ day: k, rows: [r] });
   }

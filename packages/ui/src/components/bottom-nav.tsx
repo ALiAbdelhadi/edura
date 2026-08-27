@@ -113,7 +113,7 @@ export function computeSlots<T extends { key: string }>(
     return { slots: visible, overflow: rest };
   }
 
-  const displaced = visible[visible.length - 1]!;
+  const displaced = visible.at(-1)!;
   return {
     slots: [...visible.slice(0, -1), promoted],
     overflow: [...rest.filter((i) => i.key !== promoted.key), displaced],

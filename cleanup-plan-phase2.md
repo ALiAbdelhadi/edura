@@ -1,6 +1,8 @@
 # Cleanup plan — Phase 2, 2.5, 2.6 (execution checklist)
 
-**Status: NOT STARTED. Nothing in this file has been executed.** Awaiting the go-ahead.
+**Status: P0, Batches 2.1-2.9 and 2.5a EXECUTED on `cleanup/performance` (worktree
+`/Users/ali/edura-cleanup`), 2026-08-27.** Batches 2.5b and 2.6a.2 are NOT started —
+they need Ali. See the run report at the end of this file.
 
 Evidence: [docs/reports/cleanup-audit-2026-08-27.md](docs/reports/cleanup-audit-2026-08-27.md).
 Every deletion below is proven unreferenced by two independent methods (knip@5 with tests registered
@@ -100,18 +102,18 @@ idempotency keys are separate bug-fix tasks per decision 9.
 
 ## P0 — Preconditions (blocking, in order)
 
-- [ ] **I-0.1** — Ali commits or stashes the 20 modified files on `main`
+- [x] **I-0.1** — Ali commits or stashes the 20 modified files on `main`
   - **Action:** MANUAL (Ali). Claude does not commit to `main`.
   - **Before → After:** `git status --short` lists 20 `M` entries → lists none.
   - **Dependencies:** none. **Blocks everything else in this file.**
   - **Verification:** `git status --short` has no `M` lines.
 
-- [ ] **I-0.2** — Create the branch
+- [x] **I-0.2** — Create the branch
   - **Action:** `git switch -c cleanup/performance`
   - **Dependencies:** I-0.1.
   - **Verification:** `git branch --show-current` prints `cleanup/performance`.
 
-- [ ] **I-0.3** — Commit the audit artifacts and the knip config
+- [x] **I-0.3** — Commit the audit artifacts and the knip config
   - **Action:** MOVE into the branch's first commit: `docs/reports/cleanup-audit-2026-08-27.md`,
     `cleanup-plan-phase2.md`, `bug-daykey.md`, plus a new root `knip.json`.
   - **Before → After:** repo root has no `knip.json` → has one, workspace-aware, with
@@ -121,7 +123,7 @@ idempotency keys are separate bug-fix tasks per decision 9.
   - **Verification:** `npx knip@5 --no-progress` completes and reports 25 unused files.
   - **Commit:** `chore(cleanup): P0 audit report, day-key bug write-up, knip config`
 
-- [ ] **I-0.4** — Capture the i18n dead-key baseline **(Batch 2.8 is unrunnable without it)**
+- [x] **I-0.4** — Capture the i18n dead-key baseline **(Batch 2.8 is unrunnable without it)**
   - **Action:** ADD `scripts/i18n-dead-keys.ts` implementing the matcher documented in
     [docs/reports/cleanup-notes.md](docs/reports/cleanup-notes.md) — a key is LIVE if any suffix of
     its dotted path appears inside quotes, **or** its namespace is completed at runtime
@@ -148,19 +150,19 @@ Each is a one-line `export * from "@repo/server-core/…"` under a 0–3 line he
 implementation is in `packages/server-core` and is untouched. Deleting a shim removes an alias, not
 a capability.
 
-- [ ] **I-2.1.1** — `apps/erp/src/lib/services/whatsapp/index.ts`
-- [ ] **I-2.1.2** — `apps/erp/src/lib/services/whatsapp/send.ts`
-- [ ] **I-2.1.3** — `apps/erp/src/lib/services/whatsapp/templates.ts`
-- [ ] **I-2.1.4** — `apps/erp/src/lib/services/whatsapp/types.ts`
-- [ ] **I-2.1.5** — `apps/erp/src/lib/services/whatsapp/phone.ts`
-- [ ] **I-2.1.6** — `apps/erp/src/lib/services/whatsapp/mock-driver.ts`
-- [ ] **I-2.1.7** — `apps/erp/src/lib/services/whatsapp/cloud-api-driver.ts`
-- [ ] **I-2.1.8** — `apps/erp/src/lib/services/sms/sms-channel.ts`
-- [ ] **I-2.1.9** — `apps/erp/src/lib/services/fcm/fcm-channel.ts`
-- [ ] **I-2.1.10** — `apps/erp/src/lib/services/webpush/web-push-channel.ts`
-- [ ] **I-2.1.11** — `apps/erp/src/lib/services/sessions/session-generator.ts`
-- [ ] **I-2.1.12** — `apps/erp/src/lib/services/sessions/conflict-detector.ts`
-- [ ] **I-2.1.13** — `apps/erp/src/lib/services/invites/recipient.ts`
+- [x] **I-2.1.1** — `apps/erp/src/lib/services/whatsapp/index.ts`
+- [x] **I-2.1.2** — `apps/erp/src/lib/services/whatsapp/send.ts`
+- [x] **I-2.1.3** — `apps/erp/src/lib/services/whatsapp/templates.ts`
+- [x] **I-2.1.4** — `apps/erp/src/lib/services/whatsapp/types.ts`
+- [x] **I-2.1.5** — `apps/erp/src/lib/services/whatsapp/phone.ts`
+- [x] **I-2.1.6** — `apps/erp/src/lib/services/whatsapp/mock-driver.ts`
+- [x] **I-2.1.7** — `apps/erp/src/lib/services/whatsapp/cloud-api-driver.ts`
+- [x] **I-2.1.8** — `apps/erp/src/lib/services/sms/sms-channel.ts`
+- [x] **I-2.1.9** — `apps/erp/src/lib/services/fcm/fcm-channel.ts`
+- [x] **I-2.1.10** — `apps/erp/src/lib/services/webpush/web-push-channel.ts`
+- [x] **I-2.1.11** — `apps/erp/src/lib/services/sessions/session-generator.ts`
+- [x] **I-2.1.12** — `apps/erp/src/lib/services/sessions/conflict-detector.ts`
+- [x] **I-2.1.13** — `apps/erp/src/lib/services/invites/recipient.ts`
 
   - **Action (all 13):** DELETE the file.
   - **Before → After (representative, I-2.1.1):**
@@ -183,11 +185,11 @@ a capability.
 
 ### Batch 2.2 — mail shims (3 files)
 
-- [ ] **I-2.2.1** — `apps/erp/src/lib/mail/send.ts` — DELETE. Content is exactly
+- [x] **I-2.2.1** — `apps/erp/src/lib/mail/send.ts` — DELETE. Content is exactly
   `export * from "@repo/server-core/mail/send";`
-- [ ] **I-2.2.2** — `apps/erp/src/lib/mail/templates.ts` — DELETE.
+- [x] **I-2.2.2** — `apps/erp/src/lib/mail/templates.ts` — DELETE.
   `export * from "@repo/server-core/mail/templates";`
-- [ ] **I-2.2.3** — `apps/superadmin/src/lib/mail/send.ts` — DELETE. Same one-liner.
+- [x] **I-2.2.3** — `apps/superadmin/src/lib/mail/send.ts` — DELETE. Same one-liner.
   - **Also DELETE:** `apps/erp/src/lib/mail/` and `apps/superadmin/src/lib/mail/` — both empty after.
   - **Dependencies:** I-0.2.
   - **Verification:** V1, V2, V3, plus `grep -rn "@/lib/mail" apps` → nothing.
@@ -195,7 +197,7 @@ a capability.
 
 ### Batch 2.3 — superadmin points shim (1 file)
 
-- [ ] **I-2.3.1** — `apps/superadmin/src/lib/services/points/points.ts`
+- [x] **I-2.3.1** — `apps/superadmin/src/lib/services/points/points.ts`
   - **Action:** DELETE. `export * from "@repo/server-core/services/points/points";`
   - **Keep the directory** — `points-admin.ts` stays.
   - **Dependencies:** I-0.2.
@@ -207,14 +209,14 @@ a capability.
 erp's identically-named shims are **live** (7 erp screens import `@/components/charts`, 8 import
 `@/components/kit/password-input`). This batch is `apps/superadmin` only.
 
-- [ ] **I-2.4.1** — `apps/superadmin/src/components/kit/combobox.tsx` — DELETE
+- [x] **I-2.4.1** — `apps/superadmin/src/components/kit/combobox.tsx` — DELETE
   (`export { Combobox, type ComboboxOption } from "@repo/ui/components/combobox";`)
-- [ ] **I-2.4.2** — `apps/superadmin/src/components/kit/description-list.tsx` — DELETE
-- [ ] **I-2.4.3** — `apps/superadmin/src/components/kit/password-input.tsx` — DELETE
-- [ ] **I-2.4.4** — `apps/superadmin/src/components/kit/stat-card.tsx` — DELETE. Its docblock says
+- [x] **I-2.4.2** — `apps/superadmin/src/components/kit/description-list.tsx` — DELETE
+- [x] **I-2.4.3** — `apps/superadmin/src/components/kit/password-input.tsx` — DELETE
+- [x] **I-2.4.4** — `apps/superadmin/src/components/kit/stat-card.tsx` — DELETE. Its docblock says
   "when the count reaches zero this file is deleted." In superadmin it has.
-- [ ] **I-2.4.5** — `apps/superadmin/src/components/charts/index.ts` — DELETE
-- [ ] **I-2.4.6** — `apps/superadmin/src/components/charts/heatmap-calendar.tsx` — DELETE
+- [x] **I-2.4.5** — `apps/superadmin/src/components/charts/index.ts` — DELETE
+- [x] **I-2.4.6** — `apps/superadmin/src/components/charts/heatmap-calendar.tsx` — DELETE
   - **I-2.4.5 and I-2.4.6 must be deleted in the same step** — 2.4.5 is the only importer of 2.4.6.
     Deleting either alone leaves a dangling import or a re-orphaned file.
   - **Also DELETE:** `apps/superadmin/src/components/charts/` — empty after. **Keep**
@@ -227,7 +229,7 @@ erp's identically-named shims are **live** (7 erp screens import `@/components/c
 
 ### Batch 2.5 — orphaned code (2 files, both approved)
 
-- [ ] **I-2.5.1** — `apps/erp/src/lib/constants/subjects.ts`
+- [x] **I-2.5.1** — `apps/erp/src/lib/constants/subjects.ts`
   - **Action:** DELETE (29 lines: `SUBJECTS`, `type Subject`, `isSubject`).
   - **Before → After:** file removed. Nothing imports it. The real subject source is the Egyptian
     catalog; the only other `SUBJECTS` is a private const in
@@ -236,7 +238,7 @@ erp's identically-named shims are **live** (7 erp screens import `@/components/c
   - **Dependencies:** I-0.2.
   - **Verification:** V1, V2, plus `grep -rn "lib/constants/subjects" apps` → nothing.
 
-- [ ] **I-2.5.2** — `apps/erp/src/features/emulator/first-run-tour.tsx` — **approved (decision 1)**
+- [x] **I-2.5.2** — `apps/erp/src/features/emulator/first-run-tour.tsx` — **approved (decision 1)**
   - **Action:** DELETE (76 lines, `FirstRunTour`), **and** REPLACE the citing comment in both files:
     - `apps/erp/src/features/tour/use-tour-gate.ts:20`
     - `apps/superadmin/src/features/tour/use-tour-gate.ts:20`
@@ -252,26 +254,26 @@ erp's identically-named shims are **live** (7 erp screens import `@/components/c
 
 The only batch permitted to move `bun.lock`.
 
-- [ ] **I-2.6.1** — `apps/erp/package.json` — REMOVE `next-cloudinary` (zero mentions repo-wide)
-- [ ] **I-2.6.2** — `apps/erp/package.json` — REMOVE `pdf-lib` (erp mentions it only in comments;
+- [x] **I-2.6.1** — `apps/erp/package.json` — REMOVE `next-cloudinary` (zero mentions repo-wide)
+- [x] **I-2.6.2** — `apps/erp/package.json` — REMOVE `pdf-lib` (erp mentions it only in comments;
   the sole importer is `apps/superadmin/src/lib/services/finance/invoice-pdf.ts`, which declares it)
-- [ ] **I-2.6.3** — `apps/erp/package.json` — REMOVE `posthog-node` (only
+- [x] **I-2.6.3** — `apps/erp/package.json` — REMOVE `posthog-node` (only
   `packages/server-core/src/services/analytics/posthog-server.ts` imports it)
-- [ ] **I-2.6.4** — `apps/erp/package.json` — REMOVE `web-push` **and** `@types/web-push`
+- [x] **I-2.6.4** — `apps/erp/package.json` — REMOVE `web-push` **and** `@types/web-push`
   - **Dependency: must run AFTER I-2.1.10**, which deletes erp's dead `web-push-channel.ts`.
-- [ ] **I-2.6.5** — `apps/erp/package.json` + `apps/superadmin/package.json` — REMOVE `recharts`
+- [x] **I-2.6.5** — `apps/erp/package.json` + `apps/superadmin/package.json` — REMOVE `recharts`
   (imported only inside `packages/ui/src/components/charts/*`, which declares it)
-- [ ] **I-2.6.6** — `apps/erp/package.json` + `apps/superadmin/package.json` — REMOVE
+- [x] **I-2.6.6** — `apps/erp/package.json` + `apps/superadmin/package.json` — REMOVE
   `@tanstack/react-table` (only `packages/ui/src/components/data-table.tsx` imports it)
   - **Dependency: run AFTER I-2.4** for the superadmin half.
-- [ ] **I-2.6.7** — `apps/superadmin/package.json` — REMOVE `dayjs` (zero mentions in
+- [x] **I-2.6.7** — `apps/superadmin/package.json` — REMOVE `dayjs` (zero mentions in
   `apps/superadmin/src`; erp uses it in 7 files and declares it separately)
-- [ ] **I-2.6.8** — `packages/ui/package.json` — REMOVE `@hookform/resolvers`, `date-fns`, `zod`,
+- [x] **I-2.6.8** — `packages/ui/package.json` — REMOVE `@hookform/resolvers`, `date-fns`, `zod`,
   **and `next-themes` (decision 8)**
   - **Decision 8 is explicit: `packages/ui/src/components/theme-mode-provider.tsx` is NOT touched.**
     Only the unused declaration goes. `sonner.tsx:12`'s comment — "next-themes, which this repo does
     not mount" — becomes literally true of the manifest as well as the code.
-- [ ] **I-2.6.9** — `packages/server-core/package.json` — REMOVE `nodemailer` and
+- [x] **I-2.6.9** — `packages/server-core/package.json` — REMOVE `nodemailer` and
   `@types/nodemailer` (zero imports in `packages/server-core/src`; the transport is in
   `packages/notifications`, which declares it)
 
@@ -296,10 +298,10 @@ The only batch permitted to move `bun.lock`.
 Do **not** sweep all 243. Many vanish once 2.1–2.5 land; about half the rest are exported types
 whose export *is* the module's public shape. Re-run knip after 2.6, then act only on:
 
-- [ ] **I-2.7.1** — `apps/erp/src/components/charts/index.ts` — REFACTOR: narrow the re-export list.
+- [x] **I-2.7.1** — `apps/erp/src/components/charts/index.ts` — REFACTOR: narrow the re-export list.
   13 names unused (`ChartFrame`, `ChartLegend`, `ChartTooltip`, `ProgressArcChart`, `SERIES_COLORS`,
   `TRACK_COLOR`, `seriesColor`, + 6 types). **The file stays** — 7 erp screens import it.
-- [ ] **I-2.7.2** — `apps/erp/src/lib/analytics/transforms.ts` — DELETE the 7 uncalled transforms
+- [x] **I-2.7.2** — `apps/erp/src/lib/analytics/transforms.ts` — DELETE the 7 uncalled transforms
   (`revenueVsExpensesLineSeries`, `attendanceByCourseBarData`, `courseFillRateBarData`,
   `scoreDistributionBarData`, `studentGradeTrendLineSeries`, `paymentTrendLineSeries`,
   `subjectComparisonBarData`). Check each against the dashboards first — these are the shape of
@@ -316,7 +318,7 @@ whose export *is* the module's public shape. Re-run knip after 2.6, then act onl
 
 ### Batch 2.8 — dead i18n keys
 
-- [ ] **I-2.8.1** — Run the two-commit matcher from
+- [x] **I-2.8.1** — Run the two-commit matcher from
   [docs/reports/cleanup-notes.md](docs/reports/cleanup-notes.md) — the only method proven on this
   repo (suffix match, runtime-completed namespaces like `` t(`studentWallet.type_${e.type}`) ``,
   `.mdx` scan). Run it at the P0 baseline commit **and** after 2.7, then diff.
@@ -330,7 +332,7 @@ whose export *is* the module's public shape. Re-run knip after 2.6, then act onl
 
 ### Batch 2.9 — hygiene items from decisions 2, 3 and 4
 
-- [ ] **I-2.9.1** — `CLAUDE.md` — document why `brace-expansion` is a root dependency (decision 2)
+- [x] **I-2.9.1** — `CLAUDE.md` — document why `brace-expansion` is a root dependency (decision 2)
   - **Action:** REFACTOR (docs). ADD a note in the "Dependency overrides" bullet under **Security
     remediation progress**, next to the existing 2026-07-20 entry.
   - **Before → After:** the bullet lists the overrides and ends at `bun audit` reporting 0
@@ -360,7 +362,7 @@ whose export *is* the module's public shape. Re-run knip after 2.6, then act onl
   - **Verification:** `git status --short` shows the file as untracked-and-ignored; V4 regenerates
     it; the PWA still registers its service worker in a browser check.
 
-- [ ] **I-2.9.3** — `apps/superadmin/package.json` — ADD the `postcss` devDependency (decision 4)
+- [x] **I-2.9.3** — `apps/superadmin/package.json` — ADD the `postcss` devDependency (decision 4)
   - **Action:** REPLACE the `devDependencies` block to add `postcss` at the version already resolved
     in `bun.lock` (match `apps/erp`'s declaration so the two apps do not float apart).
   - **Before → After:** `apps/superadmin/postcss.config.mjs` names `postcss` with nothing declaring
@@ -379,7 +381,7 @@ No new dependency is installed anywhere in this phase. **Batch 2.5c is deleted f
 
 ### Batch 2.5a — mechanical, low risk
 
-- [ ] **I-2.5a.1** — `admin-audit-screen.tsx:102`, `audit-log-screen.tsx:91`, both apps'
+- [x] **I-2.5a.1** — `admin-audit-screen.tsx:102`, `audit-log-screen.tsx:91`, both apps'
   `lib/refine/router-provider.ts:117-118`, `admin-users.ts:167`,
   `packages/ui/src/components/bottom-nav.tsx:116`, `student-qr.ts:179`
   - **Action:** REPLACE `arr[arr.length - 1]` → `arr.at(-1)`, `arr[arr.length - 2]` → `arr.at(-2)`.
@@ -427,7 +429,7 @@ No new dependency is installed anywhere in this phase. **Batch 2.5c is deleted f
     addresses before committing, or skip this item.
   - **Verification:** V1, V2, plus a manual register and claim submission in both locales.
 
-- [ ] **I-2.5a.5** — `apps/erp/src/features/onboarding/student-wizard.tsx:110-111`
+- [x] **I-2.5a.5** — `apps/erp/src/features/onboarding/student-wizard.tsx:110-111`
   - **Action:** REPLACE string-concat query building with `URLSearchParams`.
   - **Before:** ``const q = sel.trackId ? `&trackId=${sel.trackId}` : "";``
   - **After:** build the whole query via `new URLSearchParams({...})`, interpolate once.
@@ -640,3 +642,61 @@ No new dependency is installed anywhere in this phase. **Batch 2.5c is deleted f
 | `chat-screen.tsx` debounce | messaging, entangled with the socket lifecycle |
 | `wallet.ts` / `parent-wallet.ts` unused exports | money primitives |
 | `<img>` → `next/image` | all 16 carry comments explaining why `next/image` does not apply (SVG, Cloudinary) |
+
+---
+
+## Run report — 2026-08-27
+
+Executed on `cleanup/performance` in the worktree `/Users/ali/edura-cleanup`.
+Ten commits, `f0aa833` … `58e2f64`. Every batch verified before its commit;
+`bun run build` green at the end (31 s, all three apps).
+
+| Batch | Commit | Result |
+|---|---|---|
+| P0.3 knip config | `f0aa833` | reproduces the audit's 25 unused files |
+| P0.4 i18n matcher + baseline | `d006bd0` | 713 erp / 601 superadmin keys catalogued |
+| 2.1 erp service shims | in `4649aba` * | 13 files |
+| 2.2 mail shims | `24ef324` | 3 files, 2 directories |
+| 2.3 points shim | `cd0f71d` | 1 file |
+| 2.4 superadmin UI shims | `947e8da` | 6 files, 1 directory |
+| 2.5 orphaned code | `a40cad9` | 2 files + 2 comments repointed |
+| 2.6 dependencies | `c371150` | 16 declarations |
+| 2.7 exports | `bac1e3a` | 13 re-exports + 7 transforms, 229→145 lines |
+| 2.8 i18n keys | `6a44eee` | 31 keys × 2 locales, + 2 matcher fixes |
+| 2.9 hygiene | `63997e3` | postcss, CLAUDE.md, the lockfile 2.6 missed |
+| 2.5a `.at()` | `58e2f64` | 9 sites + 1 URLSearchParams |
+
+\* Batch 2.1's deletions were swept into a concurrent commit of Ali's before the
+worktree split. They are in the branch and correct, but not independently
+revertible. Nothing after that point shares a commit.
+
+**knip reports zero unused files, down from 25. The matcher reports zero
+unreferenced keys, down from 33.**
+
+### Items attempted and deliberately NOT done
+
+| Item | Why |
+|---|---|
+| `Map.groupBy` × 4 (incl. `attendance/sync.ts`) | repo TS lib is **es2022**; `Map.groupBy` is ES2024 and does not typecheck without widening `lib` repo-wide. Three of four sites are **browser-reachable** and the repo declares no browserslist — a missing runtime builtin is a TypeError, not a slow render |
+| `.toSorted()` × 6 | same lib floor; cosmetic anyway |
+| `readBody` → `node:stream/consumers` | the hand-rolled version aborts the socket the moment the body crosses 256 KB; `text(req)` buffers it all first. The cap cannot survive the swap |
+| zod email × 2 | stricter than the regex it replaces — a behaviour change on signup and invite claim |
+| gitignore `swe-worker-*.js` | already ignored at `apps/erp/.gitignore:13` and untracked; the audit read the disk, not the index |
+
+### Found while executing, not acted on
+
+- **`bun audit` reports 9 vulnerabilities (7 high, 2 moderate)** — identical in the
+  untouched main worktree, so nothing here caused it. CLAUDE.md's "0 vulnerabilities"
+  was true on 2026-07-30; the advisory database has moved since. Noted in CLAUDE.md.
+- **`bun run lint` has been broken repo-wide**, independent of this work:
+  `packages/ui` and `apps/realtime` declare a `lint` script but neither declares
+  `eslint`, so turbo exits 127. CI never runs it, which is why nobody noticed.
+  The erp suite additionally reports 62 pre-existing errors (unescaped entities,
+  one `no-this-alias`) and superadmin 2 (React Compiler "impure function during
+  render" in `audit-log-screen.tsx` and `notifications-screen.tsx`).
+- **The i18n matcher had three blind spots**, each caught by hand-verifying its
+  output before deleting, and each would have removed live copy: namespace-relative
+  runtime prefixes, variable-head plural families, and camelCase runtime heads
+  (`` t(asKey(`status${Cap(p.status)}`)) ``). It was also scanning Prisma's
+  generated client, which made two runs incomparable. All four are fixed and
+  documented in the script.

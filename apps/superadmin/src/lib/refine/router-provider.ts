@@ -114,8 +114,8 @@ export function useAppRouterProvider(): RouterProvider {
       const dashIdx = segments.indexOf("dashboard");
       if (dashIdx >= 0 && segments.length > dashIdx + 2) {
         resource = segments[dashIdx + 2];
-        const last = segments[segments.length - 1];
-        const secondLast = segments[segments.length - 2];
+        const last = segments.at(-1);
+        const secondLast = segments.at(-2);
 
         if (last === "create") {
           action = "create";

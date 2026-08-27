@@ -25,7 +25,9 @@ node_modules
 !.env.*.example
 
 # Testing
-coverage
+/coverage
+apps/*/coverage/
+packages/*/coverage/
 test-results
 playwright-report
 # playwright-cli scratch artifacts (console/page dumps) — 10 of these were

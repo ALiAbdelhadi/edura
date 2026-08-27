@@ -17,9 +17,10 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { Clock, Loader2, LogIn, ShieldCheck, TriangleAlert } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
+import { identifyUser } from "@/lib/observability/posthog-client";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -64,6 +65,24 @@ export default function LoginPage() {
     signedOutReason === "session_conflict" ||
     signedOutReason === "session_mismatch" ||
     sessionExpired;
+  // WHOEVER WAS HERE HAS GONE — drop the analytics identity.
+  //
+  // This used to happen implicitly: the root layout read the session on every
+  // page and passed `null` to the analytics provider when there was none, which
+  // called `posthog.reset()`. That read is gone (it made all 122 pages dynamic),
+  // and identity is now supplied only by the portal layouts, which never see a
+  // signed-out visitor.
+  //
+  // The login screen is where leaving lands you, so it is where the reset
+  // belongs. It matters on a SHARED DEVICE — a family laptop, a center's front
+  // desk — where the previous person's distinct_id must not follow the next one.
+  // Doing it here rather than on every public page is deliberate: `reset()`
+  // mints a fresh anonymous id, and calling it on every marketing page load
+  // would fragment every funnel that crosses one.
+  useEffect(() => {
+    identifyUser(null);
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // USER_NOT_FOUND is a guidance state, not a failure — it renders as a calm

@@ -1,4 +1,5 @@
 import { requirePortal } from "@/lib/auth/portal-gate";
+import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
 import PortalChrome from "./portal-chrome";
 
 /**
@@ -20,6 +21,13 @@ export default async function ParentLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  await requirePortal("parent", locale);
-  return <PortalChrome>{children}</PortalChrome>;
+  const actor = await requirePortal("parent", locale);
+  return (
+    <>
+      <AnalyticsIdentity
+        session={{ id: actor.id, role: actor.role, centerId: actor.centerId ?? null }}
+      />
+      <PortalChrome>{children}</PortalChrome>
+    </>
+  );
 }
