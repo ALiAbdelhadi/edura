@@ -19,7 +19,13 @@ export default defineConfig({
     // Without this the suite lands on Arabic the moment a browser sends a
     // different header, and every English assertion in it fails at once.
     locale: "en-US",
-    navigationTimeout: 30_000,
+    // 60s, not 30s: under `next dev` the FIRST visit to a route pays its
+    // Turbopack compile, and on a 2-core CI runner that can exceed 30s before
+    // the navigation even commits. Measured — E2E — navigation failed exactly
+    // there on /dashboard/parent/progress while 28 already-warm routes passed.
+    // This is compile latency, not app latency: the per-assertion timeouts are
+    // unchanged, so a page that renders slowly still fails.
+    navigationTimeout: 60_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

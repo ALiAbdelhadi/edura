@@ -391,3 +391,32 @@ So today the three revived specs pass **per invocation, from a clear window**, a
 not as one run. Closing that is an application-config decision, not a test one —
 the limiter would need to not apply to an E2E environment (gated so it can never
 be off in production). Flagged rather than done: it changes a security control.
+
+
+---
+
+## First CI results (2026-08-27)
+
+Three runs before this one were cancelled or blocked by unrelated breakage. The
+first that ran the specs to completion on `d9b04a0`:
+
+| Job | Result |
+|---|---|
+| E2E — auth | **17 passed, 0 flaky** |
+| E2E — role-guard | **8 passed, 0 flaky** |
+| E2E — navigation | 28 passed, 1 flaky, **1 failed** |
+
+**`waitUntil: "commit"` fixed the retries.** role-guard had reported 3 flaky on
+the run before it — `auth.setup.ts` signing in as teacher, and the two cases
+navigating to an admin route. All three were `waitForURL` waiting for `load` on a
+destination that was still compiling. With `commit` it is 8/8 clean.
+
+**The navigation failure was cold-compile latency, not the app.**
+`page.goto("/dashboard/parent/progress")` exceeded 30s *waiting to commit* — the
+server had not answered at all — while 28 already-warm routes passed in the same
+job. `navigationTimeout` is now 60s, with the reason recorded at the setting. The
+per-assertion timeouts are untouched, so a page that renders slowly still fails;
+only the wait for a route's first compile got longer.
+
+Worth keeping in mind for step 4a: widening the sweep adds cold routes, and every
+new route pays this once per job.
