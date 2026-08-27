@@ -2,8 +2,8 @@
 
 **Status: I-3.0, I-3.1, I-3.2 and I-3.3 EXECUTED** on `cleanup/performance`
 (2026-08-27). I-3.4 not started — it needs the bundle analyzer, which is Phase 4.
-**Gates 3 and 4 have not run on any of it**, so nothing here may reach `main` yet.
-See the run report at the end.
+**All four gates have now run and passed** (2026-08-27) — see the run report at
+the end. The merge block is lifted.
 Every route in all three Next apps was classified against the build of
 `0dec74d` (`bun run build`, 31 s, green).
 
@@ -266,13 +266,26 @@ and a non-issue respectively.
 |---|---|---|---|
 | 1 route-table diff | ✅ 15 intended flips, 0 unintended, 0 under `/dashboard` | ✅ census unmoved | ✅ census unmoved |
 | 2 static-leak scan | ✅ 0 hits / 589 files / 9 sentinels | ✅ | ✅ |
-| 3 two-user smoke | ⏸ pending a free dev database | ⏸ | ⏸ |
-| 4 per-role smoke | ⏸ pending a free dev database | ⏸ | ⏸ |
+| 3 two-user smoke | ✅ 15/15 routes byte-identical to anonymous / student A / student B | ✅ | ✅ |
+| 4 per-role smoke | ✅ student, parent, teacher, center admin — no console errors | ✅ | ✅ |
 
 `scripts/static-leak-check.ts` is the gate-2 implementation. It was verified
 against a **planted** leak before its green was trusted, which is how a dud
 sentinel was found (`@nile-academy.eg` never matched the seeded student logins at
 `@student.nile-academy.eg`). 9 of 9 sentinels now fire on synthetic data.
 
-**Merge block, per Ali: gates 3 and 4 must run against all 15 flipped routes —
-`/login` and `/register` especially — before any of this reaches `main`.**
+**Merge block LIFTED.** Gates 3 and 4 ran against all 15 flipped routes,
+`/login` and `/register` included, on a production build served from a real
+server. `apps/erp/tests/playwright/render-gates.spec.ts` + `playwright.gates.config.ts`,
+5 passed.
+
+Gate 3's shape is worth keeping: three callers (anonymous, student A, student B —
+same role, same center) request each flipped route and the SERVED BYTES must be
+identical. A prerendered page is written once and handed to everyone, so identity
+is the property to assert, not the absence of whichever strings occurred to me.
+
+Three method errors were made and corrected before that green was trusted:
+running against `next dev` (where nothing is prerendered), serving on a port the
+env's auth origin does not pin, and comparing `page.content()` — the post-hydration
+DOM, in which the marketing header legitimately differs for a signed-in visitor —
+instead of the HTTP response. Each produced a confident wrong answer first.
