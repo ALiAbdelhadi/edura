@@ -768,26 +768,60 @@ docs/security/security-audit.md for the full report and severities.
   in EVERY env (no `NODE_ENV` bypass); `GET = POST` alias removed so the
   data-mutating jobs are POST-only (plain GET → 405). Proof in
   apps/www/tests/unit/m7-cron-auth.test.ts.
-- **Dependency overrides** — package `overrides` (root package.json) to clear the 13 dev/build-time
-  advisories (all transitive tooling; no runtime-path exposure).
-  *Done (2026-07-20):* root `package.json` `overrides` forces the patched
-  version WITHIN THE SAME MAJOR for minimatch (^3.1.5), flatted (^3.4.2),
-  brace-expansion@1 (^1.1.16), picomatch@2 (^2.3.2) + picomatch@4 (^4.0.5),
-  @hono/node-server (^1.19.14), postcss@8 (^8.5.20), uuid@8 (→ ^11.1.1 for
-  next-auth). `bun audit` now reports **0 vulnerabilities**; typecheck (5/5),
-  www unit suite (48 pass/1 skip), and `bun run build` (both apps) all green. No
-  security-sensitive runtime dep (next/react/next-auth/prisma/bcryptjs/zod/
-  jose/socket.io/ioredis) was bumped — deliberately out of scope.
-  **`brace-expansion` IS ALSO A ROOT `dependency` (^5.0.9), AND THAT IS ON
-  PURPOSE.** The `brace-expansion@1` / `@2` entries above pin the patched
-  versions of the transitive copies; the root declaration is what anchors them.
-  It is not application code and no file imports it, so every unused-dependency
-  tool — `knip`, `depcheck` — reports it as dead, every time. **Do not remove
-  it**; doing so un-pins a patched transitive and the advisory returns silently.
-  **[2026-08-27] The "0 vulnerabilities" claim above is stale**: `bun audit` now
-  reports **9 (7 high, 2 moderate)** — dompurify via posthog-js, deepmerge-ts and
-  others, all published after 2026-07-30. Nothing regressed; the advisory
-  database moved. Re-clearing them is its own task.
+- **Dependency overrides** — root `package.json` `overrides`, to clear
+  dev/build-time advisories in transitive tooling.
+  **[2026-08-27] READ THIS BEFORE WRITING AN OVERRIDE. The mechanism this bullet
+  described for a month does not exist.**
+
+  **`bun` (1.3.12) SILENTLY IGNORES `"pkg@major"` OVERRIDE KEYS.** Not a warning,
+  not an error — the key is accepted, written into `bun.lock`'s overrides block,
+  and never applied. It also ignores npm-style nested overrides
+  (`{"eslint": {"brace-expansion": "…"}}`). **Only a flat, unversioned key
+  works.** Consequence: the seven keys this bullet used to credit for the
+  2026-07-20 cleanup — `minimatch@3`, `brace-expansion@1`, `brace-expansion@2`,
+  `picomatch@2`, `picomatch@4`, `postcss@8`, `uuid@8` — **never did anything at
+  all.** Those advisories cleared because the packages moved on their own. All
+  seven have been REMOVED (2026-08-27): a key that does nothing while looking
+  like protection is worse than no key. Proof it was safe: removing the six
+  survivors and re-resolving left all **1296** lock resolutions byte-identical.
+
+  **`bun install` ALONE DOES NOT RELINK CONSUMERS — `bun install --force` DOES.**
+  After a plain install, the patched version is added at the TOP of the tree
+  while every transitive consumer stays linked to the vulnerable one. Measured
+  2026-08-27: `bun audit` moved 9 → 7 and both versions sat in
+  `node_modules/.bun`, while `posthog-js` still linked `dompurify@3.4.12` and
+  `ajv@8.20.0` still linked `fast-uri@3.1.4`. `--force` relinked both.
+
+  **SO VERIFY AT THE CONSUMER, NEVER BY LISTING `node_modules`.** The patched
+  version being present proves nothing — an orphan copy nothing imports looks
+  exactly the same. Check the edge that matters:
+
+  ```bash
+  bun -e "console.log((await Bun.file('node_modules/.bun/posthog-js@1.409.5/node_modules/dompurify/package.json').json()).version)"
+  ```
+
+  *Current state (2026-08-27):* overrides are `flatted`, `@hono/node-server`,
+  `sharp`, `valibot`, `find-my-way`, plus the four added this day — `nanoid`
+  (^3.3.18), `js-yaml` (^4.3.2), `fast-uri` (^3.1.6), `dompurify` (^3.4.14) —
+  all unversioned, all verified at the consumer link. `bun audit` **9 → 5**;
+  check-types 9/9, `bun run build` 3/3 apps, erp route census unchanged at
+  342 ƒ / 3 ○ / 31 ●. The five that remain are documented as STAYING, with
+  reasons, in [docs/follow-ups.md](docs/follow-ups.md) entry 2 and
+  [docs/security/dependency-audit-2026-08-27.md](docs/security/dependency-audit-2026-08-27.md):
+  `brace-expansion` ×3 cannot be expressed at all (its two vulnerable copies need
+  opposite majors and bun offers only one tree-wide key — forcing either breaks
+  the other's API), and `uuid` / `deepmerge-ts` are Tier B (unreachable, and no
+  in-major fix, respectively).
+
+  **`brace-expansion` IS ALSO A ROOT `dependency` (^5.0.9).** It is not
+  application code and no file imports it, so `knip` and `depcheck` report it
+  dead every time. **The old rationale here — that it "anchors" the
+  `brace-expansion@1`/`@2` pins — is void, because those pins never held
+  anything.** Its real effect is now unverified. Leave it for the moment, but
+  treat re-checking it as its own small task, not as settled fact.
+
+  No security-sensitive runtime dep (next/react/prisma/bcryptjs/zod/jose/
+  socket.io/ioredis) has been bumped by any of this — deliberately out of scope.
 - Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
   **M6** (materials %PDF- magic-byte check).
 - **M8** — *Done (2026-08-26):* the last `$queryRawUnsafe` (a fully static

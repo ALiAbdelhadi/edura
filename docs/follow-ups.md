@@ -47,32 +47,123 @@ not a gate.
 
 ---
 
-## 2. `bun audit` reports 9 vulnerabilities; CLAUDE.md still claims zero
+## 2. `bun audit`: 9 → 5. The remaining five are documented, not pending
 
 **Found:** 2026-08-27, verifying that a dependency-removal batch had not changed
-the security posture.
+the security posture. **Worked 2026-08-27** on `security/audit-2026-08-27`.
+Full analysis: [docs/security/dependency-audit-2026-08-27.md](security/dependency-audit-2026-08-27.md).
 
-`bun audit` reports **9 vulnerabilities (7 high, 2 moderate)**. The count is
-byte-identical in the untouched `main` worktree and in `cleanup/performance`, so
-the cleanup neither caused nor fixed any of it.
+### The runtime claim in the original entry was wrong
 
-Two named while looking:
+This entry used to close by saying "`posthog-js` is a runtime dependency that
+ships to the browser, so the dompurify one is not purely build-time the way the
+July batch was." **That does not follow, and the measurement says otherwise.**
 
-- `dompurify <=3.4.12`, reached through `workspace:edura › posthog-js` —
-  moderate. GHSA-55q2-fjhq-7xh7: an `IN_PLACE` hook removal leaves a detached
-  subtree executable, causing XSS.
-- `deepmerge-ts <8.0.0`.
+`posthog-js` does ship to the browser — `posthog-client.ts` is `"use client"`
+and imports it. The error was assuming that a browser-shipped package drags its
+whole dependency list into the browser with it. It does not:
 
-**What changed is the advisory database, not the tree.** CLAUDE.md's
-"Dependency overrides" bullet records `bun audit` reporting **0 vulnerabilities**
-on 2026-07-30, and that was true then. Everything above was published after it.
-The staleness is now noted in CLAUDE.md itself, next to the original claim.
+- `dist/module.js` — the entry a bundler resolves, since the package has no
+  `exports` map — contains **zero** occurrences of `dompurify`.
+- dompurify appears in exactly two files, `dist/product-tours.js` and
+  `dist/product-tours-preview.js`, and **nothing imports them**. `module.js`
+  reaches them through
+  `__PosthogExtensions__.loadExternalDependency(instance, "product-tours", cb)`,
+  which injects a remote `<script>` from `<api_host>/static/…`.
+- Our `api_host` is `/ingest`, a same-origin rewrite to PostHog. So that bundle
+  is fetched **from PostHog's servers at runtime**, never from our build. If
+  product tours were ever switched on, the browser would run whatever version
+  PostHog serves — no pin of ours can influence it.
+- No first-party `dompurify` / `DOMPurify` usage exists in `apps/*/src` or
+  `packages/*/src`.
 
-**To close:** re-run the 2026-07-20 exercise — pin patched versions within the
-same major via root `overrides` where the fix is transitive, and decide
-separately about anything on a runtime path. `posthog-js` is a runtime dependency
-that ships to the browser, so the dompurify one is not purely build-time the way
-the July batch was.
+**All nine were build-time, CLI-time or server-side.** The one other candidate —
+`fast-uri`, which `bun audit` attributes to `workspace:edura › @hookform/resolvers`
+— is an artifact of how the audit walks peers: `ajv` is an *optional peer* of
+`@hookform/resolvers`, not a dependency, and all 16 call sites in the repo import
+`@hookform/resolvers/zod`. The real edge is
+`fast-uri ← ajv@8 ← ajv-formats ← schema-utils ← webpack`.
+
+**Do not re-raise posthog-js as a browser-runtime XSS exposure.** Re-check it
+only if posthog-js starts importing dompurify from `module.js`, or if we ever
+add first-party DOM sanitisation.
+
+### What was applied
+
+Four overrides, all patched **within the same major**, all verified at the
+consumer link rather than only at the top of the tree:
+
+| Package | Was | Now | Consumer proven relinked |
+|---|---|---|---|
+| `dompurify` | 3.4.12 | 3.4.14 | `posthog-js@1.409.5` |
+| `fast-uri` | 3.1.4 | 3.1.6 | `ajv@8.20.0` |
+| `js-yaml` | 4.3.0 | 4.3.2 | `@eslint/eslintrc@3.3.6` |
+| `nanoid` | 3.3.16 | 3.3.18 | `postcss@8.5.23` |
+
+The inert `"uuid@8": "^11.1.1"` override was removed — see below.
+
+Verified: `bun audit` **9 → 5**, `bun run check-types` 9/9, `bun run build`
+3/3 apps, erp route census unchanged at **342 ƒ / 3 ○ / 31 ●**.
+
+### The mechanism finding — this is the part worth keeping
+
+**`bun` 1.3.12 silently ignores `"pkg@major"` override keys, and ignores
+npm-style nested override objects.** Only a flat, unversioned key works, and
+only after `bun install --force` — a plain `bun install` adds the new version at
+the top of the tree while leaving every transitive consumer linked to the old
+one, which looks like success in `ls node_modules` and is not.
+
+Proven by controlled comparison, same install, same position in the lock:
+
+- `"dompurify": "^3.4.14"` and `"fast-uri": "^3.1.6"` (unversioned) → **moved**.
+- `"js-yaml@4"` and `"nanoid@3"` → **did not move**; rewritten unversioned, both
+  moved immediately.
+- Removing `"brace-expansion@1/@2/@5"` entirely changed **no** resolution, and
+  neither did `bun update brace-expansion` or nested
+  `{"eslint": {"brace-expansion": "…"}}`.
+
+**Consequence: CLAUDE.md's "Dependency overrides" bullet was wrong about its own
+mechanism** — it credited the July cleanup to `minimatch@3`, `brace-expansion@1`,
+`brace-expansion@2`, `picomatch@2`, `picomatch@4`, `postcss@8` and `uuid@8`,
+and **every one of those keys is inert**. Those advisories cleared because the
+packages moved on their own. **Both were fixed 2026-08-27:** the bullet is
+rewritten, and all seven keys are REMOVED from `package.json` — a key that does
+nothing while looking like protection is worse than no key. Removing the six
+survivors and re-resolving left all **1296** lock resolutions byte-identical,
+which is the proof it was safe. The root `brace-expansion` *direct dependency*
+was kept, but the old rationale for it (that it "anchors" those pins) is void
+along with the pins; re-checking it is its own small task.
+
+### The five that remain, and why each stays
+
+- **`brace-expansion` ×3 (high) — cannot be expressed, not deferred.** Two
+  vulnerable copies need opposite fixes: `minimatch@3.1.5` → `brace-expansion`
+  1.1.16 (needs ^1.1.18) and `minimatch@10.2.5` → 5.0.8 (needs ^5.0.9).
+  `minimatch@5.1.9` → 2.1.4 is in none of the three ranges and is already clean.
+  Since bun honours only a flat tree-wide key, one version must serve all three
+  — and it cannot: v1 does `module.exports = expandTop` (callable), while v5's
+  CJS build exports `{EXPANSION_MAX, EXPANSION_MAX_LENGTH, expand}` (an object).
+  Measured directly: `require()`ing v5 yields `typeof === "object"`, so
+  `minimatch@3`'s `expand(pattern)` at `minimatch.js:10` would throw, taking
+  eslint, `eslint-config-next`, `@serwist/next` and `@sentry/nextjs` with it.
+  Forcing v1 breaks `minimatch@10` symmetrically. Every path is lint/build
+  tooling and the brace patterns fed to it are our own glob configs, so the DoS
+  has no untrusted input. **Left as-is deliberately**; it clears when a consumer
+  bumps its minimatch.
+- **`uuid` (moderate) — not reachable.** GHSA-w5hq-g745-h8pq is a bounds check in
+  `v3`/`v5`/`v6` *when `buf` is provided*. `exceljs` imports `{v4: uuidv4}` at
+  `lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1` and calls `uuidv4()` with
+  no arguments, at two sites. Neither the affected functions nor the affected
+  parameter is used. Server-side only (`settlement-export.ts`, no `"use client"`).
+  The fix is a 3-major jump into a CJS consumer; not worth it.
+- **`deepmerge-ts` (high) — no in-major fix exists.** 7.1.6 is the newest v7 and
+  is still inside `<8.0.0`. `@prisma/config@7.9.0` depends on **exactly `7.1.5`**.
+  Stack exhaustion on recursive object graphs, where the input is our own
+  `prisma.config.ts` — not attacker-controlled, and a CLI rather than a served
+  surface. Clears when Prisma bumps `@prisma/config`.
+
+**To close:** nothing, for these five. Re-run `bun audit` when eslint,
+typescript-eslint, glob or prisma next move.
 
 ---
 
