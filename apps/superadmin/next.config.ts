@@ -153,6 +153,45 @@ const nextConfig = {
 // so never hit the 45-minute ceiling www did — the gate is here because the
 // two configs must not disagree about when Sentry is on, not because this
 // build was failing.
+/* A PRODUCTION DEPLOY WITHOUT BROWSER TELEMETRY FAILS HERE RATHER THAN SHIPPING
+ * A SILENT SDK.
+ *
+ * Measured 2026-08-27: the live bundle carried @sentry and the tracing
+ * integration in a 482 kB chunk and NOT ONE DSN string. Every visitor downloaded
+ * ~160 kB of an SDK that could not transmit, and nobody found out, because an
+ * SDK with no DSN reports nothing — including its own uselessness.
+ *
+ * `VERCEL_ENV`, NOT `NODE_ENV`. `next build` sets NODE_ENV to "production" for
+ * EVERY build — CI, a local `bun run build`, and preview deploys — so guarding on
+ * it would turn CI red and break local builds. VERCEL_ENV is "production" only
+ * for a real production deploy, "preview" for previews, and unset everywhere
+ * else. The consequence, stated rather than hidden: this guard protects the
+ * Vercel path only.
+ *
+ * `NEXT_PUBLIC_SENTRY_DSN` BY NAME, not `sentryEnabled`. That flag accepts
+ * `SENTRY_DSN` too, but only a NEXT_PUBLIC_ variable is inlined into the client
+ * bundle — a deploy setting just `SENTRY_DSN` gets server and edge reporting and
+ * a blind browser, and would pass a check written against the flag. Web Vitals
+ * and client spans are exactly what this is here to protect.
+ */
+if (process.env.VERCEL_ENV === "production" && !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  throw new Error(
+    [
+      "NEXT_PUBLIC_SENTRY_DSN is missing, and this is a production deploy.",
+      "",
+      "Without it the Sentry SDK still ships to every visitor (~160 kB) and can",
+      "transmit nothing: no browser errors, no Web Vitals, no client spans.",
+      "",
+      "Set it in Vercel > Project > Settings > Environment Variables, scoped to",
+      "Production (and Preview, if previews should report), then redeploy. The",
+      "value is the client DSN from Sentry > Project Settings > Client Keys (DSN).",
+      "",
+      "SENTRY_DSN alone is NOT enough — only NEXT_PUBLIC_ variables reach the",
+      "browser. Set both if the server should report to the same project.",
+    ].join("\n"),
+  );
+}
+
 const sentryEnabled = Boolean(
   process.env.NEXT_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN,
 );
