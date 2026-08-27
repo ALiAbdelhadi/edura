@@ -38,3 +38,6 @@ bruno/environments/Local.bru
 .env*
 # the committed template CI materialises .env.test from (same carve-out as root)
 !.env.*.example
+
+# Playwright signed-in sessions (auth.setup.ts) — real cookies, never commit
+/playwright/.auth/

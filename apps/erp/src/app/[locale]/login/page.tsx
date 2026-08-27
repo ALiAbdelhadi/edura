@@ -244,6 +244,9 @@ export default function LoginPage() {
           {error ? (
             <p
               role="alert"
+              // Next renders its own always-present `<div role="alert">` route
+              // announcer, so role alone is never unique in a test.
+              data-slot="form-error"
               className="flex items-start gap-2 rounded-lg px-3 py-2 text-sm font-medium"
               style={{
                 color: "var(--red)",

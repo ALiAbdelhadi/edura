@@ -178,27 +178,66 @@ compiler upgrade decides them for us.
 
 ---
 
-## 4. The Playwright suite has been dead since the shadcn migration
+## 4. The Playwright suite — three specs revived and wired to CI; two gaps left
 
-**Found:** 2026-08-27, trying to use it as a verification gate.
+**Found:** 2026-08-27, trying to use it as a verification gate. **Worked the same
+day.** Full record:
+[docs/testing/playwright-revival-analysis.md](testing/playwright-revival-analysis.md).
 
-`apps/erp/tests/playwright/helpers.ts:29` — `navigateTo()` waits up to 20 seconds
-for `.ant-layout-content`. **AntD is entirely absent from `apps/erp/src`.** Seven
-of the nine spec files call that helper, across 18 call sites, so they time out
-before asserting anything:
+`helpers.ts` waited on `.ant-layout-content`, gone since the shadcn migration, so
+six spec files (not seven — `parent-pay.spec.ts` never used the helper) timed out
+before asserting anything. Nothing in CI ran `test:pw`, which is why a suite that
+could not pass stayed in the tree: the `db` job's "E2E smoke" step runs
+`test:e2e`, a different file (`tests/e2e/smoke.e2e.ts`).
 
-`navigation.spec.ts`, `admin-students.spec.ts`, `role-guard.spec.ts`,
-`parent-pay.spec.ts`, `student-dashboard.spec.ts`, `parent-portal.spec.ts`,
-`teacher-gradebook.spec.ts`
+**Done.** Locale pinned; `data-slot="portal-content"` added to the app-shell and
+`data-slot="form-error"` to the login banner; `navigateTo` re-pointed;
+`auth.spec.ts` **13/13**, `role-guard.spec.ts` **4/4** (its two sidebar tests
+DELETED — they asserted an IA the `sidebar-ia` pass replaced),
+`navigation.spec.ts` rewritten to **30/30** with real assertions and a
+`storageState` setup project. A new `e2e-playwright` CI job runs the three,
+**one job per spec**, each on its own runner with its own seeded Postgres.
 
-The helper was last touched on 2026-08-18 and is untouched by the cleanup branch.
-Like the lint task in #1, nothing in CI runs `test:pw`, which is why a suite that
-cannot pass has stayed in the tree.
+### 4a. `navigation.spec.ts`'s route lists are stale
 
-**To close:** replace the selector with one that exists (`main`, or the portal
-chrome's `[data-portal]`). `apps/erp/tests/playwright/render-gates.spec.ts` on
-`cleanup/performance` is a worked example that depends only on the HTTP response
-and the console.
+Every path it sweeps still exists, but each portal has gained screens since the
+lists were written, and the sweep does not see them:
+
+| Portal | Missing from the sweep |
+|---|---|
+| student | `/subjects` `/reviews` `/wallet` `/subscriptions` `/id` `/messages` |
+| teacher | `/attendance` `/door` `/wallet` `/centers` `/team` |
+| admin | `/counter` `/checkin` `/collaborations` `/expenses` `/external-teachers` `/staff` `/audit` |
+| parent | `/pay` `/wallet` `/oversight` `/subscriptions` |
+
+**To close:** add them a portal at a time and see which fail. Several will —
+they need data 4b is about, and the sweep asserts the content region is
+non-empty. Widening it is also not free against the rate limit: the sweep already
+lands close to better-auth's global 120-requests-per-60s cap, and doubling it may
+need the file split across two CI jobs the way the three specs already are.
+
+### 4b. The fixture-blocked specs need a real dev seed
+
+`admin-students`, `teacher-gradebook`, `parent-portal` and `student-dashboard`
+are untouched and still fail — on **data**, not selectors. Measured on dev
+2026-08-27: **0 centers, 0 courses, 0 enrollments, 0 grades, 0 subscriptions**
+against 264 users. Every assertion about a roster, a gradebook, a stats tile or a
+payable lesson has nothing behind it. `parent-pay.spec.ts` is blocked the same
+way despite never having used the broken helper.
+
+Note this is a DEV problem, not a CI one: the new `e2e-playwright` job seeds its
+own container with all four demo seeds, so a spec that needs a course would have
+one there. The gap is that dev — where these are actually run and debugged — was
+wiped to a production-equivalent state on 2026-07-31 and never re-seeded.
+
+**To close:** run the demo seeds against dev (`bun run seed` + `preview-seed`),
+or decide these specs should build their own fixtures per-run. Two of them are
+worth the trouble: `teacher-gradebook`'s save/discard dirty-state is the most
+valuable assertion in the suite and nothing else covers it, and
+`admin-students`' invite-modal validation is real behaviour. Two need rewriting
+first regardless — `parent-portal` and `student-dashboard` assert **GPA**, a
+metric that no longer exists anywhere in the product (replaced by "Overall" /
+"Overall percentage"), and student KPI labels that were renamed.
 
 ---
 

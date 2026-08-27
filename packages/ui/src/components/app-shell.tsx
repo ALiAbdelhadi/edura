@@ -667,6 +667,11 @@ export function AppShell({
         <div
           tabIndex={0}
           role="region"
+          // The one stable anchor for the portal content area. E2E specs waited
+          // on `.ant-layout-content` until the shadcn migration removed it, and
+          // there is no <main> here and no other non-generic hook — `role`
+          // alone is shared and the aria-label changes per screen.
+          data-slot="portal-content"
           aria-label={translateNav(screenLabel)}
           className="min-h-70 min-w-0 flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
         >

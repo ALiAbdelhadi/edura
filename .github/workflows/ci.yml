@@ -532,3 +532,197 @@ jobs:
       - name: Remove generated env files
         if: always()
         run: rm -f apps/erp/.env.test apps/superadmin/.env.test apps/erp/.env.local
+
+  # ---------------------------------------------------------------------------
+  # E2E — the Playwright suite (tests/playwright), one job PER SPEC.
+  #
+  # WHY THIS EXISTS: nothing ran `test:pw`. The `db` job's "E2E smoke" step runs
+  # `test:e2e`, which is tests/e2e/smoke.e2e.ts — a different file. So the
+  # Playwright suite rotted unwatched: `helpers.ts` waited on `.ant-layout-content`
+  # from before the shadcn migration, and six spec files timed out before
+  # asserting anything. A gate nobody runs is not a gate.
+  #
+  # WHY ONE JOB PER SPEC RATHER THAN ONE JOB RUNNING ALL THREE — this is a rate
+  # limit, not a preference. `apps/erp/src/lib/auth/auth.ts` sets better-auth's
+  # global limit to 120 requests per 60s per IP across every /api/auth/* route,
+  # and /sign-in/email to 20. Each portal page load spends several of those on
+  # session reads, so the 26-page navigation sweep alone lands close to the cap;
+  # measured locally, running all three specs in one invocation failed nine tests
+  # on HTTP 429. A matrix gives each spec its own runner, its own IP and its own
+  # database, so each starts with a clean window.
+  #
+  # THE LIMITER IS DELIBERATELY NOT RELAXED FOR TESTS. A security control with an
+  # environment escape hatch is a control that is eventually off in production.
+  # The specs assert on console errors, so a 429 fails the run honestly — which
+  # is the correct outcome, not a nuisance to be filtered away.
+  #
+  # Everything below mirrors the `db` job: its own throwaway Postgres, seeded by
+  # the same four idempotent seeds, so this job needs NO secrets and cannot touch
+  # dev or production. SEED_PASSWORD is likewise NOT set, so the seeds fall back
+  # to "Passw0rd!" — the value tests/playwright/helpers.ts signs in with.
+  # ---------------------------------------------------------------------------
+  e2e-playwright:
+    name: E2E — ${{ matrix.spec }}
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      # Each spec is an independent signal. One failing must not hide the other
+      # two, which is exactly what a shared job would do.
+      fail-fast: false
+      matrix:
+        spec: [auth, role-guard, navigation]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: neondb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_DRIVER: pg
+      DATABASE_URL: postgresql://edura_app:app_pw_ci@localhost:5432/neondb
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      ADMIN_URL: postgresql://postgres:postgres@localhost:5432/neondb
+      APP_ROLE_PASSWORD: app_pw_ci
+      # See the block comment above: unset on purpose.
+      E2E_PORT: "3002"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run --filter @repo/database generate
+
+      - name: Label the throwaway database and create the app role
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d neondb -c "COMMENT ON DATABASE neondb IS 'edura-env:test';"
+          psql -h localhost -U postgres -d neondb -c "CREATE ROLE edura_app WITH LOGIN PASSWORD 'app_pw_ci' NOBYPASSRLS;"
+          psql -h localhost -U postgres -d neondb -c "GRANT ALL ON SCHEMA public TO edura_app;"
+
+      # Role before tables — bootstrap-app-role refuses a populated schema,
+      # because its GRANT would undo the append-only REVOKEs. Same order as
+      # the `seeds` and `db` jobs.
+      - name: Bootstrap the app role (NOBYPASSRLS), before any table exists
+        working-directory: packages/database
+        run: bunx tsx scripts/bootstrap-app-role.ts
+
+      - name: Apply migrations
+        working-directory: packages/database
+        run: bunx prisma migrate deploy
+
+      # The four fixture accounts tests/playwright/helpers.ts signs in with
+      # (admin/teacher/student/parent @ nile-academy) come from seed.ts +
+      # preview-seed.ts. Without them every spec here fails at login.
+      - name: Seed
+        working-directory: packages/database
+        run: |
+          set -euo pipefail
+          bunx tsx prisma/seed.ts
+          bunx tsx prisma/preview-seed.ts
+          bunx tsx prisma/center-oversight-demo-seed.ts
+          bunx tsx prisma/messaging-demo-seed.ts
+
+      - name: Materialise .env.test from the committed template
+        run: |
+          set -euo pipefail
+          cp apps/erp/.env.test.example apps/erp/.env.test
+          python3 - apps/erp/.env.test <<'PY'
+          import os, re, sys
+          p = sys.argv[1]
+          vals = {
+              "DATABASE_URL":    os.environ["DATABASE_URL"],
+              "DIRECT_URL":      os.environ["DIRECT_URL"],
+              "ADMIN_URL":       os.environ["ADMIN_URL"],
+              "DATABASE_DRIVER": "pg",
+              "NEXTAUTH_SECRET": "ci-www-secret-0000000000000000000000000000",
+              "SUPERADMIN_NEXTAUTH_SECRET": "ci-sa-secret-11111111111111111111111111111",
+              "REALTIME_JWT_SECRET": "ci-realtime-2222222222222222222222222222",
+              "INTERNAL_API_SECRET": "ci-internal-33333333333333333333333333333",
+              "CRON_SECRET": "ci-cron-4444444444444444444444444444444444",
+          }
+          out = []
+          for line in open(p, encoding="utf-8"):
+              m = re.match(r"([A-Z][A-Z0-9_]*)=", line)
+              out.append(f"{m.group(1)}={vals[m.group(1)]}\n" if m and m.group(1) in vals else line)
+          open(p, "w", encoding="utf-8").write("".join(out))
+          PY
+          echo "wrote apps/erp/.env.test (values not echoed)"
+
+      # `channel: "chrome"` in playwright.config.ts means real Google Chrome,
+      # not the bundled Chromium — so install THAT channel. `install chromium`
+      # would succeed here and then fail at launch with "channel chrome is not
+      # installed", which reads like a test failure rather than a setup one.
+      - name: Install Playwright Chrome
+        run: bunx playwright install --with-deps chrome
+
+      # Dev mode is REQUIRED, not incidental: auth.spec.ts drives the quick-login
+      # tiles, which are gated on NODE_ENV !== "production". Backgrounded so the
+      # readiness probe below turns "the app never started" into a clear message
+      # instead of a wall of Playwright timeouts.
+      - name: Boot erp against the seeded container
+        working-directory: apps/erp
+        env:
+          WWW_PORT: ${{ env.E2E_PORT }}
+        run: |
+          set -euo pipefail
+          cp .env.test .env.local
+          {
+            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
+            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
+          } >> .env.local
+          (bun run dev > /tmp/pw-server.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf "http://localhost:${E2E_PORT}/ar/login" -o /dev/null && exit 0
+            sleep 2
+          done
+          echo "erp never became ready on ${E2E_PORT}"; tail -50 /tmp/pw-server.log; exit 1
+
+      # The `setup` project (auth.setup.ts) is a dependency of `chromium`, so it
+      # runs first and parks a signed-in session per role; navigation.spec.ts
+      # reuses those instead of signing in 26 times.
+      - name: Playwright — ${{ matrix.spec }}
+        working-directory: apps/erp
+        env:
+          PW_BASE_URL: http://localhost:${{ env.E2E_PORT }}
+        run: bunx playwright test ${{ matrix.spec }} --project=chromium
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.spec }}
+          path: |
+            apps/erp/test-results/
+            apps/erp/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Show server log on failure
+        if: failure()
+        run: tail -100 /tmp/pw-server.log || true
+
+      - name: Remove generated env files
+        if: always()
+        run: rm -f apps/erp/.env.test apps/erp/.env.local

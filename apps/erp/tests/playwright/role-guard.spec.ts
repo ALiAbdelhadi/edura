@@ -1,51 +1,71 @@
+/**
+ * The portal boundary — can a signed-in user reach a portal they do not own?
+ *
+ * Revived 2026-08-27. Analysis: docs/testing/playwright-revival-analysis.md
+ *
+ * WHAT THIS NOW COVERS THAT IT DID NOT BEFORE. When these tests were written the
+ * gate was CLIENT-side (`RoleGuard`, deciding after a `fetch /api/v1/me`, behind
+ * a full-screen "Loading…"). It is now `requirePortal` in
+ * lib/auth/portal-gate.ts, which runs on the server BEFORE a byte is streamed.
+ * So this is the browser-level proof that the server gate holds.
+ *
+ * TWO CHANGES OF SUBSTANCE:
+ *
+ *   * `waitForTimeout(3_000)` then `expect(url).not.toContain(...)` is gone. It
+ *     was slow, flaky, and weak — "not the forbidden URL" also passes if the app
+ *     lands on an error page, a blank screen, or the login form. The gate
+ *     redirects a wrong-role caller to THEIR OWN portal
+ *     (`portal-gate.ts:41` → `portalForRole`), so that is what is asserted.
+ *
+ *   * The two sidebar tests are DELETED, not re-pointed. They asserted a flat
+ *     `.ant-menu` containing "Overview" / "Students" / "Teachers"; the sidebar-ia
+ *     pass replaced that with labelled groups, so the IA they describe no longer
+ *     exists. Re-pointing the selector would have produced a test that passes
+ *     against markup nobody designed. The redirect tests below already prove the
+ *     boundary those two were gesturing at, and they prove it server-side.
+ */
 import { test, expect } from "@playwright/test";
-import { login, navigateTo } from "./helpers";
+import { login } from "./helpers";
 
-test.describe("Role-Based Access Control", () => {
-  test("student cannot access admin pages", async ({ page }) => {
-    await login(page, "student");
-    await page.goto("/dashboard/admin/students");
+/** Each case: who signs in, what they reach for, and the portal they own. */
+const CASES = [
+  { role: "student" as const, forbidden: "/en/dashboard/admin/students", ownPortal: "/en/dashboard/student" },
+  { role: "teacher" as const, forbidden: "/en/dashboard/admin/fees", ownPortal: "/en/dashboard/teacher" },
+  { role: "parent" as const, forbidden: "/en/dashboard/teacher/grades", ownPortal: "/en/dashboard/parent" },
+];
 
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/admin/students");
-  });
+test.describe("Portal boundary", () => {
+  for (const { role, forbidden, ownPortal } of CASES) {
+    test(`${role} reaching ${forbidden} is sent to their own portal`, async ({ page }) => {
+      await login(page, role);
 
-  test("teacher cannot access admin pages", async ({ page }) => {
-    await login(page, "teacher");
-    await page.goto("/dashboard/admin/fees");
+      // `waitUntil: "commit"`, and the abort is tolerated ON PURPOSE: the server
+      // gate redirects while this navigation is still in flight, which
+      // supersedes it and surfaces as net::ERR_ABORTED. That abort IS the
+      // boundary doing its job — it is not the assertion, and swallowing it
+      // hides nothing, because the two assertions below prove where the browser
+      // actually ended up.
+      await page
+        .goto(forbidden, { waitUntil: "commit" })
+        .catch((e: Error) => {
+          if (!/ERR_ABORTED/.test(e.message)) throw e;
+        });
 
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/admin/fees");
-  });
+      // Positive: the exact destination, not merely "somewhere else" — "not the
+      // forbidden URL" would also pass on an error page or a blank screen.
+      await page.waitForURL(`**${ownPortal}`, { timeout: 15_000 });
+      // Negative: and the forbidden portal was never reached.
+      expect(page.url()).not.toContain(forbidden.replace("/en", ""));
+    });
+  }
 
-  test("parent cannot access teacher pages", async ({ page }) => {
-    await login(page, "parent");
-    await page.goto("/dashboard/teacher/grades");
+  test("a signed-out visitor reaching a portal is sent to login, not to a portal", async ({
+    page,
+  }) => {
+    await page.context().clearCookies();
+    await page.goto("/en/dashboard/teacher", { waitUntil: "domcontentloaded" });
 
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/teacher/grades");
-  });
-
-  test("admin sidebar shows management items", async ({ page }) => {
-    await login(page, "admin");
-    await navigateTo(page, "/dashboard/admin");
-
-    const nav = page.locator(".ant-menu");
-    await expect(nav).toBeVisible({ timeout: 10_000 });
-
-    for (const label of ["Overview", "Students", "Teachers"]) {
-      await expect(nav.getByRole("link", { name: label })).toBeVisible();
-    }
-  });
-
-  test("student sidebar does not show admin items", async ({ page }) => {
-    await login(page, "student");
-    await navigateTo(page, "/dashboard/student");
-
-    const nav = page.locator(".ant-menu");
-    await expect(nav).toBeVisible({ timeout: 10_000 });
-
-    await expect(nav.getByText("Teachers")).not.toBeVisible();
-    await expect(nav.getByText("Rooms")).not.toBeVisible();
+    await page.waitForURL(/\/login/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   });
 });
