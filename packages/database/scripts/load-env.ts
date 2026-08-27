@@ -14,7 +14,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const envFile = process.env.EDURA_ENV ? `.env.${process.env.EDURA_ENV}` : ".env";
+// Two files per package, and only two: `.env.local` is dev AND test, and
+// `.env.production` is production. EDURA_ENV stays the ONLY way to reach
+// production — unset means local, exactly as before.
+const envFile =
+  process.env.EDURA_ENV === "production" ? ".env.production" : ".env.local";
 
 loadEnv({ path: path.join(here, "..", envFile) });
 

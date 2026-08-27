@@ -12,14 +12,14 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "pretest:db": "tsx --env-file=.env.test ../../packages/database/scripts/db-guard.ts test",
-    "test:db": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db",
-    "test:db:ci": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude c02-payout-generation",
-    "test:db:parity": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only center-people,center-academic,center-operations,center-money,center-platform",
-    "test:db:list": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --list",
-    "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
-    "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
-    "test:db:sweep": "tsx --env-file=.env.test ../../packages/database/scripts/test-cleanup.ts"
+    "pretest:db": "tsx --env-file=.env.local ../../packages/database/scripts/db-guard.ts test",
+    "test:db": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db",
+    "test:db:ci": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db --exclude c02-payout-generation",
+    "test:db:parity": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db --only center-people,center-academic,center-operations,center-money,center-platform",
+    "test:db:list": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db --list",
+    "test:db:bail": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
+    "test:db:only": "tsx --env-file=.env.local ../../packages/database/scripts/run-db-suites.ts tests/db --only",
+    "test:db:sweep": "tsx --env-file=.env.local ../../packages/database/scripts/test-cleanup.ts"
   },
   "dependencies": {
     "@refinedev/core": "^5.0.12",

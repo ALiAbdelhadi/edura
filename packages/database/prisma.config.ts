@@ -6,7 +6,7 @@ import { defineConfig } from "prisma/config";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const EDURA_ENV = process.env.EDURA_ENV;
-const envFile = EDURA_ENV ? `.env.${EDURA_ENV}` : ".env";
+const envFile = EDURA_ENV === "production" ? ".env.production" : ".env.local";
 loadEnv({ path: path.join(here, envFile) });
 
 if (EDURA_ENV === "production") {

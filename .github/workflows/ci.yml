@@ -226,12 +226,12 @@ jobs:
         run: |
           set -euo pipefail
           missing=""
-          for f in apps/erp/.env.test.example apps/superadmin/.env.test.example; do
+          for f in apps/erp/.env.example apps/superadmin/.env.example; do
             [ -f "$f" ] || missing="$missing $f"
           done
           if [ -n "$missing" ]; then
             echo "::error title=A file CI materialises has been deleted::$missing"
-            echo "The db and e2e-playwright jobs cp these to .env.test. Restore with:"
+            echo "The db and e2e-playwright jobs cp these to .env.local. Restore with:"
             echo "  git show <commit-that-deleted-it>^:<path> > <path>"
             exit 1
           fi
@@ -314,8 +314,8 @@ jobs:
   # cannot run is not a gate.
   #
   # Two things made the gate unnecessary rather than merely unmet:
-  #   1. There is no test branch to point at — both .env.test files resolve to
-  #      DEV (CLAUDE.md, 2026-08-03) — so the secrets could not be set honestly.
+  #   1. There is no test branch to point at — .env.local resolves to DEV
+  #      (CLAUDE.md, 2026-08-03) — so the secrets could not be set honestly.
   #   2. The suites no longer require Neon. Each opened its raw SQL connection
   #      with `new Pool` from @neondatabase/serverless, a WebSocket client
   #      speaking Neon's protocol, so any other Postgres was impossible. They
@@ -417,15 +417,17 @@ jobs:
           bunx tsx prisma/center-oversight-demo-seed.ts
           bunx tsx prisma/messaging-demo-seed.ts
 
-      # The suites are launched with `tsx --env-file=.env.test`, so the file has
-      # to exist. Built from the committed template with the container's
-      # connection strings substituted in.
-      - name: Materialise .env.test from the committed templates
+      # The suites are launched with `tsx --env-file=.env.local`, so the file
+      # has to exist. Built from the committed .env.example with the container's
+      # connection strings substituted in. (It was .env.test until 2026-08-27,
+      # when the layout collapsed to two files per package: .env.local for dev
+      # and test, .env.production for production.)
+      - name: Materialise .env.local from the committed templates
         run: |
           set -euo pipefail
           for app in apps/erp apps/superadmin; do
-            cp "$app/.env.test.example" "$app/.env.test"
-            python3 - "$app/.env.test" <<'PY'
+            cp "$app/.env.example" "$app/.env.local"
+            python3 - "$app/.env.local" <<'PY'
           import os, re, sys
           p = sys.argv[1]
           vals = {
@@ -448,7 +450,7 @@ jobs:
           open(p, "w", encoding="utf-8").write("".join(out))
           PY
           done
-          echo "wrote apps/erp/.env.test and apps/superadmin/.env.test (values not echoed)"
+          echo "wrote apps/erp/.env.local and apps/superadmin/.env.local (values not echoed)"
 
       # Proves the guard itself works against the container, before any suite.
       - name: Assert the target database is labelled 'test'
@@ -512,7 +514,6 @@ jobs:
           WWW_PORT: ${{ env.E2E_PORT }}
         run: |
           set -euo pipefail
-          cp .env.test .env.local
           {
             echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
             echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
@@ -557,7 +558,7 @@ jobs:
 
       - name: Remove generated env files
         if: always()
-        run: rm -f apps/erp/.env.test apps/superadmin/.env.test apps/erp/.env.local
+        run: rm -f apps/erp/.env.local apps/superadmin/.env.local
 
   # ---------------------------------------------------------------------------
   # E2E — the Playwright suite (tests/playwright), one job PER SPEC.
@@ -671,11 +672,11 @@ jobs:
           bunx tsx prisma/center-oversight-demo-seed.ts
           bunx tsx prisma/messaging-demo-seed.ts
 
-      - name: Materialise .env.test from the committed template
+      - name: Materialise .env.local from the committed template
         run: |
           set -euo pipefail
-          cp apps/erp/.env.test.example apps/erp/.env.test
-          python3 - apps/erp/.env.test <<'PY'
+          cp apps/erp/.env.example apps/erp/.env.local
+          python3 - apps/erp/.env.local <<'PY'
           import os, re, sys
           p = sys.argv[1]
           vals = {
@@ -695,7 +696,7 @@ jobs:
               out.append(f"{m.group(1)}={vals[m.group(1)]}\n" if m and m.group(1) in vals else line)
           open(p, "w", encoding="utf-8").write("".join(out))
           PY
-          echo "wrote apps/erp/.env.test (values not echoed)"
+          echo "wrote apps/erp/.env.local (values not echoed)"
 
       # `channel: "chrome"` in playwright.config.ts means real Google Chrome,
       # not the bundled Chromium — so install THAT channel. `install chromium`
@@ -714,7 +715,6 @@ jobs:
           WWW_PORT: ${{ env.E2E_PORT }}
         run: |
           set -euo pipefail
-          cp .env.test .env.local
           {
             echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
             echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
@@ -751,4 +751,4 @@ jobs:
 
       - name: Remove generated env files
         if: always()
-        run: rm -f apps/erp/.env.test apps/erp/.env.local
+        run: rm -f apps/erp/.env.local
