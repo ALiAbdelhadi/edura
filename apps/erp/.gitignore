@@ -41,4 +41,3 @@ bruno/environments/Local.bru
 
 # Playwright signed-in sessions (auth.setup.ts) — real cookies, never commit
 /playwright/.auth/
-!.env.example
