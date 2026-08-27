@@ -54,8 +54,6 @@ export function AdminStudentsScreen() {
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
-  // The student whose blacklist decision panel is open. Selecting a row does not
-  // open it — only the explicit action does; blacklisting is not a browse action.
   const [cascadeFor, setCascadeFor] = useState<{ id: string; name: string } | null>(null);
 
   const inviteSchema = z.object({
@@ -152,8 +150,6 @@ export function AdminStudentsScreen() {
       },
     },
     {
-      // The printable student code, not the internal UUID: the code is what
-      // the card, the counter and the receipt all speak.
       id: "studentCode",
       header: t("adminHome.students_colCode"),
       cell: (r) =>
@@ -165,7 +161,6 @@ export function AdminStudentsScreen() {
     },
     {
       id: "coursesCount",
-      // Active ENROLLMENTS at this center (the roster link), not subscriptions.
       header: t("adminHome.students_colCourses"),
       numeric: true,
       cell: (r) => <Num className="text-[13px] text-[var(--ink)]">{r.coursesCount || 0}</Num>,
@@ -318,11 +313,6 @@ export function AdminStudentsScreen() {
             selectedKey={cascadeFor?.id ?? null}
             caption={t("nav.students")}
             empty={
-              /* Only offered when the roster is genuinely empty rather than
-                 filtered to nothing — `filtered` is the search result, so this
-                 branch also covers "no matches". The CTA is still the right
-                 next step in both cases: register the student you're looking
-                 for. */
               <EmptyState
                 icon={<Users className="size-6" />}
                 title={t("activation.empty.students.title")}

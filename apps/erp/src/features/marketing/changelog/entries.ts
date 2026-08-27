@@ -1,21 +1,5 @@
 import type { Locale } from "@/lib/i18n";
 
-/**
- * «ما الجديد» — the public change log.
- *
- * Entries are typed data rather than translation keys because each one is a
- * SELF-CONTAINED record with its own date and tag: a key-per-entry scheme means
- * every release edits two message files and a component, and an entry whose
- * Arabic exists but whose English does not renders as a raw key on a public
- * page. Here both languages are required by the type.
- *
- * Every entry below describes work that actually shipped, on the date it
- * shipped. Nothing is aspirational — a change log that lists intentions is a
- * roadmap wearing the wrong hat.
- *
- * `date` is an ISO day. Keep the array NEWEST FIRST; a test asserts it.
- */
-
 export type ChangelogTag = "feature" | "improvement" | "fix" | "security";
 
 export type ChangelogEntry = {

@@ -209,14 +209,6 @@ export function listTeachers(filters: {
     if (filters.mode) where.teacherProfile = { is: { attendanceMode: filters.mode } };
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      // NARROW ONLY — half the two-stage match, deliberately. `contains` with
-      // `mode: "insensitive"` is ILIKE, which folds ASCII case and nothing
-      // else, so «احمد» matched none of the rows stored «أحمد» and this list
-      // came back empty about people it holds. `literalFragments` asks only for
-      // the pieces that can be compared byte-wise, which fixes that. The JS
-      // decide pass is NOT applied because this query is offset-paginated with
-      // a `count`, and filtering after the page is cut gives a short page and a
-      // wrong total — so the result is a SUPERSET: «احمد» also lists «محمد».
       where.AND = exactQuery(q, (t) => ({ searchText: { contains: t } }));
     }
     const [rows, total] = await Promise.all([
@@ -423,27 +415,6 @@ export async function linkParent(studentUserId: string, parentUserId: string, ad
   }, { actorId: adminId });
 }
 
-/**
- * Revoke a parent-student link.
- *
- * `studentId` is the student named in the REQUEST PATH and is load-bearing, not
- * decoration: the link used to be selected by `linkId` alone, so
- * `DELETE /admin/students/<A>/unlink-parent?linkId=<B's link>` happily revoked
- * B's link and then wrote an audit row for an action whose URL named A. That is
- * not a privilege hole — a super_admin may unlink anything — but it makes the
- * audit trail unable to reconstruct what was intended, and a parent link is
- * exactly what the messaging guardian gate consults for a minor.
- *
- * A mismatch is reported as NOT FOUND rather than forbidden: from the caller's
- * position that link does not exist under that student, and saying so avoids
- * confirming the existence of a link belonging to someone else.
- *
- * NOTE: `revokedBy` is the `link_actor` enum, whose only values are `parent`
- * and `student` — it cannot express "revoked by an admin", so an admin
- * revocation is still recorded as `parent`. Widening that enum is a migration
- * and needs its own approved plan; the `audit_logs` row written below is the
- * accurate record of who acted.
- */
 export async function unlinkParent(linkId: string, studentId: string, adminId: string) {
   return platformDb(async (tx) => {
     const link = await tx.parentStudentLink.findUnique({ where: { id: linkId } });

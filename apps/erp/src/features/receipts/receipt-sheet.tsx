@@ -5,73 +5,6 @@ import type { ReceiptDocument } from "@repo/server-core/services/payments/receip
 
 import { ReceiptPrintButton } from "./receipt-print-button";
 
-/* الإيصال / The receipt — the most literal ledger document in the product.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   This is the one screen whose output leaves the product. Somebody prints it, saves
-   it as a PDF, and hands it to a parent or an accountant — so it is built as a
-   DOCUMENT, not as a card that happens to be printable.
-
-   ── Why the browser renders the PDF, and not a server library ──────────────────
-
-   Arabic is a connected script: rendering it correctly means contextual shaping
-   (initial / medial / final / isolated forms), the lam-alef ligature, mark
-   positioning, and bidi reordering when Latin codes and Latin-digit figures sit
-   inside an Arabic sentence — which, in this product, is every single line.
-
-   `pdf-lib` (already used for the accountant's invoice) does NONE of that. It maps
-   codepoints to glyphs one-to-one, which is why that invoice is English-only. Making
-   it render Arabic would mean bolting a reshaper onto it and hand-reversing runs —
-   the exact approach that produces receipts with detached letters and amounts on the
-   wrong side of a dash, and it fails silently, on somebody's printout, after we have
-   stopped looking.
-
-   The browser already contains HarfBuzz. So the receipt is HTML in the Ledger design
-   system, and the PDF is produced by the browser's own print engine — correct
-   shaping by construction, on every platform, with no dependency and no headless
-   Chromium in the deployment. "Save as PDF" is a first-class destination in the
-   print dialog on desktop, iOS and Android alike.
-
-   ── What the document must not do ─────────────────────────────────────────────
-
-   - IT STATES NO PAYMENT METHOD. `payments` carries no FK to its `transactions`
-     row, so the method could only be guessed by matching amount and time. See the
-     header of receipt-document.ts: a receipt is evidence, and a guessed fact on it
-     is worse than an absent one.
-   - IT NEVER RENDERS AN AMOUNT AS INPUT-SHAPED. Money is append-only; a receipt is
-     the most permanent thing the product prints.
-   - THE SEAL DOES NOT MIRROR IN RTL (constitution §6.4). It is a stamp pressed
-     askew, and a stamp does not mirror when you turn the page around.
-   - PRINT FORCES THE PAPER PALETTE. The tokens flip in dark mode; a receipt printed
-     from a dark-themed session must not come out as white ink on nothing. The
-     @media print block below pins the light values and sets print-color-adjust so
-     the seal and the rules survive the printer's "background graphics" default. */
-
-/**
- * The receipt's date, built by hand — and that is a BIDI decision, not a
- * styling preference. Both `Intl` shapes are wrong here under `ar`, measured
- * in the browser rather than theorised:
- *
- *   {day, month:"short", year}  → "02 أغسطس 2026" is ONE string mixing Latin
- *     digits with an Arabic run. UAX #9 rule W2 reclassifies the trailing
- *     "2026" as an ARABIC NUMBER (its last strong type is Arabic), which sorts
- *     it left of the month: rendered 02 (x=410), 2026 (x=433), أغسطس (x=472).
- *
- *   {day, month:"2-digit", year} → `ar-EG` emits U+200F RIGHT-TO-LEFT MARKs
- *     between the parts. Inside the LTR isolate those flip the segments and
- *     the date renders "022026/08/".
- *
- * A hand-built string contains one script, no separators the algorithm may
- * reorder, and no invisible control characters — so there is nothing left for
- * bidi to get wrong. Dates are data (constitution §6.3), so it stays mono,
- * Latin-digit and isolated, which `<Num.Code>` provides.
- *
- * KNOWN, STILL OPEN — for whoever owns `@repo/ui`: `<Num.Date>` reproduces the
- * first failure on every screen that renders an Arabic long date. That is a
- * shared-component fix and is deliberately NOT made here, because changing it
- * would silently re-render every date in both apps; it needs its own pass with
- * its own proof.
- */
 function receiptDate(value: Date | string): string {
   const d = typeof value === "string" ? new Date(value) : value;
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -95,9 +28,6 @@ type Labels = {
   note: string;
   systemGenerated: string;
   print: string;
-  /** Phase 1: the payment-method row. `methods` maps enum value -> label; a
-   *  method with no label (or a NULL method — an `unknown` row) renders no
-   *  row at all: an admitted gap, never a guess. */
   method: string;
   methods: Record<string, string>;
 };
@@ -130,8 +60,6 @@ export function ReceiptSheet({
   if (doc.student.code) {
     rows.push({ label: labels.studentCode, value: <Num.Code>{doc.student.code}</Num.Code> });
   }
-  // Only shown when somebody OTHER than the student paid — a receipt that says
-  // "payer: the student" on every row teaches the reader to stop looking at it.
   if (doc.payer) {
     rows.push({
       label: labels.payer,
@@ -159,7 +87,6 @@ export function ReceiptSheet({
           <ReceiptPrintButton label={labels.print} autoPrint={autoPrint} />
         </div>
 
-        {/* THE SHEET. A4 width, hairline rules, nothing that looks editable. */}
         <article className="receipt-sheet relative overflow-hidden rounded-xl border border-rule bg-sheet px-8 py-8 shadow-[var(--lift)] print:rounded-none print:border-0 print:px-0 print:shadow-none sm:px-12 sm:py-10">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-rule pb-5">
             <div>
@@ -193,16 +120,10 @@ export function ReceiptSheet({
             </p>
           ) : null}
 
-          {/* THE CONCLUSION. Double rule — this line is a total, not another row. */}
           <div className="mt-8 flex items-end justify-between gap-6">
             <span className="pb-1 text-[13px] font-semibold text-ink">
               {isRefund ? labels.refunded : labels.total}
             </span>
-            {/* The sign is shown ONLY on a refund. On a payment receipt a
-                leading "+" is noise — the document's own title already says
-                which direction the money went, and a total nobody can read as
-                ambiguous does not need a sign to disambiguate it. On a refund
-                the "−" is load-bearing and stays. */}
             <Num.Total
               piasters={magnitude}
               locale={locale}
@@ -212,7 +133,6 @@ export function ReceiptSheet({
             />
           </div>
 
-          {/* The seal. One animation in the product, and it does not mirror. */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute bottom-10 select-none end-10 print:bottom-6 print:end-4"
@@ -233,12 +153,9 @@ export function ReceiptSheet({
         </article>
       </div>
 
-      {/* Print rules live with the document rather than in globals.css, which is
-          shared with two other workstreams this cycle. */}
       <style>{`
         @page { size: A4; margin: 14mm; }
         @media print {
-          /* The tokens flip in dark mode. A receipt does not. */
           :root, [data-theme="dark"] {
             --paper: #ffffff;
             --sheet: #ffffff;
@@ -254,9 +171,6 @@ export function ReceiptSheet({
             --seal: #8f2727;
           }
           html, body { background: #fff !important; }
-          /* Browsers drop backgrounds and borders-as-colour by default; the seal
-             and the hairline rules are the document's evidence of type, so they
-             must survive. */
           .receipt-page, .receipt-page * {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;

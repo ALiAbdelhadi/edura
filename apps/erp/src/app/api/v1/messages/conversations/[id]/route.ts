@@ -5,8 +5,6 @@ import { getConversationThread } from "@/lib/services/messages/messages";
 
 export const dynamic = "force-dynamic";
 
-// Conversation history page: newest window by default, `beforeSeq` cursor for
-// loading older messages (seq is the server-assigned order key).
 export const GET = withErrors(
   async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     const user = await requireSession();

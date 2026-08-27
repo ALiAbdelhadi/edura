@@ -1,21 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-/**
- * The server-side entry gate — the one that decides, before a byte of a portal
- * is streamed, whether the caller may see it.
- *
- * Every branch is a redirect, so there is nothing rendered to assert on. That
- * is exactly why it is worth a test: this replaced three CLIENT components that
- * each decided the same questions one render too late, and the failure they
- * produced — a first-run student shown the whole dashboard and then bounced to
- * the wizard — is invisible to a type checker and to every rendering test.
- *
- * The order is the behaviour, so it is asserted directly: identity, then role,
- * then onboarding. A gate that checked onboarding first would query a profile
- * for someone who turns out to be signed out.
- */
-
 const getSessionUser = vi.fn<() => Promise<SessionUser | null>>();
 vi.mock("@/lib/auth/session", () => ({
   getSessionUser: () => getSessionUser(),
@@ -27,11 +12,6 @@ vi.mock("@/lib/services/catalog/onboarding", () => ({
   isOnboardingComplete: (u: SessionUser) => isOnboardingComplete(u),
 }));
 
-/**
- * `redirect()` works by THROWING. The mock throws too — a mock that merely
- * recorded the call would let execution fall through to the next check, and the
- * test would assert a later branch than the one actually taken.
- */
 class RedirectSignal extends Error {
   constructor(readonly target: string) {
     super(`NEXT_REDIRECT:${target}`);
@@ -52,7 +32,6 @@ const user = (role: SessionUser["role"], extra: Partial<SessionUser> = {}): Sess
   ...extra,
 });
 
-/** Runs the gate and returns where it sent the caller, or "" if it let them in. */
 async function gate(role: Parameters<typeof requirePortal>[0]): Promise<string> {
   try {
     await requirePortal(role, "ar");
@@ -73,7 +52,6 @@ describe("requirePortal", () => {
   it("sends a signed-out visitor to login, without asking about onboarding", async () => {
     getSessionUser.mockResolvedValue(null);
     expect(await gate("student")).toBe("/ar/login");
-    // The point of the ordering: no profile lookup for someone with no session.
     expect(isOnboardingComplete).not.toHaveBeenCalled();
   });
 
@@ -89,9 +67,6 @@ describe("requirePortal", () => {
   });
 
   it("sends an unfinished student to the wizard instead of drawing the portal", async () => {
-    // THE regression this gate exists for. The old client gate rendered the
-    // whole portal first and redirected afterwards, so a first-run student saw
-    // every screen they had not earned yet before the wizard appeared.
     getSessionUser.mockResolvedValue(user("student"));
     isOnboardingComplete.mockResolvedValue(false);
     expect(await gate("student")).toBe("/ar/onboarding");
@@ -128,9 +103,6 @@ describe("resolvePortalEntry", () => {
   });
 
   it("sends an unfinished user to the wizard, not to a portal that would bounce them", async () => {
-    // Without this the entry point and the portal gate disagree: /dashboard
-    // sends the student to /dashboard/student, whose gate sends them to
-    // /onboarding — the extra hop the old client router was famous for.
     getSessionUser.mockResolvedValue(user("teacher"));
     isOnboardingComplete.mockResolvedValue(false);
     expect(await resolvePortalEntry("ar")).toBe("/ar/onboarding");

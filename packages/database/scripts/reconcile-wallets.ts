@@ -1,47 +1,4 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * RECONCILE WALLETS — re-derive the cached balance from the ledger
- * ============================================================================
- * `student_profiles.wallet_balance` and `parent_profiles.wallet_balance` are
- * CACHES. The append-only ledgers are the truth, and the invariant the money
- * story rests on is that all three agree:
- *
- *     cached  ==  SUM(delta)  ==  the newest row's balanceAfter
- *
- * `reconcileWallet()` in server-core CHECKS that invariant and the wallet
- * screen shows a red banner when it fails — but nothing in the repo could ever
- * REPAIR it, so the only answer to a drifted cache was to edit a money column
- * by hand. This is that repair, written once, so nobody has to.
- *
- *     bun run db:reconcile-wallets            # read-only; prints the drift
- *     bun run db:reconcile-wallets --write
- *
- * ── WHAT IT WILL AND WILL NOT DO ────────────────────────────────────────────
- *
- * It writes the CACHE ONLY, and only to the figure the ledger already states.
- * It cannot invent money: it never inserts, edits or deletes a ledger row, so
- * the sum it copies is one somebody else already committed. A cache that
- * disagrees with its ledger is not a second opinion about a balance — it is
- * simply stale, and the ledger is what every audit reads.
- *
- * It REFUSES PRODUCTION. Not because the arithmetic would differ there, but
- * because a drifted cache in production means a writer somewhere skipped the
- * primitive, and silently papering over that hides the bug while leaving it
- * live. On production, find the writer first. `assertNotProduction` is the same
- * guard `db:wipe` uses.
- *
- * IDEMPOTENT: it only touches rows where the cache and the ledger disagree, so
- * a second run reports zero and writes nothing.
- *
- * ── THE MISMATCH IT REFUSES TO FIX ──────────────────────────────────────────
- *
- * If SUM(delta) and the newest `balanceAfter` disagree with EACH OTHER, the
- * ledger is internally inconsistent and no cache value is correct. That is a
- * real corruption, not a stale cache, so the row is reported and skipped —
- * repairing it would need a decision about which entry is wrong, and that is a
- * person's decision, not a script's.
- */
 import "./load-env";
 import { withPlatformContext } from "../src/index";
 import { assertNotProduction } from "./db-guard";
@@ -59,26 +16,8 @@ type Drift = {
 
 const egp = (piasters: number) => (piasters / 100).toFixed(2);
 
-/**
- * ONE GROUPED QUERY PER LEDGER, not a per-wallet loop.
- *
- * The first version aggregated inside a `for` over every profile — three round
- * trips each, ~250 against a remote Neon, and the transaction timed out at 20s
- * before it reached the parent wallets. The comparison is a GROUP BY; asking
- * the database to do it is both correct and the only version that finishes.
- *
- * Both ledgers key on the USER id (`wallet_ledger.student_id` and
- * `parent_wallet_ledger.parent_id` are users ids — neither declares an FK
- * relation, and joining them to `*_profiles.id` silently matches nothing).
- * Only wallets that HAVE entries are considered: a profile with no ledger has
- * nothing to be reconciled against.
- */
 async function collect(): Promise<Drift[]> {
   return withPlatformContext(async (tx) => {
-    // M8: the tagged-template raw query, never the Unsafe string variant.
-    // The SQL was always static — nothing interpolates into it — so this is
-    // byte-identical in behaviour; the point is that the injection-shaped API
-    // greps to ZERO in this repo (m8-no-raw-unsafe.test.ts keeps it that way).
     const rows = await tx.$queryRaw<
       {
         kind: "student" | "parent";

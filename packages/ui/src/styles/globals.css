@@ -2,48 +2,18 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* THE PALETTE LIVES HERE, AND ONLY HERE.
- *
- * Both apps and every portal read these values. Three files used to carry their
- * own copy of the palette — this one, `features/admin/ledger/ledger.css` and
- * `components/ledger/ledger.module.css` — and they had silently drifted apart on
- * --ink-3, --teal, --secondary, --muted, --chart-1/2 and --seal. The visible
- * result was that the same component looked different in the center portal than
- * in superadmin, for no reason anybody had decided.
- *
- * The other two files now declare ONLY tokens that are genuinely theirs
- * (--money, --shadow-glow, --primary-glow, --sidebar-width) and inherit the rest
- * from here. Do not reintroduce a palette copy in a portal stylesheet: to
- * restyle one portal, point its component at an existing token
- * (`.lg-seal { color: var(--money) }`) rather than redefining what the token
- * means underneath everything else. `tests/unit/design-tokens.test.ts` fails if
- * a portal file redeclares a token this file already owns.
- */
 :root {
-  /* ── "Classical Ledger" ground ────────────────────────────────────────────
-     Warm neutral, not the old blue-grey. The three grounds are deliberately
-     close together: the interface is a sheet of paper on a desk, and depth
-     comes from hairlines, not from contrast between panels. */
   --paper: #f3f2f2;
   --sheet: #faf9f9;
   --field: #eae9e9;
 
-  --ink: #201f1d; /* 14.7:1 on --paper */
+  --ink: #201f1d;
   --ink-2: #605d5d;
-  /* NOT the direction's own #7d7979, which measures below 4.5:1 on --sheet.
-     #6b6867 holds >=4.6:1 on all THREE grounds (paper/sheet/field), which is
-     what meta text actually sits on. */
   --ink-3: #6b6867;
 
-  /* Rules are ALPHA MIXES OF INK, never fixed greys. That is what keeps a
-     hairline visible when the ground changes underneath it — including on
-     near-black in dark mode, where a fixed grey either disappears or glows. */
   --rule: color-mix(in srgb, #201f1d 16%, transparent);
   --rule-2: color-mix(in srgb, #201f1d 7%, transparent);
 
-  /* ── Gold: the ONE brand accent, and it is a STROKE ────────────────────────
-     Rules, borders, marks, underlines. Never a fill, never body text. At text
-     sizes use --gold-deep; --gold itself does not hold 4.5:1 on paper. */
   --gold: #b68235;
   --gold-deep: #7d5411;
   --gold-soft: #fff3e4;
@@ -58,24 +28,15 @@
   --red: #a81d1d;
   --red-soft: #fbe9e7;
 
-  /* Literal, no longer derived from --red. The seal has to be the most legible
-     element in its row in BOTH themes, which a mix against the ground cannot
-     guarantee once the ground moves. */
   --seal: #8f3030;
 
-  /* Elevation is a whisper. */
   --elev-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
   --elev-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
   --elev-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
 
-  /* Kept as the names ~70 existing call sites already ask for. */
   --lift: var(--elev-sm);
   --lift-2: var(--elev-lg);
 
-  /* Rounder than the retired skin's baked 4px. The `--radius-step-*` names are
-     kept — they are what `rounded-(--radius-step-md)` reads across 33 call
-     sites, and @theme below already derives Tailwind's own scale from them.
-     Re-point the values; do not rename the tokens. */
   --radius: 0.75rem;
   --radius-step-sm: 6px;
   --radius-step-md: 10px;
@@ -84,21 +45,6 @@
   --radius-badge: 12px;
   --radius-tile: 7px;
 
-  /* ── Type roles ───────────────────────────────────────────────────────────
-     Arabic is CO-PRIMARY, not adapted: it gets a real display face (Amiri),
-     not a fallback. Each role names both scripts, so a component asks for a
-     ROLE and the locale decides the family — rather than every screen
-     hard-coding a font stack and drifting.
-
-     The families themselves are loaded by each app's next/font call, which is
-     what defines --font-cormorant / --font-lora / --font-amiri /
-     --font-plex-arabic / --font-plex-mono.
-
-     Every var() below carries an in-line fallback ON PURPOSE. An undefined
-     custom property inside a font-family list makes the whole declaration
-     invalid at computed-value time — the text would lose its family entirely,
-     not fall through to the next name. The fallback means an app that has not
-     loaded a family degrades to a stack instead of to nothing. */
   --lat-display: var(--font-cormorant, Georgia), Georgia, serif;
   --lat-body: var(--font-lora, Georgia), Georgia, serif;
   --ar-display: var(--font-amiri, serif), serif;
@@ -107,16 +53,12 @@
     var(--font-plex-mono, ui-monospace), ui-monospace, SFMono-Regular, Menlo,
     monospace;
 
-  /* Latin display only. NEVER applied to Arabic — it is a connected script and
-     tracking breaks the joins. */
   --lat-display-track: -0.018em;
 
   --eyebrow-marker-w: 2px;
   --eyebrow-marker-h: 9px;
   --eyebrow-marker-gap: 7px;
   --eyebrow-color: var(--ink-3);
-  /* currentColor in the app, --gold on marketing surfaces (<Eyebrow tone="gold">).
-     The marker is the one place gold appears at 2px — a stroke, per the rule. */
   --eyebrow-marker-color: currentColor;
   --eyebrow-lat-size: 10px;
   --eyebrow-lat-weight: 600;
@@ -133,12 +75,6 @@
   --popover-foreground: var(--ink);
   --primary: var(--indigo);
   --primary-foreground: var(--indigo-ink);
-  /* NOT var(--field), which is what both ledger files carried. `bg-secondary`
-     is the shadcn Button's secondary variant, and that variant is filled with
-     no border — --field #fbfaf7 on a --card #ffffff measures 1.04:1, i.e. an
-     invisible button. The ledger copies got away with it only because their own
-     LedgerButton is bordered-never-filled and ignores this token; the shadcn
-     variant is still used on 25 screens across both apps, including theirs. */
   --secondary: var(--indigo-soft);
   --secondary-foreground: var(--indigo);
   --muted: var(--field);
@@ -189,9 +125,8 @@
 
   --ink: #f0eeea;
   --ink-2: #aba7a2;
-  --ink-3: #9c9893; /* >=5.1:1 */
+  --ink-3: #9c9893;
 
-  /* Alpha mixes of ink again — the reason hairlines survive on near-black. */
   --rule: color-mix(in srgb, #f0eeea 20%, transparent);
   --rule-2: color-mix(in srgb, #f0eeea 11%, transparent);
 
@@ -291,9 +226,6 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* --font-sans stays the UI/body default and stays Arabic-first: Plex Sans
-     Arabic carries Arabic, Lora carries Latin body. Lora sits AFTER it because
-     Plex Sans Arabic ships no Latin serif — the two never compete for a glyph. */
   --font-sans:
     var(--font-plex-arabic, system-ui), var(--font-lora, Georgia),
     var(--font-noto-sans, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;

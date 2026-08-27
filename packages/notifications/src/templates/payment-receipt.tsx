@@ -3,16 +3,6 @@ import { formatDateTime, formatEgp, normalizeLocale, type Locale } from "../loca
 import type { PaymentReceiptData } from "../types";
 import { Cta, DetailRow, EmailLayout, Note, P } from "./layout";
 
-// =============================================================================
-// Payment receipt.
-//
-// Sent AFTER settlement commits, never inside the transaction — a mail outage
-// must not un-settle money. It is a RECORD, not a call to action: there is no
-// "pay now" link and no token in it, so a forwarded receipt grants nothing.
-//
-// The amount is formatted from the piaster integer the ledger holds, through
-// the same helper the UI uses, so the email cannot disagree with the screen.
-// =============================================================================
 const COPY = {
   ar: {
     subject: (n: string) => `إيصال دفع ${n} - Edura`,

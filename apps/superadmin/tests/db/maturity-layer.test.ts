@@ -1,33 +1,3 @@
-/**
- * ===========================================================================
- * MATURITY LAYER — feature flags, the contact inbox, and the deletion desk.
- * ===========================================================================
- * Drives the REAL shipped services against the live test DB:
- *   packages/server-core/src/services/platform/feature-flags.ts
- *   packages/server-core/src/services/data-rights/account-deletion.ts
- *   apps/superadmin/src/lib/services/admin/contact-submissions.ts
- *
- * The proofs that matter here are the ones about what CANNOT happen:
- *
- *   • a flag that has never been stored reads as OFF, and a caller must say
- *     the unusual thing out loud to get anything else;
- *   • triage cannot rewrite what a member of the public wrote — the message,
- *     the name and the address are byte-identical after it;
- *   • approving a deletion erases the PERSON and keeps the BOOKS: the payment,
- *     its receipt number and its ledger transaction are unchanged, and the
- *     app role is REFUSED at the database if it tries to touch them at all;
- *   • the erasure and the queue update commit together — a half-done erasure
- *     (disabled but still named) cannot be reached by killing one of them;
- *   • the audit row proves the erasure happened WITHOUT re-recording the data
- *     that was erased, which would defeat the whole exercise since audit_logs
- *     is append-only;
- *   • the session dies with the name (C-03), and a second erased account does
- *     not collide with the first on the UNIQUE email column.
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only maturity-layer
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -86,16 +56,6 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
 const q = async (sql: string, p: unknown[] = []) => (await admin.query(sql, p)).rows;
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
-/**
- * TEARDOWN BY ID, NOT BY TAG — and that is a consequence of the feature under
- * test. `sweepTag` finds fixtures by matching the tag inside their names; this
- * suite ERASES those names, so by the time the sweep runs the rows it is
- * looking for are called «حساب محذوف» and it walks straight past them. Every
- * run would leak two users, their profiles, a payment and a ledger row into
- * the test database forever. So every fixture id is recorded here and removed
- * explicitly, children first, through the OWNER connection (the app role is
- * REVOKEd on `transactions` — which is the point of section 5).
- */
 const createdUsers: string[] = [];
 const createdCenters: string[] = [];
 
@@ -103,10 +63,6 @@ const asSuper = (id: string): SessionUser => ({ id, role: "super_admin" }) as Se
 const asAccountant = (id: string): SessionUser => ({ id, role: "accountant" }) as SessionUser;
 const asParent = (id: string): SessionUser => ({ id, role: "parent" }) as SessionUser;
 const asStudent = (id: string): SessionUser => ({ id, role: "student" }) as SessionUser;
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
 
 async function mkUser(tag: string, role: string, suffix: string) {
   return withPlatformContext(async (tx) => {
@@ -124,7 +80,6 @@ async function mkUser(tag: string, role: string, suffix: string) {
   });
 }
 
-/** A student with the densest PII the platform holds. Minor unless told. */
 async function mkStudent(tag: string, suffix: string, opts: { verifiedAdult?: boolean } = {}) {
   const id = await mkUser(tag, "student", suffix);
   await withPlatformContext((tx) =>
@@ -152,7 +107,6 @@ async function approveLink(parentId: string, studentId: string) {
   );
 }
 
-/** A paid lesson: the Payment receipt AND its ledger Transaction. */
 async function mkMoney(tag: string, studentId: string) {
   return withPlatformContext(async (tx) => {
     const center = await tx.center.create({
@@ -217,8 +171,6 @@ async function mkSubmission(tag: string, suffix: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-
 async function main() {
   const tag = "mltest-" + rid();
   __sweepTag = tag;
@@ -227,16 +179,13 @@ async function main() {
   const root = await mkUser(tag, "super_admin", "root");
   const accountant = await mkUser(tag, "accountant", "acct");
   const guardian = await mkUser(tag, "parent", "guardian");
-  // A minor, so the request must come from their approved guardian.
   const subject = await mkStudent(tag, "subject");
   await approveLink(guardian, subject);
-  // A verified adult, so the second erasure can be self-requested.
   const second = await mkStudent(tag, "second", { verifiedAdult: true });
   const actor = asSuper(root);
 
   const money = await mkMoney(tag, subject);
 
-  // ─────────────────────────────────────────────────────────────────────
   section("1. Feature flags — absent means OFF");
 
   const unknownKey = `${tag}.never.stored`;
@@ -255,7 +204,6 @@ async function main() {
     "…as 'never set', which is NOT the same claim as 'somebody turned it off'",
   );
 
-  // ─────────────────────────────────────────────────────────────────────
   section("2. Flipping a flag is audited, and takes effect at once");
 
   const key = `${tag}.probe`;
@@ -283,7 +231,6 @@ async function main() {
   const badKey = await rejects(() => setFeatureFlag(root, "Not A Key", true), /lowercase|dotted/i);
   assert(badKey.threw && badKey.matched, "a malformed key is refused");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("3. Contact inbox — triage cannot rewrite what somebody said");
 
   const subId = await mkSubmission(tag, "msg");
@@ -324,15 +271,12 @@ async function main() {
   );
   assert(triageAudit.length === 1, "the triage decision is audited");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("4. The deletion desk refuses the wrong hands and the wrong shape");
 
   const req = await requestAccountDeletion(asParent(guardian), {
     subjectUserId: subject,
     reason: "leaving the platform",
   });
-  // The guardian link is what makes the request legal; assert the shape the
-  // desk will act on rather than re-proving the gate (that is the www suite).
   assert(req.origin === "guardian", "the request arrives guardian-origin");
 
   const notAdmin = await rejects(() => approveDeletion(asAccountant(accountant), req.id, "ok"), /.*/);
@@ -355,7 +299,6 @@ async function main() {
   const listedByAcct = await rejects(() => listDeletionQueue(asAccountant(accountant), {}), /.*/);
   assert(listedByAcct.threw, "…and an accountant cannot even read the queue");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("5. Approval erases the PERSON and keeps the BOOKS");
 
   await plantSession(subject);
@@ -404,7 +347,6 @@ async function main() {
   assert(profAfter.guardian_email === null && profAfter.guardian_phone === null, "…the guardian's contact");
   assert(profAfter.date_of_birth === null, "…and their date of birth");
 
-  // THE OTHER HALF. The books must be exactly as they were.
   const payAfter = (
     await q(`SELECT amount, receipt_number, student_id, center_id FROM payments WHERE id=$1::uuid`, [
       money.paymentId,
@@ -432,11 +374,6 @@ async function main() {
     "the ledger transaction is byte-identical",
   );
 
-  // And not because the service politely declined — because it CANNOT.
-  // TWO layers, and the order matters: the Prisma extension answers first, so
-  // asserting only that would prove nothing about the database. The raw path
-  // goes around the extension and lands on the REVOKE, which is the guarantee
-  // that survives a refactor of the app layer.
   const viaPrisma = await rejects(
     () => withPlatformContext((tx) => tx.transaction.delete({ where: { id: money.txnId } })),
     /append-only/i,
@@ -476,7 +413,6 @@ async function main() {
   ]);
   assert(liveAfter[0].n === 0, "the live session died with the name (C-03), same statement");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("6. The audit row proves it happened without repeating what was erased");
 
   const delAudit = (
@@ -517,7 +453,6 @@ async function main() {
   const alreadyAnon = await rejects(() => anonymizeApproved(actor, req.id), /already anonymized/i);
   assert(alreadyAnon.threw && alreadyAnon.matched, "and the repair path refuses a finished one");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("7. A second erasure does not collide with the first");
 
   const req2 = await requestAccountDeletion(asStudent(second), {});
@@ -531,7 +466,6 @@ async function main() {
     "two erased accounts keep DISTINCT emails — the id discriminates, so UNIQUE still holds",
   );
 
-  // ─────────────────────────────────────────────────────────────────────
   section("8. The deletion module holds no money");
 
   const src = readFileSync(
@@ -564,9 +498,6 @@ async function runGuarded() {
     console.error(e);
     process.exitCode = 1;
   } finally {
-    // Children first, so no DELETE trips a foreign key. Everything here is
-    // keyed on ids captured at creation — see the note above `createdUsers`
-    // for why matching on the tag cannot work in THIS suite.
     try {
       const u = [createdUsers];
       const c = [createdCenters];
@@ -575,8 +506,6 @@ async function runGuarded() {
       await admin.query(`DELETE FROM auth_sessions WHERE user_id = ANY($1::uuid[])`, u);
       await admin.query(`DELETE FROM parent_student_links WHERE parent_id = ANY($1::uuid[]) OR student_id = ANY($1::uuid[])`, u);
       await admin.query(`DELETE FROM audit_logs WHERE actor_id = ANY($1::uuid[]) OR target_id = ANY($1::uuid[])`, u);
-      // Money last among the children, and only the OWNER can: edura_app is
-      // REVOKEd DELETE on both of these.
       await admin.query(`DELETE FROM transactions WHERE center_id = ANY($1::uuid[])`, c);
       await admin.query(`DELETE FROM payments WHERE student_id = ANY($1::uuid[])`, u);
       await admin.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, u);
@@ -591,7 +520,6 @@ async function runGuarded() {
       console.error("  ↳ teardown FAILED (rows left behind):", (e as Error).message);
     }
     await admin.end();
-    // Belt and braces for anything the id list missed.
     if (__sweepTag) await sweepTagQuietly(__sweepTag);
   }
   process.exit(process.exitCode ?? 0);

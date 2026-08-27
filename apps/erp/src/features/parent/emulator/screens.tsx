@@ -1,17 +1,5 @@
 "use client";
 
-/**
- * The parent emulator's simulated screens.
- *
- * Built from the REAL Ledger primitives (`@/components/ledger`) rather than
- * look-alike markup, so what the parent practises on is the product's own
- * visual language. When the design changes, these change with it.
- *
- * Every interactive control carries a `data-emu` id and every explainable
- * region a `data-emu-region`. That is the only contract between a screen and
- * the engine: screens know nothing about steps.
- */
-
 import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
 import { formatPercent } from "@/lib/i18n/format";
@@ -33,8 +21,6 @@ import {
   pick,
   type EmuWalletRow,
 } from "./world";
-
-/* ── Dashboard ─────────────────────────────────────────────────────────── */
 
 export function EmuDashboard() {
   const t = useTranslations("parentEmulator");
@@ -91,8 +77,6 @@ export function EmuDashboard() {
     </div>
   );
 }
-
-/* ── Children / linking ────────────────────────────────────────────────── */
 
 export function EmuChildren({ linked, onLink }: { linked: boolean; onLink: () => void }) {
   const t = useTranslations("parentEmulator");
@@ -185,8 +169,6 @@ export function EmuChildren({ linked, onLink }: { linked: boolean; onLink: () =>
   );
 }
 
-/* ── Wallet ────────────────────────────────────────────────────────────── */
-
 export function EmuWallet({
   balance,
   rows,
@@ -242,7 +224,6 @@ export function EmuWallet({
                   <span className="block text-sm" style={{ color: "var(--ink)" }}>
                     {t(r.kind === "topup" ? "screens.kindTopUp" : "screens.kindPayment")}
                   </span>
-                  {/* The column a parent ledger has and a student's does not. */}
                   <span className="block text-xs" style={{ color: "var(--ink-3)" }}>
                     {r.child ? pick(r.child, locale) : t("screens.noChild")}
                     {" · "}
@@ -258,8 +239,6 @@ export function EmuWallet({
     </div>
   );
 }
-
-/* ── Pay for a lesson ──────────────────────────────────────────────────── */
 
 export function EmuPay({
   balance,
@@ -362,8 +341,6 @@ export function EmuPay({
   );
 }
 
-/* ── Child safety / oversight ──────────────────────────────────────────── */
-
 export function EmuOversight() {
   const t = useTranslations("parentEmulator");
   const locale = useLocale() as Locale;
@@ -414,8 +391,6 @@ export function EmuOversight() {
           ))}
         </ul>
 
-        {/* There is no composer, and that absence is the feature: parent
-            oversight has no write path in the real product either. */}
         <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
           {t("screens.noReply")}
         </p>

@@ -39,11 +39,6 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
-// ---------------------------------------------------------------------------
-// PHASE 2 — Academic tabs. Courses, enrollments and enrollment requests, run
-// through the same kernel the center portal runs, scoped to this center.
-// ---------------------------------------------------------------------------
-
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type CourseRow = {
@@ -59,10 +54,6 @@ type CourseRow = {
   pricePerSession: number | null;
   pricingMethod: string | null;
 };
-
-// ===========================================================================
-// Courses
-// ===========================================================================
 
 export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
@@ -404,12 +395,6 @@ function CourseEditDialog({
 
   const open = !!course;
 
-  /* SEEDED ON THE COURSE, NOT ON THE TITLE BEING EMPTY. The old condition was
-     `title === ""`, which is a state the OPERATOR can reach: select the title,
-     delete it to retype it, and the component re-seeded on the very next
-     render — restoring the old title and throwing away any edit already made
-     to max students or either plan price. Keying on the course id seeds once
-     per opening and never fights the person typing. */
   const [seededFor, setSeededFor] = useState<string | null>(null);
   if (course && seededFor !== course.id) {
     setSeededFor(course.id);
@@ -429,9 +414,6 @@ function CourseEditDialog({
     if (!course) return;
     const patch: Record<string, unknown> = {};
     if (title.trim() && title.trim() !== course.title) patch.title = title.trim();
-    /* An EMPTY box is "I have not typed a number", not "zero". `Number("")` is
-       0, so clearing the field used to patch the course down to a capacity of
-       zero. A blank leaves max students alone. */
     const nextMax = maxStudents.trim() === "" ? null : Number(maxStudents);
     if (nextMax !== null && Number.isFinite(nextMax) && nextMax !== course.maxStudents) {
       patch.maxStudents = nextMax;
@@ -608,10 +590,6 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
     </label>
   );
 }
-
-// ===========================================================================
-// Enrollments
-// ===========================================================================
 
 type EnrollmentRow = {
   id: string;
@@ -808,10 +786,6 @@ function EnrolDialog({
   );
 }
 
-// ===========================================================================
-// Enrollment requests (rendered inside the Pending tab)
-// ===========================================================================
-
 type RequestRow = {
   id: string;
   studentName: string | null;
@@ -894,10 +868,6 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
     </Card>
   );
 }
-
-// ===========================================================================
-// Rooms — wire the existing API to buttons (Phase 2 item)
-// ===========================================================================
 
 type RoomRow = {
   id: string;

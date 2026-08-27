@@ -10,13 +10,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ centerId: z.string().uuid() }).strict();
 
-/**
- * Cross-center choice (Step 6, decision C): after a temp check-in at a new
- * center, the STUDENT picks their one main center — every other active roster
- * row is closed (leftAt). Choosing the old center = leaving the new one;
- * choosing the new = switching. Attendance/payments already made are facts
- * and stay untouched.
- */
 export const POST = withErrors(async (req) => {
   const user = await requireRole("student");
   const { centerId } = await parseJson(req, bodySchema);

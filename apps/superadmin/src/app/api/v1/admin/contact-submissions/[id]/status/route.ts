@@ -14,8 +14,6 @@ const schema = z
   })
   .strict();
 
-/** Triage only. There is deliberately no PATCH for the message body — see the
- *  service header: an inbox whose contents can be edited is not evidence. */
 export const POST = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id } = await ctx.params;

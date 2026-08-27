@@ -1,40 +1,3 @@
-/**
- * Read-only survey: find source modules and public assets nothing references.
- *
- *   bun run survey:dead-files
- *
- * IT DELETES NOTHING, and its output is a list of CANDIDATES — never a verdict.
- * Verify every hit by hand before removing it. What it reports is "no other
- * indexed file contains this basename", which is a much weaker claim than "this
- * file is dead".
- *
- * ── WHY IT IS DELIBERATELY CRUDE ────────────────────────────────────────────
- * It matches on plain basename substring rather than parsing imports, and it
- * stops counting at the first hit. Both choices push it toward OVER-counting
- * references, which means UNDER-reporting dead files. For a tool whose output
- * feeds an irreversible delete, a false negative costs a little disk; a false
- * positive costs someone's work.
- *
- * ── THE FAILURE MODE IT ALREADY HAD, KEPT AS A WARNING ──────────────────────
- * The first run reported all 32 help-centre screenshots as unreferenced. They
- * were not: the help centre is 60 `.mdx` files, and `.mdx` was missing from
- * `textExt`, so none of the referring files were indexed at all. A whole file
- * type absent from that set silently turns everything it references into a
- * deletion candidate. **Before trusting a run, check that every extension that
- * can reference a file is in `textExt`.**
- *
- * ── WHAT IT CANNOT SEE ──────────────────────────────────────────────────────
- * • Paths built at runtime (`/help/${slug}-${locale}.webp`) — a template literal
- *   has no basename to match. This is why the assets section needs the most care.
- * • Anything reached by convention rather than import. Next.js route files are
- *   excluded via CONVENTION for that reason; a new framework convention needs
- *   adding there or its files will be reported.
- * • Entry points named only in a `package.json` script, a CI workflow, or a
- *   Dockerfile — those ARE indexed, so they resolve, but only if the naming
- *   matches. Check `package.json` scripts by hand for anything under `scripts/`.
- * • Its own directory: only `apps/` and `packages/` are scanned for candidates,
- *   so nothing in root `scripts/` is ever reported, including this file.
- */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 
@@ -44,7 +7,6 @@ const SKIP_DIRS = new Set([
   "coverage", "test-results", "playwright-report", ".vercel",
 ]);
 
-/** Next.js / tooling files reached by convention, never by import. */
 const CONVENTION = new Set([
   "page", "layout", "route", "loading", "error", "not-found", "template",
   "default", "global-error", "sitemap", "robots", "opengraph-image", "icon",
@@ -73,14 +35,11 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const allFiles = walk(ROOT);
 const codeExt = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-// NOTE: .mdx is load-bearing here — the entire help centre is MDX, and omitting
-// it made the first run report all 32 help screenshots as unreferenced.
 const textExt = new Set([
   ...codeExt, ".json", ".md", ".mdx", ".css", ".html", ".yml", ".yaml", ".sql",
   ".prisma", ".txt", ".svg", ".toml", ".lock", ".sh",
 ]);
 
-/** Every text file's content, read once. */
 const contents = new Map<string, string>();
 for (const f of allFiles) {
   if (!textExt.has(extname(f))) continue;
@@ -89,11 +48,9 @@ for (const f of allFiles) {
     if (st.size > 2_000_000) continue;
     contents.set(f, readFileSync(f, "utf8"));
   } catch {
-    /* unreadable — skip */
   }
 }
 
-/** Candidate source modules: real code under a src/ or tools/ dir. */
 const candidates = allFiles.filter((f) => {
   const rel = relative(ROOT, f);
   if (!codeExt.has(extname(f))) return false;
@@ -111,9 +68,6 @@ const dead: Hit[] = [];
 for (const f of candidates) {
   const rel = relative(ROOT, f);
   const base = rel.split("/").pop()!.replace(/\.[tj]sx?$/, "");
-  // A reference is any other text file mentioning this module's basename.
-  // Crude on purpose: over-counting means we UNDER-report dead files, which is
-  // the safe direction for something whose output is a delete list.
   let refs = 0;
   for (const [other, text] of contents) {
     if (other === f) continue;
@@ -123,7 +77,6 @@ for (const f of candidates) {
   if (refs === 0) dead.push({ file: rel, base, refs });
 }
 
-/** Unreferenced public assets. */
 const assets = allFiles.filter((f) => {
   const rel = relative(ROOT, f);
   return /^apps\/[^/]+\/public\//.test(rel);
@@ -151,7 +104,6 @@ for (const d of dead.sort((a, b) => a.file.localeCompare(b.file))) {
   try {
     lines = readFileSync(join(ROOT, d.file), "utf8").split("\n").length;
   } catch {
-    /* ignore */
   }
   console.log(`${fmt(lines)} loc  ${d.file}`);
 }
@@ -161,7 +113,6 @@ for (const a of deadAssets.sort()) {
   try {
     kb = Math.round(statSync(join(ROOT, a)).size / 1024);
   } catch {
-    /* ignore */
   }
   console.log(`${fmt(kb)} KB   ${a}`);
 }

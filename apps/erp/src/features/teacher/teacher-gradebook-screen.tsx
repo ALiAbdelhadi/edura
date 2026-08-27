@@ -59,13 +59,6 @@ interface RawGrade {
   scores: Array<{ studentId: string; score: number }>;
 }
 
-/*
- * A تقدير assessment stores 0–4 in `grades.score` with `maxScore: 4`. That
- * has NOT changed — this is the same five buckets, named the way an Egyptian
- * teacher and parent name them (ممتاز … ضعيف) instead of A–F. `GRADE_BANDS`
- * carries the ordinal, so the picker is generated FROM the ladder rather than
- * repeating it, and no stored row changes meaning.
- */
 const BAND_OPTIONS = [...GRADE_BANDS].sort((a, b) => b.ordinal - a.ordinal);
 
 interface GradeEntry {
@@ -83,22 +76,13 @@ interface StudentGradeRow {
   scores: Record<string, number>;
 }
 
-/** Focus target for the entry list — one per student row, in display order. */
 const ENTRY_ATTR = "data-grade-entry";
 
 export function TeacherGradebookScreen() {
   const t = useTranslations();
   const { formatDate, formatPercent } = useFormatters();
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  // The teacher portal has no student record page, so a student found in the
-  // global palette opens the gradebook of the group they are in.
   useParamSeed("courseId", setSelectedCourseId);
-  /* ONE SELECTED ASSESSMENT, not two.
-     This used to be `selectedDistributionEntryId`, steering the chart only,
-     while the grid showed every assessment at once. The entry list and the
-     distribution now read the SAME selection: a teacher marking an exam and a
-     teacher looking at how that exam went are the same person, on the same
-     exam, and two independent pickers for one question is how the two drift. */
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editedGrades, setEditedGrades] = useState<Record<string, Record<string, number>>>({});
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -208,9 +192,6 @@ export function TeacherGradebookScreen() {
     [rawGrades],
   );
 
-  /* NEWEST FIRST IN THE PICKER, because the exam a teacher has just finished
-     marking on paper is the one they came here to enter. The matrix below
-     keeps the payload's own order, so the overview does not reshuffle. */
   const entriesByRecency = useMemo(
     () =>
       [...entries].sort(
@@ -234,9 +215,6 @@ export function TeacherGradebookScreen() {
 
   const studentGrades: StudentGradeRow[] = useMemo(() => {
     const studentMap = new Map<string, StudentGradeRow>();
-    // Every enrolled student gets a row up front — a fresh assessment has no
-    // score rows yet, and without the roster there is no way to enter the
-    // first grade at all.
     for (const e of (enrollmentsResult?.data ?? []) as any[]) {
       const sid = e.studentId.toString();
       studentMap.set(sid, {
@@ -266,7 +244,6 @@ export function TeacherGradebookScreen() {
     [entries, selectedEntryId],
   );
 
-  /** The active value for one student on one assessment — edit wins over saved. */
   const scoreFor = useCallback(
     (row: StudentGradeRow, entryId: string): number | undefined => {
       const edited = editedGrades[row.studentId]?.[entryId];
@@ -321,11 +298,6 @@ export function TeacherGradebookScreen() {
   );
 
   const handleGradeChange = (studentId: string, entryId: string, value: string) => {
-    // Emptying the box drops the PENDING edit (back to the saved score, or to
-    // ungraded). Without this the field is controlled by state that never
-    // changes on an empty string, so the old number snaps back and the teacher
-    // cannot correct a typo. Deleting a SAVED grade is not offered — the
-    // scores endpoint replaces values, it has no delete.
     if (value.trim() === "") {
       setEditedGrades((prev) => {
         const forStudent = { ...(prev[studentId] || {}) };
@@ -343,15 +315,6 @@ export function TeacherGradebookScreen() {
     }
   };
 
-  /* ── THE KEYBOARD PATH ────────────────────────────────────────────────────
-     Entering one exam's marks for thirty students is the teacher's highest-
-     volume task, and the matrix made it a diagonal walk: Tab moved along the
-     ROW, to the next assessment, while the marker's actual path is down one
-     COLUMN. There was no key for that, so it was thirty pointer trips.
-
-     Enter and ↓ now go to the next student on the same assessment, ↑ goes
-     back. Nothing here commits: saving is still the explicit button, because a
-     roster of marks is reviewed before it is published to families. */
   const focusEntryAt = (index: number) => {
     const el = document.querySelector<HTMLElement>(`[${ENTRY_ATTR}="${index}"]`);
     if (!el) return false;
@@ -370,10 +333,6 @@ export function TeacherGradebookScreen() {
     }
   };
 
-  /* Land the cursor on the first UNMARKED student when the assessment changes.
-     Only where a keyboard is the input device: on a touch screen an autofocus
-     throws the on-screen keyboard up over the list before the teacher has
-     chosen what to do, which is a worse start than one tap. */
   const didAutoFocus = useRef<string | null>(null);
   useEffect(() => {
     if (!focusEntry || studentGrades.length === 0) return;
@@ -385,7 +344,6 @@ export function TeacherGradebookScreen() {
       (r) => scoreFor(r, focusEntry._id) === undefined,
     );
     const target = first === -1 ? 0 : first;
-    // After paint: the list for this assessment has to exist to be focused.
     const id = window.requestAnimationFrame(() => focusEntryAt(target));
     return () => window.cancelAnimationFrame(id);
   }, [focusEntry, studentGrades, scoreFor]);
@@ -457,11 +415,6 @@ export function TeacherGradebookScreen() {
       ),
       cell: ({ row }) => {
         const record = row.original;
-        // NOT `|| 0`. An ungraded student is ungraded — printing a 0 (or, on a
-        // تقدير assessment, the lowest band) states something false about a
-        // child. It stayed invisible while only already-scored students had
-        // rows; now that the roster carries every enrolled student, an empty
-        // cell is the only honest rendering.
         const originalScore = record.scores?.[e._id];
         const editedScore = editedGrades[record.studentId]?.[e._id];
         const activeScore = editedScore !== undefined ? editedScore : originalScore;
@@ -474,17 +427,10 @@ export function TeacherGradebookScreen() {
                 value={activeScore !== undefined ? String(activeScore) : ""}
                 onValueChange={(val) => handleGradeChange(record.studentId, e._id, val)}
               >
-                {/* w-24, not the w-16 this was while the options were "A"…"F":
-                    a تقدير is a word, and "جيد جدًا" clipped to "جيـ" in the
-                    trigger. Sized to the longest band, not to the current one. */}
                 <SelectTrigger
                   size="sm"
                   className={cn("w-24", isEdited && "border-info ring-1 ring-info")}
                 >
-                  {/* An em-dash, not the words — "غير مرصودة" is longer than
-                      the longest band and clipped inside this trigger. The
-                      words go in the caption below, exactly as the numeric
-                      branch does it. */}
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
@@ -495,10 +441,6 @@ export function TeacherGradebookScreen() {
                   ))}
                 </SelectContent>
               </Select>
-              {/* No caption once a تقدير IS picked: the trigger already carries
-                  the word, and captioning it printed the same word twice (it
-                  did with the letters too). Ungraded is the one case the
-                  trigger cannot say by itself — a bare dash is not an answer. */}
               {activeScore === undefined ? (
                 <div className="text-[11px] text-muted-foreground">
                   {t("teacher.notGraded")}
@@ -537,8 +479,6 @@ export function TeacherGradebookScreen() {
         let totalMax = 0;
         entries.forEach((entry) => {
           const activeScore = scoreFor(record, entry._id);
-          // Only GRADED assessments count. Averaging an unmarked exam as zero
-          // drags a student's average down for work nobody has corrected yet.
           if (activeScore === undefined) return;
           totalScore += activeScore;
           totalMax += entry.maxScore;
@@ -546,16 +486,6 @@ export function TeacherGradebookScreen() {
         if (totalMax === 0) {
           return <span className="text-muted-foreground">{t("teacher.notGraded")}</span>;
         }
-        // THE LADDER IS `@repo/database/grading-scale`, NOT A LOCAL ONE.
-        // This cell carried its own cut-offs — `>=90 success : >=75 info :
-        // warning` — against the shared ladder's 85 / 75 / 65 / 50. Two
-        // consequences, both real: a student at 87% read ممتاز on their own
-        // screen and the "very good" tone on their teacher's, and the local
-        // ladder had NO failing band at all, so a child at 30% and a child at
-        // 70% were the same amber to the teacher while the family saw ضعيف and
-        // مقبول. That is the exact drift grading-scale.ts was written to end
-        // (its header names the parent screen's missing failing band); the
-        // gradebook was simply left behind when the other three converted.
         const avg = percentOf(totalScore, totalMax);
         const band = bandForPercent(avg);
         return (
@@ -567,7 +497,6 @@ export function TeacherGradebookScreen() {
     },
   ];
 
-  /** One student, one mark — the row the whole screen is now built around. */
   const entryRow = (row: StudentGradeRow, index: number) => {
     if (!focusEntry) return null;
     const active = scoreFor(row, focusEntry._id);
@@ -586,8 +515,6 @@ export function TeacherGradebookScreen() {
             value={active !== undefined ? String(active) : ""}
             onValueChange={(val) => {
               handleGradeChange(row.studentId, focusEntry._id, val);
-              // A تقدير is chosen, not typed, so there is no Enter to advance
-              // on — move to the next student when the value lands.
               window.requestAnimationFrame(() => focusEntryAt(index + 1));
             }}
           >
@@ -595,7 +522,6 @@ export function TeacherGradebookScreen() {
               size="sm"
               {...{ [ENTRY_ATTR]: index }}
               onKeyDown={(e) => {
-                // Leave Radix its own keys; only the vertical walk is ours.
                 if (e.key === "ArrowDown" || e.key === "ArrowUp") return;
               }}
               className={cn("w-28 shrink-0", isEdited && "border-info ring-1 ring-info")}
@@ -617,9 +543,6 @@ export function TeacherGradebookScreen() {
               value={active ?? ""}
               placeholder="—"
               inputMode="decimal"
-              /* `step="any"`: the max score may be 12.5, and a step the value
-                 disagrees with blocks a submit with nothing shown — the trap
-                 already recorded on this screen's create dialog. */
               step="any"
               aria-label={row.studentName}
               onChange={(ev) =>
@@ -647,10 +570,6 @@ export function TeacherGradebookScreen() {
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3">
           <span className="font-semibold">{t("teacher.course")}</span>
-          {/* `?? ""`, never `?? undefined`: the id is null on first paint, and
-              an undefined value makes the Select uncontrolled for one render,
-              then controlled — React warns, and the picker can drop the first
-              selection. */}
           <Select
             value={selectedCourseId ?? ""}
             onValueChange={(val) => {
@@ -672,9 +591,6 @@ export function TeacherGradebookScreen() {
         </CardContent>
       </Card>
 
-      {/* ENTRY FIRST. The screen used to open with two charts — roughly 600px
-          of analysis above the inputs the teacher came to fill in. The marks
-          are the job; the charts are what you read once the job is done. */}
       <Card>
         <CardHeader>
           <CardTitle>{t("nav.gradebook")}</CardTitle>
@@ -722,12 +638,6 @@ export function TeacherGradebookScreen() {
                 </Select>
               </div>
 
-              {/* The date and the total live HERE, not inside the trigger.
-                  Measured at 375px: "title · 28 يوليو 2026" overflowed the
-                  trigger and the clipped year rendered as "026!" — a bidi
-                  artefact of cutting a Latin numeral inside Arabic text. A
-                  caption cannot clip, and it has room to carry the mark out of
-                  which every row below is scored. */}
               {focusEntry ? (
                 <p className="px-6 text-xs text-muted-foreground">
                   {formatDate(focusEntry.date)}
@@ -745,10 +655,6 @@ export function TeacherGradebookScreen() {
                   graded: gradedCount,
                   total: studentGrades.length,
                 })}
-                {/* The Enter hint is for the device that HAS an Enter key.
-                    On a phone the marker taps each field, and promising a key
-                    the on-screen keyboard labels "Go" is a small lie in the
-                    one line that is supposed to teach the shortcut. */}
                 <span className="hidden sm:inline">
                   {" · "}
                   {t("teacher.entryHint")}
@@ -763,9 +669,6 @@ export function TeacherGradebookScreen() {
         </CardContent>
       </Card>
 
-      {/* The full matrix stays — it is the right shape for "how is this group
-          doing across everything", which is a reading task, not an entry one.
-          Collapsed by default, and never the first thing on a phone. */}
       {entries.length > 0 && studentGrades.length > 0 ? (
         <Card>
           <CardHeader>
@@ -845,11 +748,6 @@ export function TeacherGradebookScreen() {
         </Card>
       ) : null}
 
-      {/* THE SAVE BAR FOLLOWS THE WORK DOWN THE PAGE.
-          It used to sit in the card header — above a grid the teacher had just
-          scrolled to the bottom of — so committing thirty marks meant scrolling
-          back up to find the button. It appears only when there is something to
-          save, so it costs an untouched screen nothing. */}
       {dirtyCount > 0 ? (
         <div className="fixed inset-x-0 bottom-16 z-30 mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 border-t border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur sm:bottom-4 sm:rounded-xl sm:border">
           <span className="text-sm font-medium">
@@ -879,8 +777,6 @@ export function TeacherGradebookScreen() {
             <DialogTitle>{t("teacher.createModalTitle")}</DialogTitle>
           </DialogHeader>
           <Form {...createForm}>
-            {/* `noValidate` — zod is the only validator, in Arabic, under the
-                field. */}
             <form
               noValidate
               onSubmit={createForm.handleSubmit(handleCreate)}
@@ -934,10 +830,6 @@ export function TeacherGradebookScreen() {
                         <Input
                           type="number"
                           min={1}
-                          /* The schema is `z.number().min(1)` — it allows
-                             12.5. The default `step` is 1, which does not, and
-                             a step the schema disagrees with blocks the submit
-                             with nothing shown. */
                           step="any"
                           inputMode="decimal"
                           name={field.name}

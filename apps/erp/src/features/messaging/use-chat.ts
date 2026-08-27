@@ -37,16 +37,6 @@ export type OversightNotice = {
   minorParticipantId: string | null;
 };
 
-/**
- * The realtime URL is configured for the machine running the servers
- * (`http://localhost:3005`). Anything opening the app from ANOTHER device — a
- * phone on the LAN testing the PWA, a tunnel — resolves `localhost` to itself,
- * so the socket could never be reached and the UI sat on "Connection lost"
- * forever for every role. When the page itself is not on loopback but the
- * configured realtime host is, keep the port and reuse the host the app was
- * loaded from. A non-loopback configured host (staging/production) is returned
- * untouched.
- */
 function resolveRealtimeUrl(configured: string): string {
   if (typeof window === "undefined") return configured;
   const loopback = (h: string) =>
@@ -70,8 +60,6 @@ function sortConversations(list: WireConversation[]): WireConversation[] {
 }
 
 function insertMessage(list: UiMessage[], msg: UiMessage): UiMessage[] {
-  // Dedupe by server id or optimistic clientId, then keep seq order
-  // (pending messages have no real seq and stay at the tail).
   const withoutDupes = list.filter(
     (m) =>
       m.id !== msg.id && !(msg.clientId && m.clientId === msg.clientId),
@@ -324,7 +312,6 @@ export function useChat(meId: string) {
             ? { ...prev, [msg.conversationId]: false }
             : prev,
         );
-        // Viewing the thread while a message lands ⇒ it is read.
         if (!mine && isActive) markRead(msg.conversationId);
       });
 
@@ -538,7 +525,6 @@ export function useChat(meId: string) {
           m.clientId === clientId ? { ...m, failed: false } : m,
         ),
       }));
-      // Same clientId ⇒ idempotent on the server.
       sendMessage(conversationId, msg.body, clientId);
     },
     [messages, sendMessage],

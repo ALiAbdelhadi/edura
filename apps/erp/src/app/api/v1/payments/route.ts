@@ -29,8 +29,6 @@ const createSchema = z.object({
   courseId: z.string().optional(),
   amount: signedMoneySchema,
   note: z.string().optional(),
-  // Phase 1: counter channels only — the gateway and internal-wallet methods
-  // have their own routes and must not be spoofable from the desk.
   paymentMethod: z.enum(["cash", "instapay", "pos_card", "mobile_wallet"]).optional(),
 });
 

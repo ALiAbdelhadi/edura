@@ -1,14 +1,3 @@
-/**
- * Plays the emulator end to end, the way a student would.
- *
- * It hardcodes NO step: it repeatedly presses whatever the engine is currently
- * asking for — the highlighted target, or the "got it" button on an
- * explanation — until the finish screen appears. So the walk stays valid when
- * the script in `script.ts` changes, which is the point of the script being
- * data.
- *
- * It also captures the emulator for the help guide while it is there.
- */
 import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
 
@@ -31,7 +20,6 @@ for (const locale of ["ar", "en"] as const) {
     await page.goto(`/${locale}/dashboard/student/practice`);
     await page.waitForLoadState("networkidle").catch(() => {});
 
-    // Start clean: a previous run's progress is in localStorage.
     await page.evaluate(() => window.localStorage.removeItem("edura.studentEmulator.step"));
     await page.reload();
     await page.waitForLoadState("networkidle").catch(() => {});
@@ -45,7 +33,6 @@ for (const locale of ["ar", "en"] as const) {
     while (!(await finish.isVisible().catch(() => false))) {
       if (++guard > 40) throw new Error("emulator did not finish within 40 actions");
 
-      // Capture once, a few steps in, when the simulation is populated.
       if (!shotTaken && guard === 3) {
         await page.screenshot({ path: path.join(OUT, `student-practice-${locale}.png`) });
         shotTaken = true;
@@ -76,7 +63,6 @@ test("pressing the wrong control nudges instead of advancing", async ({ page }) 
   await page.reload();
   await page.waitForLoadState("networkidle").catch(() => {});
 
-  // Advance to the first step that actually wants a click.
   const gotIt = page.getByRole("button", { name: "تمام، فهمت" });
   for (let i = 0; i < 6; i++) {
     if (await page.locator('[data-emu][data-active="1"]').count()) break;
@@ -84,13 +70,9 @@ test("pressing the wrong control nudges instead of advancing", async ({ page }) 
     await page.waitForTimeout(200);
   }
 
-  // Which control the engine is asking for, before the mistake. Asserting on
-  // this rather than on the visible step text keeps the test valid when the
-  // copy changes — the engine's state is the behaviour under test.
   const before = await page.locator('[data-emu][data-active="1"]').getAttribute("data-emu");
   expect(before).toBeTruthy();
 
-  // Press a control that is NOT the target.
   await page.locator('[data-emu]:not([data-active="1"])').first().click();
   await page.waitForTimeout(300);
 

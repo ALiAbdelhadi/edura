@@ -8,7 +8,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/** Filter options, derived from THIS center's log — one round trip, not two. */
 export const GET = withErrors(async () => {
   const user = await requireRole("center_admin");
   const [actors, actions] = await Promise.all([

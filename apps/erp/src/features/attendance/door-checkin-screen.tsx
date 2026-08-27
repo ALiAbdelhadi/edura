@@ -244,8 +244,6 @@ export function DoorCheckinScreen() {
         </p>
       ) : null}
 
-      {/* Session selector — a control bar, not a step: switching sessions mid-shift
-          must not hide the console the operator is standing in front of. */}
       <div className="flex flex-col gap-2">
         <span className="eyebrow">{t("shared.door.pickSession")}</span>
         {handedOffCode && !sessionId ? (
@@ -281,9 +279,6 @@ export function DoorCheckinScreen() {
 
       {sessionId ? (
         <>
-          {/* The live console — always on screen, never a step to get past.
-              Code entry, scan and confirm are the same action three ways in,
-              so all three stay in one panel instead of a wizard sequence. */}
           <div
             className="space-y-3 rounded-xl border border-rule bg-sheet p-4"
             style={{ boxShadow: "var(--lift)" }}
@@ -325,8 +320,6 @@ export function DoorCheckinScreen() {
             />
           </div>
 
-          {/* Progress readout — a live count, not a report: the number the
-              operator actually watches while the queue at the door moves. */}
           {rosterTotal > 0 ? (
             <div className="space-y-1.5">
               <div className="flex items-baseline justify-between text-[13px]">

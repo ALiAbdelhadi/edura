@@ -64,31 +64,20 @@ type CourseHit = {
   upcomingSessions: UpcomingSession[];
 };
 
-/** Sentinel understood by /api/v1/search/courses: subjectId=none ⇒ uncatalogued. */
 const UNCATEGORIZED_ID = "none";
 
-/**
- * A fresh idempotency key per submit. Module scope, not inline in the click
- * handler: Date.now()/Math.random() are impure, and the React Compiler refuses
- * impure calls reachable from a component body.
- */
 function newIdempotencyKey(courseId: string, plan: string): string {
   const stamp = Date.now().toString(36);
   const noise = Math.random().toString(36).slice(2, 8);
   return `psub-${courseId}-${plan}-${stamp}-${noise}`;
 }
 
-/** What the parent has committed to buy, held while they pick how to pay. */
 type PendingPurchase = {
   course: CourseHit;
   plan: "monthly" | "per_session";
   sessionId?: string;
   amount: number;
 };
-
-// ---------------------------------------------------------------------------
-// Course list for one subject, scoped to the selected child
-// ---------------------------------------------------------------------------
 
 function SubjectCourses({
   subjectId,
@@ -107,8 +96,6 @@ function SubjectCourses({
     resource: "search/courses",
     filters: [
       { field: "subjectId", operator: "eq", value: subjectId },
-      // The child's grade/track narrows the default list — resolved server-side
-      // from the approved link, never from anything this component asserts.
       { field: "studentId", operator: "eq", value: childId },
       ...(browseAll ? [{ field: "scope", operator: "eq" as const, value: "all" }] : []),
     ],
@@ -207,11 +194,6 @@ function SubjectCourses({
                       <SelectValue placeholder={t("parentPay.pickSession")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* `toLocaleDateString()` with no locale formats in the
-                          BROWSER's locale, so an Arabic parent was offered
-                          "8/23/2026". Same bug, same shape, as the student
-                          subjects picker this was copied from. The weekday is
-                          shown because that is how a lesson is actually picked. */}
                       {c.upcomingSessions.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {formatDate(s.date, {
@@ -231,8 +213,6 @@ function SubjectCourses({
               ) : null}
             </div>
           ) : (
-            // A course with no plan configured cannot be paid for — say so
-            // rather than offering a button that would only fail server-side.
             <div className="shrink-0 text-xs text-muted-foreground">
               {t("parentPay.noPlansConfigured")}
             </div>
@@ -243,17 +223,6 @@ function SubjectCourses({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
-/**
- * A parent activates and pays for a specific lesson (or a month) for their own
- * child. Deliberately shaped like the student's Subjects screen — same subject
- * accordion, same plan buttons — because it is the same catalog seen through
- * the child. What differs is who pays: this screen adds the payment step, with
- * the parent's own card or their own wallet balance.
- */
 export function ParentPayScreen() {
   const t = useTranslations();
   const { locale, formatEGP } = useFormatters();
@@ -285,16 +254,6 @@ export function ParentPayScreen() {
     queryOptions: { enabled: browseAll || Boolean(childId) },
   });
 
-  /* WHAT THE CHILD IS ALREADY COVERED FOR.
-
-     Without it a parent could pay a second time for a month they already hold
-     and only find out from the server's duplicate check — after committing. The
-     row now says so before the accordion is even opened, which is the point:
-     the list has to be scannable without expanding six subjects.
-
-     `subjectId` on a subscription is a nullable snapshot; a row without one
-     attaches to nothing rather than being guessed onto a subject. Same reading
-     the student's Subjects screen uses, from the same module. */
   const { result: subsRes } = useCustom({
     url: childId ? `me/subscriptions?studentId=${childId}` : "me/subscriptions",
     method: "get",
@@ -333,16 +292,6 @@ export function ParentPayScreen() {
 
   const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
 
-  // `childName` comes from the context, not from a local lookup. It was
-  // resolved here with `c._id` — a field /api/v1/me/children has never
-  // returned — so the name was always "", the subject hint read "مواد شعبة ."
-  // and the payment confirmation never named the child being paid for. One
-  // resolution, in one place, so the two cannot disagree about identity again.
-
-  // -------------------------------------------------------------------------
-  // Checkout
-  // -------------------------------------------------------------------------
-
   const onlineCheckout = useOnlineCheckout();
 
   const pay = async (payFrom: "gateway" | "parent_wallet") => {
@@ -364,7 +313,6 @@ export function ParentPayScreen() {
       });
       const data = (res as any)?.data?.data ?? (res as any)?.data;
 
-      // Wallet settles synchronously — there is no gateway leg to wait for.
       if (payFrom === "parent_wallet") {
         toast.success(t("parentPay.paidFromWallet", { child: childName }));
         setPending(null);
@@ -375,10 +323,6 @@ export function ParentPayScreen() {
       if (data?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: data.id, amount: data.amount });
       } else if (data?.checkout?.url) {
-        // Was `window.open(url, "_blank")`. Called after the await above, it
-        // sits outside the click's gesture stack and mobile Safari blocks it —
-        // so the parent pressed «ادفع بالكارت» and the dialog just sat there.
-        // See lib/payments/checkout-redirect.ts.
         goToCheckout(data.checkout.url);
       }
     } catch (err: any) {
@@ -417,16 +361,8 @@ export function ParentPayScreen() {
     setMockIntent(null);
   };
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
   if (childrenLoading) return <PageSpinner />;
 
-  // "We could not load your children" and "you have no children" are different
-  // sentences, and this screen used to print the second one for both. On the
-  // screen where a parent pays for a child, that is not a stale list — it is
-  // the app telling them their family does not exist.
   if (childrenFailed) {
     return (
       <div className="space-y-6">
@@ -467,7 +403,6 @@ export function ParentPayScreen() {
               <span className="block text-xs text-muted-foreground">{subtitle}</span>
             ) : null}
           </span>
-          {/* The state rides ON the row, not inside it. */}
           {state ? <SubscriptionStateChip state={state} /> : null}
           <ChevronDown
             className={cn(
@@ -494,7 +429,6 @@ export function ParentPayScreen() {
 
   return (
     <div className="space-y-6">
-      {/* The one screen where naming the wrong child costs money. */}
       <PageHeader
         title={
           childName
@@ -553,7 +487,6 @@ export function ParentPayScreen() {
           )}
       </div>
 
-      {/* Payment dialog — how the parent wants to pay for what they just picked */}
       <Dialog open={Boolean(pending)} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent>
           <DialogHeader>
@@ -577,9 +510,6 @@ export function ParentPayScreen() {
               </div>
 
               <div className="space-y-2">
-                {/* MVP blocker #2: the gateway leg is ABSENT when online
-                    checkout cannot settle; the parent-wallet leg is internal
-                    money and stays up either way. */}
                 {onlineCheckout ? (
                   <Button className="w-full justify-start" disabled={busy} onClick={() => pay("gateway")}>
                     <CreditCard className="size-4" />

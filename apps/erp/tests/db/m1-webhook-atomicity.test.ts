@@ -1,8 +1,3 @@
-// M1 proof — the webhook claim + settlement are ONE transaction, so a
-// settlement failure after the claim cannot leave a charged-but-empty intent.
-//  (1) a settlement that THROWS rolls the claim back -> intent stays 'pending';
-//  (2) retry (webhook redelivery) self-heals -> settles fully;
-//  (3) replay is idempotent -> no double settlement.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
 import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
@@ -25,8 +20,6 @@ async function main() {
   });
 
   const orderId = `mock_${tag}`;
-  // Pending intent with center_id NULL -> settleIntentTx throws AFTER the claim
-  // (a real in-code-path settlement failure).
   const intentId = (await admin.query(
     `INSERT INTO payment_intents (student_id, course_id, center_id, amount, currency, method, gateway, status, idempotency_key, gateway_order_id, expires_at)
      VALUES ($1, NULL, NULL, 20000, 'EGP', 'card', 'mock', 'pending', $2, $3, now() + interval '1 hour') RETURNING id`,
@@ -35,7 +28,6 @@ async function main() {
 
   const event = { gatewayOrderId: orderId, success: true, gatewayRef: "reftxn-" + tag, reason: null };
 
-  // (1) settlement fails -> whole tx rolls back -> intent stays pending.
   console.log("\n(1) settlement throws after the claim:");
   let threw = false;
   try { await processWebhookEvent(event, { mock: true }); } catch { threw = true; }
@@ -48,7 +40,6 @@ async function main() {
   ok(afterFail.payment_id === null && afterFail.transaction_id === null, "no payment/transaction linked");
   ok(payCount1 === 0 && txCount1 === 0, `no Payment or Transaction rows created (payments=${payCount1}, txns=${txCount1})`);
 
-  // (2) fix the transient cause (center now present) and redeliver -> self-heals.
   console.log("\n(2) webhook redelivery self-heals:");
   await admin.query(`UPDATE payment_intents SET center_id=$2 WHERE id=$1`, [intentId, fx.center]);
   const r2 = await processWebhookEvent(event, { mock: true });
@@ -60,7 +51,6 @@ async function main() {
   ok(afterHeal.status === "paid" && afterHeal.payment_id && afterHeal.transaction_id, "intent now paid with linked payment + transaction");
   ok(payCount2 === 1 && txCount2 === 1, `exactly one Payment + one Transaction (payments=${payCount2}, txns=${txCount2})`);
 
-  // (3) replay the same webhook -> idempotent no-op, no double settlement.
   console.log("\n(3) webhook replay is idempotent:");
   const r3 = await processWebhookEvent(event, { mock: true });
   const payCount3 = (await admin.query(`SELECT count(*)::int n FROM payments WHERE student_id=$1`, [fx.student])).rows[0].n;
@@ -68,7 +58,6 @@ async function main() {
   ok((r3 as { result: string }).result === "replay", `replay returned 'replay' (got '${(r3 as any).result}')`);
   ok(payCount3 === 1 && txCount3 === 1, `still exactly one Payment + one Transaction — no double settle (payments=${payCount3}, txns=${txCount3})`);
 
-  // Cleanup deletable rows (append-only transaction remains — Step 9 wipe).
   await admin.query(`DELETE FROM notifications WHERE user_id=$1`, [fx.student]);
   await admin.query(`DELETE FROM points_ledger WHERE user_id=$1`, [fx.student]).catch(() => {});
   await admin.query(`DELETE FROM payment_intents WHERE id=$1`, [intentId]);
@@ -82,7 +71,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite m1-webhook-atomicity.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

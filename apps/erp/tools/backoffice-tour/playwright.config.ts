@@ -1,12 +1,5 @@
 import { defineConfig } from "@playwright/test";
 
-/**
- * The back-office tour walk.
- *
- * It lives under apps/www because that is where Playwright is installed, and it
- * drives the superadmin dev server on :3004. Tooling, not a test suite, so it
- * stays out of `test:pw`.
- */
 export default defineConfig({
   testDir: ".",
   globalSetup: "./global-setup.ts",

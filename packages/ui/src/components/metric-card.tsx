@@ -3,43 +3,15 @@ import { cn } from "@repo/ui/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 
-/* <MetricCard> — replaces the gradient StatCard.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The old Overview was seven near-identical stat cards; it knew there were pending
-   registrations and said nothing about them. Three things changed, each for a reason:
-
-   1. NO GRADIENT, NO `filled` VARIANT. Hierarchy comes from ORDER and from the third
-      row, not from shine. A filled card says "this one is important" without saying
-      why, and once two cards are filled it says nothing at all.
-
-   2. NO TREND-ARROW TRIO. `▲ 12%` with no referent is not information — 12% of what,
-      since when, and is up good? Row 3 replaces it with the REASON THIS NUMBER
-      MATTERS: `أقدم طلب: ٣ أيام — أ. شريف الجندي`. That sentence tells an operator
-      what to do; a percentage does not.
-
-   3. CARDS ARE LINKS. Each card is the door to its queue. A number an operator cannot
-      act on from where they are reading it is a number they will ignore.
-
-   The `blocking` variant is the one escalation: a red border and a chip naming the
-   consequence (`يوقف الصرف`). It means something downstream is HALTED, not merely
-   that a figure is bad. */
-
 export function MetricCard({
   label,
-  /** Pass a <Num> — this is a computed figure, so it is mono and tabular. */
   value,
-  /** A second, smaller figure on the same baseline, e.g. the money behind the count. */
   secondary,
-  /** Row 3: the one fact that explains why this number matters. Never a bare delta. */
   fact,
   factIcon: FactIcon,
-  /** Top-right mono meta, e.g. `SLA 48h`. */
   meta,
   icon: Icon,
-  /** Semantic state — colours the label + icon. Never decorative. */
   tone = "neutral",
-  /** Something downstream is halted. Red border + chip. */
   blocking,
   href,
   className,

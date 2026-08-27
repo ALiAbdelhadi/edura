@@ -1,20 +1,3 @@
-/**
- * The public (signed-out) surface, in ONE place.
- *
- * The header, the mobile sheet, the footer and `app/sitemap.ts` all read this
- * table. Adding a marketing page is a row here plus its route — a page can no
- * longer exist while being unreachable from the chrome or invisible to search,
- * which is exactly how /terms and /privacy used to drift.
- *
- * `labelKey` is a key under the `marketing.nav` namespace; nothing here holds
- * user-visible copy, so ar/en parity is enforced by the message files.
- */
-
-/**
- * A literal union rather than `string`: next-intl types `t()` against the
- * message tree, so a typo'd key is a COMPILE error instead of a raw
- * "marketing.nav.pricng" rendered on the page.
- */
 export type MarketingNavKey =
   | "home"
   | "pricing"
@@ -28,22 +11,12 @@ export type MarketingNavKey =
 export type MarketingLink = {
   href: string;
   labelKey: MarketingNavKey;
-  /** Shown in the top navigation bar (desktop) and the mobile sheet. */
   inHeader?: boolean;
-  /** Which footer column it belongs to. */
   footerColumn?: "product" | "resources" | "company";
-  /** Included in app/sitemap.ts. */
   inSitemap?: boolean;
 };
 
 export const MARKETING_LINKS: readonly MarketingLink[] = [
-  // ── Product ───────────────────────────────────────────────────────────────
-  // NO `home` row: this app no longer has a landing page. `/{locale}` is now a
-  // redirect to apps/showcase, which owns that URL and lists it in its OWN
-  // sitemap at priority 1. Listing a redirect here would put two priority-1
-  // entries for the same content under one brand, and point search engines at
-  // the copy that is only a hop. The header logo still links to "/", so the
-  // way home is unchanged for a reader — it just resolves off-site now.
   {
     href: "/pricing",
     labelKey: "pricing",
@@ -51,7 +24,6 @@ export const MARKETING_LINKS: readonly MarketingLink[] = [
     footerColumn: "product",
     inSitemap: true,
   },
-  // ── Resources ─────────────────────────────────────────────────────────────
   {
     href: "/help",
     labelKey: "help",
@@ -72,7 +44,6 @@ export const MARKETING_LINKS: readonly MarketingLink[] = [
     footerColumn: "resources",
     inSitemap: true,
   },
-  // ── Company ───────────────────────────────────────────────────────────────
   {
     href: "/contact",
     labelKey: "contact",
@@ -90,16 +61,6 @@ export function footerColumn(name: NonNullable<MarketingLink["footerColumn"]>) {
   return MARKETING_LINKS.filter((l) => l.footerColumn === name);
 }
 
-/**
- * The Calendly (or any scheduling tool) URL for «احجز عرضًا».
- *
- * Read through `NEXT_PUBLIC_` so the client bundle can inline it. Returns null
- * when unset, and every consumer HIDES the CTA rather than rendering a dead
- * button — an unconfigured deployment must not ship a link to nowhere.
- *
- * The value is validated as an absolute http(s) URL: this string is placed in
- * an `href`, so a malformed or `javascript:` value must never reach the DOM.
- */
 export function demoBookingUrl(): string | null {
   const raw = process.env.NEXT_PUBLIC_CALENDLY_URL?.trim();
   if (!raw) return null;

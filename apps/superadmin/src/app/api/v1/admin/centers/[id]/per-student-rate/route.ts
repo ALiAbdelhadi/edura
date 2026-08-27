@@ -7,7 +7,6 @@ import { upsertCenterM2Rate, clearCenterM2Rate } from "@/lib/services/admin/room
 
 export const dynamic = "force-dynamic";
 
-// Method-2 (per-attending-student) PER-CENTER rate override — super_admin ONLY.
 const rateSchema = z
   .object({
     fee: z.number().int().min(0).max(99_999_900).nullable(),

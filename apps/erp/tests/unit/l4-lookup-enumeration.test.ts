@@ -1,25 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// L4 — the roster student/teacher lookups are a global account-existence + PII
-// oracle for any center_admin. This proves the remediation:
-//   (1) the endpoints are rate-limited (throttle engages after the burst),
-//   (2) they still work for legitimate use (existence + invite-sendable), and
-//   (3) they expose LESS PII — only two booleans, never id / name / email.
-//
-// requireRole is mocked to a center_admin (auth is not what's under test), and
-// scopedDb is mocked to a tiny fixture DB so the route logic runs without Neon.
-// The rate limiter itself is the REAL in-memory limiter (REDIS_URL unset).
-//
-// The lookup logic now lives in @repo/server-core/services/center/roster (both
-// apps run one implementation), and it reaches the database through the
-// KERNEL's own module specifier — not through www's "@/lib/db/scope" alias. A
-// mock on the alias alone therefore no longer intercepts it, so both specifiers
-// are mocked with the SAME fixture below. What is under test is unchanged: the
-// real route, the real service, and the real rate limiter.
-
-// email/phone -> the matching user's status ("" fixture = no such account).
-// Held on globalThis because the hoisted vi.mock factory below cannot close
-// over a module-scope binding.
 const G = globalThis as never as { __L4: Record<string, string> };
 G.__L4 = {};
 const setFixture = (f: Record<string, string>) => {
@@ -35,10 +15,6 @@ vi.mock("@/lib/authz/require-role", () => ({
   })),
 }));
 
-// scopedDb(user, cb) -> cb(fakeTx); fakeTx.user.findFirst reads the fixture by
-// the exact email/phone in the where-clause and returns { status } | null.
-// `vi.hoisted` because vi.mock factories are hoisted above ordinary consts —
-// this is what lets BOTH specifiers share one fixture implementation.
 const { scopedDbMock } = vi.hoisted(() => ({
   scopedDbMock: () => ({
     scopedDb: async (_user: unknown, cb: (tx: unknown) => unknown) => {
@@ -59,7 +35,6 @@ const { scopedDbMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db/scope", scopedDbMock);
-// The same fixture behind the kernel's specifier — see the note above.
 vi.mock("@repo/server-core/db/scope", scopedDbMock);
 
 import * as students from "@/app/api/v1/roster/students/lookup/route";

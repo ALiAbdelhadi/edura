@@ -7,9 +7,6 @@ import { listFeatureFlags, setFeatureFlag } from "@/lib/services/admin/feature-f
 
 export const dynamic = "force-dynamic";
 
-/** super_admin ONLY. An accountant has no reason to see, let alone flip, a
- *  platform switch — and `requireRole` short-circuits super_admin, so naming
- *  it explicitly is what keeps the accountant out. */
 export const GET = withErrors(async () => {
   await requireRole("super_admin");
   return ok(await listFeatureFlags());

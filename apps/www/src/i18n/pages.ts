@@ -1,26 +1,5 @@
 import type { Locale } from "./config";
 
-/**
- * THE STANDALONE PAGES — pricing, FAQ, and trust.
- *
- * Same contract as `roles.ts`: `ar` is the source of truth, `en` is typed
- * against it, so a key added to one and forgotten in the other fails the
- * typecheck rather than rendering an empty element.
- *
- * The LEGAL pages (privacy, terms) are deliberately NOT here. Legal copy is
- * structured prose — sections, sub-headings, emphasis inside sentences — and
- * flattening it into string keys would either lose the structure or turn this
- * file into HTML-in-strings. They keep their copy as JSX in their own routes,
- * the way the product app does it.
- *
- * WHAT IS DELIBERATELY NOT HERE: live commission rates. The product app's
- * pricing page reads its figures from the settlement engine's own settings at
- * request time; this app is static and has no database, so every figure it
- * shows is ILLUSTRATIVE and says so. The one worked example reuses the hero's
- * own register (15 / 15 / 70 on a 120 EGP lesson), so the marketing site
- * carries ONE set of example figures, not two that drift.
- */
-
 const ar = {
   pricing: {
     meta: {
@@ -224,11 +203,6 @@ const ar = {
     headline: "قولنا انت مين، ونرد على قد سؤالك.",
     lede: "الرسايل بتوصل لصندوق واحد جوّه النظام، وبتترد بالترتيب. اختار الموضوع الصح عشان توصل للشخص الصح من أول مرة.",
 
-    /* THE TRIAGE IS THE POINT.
-       A single "how can we help" box makes every message the same message,
-       and then somebody has to read all of them to find the one that is
-       urgent. Naming the five routes up front is what lets the queue be
-       worked by priority — and two of them are deliberately NOT this form. */
     routes: {
       label: "أسرع طريق لسؤالك",
       items: [
@@ -270,8 +244,6 @@ const ar = {
         partnership: "شراكة",
         other: "موضوع تاني",
       },
-      /* A required field marked only by colour or a bare asterisk is not
-         marked at all for a screen reader; the word is in the label. */
       optionalHint: "اختياري",
       minMessage: "اكتب 10 حروف على الأقل.",
       badEmail: "دقّق البريد الإلكتروني.",
@@ -283,10 +255,6 @@ const ar = {
       limited: "بعتّ رسايل كتير في وقت قصير. استنى دقيقة وجرّب تاني.",
     },
 
-    /* CHILD SAFETY, ON A PUBLIC FORM.
-       Most of this product's users are minors, and an open box invites
-       somebody to paste a child's name, school and phone into it. Saying so
-       plainly is the only thing that actually reduces it. */
     safety: {
       title: "متبعتش بيانات طالب هنا.",
       body: "الصفحة دي عامة ومش مربوطة بحسابك. متكتبش اسم طالب كامل، رقم قومي، عنوان، أو أي بيانات دفع. لو محتاج تناقش طالب بعينه، استخدم الرسائل جوّه النظام أو كلّم السنتر.",
@@ -294,14 +262,6 @@ const ar = {
 
     note: "الرد بيتبعت على البريد اللي بتكتبه. لسه مفيش وعد بزمن رد محدد.",
 
-    /* ⚠ PLACEHOLDER — REPLACE BEFORE LAUNCH.
-       Ali asked for a temporary number and address so the page can be
-       reviewed with them in place. The digits are ALL ZEROS on purpose: a
-       plausible-looking Egyptian mobile on a public page sends real calls to
-       a stranger who never agreed to take them, and a plausible street
-       address sends visitors to somebody's door. Both are deliberately
-       impossible so the harm is zero while they sit here.
-       Swap these two strings and delete this comment. */
     reach: {
       label: "بيانات التواصل",
       phoneLabel: "تليفون",

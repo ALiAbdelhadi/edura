@@ -2,22 +2,6 @@ import { platformDb, scopedDb, type TenantTx } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 
-// ===========================================================================
-// TEACHER AGREEMENTS (Phase 5, D1/D2) — resolution + the proposal workflow.
-//
-// GOVERNANCE (D2): the ERP writes PROPOSALS ONLY. `proposeAgreement` is the
-// single center-side writer and it can only ever produce status='proposed' —
-// center-share-governance keeps its exact meaning: no rate crosses the app
-// boundary until a superadmin approval activates it. Approval/rejection/
-// termination live in apps/superadmin's service layer, which calls the tx
-// helpers below and audits.
-//
-// RESOLUTION (D1): effective-dated. A lesson settles under the row that was
-// live ON ITS DATE — `effective_from <= date < ended_at` — so a reopen-and-
-// settle-later still answers with the agreement the lesson happened under.
-// Proposed/rejected rows never resolve.
-// ===========================================================================
-
 export type ResolvedAgreement = {
   id: string;
   basis: "percent_of_net" | "fixed_per_student";
@@ -26,7 +10,6 @@ export type ResolvedAgreement = {
   residual: "teacher" | "center";
 };
 
-/** The agreement live for this pair ON this date, or null. */
 export async function resolveTeacherAgreement(
   tx: TenantTx,
   args: { centerId: string; teacherId: string; onDate: Date },
@@ -77,14 +60,12 @@ function assertRateShape(input: AgreementProposalInput) {
   }
 }
 
-/** D2 — the CENTER's writer: proposals only, never a rate in force. */
 export async function proposeAgreement(input: AgreementProposalInput, user: SessionUser) {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
   const centerId = user.centerId;
   assertRateShape(input);
 
   return scopedDb(user, async (tx) => {
-    // The teacher must actually work with this center.
     const affiliation = await tx.centerTeacherAffiliation.findFirst({
       where: { centerId, teacherId: input.teacherId, status: "active" },
       select: { id: true },
@@ -113,9 +94,6 @@ export async function proposeAgreement(input: AgreementProposalInput, user: Sess
       },
     });
 
-    // PRECEDENCE warning (D1): an agreement governs NO-ROOM courses only. If
-    // every active course of this pair is room-based, say so at creation —
-    // the proposal is legal but currently reaches nothing.
     const noRoomCourses = await tx.course.count({
       where: {
         centerId,
@@ -147,12 +125,6 @@ export async function listCenterAgreements(user: SessionUser, teacherId?: string
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tx helpers for the SUPERADMIN service layer (which audits around them).
-// ---------------------------------------------------------------------------
-
-/** Approve a proposal: end any live row for the pair at `effectiveFrom`, then
- *  activate this one. One tx — the partial unique one_active_per_pair holds. */
 export async function approveAgreementTx(
   tx: TenantTx,
   proposalId: string,
@@ -196,7 +168,6 @@ export async function rejectAgreementTx(tx: TenantTx, proposalId: string, reject
   });
 }
 
-/** End the live agreement now — the pair falls back to the affiliation rate. */
 export async function terminateAgreementTx(tx: TenantTx, agreementId: string) {
   const row = await tx.teacherAgreement.findUnique({ where: { id: agreementId } });
   if (!row) throw new NotFoundError("Agreement not found");
@@ -207,7 +178,6 @@ export async function terminateAgreementTx(tx: TenantTx, agreementId: string) {
   });
 }
 
-/** Platform-wide proposal queue (superadmin list). */
 export function listAgreementProposals(filters: { status?: string } = {}) {
   return platformDb((tx) =>
     tx.teacherAgreement.findMany({

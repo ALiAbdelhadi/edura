@@ -7,8 +7,6 @@ import { requestTeacherPayout } from "@/lib/services/finance/teacher-wallet";
 
 export const dynamic = "force-dynamic";
 
-// amount in piasters; omitted (or empty body — kept for backwards
-// compatibility with the pre-4.5 callers) = withdraw the full available balance.
 const bodySchema = z.object({ amount: z.number().int().positive().optional() }).strict();
 
 async function readAmount(req: Request): Promise<number | undefined> {

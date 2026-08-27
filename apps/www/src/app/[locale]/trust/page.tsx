@@ -8,16 +8,6 @@ import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 
-/**
- * TRUST & SAFETY — five mechanisms, no adjectives.
- *
- * Every claim points at a mechanism in the database or the code. What is
- * deliberately NOT here: numeric counters (tables protected, policies,
- * migrations). The old marketing site published those and every one of them
- * went stale within weeks — this app is static and cannot read the schema to
- * keep them honest, so it makes no countable claims at all.
- */
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
@@ -62,7 +52,6 @@ export default async function TrustPage({
         </Section>
       ))}
 
-      {/* ── The policies these mechanisms answer to ─────────────────────── */}
       <section className="border-t border-rule">
         <div className="mx-auto w-full max-w-[62rem] px-6 py-10 md:px-10 md:py-16 lg:py-20">
           <h2 className="display text-[1.25rem] leading-snug text-ink">{tr.links.title}</h2>

@@ -5,8 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminPostponeSession } from "@/lib/services/admin/center-operations";
 
-// Refused once the session has settled — moving it would detach a distributed
-// settlement from its date.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z

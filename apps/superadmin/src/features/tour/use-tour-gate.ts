@@ -1,27 +1,5 @@
 "use client";
 
-/**
- * "Has this person been shown their first-run tour yet?"
- *
- * WHERE IT IS STORED, AND WHY THERE. `user_prefs.tour_completed` already exists
- * with a working `GET/PATCH /api/v1/me/prefs`, so this needs NO migration — and
- * the flag is per USER rather than per browser, so someone who did the tour on
- * their phone is not shown it again on a laptop, which localStorage could not
- * have prevented.
- *
- * IT FAILS CLOSED. If the preference cannot be read, `shouldOpen` stays false
- * and nothing opens. The cost of a missed tour is small; the cost of an overlay
- * ambushing someone on every page load is not.
- *
- * IT MARKS DONE OPTIMISTICALLY. `markDone()` flips local state at once and the
- * PATCH follows; if the write fails the worst case is the tour offering itself
- * one more time, which is better than a spinner between a student and their day.
- *
- * Extracted because two first-run surfaces need the same three lines of
- * persistence: `features/tour/first-run.tsx` for the super admin and
- * `features/tour/finance-first-run.tsx` for the accountant.
- */
-
 import { useCallback, useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 
@@ -32,9 +10,6 @@ export function useTourGate() {
   const { mutateAsync: savePrefs } = useCustomMutation();
   const [dismissed, setDismissed] = useState(false);
 
-  /* refine returns a frozen placeholder while a query is idle, so narrow on the
-     VALUE rather than trusting the generic — the `exports.find is not a
-     function` class of first-paint crash this repo has already paid for once. */
   const payload = (result as { data?: PrefsShape } | undefined)?.data ?? (result as PrefsShape);
   const completed = typeof payload?.tourCompleted === "boolean" ? payload.tourCompleted : null;
 
@@ -48,7 +23,6 @@ export function useTourGate() {
     setDismissed(true);
     void savePrefs({ url: "me/prefs", method: "patch", values: { tourCompleted: true } }).catch(
       () => {
-        /* May offer itself once more; nothing else breaks. */
       },
     );
   }, [savePrefs]);

@@ -2,14 +2,8 @@ import * as React from "react"
 
 import { cn } from "@repo/ui/lib/utils"
 
-/* Draw-in check used as the `success` status mark (toasts, confirmation states).
-   Both shapes declare pathLength="100" so the dash maths is resolution-independent
-   — one keyframe (`success-draw`, in styles/globals.css) drives the ring and the
-   check, and the reduced-motion opt-out lives beside it. */
 type SuccessIconProps = Omit<React.ComponentProps<"svg">, "children"> & {
-  /** Rendered size in px. */
   size?: number
-  /** Set false to render the finished mark with no draw-in. */
   animated?: boolean
 }
 

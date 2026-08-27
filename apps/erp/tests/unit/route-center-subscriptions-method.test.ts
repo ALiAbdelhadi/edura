@@ -1,13 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// Phase 1 (revenue-operations spec §2.2): the walk-in route accepts ONLY the
-// four counter channels. The contract that lives in the ROUTE is the schema:
-// an unknown or non-counter method must 400 — never fall back to cash — and
-// the gateway/internal methods (`online_paymob`, `wallet`) must not be
-// spoofable from the desk. The service's own default (absent → cash) is proven
-// by the live-DB suite (counter-payment-methods.test.ts).
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),

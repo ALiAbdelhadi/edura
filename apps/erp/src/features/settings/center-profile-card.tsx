@@ -14,27 +14,6 @@ import { Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { cityOptions, governorateOptions } from "@/lib/egypt-locations";
 
-/**
- * The center's OWN details — name, where it is, how to reach it.
- *
- * WHY THIS EXISTS: these fields were written exactly once, by the onboarding
- * wizard, and then had no writer anywhere in the product. A center that moved,
- * changed its phone, or mis-picked a district on its first day could not
- * correct any of it: the only route was re-entering the wizard through an
- * undocumented `?edit=1` URL that nothing linked to, or asking platform staff
- * to edit the row for them. `PATCH /centers/me` existed the whole time with no
- * caller.
- *
- * It sits beside the center LOGO card rather than inside the personal
- * "Profile" section on purpose: the section above is who YOU are, this is what
- * the CENTER is, and merging them makes "Name" ambiguous on the one screen
- * where both names are editable.
- *
- * OWNER ONLY, and that is the route's rule rather than this file's: the logo
- * route admits the `manager` sub-role, `PATCH /centers/me` does not (center
- * settings are one of the four hard staff exclusions in center-actor.ts). This
- * decides what to RENDER; it never decides what is permitted.
- */
 type CenterProfile = {
   name?: string | null;
   governorate?: string | null;
@@ -63,9 +42,6 @@ export function CenterProfileCard() {
   const [form, setForm] = useState<CenterProfile | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // useCustom hands back a FROZEN placeholder object while the query is idle,
-  // so `result?.data` is `{}` rather than undefined and a `??` fallback never
-  // fires. Narrow on a field that only a real row has.
   const server = (result as { data?: CenterProfile } | undefined)?.data;
   const loaded = Boolean(server && typeof server.name === "string");
 
@@ -91,17 +67,11 @@ export function CenterProfileCard() {
         method: "patch",
         values: {
           name,
-          // Empty text is sent as an empty string for the free-text fields the
-          // route already accepted, and as NULL for the two location fields,
-          // which are nullable columns — clearing a governorate must mean "not
-          // set", not the literal empty string the area list can never match.
           phone: (form.phone ?? "").trim(),
           whatsapp: (form.whatsapp ?? "").trim(),
           address: (form.address ?? "").trim(),
           governorate: form.governorate || null,
           area: form.area || null,
-          // An empty string is not a valid email, and the route's schema would
-          // reject the whole request over a field the operator left blank.
           ...((form.email ?? "").trim() ? { email: (form.email ?? "").trim() } : {}),
         },
       });
@@ -149,9 +119,6 @@ export function CenterProfileCard() {
                 options={governorateOptions(locale)}
                 value={form.governorate || null}
                 onChange={(v) => {
-                  // The area list is derived from the governorate, so a stale
-                  // area would survive a governorate change and name a district
-                  // in a governorate it does not belong to.
                   setForm((prev) => (prev ? { ...prev, governorate: v, area: null } : prev));
                 }}
                 placeholder={t("onboarding.center.governoratePlaceholder")}

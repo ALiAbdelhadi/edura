@@ -1,33 +1,4 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * VERIFY DATABASE SHAPE — proves the security invariants actually landed
- * ============================================================================
- * The migrations wrap every `edura_app` grant in
- *     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'edura_app')
- * so on a database where the role is missing they NO-OP AND STILL REPORT
- * SUCCESS. "prisma migrate deploy finished without error" therefore proves
- * nothing about whether the ledger is actually append-only.
- *
- * This script asserts the end state directly, by querying the catalog:
- *
- *   1. edura_app exists, can log in, and CANNOT bypass RLS (directly or by
- *      inheriting a BYPASSRLS role — the trap when a role is created through a
- *      provider console rather than SQL).
- *   2. It has USAGE but NOT CREATE on schema public.
- *   3. The append-only tables have EXACTLY the privileges the migrations
- *      intend — no UPDATE/DELETE on the money ledger, no DELETE on invoices
- *      or payouts. This is the check that catches the silent no-op.
- *   4. Every other table is fully reachable (a REVOKE that went too far is as
- *      much a bug as one that never ran).
- *   5. Sequences are usable, and default privileges are in place so the NEXT
- *      migration's tables are reachable without a manual grant.
- *   6. RLS is enabled and policies exist.
- *   7. Every migration is applied, none rolled back.
- *
- * Usage:  tsx --env-file=.env.production scripts/verify-db.ts
- *         tsx --env-file=.env scripts/verify-db.ts --write-baseline
- */
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,25 +10,11 @@ const ROLE = "edura_app";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = path.join(here, "expected-db-shape.json");
 
-/**
- * Tables the migrations deliberately restrict, and the EXACT privilege set
- * `edura_app` must end up with. Derived from:
- *   00000000000003_integrity_sequences_indexes  (transactions, points_ledger,
- *                                                audit_logs, invoices, payouts)
- *   20260722100100_session_settlements
- *   20260723120100_blacklist_cascade_journal
- *   20260803100100_external_teachers
- * Money and audit rows are append-only; invoices/payouts legitimately change
- * status, so they keep UPDATE and lose only DELETE.
- */
 const APPEND_ONLY: Record<string, string[]> = {
   transactions: ["INSERT", "SELECT"],
   points_ledger: ["INSERT", "SELECT"],
   audit_logs: ["INSERT", "SELECT"],
   session_settlements: ["INSERT", "SELECT"],
-  // Off-system teachers. The conversion journal is the EVIDENCE that a status
-  // flip moved no data, and the settlement record is a money statement — both
-  // are worthless if they can be edited after the fact.
   teacher_system_status_changes: ["INSERT", "SELECT"],
   external_teacher_settlements: ["INSERT", "SELECT"],
   invoices: ["INSERT", "SELECT", "UPDATE"],
@@ -105,14 +62,12 @@ async function main() {
     console.log(`  label:    ${label ?? "\x1b[31mUNLABELLED\x1b[0m"}`);
     console.log("=".repeat(74));
 
-    // -- 0. environment label ------------------------------------------------
     record(
       "database carries an edura-env label",
       typeof label === "string" && label.startsWith("edura-env:"),
       label ?? "none — db-guard will refuse to run against this database",
     );
 
-    // -- 1. role identity ----------------------------------------------------
     const role = await q<{
       rolcanlogin: boolean;
       rolbypassrls: boolean;
@@ -134,9 +89,6 @@ async function main() {
       record(`  ${ROLE} is not a superuser`, r.rolsuper === false, `SUPERUSER=${r.rolsuper}`);
     }
 
-    // Inherited bypass: a role granted membership in a BYPASSRLS role (which is
-    // what provider consoles typically do) defeats RLS without setting the flag
-    // on the role itself.
     const inherited = await q<{ granted: string; bypass: boolean }>(
       `SELECT g.rolname granted, g.rolbypassrls bypass
          FROM pg_auth_members m
@@ -154,7 +106,6 @@ async function main() {
         : inherited.map((m) => `${m.granted}${m.bypass ? " (BYPASSRLS!)" : ""}`).join(", "),
     );
 
-    // -- 2. schema privileges ------------------------------------------------
     const [schema] = await q<{ usage: boolean; create_: boolean }>(
       `SELECT has_schema_privilege($1,'public','USAGE') usage,
               has_schema_privilege($1,'public','CREATE') create_`,
@@ -167,7 +118,6 @@ async function main() {
       `CREATE=${schema!.create_}`,
     );
 
-    // -- 3 & 4. table privileges --------------------------------------------
     const tables = await q<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema='public' AND table_type='BASE TABLE'
@@ -212,20 +162,6 @@ async function main() {
       underGranted.length ? `missing on: ${underGranted.join(", ")}` : "ok",
     );
 
-    // -- 4b. CHECK constraints must be VALIDATED, not merely present ---------
-    // A constraint added `NOT VALID` still enforces every INSERT and UPDATE,
-    // so it LOOKS present in every catalogue listing — but Postgres never
-    // back-checked the existing rows, and nothing here used to say so.
-    //
-    // That mattered: 20260720160000_wallet_nonneg_check deliberately added
-    // `centers_wallet_balance_nonneg` NOT VALID (there was one legacy negative
-    // row at the time) and left the VALIDATE as a COMMENT for a human to run
-    // later. Dev and production had it run by hand; every freshly bootstrapped
-    // environment did not — and this script still reported all-green, because
-    // it only ever asked whether constraints EXIST. Measured 2026-08-18 on a
-    // fresh database: every other *_nonneg CHECK was convalidated, that one
-    // was not. Migration 20260818130000 now validates it; this check is what
-    // stops the same gap reopening silently.
     const unvalidated = await q<{ conname: string; rel: string }>(
       `SELECT c.conname, c.conrelid::regclass::text AS rel
          FROM pg_constraint c
@@ -241,7 +177,6 @@ async function main() {
         : "ok",
     );
 
-    // -- 5. sequences + default privileges -----------------------------------
     const seqs = await q<{ relname: string; usage: boolean; sel: boolean }>(
       `SELECT c.relname,
               has_sequence_privilege($1, c.oid, 'USAGE') usage,
@@ -273,7 +208,6 @@ async function main() {
       hasDefault("S") ? "ok" : "missing",
     );
 
-    // -- 6. RLS --------------------------------------------------------------
     const [rls] = await q<{ rls_tables: string }>(
       `SELECT count(*) rls_tables FROM pg_class c
          JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -283,7 +217,6 @@ async function main() {
       `SELECT count(*) n FROM pg_policies WHERE schemaname='public'`,
     );
 
-    // -- 7. migrations -------------------------------------------------------
     const [mig] = await q<{ applied: string; failed: string }>(
       `SELECT count(*) FILTER (WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) applied,
               count(*) FILTER (WHERE finished_at IS NULL OR rolled_back_at IS NOT NULL) failed
@@ -295,7 +228,6 @@ async function main() {
       `${mig!.failed} failed, ${mig!.applied} applied`,
     );
 
-    // -- structural comparison against the reference shape -------------------
     const shape = {
       tables: tables.length,
       sequences: seqs.length,
@@ -313,7 +245,6 @@ async function main() {
       try {
         baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
       } catch {
-        /* no baseline committed yet */
       }
       if (baseline) {
         for (const k of Object.keys(shape) as (keyof typeof shape)[]) {
@@ -328,7 +259,6 @@ async function main() {
       }
     }
 
-    // -- data census ---------------------------------------------------------
     const census = await q<{
       users: string;
       demo_users: string;
@@ -349,7 +279,6 @@ async function main() {
               (SELECT count(*) FROM subjects) catalog_subjects`,
     );
 
-    // -- report --------------------------------------------------------------
     console.log();
     let failed = 0;
     for (const c of checks) {

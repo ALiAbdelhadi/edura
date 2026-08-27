@@ -28,10 +28,6 @@ export const PATCH = centerStaff(
       const room = await tx.room.findUnique({ where: { id } });
       if (!room) throw new NotFoundError("Room not found");
       requireCenterScope(user, room.centerId);
-      // `perStudentRate === undefined` leaves the hall's rate alone, so the
-      // inherited-or-own check still applies; setting one in this request
-      // supersedes it (the ceiling check is stricter), and `null` clears the
-      // override BEFORE the check so the fallback is what actually gets tested.
       if (perStudentRate === null) {
         await clearRoomM2RateAsCenter(tx, {
           roomId: id,

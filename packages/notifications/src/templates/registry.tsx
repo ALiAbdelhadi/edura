@@ -33,20 +33,6 @@ import {
 } from "./weekly-digest";
 import { WelcomeEmail, welcomeSubject, welcomeText } from "./welcome";
 
-// =============================================================================
-// The template registry.
-//
-// A template declares one renderer PER CHANNEL, never one body that channels
-// transform. An email is HTML with a subject line; a WhatsApp message is a
-// Meta-approved template name plus positional params. Pretending those are the
-// same thing is how you end up mailing "{{1}}" to a parent.
-//
-// `whatsapp` is optional and every template omits it today — no verified Meta
-// business number exists yet. A channel with no renderer for a template reports
-// `skipped`, so shipping the WhatsApp channel before its templates are approved
-// degrades gracefully instead of failing sends.
-// =============================================================================
-
 export type EmailRenderer<T extends TemplateId> = {
   subject(locale: Locale, data: TemplateData<T>): string;
   Body(props: { locale: Locale; data: TemplateData<T> }): React.JSX.Element;

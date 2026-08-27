@@ -9,8 +9,6 @@ export type OfflineRecord = {
   studentId: string;
   status: "present" | "absent" | "late" | "excused";
   localTimestamp?: Date;
-  // Step 6: a door-stage record applies the door transition (counter -> present)
-  // instead of a raw status write. Optional — legacy outbox payloads unchanged.
   stage?: "door";
 };
 
@@ -27,8 +25,6 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
 
   await platformDb(
     async (tx) => {
-      // Step 6: assistants sync door-stage records for THEIR teacher's
-      // sessions (teacher's own account works as fallback, unchanged).
       const teacherId = await resolveAssistantTeacher(tx, caller);
       const sessionCache = new Map<
         string,
@@ -40,10 +36,6 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
 
         let meta = sessionCache.get(rec.sessionId);
         if (meta === undefined) {
-          // Phase 0: lock BEFORE reading, so the cached closed state is the
-          // committed truth — the whole batch is one tx, so the row lock keeps
-          // that answer stable for every record naming this session
-          // (see lesson-lock.ts). A missing session locks nothing, harmlessly.
           await lockSessionRow(tx, rec.sessionId);
           const session = await tx.session.findUnique({
             where: { id: rec.sessionId },
@@ -75,10 +67,6 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
           results.push({ ...key, result: "error", reason: "not_your_session" });
           continue;
         }
-        // Phase 0: a device that was offline while the counter closed the
-        // lesson syncs into a settled register. The honest server-wins answer
-        // is a per-record CONFLICT — the batch degrades record by record, it
-        // never dies on one, and the device learns which facts the server kept.
         if (meta.closed) {
           results.push({
             ...key,
@@ -88,9 +76,6 @@ export async function syncOfflineAttendance(records: OfflineRecord[], caller: Se
           continue;
         }
 
-        // Door-stage record: idempotent stage transition; the device time is
-        // preserved as the doorAt fact. Replays are no-ops, never dup rows
-        // (unique (sessionId, studentId) + doorAt-already-set short-circuit).
         if (rec.stage === "door") {
           const res = await doorTransitionTx(tx, {
             studentId: rec.studentId,

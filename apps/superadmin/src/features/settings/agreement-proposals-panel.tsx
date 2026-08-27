@@ -1,10 +1,5 @@
 "use client";
 
-/* Phase 5 (D2) — the platform's agreement queue. The one place a proposed
-   teacher agreement becomes a rate in force (approve) or does not (reject),
-   each decision audited. Rate configuration, not a money write — the same
-   posture as the commission rates above it. */
-
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";

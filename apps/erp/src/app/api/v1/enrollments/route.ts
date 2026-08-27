@@ -56,8 +56,6 @@ export const GET = withErrors(async (req) => {
         select: { id: true },
       });
       const teacherCourseIds = teacherCourses.map((c) => c.id);
-      // A ?courseId= filter must narrow within the teacher's own courses,
-      // not be replaced by them (an off-scope courseId yields nothing).
       where.courseId = courseId
         ? teacherCourseIds.includes(courseId)
           ? courseId
@@ -94,13 +92,6 @@ export const GET = withErrors(async (req) => {
     });
     const studentMap = new Map(students.map((s) => [s.id, s]));
 
-    // The printed student code, so a scanned card can be matched to a row on
-    // the client. Every id here has already been narrowed by the `where` above
-    // to enrollments this caller may read, and the code is the least sensitive
-    // thing on the card — it is set in the largest type on the front of it, and
-    // the door roster (`doorSessionState`) has always returned it to the same
-    // teachers. `student_profiles` carries no `center_id` and no RLS policy, so
-    // the app-layer narrowing above is the whole gate, deliberately.
     const profiles = await tx.studentProfile.findMany({
       where: { userId: { in: studentIds } },
       select: { userId: true, studentCode: true },
@@ -142,14 +133,7 @@ const createSchema = z.object({
 export const POST = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const body = await parseJson(req, createSchema);
-  // Moved to the shared kernel with its guards intact: the three-level
-  // blacklist gate, the center-roster block, the center-scope check and the
-  // duplicate-enrollment conflict.
   const enrollment = await enrollStudent(user, body);
-  // Funnel step 3. Attributed to the CENTER ACTOR who added them — the student
-  // is the object of this event, never its subject, and no student id travels.
-  // Runs in after(): never throws, result unused, and the runtime still
-  // guarantees execution — the response no longer waits on the analytics hop.
   runAfter(() => trackFirstStudent(user, user.centerId));
   return ok(enrollment, { status: 201 });
 });

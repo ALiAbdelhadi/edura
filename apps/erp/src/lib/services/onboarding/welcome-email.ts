@@ -1,18 +1,3 @@
-// =============================================================================
-// Student welcome/onboarding email — exactly-once, non-blocking, signed link.
-//
-// Fired AFTER a successful self-registration commit (never inside the tx, so a
-// mail-provider outage can never fail sign-up). Exactly-once is enforced by an
-// ATOMIC claim on student_profiles.onboarding_email_sent_at — whichever
-// concurrent call flips NULL→now() owns the send; everyone else no-ops.
-//
-// The "complete your profile" link carries a SIGNED, EXPIRING JWT (jose,
-// NEXTAUTH_SECRET, same 7-day TTL knob as invites). It deliberately does NOT
-// log anyone in: the invite-claim door stays password-less-accounts-only
-// (its gate 3), and a mailbox leak must never become account access for a
-// credentialed student. The token authenticates the LINK (deep-link + resend
-// state), the session authenticates the PERSON — /onboarding matches the two.
-// =============================================================================
 import { prisma } from "@repo/database";
 import { groupFamilyCode, send } from "@repo/notifications";
 import { SignJWT, jwtVerify } from "jose";
@@ -55,11 +40,6 @@ export async function verifyOnboardingToken(token: string): Promise<OnboardingTo
   }
 }
 
-/**
- * NEVER THROWS (mirrors the notification dispatcher's contract) — callers
- * fire-and-forget. `force` is the resend path: it skips the exactly-once stamp
- * but NOT the eligibility guards, and its callers are rate-limited.
- */
 export async function sendStudentWelcomeEmail(
   userId: string,
   opts: { force?: boolean } = {},
@@ -74,7 +54,6 @@ export async function sendStudentWelcomeEmail(
     }
 
     if (!opts.force) {
-      // Atomic exactly-once claim: only the call that flips NULL sends.
       const claimed = await prisma.studentProfile.updateMany({
         where: { userId, onboardingEmailSentAt: null },
         data: { onboardingEmailSentAt: new Date() },
@@ -96,9 +75,6 @@ export async function sendStudentWelcomeEmail(
     const locale: "ar" | "en" = user.locale === "en" ? "en" : "ar";
     const token = await signOnboardingToken(userId);
     const link = `${appBaseUrl()}/${locale}/onboarding?token=${token}`;
-    // The expiry sentence is derived from inviteTtlMs(), the same knob that
-    // signs the token above — the email cannot promise a window the token does
-    // not honour.
     const res = await send(
       "welcome",
       { email: user.email, locale, userId: user.id },

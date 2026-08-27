@@ -1,11 +1,3 @@
-// Onboarding-link companion endpoint.
-//   GET  ?token=…  → { status: valid | expired | invalid | mismatch }
-//                    (mismatch = signed for a different signed-in student)
-//   POST           → re-send the welcome email to the SIGNED-IN student.
-//                    Rate-limited (burst 3, ~1 refill / 10 min per user) —
-//                    this is the "resend link" action on the friendly
-//                    expired-token state, so it must exist but not be a
-//                    mail cannon.
 import { requireSession } from "@/lib/auth/session";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";

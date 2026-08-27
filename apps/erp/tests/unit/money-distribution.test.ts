@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeLessonSplit, computeTeacherDirectSplit } from "@/lib/services/finance/fees";
 
-// Step 4.5: fees are configurable (commission_settings). The platform default
-// stays the PRD §5.1 model — 2 EGP teacher + 2 EGP center per present student.
 const DEFAULT_FEES = { platformTeacherFee: 200, platformCenterFee: 200 };
 
 describe("computeLessonSplit — PRD §5.1 fee model (default fees)", () => {

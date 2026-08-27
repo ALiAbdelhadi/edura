@@ -105,17 +105,9 @@ async function main() {
         "Platform Accountant",
       );
 
-      // Points rules are operational CONFIGURATION, not demo data — the points
-      // engine reads them at runtime — so production needs them too. They carry
-      // no is_demo flag and are keyed by event name, so this stays idempotent.
       const POINTS_RULES: { eventName: string; pointsValue: number }[] = [
         { eventName: "attendance", pointsValue: 10 },
         { eventName: "online_payment", pointsValue: 20 },
-        // Same value as the online rule ON PURPOSE: this row makes the ledger
-        // say `cash_payment` for cash without changing a single award, so it can
-        // be seeded into a live environment with no behavioural consequence.
-        // Until it exists, RULE_FALLBACK in points.ts borrows the online rule —
-        // so seeding is safe whenever, and skipping it is safe too.
         { eventName: "cash_payment", pointsValue: 20 },
         { eventName: "first_booking", pointsValue: 50 },
         { eventName: "lesson_booking", pointsValue: 5 },
@@ -139,11 +131,6 @@ async function main() {
       }
       const center = await tx.center.upsert({
         where: { shortId: "NILE" },
-        // onboardingCompleted in BOTH branches: the demo center must present
-        // post-onboarding, or the server-side portal gate bounces the
-        // quick-login admin to the wizard. The update branch matters as much
-        // as create — an upsert that only sets it on create leaves any
-        // already-seeded row false forever (exactly what broke the E2E smoke).
         update: { isDemo: true, onboardingCompleted: true },
         create: {
           name: "Nile Educational Academy",

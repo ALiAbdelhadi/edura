@@ -4,34 +4,11 @@
 
 @source "../**/*.{ts,tsx}";
 
-/* ── ONE DERIVED VALUE, AND WHY IT EXISTS ───────────────────────────────────
-   `--teal` is the money vocabulary's `in` tone, and at text size it measures
-   4.30:1 on `--field` — under the 4.5:1 floor.
-
-   That is not theoretical. `[data-row]:hover` at the bottom of this file sets
-   the row ground to `--field`, and the settlement register's price row is the
-   one row on the site that carries `tone="in"`. So moving a mouse across the
-   hero's first row dropped its figure below AA, in the light theme, on the
-   page whose whole argument is that its figures are right.
-
-   THE SHARED PALETTE IS NOT THE PLACE TO FIX THIS. `--teal` lives in
-   packages/ui/src/styles/globals.css, which `erp` and `superadmin` also read;
-   re-pointing it here would change what a shared token MEANS underneath two
-   other apps, which is exactly the drift that file's header warns about. So
-   this declares a NEW name the shared layer does not own, derived from two
-   locked tokens — no new hue — and only `Figure`'s `in` tone reads it.
-
-   Measured after the change: 5.9:1 on --paper · 6.3:1 on --sheet ·
-   5.5:1 on --field. Every ground the tone can land on, including the hover.
-   ────────────────────────────────────────────────────────────────────────── */
 :root {
   --money-in: color-mix(in oklab, var(--teal) 80%, var(--ink));
 }
 
 [data-theme="dark"] {
-  /* Dark needs no correction: `--teal` #54c9bb already measures 7.30:1 on
-     `--field` there. Darkening it would only make the tone quieter for no
-     reason, so the dark theme keeps the palette's own value. */
   --money-in: var(--teal);
 }
 
@@ -192,31 +169,13 @@
       transform: scaleX(1);
     }
   }
-  /* ── Stacked text links, on a thumb ─────────────────────────────────────
-     `.rule-link` is a text link, and WCAG 2.2 sizes those by SPACING rather
-     than by box — the footer's 18px links with 28px between them do conform.
-     But the footer columns and the "read next" lists are NAVIGATION set as
-     stacked text, and 18px is a small thing to hit while walking.
 
-     Widening the GAP would be the wrong fix: it adds dead space between
-     targets rather than target, so a thumb aimed slightly off still lands on
-     nothing. So the BOX grows — to 44px, the size this site already demands
-     of every other control — and the list's own gap is removed to pay for it,
-     which makes the pitch exactly the target so no two can overlap (the
-     failure `.tap` warns about above).
-
-     `(pointer: coarse)` only: a mouse is precise, and the footer keeps the
-     tight editorial rhythm it was designed with, unchanged. */
   @media (pointer: coarse) {
     .rule-link-row {
       display: inline-block;
-      /* 18px of text + 2×13 = 44. */
       padding-block: 0.8125rem;
     }
 
-    /* The underline is positioned against the PADDING box, so without this it
-       would sit 13px below the text and stop reading as an underline at all.
-       Held to the same 3px it has everywhere else. */
     .rule-link-row::after {
       inset-block-end: calc(0.8125rem - 3px);
     }

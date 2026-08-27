@@ -1,25 +1,4 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * FINALIZE STUDENT CODES — give every already-onboarded student their letter
- * ============================================================================
- * Migration 20260803110000_student_code_v2 rewrote the legacy `STU-000123`
- * codes into the new eight-character shape, but it could only give them the
- * PENDING letter `X`: the final body is derived from the student's profile id
- * with a SHA-256 digest, which SQL has no business reproducing (one derivation,
- * in one language — see student-code-issue.ts).
- *
- * New students never need this. It exists for the students who finished
- * onboarding BEFORE the migration ran, and it is the last step of applying it:
- *
- *     bun run db:finalize-codes            # dry run, prints what it would do
- *     bun run db:finalize-codes --write
- *
- * IDEMPOTENT: it only ever touches a code that still starts with 'X' and whose
- * student has an education system with a letter. Running it twice changes
- * nothing the second time, and it can never move a code that is already final —
- * that guarantee lives inside finalizeStudentCode(), not here.
- */
 import "./load-env";
 import { withPlatformContext } from "../src/index";
 import { finalizeStudentCode } from "../src/queries/student-code-issue";

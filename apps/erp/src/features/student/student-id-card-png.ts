@@ -4,34 +4,6 @@ import { formatStudentCode } from "@repo/database/student-code";
 import type { StudentCard } from "@repo/server-core/services/students/student-card";
 import { CARD_H, CARD_W, WORDMARK } from "./student-id-card";
 
-// ===========================================================================
-// THE CARD AS A PNG — because the card's real destination is WhatsApp.
-//
-// The PDF (the print route) is the paper answer. This is the phone answer, and
-// on this platform it is the one that matters: a student shows the card to a
-// parent, sends it to a sibling, keeps it in their camera roll. WhatsApp does
-// not take a PDF anywhere useful.
-//
-// ── WHY IT IS DRAWN, NOT SCREENSHOTTED ─────────────────────────────────────
-//
-// The obvious route — html-to-image, SVG <foreignObject>, a canvas snapshot of
-// the DOM — needs every webfont inlined as a data URI to render text at all,
-// and silently falls back to a system face when it cannot. On an Arabic card
-// that failure is invisible in review and obvious on a student's phone.
-//
-// So the text is drawn with `ctx.fillText`, which uses the SAME text engine
-// the page uses — HarfBuzz shaping, the lam-alef ligature, bidi around the
-// Latin code — after `document.fonts.ready` guarantees the face is loaded.
-//
-// ── AND WHY IT CANNOT DRIFT FROM THE SCREEN CARD ───────────────────────────
-//
-// The geometry comes from `rosettePoints`, the same function the SVG path
-// builder consumes, and the colours are READ OFF the live card element rather
-// than restated here. There is no second palette and no second pattern to keep
-// in step: change the card, and the export changes with it.
-// ===========================================================================
-
-/** 2× so the image still looks drawn, not photographed, on a phone screen. */
 const SCALE = 2;
 
 function readVars(el: HTMLElement) {
@@ -70,11 +42,6 @@ function roundedRect(
   ctx.closePath();
 }
 
-/**
- * The issuer's mark, from the SAME path strings the card's SVG uses —
- * `Path2D` takes SVG path data directly, so there is no second drawing of it
- * to keep in step.
- */
 function drawEduraMark(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -107,30 +74,20 @@ function drawEduraMark(
 export async function renderStudentCardPng(opts: {
   card: StudentCard;
   locale: string;
-  /** The live card element — the single source of colours and font stack. */
   sourceEl: HTMLElement;
-  /** A rendered <QRCodeCanvas>; drawn in as-is. */
   qrCanvas: HTMLCanvasElement | null;
   labels: { cardTitle: string; codeLabel: string };
 }): Promise<Blob> {
   const { card, locale, sourceEl, qrCanvas, labels } = opts;
 
-  // Without this the dialog can capture a paint taken during the font swap and
-  // the Arabic renders in the fallback face — the exact failure this approach
-  // exists to avoid. Same reasoning as the receipt's print button.
   try {
     await document.fonts?.ready;
   } catch {
-    // A browser without the Font Loading API still draws; it may just race the
-    // swap. Not a reason to withhold the download.
   }
 
   const c = readVars(sourceEl);
   const identity = studentIdentity(card.patternSeed);
   const accent = c[identity.tone];
-  // The three permitted accents, read off the LIVE card element (see readVars)
-  // so the PNG picks up the same theme the student is looking at rather than a
-  // second palette restated here.
   const TONE = { indigo: c.indigo, teal: c.teal, amber: c.amber } as const;
   const ar = locale === "ar";
 
@@ -142,7 +99,6 @@ export async function renderStudentCardPng(opts: {
   ctx.scale(SCALE, SCALE);
   ctx.direction = ar ? "rtl" : "ltr";
 
-  // ---- Paper
   roundedRect(ctx, 0, 0, CARD_W, CARD_H, 14);
   ctx.fillStyle = c.sheet;
   ctx.fill();
@@ -150,20 +106,14 @@ export async function renderStudentCardPng(opts: {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // ---- The engraving, from the same numbers the SVG uses.
   ctx.save();
   roundedRect(ctx, 0, 0, CARD_W, CARD_H, 14);
   ctx.clip();
-  // A dumb loop, exactly like the SVG's. Every pass arrives positioned,
-  // coloured and weighted by `guillochePasses`, so the plate cannot come out
-  // different here than on screen — the centre and radius used to be hardcoded
-  // in BOTH files, which is why the composition could never vary per student.
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   for (const pass of guillochePasses(identity, CARD_W, CARD_H)) {
     ctx.strokeStyle = TONE[pass.tone];
     ctx.lineWidth = pass.width;
-    // FINAL, not multiplied again — see the note in student-identity.ts.
     ctx.globalAlpha = pass.opacity;
     ctx.beginPath();
     pass.points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
@@ -173,7 +123,6 @@ export async function renderStudentCardPng(opts: {
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // ---- Inner frame
   roundedRect(ctx, 14, 14, CARD_W - 28, CARD_H - 28, 8);
   ctx.strokeStyle = c.rule;
   ctx.lineWidth = 1;
@@ -184,14 +133,10 @@ export async function renderStudentCardPng(opts: {
   const end = ar ? pad : CARD_W - pad;
   ctx.textAlign = ar ? "right" : "left";
 
-  // ---- Issuer lockup (mark + wordmark), then the document type
   const MARK = 30;
   const GAP = 9;
   drawEduraMark(ctx, ar ? start - MARK : start, pad - 8, MARK, c.indigo);
 
-  // The wordmark: Latin, mono, tracked, brand-coloured — laid out by hand
-  // because the row mixes a Latin name with an Arabic phrase and letting the
-  // bidi algorithm order them would put the issuer in the wrong place.
   ctx.save();
   ctx.direction = "ltr";
   ctx.textAlign = "left";
@@ -223,13 +168,11 @@ export async function renderStudentCardPng(opts: {
     ctx.fillText(system, start, pad + 76, CARD_W - pad * 2 - 130);
   }
 
-  // ---- QR, on the trailing side of the header
   if (qrCanvas) {
     const size = 92;
     const boxX = ar ? pad : CARD_W - pad - size - 12;
     ctx.save();
     roundedRect(ctx, boxX, pad - 10, size + 12, size + 12, 6);
-    // White, in both themes — see the note on the QR patch in student-id-card.
     ctx.fillStyle = "#ffffff";
     ctx.fill();
     ctx.strokeStyle = c.rule;
@@ -239,13 +182,11 @@ export async function renderStudentCardPng(opts: {
     ctx.restore();
   }
 
-  // ---- Code
   ctx.textAlign = ar ? "right" : "left";
   ctx.fillStyle = c.ink3;
   ctx.font = `600 12px ${/[؀-ۿ]/.test(labels.codeLabel) ? c.body : c.mono}`;
   ctx.fillText(labels.codeLabel, start, CARD_H - pad - 44);
 
-  // The code itself is Latin data: always LTR, always mono, never mirrored.
   ctx.save();
   ctx.direction = "ltr";
   ctx.textAlign = ar ? "right" : "left";
@@ -254,7 +195,6 @@ export async function renderStudentCardPng(opts: {
   ctx.fillText(formatStudentCode(card.studentCode), start, CARD_H - pad - 8);
   ctx.restore();
 
-  // ---- Grade + track, on the trailing side
   ctx.textAlign = ar ? "left" : "right";
   const grade = (ar ? card.gradeLevel?.nameAr : card.gradeLevel?.nameEn) ?? card.gradeLevel?.nameAr;
   const track = (ar ? card.track?.nameAr : card.track?.nameEn) ?? card.track?.nameEn;
@@ -269,7 +209,6 @@ export async function renderStudentCardPng(opts: {
     ctx.fillText(track, end, CARD_H - pad - 6);
   }
 
-  // ---- Micro-print along the foot
   ctx.save();
   ctx.direction = "ltr";
   ctx.textAlign = "left";

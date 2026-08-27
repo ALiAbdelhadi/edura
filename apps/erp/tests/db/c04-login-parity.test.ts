@@ -1,32 +1,3 @@
-// C-04 proof (www) — the ONE www login door must accept exactly the accounts
-// the shared role partition says it may, and no others.
-//
-// The original verification report: `reception@…`, `manager@…`, `accountant@…`
-// (role=center_staff) got **401 with the correct password** from
-// POST /api/v1/auth/login while the browser door returned 200 + a cookie,
-// because that route declared its own allowlist and omitted center_staff.
-//
-// HISTORY, because it changes what this file is: C-04 was a PARITY proof
-// between two doors. The second door — the manual REST mirror at
-// POST /api/v1/auth/login — was RETIRED on 2026-08-18: no application code
-// called it (the Playwright E2E suite drives the real login form), and its only
-// throttling was a per-IP bucket that a rotated X-Forwarded-For defeated, while
-// better-auth's own per-account limiter does not. Deleting the door removes the
-// drift surface C-04 existed to police, so what survives here is the half that
-// still earns its keep: the partition and the hardening, proved BEHAVIOURALLY
-// against the live DB through the real better-auth pipeline.
-//
-// Nothing here is mocked. It drives the REAL better-auth pipeline via
-// helpers/auth-door (before-hooks, credential verify, session-row creation with
-// the centerId enrichment hook, cookie issuance), with sessionFor() as "a later
-// request carrying the session" — the real per-request gate every www route
-// sits behind.
-//
-// It also re-proves the hardening around this door: the H5 dummy-hash timing
-// defense (with the Ali-approved scoped USER_NOT_FOUND exception), L1
-// revocation (HARD: the users_revoke_sessions trigger deletes session rows),
-// C-03 live status revocation (typed ACCOUNT_INACTIVE for a proven owner), and
-// the narrow invite-token claim door.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
@@ -52,11 +23,6 @@ function assert(cond: boolean, msg: string) {
     console.error("  ✗", msg);
   }
 }
-
-// ------------------------------------------------------ the www login door
-// signInDoor/sessionFor/claimDoor in helpers/auth-door drive the full real
-// pipeline; sessionFor(cookie) is the per-request gate every www request sits
-// behind (replaces the old NextAuth jwt()/session() callback simulation).
 
 async function main() {
   const tag = "c04-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -93,7 +59,6 @@ async function main() {
     tx.centerAdminProfile.create({ data: { userId: owner.id, centerId: fx.center.id } }),
   );
 
-  // The three center_staff sub-roles from the report.
   const staff: Record<string, { id: string; email: string }> = {};
   for (const sub of ["receptionist", "manager", "center_accountant"] as const) {
     const u = await mk(sub, "center_staff");
@@ -103,8 +68,6 @@ async function main() {
     staff[sub] = u;
   }
 
-  // The other www roles (parity must not have narrowed) + the back-office roles
-  // (must still be refused by www) + a passwordless walk-in shell student.
   const teacher = await mk("teacher", "teacher");
   const student = await mk("student", "student");
   const parent = await mk("parent", "parent");
@@ -113,7 +76,6 @@ async function main() {
   const platformAccountant = await mk("platform-accountant", "accountant");
 
   try {
-    // ================================================================== 1) C-04
     console.log("\n1) center_staff logs in through BOTH doors, all three sub-roles");
     for (const sub of ["receptionist", "manager", "center_accountant"] as const) {
       const u = staff[sub]!;
@@ -121,9 +83,6 @@ async function main() {
       const na = await signInDoor(u.email, PW);
       assert(na.ok && (na.user.id as string) === u.id, `${sub}: browser door -> the same user`);
 
-      // End to end: the session the door minted is accepted by the very same
-      // per-request gate every www route sits behind, carrying the claims the
-      // C-04 report found missing (role + the staff member's centerId).
       const naSession = na.ok ? await sessionFor(na.cookie) : null;
       assert(naSession?.userId === u.id, `${sub}: the issued session authenticates later requests`);
       assert(
@@ -131,7 +90,6 @@ async function main() {
         `${sub}: the session claims carry role + the staff member's center`,
       );
 
-      // The staff member is usable: the live link still resolves the sub-role.
       const ctx = await resolveCenterActorContext({
         id: u.id,
         role: "center_staff",
@@ -143,7 +101,6 @@ async function main() {
       );
     }
 
-    // ============================================== 2) the other www roles pass
     console.log("\n2) every other www role still passes through BOTH doors");
     __resetRateLimiterForTests();
     for (const [label, u] of [
@@ -166,7 +123,6 @@ async function main() {
       "center_admin: the session still resolves the center from the admin profile",
     );
 
-    // =================================== 3) back-office roles rejected on www
     console.log("\n3) super_admin + accountant are still refused by BOTH www doors");
     __resetRateLimiterForTests();
     for (const [label, u] of [
@@ -181,7 +137,6 @@ async function main() {
       );
     }
 
-    // ============================================ 4) the allowlists are one list
     console.log("\n4) the two doors read ONE list");
     __resetRateLimiterForTests();
     assert(
@@ -193,7 +148,6 @@ async function main() {
       [...SUPERADMIN_LOGIN_ROLES].sort().join(",") === "accountant,super_admin",
       "shared policy: superadmin = the two back-office roles",
     );
-    // Behavioural set-equality: every role, through both doors, agrees.
     let disagreements = 0;
     for (const [role, u] of [
       ["center_admin", owner],
@@ -217,19 +171,9 @@ async function main() {
       "all 8 roles: REST verdict === browser-door verdict === the shared policy",
     );
 
-    // ================================================= 5) hardening regressions
     console.log("\n5) auth hardening intact");
     __resetRateLimiterForTests();
 
-    // --- H5: bcrypt runs on EVERY path (no timing oracle). The REST door stays
-    // fully generic; the browser door carries the ONE Ali-approved scoped
-    // exception (typed USER_NOT_FOUND for a truly unknown email — sign-up
-    // conversion UX, bounded by C2, dummy compare keeps the timing identical).
-    // A missing account must still pay for a hash comparison. (The structural
-    // guarantee — one unconditional compare against DUMMY_HASH when ineligible
-    // — lives in the before-hook in lib/auth/auth.ts; wall-clock over a network
-    // DB is too noisy to compare the two paths directly, so this only asserts
-    // the work happened at all.)
     const t0 = Date.now();
     const doorUnknown = await signInDoor(`${tag}-nobody@x.io`, PW);
     const tUnknown = Date.now() - t0;
@@ -248,9 +192,6 @@ async function main() {
       tUnknown > 15 && tWrong > 15,
       `H5: both the unknown-email (${tUnknown}ms) and wrong-password (${tWrong}ms) paths ran bcrypt`,
     );
-    // The ineligible-role path must ALSO compare a hash (a back-office account
-    // must not answer faster than a wrong password on www) and stay generic —
-    // USER_NOT_FOUND must never fire for an account that merely lives elsewhere.
     const t2 = Date.now();
     const doorSuper = await signInDoor(superAdmin.email, PW);
     assert(Date.now() - t2 > 15, "H5: the ineligible-role path runs bcrypt too (no fast reject)");
@@ -259,17 +200,7 @@ async function main() {
       "H5: an ineligible role is generic — the typed unknown-email answer never leaks app membership",
     );
 
-    // --- C2: rate limiting.
-    // The per-IP `withRateLimit` burst that used to be proved here belonged to
-    // the retired REST door and went with it. What remains — and is the
-    // stronger property — is better-auth's own PER-ACCOUNT throttle below,
-    // which a rotated X-Forwarded-For cannot defeat (measured 2026-08-18:
-    // 20 rotating-IP attempts, all refused).
     const rlEmail2 = `${tag}-rl2@x.io`;
-    // Per-EMAIL bucket: cap 5. The IP varies per call (freshIp), so this is
-    // unambiguously the email bucket doing the throttling; then confirm the
-    // CORRECT password is refused too (a throttled account is locked, not just
-    // wrong-password-rejected) with the typed RATE_LIMITED failure.
     for (let i = 0; i < 6; i++) await signInDoor(rlEmail2, "nope");
     const throttled = await signInDoor(rlEmail2, PW);
     assert(
@@ -282,8 +213,6 @@ async function main() {
       "C2: an unrelated account is unaffected (the bucket is per-email, not global)",
     );
 
-    // --- L1: revocation on token_version bump — now HARD (the DB trigger
-    // deletes the session rows; stronger than the old per-request epoch re-read).
     __resetRateLimiterForTests();
     const l1 = await signInDoor(student.email, PW);
     assert(l1.ok, "L1: baseline login succeeds");
@@ -309,7 +238,6 @@ async function main() {
       "L1: the re-issued session is accepted again (revocation kills old, not new)",
     );
 
-    // --- C-03: live status revocation, on the center_staff path specifically.
     const revoked = staff.receptionist!;
     const rv = await signInDoor(revoked.email, PW);
     const rvCookie = rv.ok ? rv.cookie : "";
@@ -341,8 +269,6 @@ async function main() {
       tx.user.update({ where: { id: revoked.id }, data: { status: "active" } }),
     );
 
-    // A shell (passwordless) account must not be admitted by the password door
-    // even though its role is on the www allowlist.
     const shell = await mk("shell", "student", false);
     await admin.query(`UPDATE users SET status = 'shell' WHERE id = $1`, [shell.id]);
     assert(
@@ -350,7 +276,6 @@ async function main() {
       "guard intact: a passwordless shell account is refused by the password door",
     );
 
-    // --- Step 7: the narrow invite-token claim door still works and stays narrow.
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
     await withPlatformContext((tx) =>
@@ -375,7 +300,6 @@ async function main() {
       );
     }
     assert(!(await claimDoor(rawToken)).ok, "walk-in: the token is single-use (second claim refused)");
-    // And it is still NOT a general login door.
     const staffToken = randomBytes(32).toString("hex");
     await withPlatformContext((tx) =>
       tx.inviteToken.create({
@@ -411,8 +335,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c04-login-parity.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

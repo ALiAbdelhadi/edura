@@ -1,24 +1,3 @@
-/**
- * ===========================================================================
- * PHASE 2 — ACADEMIC PARITY: a super admin manages ANY center's courses,
- * enrollments and enrollment requests, exactly as that center would.
- * ===========================================================================
- * Drives the REAL shipped services:
- *
- *   apps/superadmin/src/lib/services/admin/center-academic.ts
- *     → @repo/server-core/services/center/{courses,enrollments}.ts
- *
- * — the same kernel apps/www now calls through its route shims.
- *
- * The money question this phase raises, and the one the file is built around:
- * a course carries a FROZEN pricing snapshot (method + split bps + Method-2
- * rate) taken at creation from superadmin config, and settlement reads it.
- * So the proof asserts that snapshot is set once and then never moves — not by
- * an edit, not by a hall swap, not by a teacher reassignment, not by a cancel.
- *
- *   bunx tsx --env-file=<env> tests/db/center-academic.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -66,7 +45,6 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
 
 const q = async (sql: string, p: unknown[] = []) => (await admin.query(sql, p)).rows;
 
-/** The frozen economics of a course — what must never move after creation. */
 async function frozen(courseId: string) {
   const r = (
     await q(
@@ -147,7 +125,6 @@ async function main() {
   try {
     console.log(`PHASE 2 — ACADEMIC PARITY — ${tag}`);
 
-    // ---------------- fixtures ----------------
     const superAdminId = await mkUser("super", "super_admin");
     const actor = { id: superAdminId, role: "super_admin" } as SessionUser;
 
@@ -172,8 +149,6 @@ async function main() {
         [cid, tid],
       );
     }
-    // family_link_code is UNIQUE and capped at 12 chars, so the discriminator
-    // has to lead — appending it collides once the tag fills the field.
     for (const [i, [sid, key]] of (
       [
         [student1, "s1"],
@@ -219,9 +194,7 @@ async function main() {
       endDate: day(30),
     };
 
-    // =====================================================================
     section("Courses — create");
-    // =====================================================================
     const created = await adminCreateCourse(actor, centerA, {
       teacherId: teacher1,
       title: `${tag}-math`,
@@ -246,7 +219,6 @@ async function main() {
 
     const frozenAtCreate = await frozen(courseId);
 
-    // Business rules, unchanged because they live in the kernel.
     const unaff = await rejects(
       () =>
         adminCreateCourse(actor, centerA, {
@@ -279,9 +251,7 @@ async function main() {
       "refuses another center's hall — no cross-tenant pricing snapshot",
     );
 
-    // =====================================================================
     section("Courses — edit, and the frozen snapshot");
-    // =====================================================================
     await adminUpdateCourse(actor, centerA, courseId, {
       title: `${tag}-math-renamed`,
       maxStudents: 5,
@@ -306,7 +276,6 @@ async function main() {
       "audit: the record itself asserts the frozen pricing did not move",
     );
 
-    // The hall is part of the money arrangement — it cannot be attached later.
     const hallSwap = await rejects(
       () => adminUpdateCourse(actor, centerA, courseId, { defaultRoomId: roomA } as never),
       /hall cannot be attached|cannot be changed/i,
@@ -320,11 +289,6 @@ async function main() {
       "MONEY: the refused hall swap changed nothing",
     );
 
-    // Isolation on a write.
-    // Two layers can stop this and BOTH are correct: RLS filters the row out
-    // entirely while the tenant is center B (-> "Course not found"), or, if the
-    // row were visible, requireCenterScope refuses it ("different center").
-    // The assertion is on the OUTCOME plus the fact that one of them fired.
     const crossEdit = await rejects(
       () => adminUpdateCourse(actor, centerB, courseId, { title: "hijack" }),
       /different center|not found/i,
@@ -339,9 +303,7 @@ async function main() {
       "isolation: the refused cross-center edit changed nothing",
     );
 
-    // =====================================================================
     section("Enrollments");
-    // =====================================================================
     const e1 = await adminEnrollStudent(actor, centerA, { studentId: student1, courseId });
     assert(!!e1.id, "enrols a student");
     assert(
@@ -370,7 +332,6 @@ async function main() {
     );
     assert(dupe.threw && dupe.matched, "refuses a duplicate active enrollment");
 
-    // Blacklist gate — the kernel's, at center level.
     const blEntry = (
       await q(
         `INSERT INTO blacklist_entries (target_id, level, center_id, imposed_by_id, reason, is_active)
@@ -406,9 +367,7 @@ async function main() {
       "audit: one row, recording that nothing was refunded",
     );
 
-    // =====================================================================
     section("Enrollment requests");
-    // =====================================================================
     const reqId = (
       await q(
         `INSERT INTO enrollment_requests (student_id, course_id, center_id, status, expires_at, updated_at)
@@ -463,9 +422,7 @@ async function main() {
     );
     assert(expired.threw && expired.matched, "business rule holds: an EXPIRED request is refused");
 
-    // =====================================================================
     section("Reassign teacher, then cancel");
-    // =====================================================================
     const beforeSessions = await q(
       `SELECT count(*)::int c FROM sessions WHERE course_id=$1 AND teacher_id=$2`,
       [courseId, teacher1],
@@ -528,9 +485,7 @@ async function main() {
     const readBack = await adminGetCourse(actor, centerA, courseId);
     assert(readBack.status === "cancelled", "reads the course back through the same scope");
 
-    // =====================================================================
     section("MONEY — academic operations move nothing");
-    // =====================================================================
     const after = await moneySnapshot(
       [centerA, centerB],
       [student1, student2, studentBlacklisted],
@@ -571,8 +526,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-academic.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

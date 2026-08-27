@@ -1,33 +1,10 @@
-/**
- * Walks the back office's two guided tours in a real browser.
- *
- * THE OBSTACLE THIS EXISTS TO SOLVE. 2FA is mandatory on every screen of this
- * app, so the other six portals' approach — sign in, reload, walk — cannot
- * reach a single dashboard here. And the TOTP secret is ENCRYPTED at rest, so
- * it cannot be read out of the database and reused.
- *
- * THE WAY THROUGH is the product's own enrolment flow, driven end to end:
- *
- *   sign in → `two-factor/enable` (returns the totpURI, the ONLY moment the
- *   plaintext secret exists) → compute the code → `two-factor/verify-totp`
- *   → enrolled, session valid → the dashboard → the tour opens.
- *
- * That is also why it runs against a DISPOSABLE FIXTURE and never a real
- * operator's account: enrolling binds a factor this process holds. Re-seed with
- * `prisma/backoffice-tour-fixture.ts` before each pass — it clears the previous
- * enrolment, which is what makes the run repeatable.
- */
 import { test, expect, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
-// Imported across the app boundary on purpose: the assertion must compare the
-// walk against the REAL step lists the back office ships, not a copy that can
-// drift. Playwright lives in apps/www, so the spec lives here and reaches over.
 import { SUPERADMIN_TOUR_STEPS } from "../../../superadmin/src/features/tour/steps";
 import { FINANCE_TOUR_STEPS } from "../../../superadmin/src/features/tour/finance-steps";
 
 const PASSWORD = "Passw0rd!";
 
-/** RFC 4648 base32 → bytes. The secret arrives inside the otpauth URI. */
 function base32Decode(input: string): Buffer {
   const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   const clean = input.replace(/=+$/, "").toUpperCase();
@@ -47,7 +24,6 @@ function base32Decode(input: string): Buffer {
   return Buffer.from(out);
 }
 
-/** RFC 6238 TOTP: HMAC-SHA1, 30-second step, 6 digits — better-auth's default. */
 function totp(secret: string, at = Date.now()): string {
   const counter = Math.floor(at / 1000 / 30);
   const buf = Buffer.alloc(8);
@@ -62,7 +38,6 @@ function totp(secret: string, at = Date.now()): string {
   return String(bin % 1_000_000).padStart(6, "0");
 }
 
-/** Post to better-auth from the page, so cookies ride along. */
 async function authPost(page: Page, path: string, body: unknown) {
   return page.evaluate(
     async ([p, b]) => {
@@ -77,7 +52,6 @@ async function authPost(page: Page, path: string, body: unknown) {
   );
 }
 
-/** Sign in and get through the 2FA gate, enrolling on the way if needed. */
 async function signInThrough2fa(page: Page, email: string) {
   await page.goto("/ar/login");
   await page.waitForLoadState("networkidle").catch(() => {});
@@ -85,8 +59,6 @@ async function signInThrough2fa(page: Page, email: string) {
   const signIn = await authPost(page, "sign-in/email", { email, password: PASSWORD });
   expect(signIn.status, `sign-in failed for ${email}`).toBeLessThan(400);
 
-  // Already enrolled? better-auth answers with a two-factor redirect instead of
-  // a session. The fixture starts clean, so this is the re-run path.
   const needsSecondFactor = Boolean(
     (signIn.json as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect,
   );
@@ -95,7 +67,6 @@ async function signInThrough2fa(page: Page, email: string) {
     "the fixture should start UNENROLLED — re-run prisma/backoffice-tour-fixture.ts",
   ).toBe(false);
 
-  // Enrol: this response carries the only plaintext copy of the secret.
   const enable = await authPost(page, "two-factor/enable", { password: PASSWORD });
   expect(enable.status, "two-factor/enable failed").toBeLessThan(400);
   const uri = (enable.json as { totpURI?: string } | null)?.totpURI;
@@ -108,15 +79,6 @@ async function signInThrough2fa(page: Page, email: string) {
   expect(verify.status, "two-factor/verify-totp failed").toBeLessThan(400);
 }
 
-/**
- * Put the fixture back to UNENROLLED.
- *
- * Each test enrols, because that is the only moment the plaintext secret
- * exists. Leaving the enrolment behind would make the SECOND test in a run
- * unable to sign in at all — it would be handed a 2FA challenge whose secret
- * nothing can recompute. So every test hands the account back as it found it.
- */
-/** Put the account back to "never seen the tour", through the app's own API. */
 async function resetGate(page: Page) {
   await page.evaluate(async () => {
     await fetch("/api/v1/me/prefs", {
@@ -160,9 +122,6 @@ for (const c of CASES) {
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await signInThrough2fa(page, c.email);
-    // Independent of whatever a previous test left behind: the gate is a
-    // per-USER flag, and the first test to finish a tour would otherwise close
-    // it for every test after it.
     await resetGate(page);
 
     await page.goto(c.home);
@@ -175,8 +134,6 @@ for (const c of CASES) {
 
     let steps = 1;
     for (let i = 0; i < 24; i++) {
-      // No card may print a raw i18n key — the failure mode that reached a
-      // screen once already, since a missing key renders as its own path.
       expect(
         await dialog.locator(`text=/${c.namespace}\\./`).count(),
         `raw i18n key on card ${steps}`,

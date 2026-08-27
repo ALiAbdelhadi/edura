@@ -2,15 +2,6 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// M8 (security audit) — the string-building raw-SQL API is banned. The last
-// usage (a static query in reconcile-wallets.ts) was converted to the tagged
-// template on 2026-08-26; this guard is what keeps the count at zero, because
-// an API whose one call-site pattern is "concatenate SQL" only needs one
-// future convenience edit to become an injection.
-//
-// The tagged-template `$queryRaw` stays legal everywhere: its parameters are
-// bound, not concatenated.
-
 const ROOTS = [
   join(__dirname, "../../../../apps/erp/src"),
   join(__dirname, "../../../../apps/superadmin/src"),

@@ -152,8 +152,6 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
         }
       : undefined;
 
-  /* What has already been decided, carried at the top of every later step.
-     The review step omits it — the whole step IS the summary. */
   const trail =
     stepId === "review"
       ? []
@@ -275,8 +273,6 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
             <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--rule-2)" }} />
           </>
         ) : langOptions.length === 0 ? (
-          /* This one already had an empty state, and it has a real way out —
-             the Skip in the footer — so it is a note, not a blocked step. */
           <p className="text-center text-sm" style={{ color: "var(--ink-2)" }}>
             {t("onboarding.empty.noOptions")}
           </p>
@@ -292,9 +288,6 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
           ))
         )}
       </div>,
-      /* Skip is a real choice here, not an escape hatch, so it is the footer's
-         only control — and secondary, because picking a language is the path
-         the step exists for. */
       <WizardActions
         variant="secondary"
         label={t("onboarding.skip")}
@@ -319,7 +312,6 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
 
   return shell(
     <div className="grid gap-6">
-      {/* The ledger's own device: label and value on one ruled line. */}
       <Sheet className="px-4">
         <dl className="grid">
           {rows.map(([k, v], i) => (
@@ -350,9 +342,6 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
         {previewSubjects === null ? (
           <div className="h-16 animate-pulse rounded-xl" style={{ background: "var(--rule-2)" }} />
         ) : previewSubjects.length === 0 ? (
-          /* The consequence of confirming, stated before the commit. This
-             selection assigns no subjects, and the student would otherwise
-             find that out only on an empty Subjects screen. */
           <p
             className="rounded-lg px-3 py-2 text-sm"
             style={{

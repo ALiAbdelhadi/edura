@@ -2,22 +2,6 @@
 
 const STORAGE_KEY = "edura-v2-theme";
 
-/**
- * Theme is a two-state toggle, not a three-state menu.
- *
- * THE SHARED SHEET DRIVES DARK FROM `data-theme="dark"` ALONE — its custom
- * variant is `&:where([data-theme="dark"], …)` and it carries no
- * `prefers-color-scheme` branch at all. So the attribute must ALWAYS be
- * present: the bootstrap below stamps it from the stored choice, or from the
- * OS preference when there is no stored choice. Leaving it absent for an
- * OS-dark reader would serve them the light palette with no error anywhere.
- *
- * It holds NO React state, deliberately. The resolved theme already exists in
- * exactly one place — the attribute — and both icons ship in the markup with
- * CSS choosing between them. Mirroring that into `useState` would mean an
- * effect that reads the DOM and sets state on mount: a cascading render, a
- * hydration mismatch to suppress, and a second source of truth.
- */
 export function ThemeToggle({ label }: { label: string }) {
   function toggle() {
     const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -25,9 +9,6 @@ export function ThemeToggle({ label }: { label: string }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      // Private browsing denies localStorage. The toggle still works for this
-      // page view, it just is not remembered. Throwing here would take the
-      // theme switch down entirely, which is the worse outcome.
     }
   }
 
@@ -65,12 +46,6 @@ export function ThemeToggle({ label }: { label: string }) {
   );
 }
 
-/**
- * Runs before first paint, inline in <head>. A fetched script can resolve
- * after paint, which is the light flash this exists to prevent — and here it
- * is also what makes the OS preference work at all, since the shared sheet
- * only ever looks at the attribute.
- */
 export const THEME_BOOTSTRAP = `(function(){var d=document.documentElement;var t=null;try{t=localStorage.getItem(${JSON.stringify(
   STORAGE_KEY,
 )})}catch(e){}if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}d.dataset.theme=t})()`;

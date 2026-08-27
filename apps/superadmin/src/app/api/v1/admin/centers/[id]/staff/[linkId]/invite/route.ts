@@ -10,9 +10,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ locale: z.enum(["ar", "en"]).optional() }).strict();
 
-// Refused once the staff member has set their own password — re-inviting would
-// be a password-reset door over someone else's account. That guard lives in the
-// kernel service, so it holds from either app.
 export const POST = withRateLimit(
   withErrors(async (req, ctx) => {
     const user = await requireRole("super_admin");

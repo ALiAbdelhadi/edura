@@ -5,16 +5,6 @@ import { Button } from "@repo/ui/components/button";
 import { Ink } from "@/components/ink";
 import { SettlementRegister } from "@/components/settlement-register";
 
-/**
- * The register comes FIRST in the source and first in the inline direction,
- * so it is what a reader meets in both scripts. That is the deliberate
- * inversion: this audience has been sold to before and is convinced by an
- * itemised sheet, not by a claim. The headline explains the sheet; the sheet
- * does not illustrate the headline.
- *
- * There is no eyebrow above the headline. A kicker is a label apologising
- * for a heading that should carry itself.
- */
 export function Hero({ t, locale }: { t: Messages; locale: Locale }) {
   return (
     <section className="mx-auto w-full max-w-[87.5rem] px-6 pt-16 pb-16 md:px-10 lg:pt-24 lg:pb-24">
@@ -24,9 +14,6 @@ export function Hero({ t, locale }: { t: Messages; locale: Locale }) {
         </div>
 
         <div className="order-1 lg:order-2">
-          {/* One of only two lines on this page that animate. The words are
-              split on the SERVER — see `Ink` — so they ship in the HTML and
-              the headline is whole with JavaScript disabled. */}
           <Ink
             as="h1"
             text={t.hero.headline}
@@ -46,9 +33,6 @@ export function Hero({ t, locale }: { t: Messages; locale: Locale }) {
             </Button>
           </div>
 
-          {/* Three reassurances, set as ledger sub-entries: a short rule, then
-              the claim. No icons — an icon beside "cash is recorded exactly
-              as online is" adds decoration, not meaning. */}
           <ul className="mt-10 space-y-3 border-t border-rule pt-6">
             {t.hero.assurances.map((line) => (
               <li key={line} className="flex items-baseline gap-3 text-[0.875rem] text-ink-3">

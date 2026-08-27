@@ -5,7 +5,6 @@ import { parseProvenance } from "@/lib/http/provenance";
 
 export const dynamic = "force-dynamic";
 
-// Operational report — MANAGER (and owner).
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const result = await getCourseFillRates(user, parseProvenance(new URL(req.url)));

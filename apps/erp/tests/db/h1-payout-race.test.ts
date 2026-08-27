@@ -1,6 +1,3 @@
-// H1 proof — two concurrent full-balance payout requests must NOT both succeed.
-// Runs the REAL requestTeacherPayout service (FOR UPDATE row lock) twice in
-// parallel and asserts exactly one wins and the wallet is never over-reserved.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { requestTeacherPayout } from "@/lib/services/finance/teacher-wallet";
 import { requestCenterPayout } from "@/lib/services/finance/center-wallet";
@@ -9,9 +6,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
 
-// H-03: these seed UUIDs were removed by the Step 9 pre-launch wipe. Prefer
-// them when they still exist, otherwise bind to any teacher / any center that
-// has an admin — the proof is about the row lock, not about a specific row.
 const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
 const SEED_CENTER = "24a08f67-c5be-4073-9f7a-76d0bf688e4d";
 const SEED_CENTER_ADMIN = "2d4b57cf-0dfc-48aa-aff9-ad2ae2673353";
@@ -92,7 +86,6 @@ async function race(
   const pass = fulfilled === 1 && rejected.length === 1 && after.n === 1 && after.total === BAL;
   console.log(pass ? `  ${label} PASS ✔ — exactly one won; not over-drawn` : `  ${label} FAIL ✗`);
 
-  // Cleanup.
   await admin.query(
     `DELETE FROM payouts WHERE beneficiary_id=$1 AND status IN ('pending','approved')`,
     [beneficiaryId],
@@ -126,8 +119,6 @@ async function main() {
   process.exit(teacherPass && centerPass ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite h1-payout-race.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

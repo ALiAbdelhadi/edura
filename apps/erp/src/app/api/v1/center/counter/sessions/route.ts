@@ -5,7 +5,6 @@ import { listCounterSessions } from "@repo/server-core/services/attendance/count
 
 export const dynamic = "force-dynamic";
 
-/** One teacher's lessons today at this center, with the check-in counts. */
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const teacherId = new URL(req.url).searchParams.get("teacherId");

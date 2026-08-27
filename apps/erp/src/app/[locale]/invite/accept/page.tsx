@@ -125,14 +125,6 @@ function InviteAcceptContent() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          {/* A bare <img>: next/image REFUSES SVG unless the optimizer is
-              opened to it, so this rendered as a broken image — on the page a
-              family lands on from the invite link in their WhatsApp or email,
-              which is the worst screen in the product to greet someone with a
-              broken logo. `priority` becomes eager + high fetch priority.
-              `alt` STAYS "Edura" here: unlike the marketing chrome, no wordmark
-              is rendered beside this one, so it is the only thing naming the
-              product on the screen. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/edura-logo.svg"

@@ -39,7 +39,6 @@ export function MetricCard({
   factIcon?: React.ReactNode;
   blocking?: boolean;
   blockingLabel?: React.ReactNode;
-  /** Grid placement (e.g. `lg:col-span-2`) — the card is the grid item itself. */
   className?: string;
 }) {
   return (

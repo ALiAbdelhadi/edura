@@ -1,11 +1,5 @@
 import type { SendTemplateInput, SendTemplateResult, WhatsAppDriver } from "./types";
 
-/**
- * Meta WhatsApp Business Cloud API driver. Selected only when
- * WHATSAPP_MODE=live; requires WHATSAPP_TOKEN + WHATSAPP_PHONE_ID (and the
- * templates in templates.ts approved under those exact names). Until the
- * business number is verified, run mock mode.
- */
 export const cloudApiWhatsAppDriver: WhatsAppDriver = {
   name: "cloud_api",
   async sendTemplate(input: SendTemplateInput): Promise<SendTemplateResult> {

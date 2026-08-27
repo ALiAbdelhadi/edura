@@ -215,7 +215,6 @@ export function financeAlerts() {
       }),
       tx.teacherProfile.count({ where: { walletBalance: { lt: 0 } } }),
       tx.center.count({ where: { walletBalance: { lt: 0 } } }),
-      // Phase 4 (D4): centers in credit arrears — the platform's receivables.
       tx.center.count({ where: { creditBalance: { lt: 0 } } }),
       tx.transaction.count({
         where: { type: "refund", amount: { gt: 5000000 } },

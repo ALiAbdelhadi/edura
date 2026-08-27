@@ -1,22 +1,3 @@
-// Team notes — proofs against the LIVE DB, driving the REAL authorization
-// surface (center-actor / acting-teacher resolution) and the REAL service with
-// plain SessionUser objects (same style as center-staff-delegation). No mocks.
-//
-// Proves, per the approved plan (2026-07-27):
-//   1. a note fans out `team_note_created` to every team peer EXCEPT the
-//      author (and to nobody outside the team);
-//   2. listing the board IS the read receipt — recorded once, idempotent,
-//      and it works for the read-only center_accountant too;
-//   3. center↔center isolation (service AND raw RLS) and teacher-team↔
-//      teacher-team isolation;
-//   4. to-do semantics: any member flips status; the author is notified when
-//      someone ELSE flips theirs, never on a self-flip;
-//   5. body edits are author-only; pin/delete are author-or-lead
-//      (receptionist ≠ lead, manager/owner/teacher/assistant = lead);
-//   6. center_accountant remains read-only (method gate) yet fully on the
-//      board (listed as member, receipts recorded, canWrite=false);
-//   7. soft-remove of an assistant immediately drops them from the fanout;
-//   8. the DB CHECK rejects a note with both scopes or neither.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { ForbiddenError, NotFoundError } from "@/lib/errors/classes";
@@ -136,7 +117,6 @@ async function main() {
   const U = [fx.ownerA, fx.recA, fx.mgrA, fx.accA, fx.ownerB, fx.recB, fx.t1, fx.x1, fx.x2, fx.t2, fx.y].map((u) => u.id);
   const C = [fx.centerA, fx.centerB];
 
-  // ---- actor builders (the REAL resolution paths) -------------------------
   const ownerActorA = await authorizeCenterActor(
     su({ id: fx.ownerA.id, role: "center_admin", centerId: fx.centerA, name: "OwnerA" }),
     { allow: STAFF_ALL },
@@ -156,7 +136,6 @@ async function main() {
     acting: teacherShaped(fx.t1.id, "T1"), caller: teacherShaped(fx.t1.id, "T1"),
     actorId: fx.t1.id, onBehalfOf: null,
   };
-  // Assistant path through the REAL assistant->teacher resolution.
   const x1Teacher = await platformDb((tx) =>
     resolveActingTeacher(tx, { id: fx.x1.id, role: "assistant" } as never));
   assert(x1Teacher === fx.t1.id, "resolveActingTeacher(x1) -> t1 (real link resolution)");
@@ -170,7 +149,6 @@ async function main() {
   const yActor = asstActor(fx.y, fx.t2.id);
 
   try {
-    // ================= CENTER BOARD =================
     console.log("\n— center board: create + fanout —");
     const noteA = await createTeamNote(ownerActorA as TeamNoteActor, { body: "سلّموا كشف الحضور قبل ٤" });
     assert(noteA.centerId === fx.centerA && noteA.teacherId === null, "note scoped to center A only");
@@ -241,7 +219,6 @@ async function main() {
       tx.teamNote.findFirst({ where: { id: own.id } }));
     assert(softRow?.deletedAt != null, "delete is SOFT (row kept, deletedAt set)");
 
-    // ================= TEACHER BOARD =================
     console.log("\n— teacher board —");
     const noteT = await createTeamNote(x1Actor, { body: "ورقة الامتحان جاهزة للطباعة" });
     assert(noteT.teacherId === fx.t1.id && noteT.centerId === null, "note scoped to teacher T1 only");
@@ -290,7 +267,6 @@ async function main() {
       }
     }
   } finally {
-    // ---- cleanup ----
     const noteRows = await admin.query(
       `SELECT id FROM team_notes WHERE center_id = ANY($1::uuid[]) OR teacher_id = ANY($2::uuid[]) OR author_user_id = ANY($2::uuid[])`,
       [C, U],
@@ -314,8 +290,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite team-notes.test.ts" })
   .then(() => main())
   .catch((e) => {

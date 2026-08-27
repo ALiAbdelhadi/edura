@@ -8,30 +8,6 @@ import { Button } from "@repo/ui/components/button"
 import { CldImage, EntityAvatar } from "@repo/ui/components/cld-image"
 import { compressImage, formatBytes } from "@repo/ui/lib/image-compress"
 
-/**
- * One image-upload control for every surface (center logo, teacher photo,
- * covers, gallery items).
- *
- * It owns the parts that are easy to get wrong and tedious to repeat:
- * drag-and-drop, an instant local preview, client-side downscaling before the
- * request, size/type pre-checks, and the busy/error states. It owns NO
- * transport — the caller passes `onUpload`, so ownership checks and the API
- * shape stay where they belong.
- *
- * @repo/ui carries no i18n, so every user-visible string is a prop; the app
- * passes translated text in.
- */
-
-/**
- * MIRRORS `ACCEPTED_IMAGE_MIMES` in @repo/server-core/media/images, which is
- * the authority — it is derived from the byte-sniffer's own table. Duplicated
- * (not imported) because @repo/ui is a browser package and server-core pulls in
- * Prisma; a unit test asserts the two lists are equal.
- *
- * `image/gif` belongs here: the server accepts animated GIFs and Cloudinary
- * preserves their frames. Omitting it only hid them from the file picker, while
- * drag-and-drop — which ignores this attribute — accepted them anyway.
- */
 export const ACCEPTED_IMAGE_MIMES = [
   "image/jpeg",
   "image/png",
@@ -40,31 +16,17 @@ export const ACCEPTED_IMAGE_MIMES = [
   "image/avif",
 ] as const
 const ACCEPTED = ACCEPTED_IMAGE_MIMES.join(",")
-/**
- * MIRRORS `MAX_IMAGE_BYTES` in @repo/server-core/media/images, which is the
- * authority — it is under the deployment's serverless request-body cap, so a
- * file this control accepts can always physically reach the route.
- *
- * It is duplicated rather than imported because @repo/ui is a browser package
- * and server-core pulls in Prisma. A unit test asserts the two are equal, so
- * the copy cannot drift silently.
- */
 export const UI_MAX_IMAGE_BYTES = 4 * 1024 * 1024
 const DEFAULT_MAX_BYTES = UI_MAX_IMAGE_BYTES
 
 export type ImageUploadFieldProps = {
-  /** Currently stored image (public_id or URL). */
   value?: string | null
-  /** Receives the compressed File. Should resolve once the server has stored it. */
   onUpload: (file: File) => Promise<void> | void
   onRemove?: () => Promise<void> | void
-  /** `avatar` = round face-aware preview, `logo` = fitted, `cover` = 16:9 box. */
   variant?: "avatar" | "logo" | "cover"
-  /** Used for the initials fallback in avatar/logo variants. */
   name?: string | null
   disabled?: boolean
   maxBytes?: number
-  /** Longest edge after client-side downscale. */
   maxEdge?: number
   className?: string
   labels?: Partial<{
@@ -107,8 +69,6 @@ function ImageUploadField({
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [dragging, setDragging] = React.useState(false)
-  // Local object URL so the preview updates the instant a file is picked,
-  // before the round-trip finishes.
   const [preview, setPreview] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -119,11 +79,6 @@ function ImageUploadField({
 
   const shown = preview ?? value ?? null
 
-  // Dropping the local preview falls back to `value` — the image the server
-  // actually holds. EVERY exit from handleFile has to do this, including the
-  // rejection paths: a preview left behind after a refusal is a blob the
-  // browser cannot decode, so the control silently stopped showing the photo
-  // the user still has stored until they reloaded the page.
   const clearPreview = React.useCallback(() => {
     setPreview((old) => {
       if (old) URL.revokeObjectURL(old)
@@ -139,7 +94,6 @@ function ImageUploadField({
         return
       }
       if (file.size > maxBytes * 4) {
-        // Guard before decoding: a 100 MB file should not hit the canvas at all.
         setError(`${t.tooLarge} (${formatBytes(file.size)})`)
         return
       }
@@ -159,8 +113,6 @@ function ImageUploadField({
           return
         }
         await onUpload(compressed)
-        // The parent has refetched by now; drop the local preview so the
-        // Cloudinary-delivered (and therefore optimized) URL takes over.
         clearPreview()
       } catch {
         setError(t.failed)

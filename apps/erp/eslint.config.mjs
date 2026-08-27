@@ -12,8 +12,6 @@ const eslintConfig = [
     },
   },
   {
-    // `.next-*/**` covers a NEXT_DIST_DIR scratch build; without it a parallel
-    // verification build adds ~1,700 lint errors from generated output.
     ignores: [".next/**", ".next-*/**", "node_modules/**", "scratch.js"],
   },
 ];

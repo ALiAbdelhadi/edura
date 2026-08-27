@@ -12,19 +12,6 @@ import type { SessionUser } from "../../auth/types";
 import { notify } from "../notifications/notify";
 import { assertNotBlacklisted } from "../blacklist/blacklist";
 
-// ---------------------------------------------------------------------------
-// CENTER ENROLLMENTS + ENROLLMENT REQUESTS.
-//
-// Extracted verbatim from apps/www (enrollments/**, enrollment-requests/**).
-// Same contract as the other center services: `acting` is center_admin-shaped
-// and carries the TARGET centerId.
-//
-// MONEY: enrolling is a ROSTER operation. It writes no Payment, no
-// Transaction, and no Subscription — coverage is a separate concern (Step 4),
-// so a super admin enrolling a student is not the same as giving them paid
-// access. Unenrolling likewise refunds nothing.
-// ---------------------------------------------------------------------------
-
 export async function listCenterEnrollments(
   acting: SessionUser,
   filters: { studentId?: string; courseId?: string; status?: string } = {},
@@ -66,8 +53,6 @@ export async function enrollStudent(
 ) {
   const { studentId, courseId } = input;
 
-  // The blacklist gate runs BEFORE the scoped transaction, exactly as in www —
-  // platform / center / teacher level, all three.
   const course0 = await platformDb((tx) =>
     tx.course.findUnique({ where: { id: courseId }, select: { centerId: true, teacherId: true } }),
   ).catch(() => null);
@@ -107,7 +92,6 @@ export async function enrollStudent(
           centerId: acting.centerId as string,
           status: "active",
           enrolledAt: new Date(),
-          // The REAL actor — for a super admin this records them, not the center.
           enrolledBy: acting.id,
         },
       });
@@ -132,7 +116,6 @@ export async function enrollStudent(
   return enrollment;
 }
 
-/** Soft unenrol — the row survives with `unenrolledAt`, so history is intact. */
 export async function unenrollStudent(acting: SessionUser, id: string) {
   return scopedDb(acting, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id } });
@@ -148,10 +131,6 @@ export async function unenrollStudent(acting: SessionUser, id: string) {
     return { unenrolled: true as const, studentId: enrollment.studentId, courseId: enrollment.courseId };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Enrollment requests
-// ---------------------------------------------------------------------------
 
 export async function listEnrollmentRequests(
   acting: SessionUser,
@@ -203,9 +182,6 @@ export async function approveEnrollmentRequest(acting: SessionUser, id: string) 
     const course = await tx.course.findUnique({ where: { id: request.courseId } });
     if (!course) throw new NotFoundError("Course not found");
 
-    // Capacity is enforced here, unlike the H-04 blacklist restore which
-    // deliberately wins over `maxStudents` (the seat was taken by a platform
-    // action, not given up). A NEW approval has no such claim on the seat.
     const activeCount = await tx.enrollment.count({
       where: { courseId: request.courseId, status: "active" },
     });

@@ -1,18 +1,3 @@
-// BULK STUDENT IMPORT proof — a center migrating off its old system uploads a
-// spreadsheet and gets a roster, with ONE record per child.
-//
-// What this has to prove, in order of what would hurt most if it were wrong:
-//   1. REUSE, not duplication. The same child already known to the platform is
-//      linked, never re-created — that is the invariant the whole
-//      manual-student module exists to protect, and an importer with its own
-//      idea of "same child" would break it silently, at scale.
-//   2. PER-ROW ISOLATION. One bad row must not cost the other 399. Postgres
-//      aborts a whole transaction on a row error, so this is a real risk and
-//      the reason each row runs in its own transaction.
-//   3. NO MONEY. Importing a name is not a financial event. Asserted by
-//      counting, not by reading the code.
-//   4. A dry run writes NOTHING — the report a center decides on must not be
-//      the thing that already happened.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
@@ -30,7 +15,6 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 
 const tag = "bimp-" + Math.floor(Math.random() * 1e9).toString(36);
 const seed = Math.floor(Math.random() * 1e9);
-/** Unique-per-run phone / national ID: both are globally UNIQUE columns. */
 const phoneOf = (i: number) => `0100${String(seed).padStart(9, "0").slice(0, 6)}${String(i).padStart(2, "0")}`;
 const nidOf = (i: number) => String(29000000000000 + seed * 100 + i);
 
@@ -77,7 +61,6 @@ async function main() {
       data: { name: tag + "-adminB", role: "center_admin", email: tag + "-b@x.io", status: "active", isDemo: true },
     });
 
-    // A child who ALREADY exists on center B — the shared-student case.
     const existing = await tx.user.create({
       data: { name: tag + "-existing", phone: phoneOf(90), role: "student", status: "active", isDemo: true },
     });
@@ -86,7 +69,6 @@ async function main() {
     });
     await tx.centerStudentRoster.create({ data: { centerId: centerB.id, studentId: existing.id } });
 
-    // A child already known by NATIONAL ID, with no phone on file.
     const byNid = await tx.user.create({
       data: { name: tag + "-bynid", role: "student", status: "active", isDemo: true },
     });
@@ -101,9 +83,7 @@ async function main() {
   const createdUserIds: string[] = [];
 
   try {
-    // =====================================================================
     console.log("\n[1] A clean file creates shells on the roster");
-    // =====================================================================
     const csv1 = [
       "الاسم,رقم الهاتف,الرقم القومي,ولي الأمر,هاتف ولي الأمر",
       `${tag}-s1,${phoneOf(1)},${nidOf(1)},وليّ الأول,${phoneOf(51)}`,
@@ -140,14 +120,10 @@ async function main() {
     ok(quoted[0]?.operational_parent_name === "عبد الله، محمد",
       "a quoted guardian name with a comma survives intact");
 
-    // =====================================================================
     console.log("\n[2] REUSE — the same child is linked, never duplicated");
-    // =====================================================================
     const csv2 = [
       "name,phone,national id",
-      // Same phone as the child already on center B, DIFFERENT name.
       `${tag}-renamed,${phoneOf(90)},${nidOf(80)}`,
-      // Known by national ID only.
       `${tag}-renamed2,${phoneOf(81)},${nidOf(91)}`,
     ].join("\n");
     const r2 = await importStudentCsv(A, csv2);
@@ -174,9 +150,7 @@ async function main() {
     );
     ok(notOverwritten[0].national_id === nidOf(91), "an EXISTING national ID is never overwritten");
 
-    // =====================================================================
     console.log("\n[3] Duplicates INSIDE the file are reported, not merged");
-    // =====================================================================
     const csv3 = [
       "name,phone",
       `${tag}-d1,${phoneOf(10)}`,
@@ -188,9 +162,7 @@ async function main() {
       "the duplicate names the earlier LINE it duplicates, so the center can fix their own sheet");
     if (r3.rows[0].studentId) createdUserIds.push(r3.rows[0].studentId);
 
-    // =====================================================================
     console.log("\n[4] One bad row does not cost the good ones");
-    // =====================================================================
     const csv4 = [
       "name,phone,national id",
       `${tag}-g1,${phoneOf(20)},`,
@@ -210,9 +182,7 @@ async function main() {
     );
     ok(badLanded[0].n === 0, "neither rejected row left a partial record behind");
 
-    // =====================================================================
     console.log("\n[5] A dry run writes NOTHING");
-    // =====================================================================
     const auditBefore = await q<{ n: number }>(
       `SELECT count(*)::int n FROM audit_logs WHERE center_id=$1 AND action='center.students_imported'`, [fx.centerA],
     );
@@ -232,9 +202,7 @@ async function main() {
     );
     ok(auditAfterDry[0].n === auditBefore[0].n, "the dry run wrote no audit row either");
 
-    // =====================================================================
     console.log("\n[6] Re-importing the same file is idempotent");
-    // =====================================================================
     const rosterBefore = await q<{ n: number }>(
       `SELECT count(*)::int n FROM center_student_rosters WHERE center_id=$1`, [fx.centerA],
     );
@@ -245,7 +213,6 @@ async function main() {
     );
     ok(rosterBefore[0].n === rosterAfter[0].n, "no second roster row for anyone");
 
-    // A child who LEFT rejoins on the same row rather than getting a new one.
     const leaver = r1.rows[0].studentId!;
     const rosterRowId = (await q<{ id: string }>(
       `SELECT id FROM center_student_rosters WHERE center_id=$1 AND student_id=$2`, [fx.centerA, leaver],
@@ -258,9 +225,7 @@ async function main() {
     ok(rejoined.length === 1 && rejoined[0].id === rosterRowId && rejoined[0].left_at === null,
       "a student who left rejoins on the SAME roster row, not a second one");
 
-    // =====================================================================
     console.log("\n[7] MONEY IS UNTOUCHED — asserted by counting");
-    // =====================================================================
     const ids = [...new Set([...createdUserIds, fx.existing, fx.byNid])];
     for (const [table, col] of [
       ["enrollments", "student_id"],
@@ -276,13 +241,10 @@ async function main() {
     );
     ok(txs[0].n === 0, "transactions: 0 ledger rows — importing a name is not a financial event");
 
-    // =====================================================================
     console.log("\n[8] Audit: ONE row per import, not one per student");
-    // =====================================================================
     const audits = await q<{ n: number; after_state: { total: number; created: number } }>(
       `SELECT count(*)::int n FROM audit_logs WHERE center_id=$1 AND action='center.students_imported'`, [fx.centerA],
     );
-    // Runs so far that actually wrote: csv1, csv2, csv3, csv4, csv1 again, csv1 rejoin = 6.
     ok(audits[0].n === 6, `6 imports -> 6 audit rows, not one per student (got ${audits[0].n})`);
     const lastAudit = await q<{ actor_id: string; after_state: { total: number } }>(
       `SELECT actor_id, after_state FROM audit_logs WHERE center_id=$1 AND action='center.students_imported' ORDER BY created_at DESC LIMIT 1`,
@@ -291,9 +253,7 @@ async function main() {
     ok(lastAudit[0].actor_id === fx.adminA, "the audit row names the real actor");
     ok(typeof lastAudit[0].after_state.total === "number", "the audit row carries the run's counts");
 
-    // =====================================================================
     console.log("\n[9] Guards");
-    // =====================================================================
     await expectThrows(() => importStudentCsv(A, "phone,section\n0100,3A\n"), /name column/i,
       "a file with no name column is refused whole — nothing is guessed");
     await expectThrows(() => importStudentCsv(A, "name,phone\n"), /no student rows/i,
@@ -311,12 +271,7 @@ async function main() {
       "an actor with no center scope is refused (default-closed)",
     );
 
-    // =====================================================================
     console.log("\n[10] Chunked upload — lineOffset keeps ORIGINAL line numbers");
-    // =====================================================================
-    // A real file is uploaded in chunks; each chunk is a standalone CSV whose
-    // own numbering restarts at 2. Without the offset, row 250 of the center's
-    // spreadsheet is reported as "line 4" and nobody can find it.
     const chunk2 = `name,phone\n${tag}-c1,${phoneOf(60)}\n${tag}-bad-nid,${phoneOf(61)},\n`;
     const r10 = await importStudentCsv(A, chunk2, { lineOffset: 20, dryRun: true });
     ok(
@@ -326,9 +281,7 @@ async function main() {
     const r10b = await importStudentCsv(A, chunk2, { dryRun: true });
     ok(r10b.rows[0].line === 2, "with no offset the same chunk numbers from 2 — the offset is purely presentational");
 
-    // =====================================================================
     console.log("\n[11] Cross-center isolation");
-    // =====================================================================
     const B = actorFor(fx.centerB, fx.adminB);
     const r11 = await importStudentCsv(B, `name,phone\n${tag}-bonly,${phoneOf(40)}\n`);
     const bStudent = r11.rows[0].studentId!;

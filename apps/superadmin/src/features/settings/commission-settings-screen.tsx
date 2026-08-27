@@ -1,25 +1,5 @@
 "use client";
 
-/* العمولة / Platform commission.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   `readOnly` is the accountant view: they see the rates the numbers they reconcile
-   are built from, but editing is super_admin only (enforced at the API — the finance
-   route has no PUT).
-
-   ── The fix this conversion carries ──────────────────────────────────────────
-
-   The screen previously rendered the accountant's view as `<Input disabled>`. That is
-   exactly the pattern D-027 forbids: a disabled control TEACHES that the capability
-   exists and is being withheld, and it teaches it to the one role that must never
-   believe it can move money. The read-only view now renders the rates as <Num>
-   FIGURES — the control is absent, not greyed out — which is also the more honest
-   form, because to an accountant these values are data, not settings.
-
-   Saving is ONE press: a rate is editable again tomorrow and the change is
-   forward-only (already-settled payments keep the rate they were charged at), so
-   there is no permanence here to claim (D-022). */
-
 import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -128,11 +108,8 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
         </header>
 
         {readOnly ? (
-          /* ABSENCE, not disablement — these are figures to an accountant. */
           <dl className="flex flex-col gap-3">
             <Figure label={t("pct")}>
-              {/* Basis points → percent is /100 (1500bp = 15%), and formatPercent
-                  takes a whole percent, not a fraction. */}
               <Num>{formatPercent(data.teacherDirectCommissionBp / 100, locale)}</Num>
             </Figure>
             <Figure label={t("teacherFee")}>
@@ -217,9 +194,6 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
         ) : null}
       </section>
 
-      {/* Phase 5 (D2): proposed teacher agreements — the queue the centers'
-          proposals land in. super_admin decides; the accountant view has no
-          approval controls because this panel is simply absent for it. */}
       {!readOnly ? <AgreementProposalsPanel /> : null}
     </div>
   );

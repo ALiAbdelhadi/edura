@@ -8,14 +8,6 @@ import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 
-/**
- * DRAFT terms of service — the copy is the product app's own, grounded in what
- * the product actually does (roles, commission-based money engine, wallets,
- * attendance, minors). Needs review by qualified Egyptian counsel before the
- * official launch; the factual claims about how the platform works are
- * accurate today.
- */
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }

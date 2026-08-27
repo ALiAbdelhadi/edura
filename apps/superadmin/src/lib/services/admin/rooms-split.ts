@@ -4,13 +4,6 @@ import { resolveRevenueSplit, resolveMethod2Rate } from "@/lib/services/finance/
 import type { SessionUser } from "@/lib/auth/session";
 import type { CommissionSetting } from "@repo/database";
 
-// ---------------------------------------------------------------------------
-// Superadmin management of room profiles + the per-center / per-room revenue
-// split (platform/teacher/center %). Editing the split is SUPER_ADMIN ONLY.
-// The three shares must sum to exactly 100% (also DB-enforced). Split override
-// rows carry ONLY the *_share_bp columns (flat commission left untouched).
-// ---------------------------------------------------------------------------
-
 export type SplitInput = {
   platformShareBp: number;
   teacherShareBp: number;
@@ -40,11 +33,6 @@ function pickSplit(row: CommissionSetting): SplitInput | null {
   };
 }
 
-// Method-2 (per-attending-student) rate: EXACTLY one of the two forms.
-// Shape rules, row layout and emptiness live in the shared kernel because the
-// CENTER now writes this rate too (bounded — see room-rate.ts). Two copies of
-// "what is a valid rate row" would drift; the superadmin path is the one with
-// NO ceiling, and that is the only difference.
 export type { M2RateInput } from "@repo/server-core/services/rooms/room-rate";
 import {
   type M2RateInput,
@@ -66,10 +54,6 @@ async function auditLog(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Rooms (superadmin cross-tenant view + edit incl. price override)
-// ---------------------------------------------------------------------------
-
 export function getCenterRoomsWithSplit(centerId: string) {
   return platformDb(async (tx) => {
     const center = await tx.center.findUnique({
@@ -82,8 +66,6 @@ export function getCenterRoomsWithSplit(centerId: string) {
       where: { centerId, isActive: true },
       orderBy: { createdAt: "asc" },
     });
-    // ALL room-scope rows (a row may carry a split override, a Method-2 rate,
-    // or both).
     const roomRows = rooms.length
       ? await tx.commissionSetting.findMany({
           where: { scope: "room", roomId: { in: rooms.map((r) => r.id) } },
@@ -91,7 +73,6 @@ export function getCenterRoomsWithSplit(centerId: string) {
       : [];
     const rowByRoom = new Map(roomRows.map((r) => [r.roomId as string, r]));
 
-    // What a NEW course in this room would inherit if it has no room override.
     const centerSplit = await resolveRevenueSplit(tx, { centerId });
     const centerM2Rate = await resolveMethod2Rate(tx, { centerId });
 
@@ -114,11 +95,9 @@ export function getCenterRoomsWithSplit(centerId: string) {
           allowedPricingMethods: room.allowedPricingMethods,
           roomSplitOverride,
           roomM2Override,
-          // The split a NEW course booking this room would be frozen with.
           effectiveSplit: roomSplitOverride
             ? { ...roomSplitOverride, source: "room" as const }
             : centerSplit,
-          // The Method-2 rate a NEW per-student course here would freeze.
           effectiveM2Rate: roomM2Override
             ? { ...roomM2Override, source: "room" as const }
             : centerM2Rate,
@@ -128,15 +107,7 @@ export function getCenterRoomsWithSplit(centerId: string) {
   });
 }
 
-// Room profile edits now run through the oversight control service, which
-// writes a BEFORE/AFTER audit row scoped to the center (the old audit here
-// recorded the patch only). Kept as a re-export so the existing endpoint and
-// every current caller are unchanged — one implementation, no second path.
 export { updateCenterRoomProfile as updateCenterRoom } from "@/lib/services/admin/center-control";
-
-// ---------------------------------------------------------------------------
-// Global default revenue split (applies to any center/room without an override)
-// ---------------------------------------------------------------------------
 
 export function getGlobalSplit() {
   return platformDb(async (tx) => {
@@ -163,8 +134,6 @@ export function updateGlobalSplit(input: SplitInput, user: SessionUser) {
       const row = existing
         ? await tx.commissionSetting.update({ where: { id: existing.id }, data })
         : await tx.commissionSetting.create({
-            // Should never happen (migration seeds the global row) — recreate with
-            // the code-default flat commission so the row stays valid.
             data: {
               scope: "global",
               teacherDirectCommissionBp: 1500,
@@ -179,10 +148,6 @@ export function updateGlobalSplit(input: SplitInput, user: SessionUser) {
     { actorId: user.id },
   );
 }
-
-// ---------------------------------------------------------------------------
-// Center-level revenue split
-// ---------------------------------------------------------------------------
 
 export function getCenterSplit(centerId: string) {
   return platformDb(async (tx) => {
@@ -239,8 +204,6 @@ export function clearCenterSplit(centerId: string, user: SessionUser) {
     async (tx) => {
       const existing = await tx.commissionSetting.findFirst({ where: { scope: "center", centerId } });
       if (existing) {
-        // Null the split columns; drop the row only when nothing else lives on
-        // it (flat commission or a Method-2 rate may share the row).
         if (rowIsEmpty({ ...existing, platformShareBp: null })) {
           await tx.commissionSetting.delete({ where: { id: existing.id } });
         } else {
@@ -256,10 +219,6 @@ export function clearCenterSplit(centerId: string, user: SessionUser) {
     { actorId: user.id },
   );
 }
-
-// ---------------------------------------------------------------------------
-// Room-level revenue split (most specific)
-// ---------------------------------------------------------------------------
 
 export function upsertRoomSplit(
   centerId: string,
@@ -296,7 +255,6 @@ export function clearRoomSplit(centerId: string, roomId: string, user: SessionUs
       if (!room || room.centerId !== centerId) throw new NotFoundError("Room not found at this center");
       const existing = await tx.commissionSetting.findFirst({ where: { scope: "room", roomId } });
       if (existing) {
-        // A room row may also carry a Method-2 rate now — preserve it.
         if (rowIsEmpty({ ...existing, platformShareBp: null })) {
           await tx.commissionSetting.delete({ where: { id: existing.id } });
         } else {
@@ -312,20 +270,6 @@ export function clearRoomSplit(centerId: string, roomId: string, user: SessionUs
     { actorId: user.id },
   );
 }
-
-// ---------------------------------------------------------------------------
-// Flat per-affiliation center share (the LEGACY no-room money knob).
-//
-// Courses with no hall settle on `center_teacher_affiliations.center_share` —
-// a flat piasters amount per present student. Neither the teacher nor the
-// center may propose it any more (collaboration requests always store 0 and
-// acceptance never writes it), so THIS is the only place it can be set.
-//
-// Unlike the split/rate snapshots, this value is read LIVE at settlement time
-// (existing engine behavior, unchanged): editing it changes what future
-// sessions of existing no-room courses pay out. Already-settled sessions are
-// untouched — the ledger is append-only.
-// ---------------------------------------------------------------------------
 
 export function getCenterAffiliations(centerId: string) {
   return platformDb(async (tx) => {
@@ -347,8 +291,6 @@ export function getCenterAffiliations(centerId: string) {
       : [];
     const nameById = new Map(teachers.map((t) => [t.id, t]));
 
-    // How many no-room courses actually consume this flat share (0 = the value
-    // is currently inert; every course of theirs is hall-based).
     const noRoomCounts = rows.length
       ? await tx.course.groupBy({
           by: ["teacherId"],
@@ -408,12 +350,6 @@ export function updateAffiliationCenterShare(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Method-2 (per-attending-student) rate — superadmin-only, same scope rows as
-// the split, resolution room > center > global. Frozen onto courses at
-// creation like the split (M4.5): edits here never re-rate existing courses.
-// ---------------------------------------------------------------------------
-
 const M2_DATA = (input: M2RateInput, userId: string) => ({
   centerPerStudentFee: input.fee,
   centerPerStudentBp: input.bp,
@@ -431,8 +367,6 @@ export function updateGlobalM2Rate(input: M2RateInput, user: SessionUser) {
             data: M2_DATA(input, user.id),
           })
         : await tx.commissionSetting.create({
-            // Should never happen (migration seeds the global row) — recreate
-            // with the code-default flat commission so the row stays valid.
             data: {
               scope: "global",
               teacherDirectCommissionBp: 1500,
@@ -455,7 +389,6 @@ export function clearGlobalM2Rate(user: SessionUser) {
     async (tx) => {
       const existing = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
       if (existing) {
-        // The global row always stays (it carries the flat commission + split).
         await tx.commissionSetting.update({
           where: { id: existing.id },
           data: { centerPerStudentFee: null, centerPerStudentBp: null, updatedBy: user.id },

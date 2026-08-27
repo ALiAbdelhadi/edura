@@ -13,10 +13,6 @@ function formatReceiptNumber(shortId: string, seq: number): string {
   return `RCP-${shortId}-${year}-${String(seq).padStart(5, "0")}`;
 }
 
-// Phase 1 (revenue-operations spec §2.2): the manual desk takes the same four
-// channels the counter takes. Absent = cash — this writer IS the cash desk,
-// and refunds default to cash too because a counter refund is handed back out
-// of the drawer whatever channel the money arrived by.
 export type CounterMethod = "cash" | "instapay" | "pos_card" | "mobile_wallet";
 
 export async function recordPayment(
@@ -76,21 +72,15 @@ export async function recordPayment(
         studentId: data.studentId,
         courseId: data.courseId ?? null,
         amount: data.amount,
-        // MC-3: the channel the operator recorded (default cash) — the ledger
-        // mirror below records the same value.
         paymentMethod: method,
         note: data.note ?? "",
         receiptNumber,
         recordedBy: user.id,
-        // Phase 2: stamp the recorder's open drawer session (NULL when none).
         shiftId: await openShiftIdFor(tx, user.id),
         paidAt: new Date(),
       },
     });
 
-    // Step 4 ledger reconciliation: cash payments mirror to the Transaction
-    // ledger exactly like online ones, so the accountant ledger is complete.
-    // Refunds (negative amounts) mirror as type=refund with reversed parties.
     const refNumber = await nextTxnRef(tx);
     await tx.transaction.create({
       data: {
@@ -110,8 +100,6 @@ export async function recordPayment(
     });
 
     if (data.amount > 0) {
-      // This writer is the CASH desk (paymentMethod: "cash" above), so the
-      // ledger says cash — it used to say `online_payment`.
       await awardPoints(tx, data.studentId, "cash_payment", {
         reason: "Cash payment recorded",
       });
@@ -153,35 +141,17 @@ export async function listPayments(
         if (!link) throw new ForbiddenError("Not linked to this student");
         where.studentId = filters.studentId;
       } else {
-        // NO `studentId` NOW MEANS "MY OWN RECEIPTS", where it used to be an
-        // error. A parent wallet top-up names no student — that is the whole
-        // point of it — so there is no child id that could ever reach it, and
-        // requiring one made the parent's own money unreadable to them.
-        //
-        // This grants NOTHING new about a child: `payer_user_id` is the parent's
-        // own id, and a child's own payments carry a NULL payer (or another
-        // payer's id) and are not selected here. Reading a child still goes
-        // through the link check above, unchanged.
         where.payerUserId = user.id;
       }
     } else {
       throw new ForbiddenError();
     }
 
-    // THE WHOLE `to` DAY IS INCLUDED. This used to be
-    // `lte = new Date(filters.to)` — midnight, i.e. the instant the day STARTS
-    // — so a `to` of today excluded every payment taken today. The Fees screen
-    // drives this log and the P&L above it from ONE date field, and they
-    // disagreed by a day because they bounded the range in two places. They now
-    // share `dayRange`.
     const paidAt = dayRange(filters.from, filters.to);
     if (paidAt) where.paidAt = paidAt;
 
     const payments = await tx.payment.findMany({ where, orderBy: { paidAt: "desc" } });
 
-    // `.filter(Boolean)` is load-bearing now, not defensive: a parent wallet
-    // top-up carries no student, and passing a NULL into an `in` list is a
-    // Prisma type error rather than a no-op.
     const studentIds = [
       ...new Set(payments.map((p) => p.studentId).filter(Boolean) as string[]),
     ];
@@ -195,7 +165,6 @@ export async function listPayments(
         where: { id: { in: courseIds } },
         select: { id: true, title: true },
       }),
-      // The printable code — what the fees log shows instead of a raw UUID.
       tx.studentProfile.findMany({
         where: { userId: { in: studentIds } },
         select: { userId: true, studentCode: true },
@@ -210,9 +179,6 @@ export async function listPayments(
       const c = p.courseId ? courseMap.get(p.courseId) : null;
       return {
         ...p,
-        // "" rather than a fabricated name. A studentless row is a parent's own
-        // wallet top-up, and inventing a student for it in the log is exactly
-        // the kind of fiction this pass has been removing elsewhere.
         studentName: s?.name ?? "",
         studentEmail: s?.email ?? "",
         studentCode: (p.studentId ? codeMap.get(p.studentId) : null) ?? null,
@@ -227,10 +193,6 @@ export async function getPayment(paymentId: string, user: SessionUser) {
     const payment = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw new NotFoundError("Payment not found");
 
-    // WHOEVER PAID OWNS THE RECEIPT. The same rule `getIntentForStudent` already
-    // applies to intents ("ownership = who is PAYING it"), extended to the row
-    // the settlement writes — otherwise a parent could fund a top-up and be
-    // refused the receipt for their own money.
     if (payment.payerUserId && payment.payerUserId === user.id) {
       return payment;
     }
@@ -240,10 +202,6 @@ export async function getPayment(paymentId: string, user: SessionUser) {
     } else if (user.role === "student") {
       if (payment.studentId !== user.id) throw new ForbiddenError();
     } else if (user.role === "parent") {
-      // A studentless receipt belongs to its payer and nobody else; it was
-      // handled above. Falling through here with a NULL student would query
-      // `studentId: null`, match no link, and refuse — correct, but by accident.
-      // Refusing on purpose is the difference between a rule and a coincidence.
       if (!payment.studentId) throw new ForbiddenError();
       const link = await tx.parentStudentLink.findFirst({
         where: { parentId: user.id, studentId: payment.studentId, status: "approved" },

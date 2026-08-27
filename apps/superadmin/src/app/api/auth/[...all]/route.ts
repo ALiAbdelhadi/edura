@@ -10,12 +10,6 @@ const handlers = toNextJsHandler(auth);
 
 export const GET = handlers.GET;
 
-/**
- * Mirror of apps/www — signing out ends EVERY session this browser presented,
- * not only the one better-auth resolved. The reasoning is in the www copy and
- * in docs/reports/session-identity-mismatch.md; it applies harder here, because
- * a surviving back-office session can read every centre's money.
- */
 export async function POST(req: Request): Promise<Response> {
   const isSignOut = new URL(req.url).pathname.endsWith("/sign-out");
   const presented = isSignOut

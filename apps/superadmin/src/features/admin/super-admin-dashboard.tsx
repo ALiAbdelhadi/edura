@@ -1,31 +1,5 @@
 "use client";
 
-/* اليوم / Today — the platform decision queue.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   WHAT THE SYSTEM GUARANTEES HERE: every figure on this screen is derived from an
-   append-only ledger the operator cannot edit, and each card fronts a queue whose
-   items become permanent the moment they are approved.
-
-   WHAT THE INTERFACE MUST DO TO BE HONEST ABOUT IT: lead with the decisions, not the
-   totals; show what is waiting and how long it has waited; and never display a figure
-   that is not traceable to a table. The screen it replaces was seven near-identical
-   stat cards — it knew there were pending registrations and said nothing about them.
-
-   ── One deliberate departure from the design brief ───────────────────────────
-
-   Handoff §5.1 specifies a third metric card, «فروق في مطابقة الكاش» (cash
-   reconciliation differences). THAT CONCEPT DOES NOT EXIST: 70 models in
-   schema.prisma, none for reconciliation discrepancies. Building it would have failed
-   the one test the constitution exists to enforce — "no screen implies a capability
-   the system does not have" (§8).
-
-   The card was replaced, not dropped, by deriving from a real guarantee. settlePayout
-   settles through an H2 CONDITIONAL DECREMENT, so a payout whose beneficiary wallet
-   does not cover the net cannot be disbursed — it throws and rolls back. That is a
-   genuine blocking condition, knowable before the operator commits, and it carries
-   exactly the «يوقف الصرف» meaning the card was drawn to carry. See the note in
-   lib/services/admin/platform-dashboard.ts. */
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { StatCardsSkeleton } from "@/components/ui/skeletons";
@@ -88,10 +62,6 @@ export function SuperAdminDashboard() {
     method: "get",
   });
 
-  /* The dual (`_two`) and small-plural (`_few`) forms exist in Arabic ONLY — English
-     has neither, and `pluralForm` ignores both outside `ar`. `Messages` is typed from
-     the English dictionary, so those keys are legitimately absent from the type;
-     `asKey` is this codebase's existing escape hatch for exactly that case. */
   const forms = (k: string) => ({
     one: t(asKey(`${k}_one`)),
     two: t.has(asKey(`${k}_two`)) ? t(asKey(`${k}_two`)) : undefined,
@@ -104,7 +74,6 @@ export function SuperAdminDashboard() {
   );
 
   if (query.isLoading) {
-    // Not "nothing is waiting on you" — that is a CLAIM, and we do not yet know it.
     return (
       <div className="flex w-full flex-col gap-6">
         {header(t("today_loading"))}
@@ -113,11 +82,6 @@ export function SuperAdminDashboard() {
     );
   }
 
-  /* Empty, error and permission-denied are THREE DIFFERENT TRUTHS. Telling an
-     operator "nothing is waiting" when the request failed, or offering them a Retry
-     button for a permission they will never have, are both lies about the data —
-     which is why <EmptyState tone> distinguishes them and why the 403 is split out
-     here rather than folded into the generic error. */
   if (query.isError) {
     const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
     return (
@@ -128,7 +92,6 @@ export function SuperAdminDashboard() {
           icon={TriangleAlert}
           title={t(denied ? "today_deniedTitle" : "today_loadError")}
           description={t(denied ? "today_deniedBody" : "today_loadErrorBody")}
-          // No Retry on a 403 — retrying cannot change a permission.
           action={
             denied ? undefined : (
               <Button variant="outline" onClick={() => query.refetch()}>
@@ -181,7 +144,6 @@ export function SuperAdminDashboard() {
         }
       />
 
-      {/* Ordered by urgency, each a link — every card is the door to its queue. */}
       {open > 0 ? (
         <div className="grid gap-4 md:grid-cols-3">
           <MetricCard
@@ -209,11 +171,6 @@ export function SuperAdminDashboard() {
             }
           />
 
-          {/* `md:col-span-2` only when Blocked (below) will NOT render: two
-              cards in a 3-column grid leave the third cell of THIS row
-              empty whenever nothing is blocked — the common day. Blocked is
-              conditional and always renders last, so this, the last card
-              when it is absent, is the one that has to close the gap. */}
           <MetricCard
             href="/dashboard/superadmin/registrations"
             icon={ClipboardList}
@@ -244,7 +201,6 @@ export function SuperAdminDashboard() {
             }
           />
 
-          {/* The real blocking condition — see the header note. */}
           {d.blocked.count > 0 ? (
             <MetricCard
               href="/dashboard/superadmin/payouts"
@@ -279,11 +235,6 @@ export function SuperAdminDashboard() {
   );
 }
 
-/* ── دفتر المنصة ───────────────────────────────────────────────────────────────
-   Two figures the operator is expected to reconcile against each other, then the
-   daily shape behind them. Nothing is pre-summed: the commission and the gross it
-   was taken from are both shown, because a total the user cannot derive is a total
-   they must trust blindly. */
 function LedgerCard({
   data,
   locale,
@@ -362,10 +313,6 @@ function formatShort(piasters: number, locale: Locale) {
   }).format(Math.round(piasters / 100));
 }
 
-/* ── أموال محتجزة الآن ─────────────────────────────────────────────────────────
-   A real reconciliation list closing on a double-rule total. The double rule is the
-   accountant's convention for "this line is a conclusion, not another row" — and it
-   is honest here precisely because every component of the sum is printed above it. */
 function HeldFundsCard({
   held,
   locale,
@@ -414,10 +361,6 @@ function HeldFundsCard({
   );
 }
 
-/* ── آخر ما كُتب في الدفتر ─────────────────────────────────────────────────────
-   The app's honesty: every screen's actions land here. The actor is never blank —
-   an unattributed write in an audited system is a gap the interface should not
-   create, so an automated write reads «النظام». */
 function LastWritesCard({
   writes,
   locale,
@@ -456,9 +399,6 @@ function LastWritesCard({
               key={w.id}
               className="flex items-center gap-4 border-b border-rule-2 px-5 py-[11px] last:border-b-0"
             >
-              {/* Two separate isolated runs with the separator rendered between them —
-                  never typed into copy, and never sliced out of an ISO string, which
-                  would have printed UTC while claiming to be the time of the write. */}
               <span className="flex shrink-0 items-baseline gap-1.5">
                 <Num.Code>{w.ref}</Num.Code>
                 <span aria-hidden="true" className="text-ink-3">

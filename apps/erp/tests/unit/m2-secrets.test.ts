@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requireDedicatedSecret } from "@/lib/config/secrets";
 
-// M2 — dedicated per-boundary secrets: required in prod (fail closed), dev-only
-// fallback to NEXTAUTH_SECRET.
-
 afterEach(() => vi.unstubAllEnvs());
 
 describe("M2 — requireDedicatedSecret", () => {

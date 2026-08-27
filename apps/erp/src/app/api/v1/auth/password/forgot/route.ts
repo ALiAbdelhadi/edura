@@ -9,8 +9,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   email: z.string().email(),
-  // Decides the email's language and the locale segment of the reset link.
-  // Optional so existing callers keep working; falls back to Arabic.
   locale: z.enum(["ar", "en"]).optional(),
 });
 

@@ -70,9 +70,6 @@ export default function TwoFactorPage() {
           <Label htmlFor="code" style={{ color: "var(--ink-2)" }}>
             {mode === "totp" ? t("security.codeLabel") : t("security.backupCodeLabel")}
           </Label>
-          {/* Mono + tracking apply to the TYPED code (Latin digits) only — the
-              placeholder is prose, and in Arabic a tracked mono placeholder is
-              both the mono trap and a tracked connected script. */}
           <Input
             id="code"
             dir="ltr"

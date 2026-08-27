@@ -43,14 +43,6 @@ function formatBytes(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * Materials — a reading surface, not a data table.
- *
- * The previous version was a six-column DataTable at table density. Materials
- * are read rather than scanned, so this lays them out with room: the title
- * carries the weight, and the file's metadata (size, date) sits under it in
- * mono as supporting detail rather than as columns to align.
- */
 export function StudentMaterialsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();

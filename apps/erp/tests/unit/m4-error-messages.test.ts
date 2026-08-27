@@ -2,10 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { toErrorResponse } from "@/lib/errors/http";
 import { AppError } from "@repo/server-core/errors/classes";
 
-// M4 — unhandled errors must not leak internal details to the client in
-// production, while the real error is still logged server-side. Known
-// AppError / Prisma-mapped errors already return safe messages — unaffected.
-
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -15,8 +11,6 @@ async function body(res: Awaited<ReturnType<typeof toErrorResponse>>) {
   return (await res.json()) as { error: { code: string; message: string } };
 }
 
-// A raw error whose message leaks internals (constraint text, table/column
-// names, file paths) — exactly the reconnaissance aid M4 is about.
 const LEAKY =
   'null value in column "wallet_balance" of relation "center_wallets" ' +
   "violates not-null constraint at /app/node_modules/pg/lib/client.js:526";
@@ -30,7 +24,6 @@ describe("M4 — production hides internal details but still logs them", () => {
     const res = toErrorResponse(raw);
     const json = await body(res);
 
-    // Response body: generic, no internals.
     expect(res.status).toBe(500);
     expect(json.error.code).toBe("internal");
     expect(json.error.message).toBe("Internal error");
@@ -38,7 +31,6 @@ describe("M4 — production hides internal details but still logs them", () => {
     expect(json.error.message).not.toContain("center_wallets");
     expect(json.error.message).not.toContain("node_modules");
 
-    // Server-side log: still gets the full, real error.
     expect(errSpy).toHaveBeenCalledWith("[unhandled]", raw);
     expect(errSpy.mock.calls[0][1]).toBe(raw); // the actual Error object
   });
@@ -78,7 +70,6 @@ describe("M4 — known/safe errors are unaffected in production", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    // P2025 = record not found → mapped to a safe 404 message, not the fallback.
     const res = toErrorResponse({ code: "P2025", message: "Record to update not found." });
     const json = await body(res);
 

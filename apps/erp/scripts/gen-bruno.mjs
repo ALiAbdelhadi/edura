@@ -52,10 +52,6 @@ const indent = (obj) => JSON.stringify(obj, null, 2).split("\n").map((l) => "  "
 
 const PRESERVE = new Set(["README.md", "environments", "bruno.json"]);
 
-// Snapshot non-empty body:json blocks from the existing collection before the
-// cleanup below deletes it, keyed by file path relative to bruno/. When a
-// route's schema can't be stubbed (bodyStub returns null), the hand-written
-// example body is carried over instead of being overwritten with {}.
 const handBodies = new Map();
 function snapshotBodies(dir, rel = "") {
   for (const e of readdirSync(dir)) {
@@ -116,7 +112,6 @@ body:json {
 }
 
 script:post-response {
-  // Capture the bearer token; the session cookie is stored by Bruno's cookie jar.
   if (res.body && res.body.data && res.body.data.token) {
     bru.setEnvVar("token", res.body.data.token);
   }

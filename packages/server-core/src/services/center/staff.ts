@@ -1,15 +1,3 @@
-// Center staff accounts (receptionist / manager / center_accountant).
-//
-// INVITE-BASED SINCE 2026-07-25, and this is where the real bug was: the center
-// owner used to type a password for their staff member, which meant the
-// creator permanently knew the credential and the staff member was never told
-// it by the system at all. Now the account is created as a SHELL
-// (passwordHash NULL), a `center_staff_invite` token is emailed, and the staff
-// member sets their own password through the claim flow.
-//
-// The invariant that replaces the old one: a staff account is created EITHER
-// with a password (legacy rows) OR with a live invite — never neither. So no
-// staff account can exist in a permanently-can't-log-in state.
 import type { SessionUser } from "../../auth/types";
 import { platformDb, scopedDb } from "../../db/scope";
 import {
@@ -29,7 +17,6 @@ import {
 
 export type InviteOutcome = {
   email: DeliveryResult;
-  /** Copyable fallback for the creator — hand it over directly if mail fails. */
   claimLink: string;
   expiresAt: Date;
 };
@@ -82,8 +69,6 @@ export async function listStaff(owner: SessionUser) {
         title: l.title,
         active: l.removedAt === null,
         createdAt: l.createdAt,
-        // Lets the UI show "invite pending" + a re-send rather than presenting
-        // an unclaimed account as a finished one.
         pendingClaim: !!u && u.passwordHash === null,
         user: u
           ? {
@@ -99,11 +84,6 @@ export async function listStaff(owner: SessionUser) {
   });
 }
 
-/**
- * Create a staff member and email them a single-use claim link.
- *
- * No password is accepted from the center owner — see the module header.
- */
 export async function createStaff(
   owner: SessionUser,
   input: {
@@ -134,8 +114,6 @@ export async function createStaff(
             "This email belongs to an existing account with a different role",
           );
         }
-        // `shell` is now a legitimate state: an invited staff member who has
-        // not claimed yet. Only deleted/suspended accounts are refused.
         if (staffUser.deletedAt || !["active", "shell"].includes(staffUser.status)) {
           throw new BusinessRuleError("This staff account is not active");
         }
@@ -155,7 +133,6 @@ export async function createStaff(
           throw new ConflictError("This staff member is already on your team");
         }
         if (existing) {
-          // Re-activate a previously removed membership, refreshing role/title.
           const relink = await tx.centerStaff.update({
             where: { id: existing.id },
             data: {
@@ -177,7 +154,6 @@ export async function createStaff(
             email,
             name: input.name.trim(),
             role: "center_staff",
-            // SHELL + no hash: unusable at both password doors until claimed.
             status: "shell",
             passwordHash: null,
           },
@@ -266,7 +242,6 @@ async function sendStaffInvite(
           targetType: "user",
           targetId: staff.id,
           centerId,
-          // The token is NEVER written here — only that one was issued.
           afterState: { email: staff.email, role: staffRole, delivery: email.status },
         },
       }),
@@ -276,7 +251,6 @@ async function sendStaffInvite(
   return { email, claimLink: link, expiresAt };
 }
 
-/** Re-issue and re-send a staff invite. Kills the previous link. */
 export async function resendStaffInvite(
   owner: SessionUser,
   linkId: string,
@@ -293,9 +267,6 @@ export async function resendStaffInvite(
       select: { id: true, name: true, email: true, passwordHash: true },
     });
     if (!user) throw new NotFoundError("Staff account not found");
-    // A claimed account has its own password. Re-inviting would hand the owner
-    // a password-reset door over their staff — refuse; that is what the real
-    // reset flow is for.
     if (user.passwordHash !== null) {
       throw new BusinessRuleError(
         "This staff member has already set a password — ask them to use 'forgot password'",

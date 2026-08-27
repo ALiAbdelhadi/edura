@@ -1,23 +1,5 @@
 "use client";
 
-/* صندوق الرسائل / Contact inbox.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Messages the public sent through the marketing site. The screen's job is to make
-   sure none of them is quietly lost, so:
-
-   - THE MESSAGE IS NEVER TRUNCATED IN THE ROW THAT MATTERS. A collapsed row shows a
-     preview, but opening one shows the message WHOLE. A support inbox that ellipsises
-     the third sentence is where the actual complaint lives.
-   - IT IS READ-ONLY, AND SAYS SO. Nothing here can edit what somebody wrote; the only
-     writes are «تم التعامل» / «سبام», which record a decision ABOUT the message rather
-     than changing it.
-   - WAITING IS COUNTED SEPARATELY FROM WHAT IS FILTERED. The «جديد» count comes from
-     the server unfiltered, so narrowing the view cannot make the backlog look smaller
-     than it is.
-   - THE SENDER'S ADDRESS IS LATIN INSIDE ARABIC PROSE — isolated with dir="ltr", like
-     every other code in the product. */
-
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -197,7 +179,6 @@ export function ContactInboxScreen() {
 
                 {expanded ? (
                   <div className="border-t border-rule px-4 py-4">
-                    {/* WHOLE, never truncated. */}
                     <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
                       {row.message}
                     </p>

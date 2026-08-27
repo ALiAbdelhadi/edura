@@ -50,7 +50,6 @@ type StaffRow = {
   title: string | null;
   active: boolean;
   createdAt: string;
-  /** Invite issued, password not set yet — the account cannot log in until claimed. */
   pendingClaim: boolean;
   user: { id: string; name: string; email: string | null; phone: string | null; status: string } | null;
 };
@@ -112,8 +111,6 @@ export function CenterStaffScreen() {
                           {row.title ? (
                             <Badge tone="neutral">{row.title}</Badge>
                           ) : null}
-                          {/* A pending invite is a WAITING state, so it is amber
-                              and it is the operator's cue to resend. */}
                           {row.pendingClaim ? (
                             <Badge tone="pending">{t("centerStaff.pendingInvite")}</Badge>
                           ) : null}
@@ -124,7 +121,6 @@ export function CenterStaffScreen() {
                     />
                   </div>
 
-                  {/* Role selector (changes the preset role) */}
                   <Select
                     value={row.role}
                     onValueChange={(v) => void changeRole(row, v as StaffRole)}
@@ -151,9 +147,6 @@ export function CenterStaffScreen() {
 
                   {row.pendingClaim && row.active ? <ResendInviteButton row={row} /> : null}
 
-                  {/* Deactivation cuts access on the next request — it is
-                      consequential, so it confirms and never sits as a filled
-                      twin of the safe action. */}
                   <ConfirmDialog
                     trigger={
                       <Button
@@ -197,9 +190,6 @@ function RolePermissionsPanel() {
         <Eyebrow>{t("centerStaff.permissionsTitle")}</Eyebrow>
       </div>
 
-      {/* Filter-row pills, one per preset role. Selecting one shows what that
-          tier can do — the list is what the account HAS, and everything absent
-          from it is absent from that portal's DOM, not disabled in it. */}
       <div className="flex flex-wrap gap-1.5">
         {ROLES.map((r) => (
           <button
@@ -233,8 +223,6 @@ function RolePermissionsPanel() {
         ))}
       </ul>
 
-      {/* The hard exclusions are red, not amber: these are not "waiting", they
-          are permanently out of reach for every staff tier. */}
       <div className="flex items-start gap-2 rounded-lg border border-destructive bg-[var(--red-soft)] p-3">
         <Lock className="mt-px size-3.5 shrink-0 text-destructive" />
         <span className="text-xs leading-relaxed text-destructive">
@@ -280,8 +268,6 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
           data?: { invite?: { claimLink: string; delivery: InviteDelivery } | null };
         }>();
       await onCreated();
-      // Keep the dialog open when there is a link to hand over — closing it
-      // would discard the only fallback if the email never arrives.
       if (res?.data?.invite) {
         setInvite({
           claimLink: res.data.invite.claimLink,
@@ -294,11 +280,6 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
       }
     } catch (err) {
       if (err instanceof HTTPError) {
-        // `err.data`, NOT `err.response.json()`: ky 2.x pre-parses the error
-        // body and CONSUMES the response doing it, so reading the response
-        // again always threw and this always fell through to the generic
-        // message below — the server's actual reason never reached the screen.
-        // Same defect, same fix as ledger/money-write.ts.
         const body = (err.data ?? null) as {
           error?: { message?: string };
         } | null;
@@ -405,10 +386,6 @@ function AddStaffDialog({ onCreated }: { onCreated: () => Promise<void> }) {
   );
 }
 
-/**
- * Re-send a pending staff invite. Each re-send mints a fresh token and kills
- * the previous link, and the new link is shown here for in-person handover.
- */
 function ResendInviteButton({ row }: { row: StaffRow }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -428,11 +405,6 @@ function ResendInviteButton({ row }: { row: StaffRow }) {
       if (res?.data) setInvite(res.data);
     } catch (err) {
       if (err instanceof HTTPError) {
-        // `err.data`, NOT `err.response.json()`: ky 2.x pre-parses the error
-        // body and CONSUMES the response doing it, so reading the response
-        // again always threw and this always fell through to the generic
-        // message below — the server's actual reason never reached the screen.
-        // Same defect, same fix as ledger/money-write.ts.
         const body = (err.data ?? null) as {
           error?: { message?: string };
         } | null;

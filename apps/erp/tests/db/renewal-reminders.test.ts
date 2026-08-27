@@ -1,24 +1,3 @@
-/**
- * B.1#12 — subscription renewal reminders (API session 2).
- *
- * Monthly coverage is manual-renewal (decision #2 — no auto-charge) and used
- * to expire silently. `runSubscriptionRenewalReminders` sweeps the
- * [status, periodEnd] index at T-5/T-2/T-0 Cairo days and tells the student
- * AND their linked parents through the existing notify path.
- *
- * What is proven here, against the real job:
- *   1. A subscription ending at T-2 produces `subscription_expiring` rows for
- *      the student and the approved parent, carrying daysLeft + the ids.
- *   2. A subscription outside every bucket produces nothing.
- *   3. An EXPIRED subscription at T-2 produces nothing — reminders are for
- *      windows still alive.
- *   4. IDEMPOTENT: a second run skips the already-reminded pair — no
- *      duplicate rows for the same (subscription, bucket).
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only renewal-reminders
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { runSubscriptionRenewalReminders } from "@/lib/services/cron/jobs";
 import { shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
@@ -42,7 +21,6 @@ function assert(cond: boolean, msg: string) {
 }
 
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
-/** Midday UTC inside the Cairo day `key` — safely inside dayRange(key, key). */
 const middayOf = (key: string) => new Date(`${key}T12:00:00Z`);
 
 async function main() {
@@ -74,9 +52,6 @@ async function main() {
         maxStudents: 30, status: "active", price: 30000, pricePerMonth: 30000,
       },
     });
-    // A second course for the far-out subscription: one ACTIVE monthly per
-    // (student, course) is a partial unique, so two live windows need two
-    // groups — which is also the realistic shape.
     const course2 = await tx.course.create({
       data: {
         centerId: null, teacherId: teacher.id, title: `${tag}-course2`, subject: "Math",
@@ -97,7 +72,6 @@ async function main() {
       data: { ...subBase, courseId: course2.id, studentId: student.id, status: "active",
         activatedAt: now, periodStart: now, periodEnd: t9 },
     });
-    // Same T-2 end date but already EXPIRED — a dead window gets no reminder.
     const dead = await tx.user.create({
       data: { name: `${tag}-student2`, role: "student", email: `${tag}-s2@x.io`, status: "active" },
     });

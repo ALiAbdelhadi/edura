@@ -14,10 +14,6 @@ const bodySchema = z
   })
   .refine((d) => d.email || d.phone, { message: "Provide email or phone" });
 
-// L4: this endpoint resolves an account by an exact email/phone the caller
-// already holds. We return only two booleans — never the person's id, name, or
-// email — so a single probe reveals no PII beyond existence, and rate-limiting
-// (20 burst, 20/min per IP) stops it being used to sweep the user base.
 export const POST = withRateLimit(
   centerStaff(
     async (req, _ctx, { acting }) => {

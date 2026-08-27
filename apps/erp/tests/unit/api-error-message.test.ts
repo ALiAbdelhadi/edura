@@ -1,11 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 
-// The API answers a refusal with `{ error: { code, message } }`. ky's own
-// HTTPError message is only "Request failed with status code 409: POST <url>",
-// and the old client read `error.response.data` — an axios shape ky never
-// produces — so the real reason ("this teacher is already registered") never
-// reached the user. These assert the message survives the client boundary.
-
 const realFetch = globalThis.fetch;
 
 function stubResponse(status: number, body: unknown, contentType = "application/json") {
@@ -22,9 +16,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// The real exported client, with only its relative prefix made absolute so the
-// request is resolvable under vitest's node environment. `extend` MERGES hooks,
-// so the `beforeError` hook under test is the shipped one, not a copy.
 async function post(): Promise<Error> {
   const { api } = await import("@/lib/api/client");
   const client = api.extend({ prefix: "http://test.local/api/v1" });
@@ -48,7 +39,6 @@ describe("api client error surfacing", () => {
     expect(err.message).toBe(
       "This teacher is already registered — send them a collaboration request instead",
     );
-    // ky's generic text must not be what the user sees.
     expect(err.message).not.toMatch(/status code/i);
   });
 

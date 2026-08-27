@@ -7,9 +7,6 @@ import { ok } from "@/lib/http/envelope";
 
 export const dynamic = "force-dynamic";
 
-// The calling teacher's own specialization subjects (TeacherSubject), used to
-// auto-fill / scope the subject picker in the collaboration booking flow. An
-// assistant acting for a teacher resolves to the teacher via toActingUser.
 export const GET = withErrors(async () => {
   await requireRole("teacher", "assistant");
   const raw = await getSessionUser();

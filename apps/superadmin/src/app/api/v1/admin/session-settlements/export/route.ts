@@ -5,16 +5,6 @@ import { buildSettlementWorkbook } from "@/lib/services/finance/settlement-expor
 
 export const dynamic = "force-dynamic";
 
-/**
- * The accountant's settlement export.
- *
- * `accountant` is allowed alongside `super_admin`: this is exactly the finance
- * surface that role exists for, and it is a READ — the workbook is built from
- * `listSessionSettlements`, which mutates nothing.
- *
- * Filters are parsed identically to the sibling JSON route so the file always
- * matches the screen it was exported from.
- */
 export const GET = withErrors(async (req) => {
   await requireRole("accountant", "super_admin");
 
@@ -41,8 +31,6 @@ export const GET = withErrors(async (req) => {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "content-disposition": `attachment; filename="${filename}"`,
       "content-length": String(buffer.byteLength),
-      // Surfaced in headers too, so a caller that skips the sheet's own note
-      // still cannot mistake a capped export for a complete one.
       "x-edura-rows": String(rowCount),
       "x-edura-truncated": String(truncated),
     },

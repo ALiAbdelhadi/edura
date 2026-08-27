@@ -8,14 +8,6 @@ import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 
-/**
- * DRAFT privacy policy — the copy is the product app's own, kept in step by
- * hand: every claim reflects how the system actually works today
- * (default-minor, guardian oversight, Paymob, audit logs, Law 151/2020 data
- * rights implemented in Settings). Needs review by qualified Egyptian counsel
- * before the official launch.
- */
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }

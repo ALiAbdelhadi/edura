@@ -38,11 +38,6 @@ export default async function ReceiptPage({
     throw err;
   }
 
-  // The subscription engine writes its note in one machine shape —
-  // "Subscription (per_session, cash)" — which landed verbatim (in English) on
-  // Arabic receipts. The stored value stays untouched; only the DISPLAY
-  // translates it, and a note that is not that exact shape passes through as-is.
-  // Phase 1 widened the machine note's method slot to the counter channels.
   const methodLabels: Record<string, string> = {
     cash: t("noteMethodCash"),
     online: t("noteMethodOnline"),

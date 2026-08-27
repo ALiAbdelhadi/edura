@@ -3,17 +3,6 @@ import { normalizeLocale } from "./locale";
 import { getTemplate } from "./templates/registry";
 import type { RenderedEmail, TemplateData, TemplateId } from "./types";
 
-/**
- * Render one template to a complete email.
- *
- * Pure: no env reads, no I/O, no side effects — which is what makes it testable
- * and what makes the mail-preview script safe to point at production data.
- *
- * `text` comes from the template's own plain-text writer rather than from
- * stripping tags off the HTML. Auto-stripped text reads like debris (a bare URL
- * three lines below the sentence that referenced it), and a bad text/plain part
- * is worse for deliverability than a good one is better.
- */
 export async function renderEmail<T extends TemplateId>(
   template: T,
   locale: string | null | undefined,

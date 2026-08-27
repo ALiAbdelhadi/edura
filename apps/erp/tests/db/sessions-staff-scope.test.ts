@@ -1,26 +1,3 @@
-/**
- * GET /api/v1/sessions — a center_staff caller sees ONLY their own centre.
- *
- * WHAT WAS BROKEN. The route resolved its caller with `toActingUser`, which
- * reshapes ONLY assistant -> teacher. A `center_staff` session therefore
- * reached the role chain unchanged and matched NO branch, so the Prisma
- * `where` was left with no course and no teacher filter. `scopedDb` opens a
- * tenant only for `center_admin`, so that unfiltered query also ran under
- * withPlatformContext — no RLS underneath to catch it. Net effect: every
- * session on the platform, for any staff account. Same shape as the H-1
- * materials finding: the gate already existed, this route never called it.
- *
- * Proves:
- *  - authorizeCenterActor resolves a staff member to THEIR OWN centre and
- *    returns the center_admin-shaped actor scopedDb needs to bind a tenant;
- *  - under that actor, another centre's sessions are INVISIBLE (RLS), which is
- *    the mechanism the fix relies on — not a filter someone must remember;
- *  - the staff member's own centre's sessions ARE visible, so the fix scopes
- *    rather than simply refuses;
- *  - a revoked staff link stops resolving at all.
- *
- * Run (this one only): bun run --filter edura test:db:only sessions-staff-scope
- */
 import { withTenant, withPlatformContext } from "@repo/database";
 import { authorizeCenterActor } from "@/lib/authz/center-actor";
 import type { SessionUser } from "@/lib/auth/session";
@@ -93,7 +70,6 @@ async function main() {
 
   const staff: SessionUser = { id: fx.staffId, role: "center_staff" } as SessionUser;
 
-  // --- the actor resolves to the staff member's OWN centre -------------------
   const actor = await authorizeCenterActor(staff, {
     allow: ["receptionist", "manager", "center_accountant"],
   });
@@ -104,20 +80,6 @@ async function main() {
   );
   assert(actor.staffRole === "receptionist", "the preset sub-role is carried for the allow-list gate");
 
-  // --- WHAT ACTUALLY PROTECTS THIS TABLE ------------------------------------
-  //
-  // MEASURED, and it corrects an assumption worth writing down: RLS does NOT
-  // scope `sessions` by centre. It cannot — the table has no `center_id`
-  // column at all (courseId / teacherId / roomId only), so there is no tenant
-  // key for a policy to key on. A tenant-bound read of the two rows below
-  // returns BOTH. The comment in center-actor.ts that "RLS binds every query
-  // in the kernel service to that one centre" holds only for tables that
-  // CARRY the centre; `sessions` is not one of them.
-  //
-  // The protection is therefore the EXPLICIT course-id filter the center_admin
-  // branch applies — which is exactly the branch the fix now routes staff
-  // into. This asserts that filter, because that is the thing standing
-  // between a staff account and another centre's timetable.
   const rlsSees = await withTenant(actor.acting.centerId as string, (tx) =>
     tx.session.findMany({
       where: { id: { in: [fx.A.sessionId, fx.B.sessionId] } },
@@ -130,7 +92,6 @@ async function main() {
       "This is why the explicit filter below is load-bearing, not belt-and-braces.",
   );
 
-  // The route's center_admin branch, run against the reshaped actor.
   const scoped = await withTenant(actor.acting.centerId as string, async (tx) => {
     const courses = await tx.course.findMany({
       where: { centerId: actor.acting.centerId as string },
@@ -155,7 +116,6 @@ async function main() {
   );
   assert(scoped.length === 1, `exactly one row survives the scope (got ${scoped.length})`);
 
-  // --- a revoked link stops resolving ---------------------------------------
   await withPlatformContext((tx) =>
     tx.centerStaff.update({ where: { id: fx.linkId }, data: { removedAt: new Date() } }),
   );

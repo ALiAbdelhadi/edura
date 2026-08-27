@@ -26,8 +26,6 @@ const schedulePatternSchema = z
     path: ["endDate"],
   });
 
-// Identical to the center's own create schema. `pricingMethod` selects WHICH
-// superadmin-configured rate is frozen onto the course — it is not a rate.
 const createSchema = z
   .object({
     teacherId: z.uuid(),

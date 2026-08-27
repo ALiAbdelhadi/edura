@@ -1,7 +1,3 @@
-// Bridge Next.js → realtime server: REST-persisted messages/reads still reach
-// connected sockets live. Fire-and-degrade: when the realtime server is down,
-// REST keeps working — messages get swept to "delivered" on the recipient's
-// next socket connect; only the instant push is lost.
 import type {
   BridgeMessagePayload,
   BridgeReadPayload,
@@ -13,7 +9,6 @@ const REALTIME_INTERNAL_URL = (
 ).replace(/\/$/, "");
 
 function internalSecret(): string {
-  // M2: dedicated internal-bridge secret, required in production.
   return requireDedicatedSecret("INTERNAL_API_SECRET");
 }
 
@@ -35,7 +30,6 @@ async function post(path: string, body: unknown): Promise<unknown | null> {
   }
 }
 
-/** @returns whether the recipient had a live socket, null if bridge unreachable. */
 export async function bridgeMessage(
   payload: BridgeMessagePayload,
 ): Promise<{ recipientOnline: boolean } | null> {

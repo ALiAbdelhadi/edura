@@ -15,9 +15,6 @@ export const GET = withErrors(async () => {
   return ok(await listAssistants(user));
 });
 
-// No `password` field, deliberately: the teacher never chooses their
-// assistant's credential. The assistant sets it themselves via the emailed
-// single-use claim link (see services/teacher/assistants.ts).
 const createSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email(),
@@ -41,8 +38,6 @@ export const POST = withErrors(async (req) => {
         email: result.user.email,
         status: result.user.status,
       },
-      // The copyable fallback: mail lands in spam often enough that a hire
-      // should not be stranded by it.
       invite: result.invite
         ? {
             delivery: result.invite.email.status,

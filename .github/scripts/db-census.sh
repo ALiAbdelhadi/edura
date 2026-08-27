@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Exact row count for every base table in `public`, one "table count" line each,
-# sorted. Used by the `seeds` CI job to prove the seeds are idempotent without
-# hard-coding any expected number: the check is census-before == census-after,
-# so adding a fixture stays green while a duplicating seed names its own table.
-#
-# query_to_xml is the portable way to count a dynamically-named table from
-# inside a single query; pg_stat_user_tables.n_live_tup is only an estimate and
-# would make this flaky.
 set -euo pipefail
 
 PGHOST="${PGHOST:-localhost}"

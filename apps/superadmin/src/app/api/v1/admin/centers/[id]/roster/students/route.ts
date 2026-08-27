@@ -5,8 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminListStudents, adminAddStudent } from "@/lib/services/admin/center-people";
 
-// Phase 1 (People) — runs the SAME kernel service the center runs, with the
-// super admin shaped onto the target center. Every mutation is audited.
 export const dynamic = "force-dynamic";
 
 const addSchema = z.object({ studentId: z.uuid() }).strict();

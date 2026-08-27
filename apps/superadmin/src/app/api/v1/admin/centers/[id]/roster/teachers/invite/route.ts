@@ -7,10 +7,6 @@ import { adminInviteTeacher } from "@/lib/services/admin/center-people";
 
 export const dynamic = "force-dynamic";
 
-// Shell-account onboarding only. An ALREADY-REGISTERED teacher is refused here
-// and must come through a collaboration request (Step 5) — the same rule the
-// center is held to, so the back office cannot create an affiliation the
-// normal flow would not.
 const bodySchema = z
   .object({
     email: z.email().toLowerCase().trim(),

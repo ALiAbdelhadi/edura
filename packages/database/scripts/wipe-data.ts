@@ -1,23 +1,4 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * WIPE ALL DATA — dev/test ONLY, schema stays, migrations stay
- * ============================================================================
- * Truncates every public table except `_prisma_migrations` and restarts every
- * sequence, so the database returns to "freshly migrated, zero rows". Run the
- * seed afterwards to restore the permanent catalog + operator accounts.
- *
- * Guards (all three must hold, in this order):
- *   1. The <env> argument must be `dev` or `test`. `production` is REFUSED
- *      unconditionally — a production reset must never be one command.
- *   2. The database's own `edura-env:<env>` label (see label-db.ts) must match
- *      the argument. A connection string pointing at the wrong branch fails
- *      loudly BEFORE anything is touched.
- *   3. The literal flag `--yes` must be passed.
- *
- * Usage:  tsx --env-file=.env scripts/wipe-data.ts dev --yes
- *         tsx --env-file=.env.test scripts/wipe-data.ts test --yes
- */
 import "./load-env";
 import pg from "pg";
 import { pinSslMode } from "../src/pg-ssl";
@@ -68,8 +49,6 @@ async function main() {
     const list = tables.map((t) => pg.escapeIdentifier(t.tablename)).join(", ");
     await pool.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
 
-    // Standalone sequences (receipt counters etc.) are not owned by a column,
-    // so RESTART IDENTITY does not reach them.
     const { rows: seqs } = await pool.query<{ sequencename: string }>(
       `SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'`,
     );

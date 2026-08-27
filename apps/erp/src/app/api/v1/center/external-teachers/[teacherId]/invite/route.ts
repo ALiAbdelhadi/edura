@@ -12,15 +12,6 @@ type Ctx = { params: Promise<{ teacherId: string }> };
 
 const bodySchema = z.object({ locale: z.enum(["ar", "en"]).optional() });
 
-/**
- * Re-send the join invite, and hand back the link.
- *
- * The link is in the response ON PURPOSE: an invite sitting in a spam folder
- * must not strand a teacher who has already agreed to join, and the center can
- * simply show it to them. The service refuses once a password exists, so this
- * can never become a center-controlled password reset on someone else's
- * account — the same rule the assistant and staff invites hold.
- */
 export const POST = withErrors(async (req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();

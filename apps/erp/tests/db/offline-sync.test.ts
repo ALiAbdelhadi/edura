@@ -35,8 +35,6 @@ async function main() {
     });
     await tx.teacherProfile.create({ data: { userId: teacherB.id, walletBalance: 0 } });
 
-    // Step 6 gives the door to the TEACHER'S ASSISTANT, so the replay has to
-    // work from their account too — `resolveAssistantTeacher` maps it back.
     const assistant = await tx.user.create({
       data: { name: tag + "-assistant", role: "assistant", email: tag + "-as@x.io", status: "active" },
     });
@@ -89,8 +87,6 @@ async function main() {
     const sessionFresh = await mkSession("2026-02-02T10:00:00Z", teacherA.id);
     const sessionConflict = await mkSession("2026-02-09T10:00:00Z", teacherA.id);
     const sessionOtherTeacher = await mkSession("2026-02-16T10:00:00Z", teacherB.id);
-    // Door-stage fixtures: one student who passed the counter (the door may
-    // confirm them) and one who did not (the door must refuse).
     const sessionDoor = await mkSession("2026-02-23T10:00:00Z", teacherA.id);
     const sessionDoorNoCounter = await mkSession("2026-03-02T10:00:00Z", teacherA.id);
 
@@ -182,12 +178,6 @@ async function main() {
     assert(res.errors === 3, `errors count = 3 (got ${res.errors})`);
     assert(res.results.length === 5, `results length = 5 (got ${res.results.length})`);
 
-    // ── DOOR STAGE ────────────────────────────────────────────────────────
-    // The endpoint has accepted `stage: "door"` since Step 6 and NOTHING ever
-    // exercised it: the outbox could not produce one until the door screen got
-    // an offline path, so the branch shipped unproven. It is the replay that
-    // matters — a door record is not a status write, it is the counter →
-    // present TRANSITION, and it has to stay idempotent and stay strict.
     const DOOR_TS = new Date("2026-02-23T10:05:00.000Z");
     const doorRes = await syncOfflineAttendance(
       [
@@ -227,8 +217,6 @@ async function main() {
     assert(untouched?.status === "absent" && untouched?.doorAt == null,
       `a refused door record changes NOTHING (got ${untouched?.status}/${untouched?.doorAt})`);
 
-    // The outbox replays a chunk that may already have been applied — a phone
-    // that synced and then lost the response must not double-apply or fail.
     const replay = await syncOfflineAttendance(
       [{ sessionId: fx.sessionDoor, studentId: fx.enrolled, status: "present", localTimestamp: new Date("2026-02-23T11:00:00Z"), stage: "door" }],
       teacher,
@@ -245,8 +233,6 @@ async function main() {
     assert(afterReplay?.doorAt?.getTime() === DOOR_TS.getTime(),
       "a replay does NOT move doorAt — the first confirmation stands");
 
-    // Step 6 put the door in the assistant's hands; a queued door record must
-    // replay from the assistant's own account too, resolving to their teacher.
     const assistantRes = await syncOfflineAttendance(
       [{ sessionId: fx.sessionDoor, studentId: fx.enrolled, status: "present", stage: "door" }],
       { id: fx.assistant, role: "assistant" } as never,
@@ -254,8 +240,6 @@ async function main() {
     assert(assistantRes.results[0]?.result === "synced",
       `an assistant replays their teacher's door records (got ${assistantRes.results[0]?.result}/${assistantRes.results[0]?.reason})`);
 
-    // A door record for someone else's lesson is refused on the same rule the
-    // status path uses — the stage does not widen anything.
     const foreign = await syncOfflineAttendance(
       [{ sessionId: fx.sessionOtherTeacher, studentId: fx.enrolled, status: "present", stage: "door" }],
       teacher,
@@ -295,8 +279,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite offline-sync.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);

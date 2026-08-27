@@ -11,20 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Download a report as CSV.
- *
- * TWO GATES, and the second is the one that matters. The wrapper admits the
- * UNION of the tiers that can export anything (accountant + manager), because
- * `centerStaff` takes one static allow-list and this route serves reports of
- * both tiers. `buildReportExport` then applies THE SPECIFIC report's tier,
- * read from the registry that also defines the report — so a manager asking
- * for revenue is refused exactly as `/reports/net-profit` would refuse them.
- * Widening the wrapper without that second check would hand every manager the
- * center's revenue; the export suite asserts it does not.
- *
- * The owner (staffRole null) passes both, as everywhere else.
- */
 export const GET = centerStaff(
   async (req, _ctx, actor) => {
     const url = new URL(req.url);
@@ -53,9 +39,6 @@ export const GET = centerStaff(
       ],
     });
 
-    // `attachment` so the browser saves rather than renders; the charset is
-    // stated even though the BOM is present, because some clients trust only
-    // one of the two. no-store: a financial export must never sit in a cache.
     return new NextResponse(csv, {
       status: 200,
       headers: {

@@ -23,7 +23,6 @@ export const GET = withErrors(async () => {
   return ok(await getGlobalSplit());
 });
 
-/** super_admin ONLY — the global default 3-way split. */
 export const PUT = withErrors(async (req) => {
   const user = await requireRole("super_admin");
   const body = await parseJson(req, splitSchema);

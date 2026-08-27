@@ -1,22 +1,5 @@
 "use client";
 
-/* سياسة المحفظة / Student wallet policy.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The balance cap is GONE (2026-07-23) — a student may hold any balance — so the only
-   knobs left are the per-transaction top-up bounds, which the money engine enforces
-   before taking any money.
-
-   ── Why an editable amount input is correct HERE and nowhere else ─────────────
-
-   The constitution says never to render an amount as an editable input, because
-   amounts are append-only and the UI must not imply otherwise. These two fields are
-   NOT amounts — they are POLICY BOUNDS, configuration that governs future writes and
-   changes nothing already in the ledger. That is also why saving is ONE press: the
-   value is editable again tomorrow, so claiming permanence with a two-step commit
-   would be dishonest (D-022). The figures *reporting* current policy are still <Num>,
-   because those are values the system computed. */
-
 import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";

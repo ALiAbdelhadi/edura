@@ -1,45 +1,10 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * RESTORE TEST — proves a dump can actually come back
- * ============================================================================
- *
- * An untested backup is a hypothesis. This script is what converts it into a
- * fact, and it is designed to be run on a schedule, not once.
- *
- * WHAT IT DOES:
- *   1. Starts a THROWAWAY local PostgreSQL in a temp directory, on a random
- *      port, listening on a unix socket only.
- *   2. Restores the dump into it.
- *   3. Runs integrity checks against the restored data.
- *   4. Destroys the whole thing.
- *
- * WHY A LOCAL SCRATCH SERVER AND NOT A NEON BRANCH:
- *   * It touches NO cloud database, so there is no configuration mistake that
- *     could point a restore at dev or production. The blast radius is a temp
- *     directory.
- *   * It proves the dump is PORTABLE — that the data can be revived on plain
- *     PostgreSQL, not only inside Neon. That is most of the point of keeping
- *     logical dumps alongside Neon's PITR.
- *   * It needs no cloud credentials, so it runs in CI and on a laptop the same
- *     way.
- *
- * THE CHECKS ARE STRUCTURAL, NOT COSMETIC. "pg_restore exited 0" is not
- * evidence: it exits 0 on an empty dump. So the checks assert the things that
- * would actually make a restore useless — missing tables, an empty catalog, a
- * broken money ledger, orphaned foreign keys.
- *
- * Usage:
- *   bun run db:restore-test .backups/dev-daily-....dump
- *   bun run db:restore-test <file> --keep      # leave the scratch server up
- */
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Binary resolution (and the PostgreSQL-18-vs-17 rationale) lives in pg-tools.
 import { pg, pgBinDir } from "./pg-tools";
 
 function run(
@@ -60,13 +25,9 @@ function run(
   });
 }
 
-/** Query the scratch server and return the single scalar in the first column. */
 function scalar(socket: string, db: string, sql: string): string {
   const res = spawnSync(
     pg("psql"),
-    // `-U postgres` is required: without it psql connects as the OS user, which
-    // does not exist on a freshly initdb'd cluster ("role \"ali\" does not
-    // exist") and every check fails for a reason unrelated to the backup.
     ["-h", socket, "-U", "postgres", "-d", db, "-tAc", sql],
     { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } },
   );
@@ -108,34 +69,18 @@ async function main() {
 
   try {
     console.log(`\n▶ scratch server in ${root}`);
-    // PostgreSQL will not create its own socket directory.
     await mkdir(socket, { recursive: true });
-    // Locale is pinned EXPLICITLY. initdb inherits LANG/LC_* from the shell and
-    // dies with "invalid locale settings" on any machine whose locale it does
-    // not recognise (macOS is a common offender) — which would make the restore
-    // test fail for a reason that has nothing to do with the backup.
-    //
-    // `--encoding=UTF8` is NOT optional: the data is Arabic. Collation is C
-    // because sort order affects no check here, and C is the one collation
-    // guaranteed to exist everywhere.
     await run(
       pg("initdb"),
       ["-D", dataDir, "-U", "postgres", "--encoding=UTF8", "--locale=C", "--no-sync"],
       { quiet: true, env: { LC_ALL: "C", LANG: "C" } },
     );
-    // LC_ALL=C is required for the SERVER process too, not just initdb. On
-    // macOS, PostgreSQL 18 aborts startup with "postmaster became multithreaded
-    // during startup" because the platform's locale lookup spawns a thread
-    // before the postmaster forks. Its own hint says to set LC_ALL.
     await run(
       pg("pg_ctl"),
       [
         "-D",
         dataDir,
         "-o",
-        // Unix socket ONLY (`-h ""` disables TCP). Nothing on the network can
-        // reach a server holding a copy of real data, not even from localhost.
-        // fsync off because this server lives for ~20 seconds and is discarded.
         `-k ${socket} -h "" -c fsync=off -c full_page_writes=off`,
         "-l",
         path.join(root, "server.log"),
@@ -152,10 +97,6 @@ async function main() {
     });
 
     console.log(`▶ pg_restore ${path.basename(dumpFile)}`);
-    // `--no-owner/--no-privileges`: the dump references the Neon `edura_app`
-    // role, which does not exist here. Ownership is not what we are testing —
-    // the DATA coming back is. Non-zero exit is tolerated for exactly this
-    // class of warning and the checks below are the real verdict.
     const restoreCode = await run(
       pg("pg_restore"),
       [
@@ -169,9 +110,6 @@ async function main() {
         "--no-privileges",
         dumpFile,
       ],
-      // Non-zero is EXPECTED and tolerated: the dump names the Neon `edura_app`
-      // role, which does not exist here, so every GRANT/OWNER statement errors.
-      // The integrity checks below are the real verdict, not this exit code.
       { allowFail: true, env: { LC_ALL: "C" } },
     );
     if (restoreCode !== 0) {
@@ -182,9 +120,6 @@ async function main() {
 
     const q = (sql: string) => scalar(socket, DB, sql);
 
-    // ---------------------------------------------------------------------
-    // INTEGRITY CHECKS. Each one is a way a restore can be silently useless.
-    // ---------------------------------------------------------------------
     const checks: Check[] = [
       {
         name: "schema restored (tables present)",
@@ -193,8 +128,6 @@ async function main() {
             q(`SELECT count(*) FROM information_schema.tables
                 WHERE table_schema='public' AND table_type='BASE TABLE'`),
           );
-          // The repo's own expected shape is ~74 tables; anything under 50
-          // means a partial restore, which pg_restore will not tell you about.
           return { ok: n >= 50, detail: `${n} tables` };
         },
       },
@@ -208,8 +141,6 @@ async function main() {
       {
         name: "permanent reference data survived (Egyptian education catalog)",
         run: () => {
-          // The catalog is the one thing that is NEVER demo data and never
-          // wiped. If it came back empty, the dump captured nothing useful.
           const subjects = Number(q(`SELECT count(*) FROM subjects`));
           const grades = Number(q(`SELECT count(*) FROM grade_levels`));
           return {
@@ -230,9 +161,6 @@ async function main() {
         run: () => {
           const tx = Number(q(`SELECT count(*) FROM transactions`));
           const payments = Number(q(`SELECT count(*) FROM payments`));
-          // Every refund must still point at the payment it reverses. A
-          // restore that dropped rows would break this and nothing else would
-          // notice until an accountant did.
           const orphanRefunds = Number(
             q(`SELECT count(*) FROM transactions t
                 WHERE t.type = 'refund' AND t.reversal_of_id IS NOT NULL
@@ -268,10 +196,6 @@ async function main() {
       {
         name: "sequences restored at the right position (no receipt-number reuse)",
         run: () => {
-          // THE subtle one. If a sequence came back at 1 while the table holds
-          // receipt RCP-...-00042, the next payment reuses a receipt number
-          // and the unique index rejects it — a restore that looks perfect and
-          // then breaks checkout.
           const behind = Number(
             q(`SELECT count(*) FROM (
                  SELECT s.schemaname, s.sequencename, s.last_value
@@ -312,9 +236,6 @@ async function main() {
     }
     console.log(`\n✅ restore verified: ${checks.length}/${checks.length} checks passed`);
   } catch (err) {
-    // The scratch directory is about to be deleted, taking the postmaster log
-    // with it — and that log is the ONLY explanation of a start failure. Print
-    // it before it goes.
     const log = await readFile(path.join(root, "server.log"), "utf8").catch(() => "");
     if (log.trim()) {
       console.error(`\n--- scratch server log ---\n${log.trim()}\n--------------------------`);

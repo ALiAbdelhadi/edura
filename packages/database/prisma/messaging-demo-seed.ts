@@ -39,9 +39,6 @@ const OMAR = P("omar", "عمر خالد", "student");
 
 const ALL = [HODA, MONA, KAMAL, SALMA, YOUSSEF, LAYLA, AMIRA, TAREK, NABIL, RANIA, OMAR];
 
-// Natural keys — the identity of the demo world that does NOT depend on the id
-// formula. The seed writes them and the purge reads them, so the two can never
-// disagree about which rows belong to this seed.
 const email = (p: Person) => `msgdemo-${p.key}@edura.test`;
 const EMAILS = ALL.map(email);
 const ALPHA_SHORT_ID = "MSGDEMOALFA";
@@ -56,13 +53,6 @@ const GROUP_ALPHA = did("group:alpha-physics");
 async function purge() {
   console.log("Purging messaging demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve the demo world by its NATURAL keys (email / shortId), not by the
-    // derived ids. H-03 changed the id formula, and a purge keyed on the
-    // formula silently misses everything the previous formula wrote — the rows
-    // it is most important to remove. Email and shortId are stable across any
-    // id-scheme change, so this purge stays correct through the next one.
-    // Raw, because `user.findMany` is narrowed to `deletedAt: null` by the
-    // soft-delete extension, and a previous purge left these rows soft-deleted.
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -83,7 +73,6 @@ async function purge() {
     });
     const groupIds = groups.map((g) => g.id);
 
-    // Children first (no FK cascade from users).
     await tx.groupMessage.deleteMany({ where: { groupId: { in: groupIds } } });
     await tx.groupMember.deleteMany({ where: { groupId: { in: groupIds } } });
     await tx.conversationGroup.deleteMany({ where: { id: { in: groupIds } } });
@@ -114,11 +103,6 @@ async function purge() {
     await tx.parentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // `user.deleteMany` is intercepted by the soft-delete extension and only
-    // sets `deleted_at` — the row and its UNIQUE email survive, so the next
-    // seed run failed with P2002 on `msgdemo-*@edura.test`. Raw hard delete,
-    // narrowed to these ids AND `is_demo = true`, on a non-production database
-    // (assertNotProduction, above).
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -136,9 +120,6 @@ async function purge() {
 }
 
 async function main() {
-  // Demo data must never reach production — in either direction. The purge path
-  // is guarded too: it deletes the demo world it created, which is correct on a
-  // dev database and unacceptable as a stray command against production.
   await assertNotProduction("messaging-demo-seed");
 
   if (PURGE) {
@@ -150,12 +131,9 @@ async function main() {
   console.log("Seeding messaging demo…");
 
   await withPlatformContext(async (tx) => {
-    // ---- users ----------------------------------------------------------
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
-        // `deletedAt: null` revives a row the purge soft-deleted — see the note
-        // on the raw hard-delete in purge().
         update: { name: p.name, status: "active", isDemo: true, deletedAt: null },
         create: {
           id: p.id,
@@ -170,7 +148,6 @@ async function main() {
       });
     }
 
-    // ---- centers --------------------------------------------------------
     await tx.center.upsert({
       where: { id: ALPHA },
       update: { isDemo: true },
@@ -207,7 +184,6 @@ async function main() {
       });
     }
 
-    // Receptionist at ALPHA — the sub-role that reaches families only.
     await tx.centerStaff.upsert({
       where: { centerId_staffUserId: { centerId: ALPHA, staffUserId: MONA.id } },
       update: { role: "receptionist", removedAt: null },
@@ -219,7 +195,6 @@ async function main() {
       },
     });
 
-    // ---- teachers, assistants, affiliations ------------------------------
     for (const teacher of [KAMAL, NABIL]) {
       await tx.teacherProfile.upsert({
         where: { userId: teacher.id },
@@ -258,9 +233,6 @@ async function main() {
       });
     }
 
-    // ---- students --------------------------------------------------------
-    // Youssef: NO date of birth at all -> MINOR under the default-minor rule,
-    // so parent oversight is active for him. This is the common real case.
     await tx.studentProfile.upsert({
       where: { userId: YOUSSEF.id },
       update: { dateOfBirth: null, dateOfBirthVerifiedAt: null },
@@ -270,8 +242,6 @@ async function main() {
         familyLinkCode: flc(YOUSSEF.id),
       },
     });
-    // Layla: a VERIFIED 19-year-old -> the only way to be an adult. Her
-    // conversations are private; the oversight screen says so explicitly.
     await tx.studentProfile.upsert({
       where: { userId: LAYLA.id },
       update: {
@@ -312,7 +282,6 @@ async function main() {
       },
     });
 
-    // ---- courses + enrollments (the relationships messaging derives from) --
     await tx.course.upsert({
       where: { id: COURSE_ALPHA },
       update: { isDemo: true },
@@ -374,7 +343,6 @@ async function main() {
       });
     }
 
-    // ---- conversations ---------------------------------------------------
     const thread = async (
       key: string,
       a: Person,
@@ -398,7 +366,6 @@ async function main() {
           lastMessageAt: ago(last[2]),
           lastMessagePreview: last[1].slice(0, 140),
           lastMessageSenderId: last[0].id,
-          // Unread on the RECIPIENT's side of the last message.
           aUnreadCount: last[0].id === userAId ? 0 : 1,
           bUnreadCount: last[0].id === userBId ? 0 : 1,
         },
@@ -424,7 +391,6 @@ async function main() {
       return id;
     };
 
-    // A minor <-> teacher thread: this is the one the parent can oversee.
     const convYoussefKamal = await thread(
       "youssef-kamal",
       YOUSSEF,
@@ -461,7 +427,6 @@ async function main() {
       [SALMA, "تمام يا أستاذ، جاهز.", 55],
     ]);
 
-    // ---- a derived-membership channel ------------------------------------
     await tx.conversationGroup.upsert({
       where: { id: GROUP_ALPHA },
       update: { isDemo: true },
@@ -479,9 +444,6 @@ async function main() {
         lastMessageSenderId: KAMAL.id,
       },
     });
-    // Membership MIRRORS the real roster (teacher + assistant + the two
-    // enrolled students + the enrolled minor's parent + the center side). The
-    // app re-derives this live on every read; the rows here are just the cache.
     for (const [person, role] of [
       [KAMAL, "teacher"],
       [SALMA, "assistant"],
@@ -523,7 +485,6 @@ async function main() {
       });
     }
 
-    // ---- one open safety report + one block ------------------------------
     await tx.conversationReport.upsert({
       where: { id: did("report:1") },
       update: {},
@@ -535,7 +496,6 @@ async function main() {
         category: "spam",
         details: "رسائل متكررة عن الاشتراك.",
         status: "open",
-        // Reporter is a minor -> flagged, sorts to the top of the queue.
         involvesMinor: true,
       },
     });

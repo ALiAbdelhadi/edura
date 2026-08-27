@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# =============================================================================
-# One-time setup for the backup GitHub Actions secrets.
-#
-# RUN THIS YOURSELF. It prompts for each value and pipes it straight into
-# `gh secret set` — nothing is echoed to the terminal, written to a file, or
-# kept in shell history. That is deliberate: these are a production database
-# password and the key that decrypts every backup you will ever take, and they
-# should pass through as few hands as possible.
-#
-#   bash packages/database/scripts/setup-backup-secrets.sh
-#
-# Re-running it is safe: it overwrites each secret with whatever you type and
-# skips anything you leave blank.
-# =============================================================================
 set -euo pipefail
 
 REPO="${BACKUP_SECRETS_REPO:-ALiAbdelhadi/edura}"
@@ -22,7 +8,6 @@ dim()  { printf '\033[2m%s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
 
-# --- preflight ---------------------------------------------------------------
 command -v gh >/dev/null || { echo "gh is not installed:  brew install gh"; exit 1; }
 command -v age-keygen >/dev/null || { echo "age is not installed:  brew install age"; exit 1; }
 
@@ -36,10 +21,6 @@ bold "Backup secrets → $REPO"
 dim "Press ENTER on any prompt to skip that secret and leave it unchanged."
 echo
 
-# `read -rs` keeps the value off the screen. Piping it to gh on STDIN keeps it
-# out of the PROCESS LIST too: `gh secret set X --body "$v"` puts the secret in
-# argv, where any local process can read it out of `ps` for as long as the call
-# runs. Short window, but a free one to close.
 set_secret() {
   local name="$1" prompt="$2" secret="${3:-yes}" value
   if [ "$secret" = "yes" ]; then
@@ -53,14 +34,12 @@ set_secret() {
   ok "$name set"
 }
 
-# --- 1. database -------------------------------------------------------------
 bold "1. Production database"
 dim "The UNPOOLED connection string — your DIRECT_URL, NOT the one with"
 dim "'-pooler' in the host. The pooler cannot produce a consistent dump."
 set_secret BACKUP_DIRECT_URL "BACKUP_DIRECT_URL"
 echo
 
-# --- 2. encryption -----------------------------------------------------------
 bold "2. Encryption key"
 if gh secret list --repo "$REPO" 2>/dev/null | grep -q '^BACKUP_AGE_RECIPIENT'; then
   warn "BACKUP_AGE_RECIPIENT already exists — skipping key generation."
@@ -101,7 +80,6 @@ else
 fi
 echo
 
-# --- 3. object storage -------------------------------------------------------
 bold "3. Object storage (S3-compatible)"
 dim "Backblaze B2, Cloudflare R2, Wasabi, iDrive e2, MinIO or AWS S3."
 dim "Leave the endpoint blank ONLY if you are using AWS S3 itself."
@@ -117,14 +95,12 @@ set_secret BACKUP_S3_SECRET_ACCESS_KEY "BACKUP_S3_SECRET_ACCESS_KEY"
 set_secret BACKUP_S3_REGION   "BACKUP_S3_REGION (B2: eu-central-003 | R2: auto)"  no
 echo
 
-# --- 4. alerting -------------------------------------------------------------
 bold "4. Failure alerts"
 dim "Where a FAILED backup shouts. Without this, failures are logged and"
 dim "nobody is told."
 set_secret BACKUP_ALERT_EMAIL "BACKUP_ALERT_EMAIL" no
 echo
 
-# --- done --------------------------------------------------------------------
 bold "Configured secrets"
 gh secret list --repo "$REPO" | grep -E '^BACKUP_' || warn "none found"
 echo

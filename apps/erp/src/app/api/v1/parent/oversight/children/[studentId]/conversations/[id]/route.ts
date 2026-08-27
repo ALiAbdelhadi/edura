@@ -5,9 +5,6 @@ import { getChildThread } from "@/lib/services/messages/messages";
 
 export const dynamic = "force-dynamic";
 
-// READ-ONLY thread view. GET only — there is deliberately no POST here, so
-// there is no code path by which a parent can write into their child's
-// conversation. Non-adult partners are rejected by the service.
 export const GET = withErrors(
   async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     const user = await requireRole("parent");

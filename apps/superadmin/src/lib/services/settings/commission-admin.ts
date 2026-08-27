@@ -2,15 +2,9 @@ import { platformDb } from "@/lib/db/scope";
 import { BusinessRuleError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 
-// Step 4.5: only the GLOBAL row is managed from the back-office for now.
-// Per-center / per-teacher override rows are a future feature — the table and
-// resolveCommission() already support them without schema changes.
-
 export function getGlobalCommission() {
   return platformDb(async (tx) => {
     const row = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
-    // The migration inserts the global row; treat absence as a config error
-    // but still render the code fallback so the screen never breaks.
     return (
       row ?? {
         id: null,
@@ -61,10 +55,6 @@ export function updateGlobalCommission(
             data: { scope: "global", ...input, updatedBy: user.id },
           });
 
-      // Audited like every other write to this table (rooms-split.ts writes
-      // revenue_split.* / m2_rate.* for the split + Method-2 columns of the
-      // same rows). These are the rates every charge is settled at, so the log
-      // carries BEFORE and AFTER — "who lowered the commission, from what".
       await tx.auditLog.create({
         data: {
           actorId: user.id,

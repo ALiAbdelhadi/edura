@@ -1,9 +1,3 @@
-// Proof for the shared bottom-navigation slot logic.
-//
-// It lives in `packages/ui` and the student, parent and staff portals all
-// depend on it, so its invariants are asserted rather than eyeballed. The one
-// that is easy to regress: the ACTIVE destination must always be reachable in
-// one press, even when it would otherwise fall into the overflow.
 import { describe, expect, it } from "vitest";
 import { computeSlots } from "@repo/ui/components/bottom-nav";
 
@@ -11,7 +5,6 @@ type Item = { key: string };
 const mk = (n: number): Item[] =>
   Array.from({ length: n }, (_, i) => ({ key: `k${i}` }));
 
-/** slots ∪ overflow must be exactly `items` — nothing lost, nothing doubled. */
 function expectPartition(items: Item[], slots: Item[], overflow: Item[]) {
   const keys = [...slots, ...overflow].map((i) => i.key);
   expect(new Set(keys).size).toBe(keys.length); // no duplicates
@@ -47,7 +40,6 @@ describe("computeSlots", () => {
     const { slots, overflow } = computeSlots(items, 5, "k7");
     expect(slots).toHaveLength(4);
     expect(slots.map((i) => i.key)).toContain("k7");
-    // k3 was the last visible slot and is the one displaced.
     expect(slots.map((i) => i.key)).toEqual(["k0", "k1", "k2", "k7"]);
     expect(overflow.map((i) => i.key)).toContain("k3");
     expect(overflow.map((i) => i.key)).not.toContain("k7");
@@ -79,18 +71,11 @@ describe("computeSlots", () => {
   it("survives a maxVisible of 1 without dropping the active item", () => {
     const items = mk(4);
     const { slots, overflow } = computeSlots(items, 1, "k2");
-    // Everything is overflow; there is no room to promote into.
     expect(slots).toHaveLength(0);
     expectPartition(items, slots, overflow);
   });
 });
 
-// The bar is drawn INSTEAD of the sidebar, and a portal that ships it hides the
-// sidebar toggle on phones — so the sheet behind "more" is the only place left
-// for the account action (identity + logout) that lives at the sidebar's foot.
-// That makes the "more" slot unconditional in those portals, which is a
-// different arithmetic: the slot has to come out of `maxVisible` even when
-// nothing overflowed, or the bar draws one target more than it was measured for.
 describe("computeSlots — with the account action in the sheet", () => {
   it("still spends a slot on 'more' when the destinations fit exactly", () => {
     const items = mk(5);
@@ -103,7 +88,6 @@ describe("computeSlots — with the account action in the sheet", () => {
   it("leaves a short bar alone — there is nothing to push out", () => {
     const items = mk(3);
     const { slots, overflow } = computeSlots(items, 5, "k1", true);
-    // 3 destinations + "more" is 4 targets, under the 5 the bar allows.
     expect(slots).toHaveLength(3);
     expect(overflow).toHaveLength(0);
     expectPartition(items, slots, overflow);

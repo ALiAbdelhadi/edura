@@ -130,15 +130,6 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
       );
     }
 
-    // Phase 3: counter-passed-but-never-doored students are EXCLUDED from the
-    // money by design (counter_and_door mode). The operator pressing this
-    // button may be a receptionist with less context than the teacher — the
-    // warning is the difference between "excluded by design" and "excluded by
-    // surprise".
-    // Phase 4 (D5): how much of the gross the center already physically holds
-    // (its own counter collections). That part never reaches the withdrawable
-    // wallet — the teacher's share and the platform's fees on it are debited
-    // from the center's platform credit instead.
     const fundingNote =
       (p.centerHeldGross ?? 0) > 0 ? (
         <p className="mt-2 mb-0 flex flex-wrap items-baseline gap-1 text-[12.5px] leading-relaxed text-ink-2">
@@ -175,7 +166,6 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
 
     return (
       <div className="space-y-5">
-        {/* Main outcome */}
         <div className="rounded-2xl border border-border/70 bg-sheet p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -235,7 +225,6 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        {/* Breakdown */}
         <div className="rounded-2xl border border-border/70 bg-sheet px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="eyebrow">
@@ -264,7 +253,6 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
           )}
         </div>
 
-        {/* Total */}
         <div className="rounded-2xl bg-ink px-4 py-4 text-white">
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium text-white/70">

@@ -5,14 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminCreateCollaborationRequest } from "@/lib/services/admin/center-people";
 
-// Send a collaboration request to an ALREADY-REGISTERED teacher, as this
-// center. The sibling `roster/teachers/invite` route is shell-account
-// onboarding and refuses a registered teacher with a 409 — this is the door it
-// points at.
-//
-// The center side is taken from the URL, never the body: `centerId` is
-// deliberately absent from the schema (which is `.strict()`), so the back
-// office cannot aim a request at a different center than the page it is on.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z
@@ -29,11 +21,6 @@ const bodySchema = z
     endDate: z.coerce.date().nullish(),
     expectedStudents: z.number().int().positive().max(10000).nullish(),
     message: z.string().trim().max(1000).nullish(),
-    // NO money field and NO `proposedPricingMethod`: every rate is
-    // superadmin-only config that the kernel forces to 0, and a center-initiated
-    // request may not pre-pick the method on a both-methods hall — the teacher
-    // chooses when accepting. Both are server-enforced in the kernel too; the
-    // schema just refuses them at the edge.
   })
   .strict()
   .refine((b) => !b.endDate || b.endDate >= b.startDate, {

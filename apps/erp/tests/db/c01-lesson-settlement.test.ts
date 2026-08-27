@@ -1,45 +1,3 @@
-/**
- * C-01 PROOF — session completion must settle a no-room course without ever
- * driving a wallet under the H2 floor.
- *
- * BEFORE the fix, `distributeSessionRevenue` computed
- *     centerNet = centerShare − platformCenterFee
- * for the legacy no-room branch. With the DEFAULT centerShare of 0 (collaboration
- * requests force 0 per decision #3; POST /api/v1/courses never sets one) and the
- * global platformCenterFee of 200, that is −200 — a wallet DEBIT. The H2
- * `centers_wallet_balance_nonneg` CHECK refused it, the whole settlement
- * transaction rolled back, and the endpoint answered 500. The lesson could never
- * be settled and the teacher was never paid. A brand-new center's wallet is 0, so
- * this fired on its very FIRST lesson.
- *
- * AFTER the fix both nets are non-negative BY CONSTRUCTION via the shared
- * `computeNoRoomLessonSplit` (see its doc comment for the money semantics).
- *
- * This test drives the REAL route handlers IN-PROCESS against the REAL database
- * — no service-layer shortcuts, only the session read is stubbed (via the
- * `__setSessionOverrideForTests` seam in @/lib/auth/session) — and asserts:
- *   P1  a brand-new center (wallet 0) completes its FIRST lesson              -> 200
- *   P2  money reconciles EXACTLY: ledger rows == wallet deltas, nothing lost
- *   P3  exactly-once still holds (replayed completion writes nothing)
- *   P4  the H2 floor is NOT weakened (constraints still validated + enforced)
- *   P5  a correctly-configured no-room course is BYTE-IDENTICAL to the old math
- *   P6  the room-based (Method 1) branch is untouched
- *   P7  MOVED -> apps/superadmin/tests/db/c01-zero-wallet-refund.test.ts
- *
- * Everything it creates is deleted at the end and the table counts are asserted
- * back to the pre-run baseline.
- *
- * WHY IN-PROCESS: this suite used to POST to http://localhost:3002 and :3004 —
- * whatever servers held those ports. Its writes then travelled on THOSE servers'
- * connections, where db-guard could not see them; proven 2026-08-01, when
- * running it with `--env-file=.env.test` created a center and a user in DEV
- * while the guard correctly read `test`. In-process, the only connection is this
- * process's own — the one db-guard validates. No server is required.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only c01-lesson-settlement
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
@@ -69,19 +27,11 @@ function assert(cond: boolean, msg: string) {
 }
 function section(s: string) { console.log("\n" + s); }
 
-// ------------------------------------------------------------------- session
-// IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
-// edge (`__setSessionOverrideForTests` in @/lib/auth/session — the explicit
-// test seam that replaced the old getServerSession monkey-patch). The authz
-// wrappers, zod, the settlement services and every DB write are the real code
-// path — and the only connection in play is this process's own, the one
-// db-guard validates. See the docblock for why that matters here.
 let currentSession: { user: SessionUser } | null = null;
 __setSessionOverrideForTests(() => currentSession?.user ?? null);
 
 export type Session = { user: SessionUser };
 
-/** The www session a given user would carry, resolved from the DB row. */
 async function sessionFor(userId: string): Promise<Session> {
   const u = (await q(`select u.id,u.email,u.name,u.role,u.locale,
       (select cap.center_id from center_admin_profiles cap where cap.user_id=u.id limit 1) admin_center,
@@ -97,12 +47,6 @@ async function sessionFor(userId: string): Promise<Session> {
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 
-/**
- * path -> the REAL route handler. Dynamic segments are matched by a regex so
- * `/api/v1/courses/<uuid>` reaches courses/[id] with `params.id` populated,
- * exactly as Next would. An unmatched path throws — a typo must be a loud
- * failure, not a silent 404 that reads like a rejected request.
- */
 const ROUTES: { method: string; pattern: RegExp; handler: Handler; keys: string[] }[] = [
   { method: "POST", pattern: /^\/api\/v1\/courses$/, handler: coursesRoute as Handler, keys: [] },
   { method: "PATCH", pattern: /^\/api\/v1\/courses\/([^/]+)$/, handler: courseByIdRoute as Handler, keys: ["id"] },
@@ -115,7 +59,6 @@ const ROUTES: { method: string; pattern: RegExp; handler: Handler; keys: string[
   { method: "POST", pattern: /^\/api\/v1\/center\/staff$/, handler: centerStaffRoute as Handler, keys: [] },
 ];
 
-/** A distinct IP per call so the shared rate-limit buckets never starve the run. */
 const nextIp = () => `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
 
 async function call(method: string, path: string, session?: Session, body?: unknown) {
@@ -142,13 +85,6 @@ async function call(method: string, path: string, session?: Session, body?: unkn
 }
 const D = (r: { json: never | null }) => (r.json as never as { data?: never })?.data as never;
 
-/**
- * The MONEY tables only. Deliberately excludes users/centers/courses: other
- * suites in this directory (messaging-scope.test.ts et al.) leave their own
- * fixtures behind, so a global row count is not a stable baseline. What this
- * test must prove is that IT leaves no money row and no row of its own — see
- * the two cleanup assertions.
- */
 const snap = async () => (await q(`select (select count(*) from transactions)::int t,(select count(*) from payments)::int p,
   (select count(*) from wallet_ledger)::int w,(select count(*) from subscriptions)::int s,
   (select count(*) from session_settlements)::int ss,(select count(*) from payment_intents)::int pi`))[0];
@@ -161,10 +97,6 @@ const created: { centers: string[]; users: string[]; courses: string[] } = { cen
 
 async function purge() {
   for (const cid of created.courses) {
-    // The walk-in cash subscription mirrors to a `payment` transaction that
-    // carries NO lesson_id (it is subscription revenue, not lesson revenue), so
-    // it has to be reached through the subscription id before the subscription
-    // row itself is deleted.
     const subs = await q(`select id from subscriptions where course_id=$1`, [cid]);
     for (const s of subs as { id: string }[]) {
       try { await pool.query(`delete from transactions where notes like $1`, [`%subscription ${s.id}%`]); } catch { /* */ }
@@ -201,7 +133,6 @@ async function purge() {
   await pool.query(`delete from transactions where notes like $1`, [`%${TAG}%`]);
 }
 
-/** Build a settled lesson end-to-end and return the observed money. */
 async function settleLesson(opts: {
   label: string; centerId: string; adminSession: Session; teacherId: string;
   teacherSession: Session; studentId: string; receptionSession: Session;
@@ -231,11 +162,6 @@ async function settleLesson(opts: {
   await call("POST", "/api/v1/enrollments", opts.adminSession, { studentId: opts.studentId, courseId });
   await call("POST", "/api/v1/center/subscriptions", opts.receptionSession,
     { studentId: opts.studentId, courseId, plan: "per_session", sessionId: sess.id, markAttendance: true });
-  // Phase 4 (D5): this proof measures the split through WALLET deltas, so the
-  // coverage must be a PLATFORM-HELD funding leg. The walk-in default is cash
-  // (= center-held), whose center-side deltas land on credit_balance instead —
-  // that path is proven by center-credit-clearing.test.ts and
-  // center-held-refund.test.ts; this suite keeps proving the split math.
   await pool.query(`update subscriptions set payment_method='online_paymob' where course_id=$1`, [courseId]);
   await call("PATCH", "/api/v1/teacher/attendance-mode", opts.teacherSession, { mode: "counter_and_door" });
   await call("POST", "/api/v1/door-checkin", opts.assistantSession ?? opts.teacherSession, { studentId: opts.studentId, sessionId: sess.id });
@@ -261,10 +187,6 @@ async function main() {
   const base = await snap();
   console.log("BASELINE:", JSON.stringify(base));
 
-  // Resolved, never pasted: a demo purge + re-seed gives NILE a fresh
-  // gen_random_uuid(), and `superadmin.demo@edura.eg` was a legacy is_demo
-  // account that no current seed recreates (seed.ts mints staff from the
-  // SEED_SUPERADMIN_* env vars instead). short_id and role are stable.
   const NILE = (await q(`select id from centers where short_id='NILE'`))[0]?.id as string;
   if (!NILE) throw new Error("NILE center missing — run packages/database/prisma/preview-seed.ts");
   const teacherId = (await q(`select id from users where email='hossam.aziz@nile-academy.eg'`))[0].id;
@@ -281,9 +203,7 @@ async function main() {
   const origShare = (await q(`select center_share from center_teacher_affiliations where teacher_id=$1 and center_id=$2`, [teacherId, NILE]))[0]?.center_share ?? null;
   console.log(`global fees: teacher-side=${fees.tf}, center-side=${fees.cf}`);
 
-  // =====================================================================
   section("P4 — the H2 floor is NOT weakened (checked BEFORE and AFTER)");
-  // =====================================================================
   const checks = await q(`select conrelid::regclass::text tbl, conname, convalidated from pg_constraint
      where conname in ('centers_wallet_balance_nonneg','teacher_profiles_wallet_balance_nonneg','student_profiles_wallet_balance_nonneg')`);
   assert(checks.length === 3, `all 3 wallet_balance >= 0 CHECK constraints still exist (${checks.length}/3)`);
@@ -295,9 +215,7 @@ async function main() {
   assert(floorHeld, "a direct attempt to drive a center wallet to -1 is STILL rejected by the DB");
   assert(Number((await q(`select wallet_balance from centers where id=$1`, [NILE]))[0].wallet_balance) >= 0, "the center wallet is still >= 0");
 
-  // =====================================================================
   section("P1 — a BRAND-NEW center with a ZERO wallet completes its FIRST lesson");
-  // =====================================================================
   let r = await call("POST", "/api/v1/auth/register/center", undefined, {
     centerName: `${TAG} Fresh Center`, adminName: `${TAG} Owner`,
     email: `${TAG}-owner@c01proof.test`, password: PW, locale: "en",
@@ -307,16 +225,7 @@ async function main() {
   const newAdminId = (D(r) as { user?: { id?: string } }).user?.id as string;
   created.centers.push(newCenterId); created.users.push(newAdminId);
 
-  // FIXTURE, not an assertion. Approving a center and affiliating a teacher are
-  // apps/superadmin operations, and a superadmin service cannot be imported here:
-  // its own `@/lib/...` imports would resolve against apps/www/src, where files
-  // of the SAME NAME exist — so it would silently run www's platformDb and
-  // notify. Proven 2026-08-01, and unacceptable in a money proof. Those two
-  // operations are covered in-process on their own side
-  // (apps/superadmin/tests/db/center-platform.test.ts); what C-01 needs from
-  // them is only the resulting STATE, written here directly.
   await pool.query(`update centers set status='active' where id=$1`, [newCenterId]);
-  // Same shape linkTeacherCenter writes: active, responded now, one-year expiry.
   await pool.query(
     `insert into center_teacher_affiliations
        (id, center_id, teacher_id, status, responded_at, expires_at, created_at, updated_at)
@@ -341,7 +250,6 @@ async function main() {
 
   await pool.query(`update users set status='active' where id=$1`, [newAdminId]);
   const newAdminSession = await sessionFor(newAdminId);
-  // give the new center a receptionist so the counter path is identical
   r = await call("POST", "/api/v1/center/staff", newAdminSession,
     { name: `${TAG} Desk`, email: `${TAG}-desk@c01proof.test`, password: PW, role: "receptionist" });
   const deskUserId = (D(r) as { staffUserId?: string; user?: { id?: string } })?.staffUserId ?? (D(r) as { user?: { id?: string } })?.user?.id;
@@ -361,7 +269,6 @@ async function main() {
     assert(!/wallet_balance_nonneg/.test(p1.complete.text), "the response carries NO wallet-floor violation");
     assert(p1.ledger.length === 3, `the settlement wrote ${p1.ledger.length} ledger rows (payment + 2 commissions)`);
 
-    // ---- P2 conservation ----
     section("P2 — the money reconciles EXACTLY");
     const expected = computeNoRoomLessonSplit(p1.perSessionPrice, 0, { platformTeacherFee: fees.tf, platformCenterFee: fees.cf });
     const teacherNet = p1.perSessionPrice - expected.fees.platformTeacherFee - expected.centerShare;
@@ -381,7 +288,6 @@ async function main() {
       `CONSERVATION: teacher(${dTeacher}) + center(${dCenter}) + platform(${commissionTotal}) == price(${paymentRow.amount}) — no piaster created or destroyed`);
     assert(Number(p1.walletsAfter.c) >= 0 && Number(p1.walletsAfter.t) >= 0, "both beneficiary wallets are still >= 0");
 
-    // ---- P3 exactly-once ----
     section("P3 — exactly-once still holds");
     const b3 = await snap();
     const replay = await call("POST", `/api/v1/sessions/${p1.sessionId}/complete`, teacherSession, {});
@@ -392,18 +298,9 @@ async function main() {
     assert(w3.t === p1.walletsAfter.t && w3.c === p1.walletsAfter.c, "replaying moved NEITHER wallet — the distributedAt claim still gates");
     assert([200, 201, 409, 422].includes(replay.status), `the replay answered ${replay.status} (never a 500)`);
 
-    // ---- P7 lives in apps/superadmin now ----
-    // The refund round-trip against a ZERO-wallet center moved to
-    // apps/superadmin/tests/db/c01-zero-wallet-refund.test.ts. It is not dropped
-    // and not weakened — `refundLessonForStudent` exists ONLY in apps/superadmin
-    // (it is not a server-core shim like commission/distribution/fees), so it
-    // cannot be imported here without binding to www's same-named modules. The
-    // suite that owns that service now owns the assertions too.
   }
 
-  // =====================================================================
   section("P5 — a CORRECTLY-CONFIGURED no-room course is byte-identical to the old math");
-  // =====================================================================
   const p5 = await settleLesson({
     label: "configured no-room", centerId: NILE, adminSession: nileAdminSession, teacherId,
     teacherSession, studentId, receptionSession: nileReceptionSession, assistantSession,
@@ -411,7 +308,6 @@ async function main() {
   });
   if ("error" in p5) assert(false, `P5 setup failed: ${p5.error}`);
   else {
-    // The PRE-FIX formula, computed here independently.
     const oldCenterShare = 1000;
     const oldTeacherNet = p5.perSessionPrice - fees.tf - oldCenterShare;
     const oldCenterNet = oldCenterShare - fees.cf;
@@ -426,9 +322,7 @@ async function main() {
     assert(!/capped to the lesson's value/.test(notes), "no clamp note was written — the ledger text is unchanged for configured courses");
   }
 
-  // =====================================================================
   section("P6 — the room-based (Method 1) branch is untouched");
-  // =====================================================================
   const p6 = await settleLesson({
     label: "room based", centerId: NILE, adminSession: nileAdminSession, teacherId,
     teacherSession, studentId, receptionSession: nileReceptionSession, assistantSession,
@@ -451,27 +345,18 @@ async function main() {
     assert(dT + dC + commissionTotal === p6.perSessionPrice, `CONSERVATION on the room path (${dT}+${dC}+${commissionTotal} == ${p6.perSessionPrice})`);
   }
 
-  // =====================================================================
   section("P4b — the H2 floor is STILL intact after all of the above");
-  // =====================================================================
   const negs = (await q(`select (select count(*) from centers where wallet_balance<0)::int c,
     (select count(*) from teacher_profiles where wallet_balance<0)::int t,
     (select count(*) from student_profiles where wallet_balance<0)::int s`))[0];
   assert(negs.c === 0 && negs.t === 0 && negs.s === 0,
     `no wallet anywhere is negative (centers ${negs.c}, teachers ${negs.t}, students ${negs.s})`);
-  // NAME the three, do not pattern-match. `like '%wallet_balance_nonneg%'` used
-  // to be a false green: the parent-wallet migration added a FOURTH constraint,
-  // so parent+student+teacher alone satisfied "3/3" while
-  // `centers_wallet_balance_nonneg` — the one this entire suite is about — could
-  // sit NOT VALID unnoticed. It was doing exactly that on the test branch.
   const checks2 = await q(`select count(*)::int c from pg_constraint
      where conname in ('centers_wallet_balance_nonneg','teacher_profiles_wallet_balance_nonneg','student_profiles_wallet_balance_nonneg')
        and convalidated`);
   assert(checks2[0].c === 3, `all 3 CHECKs remain present and validated (${checks2[0].c}/3) — the fix did NOT weaken H2`);
 
-  // =====================================================================
   section("CLEANUP");
-  // =====================================================================
   await purge();
   await pool.query(`update center_teacher_affiliations set center_share=$3 where teacher_id=$1 and center_id=$2`, [teacherId, NILE, origShare]);
   await pool.query(`update teacher_profiles set attendance_mode='counter_only' where user_id=$1`, [teacherId]);
@@ -498,7 +383,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c01-lesson-settlement.test.ts" })
   .then(() => main()).catch(async (e) => { console.error("FATAL", e); await purge(); await pool.end(); process.exit(1); });

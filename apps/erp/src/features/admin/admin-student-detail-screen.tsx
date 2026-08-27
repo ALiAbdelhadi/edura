@@ -277,9 +277,6 @@ export function AdminStudentDetailScreen() {
       header: t("adminHome.detail_amount"),
       cell: ({ row }) => {
         const amount = row.original.amount ?? 0;
-        // The sign belongs to the figure, not to a "-" glued in front of an
-        // already-formatted string — that produced "-1,200 ج.م" with the minus
-        // stranded on the wrong side of the currency word in RTL.
         return (
           <Amount
             piasters={amount}
@@ -358,11 +355,6 @@ export function AdminStudentDetailScreen() {
     });
   }
 
-  /**
-   * `reason` is passed explicitly by the cascade panel rather than read from
-   * state: the panel owns the required-reason field, and reading state here
-   * would race the same-tick setState the panel's commit triggers.
-   */
   const handleBlacklistToggle = async (reason?: string) => {
     setActionLoading(true);
     try {
@@ -470,10 +462,6 @@ export function AdminStudentDetailScreen() {
               <Pencil className="size-4" />
               {t("actions.edit")}
             </Button>
-            {/* Blacklisting is the most consequential non-money action here, so
-                it is never a filled twin of the safe buttons — it is bordered,
-                red text only, and it opens the cascade preview. Restoring is
-                the reversal and reads as such. */}
             <Button
               variant="outline"
               className={isBlacklisted ? "border-[var(--teal)] text-[var(--teal)]" : "border-destructive text-destructive"}
@@ -496,9 +484,6 @@ export function AdminStudentDetailScreen() {
       <Sheet>
         <div className="flex flex-wrap items-start gap-6 border-b border-[var(--rule)] p-[18px]">
           <div className="min-w-[160px]">
-            {/* The code the family actually holds — cards, counter and receipts
-                all speak it. The internal UUID stays available in the student
-                record table below. */}
             <Eyebrow>{t("adminHome.students_colCode")}</Eyebrow>
             <div className="mt-1.5">
               {(record as any)?.studentCode ? (
@@ -593,16 +578,7 @@ export function AdminStudentDetailScreen() {
           <DialogHeader>
             <DialogTitle>{t("adminHome.detail_blacklistStudent")}</DialogTitle>
           </DialogHeader>
-          {/*
-            The cascade, itemised BEFORE the commit — not a warning sentence
-            after it. Blacklisting withdraws every active enrolment, and each
-            withdrawal is journalled so a restore can replay it. The operator
-            gets to see exactly which classes disappear, count them, and read
-            that it is reversible, before the button will arm.
 
-            Same panel the students list uses, so the two entry points to the
-            most consequential non-money action in the product cannot drift.
-          */}
           <BlacklistCascadePanel
             studentId={studentId}
             studentName={studentName}

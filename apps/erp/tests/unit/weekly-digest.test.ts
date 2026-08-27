@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { TEMPLATES } from "@repo/notifications";
 
-// Reached THROUGH the registry, not by importing the template file: that is
-// how the dispatcher reaches it, so these tests also prove the wiring.
 const digest = TEMPLATES.weekly_digest.email;
 const weeklyDigestSubject = digest.subject;
 const weeklyDigestText = digest.text;
 const WeeklyDigestEmail = digest.Body;
-
-// The weekly digest EMAIL. The job that gathers the figures is exercised
-// against the live database; this pins what the owner actually receives —
-// which is where a formatting mistake turns "3,450.00 EGP" into "345000" and
-// a center owner concludes the platform lost their money.
 
 const base = {
   centerName: "مركز النيل",
@@ -36,8 +29,6 @@ describe("weekly digest — registration", () => {
   });
 
   it("has no WhatsApp renderer yet — it must report skipped, not fail", () => {
-    // No verified Meta number exists; a template with no renderer for a channel
-    // degrades to `skipped` by design (see the registry header).
     expect(TEMPLATES.weekly_digest.whatsapp).toBeUndefined();
   });
 });
@@ -50,8 +41,6 @@ describe("weekly digest — subject", () => {
   });
 
   it("does not leak a figure into the subject line", () => {
-    // Subjects show in notification previews on a lock screen. The week's
-    // revenue is not something to display to whoever picks up the phone.
     const s = weeklyDigestSubject("ar", base);
     expect(s).not.toContain("3450");
     expect(s).not.toContain("345");
@@ -84,8 +73,6 @@ describe("weekly digest — plain text part", () => {
   });
 
   it("a quiet week is stated in words, not as a wall of zeros", () => {
-    // All-zero figures read as a broken report. "Nothing happened" is itself
-    // information and has to be said.
     const quiet = weeklyDigestText("ar", {
       ...base,
       revenuePiasters: 0,
@@ -99,14 +86,8 @@ describe("weekly digest — plain text part", () => {
   });
 
   it("still reports a week that had sessions but no revenue", () => {
-    // Not quiet — lessons ran and nobody paid, which is the opposite of
-    // nothing happening and must not be summarised away.
     const txt = weeklyDigestText("en", { ...base, revenuePiasters: 0, netPiasters: -120_000 });
     expect(txt).not.toMatch(/quiet week/i);
-    // A loss must arrive AS a loss. Asserted on the digits plus a minus rather
-    // than a fixed string, because Intl puts the sign either side of the
-    // currency depending on locale — and pinning the wrong one here would make
-    // the test, not the email, the thing that has to be right.
     expect(txt).toContain("1,200.00");
     expect(txt).toMatch(/-\s?(EGP|E£)?\s?1,200\.00|\(EGP\s?1,200\.00\)/);
   });

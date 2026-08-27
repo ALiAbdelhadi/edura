@@ -5,7 +5,6 @@ export const RFC_UUID =
 
 export const isRfcUuid = (value: string): boolean => RFC_UUID.test(value);
 
-/** RFC 9562 §6.6 — the standard DNS namespace. */
 export const NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
 const hyphenate = (hex: string) =>

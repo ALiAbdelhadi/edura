@@ -20,19 +20,6 @@ type Status = {
   dismissable: boolean;
 };
 
-/**
- * The REQUIRED guardian-email notice.
- *
- * Shown to a MINOR who has no guardian email on file. It is not a nag about a
- * missing profile field — it is the explanation for a capability that is
- * actually switched off right now (adult-facing messaging), so it says exactly
- * that instead of hiding the reason.
- *
- * Dismissable BEFORE the deadline, permanent after it. Passing the deadline
- * never suspends the account and never unlocks messaging — it only stops the
- * notice from being dismissable and pulls the center in (see
- * runGuardianContactReminders).
- */
 export function GuardianContactNotice({ studentId }: { studentId?: string }) {
   const t = useTranslations();
   const [status, setStatus] = useState<Status | null>(null);
@@ -49,8 +36,6 @@ export function GuardianContactNotice({ studentId }: { studentId?: string }) {
         .json<{ data: Status }>();
       setStatus(res.data);
     } catch {
-      // A role that has no guardian concept (or no profile yet) simply shows
-      // nothing — this banner must never break the page it sits on.
       setStatus(null);
     }
   }, [query]);
@@ -98,9 +83,6 @@ export function GuardianContactNotice({ studentId }: { studentId?: string }) {
             {status.overdue ? t("guardian.overdueTitle") : t("guardian.title")}
           </p>
 
-          {/* The lock is the fact of the matter, so it is stated plainly and
-              first. It is a sentence, not a status word, so it gets a soft
-              block that wraps — a chip would clip it on a phone. */}
           {status.messagingLocked ? (
             <p
               className="rounded-lg px-3 py-2 text-sm font-semibold"
@@ -123,8 +105,6 @@ export function GuardianContactNotice({ studentId }: { studentId?: string }) {
             </p>
           ) : null}
 
-          {/* The remedy travels with the explanation. A notice that states a
-              lock without carrying the one field that lifts it is a dead end. */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <Input
               type="email"

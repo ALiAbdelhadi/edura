@@ -22,8 +22,6 @@ export const GET = withErrors(async (req) => {
   return ok(result.conversations, { meta: { hasMore: result.hasMore } });
 });
 
-// Start (or fetch) the 1:1 conversation with a recipient. The conversation
-// matrix + relationship gates are enforced in the domain layer.
 const createSchema = z.object({ recipientId: z.uuid() });
 
 export const POST = withErrors(async (req) => {

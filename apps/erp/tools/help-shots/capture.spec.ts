@@ -1,17 +1,3 @@
-/**
- * Captures the screenshots the student help guide references.
- *
- * Dev-only tooling: it drives the REAL dev server as a REAL student, so a shot
- * can never show a state the product cannot produce. Output lands in
- * `public/help/<slug>-<locale>.png`, which is what `<Shot src>` reads.
- *
- * Run:  bun run --cwd apps/www capture:help
- * (dev server on :3002, with the base + preview seeds applied)
- *
- * ONE TEST PER SCREEN, deliberately. A single test walking thirteen screens
- * shares one timeout budget, so the slowest page fails the twelve that already
- * succeeded — which is what happened on the first run.
- */
 import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
 
@@ -19,10 +5,8 @@ const STUDENT = { email: "lina.hassan@student.nile-academy.eg", password: "Passw
 const OUT = path.join(process.cwd(), "public", "help");
 const LOCALES = ["ar", "en"] as const;
 
-/** Wide enough for the sidebar layout, short enough that a shot stays readable inline. */
 const VIEWPORT = { width: 1280, height: 900 };
 
-/** Portal screens, by the article slug whose `<Shot>` they fill. */
 const SCREENS: { slug: string; path: string }[] = [
   { slug: "student-home-and-schedule", path: "" },
   { slug: "student-subjects-and-subscribe", path: "/subjects" },
@@ -47,10 +31,6 @@ async function signIn(page: Page, locale: string) {
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
 }
 
-/**
- * Waits for the screen's own content rather than a fixed delay: these screens
- * fetch after paint, and a timed wait photographs skeletons.
- */
 async function settle(page: Page) {
   await page.waitForLoadState("networkidle").catch(() => {});
   await expect(page.locator("main")).toBeVisible();
@@ -86,9 +66,6 @@ for (const locale of LOCALES) {
       await signIn(page, locale);
       await page.goto(`/${locale}/dashboard/student/wallet`);
       await settle(page);
-      // The receipts are the wallet's SECOND TAB. They used to be the last
-      // section of the page and this step scrolled to the bottom to find them;
-      // after the IA pass that scroll lands on nothing.
       await page.getByRole("tab", { name: /الإيصالات|Receipts/ }).click();
       await page.waitForTimeout(800);
       await page.screenshot({

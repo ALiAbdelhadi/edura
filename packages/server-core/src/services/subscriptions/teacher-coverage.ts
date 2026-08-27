@@ -4,45 +4,14 @@ import type { SessionUser } from "../../auth/types";
 import { dayRange } from "../../lib/day-range";
 import { shiftDayKey, todayKey } from "../../lib/date-key";
 
-/**
- * The teacher's answer to «مين لسه مدفعش؟» — TEACHER_IA_AUDIT.md §3.3, the
- * last open face of the subscription-visibility hole after the student and
- * parent passes closed theirs.
- *
- * Scope: a teacher reads coverage ONLY for students actively enrolled in
- * courses THEY teach. That is a narrow widening of what the role already
- * reads — the per-session `coverage[]` booleans on the attendance GET — from
- * one session at a time to the group, which is the approved decision. What is
- * deliberately NOT here: prices, payment methods, payer identities, receipt
- * numbers. The question is "whose coverage lapsed", not "show me the money".
- *
- * States, per student per group:
- *   covered     — an ACTIVE monthly subscription whose window contains now
- *                 (the same predicate `coveredStudentIds` applies to a session
- *                 date — one definition of covered, evaluated at "today").
- *   per_session — no live monthly window, but at least one per-session pass
- *                 for a session dated inside the requested period. Pay-as-you-
- *                 go students are not "lapsed"; their story is the pass count.
- *   lapsed      — a monthly subscription EXISTED and its window has ended.
- *                 `lastCoveredUntil` says when. This is the churn row.
- *   none        — no subscription of any kind has ever touched this group.
- *
- * Period (`from`/`to`, Cairo days via `dayRange`) bounds ONLY the per-session
- * pass count — coverage itself is a state, not a range. Default: the last 30
- * days, echoed back so the reader knows what the counts mean.
- */
-
 export type TeacherCoverageState = "covered" | "per_session" | "lapsed" | "none";
 
 export type TeacherCoverageStudent = {
   studentId: string;
   name: string;
   state: TeacherCoverageState;
-  /** Active monthly window end — set iff state === "covered". */
   coveredUntil: Date | null;
-  /** Most recent ended monthly window — set iff state === "lapsed". */
   lastCoveredUntil: Date | null;
-  /** Per-session passes whose session date falls inside the period. */
   passesInPeriod: number;
 };
 
@@ -61,8 +30,6 @@ async function loadGroups(tx: TenantTx, teacherId: string, courseId?: string) {
       where: { id: courseId },
       select: { id: true, title: true, teacherId: true, status: true, pricePerMonth: true, pricePerSession: true },
     });
-    // NotFound, not Forbidden: another teacher's group id should learn nothing,
-    // the same posture as callerOwnsTempStudent (M5).
     if (!course || course.teacherId !== teacherId) {
       throw new NotFoundError("Course not found");
     }
@@ -105,8 +72,6 @@ export async function getTeacherCoverage(
               courseId: { in: courseIds },
               studentId: { in: studentIds },
               plan: "monthly",
-              // pending_payment/cancelled rows are noise here: an unpaid
-              // checkout never covered anyone and must not read as "lapsed".
               status: { in: ["active", "expired"] },
             },
             select: { courseId: true, studentId: true, status: true, periodStart: true, periodEnd: true },
@@ -125,10 +90,6 @@ export async function getTeacherCoverage(
         : Promise.resolve([]),
     ]);
 
-    // A pass is dated by ITS SESSION (the thing it buys), not by when it was
-    // bought — the same rule that dates an attendance record by its session in
-    // the dashboards. `Subscription.sessionId` has no Prisma relation, so the
-    // date filter is a second read over the pass sessions rather than a join.
     const passSessionIds = [...new Set(passes.map((p) => p.sessionId).filter(Boolean))] as string[];
     const inWindow = new Set(
       passSessionIds.length

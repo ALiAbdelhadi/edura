@@ -1,10 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// The four public registration doors. Services are mocked — the live-DB
-// registration-doors suite owns the real account creation; this pins each
-// route's contract: 201 + envelope on success, 400 validation_error on a bad
-// body, and the student door fires its welcome email fire-and-forget.
-
 const registerStudent = vi.fn(async () => ({ userId: "u-s" }));
 const registerTeacher = vi.fn(async () => ({ user: { id: "u-t" }, profile: {} }));
 const registerParent = vi.fn(async () => ({ userId: "u-p" }));

@@ -10,13 +10,6 @@ import { MotionRoot } from "./motion-root";
 import { SiteFooter } from "./site-footer";
 import { SiteNav } from "./site-nav";
 
-/**
- * The frame every standalone page shares — skip link, header, footer, and the
- * motion root. The landing and the role pages predate this component and keep
- * their inline copies; the five standalone pages (pricing, FAQ, trust,
- * privacy, terms) were about to become five more copies, which is where
- * repetition turns into drift.
- */
 export function PageFrame({
   locale,
   t,
@@ -25,8 +18,6 @@ export function PageFrame({
 }: {
   locale: Locale;
   t: Messages;
-  /** Marks this page's own link in the header. The legal pages pass nothing —
-   *  they are not in the nav, so there is no link of theirs to mark. */
   activePage?: NavPath;
   children: ReactNode;
 }) {
@@ -45,17 +36,11 @@ export function PageFrame({
 
       <SiteFooter t={t} locale={locale} />
 
-      {/* Renders nothing. These pages have no register to settle, so the hero
-          timeline no-ops; what still applies is the headline inking in and the
-          fonts-ready refresh. */}
       <MotionRoot />
     </>
   );
 }
 
-/** The standalone pages' hero: label, headline, lede — the role pages' shape
- *  without the media column, because none of these pages has a screenshot
- *  that would earn the space. */
 export function PageHero({
   locale,
   label,

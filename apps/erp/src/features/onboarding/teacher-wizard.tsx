@@ -172,8 +172,6 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
     tree.flatMap((sys) => sys.stages.flatMap((st) => st.gradeLevels.map((g) => [g.id, { g, st, sys }] as const))),
   );
 
-  /* The trail is a count, not a list: a teacher can pick twenty grades, and
-     twenty chips at the top of every step would bury the question. */
   const trail =
     stepId === "subjects" && gradeIds.length > 0
       ? [t("onboarding.review.gradesCount", { count: gradeIds.length })]
@@ -207,8 +205,6 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
           );
           return (
             <Sheet key={sys.id} className="grid gap-4 p-4">
-              {/* The per-system count answers "did I cover this system?"
-                  without counting the highlighted chips by eye. */}
               <SectionHeading
                 title={dn(sys)}
                 action={

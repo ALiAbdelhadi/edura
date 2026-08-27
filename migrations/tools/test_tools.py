@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 اختبارات أدوات الترحيل.
 
@@ -55,18 +54,13 @@ def read(path: Path) -> list[list[str]]:
     return list(csv.reader(path.read_text(encoding="utf-8-sig").splitlines()))
 
 
-# ---------------------------------------------------------------------------
 class Common(unittest.TestCase):
     def test_space_survives_invisible_stripping(self):
-        # العيب الأصلي: مسافة عادية انزلقت في قائمة المحارف غير المرئية، فصار
-        # كل اسم «كلمة واحدة» وانهار كشف التكرار معه.
         self.assertNotIn(0x20, _common.INVISIBLE)
         self.assertEqual(_common.INVISIBLE.get(0x00A0), " ", "NBSP فاصل، يُحوَّل لا يُحذف")
         self.assertIsNone(_common.INVISIBLE.get(0x200B), "المسافة صفرية العرض تُحذف")
 
     def test_header_aliases_match_the_importer(self):
-        # الجدول منقول من student-csv.ts؛ إن سقط مرادف صار عمودٌ غير مرئي لنا
-        # ومرئيًّا للمستورد.
         for want, headers in (
             ("name", ["الاسم", "name", "اسم الطالب"]),
             ("phone", ["رقم الهاتف", "mobile", "الموبايل"]),
@@ -133,14 +127,10 @@ class Phones(unittest.TestCase):
         self.assertEqual(status, "not_mobile")
 
     def test_scientific_notation_is_refused_never_expanded(self):
-        # 9 خانات معنوية لرقم من 11: التوسيع اختراعُ رقم لم يكتبه أحد.
         _, status, _ = self.canon("1.01234568E+10")
         self.assertEqual(status, "unrecoverable_precision")
 
     def test_scientific_notation_expanded_when_lossless(self):
-        # 01012345678 مخزَّنًا كعدد = 1012345678 (ابتلع Excel الصفر)، وصيغته
-        # العلمية بعشر خانات معنوية لعشر خانات: لا شيء فُقد، فالتوسيع نقلٌ
-        # لا تخمين — ثم يُعاد الصفر المبتلع.
         value, status, _ = self.canon("1.012345678E+9")
         self.assertEqual((value, status), ("01012345678", "fixed"))
 
@@ -150,8 +140,6 @@ class Phones(unittest.TestCase):
         self.assertIn("01112345670", note)
 
     def test_picked_is_a_resolved_status(self):
-        # العيب الأصلي: الرقم المختار كان يُمحى بعد اختياره لأن حالته بقيت
-        # `multiple` فوقع في فرع التفريغ.
         value, status, _ = nc.normalize_phone("01012345678 / 01112345670", pick_first=True)
         self.assertEqual((value, status), ("01012345678", "picked"))
 
@@ -166,7 +154,6 @@ class NationalIds(unittest.TestCase):
         self.assertEqual(nc.normalize_national_id("301010112012")[1], "bad_length")
 
     def test_implausible_passes_but_is_flagged(self):
-        # المنصة تقبل أي 14 خانة؛ رفضُ ما تقبله يُسقط طالبًا قد يكون رقمه سليمًا.
         value, status, note = nc.normalize_national_id("90101019901234")
         self.assertEqual(value, "90101019901234")
         self.assertEqual(status, "suspect")
@@ -175,14 +162,13 @@ class NationalIds(unittest.TestCase):
 
 class Names(unittest.TestCase):
     def test_stored_name_keeps_its_spelling(self):
-        # القاعدة التي يقوم عليها الملف: «سارة» لا تصير «ساره».
         for name in ("سارة إبراهيم", "منى سيد", "عبد الله"):
             self.assertEqual(nn.safe_normalize(name), name)
 
     def test_representation_is_repaired_without_changing_letters(self):
         self.assertEqual(nn.safe_normalize("  محمَّد   عبد اللـه  "), "محمد عبد الله")
-        self.assertEqual(nn.safe_normalize("کریم فؤاد"), "كريم فؤاد")   # كاف/ياء فارسية
-        self.assertEqual(nn.safe_normalize("ﻣﺤﻤﺪ ﺣﺴﻦ"), "محمد حسن")     # أشكال عرض PDF
+        self.assertEqual(nn.safe_normalize("کریم فؤاد"), "كريم فؤاد")
+        self.assertEqual(nn.safe_normalize("ﻣﺤﻤﺪ ﺣﺴﻦ"), "محمد حسن")
 
     def test_match_key_is_aggressive_and_never_stored(self):
         same = ("سارة إبراهيم", "ساره ابراهيم")
@@ -207,10 +193,10 @@ class Validate(unittest.TestCase):
         src = write(self.tmp / "in.csv", [
             ["الاسم", "رقم الهاتف", "الرقم القومي", "بريد ولي الأمر"],
             ["أحمد", "01012345678", "30101011201234", "a@b.com"],
-            ["سارة", "01112345679", "", "لا يوجد"],        # بريد ليس بريدًا
-            ["", "01223456780", "", ""],                    # بلا اسم
-            ["عمر", "0233334444", "", ""],                  # أرضي
-            ["منى", "01512345678", "3010101120", ""],       # قومي 10 خانات
+            ["سارة", "01112345679", "", "لا يوجد"],
+            ["", "01223456780", "", ""],
+            ["عمر", "0233334444", "", ""],
+            ["منى", "01512345678", "3010101120", ""],
         ])
         out, rej = self.tmp / "out.csv", self.tmp / "rej.csv"
         r = run("validate.py", "--in", str(src), "--out", str(out), "--rejected", str(rej))
@@ -227,8 +213,6 @@ class Validate(unittest.TestCase):
             self.assertIn(code, reasons)
 
     def test_guardian_email_blanking_keeps_the_safety_gate_shut(self):
-        # البوابة في chat-guardian.ts: `viaParent || !!profile?.guardianEmail`.
-        # أي نص غير فارغ يفتح مراسلة البالغين لقاصر.
         src = write(self.tmp / "g.csv", [
             ["الاسم", "بريد ولي الأمر"],
             ["أحمد", "-"], ["سارة", "غير متاح"], ["عمر", "real@mail.com"],
@@ -271,7 +255,6 @@ class Reconcile(unittest.TestCase):
         self.assertTrue((out / "crosswalk.csv").exists())
 
     def test_a_slipped_join_stops_everything(self):
-        # اسمٌ في الردّ لا يطابق اسم صفّه يعني جدول ربط يشير إلى أطفال آخرين.
         resp = self.response([
             {"line": 2, "name": "شخص آخر", "status": "created", "studentCode": "G1"},
             {"line": 3, "name": "سارة", "status": "created", "studentCode": "G2"},
@@ -301,7 +284,6 @@ class Reconcile(unittest.TestCase):
 
 class Xlsx(unittest.TestCase):
     def test_numbers_keep_every_digit(self):
-        # السبب الوحيد لقراءة .xlsx بدل «Save As CSV»: التصدير يفقد خانات.
         tmp = Path(tempfile.mkdtemp())
         path = tmp / "book.xlsx"
         sheet = ('<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org'
@@ -346,8 +328,6 @@ class Preflight(unittest.TestCase):
         self.assertIn("صالح للرفع", r.stdout)
 
     def test_swapped_columns_are_caught(self):
-        # أخطر خطأ في الترحيل: كل خانة سليمة الشكل والخطأ في مكانها. لا شيء
-        # آخر في السلسلة ينتبه له.
         src = write(self.tmp / "swap.csv",
                     self.rows(["الاسم", "رقم الهاتف", "الرقم القومي"],
                               phone=lambda i: f"3010101120{i:04d}",
@@ -369,7 +349,6 @@ class Preflight(unittest.TestCase):
         self.assertIn("عمود اسم", r.stderr)
 
     def test_a_tiny_column_is_not_judged(self):
-        # حكمٌ على عمودين قيمتين ليس حكمًا.
         src = write(self.tmp / "small.csv",
                     [["الاسم", "رقم الهاتف"], ["أحمد", "0233334444"], ["سارة", ""]])
         r = run("preflight.py", "--in", str(src))
@@ -378,8 +357,6 @@ class Preflight(unittest.TestCase):
 
 class MultiSource(unittest.TestCase):
     def test_several_source_files_balance_against_one_import_file(self):
-        # السنتر يسلّم ملفًا لكل صف دراسي؛ كلها تُجمَّع في ملف استيراد واحد،
-        # لأن ملفَّي استيراد يعنيان رقمَي سطر متطابقين لطفلين مختلفين.
         tmp = Path(tempfile.mkdtemp())
         a = write(tmp / "a.csv", [["الاسم"], ["أحمد"], ["سارة"]])
         b = write(tmp / "b.csv", [["الاسم"], ["عمر"]])
@@ -415,8 +392,6 @@ class OcrGeometry(unittest.TestCase):
     """
 
     def test_page_margin_is_not_a_column_separator(self):
-        # العيب الأصلي: الفراغ من حافة الصورة إلى أول كلمة كان يُحسب فاصلًا،
-        # فيولّد عمودًا وهميًا فارغًا في أول كل جدول.
         words = [word("اسم", 400, 10), word("012", 900, 10)]
         bounds = et.find_column_bounds(words)
         self.assertEqual(len(bounds), 1, f"حدود: {bounds}")
@@ -424,15 +399,12 @@ class OcrGeometry(unittest.TestCase):
         self.assertLess(bounds[0], 900)
 
     def test_table_rules_are_dropped_before_columns_are_found(self):
-        # المحرّك يقرأ خطوط الجدول كحرف «|»، وهي تقع في الفجوات بالضبط فتملؤها.
         for glyph in ("|", "—", "__", "="):
             self.assertRegex(glyph, et.BORDER_RE)
         for real in ("علي", "01012345678", "3-أ"):
             self.assertNotRegex(real, et.BORDER_RE)
 
     def test_rows_group_by_geometry_not_by_the_engine_line_ids(self):
-        # العيب الأصلي: صفحة PDF عند 300dpi جعلت المحرّك يعطي كل خانة سطرًا
-        # مستقلًا، فخرج جدول من 4 صفوف في 16 صفًا كلٌّ منها خانة واحدة.
         words = [
             word("أ", 100, 100, line=(1, 1, 1)), word("ب", 500, 104, line=(2, 1, 1)),
             word("ج", 100, 200, line=(3, 1, 1)), word("د", 500, 197, line=(4, 1, 1)),
@@ -455,12 +427,10 @@ class OcrGeometry(unittest.TestCase):
 
 class XlsxInternals(unittest.TestCase):
     def test_cell_reference_to_column_index(self):
-        # موضع الخلية معلومة: بدونه تنزلق الأعمدة كلها عند أول خانة فارغة.
         self.assertEqual((et.col_index("A1"), et.col_index("B2"), et.col_index("AB7")),
                          (0, 1, 27))
 
     def test_excel_serial_to_a_real_date(self):
-        # 38000 = 2004-01-14 في Excel، مع علة 1900 الكبيسة.
         self.assertEqual(et.serial_to_iso(38000, False), "2004-01-14")
         self.assertEqual(et.serial_to_iso(1, False), "1900-01-01")
 
@@ -515,12 +485,9 @@ class OcrLive(unittest.TestCase):
         self.assertEqual(rows[0][:2], ["Name", "Phone"])
         self.assertEqual(len(rows), 3, f"رأس + صفّان، لا {len(rows)}")
         self.assertEqual(rows[1][1], "01012345678")
-        # كل صف من مسح يُعرَف بأنه كذلك — شرطٌ في CLAUDE.md §4/5.
         self.assertEqual(rows[1][-1], "scan")
 
     def test_every_numeric_cell_lands_in_the_review_file(self):
-        # خانة أرقام مقروءة خطأً تحجز مفتاحًا فريدًا باسم إنسان آخر، فلا عتبة
-        # ثقة تُنجّيها من المراجعة.
         from PIL import Image, ImageDraw, ImageFont
         tmp = Path(tempfile.mkdtemp())
         img = Image.new("L", (900, 200), 255)
@@ -550,8 +517,6 @@ class Importer(unittest.TestCase):
         self.assertEqual(len(rows), 2)
 
     def test_blank_lines_do_not_shift_the_offset(self):
-        # الواجهة تحذف الفارغ قبل الترقيم؛ اختلافُ سطر يجعل جدول الربط يشير
-        # إلى أطفال آخرين.
         _, rows = import_students.split_records("h\na\n\n\nb\n")
         self.assertEqual(rows, ["a", "b"])
 

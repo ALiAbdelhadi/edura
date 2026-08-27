@@ -1,18 +1,5 @@
 "use client";
 
-/* تسويات القاعات / Room settlements — the three-way split, as a record.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   WHAT THE SYSTEM GUARANTEES: each row was written by the money engine in the SAME
-   transaction as the ledger entry, exactly once per session. Nothing on this screen
-   can be edited, and no action exists — so there is no ceremony here, only lineage.
-
-   WHAT THAT MEANS FOR THE FORM: the three shares are printed side by side against the
-   price they were split from, so the operator can verify the split rather than trust
-   it. The attendance-mismatch flag is the one place red is earned: it means attendance
-   was edited AFTER the money settled, so the row's `presentCount` and today's live
-   count disagree and the difference can only be corrected by a NEW entry. */
-
 import { useMemo, useState } from "react";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -39,8 +26,6 @@ import { PageSpinner } from "@/components/kit/spinner";
 type SettlementRow = {
   id: string;
   sessionId: string;
-  // NULL since Phase 3 = the legacy no-room fee model (every settled lesson
-  // files a record now, not only room-based ones).
   pricingMethod: "whole_room_percent" | "per_attending_student" | null;
   presentCount: number;
   livePresentCount: number;
@@ -82,7 +67,6 @@ export function RoomSettlementsScreen() {
   const total = data?.meta?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / (data?.meta?.limit ?? 50)));
 
-  // The rate is a figure, so it stays mono and Latin-digit in both locales.
   const rateOf = (r: SettlementRow) => {
     if (r.pricingMethod !== "per_attending_student") return "—";
     return r.m2CenterFee != null
@@ -132,10 +116,6 @@ export function RoomSettlementsScreen() {
           {t("settlementCount")}
         </span>
 
-        {/* A plain link, not a fetch-and-blob: the response is already an
-            attachment with its filename, and a link cannot leave a stalled
-            spinner behind if the download is slow. The filters travel with it
-            so the file always matches what is on screen. */}
         <a
           href={`/api/v1/admin/session-settlements/export?locale=${locale}${
             method !== "all" ? `&pricingMethod=${method}` : ""
@@ -180,7 +160,6 @@ export function RoomSettlementsScreen() {
                   <TableHead
                     key={c}
                     className={
-                      // Numeric columns are END-aligned, in both directions (D-013).
                       ["colPresent", "colPrice", "colCenterShare", "colTeacherShare", "colPlatform"].includes(c)
                         ? "h-[34px] px-3 text-end"
                         : "h-[34px] px-3"
@@ -220,8 +199,6 @@ export function RoomSettlementsScreen() {
                   <TableCell className="px-3 py-[7px] text-end">
                     <span className="inline-flex items-center gap-1.5">
                       <Num.Figure value={r.presentCount} locale={locale} />
-                      {/* Red is earned here: the money settled on a count that no
-                          longer matches, and only a new entry can correct it. */}
                       {r.attendanceMismatch ? (
                         <StatusBadge tone="rejected" icon={AlertTriangle}>
                           <span className="inline-flex items-baseline gap-1">
@@ -241,7 +218,6 @@ export function RoomSettlementsScreen() {
                   <TableCell className="px-3 py-[7px]">
                     <Num.Money piasters={r.teacherTotal} locale={locale} tone="muted" sign={false} />
                   </TableCell>
-                  {/* The platform's own take is the decisive figure on this screen. */}
                   <TableCell className="px-3 py-[7px]">
                     <Num.Money piasters={r.platformTotal} locale={locale} tone="net" sign={false} />
                   </TableCell>

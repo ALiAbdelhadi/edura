@@ -21,7 +21,6 @@ function requireAdminUrl() {
   return url;
 }
 config();
-// Normalize a dropped socket into a real Error — see src/neon-ws.ts.
 hardenNeonWebSockets();
 neonConfig.webSocketConstructor = ws;
 

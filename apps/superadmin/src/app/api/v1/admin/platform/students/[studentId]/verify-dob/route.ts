@@ -5,10 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { verifyStudentDateOfBirth } from "@/lib/services/admin/center-platform";
 
-// CHILD SAFETY, not a profile edit. A student counts as a MINOR unless a
-// VERIFIED date of birth shows 18+, and parent oversight of their conversations
-// is active for every minor — so verifying an adult DOB switches that oversight
-// OFF. Reason is mandatory: it records what evidence was seen.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z

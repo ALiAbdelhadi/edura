@@ -176,9 +176,6 @@ export function CenterCounterScreen({
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<WalkInInvite | null>(null);
   const [localBusy, setLocalBusy] = useState(false);
-  // Phase 1: how the counter takes THIS payment. Reset to cash per student —
-  // a sticky non-cash choice from the previous student is how the drawer ends
-  // up short at close.
   const [payMethod, setPayMethod] = useState<CounterMethod>("cash");
   const boardRef = useRef<HTMLDivElement | null>(null);
 
@@ -199,8 +196,6 @@ export function CenterCounterScreen({
         .json<{ data: { sessions: CounterSession[] } }>();
       setSessions(res.data.sessions);
     } catch {
-      // The roster below is the authority on screen; a stale chip is not worth
-      // a red toast in the middle of a queue.
     }
   }, []);
 
@@ -336,7 +331,6 @@ export function CenterCounterScreen({
       }
 
       if (e.key === "Escape") {
-        // The payment step owns Escape while it is open.
         if (commit.payment) return;
         if (q.length > 0 || matches) {
           e.preventDefault();
@@ -446,8 +440,6 @@ export function CenterCounterScreen({
               totalValue={<Amount piasters={price} locale={locale} />}
             />
             <div className="mt-3">
-              {/* Phase 1: the four counter channels. Big targets, one always
-                  selected, cash preselected — the operator is counter staff. */}
               <p className="mb-1.5 text-[12.5px] font-medium text-(--ink-2)">
                 {t("shared.checkin.methodLabel")}
               </p>
@@ -605,7 +597,6 @@ export function CenterCounterScreen({
           }
         />
       )}
-      {/* Phase 2: the drawer session — open with a float, close on a count. */}
       {embedded ? null : <ShiftCard />}
       <Sheet data-tour="board-teacher">
         {contextExpanded ? (

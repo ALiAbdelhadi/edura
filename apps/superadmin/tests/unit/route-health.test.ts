@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The back-office health endpoint. The probe logic itself lives in
-// @repo/server-core/http/health (proven by www's health-rate-limiter suite);
-// this pins the ROUTE's two contracts: GET forwards the probe's response
-// untouched, and HEAD carries the same status + headers with no body — a
-// HEAD monitor must never read a different answer than a GET one.
-
 const healthResponse = vi.fn();
 vi.mock("@repo/server-core/http/health", () => ({
   healthResponse: (...a: unknown[]) => healthResponse(...(a as [])),

@@ -36,11 +36,6 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
 });
 
-// The display pair. Loaded here because the shared token sheet reads
-// --font-cormorant / --font-lora / --font-amiri unconditionally: an app that
-// imports the sheet without defining them would lose the whole font-family
-// declaration, not fall through to the next name. Subsets are per-script, so
-// neither locale downloads the other's display face.
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
@@ -59,17 +54,6 @@ const amiri = Amiri({
   variable: "--font-amiri",
 });
 
-/* ── the portal chrome's two faces (see packages/ui/src/styles/chrome-2026.css)
- *
- * Alexandria is the whole reason the 2026 direction is affordable: ONE variable
- * face carrying BOTH Arabic and Latin at display weights, where the retired
- * system needed Amiri and Cormorant side by side and a branch to pick between
- * them. No `weight` array — that is what requests the variable axis rather than
- * a handful of static cuts.
- *
- * Inter is the chrome's body face, and loading it FIXES something: `--lat-body`
- * is Lora, a serif, so every English nav label in the product has been
- * rendering in a serif. */
 const alexandria = Alexandria({
   subsets: ["arabic", "latin"],
   variable: "--font-alexandria",
@@ -86,9 +70,6 @@ export function generateStaticParams() {
 
 export const viewport: Viewport = {
   themeColor: [
-    // --paper, both themes. Literals because the browser chrome reads this
-    // before any stylesheet exists. The previous pair (#5b76fe / #0b1020) was
-    // the retired EduConnect violet and matched nothing the app renders.
     { media: "(prefers-color-scheme: light)", color: "#f3f2f2" },
     { media: "(prefers-color-scheme: dark)", color: "#191817" },
   ],
@@ -121,8 +102,6 @@ export default async function RootLayout({
   }
   setRequestLocale(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  // Base namespaces only; /dashboard mounts the full dictionary. Omitting
-  // `messages` would serialize all 56KB (en) / 73KB (ar) into the login screen.
   const messages = baseMessages(await getMessages());
   return (
     <html
@@ -132,9 +111,6 @@ export default async function RootLayout({
       className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable} ${alexandria.variable} ${inter.variable}`}
     >
       <body>
-        {/* Anti-FOUC theme init — `async` keeps it a React 19 hoistable
-            resource (no "script tag while rendering" error on client
-            re-renders); see apps/www root layout for the full rationale. */}
         <script src="/theme-init.js" async />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>

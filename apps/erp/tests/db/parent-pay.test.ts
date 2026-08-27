@@ -1,34 +1,3 @@
-/**
- * Parent pays for a child's lesson — money-safety + authorization proofs
- * (live DB, own fixtures, real services).
- *
- *   1. The approved-link GATE: no link / pending / revoked are all refused;
- *      only an APPROVED link lets a parent act for a child.
- *   2. Per-session pass bought by a parent via the gateway: intent -> webhook ->
- *      subscription active + enrollment + Payment + Transaction, and
- *      coveredStudentIds says the child is covered for THAT session.
- *   3. Money DIRECTION is unchanged by who paid: the ledger Transaction still
- *      moves student -> center, never parent -> center. The payer is recorded
- *      on the Payment (payerUserId) and the Subscription (createdBy) instead.
- *   4. Monthly plan by parent, same path.
- *   5. Parent wallet top-up credits the PARENT once and reconciles
- *      (cached == SUM(delta) == last balanceAfter).
- *   6. Paying from the parent wallet settles synchronously: parent debited,
- *      the CHILD's balance untouched, ledger row names the beneficiary child.
- *   7. Insufficient parent balance is cleanly rejected — no partial debit AND
- *      no orphan subscription left behind.
- *   8. A parent may NOT spend their child's wallet balance.
- *   9. Intent ownership: a second parent cannot poll another parent's intent,
- *      and the child cannot poll an intent their parent is paying.
- *  10. Duplicate guard still bites: two passes for the same session refused.
- *  11. An idempotency key belongs to its payer — another parent reusing it is
- *      refused.
- *  12. The STUDENT path is untouched: a self-checkout still records no payer.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only parent-pay
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   parentWalletCredit,
@@ -67,10 +36,6 @@ const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 const asParent = (id: string): SessionUser => ({ id, role: "parent" }) as SessionUser;
 const asStudent = (id: string): SessionUser => ({ id, role: "student" }) as SessionUser;
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 async function mkParent(tag: string, balance = 0) {
   return withPlatformContext(async (tx) => {
     const u = await tx.user.create({
@@ -90,7 +55,6 @@ async function mkStudent(tag: string, balance = 0) {
       data: {
         userId: u.id,
         fullName: `${tag}-s`,
-        // truncates past its random part and collides between sub-fixtures.
         familyLinkCode: ("FC" + rid() + rid()).slice(0, 18),
         walletBalance: balance,
       },
@@ -111,7 +75,6 @@ async function link(
   );
 }
 
-/** A center course with BOTH plans priced, plus one upcoming session. */
 async function mkCourse(tag: string, opts?: { perMonth?: number; perSession?: number }) {
   return withPlatformContext(async (tx) => {
     const teacher = await tx.user.create({
@@ -175,7 +138,6 @@ const studentBalance = (studentId: string) =>
     return p!.walletBalance;
   });
 
-/** Drive a freshly created gateway intent to settlement through the real webhook. */
 async function settleLatestIntent(subscriptionId: string, tag: string) {
   const intent = await withPlatformContext((tx) =>
     tx.paymentIntent.findFirst({
@@ -197,14 +159,11 @@ async function settleLatestIntent(subscriptionId: string, tag: string) {
 
 const errOf = (e: unknown) => String((e as { message?: string })?.message ?? e);
 
-// ---------------------------------------------------------------------------
-
 async function main() {
   const tag = "ppay-" + rid();
   __sweepTag = tag;
   console.log("Parent-pays-for-child DB tests —", tag);
 
-  // ---------------------------------------------------------------- Proof 1
   console.log("\nProof 1 — the approved-link GATE");
   {
     const fx = await mkCourse(tag + "g");
@@ -243,7 +202,6 @@ async function main() {
       assert(threw && /approved child/i.test(msg), `${label} is refused (${msg.slice(0, 40)})`);
     }
 
-    // A parent who omits studentId entirely is refused too — no silent default.
     let threwNoChild = false;
     try {
       await createSubscriptionCheckout(
@@ -267,7 +225,6 @@ async function main() {
     assert(orphans === 0, `no subscription row was created by any refused attempt (${orphans})`);
   }
 
-  // ------------------------------------------------------------- Proof 2+3
   console.log("\nProof 2 — parent buys a PER-SESSION pass via the gateway");
   {
     const fx = await mkCourse(tag + "s", { perSession: 7500 });
@@ -319,7 +276,6 @@ async function main() {
     assert(payment?.amount === 7500, `Payment recorded for the child (${payment?.amount})`);
     assert(payment?.payerUserId === parent, "Payment names the PARENT as payer");
 
-    // ------------------------------------------------------------- Proof 3
     console.log("\nProof 3 — money DIRECTION is unchanged by who paid");
     const txn = await withPlatformContext((t) =>
       t.transaction.findFirst({
@@ -340,7 +296,6 @@ async function main() {
     );
     assert(covered.has(child), "coveredStudentIds: the child IS covered for that session");
 
-    // ------------------------------------------------------------ Proof 10
     console.log("\nProof 10 — duplicate guard still bites");
     let dupThrew = false;
     let dupMsg = "";
@@ -366,7 +321,6 @@ async function main() {
       "a second pass for the SAME session is refused",
     );
 
-    // ------------------------------------------------------------- Proof 9
     console.log("\nProof 9 — intent ownership");
     const other = await mkParent(tag + "s9");
     let otherThrew = false;
@@ -389,7 +343,6 @@ async function main() {
     assert(!!mine, "the paying parent CAN poll their own intent");
   }
 
-  // ---------------------------------------------------------------- Proof 4
   console.log("\nProof 4 — parent buys a MONTHLY subscription");
   {
     const fx = await mkCourse(tag + "m", { perMonth: 30000 });
@@ -421,7 +374,6 @@ async function main() {
     assert(sub?.sessionId === null, "a monthly subscription is tied to NO single session");
   }
 
-  // ---------------------------------------------------------------- Proof 5
   console.log("\nProof 5 — parent wallet top-up credits ONCE and reconciles");
   {
     const parent = await mkParent(tag + "w");
@@ -467,7 +419,6 @@ async function main() {
     assert(rows === 1, `exactly ONE top-up ledger row for the intent (got ${rows})`);
   }
 
-  // ---------------------------------------------------------------- Proof 6
   console.log("\nProof 6 — paying from the PARENT wallet settles synchronously");
   {
     const fx = await mkCourse(tag + "pw", { perSession: 6000 });
@@ -536,7 +487,6 @@ async function main() {
     assert(covered.has(child), "the child is covered for the session they paid for");
   }
 
-  // ---------------------------------------------------------------- Proof 7
   console.log("\nProof 7 — insufficient parent balance is cleanly rejected");
   {
     const fx = await mkCourse(tag + "ins", { perSession: 50000 });
@@ -586,7 +536,6 @@ async function main() {
     assert(rec.ok, "the parent wallet still reconciles after the rejection");
   }
 
-  // ---------------------------------------------------------------- Proof 8
   console.log("\nProof 8 — a parent may NOT spend their child's wallet");
   {
     const fx = await mkCourse(tag + "x", { perSession: 3000 });
@@ -618,7 +567,6 @@ async function main() {
     const sBal = await studentBalance(child);
     assert(sBal === 100000, `the child's balance is untouched (${sBal})`);
 
-    // …and the mirror: a STUDENT cannot claim a parent wallet.
     let studentThrew = false;
     try {
       await createSubscriptionCheckout(
@@ -638,7 +586,6 @@ async function main() {
     }
     assert(studentThrew, "a STUDENT cannot pay from a parent wallet either");
 
-    // A student naming someone ELSE as the beneficiary is refused.
     let impersonate = false;
     try {
       await createSubscriptionCheckout(
@@ -658,7 +605,6 @@ async function main() {
     assert(impersonate, "a student naming ANOTHER studentId is refused");
   }
 
-  // --------------------------------------------------------------- Proof 11
   console.log("\nProof 11 — an idempotency key belongs to its payer");
   {
     const fx = await mkCourse(tag + "idem", { perMonth: 12000 });
@@ -706,7 +652,6 @@ async function main() {
     );
   }
 
-  // --------------------------------------------------------------- Proof 12
   console.log("\nProof 12 — the STUDENT path is untouched");
   {
     const fx = await mkCourse(tag + "self", { perMonth: 15000 });

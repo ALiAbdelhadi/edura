@@ -1,27 +1,7 @@
-/**
- * Student wallet — NO balance cap (2026-07-23).
- *
- * Proves the removed cap is really gone, against a live DB row that still
- * carries the OLD 500 EGP max_balance value:
- *   1. A top-up that would have blown the old 500 EGP cap is ALLOWED.
- *   2. A student already holding more than the old cap can still top up.
- *   3. The per-transaction min/max top-up bounds are STILL enforced.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only wallet-no-cap
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "wallet-no-cap.test.ts";
 
@@ -89,7 +69,6 @@ async function main() {
     "getWalletSettings no longer returns a balance cap",
   );
 
-  // ------------------------------------------------------- Proof 1
   console.log("\nProof 1 — a top-up past the OLD 500 EGP cap is allowed");
   const s1 = await mkStudent(tag + "-1", 0);
   const r1 = await allowed(s1, 400_00); // 400 EGP, then...
@@ -97,7 +76,6 @@ async function main() {
   assert(r1.ok, "400 EGP top-up allowed");
   assert(r2.ok, `4000 EGP top-up allowed (old cap was 500 EGP) — ${r2.msg || "no error"}`);
 
-  // ------------------------------------------------------- Proof 2
   console.log("\nProof 2 — a balance ALREADY over the old cap can still top up");
   const s2 = await mkStudent(tag + "-2", 0);
   await withPlatformContext((tx) =>
@@ -114,7 +92,6 @@ async function main() {
   assert(bal === 3000_00, `balance sits at 3000 EGP, well past the old cap (got ${bal / 100})`);
   assert(r3.ok, `another 2000 EGP top-up allowed on top — ${r3.msg || "no error"}`);
 
-  // ------------------------------------------------------- Proof 3
   console.log("\nProof 3 — per-transaction min/max top-up bounds still enforced");
   const r4 = await allowed(s1, settings.minTopup - 1);
   const r5 = await allowed(s1, settings.maxTopup + 1);

@@ -12,35 +12,6 @@ import {
 } from "@/features/subscriptions/subscription-state";
 import { useCoverageWords } from "@/features/subscriptions/subscription-state-chip";
 
-/**
- * "اشتراك نور في الكيميا بيخلص بعد ٣ أيام" — on the parent's home, and
- * nowhere else.
- *
- * ── WHAT IT REPLACES, AND WHY THAT MATTERS ────────────────────────────────
- *
- * The card that stood in this position was «الرسوم المستحقة», and it was
- * computed on the client as `max(Σ enrollments.coursePrice − Σ payments, 0)`.
- * There is no outstanding-balance concept in this product — a subscription is
- * coverage for a period, not a debt, and pay-later is explicitly deferred in
- * CLAUDE.md — so that number counted each active enrollment's list price once
- * regardless of plan or months elapsed, subtracted every payment ever made,
- * and floored at zero so the disagreement never showed. A parent who
- * screenshotted it was holding a figure no server could recognise.
- *
- * This is the honest form of the same worry. It reads
- * `GET /me/subscriptions?studentId=` — parent-scoped since Step 4, with the
- * coverage window on every row, and until now with ZERO parent consumers.
- *
- * ── WHAT KEEPS IT FROM BECOMING WALLPAPER ─────────────────────────────────
- *
- * `mostUrgent` returns at most ONE subscription, only inside the seven-day
- * window or within a fortnight of lapsing. So it appears when something is
- * actually about to break and clears itself when the parent renews — which is
- * why it carries no dismiss button.
- *
- * Nothing here writes. "جدّد" links into the existing Pay screen, which is the
- * one money path.
- */
 export function ChildSubscriptionAlert({
   childId,
   childName,
@@ -49,9 +20,6 @@ export function ChildSubscriptionAlert({
   childName: string;
 }) {
   const t = useTranslations("parentSubscriptions");
-  // "جدّد" and the countdown say nothing about who — they come from the neutral
-  // vocabulary both portals read. Only the TITLE names the child, and that is
-  // the whole reason this component exists rather than the student's.
   const tShared = useTranslations("shared.subscriptions");
   const words = useCoverageWords();
   const { result } = useCustom({

@@ -1,16 +1,5 @@
 "use client";
 
-/* The full financial picture for one center — six ledgers plus the wallet balance.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Every value here is READ-ONLY: no input, no mutation hook, and no endpoint behind
-   it that writes. "Superadmin sees all money but moves none" is checkable by reading
-   this file's imports — the only mutating thing on the page is <MoneyActions>, which
-   goes through the real flows and adds rows rather than rewriting them.
-
-   The banner says that to the operator; the API says it to the client; the DB REVOKEs
-   say it to both. Three statements of the same guarantee, which is the point. */
-
 import { useState } from "react";
 import { Lock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -59,8 +48,6 @@ export function FinanceTab({ centerId }: { centerId: string }) {
   });
 
   const summary = useOversight<Summary>(centerId, "finance");
-  // The ledger list reuses the accountant's own service, whose envelope calls the
-  // rows `items` rather than `data`.
   const txns = useOversight<{ items: Record<string, unknown>[]; total: number }>(
     centerId,
     "transactions",

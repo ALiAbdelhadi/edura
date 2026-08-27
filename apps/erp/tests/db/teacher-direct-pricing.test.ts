@@ -1,24 +1,3 @@
-/**
- * T-1 — teacher-direct pricing PATCH (API session 2, item B.1#4).
- *
- * TEACHER_IA_AUDIT.md §7.2 #1: plan prices existed only at create time, so an
- * unpriced or mispriced teacher-direct group was unfixable by its owner —
- * while lesson-settlement correctly refuses to settle an unpriced lesson.
- * `updateTeacherDirectPricing` is the approved way through: pricing fields
- * only, strictly on `centerId IS NULL` courses the caller teaches.
- *
- * What is proven here:
- *   1. The owner prices / re-prices / clears a plan on their own group.
- *   2. settlementBasis (the same owner-pricing family) is editable.
- *   3. A rival teacher's id probe 404s — never 403, existence leaks nothing.
- *   4. A CENTERED course 404s for the teacher WHO TEACHES IT — its pricing is
- *      the center's arrangement, edited through the center door only.
- *   5. An empty patch is refused, not silently accepted.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only teacher-direct-pricing
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { updateTeacherDirectPricing } from "@repo/server-core/services/center/courses";
 import { BusinessRuleError, NotFoundError } from "@repo/server-core/errors/classes";
@@ -73,12 +52,10 @@ async function main() {
       subject: "Math", daysOfWeek: [1], startTime: "10:00", endTime: "11:00",
       startDate: new Date("2026-01-01T00:00:00Z"), maxStudents: 30, status: "active" as const,
     };
-    // Unpriced teacher-direct group — the exact stuck state T-1 describes.
     const direct = await tx.course.create({
       data: { ...base, centerId: null, teacherId: owner.id, title: `${tag}-direct`, price: 30000,
         pricePerMonth: null, pricePerSession: null },
     });
-    // A CENTERED course the same teacher teaches.
     const centered = await tx.course.create({
       data: { ...base, centerId: center.id, teacherId: owner.id, title: `${tag}-centered`, price: 30000 },
     });

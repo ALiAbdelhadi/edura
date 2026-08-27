@@ -49,18 +49,6 @@ export const GET = withErrors(async (req) => {
       include: { session: true },
     });
 
-    // THE COURSE NAME IS RESOLVED HERE, not by the caller.
-    //
-    // This route returned `courseId` and nothing else, so every consumer joined
-    // it against a separate `enrollments` fetch to turn a uuid into a subject a
-    // parent could read. Three portals were doing that join — student, parent
-    // and teacher — which is three chances to do it differently, and one of them
-    // silently shows a blank row for a course the student has since left, since
-    // the enrolment is gone but the attendance record is not.
-    //
-    // `attendance_records.course_id` is NOT NULL and carries its own index, so
-    // this is one keyed read over a small distinct set, not a per-row lookup.
-    // (STUDENT_IA_AUDIT.md §5.1 finding 3, PARENT_IA_AUDIT.md §7.1 finding 2.)
     const courseIds = [...new Set(records.map((r) => r.courseId))];
     const courses = courseIds.length
       ? await tx.course.findMany({
@@ -88,8 +76,6 @@ export const GET = withErrors(async (req) => {
       date: r.session?.date ? toDateKey(r.session.date) : "",
       status,
       courseId: r.courseId,
-      // "" when the course row is gone (a hard-deleted group), matching the
-      // shape every other enriched list on this API uses for a missing name.
       courseName: courseNames.get(r.courseId) ?? "",
     };
   });

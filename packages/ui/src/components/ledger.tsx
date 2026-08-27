@@ -1,35 +1,8 @@
 "use client";
 
-// Ledger primitives — the shared vocabulary every portal writes figures in.
-//
-// Promoted here from `features/parent/ledger-kit.tsx` once the shared feature
-// folders (attendance, notifications, settings, messaging) needed them: a
-// surface rendered by six portals cannot import from one portal's folder. The
-// old path still re-exports these, so no call site changed.
-//
-// The rules they encode, so a reviewer can check them without the spec:
-//   · every figure is monospaced and tabular — that is what makes a column of
-//     money scan as a column
-//   · figures are bidi-isolated, so a Latin numeral inside an Arabic sentence
-//     cannot reorder the sentence around it
-//   · colour is meaning, never decoration: teal = money confirmed/moved,
-//     amber = waiting, red = irreversible/blocking, indigo = brand/action
-//   · no gradients, no filled metric variant, no trend-arrow trio
-//
-// Nothing here is translated. Every user-visible string arrives already
-// localized — this package has no i18n and must not acquire one.
-
 import * as React from "react";
 import { cn } from "@repo/ui/lib/utils";
 
-/**
- * A number, in the system's second face.
- *
- * `dir="ltr"` + isolation is not cosmetic: Arabic is RTL, digits and Latin
- * glyphs are LTR, and an un-isolated "EGP 1,200" inside an Arabic line can drag
- * neighbouring punctuation to the wrong side. Isolating each figure fixes the
- * whole class of bug once.
- */
 export function Figure({
   children,
   className,
@@ -44,15 +17,6 @@ export function Figure({
   );
 }
 
-/**
- * A money amount.
- *
- * `tone` is deliberately narrow. A refund is NOT amber: amber means *waiting*,
- * and a refund has already happened. It renders as plain ink with an explicit
- * minus, so the sign carries the meaning instead of a colour that would claim
- * the wrong state. `due` IS amber — an outstanding balance is waiting. Neither
- * is ever red: red means irreversible or blocking, not unpaid.
- */
 export function Money({
   amount,
   format,
@@ -79,14 +43,6 @@ export function Money({
   );
 }
 
-/**
- * A metric.
- *
- * Three rows, and the third is the one that matters: it states *why this number
- * matters* — what it is out of, what period it covers, what it is waiting on.
- * It is never a percentage delta with no referent, which is the thing the audit
- * called out. If there is nothing true to say in row 3, leave it out.
- */
 export function Metric({
   label,
   value,
@@ -118,7 +74,6 @@ export function Metric({
   );
 }
 
-/** Section label. Mono eyebrow above a plain title, separated by a hairline. */
 export function SectionHead({
   eyebrow,
   title,
@@ -146,7 +101,6 @@ export function SectionHead({
   );
 }
 
-/** The accountant's close: a double rule above the final figure. */
 export function TotalLine({
   label,
   value,
@@ -169,14 +123,6 @@ export function TotalLine({
   );
 }
 
-/**
- * A plain statement of a limit.
- *
- * Where a user cannot act, there is nothing to click and a line saying who can.
- * That line is this component. It is prose on paper, not a disabled control and
- * not a warning — not amber, because nothing is waiting, and not red, because
- * nothing is wrong.
- */
 export function LimitNote({
   children,
   className,
@@ -191,13 +137,6 @@ export function LimitNote({
   );
 }
 
-/**
- * An error that is NOT an empty state.
- *
- * "There is nothing" and "we could not find out" are different facts, and
- * collapsing them is the most damaging bug a read-only surface can have.
- * Always offers the retry.
- */
 export function LoadError({
   message,
   onRetry,
@@ -229,7 +168,6 @@ export function LoadError({
   );
 }
 
-/** Skeleton rows. A spinner-in-a-box tells you nothing about what is coming. */
 export function SkeletonRows({
   rows = 3,
   className,

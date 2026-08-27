@@ -1,39 +1,3 @@
-/**
- * ===========================================================================
- * DATA RIGHTS (قانون 151/2020) + the center-owner audit viewer.
- * ===========================================================================
- * Drives the REAL shipped services against the live test DB:
- *   packages/server-core/src/services/data-rights/data-export.ts
- *   packages/server-core/src/services/data-rights/account-deletion.ts
- *   packages/server-core/src/services/center/center-audit.ts
- *
- * Each proof is about the BOUNDARY, not the happy path:
- *
- *   1. ONE subject gate — self yes; a stranger no; a parent only through an
- *      APPROVED link (pending / revoked / absent all refused).
- *   2. The in-flight rule is enforced by the DATABASE, not only by the service
- *      check — proven by going around the service with a raw INSERT.
- *   3. The export carries NO CREDENTIALS. Asserted against the serialized
- *      payload, so a future `include: true` cannot smuggle a password hash,
- *      session token or 2FA secret into a downloadable file.
- *   4. The worker claim is atomic — two workers racing one queued row produce
- *      exactly one winner.
- *   5. Expiry actually DROPS the copy (payload NULL, not merely a status), and
- *      the download refuses on the clock even before the sweeper has run.
- *   6. A MINOR cannot erase their own account; their approved guardian can;
- *      a VERIFIED adult can. Default-minor is the rule, so an unverified DOB
- *      is still a minor.
- *   7. Withdrawing records `cancelled`, never `rejected` — a data-rights
- *      report must not confuse "I changed my mind" with "we refused you".
- *   8. The center audit viewer cannot see another center, cannot see
- *      platform-level (NULL-center) rows, and its date filter includes the
- *      whole of its `to` day.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only data-rights
- * NEVER --env-file=.env: that is the DEV database and it skips the guard.
- * ===========================================================================
- */
 import { withPlatformContext } from "@repo/database";
 import {
   cancelDataExport,
@@ -90,11 +54,6 @@ const asTeacher = (id: string): SessionUser => ({ id, role: "teacher" }) as Sess
 const asCenterAdmin = (id: string, centerId: string): SessionUser =>
   ({ id, role: "center_admin", centerId }) as SessionUser;
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-/** `dob` present + `verified` is the ONLY way out of minor status. */
 async function mkStudent(
   tag: string,
   suffix: string,
@@ -159,7 +118,6 @@ async function mkCenter(tag: string, suffix: string) {
   });
 }
 
-/** An audit row. `centerId: null` is what every PLATFORM-level action carries. */
 async function auditRow(action: string, actorId: string, centerId: string | null, when?: Date) {
   return withPlatformContext((tx) =>
     tx.auditLog.create({
@@ -176,14 +134,11 @@ async function auditRow(action: string, actorId: string, centerId: string | null
   );
 }
 
-/** Drive the queued export all the way to `ready`. */
 async function buildExport(actor: SessionUser, subjectId?: string) {
   const req = await requestDataExport(actor, subjectId);
   await processNextDataExport();
   return req.id;
 }
-
-// ---------------------------------------------------------------------------
 
 async function main() {
   const tag = "drtest-" + rid();
@@ -194,9 +149,7 @@ async function main() {
     dob: new Date("2000-01-01"),
     verified: true,
   });
-  // No DOB at all: DEFAULT-MINOR.
   const minorStudent = await mkStudent(tag, "minor");
-  // A DOB proving 18+, but NOBODY VERIFIED IT — still a minor.
   const unverifiedStudent = await mkStudent(tag, "unver", { dob: new Date("1995-05-05") });
   const guardian = await mkParent(tag, "guardian");
   const stranger = await mkParent(tag, "stranger");
@@ -208,7 +161,6 @@ async function main() {
   await link(pendingParent, minorStudent, "pending");
   await link(revokedParent, minorStudent, "revoked");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("1. The subject gate — one implementation, every caller");
 
   const selfOk = await requestDataExport(asStudent(adultStudent));
@@ -249,14 +201,11 @@ async function main() {
     "the row records WHOSE data it is and WHO asked — permanently distinguishable",
   );
 
-  // ─────────────────────────────────────────────────────────────────────
   section("2. One in flight — enforced by the DATABASE, not just the service");
 
   const dupe = await rejects(() => requestDataExport(asStudent(adultStudent)), /already being prepared/i);
   assert(dupe.threw && dupe.matched, "the service refuses a second queued export");
 
-  // Go AROUND the service. If the partial unique index were missing, this
-  // insert would succeed and the service check would be the only guard.
   const rawDupe = await rejects(
     () =>
       withPlatformContext((tx) =>
@@ -271,7 +220,6 @@ async function main() {
     "the DB refuses it too — data_export_requests_one_in_flight bites",
   );
 
-  // ─────────────────────────────────────────────────────────────────────
   section("3. The export carries data, and NO credentials");
 
   const built = await processNextDataExport();
@@ -290,8 +238,6 @@ async function main() {
   assert(Array.isArray(doc.payments), "…the payments collection");
   assert(!!doc._meta?.lawReference, "…and a header naming the law it answers to");
 
-  // The load-bearing one. Asserted on the SERIALIZED string so a nested
-  // `include: true` anywhere in the builder would trip it.
   assert(!/passwordHash|password_hash/i.test(serialized), "NO password hash anywhere in the file");
   assert(!/tokenVersion|token_version/i.test(serialized), "no session epoch");
   assert(
@@ -300,7 +246,6 @@ async function main() {
   );
   assert(!/authSession|auth_sessions|sessionToken/i.test(serialized), "no session tokens");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("4. Download is gated by the same rule as the request");
 
   const foreignRead = await rejects(
@@ -315,13 +260,8 @@ async function main() {
   );
   assert(childReads.threw && childReads.matched, "…and neither can an unrelated student");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("5. The worker claim is atomic");
 
-  // DRAIN FIRST. The claim takes the OLDEST pending row globally, so with
-  // anything else still queued the two workers below would simply take
-  // different rows and "one winner" would pass without testing anything.
-  // (This is exactly how the assertion first passed a broken premise.)
   for (let i = 0; i < 50; i++) {
     const { processed } = await processNextDataExport();
     if (!processed) break;
@@ -344,14 +284,11 @@ async function main() {
   );
   assert(racerRow?.status === "ready", "…and the row was built exactly once");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("6. Expiry DROPS the copy, and the clock outranks the column");
 
   const expiring = await mkStudent(tag, "expire");
   const expId = await buildExport(asStudent(expiring));
 
-  // Backdate the expiry: the payload is now past its life but the sweeper
-  // has not run, so the row still SAYS ready.
   await withPlatformContext((tx) =>
     tx.dataExportRequest.update({
       where: { id: expId },
@@ -384,7 +321,6 @@ async function main() {
   );
   assert(afterSweep?.byteSize === null, "…and the size with it");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("7. Cancel — only while nothing has been produced");
 
   const canceller = await mkStudent(tag, "cancel");
@@ -402,7 +338,6 @@ async function main() {
   );
   assert(readyCancel.threw && readyCancel.matched, "a BUILT export cannot be silently withdrawn");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("8. Deletion — DEFAULT-MINOR decides who may ask");
 
   const minorEl = await getDeletionEligibility(asStudent(minorStudent));
@@ -448,7 +383,6 @@ async function main() {
   );
   assert(platformDesk?.requestedBy === guardian, "…and names who raised it");
 
-  // ─────────────────────────────────────────────────────────────────────
   section("9. One open request per subject, and withdrawal is not rejection");
 
   const secondOpen = await rejects(
@@ -494,7 +428,6 @@ async function main() {
     "REQUESTING IS NOT DELETING — the account is untouched while it waits",
   );
 
-  // ─────────────────────────────────────────────────────────────────────
   section("10. Center audit viewer — scope is the session's, not the request's");
 
   const centerA = await mkCenter(tag, "ca");
@@ -504,7 +437,6 @@ async function main() {
   await auditRow("center.profile_updated", staff, centerA);
   await auditRow("center.room_created", staff, centerA);
   await auditRow("center.profile_updated", staff, centerB);
-  // A PLATFORM action: no center. This is the row that must not leak.
   await auditRow("user.suspended", staff, null);
 
   const ownerA = asCenterAdmin(staff, centerA);
@@ -530,8 +462,6 @@ async function main() {
   const actorNamed = seenA.data.every((r) => r.actorName !== null);
   assert(actorNamed, "the actor resolves to a name — an audit row is never anonymous here");
 
-  // A date-only `to` must mean the END of that day; without that, filtering
-  // "up to today" silently drops everything that happened today.
   const today = new Date().toISOString().slice(0, 10);
   const sameDay = await listCenterAuditLogs(ownerA, { from: today, to: today });
   assert(

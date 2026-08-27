@@ -1,16 +1,3 @@
-// =============================================================================
-// The three INVITE emails (student claim, assistant, center staff) still live
-// here as hand-written table HTML. Everything else moved to
-// @repo/notifications, which is now the single owner of email templates.
-//
-// They are the deliberate remainder, not an oversight: each is threaded through
-// an invite/claim flow with heavy live-DB proofs (invite-claim 107/107), and
-// re-pointing them is a change to those flows, not to a template. The shell in
-// @repo/notifications/templates/layout.tsx is a VISUAL MATCH for the layout()
-// below — same navy header, same 520px card, same footer rule — so the two
-// systems are indistinguishable in an inbox while this lasts, and porting them
-// is a copy of the COPY constants with no design decision left to make.
-// =============================================================================
 import { normalizeLocale, renderEmail, type Locale } from "@repo/notifications";
 
 export type MailLocale = Locale;
@@ -20,7 +7,6 @@ export const normalizeMailLocale = normalizeLocale;
 const BRAND = "#1a2f73";
 const BRAND_GLOW = "#3856e0";
 
-/** Escape anything interpolated into the HTML body — names and emails are user data. */
 function esc(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -32,16 +18,10 @@ function esc(value: string): string {
 type LayoutInput = {
   locale: MailLocale;
   title: string;
-  /**
-   * Already-escaped HTML. Includes the CTA at its correct position — the button
-   * is NOT appended by the layout, because a primary action rendered after the
-   * fallback link and the "you can ignore this" note reads as an afterthought.
-   */
   bodyHtml: string;
   footer: string;
 };
 
-/** Bulletproof-ish button: a table cell carries the fill so Outlook honours it. */
 function ctaButton(label: string, url: string, align: "left" | "right"): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" align="${align}" style="margin:24px 0;">
     <tr><td style="border-radius:8px;background:${BRAND_GLOW};">
@@ -51,11 +31,6 @@ function ctaButton(label: string, url: string, align: "left" | "right"): string 
   <div style="clear:both;"></div>`;
 }
 
-/**
- * Table-based layout with inline styles — the only thing that renders
- * consistently across Gmail, Outlook and Apple Mail. `dir` flips the whole
- * document for Arabic.
- */
 function layout({ locale, title, bodyHtml, footer }: LayoutInput): string {
   const dir = locale === "ar" ? "rtl" : "ltr";
   const align = locale === "ar" ? "right" : "left";
@@ -101,18 +76,9 @@ function layout({ locale, title, bodyHtml, footer }: LayoutInput): string {
 </html>`;
 }
 
-/**
- * SHIM — the password-reset template moved to @repo/notifications. Kept because
- * `scripts/mail-check.ts` renders it to test SMTP credentials without sending a
- * real reset. The production path is `requestPasswordReset`, which calls
- * `send("password_reset", ...)` directly.
- *
- * Now async (rendering React to HTML is async); the one caller awaits it.
- */
 export async function passwordResetEmail(input: {
   link: string;
   locale: MailLocale;
-  /** Matches RESET_TTL_MS in services/auth/password-reset.ts. */
   expiryHours?: number;
 }): Promise<{ subject: string; html: string; text: string }> {
   return renderEmail("password_reset", input.locale, {
@@ -120,15 +86,6 @@ export async function passwordResetEmail(input: {
     expiryHours: input.expiryHours ?? 1,
   });
 }
-
-// =============================================================================
-// Invite / claim emails (2026-07-25). One builder, three audiences.
-//
-// Every one of these carries a SINGLE-USE link that sets a password, so they
-// all share the same shape as the reset mail: instruction -> button -> fallback
-// link -> expiry -> "ignore if unexpected". Built on the same layout()/
-// ctaButton() as passwordResetEmail — one email design system, not four.
-// =============================================================================
 
 export type InviteEmail = { subject: string; html: string; text: string };
 
@@ -190,18 +147,12 @@ function expiryLine(days: number, locale: MailLocale): string {
     : `This link works once and expires in ${days} days.`;
 }
 
-/**
- * Student claim link. Addressed to the GUARDIAN whenever we resolved one —
- * which on a K-12 platform is the normal case — so the copy says plainly that
- * opening it sets the login for the CHILD's account, not the reader's own.
- */
 export function studentClaimEmail(input: {
   locale: MailLocale;
   link: string;
   studentName: string;
   studentCode: string;
   centerName?: string | null;
-  /** false when the recipient is a verified ADULT student claiming for themselves. */
   toGuardian: boolean;
   expiryDays: number;
 }): InviteEmail {
@@ -258,7 +209,6 @@ export function studentClaimEmail(input: {
   });
 }
 
-/** Assistant invite — sent to the assistant's own address (assistants are adults). */
 export function assistantInviteEmail(input: {
   locale: MailLocale;
   link: string;
@@ -295,15 +245,6 @@ export function assistantInviteEmail(input: {
   });
 }
 
-/**
- * Teacher invite — sent when an OFF-SYSTEM teacher decides to join the platform
- * and the center converts their record.
- *
- * The copy leads with the one thing that actually matters to them, because it
- * is the thing they were most likely refusing over: their history is already
- * there. It is not a fresh account — their groups, attendance and money have
- * been under this id the whole time, and signing in is the only thing changing.
- */
 export function teacherInviteEmail(input: {
   locale: MailLocale;
   link: string;
@@ -359,7 +300,6 @@ const STAFF_ROLE_LABEL = {
 
 export type StaffRoleKey = keyof (typeof STAFF_ROLE_LABEL)["en"];
 
-/** Center-staff invite — same shape, plus which center and which sub-role. */
 export function staffInviteEmail(input: {
   locale: MailLocale;
   link: string;

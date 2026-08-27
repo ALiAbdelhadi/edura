@@ -5,39 +5,7 @@ import { useTranslations } from "next-intl";
 import { Chip, Eyebrow, Sheet } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
-// The CAIRO day. This line answers "هل ابني حضر النهاردة؟" by matching an
-// attendance record's `date` against today, and a record's date is the day the
-// CENTER registered it on — so "today" has to be the center's day, not the
-// phone's.
 import { todayKey } from "@repo/server-core/lib/date-key";
-
-/**
- * "ابني راح الحصة النهاردة ولا لأ؟" — question number one, answered as a
- * yes/no about one day instead of a percentage and a coloured square.
- *
- * ── WHY IT SITS ABOVE THE NEXT-LESSON CARD ────────────────────────────────
- *
- * Because when it exists it outranks everything else on the screen. A parent
- * opening the app at six in the evening is asking about the lesson that has
- * already happened, not the one on Thursday. It renders NOTHING when today
- * holds no record — before the register is taken there is no answer, and an
- * em dash is not one — so the permanent hero leads on every other day.
- *
- * ── WHY THERE IS NO VERB ──────────────────────────────────────────────────
- *
- * "حضر" and "حضرت" are different words, and a parent of a daughter should not
- * read the wrong one. The status is a chip carrying `status.present` /
- * `.late` / `.absent` — the same vocabulary the attendance screen below it
- * uses, so the two cannot describe one register differently.
- *
- * Reads `me/attendance?studentId=` and nothing else. `useCustom` on that URL
- * shares React Query's cache with the record strip on the home and with the
- * attendance screen itself, so it costs no extra request on either.
- *
- * `href` is optional because this renders in two places: on the home it opens
- * the attendance page, and ON the attendance page it is already there — a card
- * that links to the screen you are looking at is a control that does nothing.
- */
 
 const TONE = { present: "teal", late: "amber", absent: "red" } as const;
 
@@ -50,7 +18,6 @@ export function ChildTodayLine({
 }: {
   childId: string;
   childName: string;
-  /** Omit to render the line as a statement rather than a link. */
   href?: string;
 }) {
   const t = useTranslations();
@@ -65,9 +32,6 @@ export function ChildTodayLine({
   const today = records.filter((r) => r.date === key);
   if (today.length === 0) return null;
 
-  // More than one lesson today: the worst outcome leads, because that is the
-  // one a parent needs to ask about. A day with one absence and two present
-  // marks is not a day to report as "حاضر".
   const worst =
     today.find((r) => r.status === "absent") ??
     today.find((r) => r.status === "late") ??

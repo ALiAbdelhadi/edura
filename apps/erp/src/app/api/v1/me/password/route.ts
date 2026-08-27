@@ -16,17 +16,6 @@ const bodySchema = z
   })
   .strict();
 
-/**
- * Change your own password while signed in.
- *
- * The account is always the SESSION's — there is no userId in the body, so this
- * route cannot be pointed at anyone else. Changing another account's password
- * stays where it belongs: the admin surface sends a reset link and never sees
- * or sets a password (see admin-users).
- *
- * Rate-limited like the other credential doors: a live session still should not
- * be a place to brute-force the current password.
- */
 export const POST = withRateLimit(
   withErrors(async (req) => {
     const session = await requireSession();
@@ -34,9 +23,6 @@ export const POST = withRateLimit(
 
     await changeOwnPassword(session.id, currentPassword, newPassword);
 
-    // The token_version bump inside the service already revoked every session,
-    // including this one — say so, so the client can send the user to sign in
-    // again rather than leaving them on a screen whose next request 401s.
     return ok({ sessionsRevoked: true });
   }),
   10,

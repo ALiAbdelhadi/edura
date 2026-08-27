@@ -1,34 +1,3 @@
-// Global search proof — the ⌘K palette's RECORD half.
-//
-// The palette used to search only DESTINATIONS. It now also searches records:
-// students, groups, halls, staff, teachers, receipts. That turns one box into
-// the widest read surface in the product, so the thing worth proving is not
-// that it finds things — it is WHAT IT REFUSES TO FIND.
-//
-// What this pins down:
-//
-//   1. TENANCY. A second center's student, group, hall, staff member and
-//      receipt are absent from the first center's results. Asserted per kind,
-//      not once, because each provider writes its own `where`.
-//   2. THE TIER MAP AGREES WITH center-actor.ts. A receptionist gets students
-//      and nothing else; a manager adds halls; a center_accountant gets
-//      receipts and NOTHING ELSE (it is a sideways tier, not a rung, so it must
-//      not fall through to the receptionist's students); the owner gets all
-//      seven. This is the assertion that would catch a privilege widening.
-//   3. FREE TEXT IS NARROWER THAN AN IDENTIFIER. A NAME typed by a center that
-//      does not hold the child finds nothing; that same child's CODE resolves —
-//      MASKED, and pointed at the counter rather than at a record page.
-//   4. A TEACHER SEES THEIR OWN ROSTER ONLY, and an assistant sees EXACTLY the
-//      teacher's set — the Step 8 delegation boundary, through this new door.
-//   5. A PARENT'S CHILD MUST BE APPROVED. A pending link resolves to nothing.
-//   6. IT WRITES NOTHING. A census across users/courses/payments/audit_logs is
-//      byte-identical before and after every search in this file.
-//   7. EVERY href IS A DESTINATION OF THE PORTAL THAT ASKED. A hit that lands
-//      on a 403 or a 404 is worse than no hit.
-//
-// Nothing is mocked: the real `globalSearch` runs against the live DB, and the
-// center principal is built by the REAL `authorizeCenterActor`, so the staff
-// link is resolved the way a request resolves it.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { globalSearch } from "@repo/server-core/services/search/global-search";
@@ -76,9 +45,6 @@ async function main() {
   const studentA = crypto.randomUUID(); // centre A's roster, teacher's group
   const studentB = crypto.randomUUID(); // centre B's roster only
   const studentC = crypto.randomUUID(); // A's roster, the OTHER teacher's group
-  // Stored the way a REGISTER holds an Egyptian name — with the hamza, the ta
-  // marbuta and the alef maqsura — so the queries in §10 are typed the way a
-  // counter keyboard actually produces them, and the two have to meet.
   const studentAr = crypto.randomUUID();
   userIds.push(
     ownerA, ownerB, receptionist, manager, accountant, teacher, otherTeacher,
@@ -93,14 +59,8 @@ async function main() {
   const roomA = crypto.randomUUID();
   const roomB = crypto.randomUUID();
 
-  /** The searchable token. Every fixture name contains it, so ONE query
-   *  reaches every provider and the differences are purely about permission. */
   const WORD = `${tag}zebra`;
 
-  /* ── the Arabic fixtures (§10) ──────────────────────────────────────────
-   * Written as a register writes them. Every query in §10 is the SAME name
-   * typed the way a counter keyboard produces it: no hamza (it needs Shift),
-   * ه for ة, ي for ى — and often the family name first. */
   const AR_NAME = `فاطمة إبراهيم ${tag}`;
   const AR_PHONE = "01099887766";
   const AR_ROOM = `قاعة الأنشطة ${tag}`;
@@ -143,7 +103,6 @@ async function main() {
   try {
     console.log("Global search —", tag);
 
-    /* ── fixtures ─────────────────────────────────────────────────────── */
     for (const [id, name] of [
       [centerA, `${WORD} Center A`],
       [centerB, `${WORD} Center B`],
@@ -155,9 +114,6 @@ async function main() {
       );
     }
 
-    // `users` carries no center pointer: a center_admin's centre comes from
-    // their SESSION (`resolveCenterActorContext`), and a staff member's from
-    // their live `center_staff` link. Both are exercised below as written.
     const mkUser = async (id: string, role: string, name: string) => {
       await admin.query(
         `INSERT INTO users (id, email, role, name, status, is_demo, created_at, updated_at)
@@ -197,7 +153,6 @@ async function main() {
       );
     }
 
-    // Student profiles carry the code the counter searches on.
     for (const id of [studentA, studentB, studentC, studentAr]) {
       await admin.query(
         `INSERT INTO student_profiles (id, user_id, full_name, family_link_code, created_at, updated_at)
@@ -223,8 +178,6 @@ async function main() {
       );
     }
 
-    // Teacher A works at centre A; the other teacher does not, so a teacher's
-    // own search must not reach centre A's other group.
     await admin.query(
       `INSERT INTO center_teacher_affiliations
          (id, center_id, teacher_id, status, invited_at, expires_at, created_at, updated_at)
@@ -276,8 +229,6 @@ async function main() {
       );
     }
 
-    // Receipts. The number is the identifier this provider matches on, so the
-    // tag goes IN the number rather than in a name.
     const receiptA = `RCP-${tag.toUpperCase()}-A`;
     const receiptB = `RCP-${tag.toUpperCase()}-B`;
     for (const [centerId, studentId, receipt] of [
@@ -302,7 +253,6 @@ async function main() {
 
     const before = await census();
 
-    /* ── 1) the owner of centre A sees centre A, and only centre A ─────── */
     const a = await centerSearch(session(ownerA, "center_admin", centerA), WORD);
 
     assert(
@@ -347,18 +297,11 @@ async function main() {
       session(ownerA, "center_admin", centerA),
       receiptB,
     );
-    // NOT `length === 0`: the query `RCP-<TAG>-B` tokenizes, and whenever the
-    // random tag happens to contain the letter «b» every term also exists in
-    // centre A's OWN payment haystack — so the search legitimately returns
-    // A's own receipt, and a zero-count assertion misread that own-tenancy
-    // substring match as a leak (~15% of runs; the CI flake of 2026-08-26).
-    // The tenancy claim is exact: THEIR receipt never surfaces here.
     assert(
       hits(foreignReceipt, "payment").every((h) => h.badge !== receiptB),
       "TENANCY: the other centre's receipt number resolves to NOTHING of theirs",
     );
 
-    /* ── 2) the tier map ───────────────────────────────────────────────── */
     const r = await centerSearch(session(receptionist, "center_staff"), WORD);
     assert(
       kinds(r).join(",") === "student",
@@ -386,7 +329,6 @@ async function main() {
       "center_accountant is a SIDEWAYS tier: a student name finds them nothing",
     );
 
-    /* ── 3) free text vs an identifier ─────────────────────────────────── */
     const byName = await centerSearch(
       session(ownerA, "center_admin", centerA),
       `${WORD} Student B`,
@@ -404,7 +346,6 @@ async function main() {
       "…pointed at the counter, not at a record page this centre may not open",
     );
 
-    /* ── 4) the teacher, and the assistant acting for them ─────────────── */
     const tRes = await globalSearch(
       { kind: "teacher", acting: session(teacher, "teacher"), portal: "teacher" },
       { q: WORD, locale: "ar" },
@@ -423,9 +364,6 @@ async function main() {
       "a teacher finds the centre they are affiliated with",
     );
 
-    // The delegation boundary: the app resolves an assistant to their teacher
-    // BEFORE the kernel runs, so the principal here is the teacher's id — and
-    // the only difference must be the portal in the hrefs.
     const aRes = await globalSearch(
       { kind: "teacher", acting: { ...session(teacher, "teacher") }, portal: "assistant" },
       { q: WORD, locale: "ar" },
@@ -443,7 +381,6 @@ async function main() {
       "every assistant hit lands inside the assistant portal",
     );
 
-    /* ── 5) the parent ─────────────────────────────────────────────────── */
     const pRes = await globalSearch(
       { kind: "parent", user: session(parent, "parent") },
       { q: WORD, locale: "ar" },
@@ -457,7 +394,6 @@ async function main() {
       "a PENDING link resolves to nothing — approval is the gate, here as everywhere",
     );
 
-    /* ── 6) the student ────────────────────────────────────────────────── */
     const sRes = await globalSearch(
       { kind: "student", user: session(studentA, "student") },
       { q: WORD, locale: "ar" },
@@ -467,7 +403,6 @@ async function main() {
       "a student finds the group they are enrolled in, and only that",
     );
 
-    /* ── 7) a prefix is not a search ───────────────────────────────────── */
     const short = await centerSearch(session(ownerA, "center_admin", centerA), "z");
     assert(
       short.groups.length === 0,
@@ -476,7 +411,6 @@ async function main() {
     const blank = await centerSearch(session(ownerA, "center_admin", centerA), "   ");
     assert(blank.groups.length === 0, "whitespace is not a query either");
 
-    /* ── 8) every href is a destination of the portal that asked ───────── */
     assert(
       allHits(a).every((h) => h.href.startsWith("/dashboard/admin/")),
       "every owner hit lands inside the center-admin portal",
@@ -490,13 +424,6 @@ async function main() {
       "every parent hit lands inside the parent portal",
     );
 
-    /* ── 10) THE NAME AS IT IS ACTUALLY TYPED ──────────────────────────
-     * The reason this whole layer exists. Prisma's `contains` with
-     * `mode: "insensitive"` is ILIKE, and ILIKE folds ASCII case and NOTHING
-     * else — so a receptionist typing «فاطمه» got an empty list about a child
-     * on their own roster, which reads as "not registered here". The control
-     * below asserts that the DATABASE still cannot do this on its own, so the
-     * assertions after it are measuring the fix rather than the data. */
     const rawIlike = await admin.query(
       `SELECT count(*)::int AS n FROM users WHERE id = $1 AND name ILIKE '%' || $2 || '%'`,
       [studentAr, `فاطمه ${tag}`],
@@ -543,7 +470,6 @@ async function main() {
       "the same rules reach every provider: «قاعه الانشطه» finds «قاعة الأنشطة»",
     );
 
-    /* ── 9) it writes nothing ──────────────────────────────────────────── */
     assert(
       (await census()) === before,
       "a search moves no money, creates no row, and writes no audit entry",
@@ -572,8 +498,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite global-search.test.ts" })
   .then(() => main())
   .catch((e) => {

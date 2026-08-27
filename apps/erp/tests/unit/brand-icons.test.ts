@@ -27,7 +27,6 @@ const INVITE_ACCEPT = readFileSync(
 );
 const RETIRED_EDUCONNECT_HUES = ["#5b76fe", "#7c4fe0", "#00b473", "#187574", "#ffc6c6"];
 
-/** Minimal PNG header reader — width/height/colour type live at fixed offsets. */
 function readPng(file: string) {
   const buf = readFileSync(join(PUBLIC, file));
   return {
@@ -35,18 +34,11 @@ function readPng(file: string) {
     isPng: buf.subarray(0, 8).toString("hex") === "89504e470d0a1a0a",
     width: buf.readUInt32BE(16),
     height: buf.readUInt32BE(20),
-    /** 6 = truecolour with alpha. */
     colourType: buf.readUInt8(25),
   };
 }
 
 describe("notification icons", () => {
-  /**
-   * THE BUG THIS LOCKS DOWN: both `icon` and `badge` pointed at
-   * `/edura-mark.svg`, and Chrome on Android renders NEITHER as SVG — it shows
-   * its own generic glyph and says nothing. On an Android-first product that
-   * meant every push arrived unbranded, and no test or build step could notice.
-   */
   it("are PNG, not SVG", () => {
     const spec = notificationSpec({ title: "t" });
     expect(spec.options.icon).toBe(NOTIFICATION_ICON);
@@ -65,8 +57,6 @@ describe("notification icons", () => {
   });
 
   it("keep an alpha channel — the badge is nothing without it", () => {
-    // Android throws the badge's colour away and tints its ALPHA white. A
-    // badge flattened onto a background would render as a solid square.
     expect(readPng("notification-badge.png").colourType).toBe(6);
   });
 
@@ -77,12 +67,6 @@ describe("notification icons", () => {
 });
 
 describe("the maskable home-screen icon", () => {
-  /**
-   * The file this replaced was the retired EduConnect mark — a violet→indigo
-   * gradient plus #00b473 — while the favicon had already been redrawn in the
-   * Ledger language. An installed app was showing two different brands, and
-   * nothing failed. These are the three hues that must never come back.
-   */
   it("carries none of the retired EduConnect palette", () => {
     for (const hue of RETIRED_EDUCONNECT_HUES) {
       expect(MASKABLE.toLowerCase()).not.toContain(hue);
@@ -107,12 +91,6 @@ describe("the maskable home-screen icon", () => {
     for (const p of EDURA_MARK_PATHS) expect(MASKABLE).toContain(`d="${p.d}"`);
   });
 
-  /**
-   * A maskable icon is cropped to a circle / squircle / teardrop, so it must be
-   * FULL BLEED — transparency shows as white or black corners on the home
-   * screen. This is the one place a filled tile is not merely permitted but
-   * required.
-   */
   it("is full-bleed", () => {
     expect(MASKABLE).toMatch(
       new RegExp(
@@ -121,11 +99,6 @@ describe("the maskable home-screen icon", () => {
     );
   });
 
-  /**
-   * Recomputed from the transform in the FILE, not restated: the glyph's
-   * stroked extremities must sit inside the 80%-diameter safe circle, or a
-   * launcher that crops hard slices the mark.
-   */
   it("keeps the whole mark inside the maskable safe zone", () => {
     const m = MASKABLE.match(
       /translate\(([\d.]+) ([\d.]+)\) scale\(([\d.]+)\) translate\((-?[\d.]+) (-?[\d.]+)\)/,
@@ -143,7 +116,6 @@ describe("the maskable home-screen icon", () => {
 
     const centre = EDURA_MARK_VIEWBOX / 2;
     const safeRadius = EDURA_MARK_VIEWBOX * 0.4;
-    // Round joins outset every vertex by half the heaviest stroke.
     const outset = (EDURA_MARK_STROKE.heavy / 2) * scale;
 
     const worst = Math.max(
@@ -154,14 +126,9 @@ describe("the maskable home-screen icon", () => {
       }),
     );
     expect(worst).toBeLessThanOrEqual(safeRadius);
-    // And it should not be so timid that the icon reads as a speck.
     expect(worst).toBeGreaterThan(safeRadius * 0.5);
   });
 
-  /**
-   * Caught the hard way: the generated comment contained `--`, which is illegal
-   * inside an XML comment, and the whole file failed to parse as SVG.
-   */
   it("contains no XML-illegal comment", () => {
     for (const c of MASKABLE.matchAll(/<!--([\s\S]*?)-->/g)) {
       expect(c[1]).not.toContain("--");
@@ -175,11 +142,6 @@ describe("the maskable home-screen icon", () => {
 });
 
 describe("the iOS home-screen icon", () => {
-  /**
-   * iOS Safari does not support SVG for apple-touch-icon, so pointing it at
-   * `/edura-mark.svg` gave iPhone users a blank tile on "Add to Home Screen"
-   * while Android showed the mark.
-   */
   it("is a PNG at the size iOS asks for", () => {
     const apple = readPng("apple-touch-icon.png");
     expect(apple.isPng).toBe(true);
@@ -194,14 +156,6 @@ describe("the iOS home-screen icon", () => {
 });
 
 describe("the wordmark", () => {
-  /**
-   * `edura-logo.svg` was the one asset the earlier icon pass missed: the
-   * favicon, the maskable icon and the notification pair were all redrawn
-   * from `EDURA_MARK_PATHS`, while this file stayed the retired EduConnect
-   * wordmark — a violet-to-indigo gradient tile plus two further gradients
-   * for the pin and the "ra" of the name. One screen (invite acceptance)
-   * showing a different brand than everywhere else, and nothing failed.
-   */
   it("carries none of the retired EduConnect palette", () => {
     for (const hue of RETIRED_EDUCONNECT_HUES) {
       expect(LOGO.toLowerCase()).not.toContain(hue);
@@ -226,11 +180,6 @@ describe("the wordmark", () => {
 });
 
 describe("all of them", () => {
-  /**
-   * The generator is a CONSUMER of the shared geometry, never a copy of it —
-   * the same reason the student card's SVG and its PNG exporter both read these
-   * strings.
-   */
   it("are generated from the one shared mark geometry", () => {
     const script = readFileSync(
       join(process.cwd(), "scripts/generate-brand-icons.ts"),

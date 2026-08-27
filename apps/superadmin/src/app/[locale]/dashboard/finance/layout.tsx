@@ -3,17 +3,6 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 
-/**
- * FLAT ON PURPOSE, and it is the same threshold the center-staff portal uses:
- * group a menu once it outgrows about eight entries. This one has seven, and a
- * seven-item list under four headings is more furniture than list.
- *
- * The ORDER is the super-admin portal's @money group verbatim — payments in,
- * what they bought, payouts out, then the rate that governs both — followed by
- * comms and then the account screen. An accountant and a super admin read the
- * same ledgers, so the two menus put them in the same sequence; the accountant
- * simply has fewer. Keep this list in step with that group if either moves.
- */
 const navItems = [
   { href: "/dashboard/finance", icon: "grid", label: "Overview" },
   { href: "/dashboard/finance/payments", icon: "dollar", label: "Payments", tour: "fin-payments" },

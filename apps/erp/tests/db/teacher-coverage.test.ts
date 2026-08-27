@@ -1,24 +1,3 @@
-/**
- * Teacher coverage read (API session 2, item B.1#1) — «مين لسه مدفعش؟».
- *
- * TEACHER_IA_AUDIT.md §3.3: the teacher was the last role that could not see
- * subscription coverage for their own students — the student and parent passes
- * closed their faces of the same hole against `me/subscriptions`, and nothing
- * branched on `teacher`. `getTeacherCoverage` is the closing read.
- *
- * What is proven here:
- *   1. The four states resolve from real subscription rows: covered (active
- *      monthly window containing now), lapsed (ended window, with when),
- *      per_session (a pass for a session dated in the period), none.
- *   2. Lapsed sorts FIRST — it is the question the endpoint answers.
- *   3. An unpaid checkout (pending_payment) reads as NOTHING, not as lapsed.
- *   4. Reach: another teacher's courseId 404s (never 403 — existence leaks
- *      nothing), and the default listing contains only the caller's groups.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only teacher-coverage
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { getTeacherCoverage } from "@repo/server-core/services/subscriptions/teacher-coverage";
 import { NotFoundError } from "@repo/server-core/errors/classes";
@@ -88,23 +67,18 @@ async function main() {
       courseId: course.id,
       source: "online" as const,
     };
-    // covered: active monthly, window [now-5d, now+25d]
     await tx.subscription.create({
       data: { ...subBase, studentId: covered.id, plan: "monthly", price: 40000, status: "active",
         activatedAt: daysFromNow(-5), periodStart: daysFromNow(-5), periodEnd: daysFromNow(25) },
     });
-    // lapsed: expired monthly, window ended 3 days ago
     const lapsedEnd = daysFromNow(-3);
     await tx.subscription.create({
       data: { ...subBase, studentId: lapsed.id, plan: "monthly", price: 40000, status: "expired",
         activatedAt: daysFromNow(-33), periodStart: daysFromNow(-33), periodEnd: lapsedEnd },
     });
-    // never: ONLY an unpaid checkout — must read as "none", not "lapsed"
     await tx.subscription.create({
       data: { ...subBase, studentId: never.id, plan: "monthly", price: 40000, status: "pending_payment" },
     });
-    // payg: an active per-session pass for a session 2 days ago (inside the
-    // default 30-day window)
     const passSession = await tx.session.create({
       data: {
         courseId: course.id, teacherId: teacher.id, originalDate: daysFromNow(-2), date: daysFromNow(-2),

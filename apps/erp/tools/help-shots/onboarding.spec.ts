@@ -1,11 +1,3 @@
-/**
- * The onboarding-wizard capture, separate because it needs a student who has
- * NOT yet chosen a grade — and the demo student has. So it registers one.
- *
- * The account is deliberately never onboarded: that is what keeps the wizard
- * reachable, and it means re-running this file reuses the same account instead
- * of littering dev with a new student per run.
- */
 import { test, type Page } from "@playwright/test";
 import path from "node:path";
 
@@ -26,7 +18,6 @@ for (const locale of ["ar", "en"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    // Sign in if the account already exists; register it the first time.
     await page.goto(`/${locale}/login`);
     await page.getByRole("textbox").first().fill(ACCOUNT.email);
     await page.locator('input[type="password"]').fill(ACCOUNT.password);

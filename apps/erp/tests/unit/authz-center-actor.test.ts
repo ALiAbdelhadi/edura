@@ -1,10 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// authorizeCenterActor was deliberately split out of requireCenterActor so the
-// whole sub-role decision is unit-testable with a plain SessionUser. These
-// tests pin the gate order and the acting-user shape that RLS scoping keys on.
-
 const platformDb = vi.fn();
 vi.mock("@/lib/db/scope", () => ({
   platformDb: (...args: unknown[]) => platformDb(...(args as [])),
@@ -31,7 +27,6 @@ const owner: SessionUser = {
 const staff: SessionUser = { id: "staff-1", role: "center_staff", locale: "ar" };
 
 function linkResolvesTo(link: { centerId: string; role: string } | null) {
-  // platformDb(cb) — the cb queries centerStaff; we short-circuit the result.
   platformDb.mockImplementation(async () => link);
 }
 

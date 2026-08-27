@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// M7 — cron endpoint must fail closed (require CRON_SECRET in EVERY env, no
-// bypass) and must not run side-effectful jobs on a plain GET.
-//
-// The five job services are mocked so the "authorized → runs" case proves
-// dispatch without touching the DB, and so an accidental unauthorized call
-// could never silently run a real job.
-
 const { runMonthEndStatements } = vi.hoisted(() => ({
   runMonthEndStatements: vi.fn(async () => ({ ran: "month-end-statements" })),
 }));
@@ -97,9 +90,6 @@ describe("M7 — correct secret runs the job", () => {
 
 describe("M7 — no GET alias: a plain GET cannot trigger a job", () => {
   it("the route exports no GET handler (Next → 405), only POST", () => {
-    // GET is intentionally not exported (removing the `GET = POST` alias), so
-    // access it dynamically — a static `route.GET` would be a compile error,
-    // which is itself the guarantee we want.
     expect((route as Record<string, unknown>).GET).toBeUndefined();
     expect(typeof route.POST).toBe("function");
   });

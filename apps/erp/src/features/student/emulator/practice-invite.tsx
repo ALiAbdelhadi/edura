@@ -1,19 +1,5 @@
 "use client";
 
-/**
- * The invitation to the emulator, shown on the student dashboard.
- *
- * WHEN IT SHOWS, AND WHY THERE IS NO DISMISS BUTTON: it appears only while the
- * account is EMPTY — no upcoming lesson and nothing in the record. That is the
- * same condition that makes the dashboard itself unhelpful, so the card fills
- * a screen that would otherwise be three empty states, and it disappears by
- * itself the moment the student has a real lesson.
- *
- * "Has data" is the honest definition of "no longer new", so no dismissal flag
- * is stored and nothing has to be remembered per device. A student who wants
- * it back finds it in the menu, where it lives permanently.
- */
-
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Sparkles } from "lucide-react";

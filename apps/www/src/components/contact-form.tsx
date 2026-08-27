@@ -11,25 +11,6 @@ type State = "idle" | "sending" | "sent" | "failed" | "limited";
 
 const SUBJECTS = ["demo", "pricing", "support", "partnership", "other"] as const;
 
-/**
- * The only interactive form on this site.
- *
- * It posts to `/api/contact` on THIS origin, which forwards to the product
- * app's existing endpoint — one backend, one inbox. See that route for why it
- * is a proxy.
- *
- * Three things it does that a default form does not:
- *
- *  - IT IS A REAL `<form>` WITH REAL LABELS. Every field has a `<label for>`,
- *    not a placeholder standing in for one: a placeholder disappears the
- *    moment you type, so a reader who looks away loses the name of the field
- *    they are in, and a screen reader may never announce it at all.
- *  - ERRORS ARE ANNOUNCED, not just coloured. The status line is a live
- *    region, so a failure reaches somebody who cannot see the colour change.
- *  - THE SUCCESS STATE REPLACES THE FORM. Leaving a filled-in form on screen
- *    under a green tick invites a second identical submission, which is how
- *    one question becomes three rows in the inbox.
- */
 export function ContactForm({ locale, copy }: { locale: Locale; copy: Copy }) {
   const [state, setState] = useState<State>("idle");
   const id = useId();
@@ -71,10 +52,6 @@ export function ContactForm({ locale, copy }: { locale: Locale; copy: Copy }) {
     );
   }
 
-  /* `min-h-11` = 44px. Measured: the `<select>` came out at 43 — one pixel
-     under the touch floor, because a select's intrinsic line box is shorter
-     than an input's at the same padding. A floor on the shared class fixes
-     the select and guarantees the rest rather than leaving each to chance. */
   const field =
     "w-full min-h-11 border border-rule bg-sheet px-3 py-2.5 text-[0.9375rem] text-ink outline-none focus-visible:border-gold";
   const labelClass = "block text-[0.8125rem] font-semibold text-ink";
@@ -108,8 +85,6 @@ export function ContactForm({ locale, copy }: { locale: Locale; copy: Copy }) {
             required
             maxLength={200}
             autoComplete="email"
-            // The address is Latin even on an Arabic page, and an RTL input
-            // would put the cursor and the @ on the wrong side of it.
             dir="ltr"
             className={`mt-2 ${field} text-start`}
           />
@@ -134,9 +109,6 @@ export function ContactForm({ locale, copy }: { locale: Locale; copy: Copy }) {
           <label htmlFor={`${id}-subject`} className={labelClass}>
             {copy.subject}
           </label>
-          {/* A native `<select>`, not a custom listbox: it is five options, and
-              the platform's own control is the one every phone already knows
-              how to open. */}
           <select id={`${id}-subject`} name="subject" required className={`mt-2 ${field}`}>
             {SUBJECTS.map((subject) => (
               <option key={subject} value={subject}>
@@ -167,8 +139,6 @@ export function ContactForm({ locale, copy }: { locale: Locale; copy: Copy }) {
           {state === "sending" ? copy.sending : copy.submit}
         </Button>
 
-        {/* Live region: a failure has to reach a reader who cannot see the
-            colour it is written in. */}
         <p role="status" aria-live="polite" className="text-[0.875rem] text-red">
           {state === "failed" ? copy.failed : state === "limited" ? copy.limited : ""}
         </p>

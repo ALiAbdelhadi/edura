@@ -4,27 +4,13 @@ import en from "@/messages/en.json";
 import { SUPERADMIN_TOUR_STEPS } from "@/features/tour/steps";
 import { FINANCE_TOUR_STEPS } from "@/features/tour/finance-steps";
 
-/**
- * The back office's guided tour cannot be walked in a browser the way the six
- * www portals can: 2FA is mandatory on this app, and signing in means entering
- * a live TOTP. So the properties a browser walk would have proven are asserted
- * here instead, against the real message files and the real step list.
- *
- * What this catches that a typecheck cannot: a step added to `steps.ts` with no
- * copy written for it. The engine renders `t(...)` for a missing key as the key
- * PATH — so the failure mode is not a crash, it is "tour.steps.payouts.title"
- * printed on screen to the platform's most senior operator.
- */
-
 const LOCALES = { ar, en } as Record<string, Record<string, unknown>>;
 
-/** Both back-office tours: the super admin's and the accountant's. */
 const TOURS = [
   { name: "super admin", namespace: "tour", steps: SUPERADMIN_TOUR_STEPS },
   { name: "accountant", namespace: "financeTour", steps: FINANCE_TOUR_STEPS },
 ] as const;
 
-/** The labels the engine reads for every card, regardless of step. */
 const LABELS = ["title", "progress", "next", "back", "skip", "finish"];
 
 describe("back-office guided tours — copy", () => {
@@ -54,9 +40,6 @@ describe("back-office guided tours — copy", () => {
       });
 
       it("writes every `how` as a keyed object, never an array", () => {
-        // next-intl's message type admits `string | nested object` only, so an
-        // array here fails to typecheck against `Messages` — and the engine
-        // sorts the keys numerically, which an array would silently bypass.
         for (const [id, step] of Object.entries(tour?.steps ?? {})) {
           if (step.how === undefined) continue;
           expect(Array.isArray(step.how), `${namespace}.steps.${id}.how is an array in ${locale}`).toBe(
@@ -75,8 +58,6 @@ describe("back-office guided tours — copy", () => {
       });
 
       it("has no step copy that the step list does not use", () => {
-        // An orphan reads as written to whoever wrote it and does not exist to
-        // anyone else — the same rule the help-centre index test enforces.
         const known = new Set(STEPS.map((s) => s.id));
         const orphans = Object.keys(tour?.steps ?? {}).filter((id) => !known.has(id));
         expect(orphans, `orphan ${namespace} steps in ${locale}`).toEqual([]);
@@ -93,8 +74,6 @@ describe("back-office guided tours — copy", () => {
   });
 
   it("only the welcome and finish cards may omit a procedure", () => {
-    // The whole point of these tours is that they say HOW. A step that points
-    // without instructing is the thing this rule exists to prevent.
     for (const { name, namespace, steps: STEPS } of TOURS) {
       const block = (ar as Record<string, unknown>)[namespace] as {
         steps: Record<string, { how?: unknown }>;

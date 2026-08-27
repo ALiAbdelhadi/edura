@@ -123,8 +123,6 @@ export function CenterWizard({ initial }: { initial?: OnboardingInitial<CenterSt
         }
       : undefined;
 
-  /* The centre's name is the one thing every later step is about, so it is
-     what the trail carries. */
   const trail = stepId !== "centerInfo" && info.name.trim() ? [info.name.trim()] : [];
 
   const shell = (children: React.ReactNode, footer: React.ReactNode) => (
@@ -151,7 +149,6 @@ export function CenterWizard({ initial }: { initial?: OnboardingInitial<CenterSt
       setInfo(next);
       persist(stepId, next);
     };
-    // Changing the governorate invalidates any previously chosen area.
     const setGovernorate = (value: string | null) => {
       const next = { ...info, governorate: value ?? "", area: "" };
       setInfo(next);

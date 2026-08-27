@@ -8,36 +8,11 @@ import {
 } from "@/lib/services/notifications/fanout";
 import type { CenterStaffRole, TeamNoteStatus } from "@repo/database";
 
-/**
- * Team notes — an internal TO-DO board for exactly ONE team:
- *   * center board  (centerId):  owner/co-owners + active center_staff
- *   * teacher board (teacherId): teacher + active assistants
- *
- * Membership IS the route gate: every caller arrives through
- * `delegatedWithCenter` / the center-actor, whose live-link resolution already
- * proved they belong to this exact team — so the service derives the board
- * from `acting` and never re-checks membership.
- *
- * Rules (approved 2026-07-27):
- *   - Everyone on the team reads the board; listing it IS the read receipt
- *     (upserted per note, so "who has seen this" is visible to the whole team).
- *     Recording the receipt on GET is deliberate: center_accountant is
- *     read-only (mutating methods 403), yet their reads must still register.
- *   - Authors write as THEMSELVES (caller id), never on-behalf-of.
- *   - Any team member may flip a note's status (open/done/declined) — that is
- *     the to-do point. The author is notified when someone else flips theirs.
- *   - Body edits: author only. Pin + delete: author or a team LEAD
- *     (center owner / manager, or the teacher side, where Step 8 delegation
- *     makes the assistant act with the teacher's full non-money powers).
- *   - Soft-delete only (deletedAt), per the platform convention.
- */
-
 export type TeamNoteActor = {
   acting: SessionUser;
   caller: SessionUser;
   actorId: string;
   onBehalfOf: string | null;
-  /** Present only on the center path (CenterActor); undefined on teacher path. */
   staffRole?: CenterStaffRole | null;
 };
 
@@ -50,8 +25,6 @@ function boardScope(acting: SessionUser): BoardScope {
     if (!acting.centerId) throw new ForbiddenError("Center actor has no center");
     return { kind: "center", centerId: acting.centerId };
   }
-  // Teacher path: acting is always teacher-shaped (assistants are resolved to
-  // their teacher by requireTeacherActor), so acting.id IS the board key.
   return { kind: "teacher", teacherId: acting.id };
 }
 
@@ -61,8 +34,6 @@ function scopeWhere(scope: BoardScope) {
     : { teacherId: scope.teacherId, deletedAt: null };
 }
 
-/** Owner/manager on the center side; teacher AND assistant on the teacher side
- *  (full Step 8 delegation). Receptionists are members, not leads. */
 function isLead(actor: TeamNoteActor): boolean {
   if (actor.acting.role === "center_admin") {
     return actor.staffRole == null || actor.staffRole === "manager";
@@ -102,8 +73,6 @@ export async function listTeamNotes(actor: TeamNoteActor) {
     }),
   );
 
-  // Listing the board IS the read: upsert the caller's receipt on every note
-  // they have not seen yet (idempotent; skipDuplicates absorbs races).
   const now = new Date();
   const unseen = notes
     .filter((n) => !n.reads.some((r) => r.userId === me))
@@ -132,8 +101,6 @@ export async function listTeamNotes(actor: TeamNoteActor) {
     me: {
       id: me,
       lead: isLead(actor),
-      // center_accountant is read-only platform-wide; the center-actor method
-      // gate enforces it — this flag just lets the UI hide the composer.
       canWrite: actor.staffRole !== "center_accountant",
     },
     members: memberIds.map((id) => ({
@@ -142,7 +109,6 @@ export async function listTeamNotes(actor: TeamNoteActor) {
     })),
     notes: notes.map((n) => {
       const readBy = n.reads.map((r) => ({ ...label(r.userId), readAt: r.readAt }));
-      // Reflect the receipt we just wrote without a refetch.
       if (unseen.includes(n.id)) readBy.push({ ...label(me), readAt: now });
       return {
         id: n.id,
@@ -176,7 +142,6 @@ export async function createTeamNote(
       },
     }),
   );
-  // The author has trivially read their own note.
   await scopedDb(actor.acting, (tx) =>
     tx.teamNoteRead.createMany({
       data: [{ noteId: note.id, userId: me }],
@@ -241,7 +206,6 @@ export async function updateTeamNote(
     }),
   );
 
-  // To-do semantics: tell the author when someone ELSE flips their note.
   if (statusChanged && note.authorUserId !== me) {
     const verb =
       patch.status === "done"

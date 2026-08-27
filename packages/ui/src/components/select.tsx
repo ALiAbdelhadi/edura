@@ -62,10 +62,6 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          // Skin and motion live in `chrome-2026.css` on the `data-slot`
-          // above — the SAME block the dropdown uses. A select popup and a
-          // dropdown menu sit beside each other in the same form; styling one
-          // and not the other is the inconsistency this pass exists to remove.
           "relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto border",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",

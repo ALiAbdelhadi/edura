@@ -16,28 +16,11 @@ import {
 } from "../finance/commission";
 import { assertMethod2Enablable } from "../rooms/method2";
 
-// ---------------------------------------------------------------------------
-// Moved here from apps/www/src/lib/services/collaboration/collaboration.ts so
-// apps/superadmin can decide a stuck pending request without a second copy of
-// the acceptance transaction. www re-exports this file verbatim — exactly the
-// precedent set by services/blacklist/blacklist.ts.
-//
-// The ONLY behavioural addition is `opts.as = "platform_override"`, used by the
-// superadmin oversight surface. It is default-closed: `as` defaults to "party"
-// (the unchanged www path), and the override branch re-checks
-// `user.role === "super_admin"` itself, so a www caller passing it gets a 403.
-// ---------------------------------------------------------------------------
-
 const PENDING_TTL_DAYS = 30;
 const DEFAULT_COURSE_MONTHS = 3;
 const DEFAULT_MAX_STUDENTS = 30;
 
-/** Who is answering the request. "party" = the invited side (www). */
 export type ResponderMode = "party" | "platform_override";
-
-// ---------------------------------------------------------------------------
-// Create (both directions)
-// ---------------------------------------------------------------------------
 
 export type CollaborationInput = {
   teacherId: string; // target teacher (center-initiated) or self (teacher-initiated)
@@ -83,8 +66,6 @@ export async function createCollaborationRequest(
       if (!teacher) throw new NotFoundError("Teacher not found or not active");
       if (!center) throw new NotFoundError("Center not found or not active");
 
-      // Catalog sanity: the subject must actually be offered for the grade
-      // (and track when given) — the clean-model guarantee.
       const offering = await tx.subjectOffering.findFirst({
         where: {
           subjectId: input.subjectId,
@@ -98,12 +79,6 @@ export async function createCollaborationRequest(
         throw new BusinessRuleError("This subject is not offered for the chosen grade/track");
       }
 
-      // Room-based requests: resolve the pricing method proposal against the
-      // room's center-set availability. WHO picks (approved rules): a forced
-      // room imposes its method on everyone; a both-methods room is the
-      // TEACHER's choice — at creation for teacher-initiated requests, at
-      // accept time for center-initiated ones (stored NULL until then; the
-      // center may NOT pre-pick for the teacher).
       let proposedPricingMethod: RoomPricingMethodValue | null = null;
       if (input.roomId) {
         const room = await tx.room.findFirst({
@@ -119,13 +94,8 @@ export async function createCollaborationRequest(
         if (allowed.length === 1) {
           proposedPricingMethod = allowed[0];
         } else if (initiator === "teacher") {
-          // Teacher is booking — their choice; default to the classic % method
-          // for pre-feature clients that send nothing.
           proposedPricingMethod = input.proposedPricingMethod ?? "whole_room_percent";
         } else {
-          // Center-initiated on a both-methods room: the teacher picks at
-          // accept time. Reject a center-supplied choice instead of silently
-          // dropping it.
           if (input.proposedPricingMethod) {
             throw new BusinessRuleError(
               "The teacher chooses the pricing method for this hall when accepting",
@@ -133,8 +103,6 @@ export async function createCollaborationRequest(
           }
           proposedPricingMethod = null;
         }
-        // Fail fast at request time when per-student pricing has no configured
-        // rate (the accept-time snapshot would throw anyway — worse moment).
         if (proposedPricingMethod === "per_attending_student") {
           await assertMethod2Enablable(
             tx,
@@ -144,7 +112,6 @@ export async function createCollaborationRequest(
         }
       }
 
-      // Duplicate guard (also enforced by the partial unique index).
       const open = await tx.collaborationRequest.findFirst({
         where: {
           teacherId: input.teacherId,
@@ -175,11 +142,6 @@ export async function createCollaborationRequest(
           startDate: input.startDate,
           endDate: input.endDate ?? null,
           expectedStudents: input.expectedStudents ?? null,
-          // NO party proposes a money number. Every rate — the room split, the
-          // per-student rate, and the flat no-room `affiliation.centerShare` —
-          // is SUPERADMIN-ONLY config. This is server-enforced (not merely
-          // hidden in the UI), so a crafted request from either side can never
-          // smuggle a share onto the affiliation.
           proposedCenterShare: 0,
           proposedPricingMethod,
           message: input.message ?? null,
@@ -209,10 +171,6 @@ export async function createCollaborationRequest(
   });
   return request;
 }
-
-// ---------------------------------------------------------------------------
-// List (role-scoped) — enriched for the UI
-// ---------------------------------------------------------------------------
 
 export async function listCollaborationRequests(user: SessionUser, status?: string) {
   const where: Prisma.CollaborationRequestWhereInput = {};
@@ -272,31 +230,22 @@ async function enrichRequests(tx: TenantTx, rows: CollaborationRequest[]) {
   }));
 }
 
-// ---------------------------------------------------------------------------
-// Accept — THE one-transaction path: affiliation + course + sessions
-// ---------------------------------------------------------------------------
-
 function assertResponder(
   request: CollaborationRequest,
   user: SessionUser,
   mode: ResponderMode,
 ): void {
   if (mode === "platform_override") {
-    // The superadmin oversight surface decides a request neither party has
-    // answered. Re-checked HERE (not only at the route) so the override cannot
-    // be reached from www by passing an option.
     if (user.role !== "super_admin") {
       throw new ForbiddenError("Only a super admin can decide a request on behalf of the platform");
     }
     return;
   }
   if (request.initiator === "teacher") {
-    // Teacher applied → the CENTER decides.
     if (user.role !== "center_admin" || user.centerId !== request.centerId) {
       throw new ForbiddenError("Only the invited center can respond to this request");
     }
   } else {
-    // Center invited → the TEACHER decides.
     if (user.role !== "teacher" || user.id !== request.teacherId) {
       throw new ForbiddenError("Only the invited teacher can respond to this request");
     }
@@ -315,15 +264,9 @@ export async function acceptCollaborationRequest(
       if (!request) throw new NotFoundError("Collaboration request not found");
       assertResponder(request, user, mode);
       if (request.expiresAt < new Date() && request.status === "pending") {
-        // RETURNED, not thrown: this whole callback runs inside ONE
-        // transaction, so writing `expired` here and then throwing would roll
-        // the write back — the request would stay `pending` forever, and the
-        // portal would keep offering an Accept button that can only ever
-        // error. The flip is committed by its own transaction below.
         return { expired: true } as const;
       }
 
-      // Claim: only one responder wins; replays/races fail cleanly.
       const claimed = await tx.collaborationRequest.updateMany({
         where: { id: requestId, status: "pending" },
         data: { status: "accepted", respondedAt: new Date(), respondedBy: user.id },
@@ -332,13 +275,6 @@ export async function acceptCollaborationRequest(
         throw new BusinessRuleError(`Request is already ${request.status}`);
       }
 
-      // 1. Affiliation (active). Its flat `centerShare` (the legacy no-room
-      //    money knob) is SUPERADMIN-OWNED — neither side proposes it, so
-      //    acceptance never writes it here:
-      //      • existing affiliation → centerShare is left EXACTLY as it is,
-      //        or a superadmin-set value would be wiped by the next accepted
-      //        request between the same teacher and center;
-      //      • new affiliation     → starts at 0 until superadmin sets it.
       const existingAff = await tx.centerTeacherAffiliation.findFirst({
         where: {
           centerId: request.centerId,
@@ -372,9 +308,6 @@ export async function acceptCollaborationRequest(
         affiliationId = created.id;
       }
 
-      // 2. Course from the request's catalog + schedule fields. price = 0 and
-      //    NO plan prices: the owner must configure pricing before students
-      //    can subscribe — the UI surfaces this loudly (unpriced state).
       const [subject, grade, track] = await Promise.all([
         tx.subject.findUnique({
           where: { id: request.subjectId },
@@ -392,17 +325,8 @@ export async function acceptCollaborationRequest(
           : null,
       ]);
       if (!subject || !grade) throw new NotFoundError("Catalog entries missing for this request");
-      // ARABIC IS THE PRODUCT'S PRIMARY SCRIPT, so the name a center and a
-      // teacher read on every screen is written in it. This used to prefer
-      // `nameEn`, which titled an Egyptian center's group "Mathematics —
-      // Secondary 1" while both parties, the catalog and the whole UI were in
-      // Arabic. `nameAr` is NOT NULL in the catalog, so the fallback is only a
-      // belt: it can never be the reason a group ends up unnamed.
       const subjectName = subject.nameAr ?? subject.nameEn;
       const gradeName = grade.nameAr ?? grade.nameEn;
-      // The track suffix read `nameEn` ALONE, so a track with no English name
-      // silently vanished from the title — two groups of the same subject and
-      // grade in different tracks then shared one name.
       const trackName = track ? (track.nameAr ?? track.nameEn) : null;
 
       const endDate =
@@ -413,10 +337,6 @@ export async function acceptCollaborationRequest(
           return d;
         })();
 
-      // Resolve the pricing method for the snapshot. The stored proposal wins;
-      // when it is NULL on a both-methods room (center-initiated request), the
-      // accepting TEACHER supplies the choice now — required, so the course is
-      // never created with an ambiguous method.
       let effectiveMethod: RoomPricingMethodValue | null =
         (request.proposedPricingMethod as RoomPricingMethodValue | null) ?? null;
       if (request.roomId && !effectiveMethod) {
@@ -431,11 +351,6 @@ export async function acceptCollaborationRequest(
           request.initiator === "center" &&
           (user.role === "teacher" || mode === "platform_override")
         ) {
-          // The teacher accepts a center invite on a both-methods hall → the
-          // choice is theirs, and it must be explicit. A platform override
-          // stands in for that teacher, so it must be just as explicit: the
-          // method drives the settlement snapshot, and silently defaulting it
-          // would pick a money rule nobody chose.
           if (!opts.pricingMethod) {
             throw new BusinessRuleError(
               "Choose a pricing method for this hall to accept the request",
@@ -444,17 +359,10 @@ export async function acceptCollaborationRequest(
           }
           effectiveMethod = opts.pricingMethod;
         } else {
-          // Legacy pre-feature request accepted by the center → the classic %
-          // method, exactly what those requests meant when created.
           effectiveMethod = "whole_room_percent";
         }
       }
 
-      // Freeze the pricing snapshot onto the course at creation (room-based
-      // courses only): the method + the 3-way split % (Method 1) or the
-      // platform % + per-student rate (Method 2). Resolves room > center >
-      // global from the superadmin config; the snapshot is what settlement
-      // reads later, so changing the config never re-rates this course (M4.5).
       const splitSnapshot = await resolveCoursePricingSnapshot(tx, {
         roomId: request.roomId,
         centerId: request.centerId,
@@ -483,9 +391,6 @@ export async function acceptCollaborationRequest(
         },
       });
 
-      // 3. Sessions via the EXISTING generator, inside this same transaction.
-      //    A schedule conflict throws ConflictError -> the whole acceptance
-      //    (claim + affiliation + course) rolls back; the request stays pending.
       const sessionIds = await generateSessionsTx(tx, {
         id: course.id,
         teacherId: course.teacherId,
@@ -501,13 +406,9 @@ export async function acceptCollaborationRequest(
 
       await tx.collaborationRequest.update({
         where: { id: requestId },
-        // Persist the method the acceptance actually used (fills the NULL left
-        // for teacher-picks-at-accept requests — the record of what was agreed).
         data: { courseId: course.id, affiliationId, proposedPricingMethod: effectiveMethod },
       });
 
-      // A platform override is a decision neither party made: BOTH sides are
-      // told, not just the initiator.
       const counterpartRecipients =
         mode === "platform_override"
           ? [request.teacherId, ...(await resolveCenterAdmins(request.centerId))]
@@ -525,8 +426,6 @@ export async function acceptCollaborationRequest(
   );
 
   if (outcome.expired) {
-    // Own transaction, so it survives the error the caller is about to see.
-    // Conditional on `pending` — a concurrent decision wins over this sweep.
     await platformDb(
       (tx) =>
         tx.collaborationRequest.updateMany({
@@ -548,10 +447,6 @@ export async function acceptCollaborationRequest(
   });
   return { request, course };
 }
-
-// ---------------------------------------------------------------------------
-// Reject / cancel / expire
-// ---------------------------------------------------------------------------
 
 export async function rejectCollaborationRequest(
   requestId: string,

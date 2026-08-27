@@ -16,13 +16,6 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { DemoCta } from "./demo-cta";
 
-/**
- * The mobile navigation sheet — the ONLY client island in the marketing
- * chrome. Every string arrives resolved from the server so the `marketing`
- * dictionary never crosses the wire (see lib/i18n/scope.ts: only en.json's own
- * top-level namespaces are shipped to the client, and this one is deliberately
- * not among them).
- */
 export function MarketingMobileNav({
   links,
   loginLabel,

@@ -1,40 +1,9 @@
-// =============================================================================
-// MANUAL STUDENT ENTRY — one child, one record.
-//
-// THE PROBLEM THIS SOLVES. The same child very often studies with an
-// on-platform teacher AND an off-system one, sometimes at the same center. If
-// typing them in by hand created a second `users` row, that child would have
-// two wallets, two attendance histories and two sets of money — and no report
-// could ever add them up again. Worse, it would be invisible: two rows with the
-// same name look like two students.
-//
-// THE RELATIONSHIP IS ALREADY MANY-TO-MANY, and deliberately has no join table
-// of its own. A student reaches a teacher through
-// `enrollments -> courses.teacher_id`, which is exactly a many-to-many between
-// students and teachers with the group they meet in carried on the edge. A
-// `student_teachers` table beside it would be a SECOND answer to "who teaches
-// this child", free to disagree with the first. So this module adds none, and
-// `listTeacherStudents` below derives the relation from the enrollments that
-// already govern attendance, coverage and money.
-//
-// DEDUP IS TWO LAYERS, not one:
-//   - this module LOOKS UP before it creates, on the two keys a counter
-//     actually holds (phone, national ID);
-//   - the database refuses a collision anyway (`users.phone` is globally
-//     UNIQUE, `student_profiles.national_id` is UNIQUE).
-// The lookup is what makes the flow usable; the constraint is what makes it
-// true. A race between two receptionists is caught by the second layer.
-// =============================================================================
-
 import { Prisma } from "@repo/database";
 import { scopedDb, type TenantTx } from "../../db/scope";
 import { resolveStudentCode } from "@repo/database/student-code";
 import { BusinessRuleError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
-// The masking these two lines apply is shared with the counter search, which
-// until recently applied none. One implementation, so the two lookups cannot
-// disagree about how much of a child a center may read.
 import { maskName, maskPhone } from "../students/disclosure";
 import { assertManagedExternalTeacher, writeExternalTeacherAudit } from "./external-teachers";
 
@@ -48,11 +17,6 @@ function norm(value: string | null | undefined): string | null {
   return v ? v : null;
 }
 
-/**
- * Egyptian national ID: exactly 14 digits. Validated because it is a UNIQUE
- * dedup key — a mistyped one does not merely store badly, it permanently blocks
- * the real owner of that number from ever being entered.
- */
 export function normalizeNationalId(value: string | null | undefined): string | null {
   const v = norm(value);
   if (!v) return null;
@@ -63,37 +27,17 @@ export function normalizeNationalId(value: string | null | undefined): string | 
   return digits;
 }
 
-// ---------------------------------------------------------------------------
-// Lookup
-// ---------------------------------------------------------------------------
-
 export type ManualStudentMatch = {
   found: boolean;
-  /** Only ever the id of a student this center may already act on. */
   studentId: string | null;
   onThisCenterRoster: boolean;
-  /** Full name only when the center already holds this student; masked otherwise. */
   name: string | null;
   phone: string | null;
   studentCode: string | null;
   matchedOn: "phone" | "national_id" | "student_code" | null;
-  /** What they already study here — so staff can see it IS the same child. */
   existingGroups: { courseId: string; title: string; teacherName: string | null }[];
 };
 
-/**
- * "Do we already know this child?" — run before every manual creation.
- *
- * DISCLOSURE IS TIERED, on purpose. The existing `lookupStudent` (L4) returns
- * booleans only, because a center probing arbitrary emails must learn nothing.
- * Here the caller has already typed an exact phone or national ID, and needs
- * enough back to confirm identity — so:
- *   - already on THIS center's roster -> full name and phone (the center holds
- *     this data already; showing it reveals nothing new);
- *   - exists elsewhere -> MASKED name and last-4 phone, and the id is withheld.
- *     Enough for a human to say "yes, that's him", not enough to build a
- *     directory out of.
- */
 export async function lookupStudentForManualEntry(
   acting: SessionUser,
   input: { phone?: string | null; nationalId?: string | null; studentCode?: string | null },
@@ -101,9 +45,6 @@ export async function lookupStudentForManualEntry(
   const centerId = centerOf(acting);
   const phone = norm(input.phone);
   const nationalId = normalizeNationalId(input.nationalId);
-  // Same rule as the counter: a code with a character wrong in it is NOT a
-  // key. Here it matters twice over — a bad match would hand this center a
-  // (masked) hit on a child who is not the one in front of them.
   const studentCode = input.studentCode ? resolveStudentCode(input.studentCode) : null;
 
   if (!phone && !nationalId && !studentCode) {
@@ -170,19 +111,6 @@ export async function lookupStudentForManualEntry(
   });
 }
 
-/**
- * The dedup lookup itself — the ONE place the keys are defined, so the lookup
- * and the create can never disagree about what counts as "the same child".
- * Order is by strength: a national ID identifies a person, a phone identifies a
- * household, a student code identifies a record we issued.
- *
- * Exported (additively) so the CENTER bulk-import path
- * (`services/center/bulk-import-students.ts`) resolves "same child" through the
- * exact same definition — a second implementation there could disagree with
- * this one, which is the duplicate-record failure this whole module exists to
- * prevent. `normalizeNationalId` is exported for the same reason: the importer
- * must validate the dedup key identically or a race slips past the lookup.
- */
 export async function findStudentByKeys(
   tx: TenantTx,
   keys: { phone: string | null; nationalId: string | null; studentCode: string | null },
@@ -254,10 +182,6 @@ export async function findStudentByKeys(
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Create-or-reuse
-// ---------------------------------------------------------------------------
-
 export type ManualStudentInput = {
   fullName: string;
   phone?: string | null;
@@ -266,7 +190,6 @@ export type ManualStudentInput = {
   guardianPhone?: string | null;
   guardianEmail?: string | null;
   gradeLevelId?: string | null;
-  /** Enrol into this off-system teacher's group in the same step (optional). */
   courseId?: string | null;
 };
 
@@ -274,25 +197,11 @@ export type ManualStudentResult = {
   studentId: string;
   studentCode: string;
   name: string;
-  /** false = we reused an existing child, which is the important case. */
   created: boolean;
   reusedBecause: "phone" | "national_id" | null;
   enrolledInCourseId: string | null;
 };
 
-/**
- * Register (or re-find) a student for an off-system teacher's group.
- *
- * REUSE IS THE DEFAULT AND IS NOT OPTIONAL. When a key matches, the existing
- * child is used — this function has no "create anyway" flag, because a flag
- * like that is how the duplicate gets created at 6pm on a busy evening.
- *
- * A reused child is NOT overwritten. Their name, grade and guardian details
- * belong to whoever holds the account (very often the family themselves), and a
- * second center's typing must not silently rewrite them. The one thing this
- * does add to an existing record is a missing national ID, because that is the
- * dedup key and filling it in makes every future lookup stronger.
- */
 export async function createManualStudent(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -306,8 +215,6 @@ export async function createManualStudent(
   const nationalId = normalizeNationalId(input.nationalId);
 
   return scopedDb(actor.acting, async (tx) => {
-    // The teacher must be one this center manages — a manual student is always
-    // entered FOR somebody, and that somebody bounds who may be typed in.
     await assertManagedExternalTeacher(tx, centerId, teacherId, { requireExternal: true });
 
     const existing = await findStudentByKeys(tx, { phone, nationalId, studentCode: null });
@@ -329,7 +236,6 @@ export async function createManualStudent(
       if (!profile) throw new NotFoundError("Student profile not found");
       studentCode = profile.studentCode;
 
-      // Backfill the dedup key ONLY when it is missing — never overwrite one.
       if (nationalId && !profile.nationalId) {
         await tx.studentProfile.update({
           where: { id: profile.id },
@@ -345,15 +251,11 @@ export async function createManualStudent(
             name: fullName,
             phone,
             role: "student",
-            // Same shape as every other student the center creates on someone's
-            // behalf: no password, so no login, until they claim an invite.
             status: "shell",
             passwordHash: null,
           },
         });
       } catch (err) {
-        // The unique index caught what the lookup could not: a concurrent
-        // receptionist created the same child a moment ago.
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
           throw new ConflictError(
             "This student was just created by someone else — search again to find them",
@@ -390,9 +292,6 @@ export async function createManualStudent(
       studentCode = profile.studentCode;
     }
 
-    // Roster membership is idempotent: the same child joining a second teacher
-    // at the same center must not produce a second roster row, and a child who
-    // previously left rejoins on the SAME row.
     const roster = await tx.centerStudentRoster.findUnique({
       where: { centerId_studentId: { centerId, studentId } },
     });
@@ -452,12 +351,6 @@ export async function createManualStudent(
   });
 }
 
-/**
- * Enrol an existing student into an off-system teacher's group.
- *
- * Shares its body with the one-step create above, so "enrol now" and "enrol
- * later" cannot drift apart in what they check or what they write.
- */
 export async function enrollManualStudent(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -519,8 +412,6 @@ async function enrollInTeacherCourseTx(
     where: { studentId: input.studentId, courseId: course.id, status: "active" },
     select: { id: true },
   });
-  // Idempotent rather than an error: the one-step create must not fail on a
-  // student who is already in the group.
   if (already) return course.id;
 
   const activeCount = await tx.enrollment.count({
@@ -551,10 +442,6 @@ async function enrollInTeacherCourseTx(
   return course.id;
 }
 
-// ---------------------------------------------------------------------------
-// Read: the teacher's students
-// ---------------------------------------------------------------------------
-
 export type TeacherStudentRow = {
   studentId: string;
   name: string;
@@ -562,19 +449,10 @@ export type TeacherStudentRow = {
   phone: string | null;
   dataSource: "system" | "manual";
   groups: { courseId: string; title: string }[];
-  /** True when this same child also studies with an ON-PLATFORM teacher here. */
   alsoWithEnrolledTeacher: boolean;
   activeSubscriptions: number;
 };
 
-/**
- * A teacher's students, derived from enrollments — the same edge attendance and
- * money already run on, so this list cannot disagree with them.
- *
- * `alsoWithEnrolledTeacher` is the shared-child case made VISIBLE. It is the
- * thing a center most needs to see and the thing a duplicated record would have
- * hidden: this is one child with one balance, studying under two teachers.
- */
 export async function listTeacherStudents(
   acting: SessionUser,
   teacherId: string,
@@ -606,8 +484,6 @@ export async function listTeacherStudents(
         where: { userId: { in: studentIds } },
         select: { userId: true, studentCode: true, fullName: true },
       }),
-      // Every OTHER group these children attend at this center, so we can say
-      // whether an on-platform teacher also has them.
       tx.enrollment.findMany({
         where: {
           studentId: { in: studentIds },
@@ -638,8 +514,6 @@ export async function listTeacherStudents(
           select: { userId: true, systemStatus: true },
         })
       : [];
-    // Default-enrolled: a teacher with no profile row predates this feature and
-    // is on-platform by definition.
     const enrolledTeacherIds = new Set(
       otherTeacherIds.filter(
         (id) =>

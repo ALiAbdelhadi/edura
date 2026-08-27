@@ -57,13 +57,6 @@ export const authProvider: AuthProvider = {
       } catch {}
     }
 
-    // ONE sign-out. It used to be called again if a session survived the first
-    // — a workaround for better-auth revoking only the credential it resolves,
-    // which is why a jar holding two of them needed several presses and
-    // reported success every time. The server side now revokes every session
-    // the request presented (app/api/auth/[...all]/route.ts), so the retry is
-    // covering a hole that is closed, and a second call on the way to /login
-    // only races the first. See docs/reports/session-identity-mismatch.md.
     try {
       await authClient.signOut();
     } catch {}

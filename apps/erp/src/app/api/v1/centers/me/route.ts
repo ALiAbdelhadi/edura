@@ -25,20 +25,8 @@ const patchSchema = z.object({
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   email: z.string().email().optional(),
-  // Where the center IS. These were written once by the onboarding wizard and
-  // then had no writer at all, so a center that moved — or mis-picked a
-  // district on day one — had no way to correct it. Bounds match the wizard's
-  // own contract (`me/onboarding`): trimmed, capped, nullable. They stay free
-  // strings rather than an enum for the same reason the wizard does: the
-  // governorate/area list is bundled reference data that regenerates, and a
-  // stored value must not stop validating because the dataset moved under it.
   governorate: z.string().trim().max(100).nullish(),
   area: z.string().trim().max(100).nullish(),
-  // `logoUrl` is DELIBERATELY absent — the logo is set only by uploading to
-  // `POST /centers/me/logo`. Accepting a free-text URL here let a center point
-  // its own row at another entity's (publicly visible) Cloudinary URL, after
-  // which the replace-cleanup destroyed an asset the center never owned. The
-  // schema is the fix; the `owned` guard in the media kernel is the backstop.
   location: z
     .object({
       type: z.literal("Point"),
@@ -56,9 +44,6 @@ export const PATCH = withErrors(async (req) => {
     ? { ...rest, lng: location.coordinates[0], lat: location.coordinates[1] }
     : rest;
 
-  // No image cleanup runs here any more: this route can no longer touch
-  // `logo_url` at all, so the only writer is the upload service, which owns
-  // its own replace-and-clean pass.
   const center = await scopedDb(user, async (tx) => {
     try {
       return await tx.center.update({ where: { id: user.centerId as string }, data });

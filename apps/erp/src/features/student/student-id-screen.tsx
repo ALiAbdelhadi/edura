@@ -20,39 +20,13 @@ import { StudentIdCard } from "./student-id-card";
 import { renderStudentCardPng } from "./student-id-card-png";
 import { GuardianContactNotice } from "./guardian-contact-notice";
 
-/* بطاقتي / My card — the screen the card lives on.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Three things, in the order a student needs them: the card, the two ways to
-   take it with them, and — only when something is actually missing — what is
-   still incomplete about their record.
-
-   THE CHECKLIST IS NOT A NAG. It appears when an item is missing and disappears
-   when it is not, and every row either links to the one screen that fixes it or
-   is fixed inline right there (the guardian email). An item nobody can act on is
-   not listed at all: `date_of_birth` is missing for nearly every student and is
-   set by a super admin against evidence, so putting it here would be an action
-   the interface promises and then refuses. */
-
 export function StudentIdScreen({
   studentId,
   showChecklist = true,
   audience = "student",
 }: {
   studentId?: string;
-  /**
-   * Off for the parent view. Every fix link on the list is a student route
-   * ("/onboarding", the student's own settings) — offering them to a parent
-   * would be offering an action that is not theirs to take.
-   */
   showChecklist?: boolean;
-  /**
-   * WHO IS READING. The screen is shared — a parent opens their child's card
-   * through the same component, on purpose, so there is one authorization path
-   * — but the copy was not: a parent was shown "بطاقتك الشخصية … بتسجّل
-   * حضورك", second person, about someone else's card. The heading and the
-   * refusal below are the only two things that differ.
-   */
   audience?: "student" | "parent";
 }) {
   const t = useTranslations("studentIdCard");
@@ -67,21 +41,11 @@ export function StudentIdScreen({
   const subtitle = audience === "parent" ? t("parentSubtitle") : t("subtitle");
   const query = studentId ? `?studentId=${studentId}` : "";
 
-  // ---- The page opens with the LIGHT read. It builds no card and signs no QR;
-  // it answers one question — is there a card to offer, or is something still
-  // missing? Everything else waits for the reader to ask.
   const { query: q, result } = useCustom<ProfileChecklist>({
     url: `me/profile-checklist${query}`,
     method: "get",
     queryOptions: {
-      // A 403 here is an ANSWER — "not an approved child of this parent" — and
-      // under React Query's defaults it was being treated as a transport
-      // failure: retried, then PAUSED (`status:"pending", fetchStatus:"paused"`,
-      // no error ever set) while `isLoading` read false. So the screen could
-      // not learn why it had nothing, which is how it came to render a blank
-      // rectangle. Measured on this exact route, not assumed.
       networkMode: "always",
-      // Nothing about a refusal changes by asking again.
       retry: (count, error) => {
         const status = (error as { statusCode?: number } | null)?.statusCode ?? 0;
         if (status >= 400 && status < 500) return false;
@@ -90,31 +54,12 @@ export function StudentIdScreen({
     },
   });
 
-  // ---- The card. Not requested until the button is pressed, and not askable
-  // at all until the record is complete — `enabled` mirrors the server's own
-  // refusal so the screen never asks for something it knows will be refused.
   const checklist = (result?.data ?? null) as ProfileChecklist | null;
   const cardReq = useOnDemand<{ card: StudentCard }>(`me/student-card${query}`, {
     enabled: checklist?.cardAvailable === true,
   });
   const card = cardReq.data?.card ?? null;
 
-  // ---- AND IT IS ASKED FOR AS SOON AS THE SERVER SAYS THERE IS ONE.
-  //
-  // `useOnDemand` states its own boundary in its header: it is for SECONDARY
-  // data — a panel below the fold, a report nobody may scroll to — and
-  // explicitly NOT for "the thing the page exists for", whose test is "if a
-  // reader would be confused to arrive and NOT see it, it loads with the page".
-  // This page is بطاقتي. The card IS the page.
-  //
-  // It was behind a press, which cost a tap and a round-trip at a counter with
-  // a queue behind the student — the one place this screen is ever opened in a
-  // hurry. The deferral still holds everywhere it was meant to: the SETTINGS
-  // card keeps its button, because there the card is a section on an account
-  // page and not the reason anyone opened it.
-  //
-  // `enabled` is unchanged and still the server's own precondition, so an
-  // incomplete profile asks for nothing.
   const { request: requestCard } = cardReq;
   const canAsk = checklist?.cardAvailable === true;
   useEffect(() => {
@@ -123,11 +68,6 @@ export function StudentIdScreen({
 
   if (q.isPending && !q.isError) return <PageSpinner />;
 
-  // `return null` used to stand here, so a parent opening the card of a child
-  // whose link is not approved got a correctly-refused request (403 "Not an
-  // approved child of this parent") and a BLANK RECTANGLE. The gate was doing
-  // its job; the screen simply had nowhere to put the answer, and a refusal
-  // that looks identical to a crash teaches people the app is broken.
   if (!checklist) {
     const forbidden = (q.error as { statusCode?: number } | null)?.statusCode === 403;
     return (
@@ -168,9 +108,6 @@ export function StudentIdScreen({
       });
       const file = new File([blob], `${card.studentCode}.png`, { type: "image/png" });
 
-      // On a phone this opens the share sheet — which on this platform means
-      // WhatsApp, where the card is actually going. Everywhere else it falls
-      // back to a download.
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: t("cardTitle") });
         return;
@@ -182,7 +119,6 @@ export function StudentIdScreen({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      // A cancelled share sheet rejects; that is not an error worth shouting.
       if ((err as Error)?.name !== "AbortError") toast.error(t("imageFailed"));
     } finally {
       setBusy(false);
@@ -197,15 +133,6 @@ export function StudentIdScreen({
       <PageTitle eyebrow={t("eyebrow")} title={title} subtitle={subtitle} />
 
       {!checklist.cardAvailable ? (
-        // NOT READY — and the screen says which of the two reasons it is.
-        // A card is a document that leaves the product; minting one from a
-        // half-filled record produces an object that outlives the gaps in it,
-        // and the student cannot recall the copies once the record is fixed.
-        //
-        // What this does NOT do is lock them out: their code still works, so
-        // the counter can still find them by phone or by name and still check
-        // them in. The list below is the whole of what is missing, and every
-        // row links to the one screen that fixes it.
         <Sheet blocking className="flex items-start gap-3 p-4">
           <CircleAlert className="mt-[2px] size-4 shrink-0" style={{ color: "var(--red)" }} />
           <div className="space-y-2">
@@ -223,10 +150,6 @@ export function StudentIdScreen({
           </div>
         </Sheet>
       ) : cardReq.loading || !cardReq.requested ? (
-        // The effect above requests on the same commit the checklist lands, so
-        // `!requested` is at most one frame. Both states paint the same thing —
-        // a placeholder where the card is about to be — rather than flashing a
-        // button the reader would not have time to press.
         <Sheet className="flex items-center justify-center p-8">
           <Spinner />
         </Sheet>
@@ -243,10 +166,6 @@ export function StudentIdScreen({
             <StudentIdCard card={card} locale={locale} labels={labels} />
           </div>
 
-          {/* Raised above the actions: at a counter the FIRST thing that
-              happens is the student reading their code out, and the QR is the
-              shortcut. It used to sit under three buttons about saving and
-              printing — below the fold on a phone. */}
           <p className="text-[13px]" style={{ color: "var(--ink-2)" }}>
             {t("counterHint", { code: formatStudentCode(card.studentCode) })}
           </p>
@@ -268,14 +187,7 @@ export function StudentIdScreen({
             </Button>
           </div>
 
-          {/* Off-screen QR at export resolution, and INSIDE the branch that has
-              a card — rendering it above would have kept a second QR encoder
-              mounted on a screen showing no card at all. */}
           <div ref={qrRef} className="pointer-events-none absolute -z-10 opacity-0" aria-hidden>
-            {/* The SAME payload the on-screen card encodes — read off the one
-                `card.qr.url` the server signed, never rebuilt here. A PNG whose
-                square resolved to something different from the printed card is
-                a card that works on paper and fails on WhatsApp. */}
             <QRCodeCanvas value={card.qr.url} size={184} level="M" bgColor="#ffffff" fgColor="#000000" />
           </div>
         </>
@@ -289,16 +201,9 @@ export function StudentIdScreen({
           <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
             {t("completeBody", { done: checklist.completed, total: checklist.total })}
           </p>
-          {/* The rule takes its air from a wrapper, not from a prop: <Hairline>
-              is shared chrome and carries no className, so a screen that wants
-              space around it says so here rather than widening a component
-              five other portals render. */}
           <div className="my-4">
             <Hairline />
           </div>
-          {/* `min-h-8` is the height of the `sm` Button, so a row whose item
-              has no fix link keeps the same rhythm as the rows that do —
-              otherwise the list reads as three unequal bands. */}
           <ul className="flex flex-col gap-3">
             {missing.map((item) => (
               <li

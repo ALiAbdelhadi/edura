@@ -9,7 +9,6 @@ import { SectionHead } from "@repo/ui/components/ledger";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 
-/** Teacher-only: the global attendance mode (Step 6, approved decision #4). */
 export function AttendanceModeCard() {
   const t = useTranslations();
   const { query, result } = useCustom({ url: "teacher/attendance-mode", method: "get" });

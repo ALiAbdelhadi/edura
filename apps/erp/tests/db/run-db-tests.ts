@@ -98,10 +98,6 @@ async function main() {
     assert(after.sess?.status === "completed", "session status = completed");
 
     assert(after.teacher?.walletBalance === 14800 * 2, `teacher wallet = 29600 (got ${after.teacher?.walletBalance})`);
-    // D5 (Phase 4): these students have NO subscription, so the lesson is
-    // CENTER-HELD — the center's net (4800/student) stays in its own drawer,
-    // wallet_balance is never credited, and its credit POSITION is debited
-    // the teacher's net + the platform fees (14800 + 400 per student).
     assert(after.center?.walletBalance === 0, `center wallet NOT credited, center-held (got ${after.center?.walletBalance})`);
     assert(
       after.center?.creditBalance === -(14800 + 400) * 2,
@@ -144,8 +140,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite run-db-tests.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

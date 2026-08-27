@@ -11,9 +11,6 @@ const bodySchema = z.object({
   name: z.string().trim().min(1).optional(),
 });
 
-// The raw invite token is echoed back only outside production (dev + E2E) —
-// that decision stays HERE, at the edge, so the service never has to know which
-// environment it is running in.
 const LEAK_TOKEN = process.env.NODE_ENV !== "production" || process.env.E2E === "1";
 
 export const POST = centerStaff(

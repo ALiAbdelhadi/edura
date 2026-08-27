@@ -77,7 +77,6 @@ function SettingsSidebar({
 }) {
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pb-6">
           <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
@@ -130,7 +129,6 @@ function SettingsSidebar({
         </div>
       </aside>
 
-      {/* Mobile navigation */}
       <div className="lg:hidden">
         <div className="sticky top-16 z-30 -mx-4 overflow-hidden border-y border-rule bg-paper/95 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6">
           <nav

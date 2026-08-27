@@ -1,23 +1,3 @@
-// =============================================================================
-// GROUP CHANNELS — membership DERIVED from real platform relationships.
-//
-// The invariant that makes this safe: `group_members` is a CACHE (fanout,
-// unread counters, listing). It is NEVER the authorization source.
-// `assertGroupAccess` re-derives the answer live for the ONE user being
-// checked, using the same narrow-to-one-user trick as chat-scope.ts. So a
-// stale cache row grants nothing: a student who dropped the course cannot
-// read or post the moment their enrollment goes inactive, even if their
-// cached membership row is still sitting there.
-//
-// Membership sources (one per kind, enforced by a DB CHECK):
-//   course              → active enrollments in that course
-//   session             → active enrollments in the session's course
-//   center_announcement → the center's roster ∪ its active enrollments
-// plus, in every case, the teaching side: the course teacher, that teacher's
-// ACTIVE assistants, the owning center's admins and its manager/receptionist
-// staff, and the enrolled students' APPROVED parents.
-// =============================================================================
-
 import type { TenantTx } from "../client";
 import type {
   ConversationGroup,
@@ -82,17 +62,8 @@ export function toGroupMessageView(m: GroupMessage): GroupMessageView {
   };
 }
 
-// ---------------------------------------------------------------------------
-// DERIVATION — the single definition of "who belongs to this group".
-// ---------------------------------------------------------------------------
-
 type DerivedSide = { userId: string; role: Role };
 
-/**
- * The teaching/owning side of a group: teacher, their active assistants, the
- * center's admins, and the center's staff who are allowed family contact.
- * These are the principals that may POST under `owner_only`.
- */
 async function teachingSide(
   db: TenantTx,
   opts: { teacherId?: string | null; centerId?: string | null },
@@ -143,7 +114,6 @@ async function teachingSide(
   return out;
 }
 
-/** Student ids that back a group, per kind. */
 async function derivedStudentIds(
   db: TenantTx,
   group: Pick<ConversationGroup, "kind" | "courseId" | "centerId">,
@@ -176,9 +146,6 @@ async function derivedStudentIds(
     ];
   }
 
-  // course + session both derive from the course's ACTIVE enrollments. A
-  // session channel is a narrower label on the same roster — a student pays
-  // per course/subscription, so session membership follows the enrollment.
   if (!group.courseId) return [];
   const rows = await db.enrollment.findMany({
     where: {
@@ -192,7 +159,6 @@ async function derivedStudentIds(
   return [...new Set(rows.map((r) => r.studentId))];
 }
 
-/** Approved parents of the group's students. */
 async function derivedParentIds(
   db: TenantTx,
   studentIds: string[],
@@ -223,10 +189,6 @@ async function groupTeacherId(
   return course?.teacherId ?? null;
 }
 
-/**
- * FULL membership — used to refresh the cache and to show member counts.
- * Bounded by ROSTER_CAP; the gate never calls this (it narrows instead).
- */
 export async function deriveMembers(
   db: TenantTx,
   group: ConversationGroup,
@@ -255,14 +217,9 @@ export async function deriveMembers(
   return [...byId.values()];
 }
 
-// ---------------------------------------------------------------------------
-// THE GROUP GATE — live, narrowed to one user.
-// ---------------------------------------------------------------------------
-
 export type GroupAccess = {
   group: ConversationGroup;
   role: Role;
-  /** Owner or a delegate of the owning principal (teacher's assistant, center staff). */
   isOwnerSide: boolean;
   canPost: boolean;
   canManage: boolean;
@@ -287,20 +244,17 @@ export async function assertGroupAccess(
         }))?.centerId ?? null
       : null);
 
-  // --- owner side (may post under owner_only, and may manage) --------------
   const teaching = await teachingSide(db, { teacherId, centerId }, actor.id);
   const asTeaching = teaching.find((t) => t.userId === actor.id);
   const isOwner = group.ownerId === actor.id;
   const isOwnerSide = isOwner || !!asTeaching;
 
-  // --- audience side (read; post only when postPolicy = members) -----------
   let role: Role | null = asTeaching?.role ?? (isOwner ? actor.role : null);
   if (!role) {
     if (actor.role === "student") {
       const hit = await derivedStudentIds(db, group, actor.id);
       if (hit.includes(actor.id)) role = "student";
     } else if (actor.role === "parent") {
-      // A parent belongs iff one of their APPROVED children is in the roster.
       const students = await derivedStudentIds(db, group);
       const parents = await derivedParentIds(db, students, actor.id);
       if (parents.includes(actor.id)) role = "parent";
@@ -308,16 +262,10 @@ export async function assertGroupAccess(
   }
 
   if (!role) {
-    // Default-deny: no derived relationship of any kind.
     throw new ChatError("not_participant", "You are not a member of this group");
   }
 
   const canManage = isOwnerSide;
-  // GATE 3 (child safety) also applies here. Every group is built around the
-  // teaching side — the course teacher, their assistants, the center's admins
-  // and staff — so a group post BY a student is adult-facing by construction.
-  // A minor with no guardian email may still READ (announcements are part of
-  // the class they paid for); they may not WRITE into an adult audience.
   const guardianLocked =
     role === "student" && (await isGuardianChannelLocked(db, actor.id));
   const canPost =
@@ -341,15 +289,6 @@ export async function assertGroupAccess(
   return { group, role, isOwnerSide, canPost, canManage };
 }
 
-// ---------------------------------------------------------------------------
-// Cache refresh
-// ---------------------------------------------------------------------------
-
-/**
- * Recompute `group_members` from the live relations. Idempotent: users who
- * left are soft-marked (leftAt) rather than deleted so their unread state and
- * history position survive a re-join.
- */
 export async function syncGroupMembers(
   db: TenantTx,
   groupId: string,
@@ -394,10 +333,6 @@ export async function syncGroupMembers(
   return { added, removed: stale.length, total: derivedIds.size };
 }
 
-// ---------------------------------------------------------------------------
-// Create / list / read / post
-// ---------------------------------------------------------------------------
-
 export type CreateGroupInput = {
   kind: GroupKind;
   courseId?: string;
@@ -408,11 +343,6 @@ export type CreateGroupInput = {
   isDemo?: boolean;
 };
 
-/**
- * Who may create a channel: the course's teacher, that teacher's active
- * assistant, or the owning center's admin / manager staff. Students and
- * parents never can. Verified against the SAME derivation the gate uses.
- */
 export async function createGroup(
   db: TenantTx,
   actor: ChatActor,
@@ -455,7 +385,6 @@ export async function createGroup(
       { teacherId: course.teacherId, centerId: course.centerId },
       actor.id,
     );
-    // Center staff may only create through the manager tier.
     const staffOk =
       actor.role !== "center_staff" ||
       !!(await db.centerStaff.findFirst({
@@ -532,8 +461,6 @@ export async function listGroupsForUser(
   for (const m of memberships) {
     const g = m.group;
     if (g.archivedAt) continue;
-    // The cached row got them into the list; the LIVE gate decides whether
-    // they may actually post. Read access is re-verified on open.
     let canPost = false;
     try {
       canPost = (await assertGroupAccess(db, actor, g.id, "read")).canPost;
@@ -597,7 +524,6 @@ export async function postGroupMessage(
     throw new ChatError("invalid_body", `Message exceeds ${MAX_MESSAGE_LENGTH} characters`);
   }
 
-  // Live gate BEFORE the limiter so a non-member's probe is denied outright.
   await assertGroupAccess(db, actor, groupId, "post");
   await consume(
     opts.limiter,

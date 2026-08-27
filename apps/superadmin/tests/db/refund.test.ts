@@ -33,9 +33,6 @@ async function main() {
     await tx.enrollment.create({ data: { studentId: su.id, courseId: course.id, centerId: center.id, status: "active", enrolledBy: teacher.id } });
     const s1 = await tx.session.create({ data: { courseId: course.id, teacherId: teacher.id, originalDate: new Date("2026-02-02T10:00:00Z"), date: new Date("2026-02-02T10:00:00Z"), startTime: "10:00", endTime: "11:00", status: "scheduled" } });
     await tx.attendanceRecord.create({ data: { sessionId: s1.id, studentId: su.id, courseId: course.id, centerId: center.id, status: "present", markedBy: teacher.id } });
-    // Phase 4 (D5): this proof measures reversal math through WALLET deltas,
-    // so the coverage must be PLATFORM-HELD (no coverage = center-held, whose
-    // deltas land on credit_balance — proven by center-held-refund.test.ts).
     await tx.subscription.create({
       data: {
         studentId: su.id, targetType: "center", teacherId: teacher.id, centerId: center.id,
@@ -74,7 +71,6 @@ async function main() {
     assert(afterRefund.refund?.toEntityId === fx.student, "refund is paid to the student");
     assert(afterRefund.adjustments._count._all === 2 && afterRefund.adjustments._sum.amount === 400, `platform fee (400) returned via 2 adjustments (got ${afterRefund.adjustments._count._all} rows / ${afterRefund.adjustments._sum.amount})`);
 
-    // Audited (2026-07-23): WHO reversed it + WHY, in the same tx as the reversal.
     const refundAudit = await withPlatformContext((tx) =>
       tx.auditLog.findFirst({
         where: { action: "refund.issued", actorId: fx.teacher, targetId: afterRefund.payment?.id },
@@ -124,7 +120,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite refund.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

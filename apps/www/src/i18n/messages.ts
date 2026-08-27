@@ -1,18 +1,5 @@
 import type { Locale } from "./config";
 
-/**
- * The whole page's copy, in one typed object per locale.
- *
- * A landing page is not worth a runtime i18n dependency: two locales, one
- * route, zero user-supplied strings. `en` is typed against `ar`, so a key
- * added to one and forgotten in the other fails the typecheck rather than
- * rendering an empty element.
- *
- * Figures are NOT in here. Every number on this page is a money figure that
- * has to render as an isolated LTR run with tabular digits, so it goes
- * through `<Figure>` at the call site instead of being interpolated into a
- * sentence where the bidi algorithm can reorder it.
- */
 const ar = {
   meta: {
     title: "إدورا — كل حصة لها سطر",
@@ -26,15 +13,7 @@ const ar = {
     counter: "الكاونتر",
     integrity: "الضمانات",
     login: "تسجيل الدخول",
-    // Deliberately shorter than `hero.primary`: the header has ~120px for
-    // it at 360px, the hero has a whole column.
     cta: "سجّل سنترك",
-    // THE HEADER'S OWN LABELS for the three marketing pages, deliberately not
-    // reusing `footer.links`. The header puts eight items on one line and the
-    // footer stacks them in a column with the whole page's width to spare, so
-    // the footer can afford "الثقة والأمان" where the header cannot — English
-    // "Trust & safety" alone wrapped the row onto a third line at 1024px.
-    // `الضمانات` is also what the landing already calls that section.
     pages: {
       pricing: "الأسعار",
       faq: "أسئلة شائعة",
@@ -46,9 +25,6 @@ const ar = {
     skip: "تخطَّ إلى المحتوى",
   },
 
-  // No eyebrow above the headline. A kicker is a label apologising for a
-  // heading that should carry itself, and "منصّة السناتر في مصر" is already
-  // said properly by the first sentence underneath.
   hero: {
     headline: "كل حصة لها سطر.",
     lede: "إدورا يشغّل السنتر والمدرّس من أول الحجز لآخر جنيه: حضور يتسجّل على الكاونتر، تحصيل كاش أو أونلاين، وحصيلة كل حصة تتقسّم لحظة ما تُقفل — مكتوبة مرة واحدة، ومفيش حد يقدر يمحيها.",
@@ -79,9 +55,6 @@ const ar = {
     body: "قيمة الحصة الواحدة بتتحسب بدالة واحدة في النظام كله. الشاشة اللي بتعرضلك التقسيم قبل ما تأكّد، والمحرّك اللي بيكتب في الدفتر بعدها — نفس الدالة. مفيش نسختين ممكن تختلفوا.",
     basesLabel: "أساس التسعير — يختاره صاحب المجموعة",
     defaultBadge: "الافتراضي",
-    // Latin digits, deliberately. Every figure on this page is a Latin,
-    // tabular, bidi-isolated run; Arabic-Indic numerals in the prose beside a
-    // table of Latin ones reads as two numbering systems on one sheet.
     basesExample: "على كورس من 12 حصة بـ 1200 ج.م، وسعر الحصة المفردة 120 ج.م، تطلع قيمة الحصة الواحدة:",
     bases: [
       {
@@ -236,17 +209,12 @@ const ar = {
     ],
   },
 
-  // Captions for the screenshots and the clip of the real system. Each one
-  // states what the reader is looking at, in the product's own words — a
-  // caption that repeats the section heading is a caption doing no work.
   media: {
     reserved: "مساحة محجوزة",
     play: "شغّل",
     pause: "أوقف",
     counterBoard:
       "شاشة الكاونتر: الحصة الشغالة مختارة، الكاش يتحصّل والحضور يتسجّل في خطوة واحدة.",
-    // These read as sentences, not labels: under reduced motion — and for
-    // anybody using a screen reader — this text IS the clip.
     settlementLoop:
       "المدرّس بيعلّم الحضور، وأول ما يحفظ بيظهر التقسيم: نصيب المدرّس والسنتر والمنصة عن كل طالب، قبل ما يضغط تأكيد.",
     walkInLoop:
@@ -276,9 +244,6 @@ const ar = {
 
   footer: {
     tagline: "منصّة تشغيل السناتر والدروس الخصوصية.",
-    // The role column takes its heading from `roles.label` — same words, and
-    // one copy. `product` / `company` are gone: the first named a column now
-    // headed by the roles it lists, and the second was heading a price list.
     platform: "المنصّة",
     help: "المساعدة",
     legal: "قانوني",
@@ -294,13 +259,6 @@ const ar = {
   },
 };
 
-/**
- * Deliberately NOT `as const`. A const assertion would make every Arabic
- * string its own literal type, and `en` would then have to be identical to
- * `ar` to satisfy it — the typecheck would reject the translation itself.
- * Widened, the shape is what gets enforced: same keys, same arity, or the
- * build fails.
- */
 type Messages = typeof ar;
 
 const en: Messages = {

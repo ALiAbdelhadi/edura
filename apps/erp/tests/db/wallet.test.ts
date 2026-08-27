@@ -1,21 +1,3 @@
-/**
- * Student Wallet — money-safety proofs (live DB, own fixtures).
- *
- *  1. Ledger-derived balance reconciles across topup/pay/refund
- *     (cached == SUM(delta) == last balanceAfter).
- *  2. Replayed Paymob webhook credits the wallet ONCE (idempotent).
- *  3. Concurrent double-spend: only one wallet debit succeeds; balance never < 0.
- *  4. Insufficient-balance payment is cleanly rejected — NO partial debit.
- *  6. A cash top-up writes a traceable ledger entry attributed to the crediting
- *     center + staff.
- *
- * (Proof 5, refund-returns-to-wallet-once, lives in apps/superadmin where the
- * refund engine is: tests/db/wallet-refund.test.ts.)
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only wallet
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   walletCredit,
@@ -35,13 +17,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "wallet.test.ts";
 
@@ -89,7 +64,6 @@ async function main() {
   __sweepTag = tag;
   console.log("Student wallet money-safety DB tests —", tag);
 
-  // ---------------------------------------------------------------- Proof 1
   console.log("\nProof 1 — ledger-derived balance reconciles (topup/pay/refund)");
   const s1 = await mkStudent(tag + "1");
   await withPlatformContext((tx) =>
@@ -108,7 +82,6 @@ async function main() {
     `reconciles: cached(${rec.cached}) == SUM delta(${rec.ledgerSum}) == last balanceAfter(${rec.lastBalanceAfter})`,
   );
 
-  // ---------------------------------------------------------------- Proof 2
   console.log("\nProof 2 — replayed Paymob webhook credits the wallet ONCE");
   const s2 = await mkStudent(tag + "2");
   const s2user: SessionUser = { id: s2, role: "student" } as SessionUser;
@@ -141,11 +114,8 @@ async function main() {
   assert(afterReplay === 25000, `balance UNCHANGED after replay (still ${afterReplay})`);
   assert(topupRows === 1, `exactly ONE top-up ledger row for the intent (got ${topupRows})`);
 
-  // ---------------------------------------------------------------- Proof 3
   console.log("\nProof 3 — concurrent double-spend: only one succeeds, never negative");
   const s3 = await mkStudent(tag + "3");
-  // Establish the opening balance through the ledger (a real top-up) so the
-  // whole balance is ledger-backed — covers exactly ONE 10000 debit.
   await withPlatformContext((tx) =>
     walletCredit(tx, s3, 10000, { type: "topup", method: "cash", reason: "opening" }),
   );
@@ -165,7 +135,6 @@ async function main() {
   const rec3 = await withPlatformContext((tx) => reconcileWallet(tx, s3));
   assert(rec3.ok, "still reconciles after the concurrent race");
 
-  // ---------------------------------------------------------------- Proof 4
   console.log("\nProof 4 — insufficient-balance payment cleanly rejected (no partial debit)");
   const s4 = await mkStudent(tag + "4", 5000); // less than the 10000 price
   const fx = await withPlatformContext(async (tx) => {
@@ -198,10 +167,6 @@ async function main() {
   let threw = false;
   let errMsg = "";
   try {
-    // The gateway initiator is now injected by the caller (the kernel no longer
-    // reaches into www's Paymob machinery). This path funds from the WALLET, so
-    // the initiator is never reached — passing the real one keeps the call
-    // identical to what the route does.
     await createSubscriptionCheckout(
       { courseId: fx.courseId, plan: "monthly", payFrom: "wallet", method: "card", idempotencyKey: `w4-${rid()}` },
       s4user,
@@ -223,7 +188,6 @@ async function main() {
   assert(s4subs === 0, "no subscription activated on rejection");
   assert(s4payRows === 0, "no wallet payment ledger row written on rejection");
 
-  // ---------------------------------------------------------------- Proof 6
   console.log("\nProof 6 — cash top-up writes a traceable ledger entry attributed to the center");
   const cash = await withPlatformContext(async (tx) => {
     const admin = await tx.user.create({
@@ -251,7 +215,6 @@ async function main() {
   assert(entry?.recordedBy === cash.adminId, "ledger entry is attributed to the crediting STAFF (recordedBy)");
   assert(entry?.centerId === cash.centerId, "ledger entry records the crediting CENTER");
   assert(entry?.delta === 12000 && entry?.balanceAfter === 12000, "delta + running balance recorded");
-  // Center can only credit — there is no center-facing wallet debit path (topUpWalletCash amount is positive-only).
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exitCode = fail === 0 ? 0 : 1;

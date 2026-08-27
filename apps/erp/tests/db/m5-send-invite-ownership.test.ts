@@ -1,15 +1,3 @@
-// M5 proof — sendTempStudentInvite must not leak a temp student's invite code
-// + phone to a caller who does not OWN that student. Ownership:
-//   - center_admin  -> a center_student_rosters row {centerId, studentId}
-//   - teacher/assistant -> an enrollment in a course the teacher owns
-// A non-owner is rejected with a 404 (NotFoundError) and gets neither the
-// code nor the phone. Owners still work.
-//
-// The route (delegatedWithCenter) hands sendTempStudentInvite the ACTING user:
-// for a real teacher and for an assistant alike the acting user is
-// teacher-shaped with id === the teacher's id. So proving "teacher T (owner)
-// succeeds, teacher R (non-owner) is rejected" IS the assistant-scope proof:
-// an assistant of T resolves to acting.id=T, an assistant of R to acting.id=R.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { sendTempStudentInvite } from "@/lib/services/temp-students/temp-students";
@@ -25,7 +13,6 @@ const centerActor = (centerId: string): SessionUser =>
   ({ id: "irrelevant-" + centerId, role: "center_admin", centerId, locale: "en" });
 const teacherActor = (id: string): SessionUser => ({ id, role: "teacher", locale: "en" });
 
-// Assert the call is REJECTED and leaks nothing.
 async function expectRejected(actor: SessionUser, tempUserId: string, label: string) {
   try {
     const res = await sendTempStudentInvite(tempUserId, actor);
@@ -44,15 +31,12 @@ async function main() {
   console.log("M5 send-invite ownership —", tag);
 
   const fx = await withPlatformContext(async (tx) => {
-    // Two centers: A owns the shell, B is the rival.
     const centerA = await tx.center.create({ data: { name: tag + "-A", shortId: (tag + "A").slice(0, 12).toUpperCase(), status: "active", walletBalance: 0 } });
     const centerB = await tx.center.create({ data: { name: tag + "-B", shortId: (tag + "B").slice(0, 12).toUpperCase(), status: "active", walletBalance: 0 } });
 
-    // Two teachers: T owns the shell (via enrollment), R is the rival.
     const teacherT = await tx.user.create({ data: { name: tag + "-T", role: "teacher", email: tag + "-t@x.io", status: "active" } });
     const teacherR = await tx.user.create({ data: { name: tag + "-R", role: "teacher", email: tag + "-r@x.io", status: "active" } });
 
-    // The invited temp-student shell.
     const inviteCode = "INV-" + tag.toUpperCase();
     const shell = await tx.user.create({ data: { name: tag + "-shell", phone: "+2010" + tag.replace(/\D/g, "").slice(0, 8).padEnd(8, "0"), role: "student", status: "shell", passwordHash: null } });
     await tx.studentProfile.create({
@@ -62,8 +46,6 @@ async function main() {
       },
     });
 
-    // Ownership links: center A rosters the shell; teacher T enrolls it into
-    // T's own (teacher-direct) course.
     await tx.centerStudentRoster.create({ data: { centerId: centerA.id, studentId: shell.id, addedAt: new Date() } });
     const courseT = await tx.course.create({
       data: {
@@ -74,7 +56,6 @@ async function main() {
     });
     await tx.enrollment.create({ data: { studentId: shell.id, courseId: courseT.id, centerId: null, status: "active", enrolledBy: teacherT.id } });
 
-    // Rival teacher R has a course but the shell is NOT enrolled in it.
     const courseR = await tx.course.create({
       data: {
         centerId: null, teacherId: teacherR.id, title: tag + "-cR", subject: "Math",
@@ -125,7 +106,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite m5-send-invite-ownership.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

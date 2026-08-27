@@ -1,18 +1,3 @@
-// The palette's DESTINATION matcher, and the client half's staleness rule.
-//
-// Two things here are easy to break and invisible when broken:
-//
-//   1. The match must accept BOTH scripts. An Egyptian receptionist works an
-//      Arabic UI on a Latin keyboard, so `wallet` has to find «المحفظة». That
-//      behaviour lives in one `includes` over three strings, and a later tidy
-//      that drops the English key from the haystack would look harmless.
-//
-//   2. `useGlobalSearch` must report `loading` while the LIVE query is ahead of
-//      the answer in hand, not merely while a request is in flight. Without it
-//      the palette shows the previous query's records with no sign they are
-//      stale — which reads as the search having finished and found the wrong
-//      thing. The rule is a pure expression, so it is asserted directly rather
-//      than through a rendered component.
 import { describe, expect, it } from "vitest";
 import {
   filterNavGroups,
@@ -73,8 +58,6 @@ describe("filterNavGroups", () => {
   });
 
   it("is a SUBSTRING match, not a fuzzy one", () => {
-    // cmdk's default scorer accepts `wlt` for "wallet". On a counter, a query
-    // that matches things it does not contain is unpredictable under pressure.
     expect(flat(filterNavGroups(GROUPS, "wlt"))).toEqual([]);
   });
 
@@ -85,12 +68,6 @@ describe("filterNavGroups", () => {
   });
 });
 
-/**
- * The staleness rule, transcribed from `use-global-search.ts`. Kept as a local
- * copy on purpose: importing the hook drags refine and next-intl into a test
- * that is about one boolean, and the value of the assertion is that the rule
- * is STATED somewhere a reader can check it against the implementation.
- */
 const isLoading = (live: string, debounced: string, settled: boolean) =>
   live.length >= 2 && (live !== debounced || !settled);
 

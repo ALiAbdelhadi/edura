@@ -1,33 +1,11 @@
 name: Scheduled jobs
 
-# ============================================================================
-# The scheduler for /api/v1/cron/[job].
-#
-# WHY THIS EXISTS: the repo has defined scheduled jobs since 2026-07-26 and
-# NOTHING invoked them — every one was dead in every environment (see
-# docs/reports/cron-jobs-unscheduled.md, an open pre-launch blocker). The
-# endpoint was correct, authenticated and tested; it was simply never called.
-#
-# WHY GITHUB ACTIONS AND NOT VERCEL CRON: Vercel's scheduler issues a GET.
-# `/api/v1/cron/[job]` is POST-only on purpose — M7 removed the `GET = POST`
-# alias so that a prefetcher, link scanner or crawler can never trigger a
-# data-mutating job by following a URL. Adopting Vercel Cron would mean
-# re-opening exactly the hole M7 closed. A workflow can POST and send the
-# secret in a header, so the door stays shut.
-#
-# THE SECRET IS THE ONLY AUTHENTICATION. `CRON_SECRET` fails closed in every
-# environment: with it unset the endpoint rejects everything, so a misconfigured
-# schedule is inert rather than dangerous.
-# ============================================================================
-
 on:
   schedule:
-    # Times are UTC. Cairo is UTC+2 (UTC+3 on DST) — the offsets below are
-    # written for the Cairo hour that matters, not for a tidy UTC number.
-    - cron: "0 * * * *" # hourly    — time-sensitive expiries and reminders
-    - cron: "30 1 * * *" # daily     03:30/04:30 Cairo, after teaching ends
-    - cron: "0 2 * * 0" # Sunday    04:00/05:00 Cairo — the weekly digest
-    - cron: "0 3 1 * *" # 1st of the month — statements for the month just past
+    - cron: "0 * * * *"
+    - cron: "30 1 * * *"
+    - cron: "0 2 * * 0"
+    - cron: "0 3 1 * *"
   workflow_dispatch:
     inputs:
       jobs:
@@ -36,8 +14,6 @@ on:
         default: weekly-center-digest
 
 concurrency:
-  # A slow run must not overlap the next tick: these jobs are idempotent, but
-  # two copies racing wastes database time for no benefit.
   group: cron-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
 
@@ -60,9 +36,6 @@ jobs:
           echo "jobs=$JOBS" >> "$GITHUB_OUTPUT"
           echo "This tick runs: $JOBS"
 
-      # A scheduled run that cannot authenticate is a FAILURE, loudly. The
-      # alternative — skipping quietly — is how a platform discovers months
-      # later that nothing has been running (the same reasoning as backup.yml).
       - name: Require configuration
         run: |
           if [ -z "${{ secrets.CRON_SECRET }}" ] || [ -z "${{ secrets.CRON_BASE_URL }}" ]; then

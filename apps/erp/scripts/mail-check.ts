@@ -1,20 +1,5 @@
-/**
- * Mail configuration check.
- *
- *   bun run --filter edura mail:check                    # verify SMTP credentials only
- *   bun run --filter edura mail:check you@gmail.com      # send a test email (Arabic)
- *   bun run --filter edura mail:check you@gmail.com en   # ... in English
- *   bun run --filter edura mail:check you@gmail.com both # one of each, to compare
- *
- * Proves the SMTP host, port and credentials work BEFORE trusting a deploy —
- * the alternative is discovering a bad password only when a user can't reset
- * their password.
- */
 import { mailProvider, sendMail, verifyMailConnection } from "@repo/server-core/mail/send";
 import { passwordResetEmail } from "@repo/server-core/mail/templates";
-// Same origin resolver the real service uses, so the preview link is exactly
-// what a user would receive — a hardcoded one here would hide a misconfigured
-// APP_BASE_URL instead of surfacing it.
 import { appBaseUrl } from "@repo/server-core/http/app-url";
 
 async function main() {
@@ -56,8 +41,6 @@ async function main() {
   for (const locale of locales) {
     console.log(`\nSending a test password-reset email (${locale}) to ${to}…`);
     const { subject, html, text } = await passwordResetEmail({
-      // The token is deliberately not a real one — this previews the design,
-      // it must never hand out a usable credential.
       link: `${appBaseUrl()}/${locale}/reset-password?token=TEST-TOKEN-NOT-REAL`,
       locale,
     });

@@ -42,33 +42,14 @@ function CommandDialog({
   description?: string
   className?: string
   showCloseButton?: boolean
-  /**
-   * Forwarded to cmdk. Pass `false` when the caller has already decided which
-   * items to show — a list of server-matched records must not then be filtered
-   * a second time against the raw query, which is how a correct remote hit
-   * disappears because its title does not contain the letters that found it.
-   */
   shouldFilter?: boolean
 }) {
   return (
     <Dialog {...props}>
       <DialogContent
-        // An explicit width, rather than inheriting the Dialog's. A palette
-        // draws grouped results with a title, a subtitle and a trailing code on
-        // one row; the 384px it used to inherit truncated all three, and the
-        // 448px it would inherit now is a form's width, not a search's.
         className={cn("overflow-hidden p-0 sm:max-w-xl", className)}
         showCloseButton={showCloseButton}
       >
-        {/* Title/description live INSIDE DialogContent, not as a sibling of
-            it — a sibling of Dialog.Root renders unconditionally in normal
-            page flow (Root does not portal or gate on `open`), so it stayed
-            mounted, un-clipped by `sr-only`'s own `position: sticky` (from
-            this component's later utility classes winning the cascade over
-            `sr-only`'s `position: absolute`), and ate real layout width from
-            whatever it sat beside — the empty strip along a narrow page's
-            trailing edge. Radix also needs both as DESCENDANTS of Content to
-            wire `aria-labelledby`/`aria-describedby` at all. */}
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

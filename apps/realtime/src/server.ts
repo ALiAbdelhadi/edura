@@ -228,7 +228,6 @@ io.on("connection", (socket: Socket) => {
       };
       io.to(userRoom(partnerId)).volatile.emit(proto.EV_TYPING_FANOUT, event);
     } catch {
-      // Non-participant or unknown conversation — silently drop.
     }
   });
 

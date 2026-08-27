@@ -33,56 +33,14 @@ import * as React from "react";
 
 export type { ColumnDef };
 
-/* <DataTable>
-   ══════════════════════════════════════════════════════════════════════════════
-
-   ── Density is a portal-level decision, not a per-table one ──────────────────
-
-     compact       superadmin · teacher · center admin · assistant
-                   An operator scanning 166 rows. 34px header, 7px cells.
-     comfortable   student · parent
-                   Fewer rows, read rather than scanned, often on a 390px screen.
-     touch         center staff check-in ONLY.
-                   A receptionist standing, one-handed, with a parent and a queue in
-                   front of them. 48px minimum target, 16px minimum type, 12px minimum
-                   gap, and NOTHING actionable at 12px. `compact` does not merely look
-                   wrong here — it produces mis-taps, and a mis-tap at a counter is a
-                   student checked in twice.
-
-   ── Accessible names ─────────────────────────────────────────────────────────
-
-   Every column must have one. `registrations-queue.tsx` shipped three columns with
-   `header: ""`, so date and actions were unreachable by name. A column that renders no
-   visible header supplies `meta.srLabel` and gets a visually-hidden one — the choice
-   is between "visible" and "screen-reader-only", never between "named" and "not".
-
-   ── Labels ───────────────────────────────────────────────────────────────────
-
-   @repo/ui has no i18n runtime, so all chrome copy arrives as `labels`. The app-side
-   shim injects it from next-intl, which is why pagination aria-labels are no longer
-   hard-coded English. */
-
 export type DataTableDensity = "compact" | "comfortable" | "touch";
 
 const DENSITY: Record<DataTableDensity, { head: string; cell: string; text: string }> = {
   compact: { head: "h-[34px] px-3", cell: "px-3 py-[7px]", text: "text-[13px]" },
   comfortable: { head: "h-[42px] px-3.5", cell: "px-3.5 py-[13px]", text: "text-sm" },
-  // 48px row minimum, 16px type — the two numbers the counter surface is built around.
   touch: { head: "h-12 px-4", cell: "px-4 py-3 min-h-12", text: "text-base" },
 };
 
-/* ── What a table becomes on a 390px screen ───────────────────────────────────
-
-   `scroll`  the table stays a table and scrolls sideways, with the edge affordance
-             <Table> draws. Correct for the back office: an operator scanning 166
-             rows compares ACROSS rows, and a card list destroys that comparison.
-   `cards`   each row becomes a labelled card. Correct for www, where the reader is
-             a parent or a student on a phone reading ONE row at a time.
-
-   NOTHING WRAPS in either mode. A wrapped cell is unscannable and a wrapped figure
-   reads as two numbers, so a value that outgrows its card scrolls within its own
-   line rather than breaking. This is the whole reason the mode exists: the fix for
-   a narrow screen is a different LAYOUT, never a narrower column. */
 export type DataTableMobile = "scroll" | "cards";
 
 export type DataTableLabels = {
@@ -96,11 +54,6 @@ export type DataTableLabels = {
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-/* The card's field label. A column that renders no visible header still declares an
-   accessible name (`meta.srLabel`) — the same one the table header uses — so the card
-   shows it rather than inventing a second vocabulary. A header built as a FUNCTION is
-   chrome (a sort button, an <Eyebrow>) and cannot be rendered without a header
-   context, so those fall back to `srLabel` too. */
 function mobileLabelFor(column: {
   columnDef: { header?: unknown; meta?: unknown };
 }): React.ReactNode {
@@ -120,7 +73,6 @@ export function DataTable<TData, TValue>({
   className,
   density = "compact",
   labels,
-  // ── opt-in capabilities; every one defaults off so existing call sites are unchanged
   selectable = false,
   onSelectionChange,
   bulkActions,
@@ -142,18 +94,13 @@ export function DataTable<TData, TValue>({
   labels?: DataTableLabels;
   selectable?: boolean;
   onSelectionChange?: (rows: TData[]) => void;
-  /** Rendered above the table when at least one row is selected. The selection's
-      total belongs here — it must be visible BEFORE any bulk action is possible. */
   bulkActions?: (rows: TData[]) => React.ReactNode;
-  /** The gradebook needs the student column pinned while marks scroll. */
   stickyFirstColumn?: boolean;
-  /** Below `md`. See DataTableMobile — www defaults to `cards` via its kit shim. */
   mobile?: DataTableMobile;
   rowHref?: (row: TData) => string | undefined;
   rowDisabled?: (row: TData) => boolean;
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
-  /** Distinct from empty: "we don't know" is not "there is nothing". */
   error?: React.ReactNode;
 }) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -232,13 +179,9 @@ export function DataTable<TData, TValue>({
       <div
         className={cn(
           "overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]",
-          // <Table> owns the scrolling and its edge affordance; this frame only clips
-          // the corners. In `cards` mode the table itself is hidden below `md`.
           mobile === "cards" && "max-md:hidden",
         )}
       >
-        {/* stickyFirstColumn stays per-cell below rather than on <Table>: the sticky
-            cell also needs the density padding and the selected-row fill. */}
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
@@ -263,9 +206,6 @@ export function DataTable<TData, TValue>({
                       scope="col"
                       className={cn(
                         d.head,
-                        // Header labels are the eyebrow slot. Uppercase + tracking are
-                        // applied ONLY to Latin content — see <Eyebrow> for why Arabic
-                        // cannot take them. Callers pass an <Eyebrow> for Arabic.
                         "text-[10px] font-semibold text-ink-3",
                         stickyFirstColumn &&
                           i === 0 &&
@@ -295,7 +235,6 @@ export function DataTable<TData, TValue>({
                       ) : (
                         rendered
                       )}
-                      {/* A column with no visible header still gets a name. */}
                       {isEmptyHeader && srLabel ? (
                         <span className="sr-only">{srLabel}</span>
                       ) : null}
@@ -346,8 +285,6 @@ export function DataTable<TData, TValue>({
                       d.text,
                       disabled && "opacity-50",
                       !disabled && (href || onRowClick) && "cursor-pointer",
-                      // Selected row: soft fill + a 3px inset bar on the START edge.
-                      // `inset 3px 0 0` is inline-aware via the logical rule below.
                       selected && "bg-indigo-soft shadow-[inset_3px_0_0_var(--indigo)] rtl:shadow-[inset_-3px_0_0_var(--indigo)]",
                     )}
                   >
@@ -440,10 +377,6 @@ export function DataTable<TData, TValue>({
                       </div>
                     ) : null}
                     {titleCell ? (
-                      // The identity column is the card's heading, not a labelled field.
-                      // `overflow-y-hidden` is REQUIRED, not tidying: setting overflow-x
-                      // alone makes overflow-y compute from `visible` to `auto`, which
-                      // painted a stray vertical scrollbar on every single value.
                       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden font-semibold whitespace-nowrap">
                         {href && !disabled ? (
                           <a href={href} className="focus-ledger block">
@@ -467,8 +400,6 @@ export function DataTable<TData, TValue>({
                           cell.column.columnDef.cell,
                           cell.getContext(),
                         );
-                        // A headerless column (the actions cell) is an control strip,
-                        // not a field — it takes the full width with no label.
                         if (!label) {
                           return (
                             <dd
@@ -487,7 +418,6 @@ export function DataTable<TData, TValue>({
                             <dt className="shrink-0 text-[10px] font-semibold text-ink-3">
                               {label}
                             </dt>
-                            {/* Never wrap. A long value scrolls on its own line. */}
                             <dd className="min-w-0 overflow-x-auto overflow-y-hidden text-end whitespace-nowrap">
                               {value}
                             </dd>

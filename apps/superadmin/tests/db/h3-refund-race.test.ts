@@ -1,6 +1,3 @@
-// H3 proof — two concurrent refunds of the SAME charge must NOT both land.
-// Builds a real distributed lesson, fires refundLessonForStudent twice in
-// parallel, and asserts exactly one refund row + one clawback (no double).
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
@@ -38,7 +35,6 @@ async function main() {
   }));
   console.log(`after distribution: teacher=${dist.teacher}, center=${dist.center}`);
 
-  // Fire TWO refunds of the same charge concurrently.
   const accountant = { id: fx.teacher, role: "accountant" } as never;
   const results = await Promise.allSettled([
     refundLessonForStudent(fx.s1, fx.student, "duplicate charge", accountant),
@@ -64,7 +60,6 @@ async function main() {
   ok(after.teacher === 0, `teacher wallet clawed back once: 14800 -> 0 (got ${after.teacher})`);
   ok(after.center === 0, `center wallet clawed back once: 4800 -> 0, never negative (got ${after.center})`);
 
-  // Cleanup deletable fixture rows (append-only transactions remain — Step 9 wipe).
   await admin.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [[fx.student, fx.teacher]]);
   await admin.query(`DELETE FROM attendance_records WHERE session_id=$1`, [fx.s1]);
   await admin.query(`DELETE FROM enrollments WHERE course_id=$1`, [fx.course]);
@@ -81,7 +76,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite h3-refund-race.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

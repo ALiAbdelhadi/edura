@@ -1,23 +1,3 @@
-// C-03 proof (www) — suspending or blacklisting a user must revoke their LIVE
-// session, not merely block the next login.
-//
-// The verification report showed: suspend a teacher → GET /me still 200 →
-// POST /grades still 201, for up to the full 30-day session lifetime, because
-// requireRole() read the role from a stateless JWT and the L1 epoch was never
-// bumped by a status change.
-//
-// This drives the REAL www better-auth pipeline against the live DB:
-//   - /sign-in/email (before-hooks + credential verify against the
-//     trigger-mirrored account row) mints a real DB session + cookie,
-//   - "a later request carrying an earlier session" is a real getSession
-//     with the real cookie,
-//   - the REAL platformBlacklistUser() / removeBlacklistEntry() services,
-//   - the REAL prisma write updateUserStatus() performs, so the shipped
-//     session-revocation extension bumps token_version — and the
-//     users_revoke_sessions DB trigger DELETES the user's auth_sessions rows
-//     in the same statement. HARD revocation, stronger than the old
-//     per-request JWT epoch re-read.
-// Nothing is mocked.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
@@ -49,7 +29,6 @@ const versionOf = async (id: string) =>
     .token_version as number;
 const statusOf = async (id: string) =>
   (await admin.query(`SELECT status FROM users WHERE id=$1`, [id])).rows[0].status as string;
-// DB-level view of revocation: the trigger deletes rows, it doesn't flag them.
 const sessionRowsOf = async (id: string) =>
   (await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id=$1`, [id]))
     .rows[0].n as number;
@@ -82,7 +61,6 @@ async function main() {
   try {
     console.log("C-03 www session revocation —", tag);
 
-    // ---------------------------------------------------------------- setup
     const authT = await signInDoor(emailT, PW);
     const authS = await signInDoor(emailS, PW);
     const authC = await signInDoor(emailC, PW);
@@ -104,10 +82,6 @@ async function main() {
       "baseline: every live session is accepted before any status change",
     );
 
-    // -------------------------------------------------- 1) SUSPEND a teacher
-    // The exact write updateUserStatus() performs, through the shipped client
-    // (so the session-revocation extension is what does the bump, and the
-    // users_revoke_sessions trigger is what deletes the session rows).
     const verBefore = await versionOf(teacher);
     await withPlatformContext((tx) =>
       tx.user.update({ where: { id: teacher }, data: { status: "suspended" } }),
@@ -131,8 +105,6 @@ async function main() {
       "suspend: the suspended account cannot log back in either (typed ACCOUNT_INACTIVE)",
     );
 
-    // ------------------------------------------------ 2) BLACKLIST a student
-    // Real service — the same one POST /api/v1/admin/users/[id]/blacklist calls.
     const entry = (await platformBlacklistUser(student, "C-03 proof", adminId)) as {
       id: string;
     };
@@ -150,15 +122,12 @@ async function main() {
       "blacklist: the student's auth_sessions rows are DELETED",
     );
 
-    // ------------------------------------------------- 3) CONTROL untouched
     assert(
       (await sessionFor(authC.cookie))?.userId === control,
       "control: an unrelated active session is NOT logged out (no spurious logout)",
     );
     assert((await versionOf(control)) === 0, "control: token_version never moved");
 
-    // --------------------------------------------------------- 4) REVERSALS
-    // Un-suspend, the way updateUserStatus(status:'active') does.
     await withPlatformContext((tx) =>
       tx.user.update({ where: { id: teacher }, data: { status: "active" } }),
     );
@@ -173,9 +142,6 @@ async function main() {
       "reinstate: the teacher can log in again cleanly",
     );
     if (!authT2.ok) throw new Error("cannot continue without the reinstated session");
-    // Sessions are DB rows now, not JWTs — there is no epoch claim to stamp.
-    // Nearest equivalent of "the fresh login carries the CURRENT epoch": the
-    // login neither bumped the epoch nor was its new session row revoked.
     assert(
       (await versionOf(teacher)) === verAfterUnsuspend && (await sessionRowsOf(teacher)) >= 1,
       "reinstate: the fresh login lives under the CURRENT epoch (no bump, live session row)",
@@ -189,7 +155,6 @@ async function main() {
       "reinstate: the OLD pre-suspension session stays dead (revocation is not undone)",
     );
 
-    // Lift the blacklist via the real service (super_admin actor).
     await removeBlacklistEntry(entry.id, {
       id: adminId,
       role: "super_admin",
@@ -209,10 +174,6 @@ async function main() {
       );
     }
 
-    // ------------------------- 5) CASCADE path (updateMany) is covered too
-    // rejectCenter / blacklistCenter / toggleCenter suspend a center's admins
-    // with updateMany — the extension must bump every matched row (and the
-    // trigger must clear every matched user's sessions).
     const cascadeA = await mk(`${tag}-ca@x.io`, "center_admin");
     const cascadeB = await mk(`${tag}-cb@x.io`, "center_admin");
     cleanupUsers.push(cascadeA, cascadeB);
@@ -238,7 +199,6 @@ async function main() {
       "cascade: a center-admin session dies on the next request too (rows deleted)",
     );
 
-    // ---------------------------------- 6) soft-delete revokes as well
     const doomed = await mk(`${tag}-del@x.io`, "student");
     cleanupUsers.push(doomed);
     const doomedAuth = await signInDoor(`${tag}-del@x.io`, PW);
@@ -255,7 +215,6 @@ async function main() {
       "soft-delete: the deleted user's live session is rejected on the next request",
     );
 
-    // -------------------- 7) existing guards are still intact (no weakening)
     const wrongPw = await signInDoor(emailC, "WrongPassword!");
     assert(
       !wrongPw.ok && wrongPw.message === "Invalid email or password",
@@ -266,9 +225,6 @@ async function main() {
       !nobody.ok && nobody.message === "USER_NOT_FOUND",
       "guard intact: an unknown email still fails (typed USER_NOT_FOUND)",
     );
-    // The old proof forged a JWT with a mismatched `ver` claim. Sessions are
-    // opaque DB-backed cookies now — the nearest check: a TAMPERED cookie
-    // (mangled token/signature) never resolves to a session.
     const forged = authC.cookie.replace(/=([^;]+)/g, "=x$1");
     assert(
       (await sessionFor(forged)) === null,
@@ -295,8 +251,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c03-status-revocation.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

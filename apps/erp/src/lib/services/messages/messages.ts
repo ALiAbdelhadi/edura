@@ -1,8 +1,3 @@
-// REST-side chat service. All authorization rules live in the shared domain
-// layer (@repo/database/chat-scope — the EDGES table, matrix, blocks), which
-// the standalone realtime server uses too. This module adapts it to HTTP:
-// session actors, AppError mapping, rate-limiter injection, and the
-// realtime/notify bridges.
 import * as chat from "@repo/database/chat";
 import * as groups from "@repo/database/chat-groups";
 import * as safety from "@repo/database/chat-safety";
@@ -20,11 +15,6 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import { bridgeMessage, bridgeRead } from "./realtime-bridge";
 
-/**
- * THE limiter injected into every send path. Shared Redis store when REDIS_URL
- * is set (M3), per-process fallback otherwise. Passing this is mandatory at the
- * type level in the domain layer, so no transport can ship unlimited sending.
- */
 const limiter: chat.ChatLimiter = (key, capacity, perMinute) =>
   checkRateLimit(key, capacity, perMinute);
 
@@ -64,10 +54,6 @@ function actor(user: SessionUser): chat.ChatActor {
   return { id: user.id, role: user.role, centerId: user.centerId ?? null };
 }
 
-// ---------------------------------------------------------------------------
-// 1:1 conversations
-// ---------------------------------------------------------------------------
-
 export function listConversations(
   user: SessionUser,
   opts: { before?: Date; limit?: number },
@@ -83,7 +69,6 @@ export function createConversation(user: SessionUser, recipientId: string) {
       recipientId,
       { limiter },
     );
-    // Return the list-shaped view so the client can insert it directly.
     return chat.getConversationView(tx, user.id, conversation.id);
   });
 }
@@ -101,7 +86,6 @@ export function getConversationThread(
       conversationId,
       opts,
     );
-    // Disclosure: both sides are told when a parent can see this thread.
     const notice = await oversight.oversightNoticeFor(tx, conversationId);
     return { conversation, messages, hasMore, oversight: notice };
   });
@@ -118,26 +102,6 @@ export function getUnreadTotal(user: SessionUser) {
   return run(user, (tx) => chat.getTotalUnread(tx, user.id));
 }
 
-/**
- * B.1#11 — the unread counts, finally served. `getUnreadTotal` above existed
- * with ZERO callers while three portals' phone bars had no badge and the
- * student dashboard once shipped a hardcoded `unreadMessages: 0` (removed
- * rather than faked — this is the real read that removal note promised).
- *
- * `messages` = the caller's own denormalized per-conversation counters summed.
- * `notifications` = the caller's unread notification rows.
- * `children` (parents only) = each approved child's OWN unread-message total —
- * for MINORS under oversight only, exactly the population whose conversations
- * the parent can already open (`chat-oversight` shows minors and refuses adult
- * children). An adult child answers `null`, not 0: the parent is told nothing,
- * which is different from "nothing unread". THIS ADDS NO REACH — a count over
- * conversations the role already reads, same rule as global search.
- *
- * What this deliberately does NOT do: attribute the PARENT's own unread
- * messages to a child. Conversations carry no student context in the schema,
- * so "which child does this message concern" is not derivable — inventing an
- * attribution would repeat the «الرسوم المستحقة» mistake.
- */
 export function getUnreadCounts(user: SessionUser) {
   return run(user, async (tx) => {
     const [messages, notifications] = await Promise.all([
@@ -175,8 +139,6 @@ export async function sendMessage(
   );
 
   if (!result.duplicate) {
-    // Live fanout via the realtime server; if the recipient has no live
-    // socket (or the bridge is down), fall back to a push notification.
     const bridged = await bridgeMessage({
       message: result.message,
       recipientId: result.recipientId,
@@ -223,10 +185,6 @@ export async function markConversationRead(
     updatedCount: receipt.updatedCount,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Group channels
-// ---------------------------------------------------------------------------
 
 export function listGroups(user: SessionUser) {
   return run(user, (tx) => groups.listGroupsForUser(tx, actor(user)));
@@ -311,10 +269,6 @@ export function syncGroup(user: SessionUser, groupId: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Safety: block & report
-// ---------------------------------------------------------------------------
-
 export function blockUser(
   user: SessionUser,
   targetUserId: string,
@@ -347,8 +301,6 @@ export async function fileReport(
 ) {
   const report = await run(user, (tx) => safety.fileReport(tx, actor(user), input));
 
-  // Notify platform staff. Runs under the platform context because the
-  // reporter's own RLS scope must not decide who reviews safety reports.
   const admins = await platformDb((tx) =>
     tx.user.findMany({
       where: { role: "super_admin", status: "active", deletedAt: null },
@@ -368,10 +320,6 @@ export async function fileReport(
   }
   return report;
 }
-
-// ---------------------------------------------------------------------------
-// Parent oversight (READ-ONLY — never mutates counters or read receipts)
-// ---------------------------------------------------------------------------
 
 export function listOversightChildren(user: SessionUser) {
   return run(user, (tx) => oversight.listOversightChildren(tx, user.id));

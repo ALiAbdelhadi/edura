@@ -14,17 +14,11 @@ const bodySchema = z
     courseId: z.string().uuid(),
     plan: z.enum(["monthly", "per_session"]),
     sessionId: z.string().uuid().optional(),
-    // Classic counter workflow: cash for a single session + check-in in ONE step.
     markAttendance: z.boolean().optional(),
-    // Phase 1: how the counter took the money. Absent = cash (the service owns
-    // that default). Only counter channels are accepted here — the gateway and
-    // internal-wallet methods have their own routes and must not be spoofable
-    // from the desk.
     paymentMethod: z.enum(["cash", "instapay", "pos_card", "mobile_wallet"]).optional(),
   })
   .strict();
 
-/** Walk-in cash subscription, recorded by center staff — active immediately. */
 export const POST = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const body = await parseJson(req, bodySchema);
@@ -33,7 +27,6 @@ export const POST = centerStaff(
   { allow: RECEPTION },
 );
 
-/** Center's own subscriptions (walk-in management view). */
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

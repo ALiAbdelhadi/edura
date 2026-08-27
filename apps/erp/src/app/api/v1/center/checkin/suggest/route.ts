@@ -5,7 +5,6 @@ import { suggestSessions } from "@/lib/services/attendance/checkin";
 
 export const dynamic = "force-dynamic";
 
-/** Today's sessions: `suggested` (student holds coverage) + `today` (manual pick). */
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const studentId = new URL(req.url).searchParams.get("studentId");

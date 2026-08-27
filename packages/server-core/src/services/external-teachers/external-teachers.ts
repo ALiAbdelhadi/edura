@@ -1,45 +1,9 @@
-// =============================================================================
 import {
   literalFragments,
   matchesSearchTerms,
   narrowFragments,
   searchTerms,
 } from "@repo/database/search-text";
-// OFF-SYSTEM ("EXTERNAL") TEACHERS — the record, its ownership gate, and the
-// two conversions.
-//
-// THE MODEL, and why it is not a new table.
-//
-// An external teacher is a `users` row (role=teacher, status='shell',
-// password_hash NULL) whose TeacherProfile carries system_status='external'.
-// Every operational table in this codebase already keys on the teacher's USER
-// id — courses.teacher_id, sessions.teacher_id, subscriptions.teacher_id,
-// session_settlements.teacher_id, transactions.from_entity_id — so an external
-// teacher slots into the whole platform without a single one of them changing.
-//
-// Three consequences fall out of that choice, and each is a requirement:
-//
-//   1. NO LOGIN, using the door that already exists. `status='shell'` with no
-//      password hash is refused by both www sign-in doors today. There is no
-//      second gate to keep in sync — the same reasoning as ONE SUSPENSION
-//      MECHANISM in CLAUDE.md.
-//
-//   2. CONVERSION LOSES NOTHING, BY CONSTRUCTION. Joining the platform flips
-//      one column on the SAME user id. No row is copied, re-pointed or
-//      re-parented, so there is no step at which history could be dropped. The
-//      journal row this module writes is not the migration — it is the evidence
-//      that there was nothing to migrate.
-//
-//   3. READ-ONLY IS EXPRESSIBLE. `access_level` on the profile is the tier the
-//      route layer enforces in one place (assertTeacherActorMethodAllowed), the
-//      same shape as the center_accountant read-only tier.
-//
-// OWNERSHIP. teacher_profiles has no center_id and therefore no RLS policy, so
-// this module NEVER leans on row-level security for the teacher record. Every
-// entry point goes through `assertManagedExternalTeacher`, which demands BOTH
-// facts: the profile is managed by this center, AND a live affiliation exists.
-// One gate, stated once.
-// =============================================================================
 
 import type { Prisma, TeacherSystemStatus } from "@repo/database";
 import { platformDb, scopedDb, type TenantTx } from "../../db/scope";
@@ -57,10 +21,6 @@ import {
   inviteExpiryDays,
   type DeliveryResult,
 } from "../invites/deliver";
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
 function centerOf(acting: SessionUser): string {
   if (!acting.centerId) throw new ForbiddenError("Actor has no center scope");
@@ -88,14 +48,6 @@ export type ExternalTeacherRecords = {
   subscriptions: number;
 };
 
-/**
- * Everything currently attached to a teacher, counted in ONE place.
- *
- * Used twice, and the second use is the point: the conversion journal freezes
- * this snapshot inside the same transaction as the status flip, so "the
- * conversion preserved the history" is a claim anyone can re-check later
- * against the live counts instead of a promise in a comment.
- */
 export async function countTeacherRecords(
   tx: TenantTx,
   teacherId: string,
@@ -135,17 +87,6 @@ export async function countTeacherRecords(
   };
 }
 
-/**
- * THE ownership gate. A center may touch a teacher record only when BOTH hold:
- *   - the profile names this center as its manager, and
- *   - an affiliation row still links them (any status but `removed`, so a
- *     soft-removed teacher can still be READ and restored).
- *
- * Demanding both is deliberate. The profile pointer alone would survive a
- * removal; the affiliation alone would let any affiliated center edit a teacher
- * another center created. Neither fact is sufficient, so neither is trusted on
- * its own.
- */
 export async function assertManagedExternalTeacher(
   tx: TenantTx,
   centerId: string,
@@ -169,7 +110,6 @@ export async function assertManagedExternalTeacher(
       attendanceMode: true,
     },
   });
-  // A non-owner learns nothing about whether the teacher exists.
   if (!profile || profile.managedByCenterId !== centerId) {
     throw new NotFoundError("Teacher not found");
   }
@@ -207,7 +147,6 @@ export async function assertManagedExternalTeacher(
   return { profile, affiliation, user };
 }
 
-/** One shape for every audit row this feature writes. */
 export async function writeExternalTeacherAudit(
   tx: TenantTx,
   input: {
@@ -235,10 +174,6 @@ export async function writeExternalTeacherAudit(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Create
-// ---------------------------------------------------------------------------
-
 export type CreateExternalTeacherInput = {
   fullName: string;
   phone?: string | null;
@@ -247,20 +182,9 @@ export type CreateExternalTeacherInput = {
   subjects?: string[];
   qualifications?: string | null;
   lessonPrice?: number | null;
-  /** Flat piasters the center takes per lesson (the legacy no-room split). */
   centerShare?: number | null;
 };
 
-/**
- * Register a teacher who will never log in.
- *
- * The guards are about not silently forking a person into two records:
- *   - an ACTIVE account on that phone/email means the person is already on the
- *     platform. Creating a shell beside it would split their history in two, so
- *     this refuses and points at the collaboration request, which is the path
- *     that connects a center to a real account.
- *   - a shell teacher this center already manages is a duplicate of itself.
- */
 export async function createExternalTeacher(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   input: CreateExternalTeacherInput,
@@ -277,10 +201,6 @@ export async function createExternalTeacher(
       where: {
         deletedAt: null,
         OR: [
-          // CASE-INSENSITIVE on purpose. This lookup is the thing standing
-          // between one person and two records of them, and "Ahmed@x.io" is
-          // the same inbox as "ahmed@x.io". Matching exactly would let a
-          // capital letter fork a teacher's history in two.
           ...(email ? [{ email: { equals: email, mode: "insensitive" as const } }] : []),
           ...(phone ? [{ phone }] : []),
         ],
@@ -317,8 +237,6 @@ export async function createExternalTeacher(
         email,
         phone,
         role: "teacher",
-        // SHELL + no hash: refused by every password door until (and unless)
-        // the center converts them and they claim an invite.
         status: "shell",
         passwordHash: null,
       },
@@ -338,10 +256,6 @@ export async function createExternalTeacher(
       },
     });
 
-    // An off-system teacher is working with the center TODAY — there is nobody
-    // to accept an invitation, so the affiliation is born `active`. The expiry
-    // column is required by the model and meaningless here, so it is set far
-    // out rather than left to imply a pending invite that will never arrive.
     const affiliation = await tx.centerTeacherAffiliation.create({
       data: {
         centerId,
@@ -387,24 +301,12 @@ export async function createExternalTeacher(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Read
-// ---------------------------------------------------------------------------
-
 export type TeacherListFilters = {
-  /** `external` | `enrolled` | omitted = BOTH, which is the default view. */
   systemStatus?: TeacherSystemStatus | null;
   q?: string | null;
   includeRemoved?: boolean;
 };
 
-/**
- * The center's teachers — off-system and on-platform TOGETHER by default.
- *
- * Combining them is the whole point of the feature: a center that has to look
- * in two places does not have one picture. `systemStatus` narrows it only when
- * the operator explicitly asks.
- */
 export async function listCenterTeachers(
   acting: SessionUser,
   filters: TeacherListFilters = {},
@@ -425,20 +327,7 @@ export async function listCenterTeachers(
       tx.user.findMany({
         where: {
           id: { in: teacherIds },
-          // `removeExternalTeacher` soft-deletes the user row as well as
-          // flagging the affiliation, and `softDeleteExtension` injects
-          // `deletedAt: null` into EVERY user.findMany. Without this line the
-          // removed teacher's user row is invisible here, the row is dropped by
-          // the `userMap.has` filter below, and `includeRemoved` silently
-          // returns nothing — which also made Restore unreachable from the UI,
-          // since the screen can only offer it on a row it can list.
-          // A key supplied by the caller wins (the extension spreads the
-          // caller's `where` OVER its default), and `undefined` is Prisma's
-          // "no filter" — so this asks for both kinds only when asked.
           ...(filters.includeRemoved ? { deletedAt: undefined } : {}),
-          // NARROW here, DECIDE below — `%احمد%` matched nothing against a row
-          // stored «أحمد», so filtering this list by name emptied it. See the
-          // two-stage note in `services/search/global-search.ts`.
           ...(searchTerms(filters.q ?? "").length
             ? {
                 AND: narrowFragments(literalFragments(filters.q ?? ""), (f) => [
@@ -472,9 +361,6 @@ export async function listCenterTeachers(
         },
       }),
     ]);
-    // The DECIDE half. The fragment pre-filter above is deliberately loose —
-    // «حمد» also matches «محمد» — so the normalized comparison happens here,
-    // over a set already bounded to this center's affiliated teachers.
     const terms = searchTerms(filters.q ?? "");
     const matched = terms.length
       ? users.filter((u) => matchesSearchTerms([u.name, u.phone], terms))
@@ -494,8 +380,6 @@ export async function listCenterTeachers(
       .map((a) => {
         const u = userMap.get(a.teacherId)!;
         const p = profileMap.get(a.teacherId);
-        // Default-enrolled: a teacher with no profile row predates this feature
-        // and is by definition an on-platform teacher, never an off-system one.
         const systemStatus: TeacherSystemStatus = p?.systemStatus ?? "enrolled";
         return {
           id: a.teacherId,
@@ -515,7 +399,6 @@ export async function listCenterTeachers(
           centerShare: a.centerShare,
           affiliationStatus: a.status,
           removed: a.status === "removed",
-          // "Invite sent, not claimed yet" — only meaningful mid-conversion.
           pendingClaim: systemStatus === "enrolled" && u.passwordHash === null,
           createdAt: a.createdAt,
         };
@@ -526,7 +409,6 @@ export async function listCenterTeachers(
   });
 }
 
-/** One off-system teacher plus what is attached to them right now. */
 export async function getExternalTeacher(acting: SessionUser, teacherId: string) {
   const centerId = centerOf(acting);
   return scopedDb(acting, async (tx) => {
@@ -572,10 +454,6 @@ export async function getExternalTeacher(acting: SessionUser, teacherId: string)
     };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Update / soft-remove / restore
-// ---------------------------------------------------------------------------
 
 export type UpdateExternalTeacherInput = {
   fullName?: string;
@@ -691,19 +569,6 @@ export async function updateExternalTeacher(
   });
 }
 
-/**
- * SOFT removal only — there is no hard-delete path for a teacher anywhere in
- * this module, and that is not a policy note, it is the absence of a code path.
- * A teacher who taught a single settled lesson sits in the immutable ledger
- * forever; deleting their row would leave those money entries pointing at
- * nothing.
- *
- * Removing ends the affiliation and puts the account beyond use
- * (`status='deleted'` + `deleted_at`), which is what the platform already means
- * by a removed account. Their courses, attendance, grades and money are all
- * left exactly where they are — `restoreExternalTeacher` brings the teacher
- * back to the same records.
- */
 export async function removeExternalTeacher(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -748,8 +613,6 @@ export async function removeExternalTeacher(
       targetType: "teacher",
       targetId: teacherId,
       before: { affiliationStatus: affiliation.status, systemStatus: profile.systemStatus },
-      // Recorded so the reversal is verifiable: restore must land on the same
-      // numbers.
       after: { affiliationStatus: "removed", reason: reason.trim(), recordsKept: records },
     });
 
@@ -776,7 +639,6 @@ export async function restoreExternalTeacher(
       where: { id: affiliation.id },
       data: { status: "active", removedAt: null },
     });
-    // Back to the state an external teacher lives in: a shell with no password.
     await tx.user.update({
       where: { id: teacherId },
       data: { status: "shell", deletedAt: null },
@@ -797,33 +659,14 @@ export async function restoreExternalTeacher(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Conversion — external <-> enrolled
-// ---------------------------------------------------------------------------
-
 export type ConversionResult = {
   teacherId: string;
   fromStatus: TeacherSystemStatus;
   toStatus: TeacherSystemStatus;
-  /** Counts frozen inside the same transaction as the flip. */
   recordsPreserved: ExternalTeacherRecords;
   invite: { link: string; expiresAt: Date; email: DeliveryResult } | null;
 };
 
-/**
- * The teacher decided to join. Flip the record and invite them in.
- *
- * WHAT MOVES: nothing. The teacher keeps the user id they have had since the
- * center first typed them in, so every course, session, attendance row, grade,
- * payment and ledger entry stays attached with no write at all. The journal row
- * records the counts observed in this very transaction, so the claim is
- * checkable rather than asserted.
- *
- * The invite is the PROVEN claim kernel (invite_tokens + the better-auth
- * invite-token plugin, five gates) — not a teacher-specific login path. It is
- * issued after the transaction commits because its live-link gate reads the
- * committed `enrolled` status.
- */
 export async function convertToEnrolled(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -843,9 +686,6 @@ export async function convertToEnrolled(
       );
 
       const email = normalizeEmail(input.email) ?? user.email;
-      // An account with no address cannot be invited, and an account nobody can
-      // reach is not "on the platform" — so this is refused up front rather than
-      // producing a teacher who is `enrolled` and permanently locked out.
       if (!email) {
         throw new BusinessRuleError(
           "An email address is required before this teacher can join the platform",
@@ -865,16 +705,9 @@ export async function convertToEnrolled(
         where: { userId: teacherId },
         data: {
           systemStatus: "enrolled",
-          // Joining restores full control of their own records.
           accessLevel: "full",
         },
       });
-      // The account state after joining:
-      //   - has a password already (they were on the platform before and were
-      //     taken off-system) -> back to `active`, they can sign in again;
-      //   - no password yet -> `shell`, and the invite below is what turns that
-      //     into an account. `enrolled` describes the arrangement; the password
-      //     door still decides who actually gets in.
       await tx.user.update({
         where: { id: teacherId },
         data: {
@@ -942,27 +775,6 @@ export async function convertToEnrolled(
   };
 }
 
-/**
- * The other direction: a teacher who WAS on the platform stops using it, and
- * the center takes data entry back over.
- *
- * ACCESS IS CLOSED WITH THE MECHANISM THAT ALREADY EXISTS. Off-system means no
- * login — if the teacher could still sign in and write, two parties would be
- * entering the same records and neither would know which is authoritative. So
- * this sets `users.status`, which is the platform's ONE account-disabling gate:
- * `sessionRevocationExtension` bumps `token_version` in the same statement and
- * the `users_revoke_sessions` DB trigger deletes their live sessions, so the
- * next request is unauthenticated. No new gate, nothing to keep in sync — the
- * same reasoning as ONE SUSPENSION MECHANISM.
- *
- * `access_level` is deliberately NOT written here. It is the model's hook for a
- * future "the center let them look but not touch", and it stays at its default
- * until that is actually built and enforced — a column that claims a
- * restriction nothing enforces is worse than no column.
- *
- * Any outstanding invite dies with the flip too, because the claim endpoint's
- * live-link gate for `teacher_invite` demands system_status='enrolled'.
- */
 export async function convertToExternal(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -972,14 +784,6 @@ export async function convertToExternal(
   const reason = input.reason?.trim();
   if (!reason) throw new BusinessRuleError("A reason is required");
 
-  // PLATFORM CONTEXT, deliberately — and this is not a shortcut, it is the only
-  // way the question below can be answered. "Does this teacher also work with
-  // ANOTHER center?" is inherently cross-tenant, and under `scopedDb` the RLS
-  // policy on center_teacher_affiliations hides exactly the rows that would say
-  // yes, so the guard would pass every time. Nothing is loosened by it: every
-  // query here still narrows on `centerId` explicitly, which is this module's
-  // stated posture (see assertManagedExternalTeacher) rather than something
-  // left to row-level security.
   const recordsPreserved = await platformDb(async (tx) => {
     const affiliation = await tx.centerTeacherAffiliation.findFirst({
       where: { centerId, teacherId, status: "active" },
@@ -995,9 +799,6 @@ export async function convertToExternal(
     if (profile.systemStatus === "external") {
       throw new BusinessRuleError("This teacher is already off-system");
     }
-    // A teacher working with several centers cannot be taken off-system by one
-    // of them: the others would silently lose the person who writes their
-    // records. That is a conversation between centers, not a button.
     const otherCenters = await tx.centerTeacherAffiliation.count({
       where: { teacherId, status: "active", NOT: { centerId } },
     });
@@ -1017,14 +818,10 @@ export async function convertToExternal(
       where: { userId: teacherId },
       data: {
         systemStatus: "external",
-        // The center taking over data entry is the center responsible for the
-        // records from now on.
         managedByCenterId: centerId,
       },
     });
 
-    // Close the login. See the doc comment: this is the platform's existing
-    // account gate, and touching `status` is what fires session revocation.
     if (account && account.status === "active") {
       await tx.user.update({
         where: { id: teacherId },
@@ -1072,11 +869,6 @@ export async function convertToExternal(
   };
 }
 
-/**
- * Re-send the join invite. Refused once the teacher has a password: that would
- * be a center-controlled password-reset door on someone else's account — the
- * same rule the assistant and staff invites already hold.
- */
 export async function resendTeacherInvite(
   actor: { acting: SessionUser; actorId: string; onBehalfOf?: string | null },
   teacherId: string,
@@ -1156,8 +948,6 @@ async function sendTeacherInvite(input: {
     }),
   });
 
-  // Audited WITHOUT the token — invite_tokens holds only its hash, and an audit
-  // row is not a place to put a live credential.
   await platformDb(
     (tx) =>
       tx.auditLog.create({
@@ -1175,7 +965,5 @@ async function sendTeacherInvite(input: {
     console.error("[external-teacher] invite audit write failed");
   });
 
-  // The link is returned so the center can hand it over in person when the mail
-  // lands in spam — an invite in a junk folder must not strand a teacher.
   return { link, expiresAt, email };
 }

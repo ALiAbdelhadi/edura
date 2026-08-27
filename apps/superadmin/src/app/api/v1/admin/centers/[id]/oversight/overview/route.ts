@@ -3,7 +3,6 @@ import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { centerOverview } from "@/lib/services/admin/center-oversight";
 
-// Read-only center oversight. super_admin only; no write verb is exported.
 export const dynamic = "force-dynamic";
 
 export const GET = withErrors(async (_req, ctx) => {

@@ -56,17 +56,6 @@ const amiri = Amiri({
   variable: "--font-amiri",
 });
 
-/* ── the portal chrome's two faces (see packages/ui/src/styles/chrome-2026.css)
- *
- * Alexandria is the whole reason the 2026 direction is affordable: ONE variable
- * face carrying BOTH Arabic and Latin at display weights, where the retired
- * system needed Amiri and Cormorant side by side and a branch to pick between
- * them. No `weight` array — that is what requests the variable axis rather than
- * a handful of static cuts.
- *
- * Inter is the chrome's body face, and loading it FIXES something: `--lat-body`
- * is Lora, a serif, so every English nav label in the product has been
- * rendering in a serif. */
 const alexandria = Alexandria({
   subsets: ["arabic", "latin"],
   variable: "--font-alexandria",
@@ -125,22 +114,6 @@ export async function generateMetadata({
   };
 }
 
-/* THE ROOT LAYOUT READS NOTHING PER-REQUEST, AND THAT IS THE POINT.
- *
- * It used to `await getSessionUser()` here, purely to hand PostHog an identity
- * on the first render. Reading cookies in the layout that every page renders
- * under made all 122 pages server-rendered on every request — including /help,
- * /faq, /terms, /privacy, /changelog, /contact and /pricing, which declare
- * `generateStaticParams` and hold nothing per-user. apps/superadmin's root
- * layout never made that call, which is exactly why its /login and /two-factor
- * prerender and erp's did not.
- *
- * Identity moved to `AnalyticsIdentity`, mounted by the six portal layouts,
- * which read the session anyway via `requirePortal`. Nothing is fetched twice.
- *
- * Anything added here that touches cookies(), headers() or the session will
- * silently make the whole app dynamic again. The route census in
- * cleanup-plan-phase3.md is the check. */
 export default async function RootLayout({
   children,
   params,

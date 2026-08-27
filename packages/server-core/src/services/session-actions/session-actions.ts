@@ -94,15 +94,6 @@ export async function postponeSession(
         throw new ForbiddenError("Only the assigned teacher can postpone this session");
       }
       if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
-      // A settled session cannot be MOVED, for the same reason it cannot be
-      // cancelled: its revenue has already been distributed, and the settlement
-      // record — including the present_count frozen at the time — is tied to
-      // the session as it was. Changing its date afterwards detaches the money
-      // from the lesson it paid for.
-      //
-      // This guard was missing here while cancelSession had it (found while
-      // building the superadmin parity surface, added 2026-07-26). Both paths
-      // now refuse identically.
       if (existing.status === "completed" || existing.distributedAt) {
         throw new BusinessRuleError(
           "A completed session cannot be postponed; its revenue is already distributed",

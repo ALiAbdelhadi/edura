@@ -10,26 +10,6 @@ import { useOnDemand } from "@/lib/api/use-on-demand";
 import type { StudentCard } from "@repo/server-core/services/students/student-card";
 import { StudentIdCard } from "./student-id-card";
 
-/**
- * The card on the account screen.
- *
- * This is where the request originally pointed — "the ID shows up on their
- * account page" — so the card itself is here, not a link to it.
- *
- * ── IT COSTS THE ACCOUNT SCREEN NOTHING UNTIL IT IS PRESSED ────────────────
- *
- * It used to fetch on mount, which meant every visit to Settings — for any
- * reason, to change a password or a phone number — built a card and signed a
- * QR nobody had asked to see. Now the section renders a button and issues NO
- * request at all until the reader wants the card.
- *
- * The completeness gate is NOT re-checked here. `buildStudentCard` refuses an
- * incomplete profile, and the full card screen is the one place equipped to
- * explain WHY and link to each fix; duplicating that explanation on the
- * account screen would be a second copy of a rule that already has an owner.
- * So a refusal here degrades to the one thing that is useful in this context:
- * a link to the screen that can explain it.
- */
 export function StudentIdSettingsCard() {
   const t = useTranslations("studentIdCard");
   const locale = useLocale();
@@ -56,8 +36,6 @@ export function StudentIdSettingsCard() {
       ) : req.loading ? (
         <SkeletonRows rows={3} />
       ) : !card || card.isPending ? (
-        // Refused, or not issued yet. The account screen is not the place to
-        // teach onboarding — it points at the screen that is.
         <>
           <p className="text-[13px]" style={{ color: "var(--ink-2)" }}>
             {t("incompleteBody")}

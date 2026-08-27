@@ -4,21 +4,6 @@ import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
-// ---------------------------------------------------------------------------
-// COUNTER BOARD demo — a center with a lesson RUNNING RIGHT NOW.
-//
-// The board's whole argument is that it opens on the hall that is currently
-// full, so a fixture with lessons "sometime today" would demonstrate nothing:
-// the times below are computed from the CAIRO clock at seed time, and one
-// lesson is deliberately straddling this minute.
-//
-// ZERO money rows (per the Conventions rule): no Payment, no Transaction, no
-// Subscription, no attendance. Every student therefore shows as unpaid and the
-// "checked in" tab starts at zero — which is the state the screen exists to
-// resolve. Collect the cash on the board and watch both tabs move; that is the
-// part worth seeing, and it runs the real money engine rather than a fixture.
-// ---------------------------------------------------------------------------
-
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 
@@ -65,7 +50,6 @@ const COURSE_LIVE = did("course:live");
 const COURSE_LATER = did("course:later");
 const COURSE_SAMIA = did("course:samia");
 
-// ── The Cairo clock, which is the clock the schedule is written in ─────────
 const CAIRO = "Africa/Cairo";
 const dayKey = new Intl.DateTimeFormat("en-CA", {
   timeZone: CAIRO,
@@ -73,7 +57,6 @@ const dayKey = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit",
 }).format(new Date());
-/** Minutes past Cairo midnight, right now. */
 const nowMinutes = (() => {
   const [h, m] = new Intl.DateTimeFormat("en-GB", {
     timeZone: CAIRO,
@@ -86,12 +69,10 @@ const nowMinutes = (() => {
     .map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
 })();
-/** `HH:MM`, clamped inside the day so a seed run at 23:50 still makes sense. */
 const clock = (minutes: number) => {
   const m = Math.max(0, Math.min(24 * 60 - 1, minutes));
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 };
-/** Session `date` is a day, anchored at midnight UTC like every other one. */
 const TODAY = new Date(`${dayKey}T00:00:00.000Z`);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 const daysAhead = (n: number) => new Date(Date.now() + n * 86_400_000);
@@ -114,12 +95,6 @@ async function purge() {
     });
     const courseIds = courses.map((c) => c.id);
 
-    // MONEY ROWS FIRST, and they are here for one reason: this seed writes
-    // none, but collecting cash on the board is exactly what it asks you to
-    // do, and a purge that left the receipts behind would strand them against
-    // a deleted center — and against a RE-CREATED one, since the ids are
-    // deterministic, so the next run would open on a center already carrying
-    // last session's takings.
     await tx.payment.deleteMany({ where: { centerId: { in: centerIds } } });
     await tx.subscription.deleteMany({ where: { courseId: { in: courseIds } } });
 
@@ -136,8 +111,6 @@ async function purge() {
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -163,7 +136,6 @@ async function main() {
   const hash = await bcrypt.hash(PASSWORD, 10);
   console.log("Seeding counter-board demo…");
 
-  // One lesson straddles this minute; one has finished; one is still to come.
   const LESSONS = [
     {
       key: "earlier",
@@ -217,11 +189,6 @@ async function main() {
       });
     }
 
-    // `onboardingCompleted` MUST be true, and it is not cosmetic: without it
-    // the owner is redirected to the center-onboarding wizard on every visit
-    // and can never reach /dashboard/admin/counter — the one screen this whole
-    // fixture exists to populate. Every field the wizard asks for is already
-    // set below, so the flag was the only thing missing.
     await tx.center.upsert({
       where: { id: CENTER },
       update: { isDemo: true, onboardingCompleted: true },
@@ -399,9 +366,6 @@ async function main() {
       });
     }
 
-    // Eight children in the lesson that is running, four in Samia's, and the
-    // last two enrolled NOWHERE — they are the ones you find with the search
-    // box and check into a lesson they are not on the roster of.
     const enrollments = [
       ...STUDENTS.slice(0, 8).map((s) => ({ student: s, course: COURSE_LIVE })),
       ...STUDENTS.slice(4, 8).map((s) => ({ student: s, course: COURSE_SAMIA })),

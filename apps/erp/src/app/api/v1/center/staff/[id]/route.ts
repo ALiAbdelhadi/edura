@@ -7,8 +7,6 @@ import { removeStaff, updateStaff } from "@/lib/services/center/staff";
 
 export const dynamic = "force-dynamic";
 
-// Owner-only (HARD EXCLUSION #4). `[id]` is the CenterStaff link id.
-
 const patchSchema = z
   .object({
     role: z.enum(["receptionist", "manager", "center_accountant"]).optional(),

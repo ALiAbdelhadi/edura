@@ -12,10 +12,6 @@ const bodySchema = z.object({
   email: z.string().email().toLowerCase().trim(),
 });
 
-// L4: this endpoint resolves an account by an exact email the caller already
-// holds. We return only two booleans — never the teacher's id, name, or email —
-// so a single probe reveals no PII beyond existence, and rate-limiting (20
-// burst, 20/min per IP) stops it being used to sweep the user base.
 export const POST = withRateLimit(
   withErrors(async (req) => {
     const user = await requireRole("center_admin");

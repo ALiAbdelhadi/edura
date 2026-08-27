@@ -1,29 +1,3 @@
-/**
- * Push registration ownership (M-2) — device tokens and web-push subscriptions.
- *
- * The bug this locks down: both POST handlers were a bare `upsert` on the
- * unique credential (`token` / `endpoint`) whose UPDATE branch set
- * `userId: <caller>` unconditionally. Knowing another account's token was
- * therefore enough to repoint that registration at yourself — silently, with no
- * ownership check — after which the real owner stopped receiving push
- * notifications entirely. For a parent that means missing attendance and
- * child-safety alerts. The web-push variant additionally rewrote the channel's
- * `p256dh`/`auth` encryption keys. Measured over HTTP 2026-08-18: a student
- * registered a token, a teacher POSTed the same string, and the row's owner
- * flipped to the teacher.
- *
- * Both DELETE routes already scoped by `userId` — the POSTs were the one place
- * that did not, which is why this is an oversight rather than a design.
- *
- * A token CAN legitimately change hands (a shared family phone, a resold
- * handset), so a transfer is still allowed. What is proven here is that a
- * transfer is an explicit RE-REGISTRATION — the previous owner's row is
- * deleted, never repointed — and that nothing of the previous owner survives.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only push-registration-ownership
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   registerDeviceToken,
@@ -54,12 +28,6 @@ const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
 const su = (id: string): SessionUser => ({ id, role: "student" }) as SessionUser;
 
-/**
- * Calls the REAL service the routes call — not a copy of it. An earlier draft
- * of this suite re-implemented the three statements inline, which would have
- * kept passing had the route regressed; binding to the shipped function is the
- * whole point of a regression proof.
- */
 const register = (userId: string, token: string, platform: "ios" | "android" | "web") =>
   registerDeviceToken(su(userId), { token, platform });
 

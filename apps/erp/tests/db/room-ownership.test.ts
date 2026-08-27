@@ -1,18 +1,3 @@
-/**
- * Room ownership — a center can manage ONLY its own rooms.
- *
- * Proves:
- *  - requireCenterScope (the gate every room write path uses) blocks a
- *    cross-center id and allows the caller's own.
- *  - uploadRoomPhoto through the real service is blocked for another center's
- *    room (RLS hides it under the caller's tenant → the write can't happen).
- *  - a center_admin CAN set profile fields (features/photos/price) on its OWN
- *    room, and cannot even see another center's room under its tenant scope.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only room-ownership
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withTenant, withPlatformContext } from "@repo/database";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
@@ -22,13 +7,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "room-ownership.test.ts";
 
@@ -53,8 +31,6 @@ async function expectThrows(fn: () => Promise<unknown>, label: string) {
 }
 
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
-// Minimal valid PNG signature so the magic-byte check passes and execution
-// reaches the ownership gate (never actually uploaded for the cross-center case).
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 
 async function main() {
@@ -79,7 +55,6 @@ async function main() {
 
   const userA: SessionUser = { id: fx.A.adminId, role: "center_admin", centerId: fx.A.centerId } as SessionUser;
 
-  // --- requireCenterScope gate ---
   expectThrowsSync(() => requireCenterScope(userA, fx.B.centerId), ForbiddenError, "requireCenterScope BLOCKS another center's id");
   let ownOk = true;
   try {
@@ -89,14 +64,12 @@ async function main() {
   }
   assert(ownOk, "requireCenterScope ALLOWS the caller's own center id");
 
-  // --- uploadRoomPhoto through the real service, cross-center ---
   const file = new File([new Uint8Array(PNG)], "x.png", { type: "image/png" });
   await expectThrows(
     () => uploadRoomPhoto(fx.B.roomId, file, userA),
     "center A cannot upload a photo to center B's room",
   );
 
-  // --- positive: center A manages its OWN room; B's room invisible under A ---
   const managed = await withTenant(fx.A.centerId, async (tx) => {
     const updated = await tx.room.update({
       where: { id: fx.A.roomId },

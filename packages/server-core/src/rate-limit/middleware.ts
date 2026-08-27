@@ -10,7 +10,6 @@ export function withRateLimit(
   perMinute: number,
 ): Handler {
   return async (req, ctx) => {
-    // M3: trusted proxy hop, not the spoofable leftmost XFF entry.
     const ip = trustedClientIp((n) => req.headers.get(n));
     const url = new URL(req.url);
     const key = `${url.pathname}:${ip}`;

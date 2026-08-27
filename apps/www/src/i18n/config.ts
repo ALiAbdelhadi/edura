@@ -12,7 +12,6 @@ export function dirOf(locale: Locale): "rtl" | "ltr" {
   return locale === "ar" ? "rtl" : "ltr";
 }
 
-/** The other locale — the language switch is a toggle, not a menu. */
 export function otherLocale(locale: Locale): Locale {
   return locale === "ar" ? "en" : "ar";
 }

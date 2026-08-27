@@ -2,22 +2,11 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-/**
- * EVERY BACK-OFFICE PORTAL MUST ACTUALLY MOUNT A TOUR.
- *
- * The www twin of this test exists because a tour had already been orphaned
- * there — written, translated, tested, and rendered by nothing. This app has
- * the same exposure and no browser walk to fall back on (2FA is mandatory), so
- * reachability is asserted rather than assumed.
- */
-
 const ROOT = path.join(process.cwd(), "src");
 const DASHBOARD = path.join(ROOT, "app", "[locale]", "dashboard");
 
-/** Both portals in this app: the super admin's and the accountant's. */
 const PORTALS = ["superadmin", "finance"];
 
-/** Depth ONE — see the www twin for why a deeper search proves nothing. */
 function mountsTour(pageFile: string): boolean {
   let src: string;
   try {
@@ -58,7 +47,6 @@ describe("back-office guided tour coverage", () => {
     const onDisk = readdirSync(DASHBOARD).filter((e) =>
       statSync(path.join(DASHBOARD, e)).isDirectory(),
     );
-    // A new portal added without a tour fails here rather than shipping silent.
     expect(onDisk.sort()).toEqual([...PORTALS].sort());
   });
 });

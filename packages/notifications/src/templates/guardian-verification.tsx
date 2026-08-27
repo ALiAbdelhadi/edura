@@ -3,20 +3,6 @@ import { normalizeLocale, type Locale } from "../locale";
 import type { GuardianVerificationData } from "../types";
 import { Cta, EmailLayout, FallbackLink, Note, P } from "./layout";
 
-// =============================================================================
-// Guardian email verification.
-//
-// Goes TO the guardian address itself — that is the entire point: the click is
-// what proves the address reaches an adult who accepts the role.
-//
-// The recipient is NOT a user of this platform and the link signs nobody in.
-// It carries a single-use token that can do exactly one thing: mark this
-// address confirmed. The copy says so plainly, because an unexplained link
-// asking a parent to click is indistinguishable from phishing.
-//
-// The child's name is included: a guardian who receives this for a child they
-// do not know needs to be able to tell, and that is the case worth catching.
-// =============================================================================
 const COPY = {
   ar: {
     subject: (s: string) => `تأكيد بريد ولي أمر ${s} - Edura`,

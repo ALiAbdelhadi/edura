@@ -50,8 +50,6 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   registration_approved: C(true, true, true, false),
   registration_rejected: C(true, false, true, false),
   blacklist_action: C(true, true, true, false),
-  // H-04: operational heads-up to the course owner (a lifted blacklist put a
-  // student back into a now-full course). In-app + push; no email/SMS noise.
   enrollment_restored_over_capacity: C(true, true, false, false),
   payout_approved: C(true, true, true, false),
   classroom_request: C(true, true, false, false),
@@ -59,22 +57,12 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   lesson_reminder: C(true, true, false, false),
   homework_deadline: C(true, true, false, false),
   invite_code_sent: C(false, false, false, true),
-  // Child safety escalation. In-app + push only: the whole point is that we do
-  // NOT yet have a guardian email to write to, and the student's own inbox is
-  // the channel this rule exists to avoid using.
   guardian_contact_required: C(true, true, false, false),
   new_chat_message: C(true, true, false, false),
   chat_group_message: C(true, true, false, false),
-  // Safety escalation — in-app + push to the reviewing staff, never SMS/email
-  // (report details can contain a minor's own words; keep them in-platform).
   chat_report_filed: C(true, true, false, false),
-  // Team notes: internal team coordination (center staff / teacher's
-  // assistants). In-app + push only — never email/SMS noise.
   team_note_created: C(true, true, false, false),
   team_note_status_changed: C(true, true, false, false),
-  // Renewal reminder (B.1#12): in-app + push, same posture as lesson_reminder.
-  // WhatsApp is the market channel but stays off until templates are approved;
-  // adding it later is a flag flip here, not a new path.
   subscription_expiring: C(true, true, false, false),
 };
 
@@ -113,9 +101,6 @@ export async function notify(
     role: string;
     locale: string;
   }[] = [];
-  // Push needs this read too, not only email/SMS: a deep link is portal- AND
-  // locale-specific (see deep-link.ts), and neither is knowable from the
-  // recipient id alone. One query serves all three channels.
   if ((ch.email || ch.sms || ch.fcm) && recipients.length > 0) {
     contacts = await platformDb((tx) =>
       tx.user.findMany({
@@ -170,9 +155,6 @@ export async function notify(
       recipients.flatMap((uid) => {
         const id = uid.toString();
         const who = byId.get(id);
-        // Without a URL the service worker falls back to the app root, which is
-        // where every push landed before this: delivered, then dropped on the
-        // doorstep. A recipient we could not resolve keeps that fallback.
         const url =
           notificationUrlForRole(input.type, who?.role, who?.locale) ??
           undefined;

@@ -12,12 +12,6 @@ const bodySchema = z
   .object({ locale: z.enum(["ar", "en"]).optional() })
   .strict();
 
-/**
- * Re-send an assistant's claim link. Ownership is enforced in the service (the
- * link must belong to THIS teacher), and a re-send mints a fresh token that
- * invalidates the previous one, so an old link stops working the moment a new
- * one is issued. Refused outright once the assistant has set a password.
- */
 export const POST = withRateLimit(
   withErrors(async (req, ctx) => {
     const teacher = await requireRole("teacher");

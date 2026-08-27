@@ -1,30 +1,3 @@
-/**
- * unlinkParent — the link must belong to the student in the URL (L-7).
- *
- * The bug this locks down: the service selected the link by `linkId` ALONE and
- * the route awaited `ctx.params` only to discard it. So
- *
- *     DELETE /api/v1/admin/students/<A>/unlink-parent?linkId=<B's link>
- *
- * returned 200, revoked student B's parent link, and wrote a
- * `student.unlinked_parent` audit row for an action whose URL named student A.
- * Measured over HTTP 2026-08-18.
- *
- * Not a privilege hole — a super_admin may unlink any link — but it leaves the
- * audit trail unable to reconstruct what was intended, and a parent link is
- * precisely what the messaging guardian gate consults for a minor, so severing
- * the wrong one has child-safety consequences.
- *
- * Proves:
- *  1. a linkId that belongs to ANOTHER student is refused, and that student's
- *     link is left untouched (no partial mutation, no audit row);
- *  2. the correct student still unlinks normally;
- *  3. an already-revoked link is still refused (the pre-existing guard).
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only unlink-parent-scope
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { unlinkParent } from "@/lib/services/admin/platform";
 
@@ -61,7 +34,6 @@ async function main() {
   __sweepTag = tag;
   console.log("unlinkParent scope DB tests —", tag);
 
-  // Two unrelated parent/student pairs, each with an approved link.
   const fx = await withPlatformContext(async (tx) => {
     const admin = await tx.user.create({
       data: { name: `${tag}-admin`, role: "super_admin", email: `${tag}-admin@x.io`, status: "active" },
@@ -99,7 +71,6 @@ async function main() {
   console.log("\n[1] a link belonging to ANOTHER student is refused");
   const auditBefore = await auditCount();
   await expectThrows(
-    // student A named in the path, but B's link id supplied
     () => unlinkParent(fx.B.linkId, fx.A.studentId, fx.adminId),
     "unlinkParent(B's link, student A) is refused",
   );

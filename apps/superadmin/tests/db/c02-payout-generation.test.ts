@@ -1,26 +1,3 @@
-// C-02 proof — payout generation must complete reliably at realistic scale
-// WITHOUT changing a single number, and without weakening H1 or H2.
-//
-// The test seeds is_demo beneficiaries on top of whatever the DB already holds,
-// then proves, against the REAL generatePayouts() service:
-//
-//   (1) the pre-fix implementation (copied verbatim below) still blows the 20 s
-//       interactive-transaction ceiling on this dataset — C-02 reproduced;
-//   (2) MATH UNCHANGED — the pre-fix implementation, replayed inside a rolled-
-//       back transaction so it commits nothing, produces byte-identical
-//       netPayable / grossAmount / commission / lessonCount for every single
-//       beneficiary;
-//   (3) the fixed implementation completes, with timing, at 45+ beneficiaries;
-//   (4) EXACTLY-ONCE — re-running generates nothing and duplicates nothing;
-//   (5) H1 NOT WEAKENED — a concurrent payout request holding the beneficiary
-//       row lock still wins/loses cleanly, and two concurrent generators cannot
-//       double-reserve a wallet;
-//   (6) PARTIAL FAILURE IS SAFE — a forced mid-batch failure leaves every
-//       beneficiary either fully generated or untouched (never half), and the
-//       re-run resumes to exactly the state a clean single run would produce.
-//
-// Everything created here is flagged is_demo and deleted at the end; the final
-// section asserts the DB is back to its pre-test row counts.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { randomUUID } from "node:crypto";
 import { withPlatformContext, type TenantTx } from "@repo/database";
@@ -33,8 +10,6 @@ const admin = testPool();
 const TAG = "c02-" + randomUUID().slice(0, 8);
 const DEMO_TEACHERS = 30;
 const DEMO_CENTERS = 30;
-// Mirrors GENERATION_CHUNK_SIZE in the service — the test asserts chunk-level
-// atomicity, so it has to know the boundary.
 const CHUNK_SIZE = 25;
 const BOMB_CONSTRAINT = "c02_partial_failure_probe";
 
@@ -43,8 +18,6 @@ let fail = 0;
 const ok = (c: boolean, m: string) => {
   c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m));
 };
-// The admin pool occasionally drops a Neon connection mid-run; retry once so a
-// transient disconnect can never strand seeded rows before cleanup.
 async function q<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -57,11 +30,6 @@ async function q<T = Record<string, unknown>>(sql: string, params: unknown[] = [
   }
 }
 
-// ---------------------------------------------------------------------------
-// The PRE-FIX implementation, copied verbatim from
-// apps/superadmin/src/lib/services/finance/payouts.ts (git 9be4271), extended
-// only to return the full row it created so all four numbers can be compared.
-// ---------------------------------------------------------------------------
 type PayoutRow = {
   beneficiaryType: string;
   beneficiaryId: string;
@@ -165,7 +133,6 @@ async function legacyGeneratePayouts(tx: TenantTx): Promise<PayoutRow[]> {
 
 class Rollback extends Error {}
 
-/** Run the legacy generator and ALWAYS roll it back — it commits nothing. */
 async function legacyRolledBack(timeout: number): Promise<{ rows: PayoutRow[]; err: unknown; ms: number }> {
   let rows: PayoutRow[] = [];
   let err: unknown = null;
@@ -184,14 +151,8 @@ async function legacyRolledBack(timeout: number): Promise<{ rows: PayoutRow[]; e
   return { rows, err, ms: Date.now() - t0 };
 }
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
 type Snapshot = { users: number; teachers: number; centers: number; payouts: number; txns: number };
 
-// Rows carrying THIS run's tag, plus the global payout count. Scoped to the tag
-// on purpose: the shared dev DB gets written by other seeds/tests concurrently,
-// so a whole-table count would report their rows as our leak.
 async function snapshot(): Promise<Snapshot> {
   const r = await q<{ users: string; teachers: string; centers: string; payouts: string; txns: string }>(
     `SELECT (SELECT COUNT(*) FROM users WHERE name LIKE $1) users,
@@ -210,8 +171,6 @@ async function snapshot(): Promise<Snapshot> {
 }
 
 async function seed(): Promise<{ teacherIds: string[]; centerIds: string[]; actorId: string }> {
-  // Generation is audited to the staff member who ran it, so the test needs a
-  // real actor row (cleaned up with the rest of the TAG fixtures).
   const actorId = (
     await q<{ id: string }>(
       `INSERT INTO users (email, role, name, status, is_demo, updated_at)
@@ -248,14 +207,6 @@ async function seed(): Promise<{ teacherIds: string[]; centerIds: string[]; acto
     )
   ).map((r) => r.id);
 
-  // Commission history for the first few demo teachers, deliberately covering
-  // the shapes where the bulk SQL aggregate could diverge from the pre-fix
-  // per-beneficiary Prisma `distinct`:
-  //   [0] repeated lesson id  -> distinct collapses to 2
-  //   [1] ONLY NULL lesson ids -> Prisma counts NULL as one value; plain SQL
-  //                               COUNT(DISTINCT …) would say 0
-  //   [2] mixed NULL + real    -> 1 real + 1 for the NULL bucket = 2
-  //   [3] single lesson        -> 1
   const l1 = randomUUID(), l2 = randomUUID(), l3 = randomUUID();
   const commissions: [string, string | null, number][] = [
     [teacherIds[0], l1, 400], [teacherIds[0], l1, 350], [teacherIds[0], l2, 275],
@@ -289,12 +240,8 @@ async function cleanup(since: Date) {
   await q(`DELETE FROM users WHERE name LIKE $1`, [`${TAG}%`]);
 }
 
-// ---------------------------------------------------------------------------
 const key = (r: { beneficiaryType: string; beneficiaryId: string }) => `${r.beneficiaryType}:${r.beneficiaryId}`;
 
-// Every beneficiary the generator considers, with the funds already reserved by
-// open payouts. `avail > 0` is exactly the generator's create/skip predicate, so
-// this is an independent oracle for "how many payouts should this run produce".
 type Beneficiary = { id: string; kind: string; bal: number; reserved: number };
 async function beneficiaryAvailability(): Promise<Beneficiary[]> {
   const rows = await q<{ id: string; kind: string; bal: number; reserved: number }>(
@@ -349,7 +296,6 @@ async function main() {
     console.log(`  seeded ${DEMO_TEACHERS} demo teachers + ${DEMO_CENTERS} demo centers (is_demo)`);
     console.log(`  → live beneficiary count for this run: ${nTeachers} teachers + ${nCenters} centers = ${nBeneficiaries}`);
 
-    // -----------------------------------------------------------------------
     console.log(`\n(1) C-02 reproduced — pre-fix implementation at the production 20 s ceiling:`);
     const repro = await legacyRolledBack(20_000);
     const reproMsg = repro.err instanceof Error ? repro.err.message.replace(/\s+/g, " ") : "none";
@@ -359,7 +305,6 @@ async function main() {
       `pre-fix run FAILED after ${repro.ms} ms: "…${(reproMsg.match(/Transaction API error.{0,150}/) ?? [reproMsg.slice(0, 150)])[0]}"`,
     );
 
-    // -----------------------------------------------------------------------
     console.log(`\n(2) MATH UNCHANGED — pre-fix vs fixed, same DB state, per beneficiary:`);
     const legacy = await legacyRolledBack(600_000);
     ok(legacy.err === null, `pre-fix replay completed in ${legacy.ms} ms with a 600 s ceiling (rolled back — wrote nothing)`);
@@ -371,8 +316,6 @@ async function main() {
     const fixed = await generatePayouts(ACTOR);
     const fixedMs = Date.now() - t0;
 
-    // Generation is AUDITED (2026-07-23): one row per committed chunk, so the
-    // counts across them must add up to exactly what the run reported.
     const genAudit = await q<{ actor_id: string; after_state: { count: number; totalNetPayable: number } }>(
       `SELECT actor_id, after_state FROM audit_logs
         WHERE action = 'payout.generated' AND actor_id = $1`,
@@ -392,7 +335,6 @@ async function main() {
       `same beneficiary set: pre-fix ${legacy.rows.length} vs fixed ${fixed.generated}`,
     );
 
-    // Compare all FOUR money columns from the rows actually persisted.
     const persisted = await payoutRowsFor([...teacherIds, ...centerIds, ...legacy.rows.map((r) => r.beneficiaryId)]);
     let mismatches = 0;
     let compared = 0;
@@ -417,7 +359,6 @@ async function main() {
     ok(compared === legacy.rows.length && mismatches === 0,
       `netPayable + grossAmount + commission + lessonCount identical for all ${compared} beneficiaries`);
 
-    // The NULL-lessonId shapes specifically (where SQL COUNT(DISTINCT) would drift).
     const nullCases = persisted.filter((r) => r.beneficiary_id === teacherIds[1] || r.beneficiary_id === teacherIds[2] || r.beneficiary_id === centerIds[0]);
     const expectLessons: Record<string, number> = { [teacherIds[1]]: 1, [teacherIds[2]]: 2, [centerIds[0]]: 2 };
     ok(
@@ -426,7 +367,6 @@ async function main() {
         nullCases.map((r) => `${r.lesson_count}`).join("/") + " (expected 1/2/2)",
     );
 
-    // -----------------------------------------------------------------------
     console.log(`\n(3) SCALE + TIMING:`);
     console.log(`    pre-fix : ${legacy.ms} ms for ${nBeneficiaries} beneficiaries (FAILS at the real 20 000 ms ceiling)`);
     console.log(`    fixed   : ${fixedMs} ms for ${nBeneficiaries} beneficiaries, ${fixed.generated} payouts generated`);
@@ -434,7 +374,6 @@ async function main() {
       `all ${expectedGenerated} payable beneficiaries generated in one call (of ${nBeneficiaries} with a positive wallet)`);
     ok(fixedMs < 20_000, `completed in ${fixedMs} ms — under the 20 000 ms interactive-transaction ceiling`);
 
-    // -----------------------------------------------------------------------
     console.log(`\n(4) EXACTLY-ONCE — re-running generation:`);
     const rerun = await generatePayouts(ACTOR);
     ok(rerun.generated === 0, `second run generated 0 payouts (was ${fixed.generated})`);
@@ -455,13 +394,9 @@ async function main() {
     );
     ok(overdraw.length === 0, "no wallet is over-reserved (reserved <= balance for every beneficiary)");
 
-    // -----------------------------------------------------------------------
     console.log(`\n(5) H1 NOT WEAKENED:`);
     await q(`DELETE FROM payouts WHERE created_at >= $1`, [testStart]);
 
-    // (5a) cross-path: a self-service payout request holds the beneficiary row
-    // lock and inserts its own payout while generation is running. Generation
-    // must BLOCK on that row and then see the committed reservation.
     const victim = teacherIds[0];
     const victimBal = Number((await q<{ wallet_balance: number }>(
       `SELECT wallet_balance FROM teacher_profiles WHERE user_id=$1`, [victim]))[0].wallet_balance);
@@ -491,7 +426,6 @@ async function main() {
       `locked beneficiary has exactly 1 payout reserving ${victimBal} of ${victimBal} — the self-service request won, generation skipped it`);
     ok(raced.payouts.every((p) => p.beneficiaryId !== victim), "generation did not create a competing payout for that beneficiary");
 
-    // (5b) two concurrent generators.
     await q(`DELETE FROM payouts WHERE created_at >= $1`, [testStart]);
     const [gA, gB] = await Promise.all([generatePayouts(ACTOR), generatePayouts(ACTOR)]);
     const conc = await openPayoutsByBeneficiary();
@@ -507,13 +441,8 @@ async function main() {
     );
     ok(concOver.length === 0, "no wallet over-reserved under concurrent generation");
 
-    // -----------------------------------------------------------------------
     console.log(`\n(6) PARTIAL FAILURE IS SAFE:`);
     await q(`DELETE FROM payouts WHERE created_at >= $1`, [testStart]);
-    // Force a genuine mid-batch failure: a temporary CHECK constraint makes the
-    // INSERT for ONE beneficiary fail. The bomb is deliberately a demo teacher
-    // that sorts into a LATER chunk, so earlier chunks have already committed
-    // when it blows up — a real partial batch, not a failure on the first row.
     const avail = await beneficiaryAvailability();
     const sortedTeachers = avail.filter((b) => b.kind === "teacher").sort((a, b) => (a.id < b.id ? -1 : 1));
     const demoSet = new Set(teacherIds);
@@ -522,8 +451,6 @@ async function main() {
       if (demoSet.has(sortedTeachers[i].id)) { bombIdx = i; break; }
     }
     const bomb = sortedTeachers[bombIdx].id;
-    // Chunks strictly before the bomb's chunk commit; its chunk and everything
-    // after it must write nothing.
     const bombChunk = Math.floor(bombIdx / CHUNK_SIZE);
     const expectedCommitted = payable(sortedTeachers.slice(0, bombChunk * CHUNK_SIZE));
     console.log(`    bomb = teacher #${bombIdx} of ${sortedTeachers.length} (chunk ${bombChunk})`);
@@ -558,8 +485,6 @@ async function main() {
         `the failing chunk (and everything after it) wrote NOTHING`);
     ok(generatedBeforeFail > 0 && generatedBeforeFail < expectedGenerated, "the run really did stop midway (a genuine partial batch)");
 
-    // Resume: re-run with the fault removed. The result must equal a clean
-    // single run — no beneficiary paid twice, none left out.
     const resumed = await generatePayouts(ACTOR);
     ok(resumed.generated === expectedGenerated - generatedBeforeFail,
       `re-run generated exactly the ${expectedGenerated - generatedBeforeFail} missing beneficiaries (${resumed.generated})`);
@@ -579,7 +504,6 @@ async function main() {
     );
     ok(finalOver.length === 0, "every beneficiary reserves exactly its wallet balance — no double-pay, no shortfall");
   } finally {
-    // -----------------------------------------------------------------------
     console.log(`\n(7) CLEANUP:`);
     await cleanup(testStart);
     const after = await snapshot();
@@ -596,8 +520,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c02-payout-generation.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);

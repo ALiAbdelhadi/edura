@@ -1,28 +1,3 @@
-// =============================================================================
-// REPORT EXPORT — the numbers on the screen, in a file the accountant can open.
-//
-// THE ONE RULE THIS MODULE EXISTS TO ENFORCE: an export runs the SAME service
-// function the screen runs. It issues no queries of its own. A report that
-// re-derives its own totals is a second set of books, and the first time the
-// printed sheet disagrees with the dashboard nobody can say which one is
-// wrong. So each entry below is a MAPPING from an existing report's output to
-// columns and rows — never a new read.
-//
-// AUTHORIZATION TRAVELS WITH THE REPORT. Each entry carries the same staff
-// tier its own endpoint uses (5 are accountant-tier, 3 are manager-tier). The
-// export route reads `tier` from this table rather than holding a list of its
-// own, so opening a report to a tier can never quietly open its export to a
-// different one.
-//
-// WHY CSV AND NOT .xlsx: a real xlsx writer is a dependency, and CSV is what
-// every spreadsheet on a center's desk opens. The two details that make CSV
-// actually work here are handled below and are easy to get wrong: the UTF-8
-// BOM (without it Excel renders every Arabic name as mojibake) and formula
-// neutralisation (without it a course titled `=...` executes when the file is
-// opened). PDF is a separate path — the print route — because the browser's
-// own engine shapes Arabic correctly with no dependency at all.
-// =============================================================================
-
 import type { CenterStaffRole } from "@repo/database";
 import type { SessionUser } from "../../auth/types";
 import { BusinessRuleError } from "../../errors/classes";
@@ -39,18 +14,6 @@ import {
 
 export type ExportTier = "accountant" | "manager";
 
-/**
- * Which staff sub-roles each tier admits.
- *
- * These MUST equal the `ACCOUNTANT` / `MANAGER` constants in apps/www's
- * center-actor.ts, which are what the report endpoints themselves gate on.
- * They are restated here because the kernel cannot import from the app — and
- * because restating them silently is how they drift, `tests/unit/
- * report-export-tiers.test.ts` asserts set-equality against the real
- * constants. Note the asymmetry that makes this worth guarding: the accountant
- * tier is `center_accountant` ALONE — a manager may read attendance and fill
- * rates but NOT revenue.
- */
 export const EXPORT_TIER_ROLES: Record<ExportTier, readonly CenterStaffRole[]> = {
   accountant: ["center_accountant"],
   manager: ["manager"],
@@ -59,14 +22,12 @@ export const EXPORT_TIER_ROLES: Record<ExportTier, readonly CenterStaffRole[]> =
 export type ExportColumn = {
   key: string;
   header: { ar: string; en: string };
-  /** money = piasters rendered as plain decimal EGP; number/percent stay raw. */
   type?: "text" | "money" | "number" | "percent";
 };
 
 export type ExportTable = {
   columns: ExportColumn[];
   rows: Record<string, string | number | null>[];
-  /** Rendered as a final emphasised line (Excel sees an ordinary row). */
   totalRow?: Record<string, string | number | null>;
 };
 
@@ -96,10 +57,6 @@ type ReportDef = {
 
 const money = (type: ExportColumn["type"] = "money") => type;
 
-// ---------------------------------------------------------------------------
-// The registry. Adding a report here is the whole cost of exporting it.
-// ---------------------------------------------------------------------------
-
 export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
   "net-profit": {
     tier: "accountant",
@@ -120,9 +77,6 @@ export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
           { key: "net", header: { ar: "الصافي", en: "Net" }, type: money() },
         ],
         rows,
-        // The headline figures come from the report itself, NOT from summing
-        // the rows above — if a month were ever missing from the breakdown the
-        // total must still be the true one, and the discrepancy must show.
         totalRow: {
           month: "—",
           revenue: r.revenue,
@@ -267,9 +221,6 @@ export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
     },
   },
 
-  // Phase 2 (revenue-operations spec §2.4): the drawer reconciliation. Runs
-  // listShiftReconciliation — the SAME function the shifts screen reads — so
-  // the export can never be a second set of books.
   "shift-reconciliation": {
     tier: "accountant",
     title: { ar: "تسوية الورديات والدرج", en: "Shift and drawer reconciliation" },
@@ -291,8 +242,6 @@ export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
           { key: "note", header: { ar: "ملاحظة", en: "Note" }, type: "text" },
         ],
         rows: rows.map((r) => ({
-          // ISO strings — ExportColumn has no date type; text keeps the CSV
-          // unambiguous and sortable.
           openedAt: r.openedAt.toISOString(),
           closedAt: r.closedAt ? r.closedAt.toISOString() : "",
           staffName: r.staffName,
@@ -314,37 +263,17 @@ export function isReportExportKey(v: string): v is ReportExportKey {
   return Object.prototype.hasOwnProperty.call(REPORT_EXPORTS, v);
 }
 
-// ---------------------------------------------------------------------------
-// CSV
-// ---------------------------------------------------------------------------
-
-/** Money is stored in piasters. Excel needs a plain decimal to SUM it. */
 function piastersToEgp(v: number): string {
   const sign = v < 0 ? "-" : "";
   const abs = Math.abs(Math.trunc(v));
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
 
-/**
- * Neutralise spreadsheet formula injection.
- *
- * Course titles, expense categories and student names are typed by users. A
- * cell whose text begins with = + - @ (or a control character Excel treats as
- * a formula lead-in) is EXECUTED when the file is opened — the classic CSV
- * injection, and an accountant's machine is exactly where it pays off. The
- * value is preserved and rendered as text by prefixing an apostrophe, which
- * every spreadsheet strips on display.
- *
- * Numbers are formatted by us and never pass through here, so a negative
- * amount keeps its minus sign and stays numeric.
- */
 function neutralise(text: string): string {
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
 }
 
 function csvCell(value: string): string {
-  // RFC 4180: quote when the value contains a delimiter, a quote or a newline;
-  // a literal quote is doubled.
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
@@ -357,19 +286,10 @@ function formatValue(value: string | number | null, type: ExportColumn["type"]):
 
 export type CsvOptions = {
   locale?: "ar" | "en";
-  /** Written above the table as context: report title, range, center. */
   meta?: { label: string; value: string }[];
   title?: string;
 };
 
-/**
- * Render a table as CSV bytes Excel opens correctly.
- *
- * Two non-obvious requirements, both load-bearing:
- *   * the UTF-8 BOM — Excel assumes the system codepage without it, and every
- *     Arabic name in the file becomes mojibake;
- *   * CRLF line endings — what Excel's importer expects.
- */
 export function toCsv(table: ExportTable, opts: CsvOptions = {}): string {
   const locale = opts.locale ?? "ar";
   const lines: string[] = [];
@@ -397,18 +317,10 @@ export function toCsv(table: ExportTable, opts: CsvOptions = {}): string {
   return "﻿" + lines.join("\r\n") + "\r\n";
 }
 
-/** `net-profit-2026-08-09.csv` — sortable, and safe as a filename. */
 export function exportFilename(key: ReportExportKey, stamp: string): string {
   return `${key}-${stamp.slice(0, 10)}.csv`;
 }
 
-/**
- * Load one report as an export table, enforcing the report's OWN staff tier.
- *
- * `staffRole` is null for the center owner, who passes everything. A staff
- * member passes only the tier their own report endpoint would admit — read
- * from the registry, so the export and the report can never drift apart.
- */
 export async function buildReportExport(
   args: LoadArgs & { key: ReportExportKey; staffRole: string | null },
 ): Promise<{ table: ExportTable; def: ReportDef }> {

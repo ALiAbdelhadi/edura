@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ teacherId: string }> };
 
-/** Undo a soft removal. The teacher lands back on the same records. */
 export const POST = withErrors(async (_req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();

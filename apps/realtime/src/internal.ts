@@ -67,7 +67,6 @@ export async function handleInternalRequest(
   res: ServerResponse,
   ctx: { io: () => Server; presence: PresenceRegistry },
 ): Promise<void> {
-  // Constant-time; see @repo/server-core/auth/secret-compare.
   const presented = req.headers["x-internal-secret"];
   if (!secretEquals(Array.isArray(presented) ? presented[0] : presented, env.internalSecret)) {
     return json(res, 401, { error: "unauthorized" });
@@ -116,7 +115,6 @@ export async function handleInternalRequest(
       return json(res, 200, { ok: true, recipientOnline });
     }
 
-    // REST-marked read → receipt fanout.
     if (req.url === "/internal/read") {
       const parsed = bridgeReadSchema.safeParse(payload);
       if (!parsed.success) return json(res, 400, { error: "bad payload" });

@@ -2,29 +2,11 @@ import { type TenantTx } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError } from "../../errors/classes";
 import type { WalletEntryType, WalletMethod } from "./wallet";
 
-// ---------------------------------------------------------------------------
-// Parent Wallet — money-movement primitives.
-//
-// The deliberate MIRROR of ./wallet.ts, owned by a PARENT instead of a student,
-// so a guardian can pay for their own child's lesson out of their own money.
-// Same invariants, same shapes, same failure modes: the append-only
-// ParentWalletLedger is the source of truth, ParentProfile.walletBalance is the
-// reconciled cache, every movement writes ONE ledger row AND updates the cache
-// in the caller's SAME transaction, and debits are all-or-nothing via the H2
-// conditional decrement + the DB CHECK (wallet_balance >= 0) floor.
-//
-// WHAT THIS IS NOT: a second money direction. A parent-funded subscription still
-// moves student -> center/teacher in the Transaction ledger, exactly as a
-// self-funded one does, so every split, statement, payout and distribution is
-// untouched. This records only the FUNDING leg — plus which child it was for.
-// ---------------------------------------------------------------------------
-
 export const INSUFFICIENT_PARENT_WALLET =
   "Insufficient wallet balance — top up or pay by card";
 
 export type ParentWalletMovementOpts = {
   type: WalletEntryType;
-  /** Which child a spend was for. NULL on top-ups — money in is for no one child. */
   beneficiaryStudentId?: string | null;
   method?: WalletMethod | null;
   refNumber?: string | null;
@@ -51,12 +33,6 @@ function ledgerLinks(o: ParentWalletMovementOpts) {
   };
 }
 
-/**
- * Credit the parent's wallet: increment the cached balance (returns the running
- * balanceAfter) + append ONE ledger row, in the caller's tx. A pure primitive —
- * top-up bound checks live at the entry points, so money that was already paid
- * always lands.
- */
 export async function parentWalletCredit(
   tx: TenantTx,
   parentId: string,
@@ -78,13 +54,6 @@ export async function parentWalletCredit(
   return { balanceAfter };
 }
 
-/**
- * Debit the parent's wallet ALL-OR-NOTHING. The H2 conditional decrement
- * (updateMany WHERE wallet_balance >= amount) either takes the FULL amount or
- * matches zero rows — never a partial debit. count===0 => insufficient => throw
- * (the caller's tx rolls back, so nothing is charged and no subscription is
- * created). The DB CHECK (>= 0) is the backstop.
- */
 export async function parentWalletDebit(
   tx: TenantTx,
   parentId: string,
@@ -112,11 +81,6 @@ export async function parentWalletDebit(
   return { balanceAfter };
 }
 
-/**
- * Reconcile the cached balance against the ledger — the same drift check the
- * student wallet's money-safety story rests on: cached == SUM(delta) == last
- * balanceAfter.
- */
 export async function reconcileParentWallet(tx: TenantTx, parentId: string) {
   const profile = await tx.parentProfile.findUnique({
     where: { userId: parentId },
@@ -142,20 +106,6 @@ export async function reconcileParentWallet(tx: TenantTx, parentId: string) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// The relationship gate — the ONE place "is this my child?" is decided
-// ---------------------------------------------------------------------------
-
-/**
- * A parent may only ever act for a child they hold an APPROVED link to.
- * `pending`, `rejected` and `revoked` all fail — approval is the whole point of
- * the link, and a revoked one must stop working immediately.
- *
- * Every parent money path calls this; there is deliberately no second
- * implementation to drift from it. Mirrors the inline checks the read-only
- * parent endpoints already do (grades, attendance, payments), promoted to a
- * named function because money is now on the other side of it.
- */
 export async function assertApprovedChild(
   tx: TenantTx,
   parentId: string,
@@ -170,7 +120,6 @@ export async function assertApprovedChild(
   }
 }
 
-/** Approved children of a parent — the id list every parent scope narrows to. */
 export async function approvedChildIds(
   tx: TenantTx,
   parentId: string,

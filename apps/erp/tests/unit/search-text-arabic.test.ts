@@ -1,21 +1,3 @@
-// ARABIC SEARCH MATCHING — the rules that made the global search work at all.
-//
-// Measured against the dev database on 2026-08-19, BEFORE this module existed:
-//
-//     stored «أحمد» (3 rows)    typed «احمد»    → 0 results
-//     stored «إيهاب»            typed «ايهاب»   → 0 results
-//     stored «فريدة»            typed «فريده»   → 0 results
-//     stored «كنزي»             typed «كنزى»    → 0 results
-//     stored «ملك حسن»          typed «حسن ملك» → 0 results
-//
-// Prisma's `contains` with `mode: "insensitive"` is ILIKE, and ILIKE folds
-// ASCII case and nothing else. Every case below is a way an Egyptian typist
-// writes a name that a byte comparison rejects, so each one is a search that
-// silently returned "no such person" about somebody standing at the counter.
-//
-// The two-stage design is asserted as well, because its safety property is not
-// obvious: `literalFragment` narrows the SQL query, and it is only sound if it
-// can never EXCLUDE a row the full query would have accepted.
 import { describe, expect, it } from "vitest";
 import {
   fragmentVariants,
@@ -115,11 +97,6 @@ describe("literalFragment — the SQL pre-filter, and why it is safe", () => {
     expect(literalFragments("اي")).toEqual([]);
   });
 
-  // THE SAFETY PROPERTY. A fragment narrows the rows the database returns; the
-  // JS matcher then decides. It is sound only if every string the full query
-  // accepts also contains the fragment verbatim — otherwise the pre-filter
-  // would drop the very row the reader is looking for, which is the bug this
-  // whole module exists to fix.
   it.each([
     ["أحمد علي", "احمد"],
     ["فاطمة الزهراء", "فاطمه"],
@@ -145,12 +122,6 @@ describe("normalizeIdentifier — a code read aloud and typed back", () => {
   });
 });
 
-// `narrowFragments` returning `[]` is correct — nothing in «اي» can be compared
-// byte-wise — but Prisma reads an empty `AND` as NO CONSTRAINT. A provider that
-// filters in JS afterwards is fine; a PAGINATED list is not, and would quietly
-// return the whole table for a query the operator typed to narrow it. That is a
-// worse failure than the empty result this module exists to fix, so the
-// paginated callers use `narrowQuery`, which has a floor.
 describe("narrowQuery — the floor under the paginated lists", () => {
   const on = (needle: string) => [{ name: { contains: needle } }];
 

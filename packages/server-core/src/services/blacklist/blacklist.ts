@@ -4,36 +4,11 @@ import { notify } from "../notifications/notify";
 import type { SessionUser } from "../../auth/types";
 import type { TenantTx } from "../../db/scope";
 
-// ---------------------------------------------------------------------------
-// H-04 — the blacklist cascade is REVERSIBLE.
-//
-// A blacklist removes the student from the enrollments in its scope. Lifting it
-// must put back exactly those, and nothing else — not an enrollment they left
-// for an unrelated reason, not one a course ended out from under, not a second
-// copy of one somebody re-created by hand in the meantime.
-//
-// "Exactly those" is answered by a JOURNAL (`blacklist_cascade_actions`), not by
-// timestamps: one row per enrollment removed, keyed to the blacklist entry that
-// removed it, written in the SAME transaction as the removal. The lift replays
-// the journal. Level scoping therefore needs no re-derivation at lift time (a
-// center entry only ever journaled that center's rows), and blacklist → lift →
-// blacklist cycles are independent (each entry owns its own rows, and a row is
-// considered exactly once because the lift stamps `reversedAt`).
-//
-// MONEY: this whole file is roster bookkeeping. Neither the cascade nor its
-// reversal reads or writes transactions, payments, payment_intents, wallets,
-// wallet_ledger, subscriptions, session_settlements, payouts or points_ledger.
-// Blacklisting never refunded anything and never cancelled a subscription, so
-// lifting has nothing to re-charge: payment coverage is exactly what it was on
-// both legs.
-// ---------------------------------------------------------------------------
-
 type CascadeScope =
   | { level: "platform" }
   | { level: "center"; centerId: string }
   | { level: "teacher"; teacherId: string };
 
-/** Which of the student's active enrollments this blacklist level reaches. */
 function cascadeWhere(studentId: string, scope: CascadeScope) {
   const base = { studentId, status: "active" as const };
   if (scope.level === "center") return { ...base, centerId: scope.centerId };
@@ -41,11 +16,6 @@ function cascadeWhere(studentId: string, scope: CascadeScope) {
   return base; // platform — everything
 }
 
-/**
- * Remove the in-scope enrollments and journal each removal against `entryId`.
- * Runs inside the caller's transaction, so the removal and its record commit
- * together or not at all.
- */
 async function applyEnrollmentCascade(
   tx: TenantTx,
   entryId: string,
@@ -91,10 +61,6 @@ type ReversalSummary = {
   overCapacity: OverCapacity[];
 };
 
-/**
- * Put back what — and only what — `entry` took away. Runs inside the caller's
- * transaction so the restore and its stamp commit with the lift itself.
- */
 async function reverseEnrollmentCascade(
   tx: TenantTx,
   entry: { id: string; targetId: string },
@@ -102,7 +68,6 @@ async function reverseEnrollmentCascade(
 ): Promise<ReversalSummary> {
   const summary: ReversalSummary = { restored: 0, skipped: 0, overCapacity: [] };
 
-  // Outstanding rows only: an already-stamped row belongs to an earlier cycle.
   const journal = await tx.blacklistCascadeAction.findMany({
     where: { entryId: entry.id, entityType: "enrollment", reversedAt: null },
     orderBy: { appliedAt: "asc" },
@@ -121,8 +86,6 @@ async function reverseEnrollmentCascade(
       where: { id: { in: courseIds } },
       select: { id: true, title: true, status: true, centerId: true, teacherId: true, maxStudents: true },
     }),
-    // Anything already active for this student in these courses — a manual
-    // re-enrollment during the blacklist, which we must never duplicate.
     tx.enrollment.findMany({
       where: { studentId: entry.targetId, courseId: { in: courseIds }, status: "active" },
       select: { id: true, courseId: true },
@@ -132,8 +95,6 @@ async function reverseEnrollmentCascade(
       where: { courseId: { in: courseIds }, status: "active" },
       _count: { _all: true },
     }),
-    // Lifting THIS entry must not resurrect an enrollment a DIFFERENT active
-    // blacklist still bars (e.g. platform lifted while a center ban stands).
     tx.blacklistEntry.findMany({
       where: { targetId: entry.targetId, isActive: true, id: { not: entry.id } },
       select: { id: true, level: true, centerId: true, imposedById: true },
@@ -146,8 +107,6 @@ async function reverseEnrollmentCascade(
   const activeCourseIds = new Set(liveActive.map((e) => e.courseId));
   const activeCount = new Map(activeCounts.map((g) => [g.courseId, g._count._all]));
 
-  // Which OTHER active blacklist still bars this course, if any (same scope
-  // predicate as assertNotBlacklisted).
   const blockedBy = (course: { centerId: string | null; teacherId: string }) =>
     otherEntries.find(
       (e) =>
@@ -158,7 +117,6 @@ async function reverseEnrollmentCascade(
 
   const restoreIds: string[] = [];
   const stamps: { id: string; reversal: string }[] = [];
-  // Obligations handed over to a blacklist that still stands — see below.
   const transfers: { toEntryId: string; row: (typeof journal)[number] }[] = [];
 
   for (const j of journal) {
@@ -176,23 +134,13 @@ async function reverseEnrollmentCascade(
     } else if (course.status !== "active") {
       reversal = "skipped_course_ended";
     } else if (blocker) {
-      // Another blacklist still covers this scope, so the student does not get
-      // the seat back yet — but the obligation must NOT die here, or lifting
-      // that other blacklist later would leave the enrollment gone for good
-      // (H-04 all over again). Stamp this row as the audit fact and hand the
-      // outstanding removal to the entry that is still blocking it.
       reversal = "skipped_still_blacklisted";
       transfers.push({ toEntryId: blocker.id, row: j });
     } else {
-      // The seat was taken from them by a platform action, not given up, so a
-      // course that filled up meanwhile does not cost them the seat — but the
-      // owner is told, because the course is now over its cap.
       const count = activeCount.get(j.courseId) ?? 0;
       const over = count >= course.maxStudents;
       reversal = over ? "restored_over_capacity" : "restored";
       restoreIds.push(j.entityId);
-      // Claim the seat locally so two journal rows for the same course cannot
-      // both read the pre-restore count.
       activeCount.set(j.courseId, count + 1);
       activeCourseIds.add(j.courseId);
       if (over) {
@@ -210,18 +158,12 @@ async function reverseEnrollmentCascade(
   }
 
   if (restoreIds.length > 0) {
-    // Reactivate the ORIGINAL rows — nothing is ever inserted, so a duplicate
-    // is structurally impossible (and `enrollments_active_student_course`, the
-    // partial unique, is the DB backstop if this logic ever slipped).
     await tx.enrollment.updateMany({
       where: { id: { in: restoreIds } },
       data: { status: "active", unenrolledAt: null },
     });
   }
 
-  // Hand over before stamping, so the blocking entry owns an OPEN row the
-  // moment this one closes. `skipDuplicates` covers the case where the blocking
-  // entry already journaled the same enrollment itself.
   if (transfers.length > 0) {
     await tx.blacklistCascadeAction.createMany({
       data: transfers.map((t) => ({
@@ -250,7 +192,6 @@ async function reverseEnrollmentCascade(
   return summary;
 }
 
-/** Tell the course owner a restore pushed their course over `maxStudents`. */
 async function notifyOverCapacity(overCapacity: OverCapacity[], studentId: string) {
   if (overCapacity.length === 0) return;
 
@@ -319,8 +260,6 @@ export async function platformBlacklistUser(targetId: string, reason: string, ad
     if (existing) throw new ConflictError("User is already platform-blacklisted");
 
     await tx.user.update({ where: { id: targetId }, data: { status: "blacklisted" } });
-    // The entry is created BEFORE the cascade: its id is what the journal keys
-    // on, and the whole thing is one transaction anyway.
     const entry = await tx.blacklistEntry.create({
       data: { targetId, level: "platform", imposedById: adminId, reason },
     });
@@ -338,15 +277,6 @@ export async function platformBlacklistUser(targetId: string, reason: string, ad
   return entry;
 }
 
-/**
- * Block a student at ONE center, removing that center's enrollments through the
- * reversible H-04 journal.
- *
- * `centerId` is normally taken from the acting center admin's session (www).
- * The superadmin oversight surface has no `session.centerId`, so it passes the
- * center explicitly — and only it can: a non-super_admin naming a center other
- * than their own is refused here, not merely at the route.
- */
 export async function centerBlacklistStudent(
   studentId: string,
   reason: string,
@@ -377,8 +307,6 @@ export async function centerBlacklistStudent(
     const entry = await tx.blacklistEntry.create({
       data: { targetId: studentId, level: "center", centerId, imposedById: admin.id, reason },
     });
-    // Scoped to THIS center: a ban that leaves the student attending the very
-    // center that banned them is not a ban. Reversible via the journal.
     await applyEnrollmentCascade(tx, entry.id, studentId, { level: "center", centerId });
     return entry;
   }, { actorId: admin.id });
@@ -403,8 +331,6 @@ export async function teacherBlacklistStudent(studentId: string, reason: string,
     const entry = await tx.blacklistEntry.create({
       data: { targetId: studentId, level: "teacher", imposedById: teacher.id, reason },
     });
-    // Scoped to THIS teacher's courses — other teachers at the same center, and
-    // the student's own teacher-direct courses elsewhere, are untouched.
     await applyEnrollmentCascade(tx, entry.id, studentId, { level: "teacher", teacherId: teacher.id });
     return entry;
   }, { actorId: teacher.id });
@@ -445,8 +371,6 @@ export async function removeBlacklistEntry(entryId: string, user: SessionUser, r
       });
     }
 
-    // Deactivate the entry BEFORE replaying the journal, so the "is this scope
-    // still barred by another blacklist" test cannot see the entry being lifted.
     const updated = await tx.blacklistEntry.update({
       where: { id: entryId },
       data: {

@@ -12,9 +12,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// GET (view) = receptionist+; PATCH (edit incl. blacklist toggle) = manager only
-// — blacklisting is a manager capability, so it must not leak to a receptionist.
-// DELETE (remove from roster) stays owner-only by omission.
 export const GET = centerStaff(
   async (_req, ctx, { acting }) => {
     const { studentId } = await ctx.params;

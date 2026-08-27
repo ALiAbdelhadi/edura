@@ -5,8 +5,6 @@ import { listSessionSettlements } from "@/lib/services/admin/session-settlements
 
 export const dynamic = "force-dynamic";
 
-// Room-settlement oversight (super_admin): the per-session settlement records
-// written by the money engine, with a live-attendance mismatch flag.
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const p = new URL(req.url).searchParams;

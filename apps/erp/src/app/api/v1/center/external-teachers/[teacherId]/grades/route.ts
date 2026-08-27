@@ -6,19 +6,6 @@ import { createManualGrade, listManualGrades } from "@/lib/services/external-tea
 
 export const dynamic = "force-dynamic";
 
-/**
- * Grades for an off-system teacher's groups.
- *
- * This route exists because it is the ONE operational surface a center could
- * not already reach: `POST /api/v1/grades` requires `course.teacherId ===
- * caller.id`, which is right for a teacher who signs in and impossible for one
- * who never will. That gate is left exactly as it is — this path can only ever
- * reach a group belonging to an off-system teacher this center manages.
- *
- * The assessment is owned by the TEACHER, not by the staff member who typed it,
- * so it appears in their own gradebook the day they join the platform. Who
- * typed it is in the audit row.
- */
 export const GET = centerStaff(
   async (req, ctx, { acting }) => {
     const { teacherId } = (await ctx.params) as { teacherId: string };

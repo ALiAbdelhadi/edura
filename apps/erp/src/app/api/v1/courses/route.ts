@@ -50,31 +50,20 @@ export const GET = withErrors(async (req) => {
   const status = url.searchParams.get("status");
 
   const result = await scopedDb(user, async (tx) => {
-    // SCOPE — FAIL-CLOSED. Every caller sees ONLY the courses within their own
-    // scope; a caller whose scope can't be resolved gets NOTHING. This mirrors
-    // the per-role scoping the enrollments endpoint already does, and closes the
-    // old fall-open where a student / parent / unauthenticated request (which
-    // matched no role branch) returned the ENTIRE course catalog.
     const where: Prisma.CourseWhereInput = {};
 
     if (user?.role === "center_admin") {
       where.centerId = user.centerId;
-      // An admin MAY narrow to one of their center's teachers.
       if (teacherIdParam) where.teacherId = teacherIdParam;
     } else if (user?.role === "teacher") {
-      // A teacher sees ONLY the courses they teach — never another teacher's,
-      // and a teacherId param can never broaden this.
       where.teacherId = user.id;
     } else if (user?.role === "student") {
-      // A student sees only the courses they are enrolled in (any status, so
-      // completed-course grades still resolve their course name).
       const enr = await tx.enrollment.findMany({
         where: { studentId: user.id },
         select: { courseId: true },
       });
       where.id = { in: enr.map((e) => e.courseId) };
     } else if (user?.role === "parent") {
-      // A parent sees only their approved children's enrolled courses.
       const links = await tx.parentStudentLink.findMany({
         where: { parentId: user.id, status: "approved" },
         select: { studentId: true },
@@ -88,10 +77,8 @@ export const GET = withErrors(async (req) => {
         : [];
       where.id = { in: enr.map((e) => e.courseId) };
     } else if (centerIdParam) {
-      // Public/anonymous discovery is allowed ONLY for an explicit center.
       where.centerId = centerIdParam;
     } else {
-      // No scope could be resolved — fail closed, never dump the catalog.
       return [];
     }
 
@@ -168,15 +155,9 @@ const createSchema = z.object({
   gradeTag: z.string().optional(),
   schedulePattern: schedulePatternSchema,
   price: moneySchema,
-  // Subscription plan prices. Accepted at CREATION so a new group is payable
-  // immediately: previously they could only be set by a follow-up PATCH, and a
-  // group created without that second step is one nobody can be charged for —
-  // exactly what the off-system completeness report kept flagging as
-  // "group without a price".
   pricePerMonth: moneySchema.nullish(),
   pricePerSession: moneySchema.nullish(),
   maxStudents: z.number().int().positive().max(10000),
-  // Room-based only; validated against the room's allowed methods at snapshot.
   pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),
 });
 
@@ -197,10 +178,6 @@ const teacherDirectSchema = z
 export const POST = withErrors(async (req) => {
   const session = await getSessionUser();
   if (session?.role === "teacher") {
-    // Teacher-direct group (decision #2): the schema has NO teacherId field,
-    // so the owner is always the caller and cannot be spoofed. Teacher only —
-    // plan prices are financial settings, which Step 8 excludes from
-    // assistant delegation, so this branch is not `delegated()`.
     const body = await parseJson(req, teacherDirectSchema);
     const { course, sessionsGenerated } = await createTeacherDirectCourse(session, body);
     runAfter(() => trackFirstGroup(session, { centerId: null, teacherId: course.teacherId }));
@@ -212,13 +189,7 @@ export const POST = withErrors(async (req) => {
 
   const user = await requireRole("center_admin");
   const body = await parseJson(req, createSchema);
-  // The create logic (affiliation check, room ownership, frozen pricing
-  // snapshot, session generation) moved to the shared kernel so the back office
-  // runs the SAME code. Guard, schema and response shape are unchanged.
   const { course, sessionsGenerated } = await createCourse(user, body);
-  // Funnel step 3. Post-commit and never throwing — it counts rows to decide
-  // whether this was the FIRST group, so it cannot double-fire. after(): the
-  // runtime still guarantees execution; the response no longer waits on it.
   runAfter(() => trackFirstGroup(user, { centerId: course.centerId, teacherId: course.teacherId }));
   return ok(
     {

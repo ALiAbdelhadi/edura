@@ -7,9 +7,6 @@ import { updateGlobalM2Rate, clearGlobalM2Rate } from "@/lib/services/admin/room
 
 export const dynamic = "force-dynamic";
 
-// Method-2 (per-attending-student) GLOBAL rate — super_admin ONLY. Exactly one
-// form: a flat piasters fee per attending student OR bp of the per-session
-// price per attending student.
 const rateSchema = z
   .object({
     fee: z.number().int().min(0).max(99_999_900).nullable(),

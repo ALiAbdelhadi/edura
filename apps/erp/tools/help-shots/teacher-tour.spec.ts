@@ -1,10 +1,3 @@
-/**
- * Drives the teacher's first-run guided tour.
- *
- * The gate is `user_prefs.tour_completed`, a PER-USER flag, so this test must
- * reset it through the same API the app writes it with — otherwise the tour
- * opens once, ever, and the second run tests nothing.
- */
 import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
 import { TEACHER_TOUR_STEPS } from "../../src/features/teacher/tour/steps";
@@ -20,20 +13,10 @@ async function signIn(page: Page, locale: string) {
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
 }
 
-/**
- * Hide Next.js's dev-tools badge.
- *
- * It is a fixed overlay in the bottom-left corner and it INTERCEPTS CLICKS: a
- * tour card placed low on the left (which happens in LTR, where the sidebar
- * anchors are on the left) puts its buttons under it, and the click never
- * lands. The badge does not exist in a production build, so this is a harness
- * concern, not something the product should place around.
- */
 async function hideDevBadge(page: Page) {
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" }).catch(() => {});
 }
 
-/** Put the account back to "never seen the tour". */
 async function resetGate(page: Page) {
   await page.evaluate(async () => {
     await fetch("/api/v1/me/prefs", {
@@ -57,7 +40,6 @@ for (const locale of ["ar", "en"] as const) {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-    // The welcome card is first and carries no spotlight.
     await expect(dialog.getByText(locale === "ar" ? "أهلًا بيك في إدورا" : "Welcome to Edura")).toBeVisible();
 
     const nextLabel = locale === "ar" ? "التالي" : "Next";
@@ -68,7 +50,6 @@ for (const locale of ["ar", "en"] as const) {
       const nextBtn = dialog.getByRole("button", { name: nextLabel });
       if (!(await nextBtn.isVisible().catch(() => false))) break;
       if (steps === 4) {
-        // The subscribe card: a real sidebar item spotlit, with its procedure.
         await page.screenshot({ path: path.join(OUT, `teacher-tour-${locale}.png`) });
       }
       expect(
@@ -80,19 +61,13 @@ for (const locale of ["ar", "en"] as const) {
       await page.waitForTimeout(250);
     }
 
-    // No card may print a raw i18n key. This caught a real defect: `note` is
-    // optional, and next-intl returns the KEY PATH for a missing key, so every
-    // step without a note rendered "studentTour.steps.<id>.note" on screen.
     const leaked = await dialog.locator("text=/teacherTour\\./").count();
     expect(leaked, "a raw i18n key is visible in the teacher tour").toBe(0);
 
-    // The last card swaps Next for the finish action.
     await expect(dialog.getByRole("button", { name: finishLabel })).toBeVisible();
     await expect(
       dialog.getByText(locale === "ar" ? "دلوقتي دورك" : "your turn"),
     ).toBeVisible();
-    // 14 cards: welcome + twelve tasks + finish. Asserted against the script so
-    // adding a step to `steps.ts` fails here until the test is looked at.
     expect(steps).toBe(TEACHER_TOUR_STEPS.length);
 
     await dialog.getByRole("button", { name: finishLabel }).click();
@@ -113,7 +88,6 @@ test("teacher: the tour opens once and not again", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-  // Skipping counts as done — that is the whole point of the gate.
   await dialog.getByRole("button", { name: "تخطّي" }).click();
   await expect(dialog).toBeHidden();
 
@@ -138,14 +112,6 @@ test("teacher: Escape closes the tour", async ({ page }) => {
   await expect(dialog).toBeHidden();
 });
 
-/**
- * THE PHONE CASE.
- *
- * On a phone the sidebar does not exist — the bottom bar does — and both are in
- * the DOM at once, so a naive `querySelector` resolves to the hidden one and
- * draws the spotlight over nothing in the corner. This asserts the opposite:
- * every anchored card lands on an element that is really on screen.
- */
 test("teacher: the spotlight lands on a visible element at phone width", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 780 });
@@ -176,10 +142,8 @@ test("teacher: the spotlight lands on a visible element at phone width", async (
 
     if (probe) {
       anchored++;
-      // A real box, not a 0×0 collapse over a hidden node…
       expect(probe.w, `card ${i} spotlight width`).toBeGreaterThan(8);
       expect(probe.h, `card ${i} spotlight height`).toBeGreaterThan(8);
-      // …and on screen, not parked off the top-left corner.
       expect(probe.top, `card ${i} spotlight top`).toBeGreaterThan(-40);
       expect(probe.top).toBeLessThan(probe.vh);
       expect(probe.left).toBeLessThan(probe.vw);
@@ -191,7 +155,6 @@ test("teacher: the spotlight lands on a visible element at phone width", async (
     await page.waitForTimeout(250);
   }
 
-  // Most cards are anchored; only welcome and finish are deliberately centred.
   console.log(`PHONE: ${anchored} anchored cards`);
   expect(anchored).toBeGreaterThanOrEqual(9);
 });

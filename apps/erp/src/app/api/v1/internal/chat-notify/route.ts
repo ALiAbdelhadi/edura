@@ -10,10 +10,6 @@ import { platformDb } from "@/lib/db/scope";
 
 export const dynamic = "force-dynamic";
 
-// Called by the realtime server (server↔server, shared secret) when a chat
-// message reaches an OFFLINE recipient: web-push/FCM + in-app notification.
-// Notification machinery stays in one place instead of being duplicated in
-// the socket process.
 const schema = z.object({
   recipientId: z.uuid(),
   senderName: z.string().max(200),
@@ -23,17 +19,13 @@ const schema = z.object({
 });
 
 export const POST = withErrors(async (req) => {
-  // M2: dedicated internal-bridge secret, required in production.
   const secret = requireDedicatedSecret("INTERNAL_API_SECRET");
-  // Constant-time; see @repo/server-core/auth/secret-compare.
   if (!secretEquals(req.headers.get("x-internal-secret"), secret)) {
     throw new ForbiddenError("Invalid internal secret");
   }
 
   const data = await parseJson(req, schema);
 
-  // The sender id isn't trusted from the payload for anything security
-  // relevant — we only verify the message really exists before notifying.
   const message = await platformDb((tx) =>
     tx.conversationMessage.findUnique({
       where: { id: data.messageId },

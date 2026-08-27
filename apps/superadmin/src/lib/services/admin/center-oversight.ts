@@ -5,20 +5,6 @@ import { centerStatement } from "@/lib/services/finance/finance-reports";
 import { listTransactions } from "@/lib/services/finance/accountant";
 import type { Prisma } from "@repo/database";
 
-// ---------------------------------------------------------------------------
-// SUPERADMIN CENTER OVERSIGHT — PART 1: full READ visibility, one center at a
-// time. Every function here is a composition of findMany/count/aggregate over
-// an existing center-scoped index. There is deliberately NO write in this file
-// and NO import of anything that writes: oversight reads, `center-control.ts`
-// acts. Keeping them in separate modules is what makes "superadmin can see all
-// money but cannot move any" checkable by reading one import list.
-//
-// Scoping rule: a row belongs to this center when it carries `centerId`, or
-// (for tables that do not, e.g. sessions) when its parent course does. Rows
-// with a NULL centerId are TEACHER-DIRECT and belong to no center — they are
-// never folded in, or a center's books would show revenue it never earned.
-// ---------------------------------------------------------------------------
-
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
@@ -47,7 +33,6 @@ async function assertCenter(tx: TenantTx, centerId: string) {
   return center;
 }
 
-/** Course ids owned by this center — the join key for tables without centerId. */
 async function centerCourseIds(tx: TenantTx, centerId: string): Promise<string[]> {
   const rows = await tx.course.findMany({ where: { centerId }, select: { id: true } });
   return rows.map((r) => r.id);
@@ -62,10 +47,6 @@ async function userMap(tx: TenantTx, ids: string[]) {
   });
   return new Map(users.map((u) => [u.id, u]));
 }
-
-// ---------------------------------------------------------------------------
-// Overview
-// ---------------------------------------------------------------------------
 
 export function centerOverview(centerId: string) {
   return platformDb(async (tx) => {
@@ -115,16 +96,8 @@ export function centerOverview(centerId: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Rooms / Teachers — delegate to the existing superadmin services unchanged.
-// ---------------------------------------------------------------------------
-
 export const centerRooms = getCenterRoomsWithSplit;
 export const centerTeachers = getCenterAffiliations;
-
-// ---------------------------------------------------------------------------
-// Students (roster)
-// ---------------------------------------------------------------------------
 
 export function centerStudents(centerId: string, args: PageArgs & { q?: string; includeLeft?: boolean } = {}) {
   const { page, limit, skip, take } = paging(args);
@@ -182,10 +155,6 @@ export function centerStudents(centerId: string, args: PageArgs & { q?: string; 
   });
 }
 
-// ---------------------------------------------------------------------------
-// Courses / Sessions
-// ---------------------------------------------------------------------------
-
 export function centerCourses(centerId: string, args: PageArgs = {}) {
   const { page, limit, skip, take } = paging(args);
   return platformDb(async (tx) => {
@@ -229,10 +198,6 @@ export function centerCourses(centerId: string, args: PageArgs = {}) {
         activeEnrollments: enrolledByCourse.get(c.id) ?? 0,
         pricePerMonth: c.pricePerMonth,
         pricePerSession: c.pricePerSession,
-        // Read-only disclosure of the FROZEN snapshot — this is what settlement
-        // will use. It is shown, never edited here (the split lives in the
-        // dedicated pricing/commission flow with its snapshot-on-create,
-        // new-courses-only semantics).
         pricingMethod: c.pricingMethod,
         splitPlatformBp: c.splitPlatformBp,
         splitTeacherBp: c.splitTeacherBp,
@@ -289,10 +254,6 @@ export function centerSessions(centerId: string, args: PageArgs = {}) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Enrollments
-// ---------------------------------------------------------------------------
-
 export function centerEnrollments(centerId: string, args: PageArgs & { status?: string } = {}) {
   const { page, limit, skip, take } = paging(args);
   return platformDb(async (tx) => {
@@ -328,10 +289,6 @@ export function centerEnrollments(centerId: string, args: PageArgs & { status?: 
     };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Subscriptions
-// ---------------------------------------------------------------------------
 
 export function centerSubscriptions(centerId: string, args: PageArgs & { status?: string } = {}) {
   const { page, limit, skip, take } = paging(args);
@@ -382,10 +339,6 @@ export function centerSubscriptions(centerId: string, args: PageArgs & { status?
     };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Attendance
-// ---------------------------------------------------------------------------
 
 export function centerAttendance(centerId: string, args: PageArgs & { status?: string } = {}) {
   const { page, limit, skip, take } = paging(args);
@@ -438,10 +391,6 @@ export function centerAttendance(centerId: string, args: PageArgs & { status?: s
   });
 }
 
-// ---------------------------------------------------------------------------
-// Staff accounts
-// ---------------------------------------------------------------------------
-
 export function centerStaffAccounts(centerId: string, args: { includeRemoved?: boolean } = {}) {
   return platformDb(async (tx) => {
     await assertCenter(tx, centerId);
@@ -464,10 +413,6 @@ export function centerStaffAccounts(centerId: string, args: { includeRemoved?: b
     };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Pending items awaiting a decision at this center
-// ---------------------------------------------------------------------------
 
 export function centerPendingItems(centerId: string) {
   return platformDb(async (tx) => {
@@ -546,17 +491,6 @@ export function centerPendingItems(centerId: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// FINANCE — the full money picture for this center. READ ONLY.
-//
-// Six ledgers, each filtered on its own `center_id`:
-//   transactions · payments · payouts · session_settlements · invoices ·
-//   wallet_ledger
-// plus the cached `centers.wallet_balance` and the existing `centerStatement`
-// report. Nothing here can write: `listTransactions` and `centerStatement` are
-// the accountant's own read services, reused as-is.
-// ---------------------------------------------------------------------------
-
 export function centerFinanceSummary(centerId: string, args: { from?: string; to?: string } = {}) {
   return platformDb(async (tx) => {
     const center = await tx.center.findUnique({
@@ -613,10 +547,7 @@ export function centerFinanceSummary(centerId: string, args: { from?: string; to
 
     return {
       center,
-      // The cached wallet balance is DISPLAYED here and editable nowhere:
-      // it only ever moves through settlement / refund / payout.
       walletBalance: center.walletBalance,
-      // Phase 4 (D4): the signed center<->platform position; negative = arrears.
       creditBalance: center.creditBalance,
       transactions: byType.map((t) => ({
         type: t.type,
@@ -654,7 +585,6 @@ export function centerFinanceSummary(centerId: string, args: { from?: string; to
   });
 }
 
-/** Full ledger rows for this center — reuses the accountant's own read service. */
 export function centerTransactions(
   centerId: string,
   args: PageArgs & { type?: string; status?: string } = {},
@@ -683,10 +613,6 @@ export function centerPayments(centerId: string, args: PageArgs & { status?: str
       tx.payment.findMany({ where, orderBy: { paidAt: "desc" }, skip, take }),
       tx.payment.count({ where }),
     ]);
-    // A parent wallet top-up names no student. It cannot reach this list — the
-    // query is narrowed to one center and a top-up carries a NULL center_id —
-    // but the shape is handled rather than asserted away, so a future widening
-    // of the narrowing shows a null name instead of throwing on a null id.
     const students = await userMap(
       tx,
       rows.map((r) => r.studentId).filter(Boolean) as string[],
@@ -778,14 +704,6 @@ export function centerInvoices(centerId: string, args: PageArgs & { status?: str
   });
 }
 
-/**
- * Student wallet movements.
- *   scope=center (default) — movements CREDITED AT this center (cash top-ups
- *     taken at its counter): `wallet_ledger.center_id = centerId`.
- *   scope=roster — every movement of every student on this center's roster,
- *     including spending elsewhere. Deliberately opt-in and labelled: it is a
- *     wider lens than "money that touched this center".
- */
 export function centerWalletMovements(
   centerId: string,
   args: PageArgs & { scope?: "center" | "roster" } = {},
@@ -827,5 +745,4 @@ export function centerWalletMovements(
   });
 }
 
-/** The existing accountant statement, unchanged, scoped to this center. */
 export const centerFinanceStatement = centerStatement;

@@ -6,11 +6,6 @@ test.describe("Student Dashboard & Grades", () => {
     await login(page, "student");
   });
 
-  // Three stat cards, not four. "Assignments Due" was removed along with the whole
-  // assignments feature: there is no Assignment, Submission, Homework or Quiz model
-  // in schema.prisma, and the card derived a graded/pending status from grade rows
-  // that had no score. Do not reinstate it — a screen may not render a figure with
-  // no table behind it.
   test("dashboard loads with KPI cards", async ({ page }) => {
     await navigateTo(page, "/dashboard/student");
 
@@ -19,7 +14,6 @@ test.describe("Student Dashboard & Grades", () => {
     await expect(page.getByText("Unread Messages")).toBeVisible();
   });
 
-  // "Due Soon" went with the same removal — it was a grade's date relabelled a due date.
   test("schedule table renders", async ({ page }) => {
     await navigateTo(page, "/dashboard/student");
 
@@ -40,9 +34,6 @@ test.describe("Student Dashboard & Grades", () => {
     await navigateTo(page, "/dashboard/student/grades");
     await waitForTableLoad(page);
 
-    // Was `.ant-tag`. Ant Design is gone from this repo, so that selector matched zero
-    // elements and the loop below asserted nothing — a test that could never fail.
-    // Grade letters render inside <StatusBadge>, which carries data-slot="status-badge".
     const tags = page.locator('[data-slot="status-badge"]');
     const count = await tags.count();
     expect(count).toBeGreaterThan(0);

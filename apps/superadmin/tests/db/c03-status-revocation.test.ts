@@ -1,16 +1,3 @@
-// C-03 proof (superadmin) — the same revocation must hold in the back-office
-// app, whose sessions are separate cookies + a separate signing secret but
-// share the users table and the L1 token_version epoch.
-//
-// Drives the REAL apps/superadmin better-auth pipeline against the live DB:
-//   - /sign-in/email (before-hook: C2 limits + C-04 partition + full H5)
-//     mints a real DB session row + cookie,
-//   - "a later request" is a real getSession with the real cookie,
-//   - the REAL updateUserStatus() service — the one
-//     PATCH /api/v1/admin/users/[id]/permissions calls — bumps token_version,
-//     and the users_revoke_sessions DB trigger DELETES the session rows in the
-//     same statement (hard revocation, stronger than the old per-request JWT
-//     epoch re-read).
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -85,7 +72,6 @@ async function main() {
       "baseline: both back-office sessions are accepted",
     );
 
-    // --- the real admin service, exactly as the permissions endpoint calls it
     await updateUserStatus(accountant, "suspended", superAdmin);
     assert(
       (await versionOf(accountant)) === 1,
@@ -105,14 +91,12 @@ async function main() {
       "the suspended accountant cannot log back in (generic H5 message)",
     );
 
-    // --- the acting super_admin is untouched
     assert(
       (await sessionFor(authCtl.cookie))?.userId === superAdmin,
       "control: the acting super_admin's session is unaffected",
     );
     assert((await versionOf(superAdmin)) === 0, "control: super_admin epoch never moved");
 
-    // --- reversal
     await updateUserStatus(accountant, "active", superAdmin);
     assert(
       (await versionOf(accountant)) === 1,
@@ -134,16 +118,12 @@ async function main() {
       "reinstate: the pre-suspension session stays dead (row deleted, never restored)",
     );
 
-    // --- the same service suspending a www role revokes THAT app's session too
-    // (shared users table + shared epoch + shared auth_sessions trigger; the
-    //  www-side gate is proven in apps/www/tests/db/c03-status-revocation.test.ts).
     await updateUserStatus(teacher, "suspended", superAdmin);
     assert(
       (await versionOf(teacher)) === 1,
       "cross-app: suspending a www teacher from the back office bumps their epoch",
     );
 
-    // --- guards intact
     const wrong = await signInDoor(emailCtl, "WrongPassword!");
     assert(
       !wrong.ok && wrong.message === GENERIC,
@@ -153,10 +133,6 @@ async function main() {
       (await sessionFor(authCtl.cookie))?.userId === superAdmin,
       "control: still logged in at the end of the run",
     );
-    // Nearest DB-level analogue of the old forged `ver: 99` claim check: the
-    // epoch now lives ONLY in users.token_version, and a bump hard-deletes the
-    // session rows via the users_revoke_sessions trigger — there is no client
-    // -side claim left to forge.
     await admin.query(`UPDATE users SET token_version = token_version + 1 WHERE id = $1`, [
       superAdmin,
     ]);
@@ -176,8 +152,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c03-status-revocation.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

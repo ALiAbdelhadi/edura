@@ -10,16 +10,6 @@ import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 
-/**
- * PRICING — the model, not a rate card.
- *
- * The product app's pricing page reads its figures from the settlement
- * engine's live settings; this site is static and has no database, so it
- * explains the SHAPE of the model and reuses the hero's own illustrative
- * register (with its "figures are illustrative" footnote) rather than
- * inventing a second set of numbers that would drift from the first.
- */
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
@@ -63,7 +53,6 @@ export default async function PricingPage({
         note={p.note}
       />
 
-      {/* ── The three rules ─────────────────────────────────────────────── */}
       <Section id="rules" label={p.rules.label} locale={locale}>
         <SectionTitle>{p.rules.title}</SectionTitle>
         <div className="mt-8 grid gap-x-14 sm:grid-cols-3">
@@ -78,8 +67,6 @@ export default async function PricingPage({
         </div>
       </Section>
 
-      {/* ── The worked example — the hero's own register, so the marketing
-            site carries ONE set of illustrative figures ─────────────────── */}
       <Section id="example" label={p.example.label} locale={locale}>
         <SectionTitle>{p.example.title}</SectionTitle>
         <SectionBody>{p.example.body}</SectionBody>
@@ -100,7 +87,6 @@ export default async function PricingPage({
         </div>
       </Section>
 
-      {/* ── Timing ──────────────────────────────────────────────────────── */}
       <Section id="timing" label={p.timing.label} locale={locale}>
         <SectionTitle>{p.timing.title}</SectionTitle>
         <div className="mt-8 grid gap-x-14 sm:grid-cols-3">
@@ -115,7 +101,6 @@ export default async function PricingPage({
         </div>
       </Section>
 
-      {/* ── What we don't charge ────────────────────────────────────────── */}
       <Section id="no-hidden" label={p.noHidden.label} locale={locale}>
         <SectionTitle>{p.noHidden.title}</SectionTitle>
         <ul className="mt-8 max-w-[58ch]">
@@ -130,7 +115,6 @@ export default async function PricingPage({
         </ul>
       </Section>
 
-      {/* ── Close ───────────────────────────────────────────────────────── */}
       <section className="border-t border-rule">
         <div className="mx-auto w-full max-w-[72rem] px-6 py-12 md:px-10 md:py-20 lg:py-24">
           <h2 className="display max-w-[16ch] text-[clamp(2rem,1.3rem+2.8vw,3.25rem)] leading-[1.2] text-ink">

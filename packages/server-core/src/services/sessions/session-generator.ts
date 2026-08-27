@@ -5,10 +5,6 @@ import type { SessionUser } from "../../auth/types";
 import { ConflictError } from "../../errors/classes";
 import { checkConflicts } from "./conflict-detector";
 
-// Moved here from apps/www so collaboration acceptance can run identically from
-// either app. apps/www/src/lib/services/sessions/session-generator.ts is a
-// re-export shim — one implementation, no drift.
-
 type SchedulePattern = {
   daysOfWeek: number[];
   startTime: string;
@@ -22,11 +18,6 @@ export type CourseInput = {
   schedulePattern: SchedulePattern;
   teacherId: string;
   defaultRoomId?: string | null;
-  /**
-   * Provenance to stamp on the generated sessions. Omitted everywhere except
-   * the off-system-teacher path, and the column defaults to `system`, so every
-   * existing caller keeps writing exactly what it wrote before.
-   */
   dataSource?: DataSource;
 };
 
@@ -46,9 +37,6 @@ function walkDates(startDate: Date, endDate: Date, daysOfWeek: number[]): Date[]
   return dates;
 }
 
-// Exported so collaboration-request acceptance (Step 5) can generate the
-// course's sessions INSIDE its own transaction (affiliation + course +
-// sessions must commit or roll back together).
 export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Promise<string[]> {
   const { schedulePattern, teacherId, defaultRoomId } = course;
   const dates = walkDates(
@@ -127,12 +115,6 @@ export async function generateSessions(
   return scopedDb(user, (tx) => generateSessionsTx(tx, course));
 }
 
-// Exported as a Tx variant so updateCourse can run the course-row change and
-// the regeneration in ONE transaction. They used to run in two: a schedule
-// conflict then threw AFTER the course row had committed, leaving the course
-// saying "Tuesday 17:00" while its sessions still said "Monday 16:00" — the
-// plan students and attendance run on. Atomicity is the fix: a conflict now
-// rolls the course edit back too.
 export async function regenerateFutureSessionsTx(
   tx: TenantTx,
   course: CourseInput,
@@ -146,17 +128,10 @@ export async function regenerateFutureSessionsTx(
       courseId: course.id,
       date: { gte: now },
       status: "scheduled",
-      // A session someone already checked into is real-world state, not plan —
-      // deleting it would orphan (or refuse on) its attendance records. It
-      // survives the regeneration; generateSessionsTx skips its date via
-      // existingDates, so no duplicate is created either.
       attendance: { none: {} },
     },
   });
 
-  // Regeneration only ever plans FORWARD: a course that already started
-  // carries a past startDate, and walking from it would invent past sessions
-  // in the holes between the ones that actually happened.
   const effectiveStart = newPattern.startDate > now ? newPattern.startDate : now;
 
   return generateSessionsTx(tx, {

@@ -11,21 +11,6 @@ import { staffTourSteps } from "@/features/admin/staff-tour/steps";
 
 type StaffRole = "receptionist" | "manager" | "center_accountant";
 
-/**
- * THE SUB-ROLE ARRIVES AS A PROP, resolved on the SERVER by this route's page.
- *
- * It used to be `api.get("center/staff/me")` in a client effect, with the whole
- * screen replaced by a centred "loading…" until it answered — and the whole
- * screen here is THE COUNTER BOARD, the highest-frequency surface in the
- * product. So the busiest screen in the building was gated behind a round trip
- * for a value the server had ALREADY resolved: `staff/layout.tsx` reads exactly
- * this to decide the navigation, one layer up, before any HTML is streamed.
- *
- * The resolve stays live and revocation-aware — it is the same `getStaffMe`
- * call against the same live link, just made where the answer was already
- * needed. A deactivated staff account still has no active link and is still
- * sent to login on THIS request.
- */
 export function CenterStaffPortalHome({
   role,
   centerName,
@@ -38,10 +23,6 @@ export function CenterStaffPortalHome({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* First entry only. The STEPS depend on the sub-role, because this
-          portal's navigation already does — a receptionist, a manager and an
-          accountant do not share a job, and a step about revenue reports shown
-          to a receptionist walks them to a door their tier does not open. */}
       <GuidedTour
         steps={staffTourSteps(role)}
         namespace="adminHome.staffTour"
@@ -59,52 +40,10 @@ export function CenterStaffPortalHome({
         }
       />
 
-      {/*
-        ONE ROW, NOT A STACK.
-
-        The board, the shortcuts and the team board were three full-width bands
-        down the middle of the page, each of them short, each with empty screen
-        beside it — so the operator scrolled through three screens of mostly
-        nothing. On `xl` the board takes the main column and the two small
-        blocks become a side column beside it; below that they stack, which is
-        right on the one column a phone has.
-
-        `center_accountant` gets no board: that tier is read-only and the
-        counter routes refuse it (allow: RECEPTION), so rendering it would show
-        an operator a screen that 403s. Absence, not disablement — and with no
-        board the side column simply becomes the page.
-      */}
-      {/*
-        THE HOME IS THE BOARD, AND NOTHING ELSE.
-
-        What used to sit beside it — four shortcut tiles and a compact copy of
-        the team-notes board — were both second copies of things the sidebar
-        already carries. The tiles pointed at pages already listed there (two of
-        them at the SAME page as each other), and the notes board is its own nav
-        entry at `/notes`. With the subtitle's prose above naming this desk's
-        capabilities, one screen was saying the same thing three times.
-
-        NOTHING WAS TAKEN AWAY: every destination is one click from the sidebar,
-        and the two capabilities that are not their own page (walk-in
-        registration, cash top-up) are still named in the subtitle so nobody has
-        to guess which screen holds them.
-
-        ONE CONSEQUENCE WORTH KNOWING: listing the notes board is what registers
-        a read receipt, so staff receipts now register when they open `/notes`
-        rather than on every visit here. The receipts still work; they just
-        record reading rather than passing by, which is the more honest reading
-        of "قرأها".
-      */}
       {role === "receptionist" || role === "manager" ? (
         <CenterCounterScreen embedded />
       ) : null}
 
-      {/*
-        The accountant tier appears on no messaging edge in chat-scope.ts, so it
-        reaches nobody and gets no Messages entry in the sidebar. Absence
-        without explanation reads as a broken portal; state the boundary
-        instead. This tier has no board above, so this IS its page.
-      */}
       {role === "center_accountant" ? (
         <Sheet className="p-4">
           <p className="m-0 text-[15px] font-semibold text-[var(--ink)]">

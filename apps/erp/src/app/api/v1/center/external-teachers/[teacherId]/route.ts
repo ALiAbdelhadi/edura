@@ -45,13 +45,6 @@ export const PATCH = withErrors(async (req, ctx) => {
 
 const removeSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 
-/**
- * SOFT removal, and there is no hard-delete route here at all — not a flag that
- * defaults to soft, an absent code path. A teacher who taught one settled
- * lesson is referenced by the immutable ledger forever; deleting their row
- * would leave money pointing at nothing. `restore` brings them back to exactly
- * the same records.
- */
 export const DELETE = withErrors(async (req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();

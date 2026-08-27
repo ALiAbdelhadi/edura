@@ -1,31 +1,3 @@
-/**
- * ===========================================================================
- * PHASE 1 — PEOPLE PARITY: a super admin does, on ANY center, what that center
- * does for itself (students, teachers, staff, co-owner admins).
- * ===========================================================================
- * Drives the REAL shipped services:
- *
- *   apps/superadmin/src/lib/services/admin/center-people.ts
- *     → @repo/server-core/services/center/{roster,admins,staff}.ts
- *
- * — which is the SAME kernel apps/www now calls through its route shims. That
- * shared-implementation claim is the point of the phase, so this file asserts
- * behaviour, and www's own suites (center-staff-delegation 55/55,
- * registration-doors 17/17, rbac-isolation 11/11) are the regression gate that
- * the move changed nothing for the center portal.
- *
- * What is proven here:
- *   1. every People capability works from the back office, on any center;
- *   2. each mutation writes EXACTLY ONE audit row — who / what / target /
- *      center / before / after;
- *   3. the acting-as-center shaping is scoped: acting on A never touches B;
- *   4. the center's own business rules still hold (they live in the kernel, so
- *      the back office cannot be a softer door than the portal);
- *   5. no money row is created, modified or deleted by any of it.
- *
- *   bunx tsx --env-file=<env> tests/db/center-people.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -117,15 +89,6 @@ async function moneySnapshot(centerIds: string[], userIds: string[]) {
   };
 }
 
-/**
- * Affiliation shares get their own witness rather than a byte-identity check.
- * Inviting a teacher legitimately CREATES an affiliation, so "the list is
- * unchanged" is the wrong claim and would either fail honestly (as it did) or
- * have to be deleted. The real claim is narrower and stronger:
- *   • no PRE-EXISTING affiliation's money knob moved, and
- *   • every affiliation created during the run carries a zero share
- *     (that value is superadmin config; no People operation may set it).
- */
 async function affiliationShares(centerIds: string[]) {
   const rows = (
     await admin.query(
@@ -176,7 +139,6 @@ async function main() {
   try {
     console.log(`PHASE 1 — PEOPLE PARITY — ${tag}`);
 
-    // ---------------- fixtures ----------------
     const superAdminId = await mkUser("super", "super_admin");
     const actor = {
       id: superAdminId,
@@ -236,7 +198,6 @@ async function main() {
         [grade.id],
       )
     ).rows[0];
-    // teacherBusy has an ACTIVE course here -> removal must be refused.
     await admin.query(
       `INSERT INTO courses (center_id, teacher_id, title, subject, subject_id, grade_level_id,
          days_of_week, start_time, end_time, start_date, price, max_students, status, is_demo, updated_at)
@@ -250,9 +211,7 @@ async function main() {
     );
     const sharesBefore = await affiliationShares([centerA, centerB]);
 
-    // =====================================================================
     section("Acting-as-center shaping");
-    // =====================================================================
     const target = await superadminAsCenter(actor, centerA);
     assert(target.acting.role === "center_admin", "the super admin is shaped as center_admin");
     assert(target.acting.centerId === centerA, "…carrying the TARGET center's id (RLS scope)");
@@ -266,9 +225,7 @@ async function main() {
     );
     assert(missing.threw && missing.matched, "an unknown center is rejected before any work runs");
 
-    // =====================================================================
     section("Students — list / add / edit / remove / lookup / invite");
-    // =====================================================================
     const listA = await adminListStudents(actor, centerA);
     assert(listA.length === 1 && listA[0].studentId === studentA, "lists center A's roster");
     const listB = await adminListStudents(actor, centerB);
@@ -358,7 +315,6 @@ async function main() {
       "audit: records that enrollments were NOT withdrawn by this path",
     );
 
-    // Isolation on a WRITE, not just a read.
     const crossWrite = await rejects(
       () => adminUpdateStudent(actor, centerB, studentA, { name: "hijack" }),
       /not in roster/i,
@@ -368,9 +324,7 @@ async function main() {
       "isolation: A's student cannot be edited while acting as center B",
     );
 
-    // =====================================================================
     section("Teachers — list / invite / remove");
-    // =====================================================================
     const teachers = await adminListTeachers(actor, centerA);
     assert(teachers.length === 2, "lists center A's teachers");
     assert(
@@ -449,9 +403,7 @@ async function main() {
       "teacher lookup is existence-only too",
     );
 
-    // =====================================================================
     section("Center staff — create / edit role / remove");
-    // =====================================================================
     const staffCreated = await adminCreateStaff(actor, centerA, {
       name: `${tag} Reception`,
       email: `${tag}-recept@edura.test`,
@@ -498,9 +450,7 @@ async function main() {
     rows = await auditRows("center.staff_removed", staffCreated.link.id, superAdminId);
     assert(rows.length === 1, "audit: exactly one center.staff_removed row");
 
-    // =====================================================================
     section("Co-owner admins — list / invite / remove");
-    // =====================================================================
     const adminsA = await adminListCenterAdmins(actor, centerA);
     assert(adminsA.length === 2, "lists center A's owners");
     assert(
@@ -536,9 +486,7 @@ async function main() {
       "business rule holds: the LAST admin cannot be removed — no center is left ownerless",
     );
 
-    // =====================================================================
     section("MONEY — People operations move nothing");
-    // =====================================================================
     const after = await moneySnapshot(
       [centerA, centerB],
       [studentA, studentFree, studentB, teacherA, teacherBusy],
@@ -549,7 +497,6 @@ async function main() {
         `money witness: ${key} is byte-identical across every People operation`,
       );
     }
-    // Affiliations: pre-existing shares frozen, newly created ones at zero.
     const sharesAfter = await affiliationShares([centerA, centerB]);
     const movedExisting = [...sharesBefore.entries()].filter(
       ([id, share]) => sharesAfter.get(id) !== share,
@@ -594,8 +541,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-people.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

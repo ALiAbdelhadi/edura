@@ -32,7 +32,6 @@ export const authProvider: AuthProvider = {
       };
     }
 
-    // Password correct + TOTP enrolled: hand off to the second-factor screen.
     if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
       return { success: true, redirectTo: "/two-factor" };
     }

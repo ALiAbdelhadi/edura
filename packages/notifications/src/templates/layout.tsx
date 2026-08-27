@@ -12,19 +12,6 @@ import {
 import * as React from "react";
 import { isRtl, type Locale } from "../locale";
 
-// =============================================================================
-// The ONE email shell. Every template renders inside it.
-//
-// Deliberately a visual match for the table-based layout in
-// @repo/server-core/mail/templates.ts (same brand navy header, same 520px white
-// card, same muted footer rule) so the three invite emails still living there
-// are indistinguishable from these while they wait to be ported. Porting them
-// is a copy of their COPY into this shell — no design decision left to make.
-//
-// react-email compiles to the same inline-styled tables Gmail/Outlook need; we
-// get that for free instead of hand-writing `role="presentation"` scaffolding.
-// =============================================================================
-
 export const BRAND = "#1a2f73";
 export const BRAND_GLOW = "#3856e0";
 const INK = "#1c2233";
@@ -46,7 +33,6 @@ export const FOOTER_COPY = {
 type LayoutProps = {
   locale: Locale;
   title: string;
-  /** Inbox list preview line. Without it clients scrape the first body text. */
   preview: string;
   footer?: string;
   children: React.ReactNode;
@@ -134,7 +120,6 @@ export function EmailLayout({ locale, title, preview, footer, children }: Layout
   );
 }
 
-/** Body paragraph — one style so no template invents its own line-height. */
 export function P({
   children,
   muted,
@@ -158,15 +143,6 @@ export function P({
   );
 }
 
-/**
- * CTA. A table cell carries the fill so Outlook honours the background — the
- * one place where react-email's <Button> is not enough on its own.
- *
- * `align` on a table FLOATS it, which is the only way to right-align a button
- * that Outlook also honours. The trailing clear div is therefore load-bearing,
- * not decoration: without it the next paragraph wraps around the button and
- * runs straight through it (seen in the ar receipt preview).
- */
 export function Cta({ label, href, locale }: { label: string; href: string; locale: Locale }) {
   return (
     <>
@@ -203,10 +179,6 @@ export function Cta({ label, href, locale }: { label: string; href: string; loca
   );
 }
 
-/**
- * The "if the button doesn't work" escape hatch. Corporate mail filters rewrite
- * or strip buttons often enough that a bare copyable URL is not optional.
- */
 export function FallbackLink({ href, locale }: { href: string; locale: Locale }) {
   return (
     <>
@@ -224,7 +196,6 @@ export function FallbackLink({ href, locale }: { href: string; locale: Locale })
   );
 }
 
-/** A closing note set off by a rule — expiry warnings, "ignore this" copy. */
 export function Note({ children }: { children: React.ReactNode }) {
   return (
     <Text
@@ -242,7 +213,6 @@ export function Note({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Monospace call-out for codes people read aloud (Student ID, receipt no.). */
 export function CodeBox({ value }: { value: string }) {
   return (
     <Text
@@ -265,7 +235,6 @@ export function CodeBox({ value }: { value: string }) {
   );
 }
 
-/** Label/value row for the receipt table. */
 export function DetailRow({
   label,
   value,

@@ -7,8 +7,6 @@ import { sendMessage } from "@/lib/services/messages/messages";
 
 export const dynamic = "force-dynamic";
 
-// REST fallback send — the primary path is the realtime socket. Both funnel
-// into the same domain logic (matrix + relationship authorization included).
 const createSchema = z
   .object({
     conversationId: z.uuid().optional(),

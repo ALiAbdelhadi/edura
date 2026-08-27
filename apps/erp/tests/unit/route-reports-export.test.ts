@@ -1,17 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-/**
- * GET /api/v1/reports/export — the second gate.
- *
- * The wrapper admits the UNION of accountant+manager because one route serves
- * reports of both tiers. Everything therefore rests on the per-report check
- * inside. THE FAILURE THIS PREVENTS: a manager — who legitimately reads
- * attendance and fill rates — downloading the center's revenue. The tier
- * constants themselves are pinned by report-export-tiers.test.ts; this proves
- * the ROUTE acts on them.
- */
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),
@@ -24,8 +13,6 @@ vi.mock("@/lib/db/scope", () => ({
   scopedDb: vi.fn(),
 }));
 
-// The report services are the screen's own; the export must not re-query, so
-// mocking them here is also a check that it calls them and nothing else.
 const getNetProfitReport = vi.fn(async () => ({
   revenue: 1234567,
   expenses: 234567,
@@ -112,21 +99,16 @@ describe("report export — the file", () => {
     expect(res.headers.get("content-disposition")).toMatch(
       /attachment; filename="net-profit-\d{4}-\d{2}-\d{2}\.csv"/,
     );
-    // A financial export must not sit in a shared cache.
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
   it("carries the BOM ON THE WIRE, the totals and a neutralised course title", async () => {
     requireSession.mockResolvedValue(owner);
     const res = await hit("?report=revenue-by-course&locale=ar");
-    // Assert the BYTES, not res.text(): the WHATWG decode that text() performs
-    // STRIPS a leading BOM, so a string check here would pass whether or not
-    // Excel ever receives it — and the BOM is the whole reason Arabic renders.
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
     const csv = new TextDecoder("utf-8").decode(bytes);
     expect(csv).toContain("12345.67");
-    // The seeded title starts with '=' — it must arrive as text, not a formula.
     expect(csv).toContain("'=فيزياء");
   });
 

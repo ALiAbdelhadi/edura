@@ -30,10 +30,6 @@ import { api } from "@/lib/api/client";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 
-// Team notes — the shared to-do board for ONE team (center front-desk team or
-// teacher + assistants). The API derives the board from the caller's own
-// delegation link, so this component never has to know which team it shows.
-
 type NoteStatus = "open" | "done" | "declined";
 
 type PersonRef = { id: string; name: string | null };
@@ -57,8 +53,6 @@ type Board = {
   notes: Note[];
 };
 
-// Status → to-do theming. `card` colors the whole row like a checked-off /
-// crossed-out task; `badge` is the small status chip.
 const STATUS_THEME: Record<
   NoteStatus,
   { card: string; body: string; badge: string; icon: React.ElementType }
@@ -101,7 +95,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
   const t = useTranslations();
   const { formatNumber } = useFormatters();
   const pathname = usePathname();
-  // /{locale}/dashboard/{portal}/… → the portal segment ("staff", "admin", …).
   const portal = pathname?.split("/dashboard/")[1]?.split("/")[0] ?? "staff";
   const basePath = `/dashboard/${portal}`;
 
@@ -110,10 +103,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  /* The note awaiting a delete confirmation. Held as an ID rather than a
-     boolean so the dialog cannot be left armed against a different row than the
-     one the reader opened it from — the same reset-on-subject-change rule
-     <TwoStepCommit> follows. */
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
 
@@ -122,13 +111,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
       const r = await api.get("team-notes").json<{ data: Board }>();
       setBoard(r.data);
     } catch {
-      // KEEP WHATEVER WAS LAST LOADED. This used to `setBoard(null)`, and
-      // `!board` renders nothing at all — so a request that was merely
-      // CANCELLED blanked the whole screen with a good response already in
-      // hand. React's development double-mount aborts the first fetch, which
-      // made `/notes` reliably empty in dev even though the API had answered
-      // 200 with the notes in it. A genuine failure now leaves the last good
-      // board on screen rather than erasing it.
     } finally {
       setLoading(false);
     }
@@ -146,8 +128,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
       await api.post("team-notes", { json: { body } });
       setDraft("");
     } catch {
-      // A slow notify fanout can outlive the client timeout while the write
-      // itself committed — refresh below self-heals either way.
     } finally {
       await refresh();
       setBusy(false);
@@ -161,8 +141,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     try {
       await api.patch(`team-notes/${id}`, { json: patch });
     } catch {
-      // Same self-heal as addNote: the mutation may have landed despite a
-      // client-side timeout.
     } finally {
       await refresh();
     }
@@ -173,7 +151,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     try {
       await api.delete(`team-notes/${id}`);
     } catch {
-      // Self-heal on timeout (see addNote).
     } finally {
       await refresh();
     }
@@ -194,8 +171,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
 
   const totalMembers = board.members.length;
   const openCount = board.notes.filter((n) => n.status === "open").length;
-  // Compact: surface what still needs doing — open (pinned-first order is
-  // preserved from the API), then the most recent finished ones.
   const visibleNotes = compact
     ? [
         ...board.notes.filter((n) => n.status === "open"),
@@ -388,8 +363,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     );
   };
 
-  // The API is the real gate; canWrite only hides the composer for the
-  // read-only center_accountant (whose reads still register — listing IS the read).
   const composer = board.me.canWrite && (
     <div className={cn("flex items-start gap-2", compact && "items-center")}>
       <Textarea
@@ -455,10 +428,6 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
         <div className="flex flex-col gap-3">{visibleNotes.map(renderNote)}</div>
       )}
 
-      {/* Was `window.confirm`, whose OK/Cancel are the browser's — in the
-          browser's language, not the reader's, and in the operating system's
-          shape rather than the product's. A soft delete is reversible, so this
-          is the one-press <ConfirmDialog> and not <TwoStepCommit>. */}
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(next) => {

@@ -103,7 +103,6 @@ export function AdminTeachersScreen() {
     {
       id: "teacher",
       header: t("roles.teacher"),
-      // Row identity: initials tile + name + the email as a mono ltr second line.
       cell: (r) => <RowIdentity name={r.name ?? "—"} meta={r.email} />,
     },
     {
@@ -138,10 +137,6 @@ export function AdminTeachersScreen() {
       id: "status",
       header: t("adminHome.teachers_status"),
       cell: (r) => {
-        // An OFF-SYSTEM teacher is not "pending an invite" — nobody is waiting
-        // for them to accept anything. Reading their shell account as a stalled
-        // invite is exactly the confusion this badge exists to prevent, so it
-        // is checked first and wins.
         if (r.systemStatus === "external") {
           return <Badge tone="neutral">{t("externalTeachers.badge")}</Badge>;
         }
@@ -158,8 +153,6 @@ export function AdminTeachersScreen() {
     {
       id: "actions",
       header: t("adminHome.teachers_actions"),
-      // Header text is kept for assistive tech even though the column reads as
-      // a bare action strip — a column with no accessible name is a defect.
       srOnly: true,
       numeric: true,
       cell: (r) => {
@@ -172,8 +165,6 @@ export function AdminTeachersScreen() {
         return (
           <div className="flex items-center justify-end gap-1">
             {r.affiliation?.status === "active" && (
-              // Phase 5 (D2): propose a money agreement — a PROPOSAL only;
-              // the platform's approval is what puts a rate in force.
               <Button
                 variant="ghost"
                 size="sm"
@@ -196,8 +187,6 @@ export function AdminTeachersScreen() {
               </Button>
             )}
             {canRemove && (
-              // Removal is destructive, so it is never a filled twin of a safe
-              // action — a bordered, text-weight control that still confirms.
               <ConfirmDialog
                 trigger={
                   <Button
@@ -244,9 +233,6 @@ export function AdminTeachersScreen() {
           rowKey={(r) => String(r.id ?? r._id)}
           caption={t("nav.teachers")}
           empty={
-            /* An empty list with no way out reads as a broken screen. The
-               action here is the same one the toolbar offers, so a first-time
-               owner never has to go looking for it. */
             <EmptyState
               icon={<GraduationCap className="size-6" />}
               title={t("activation.empty.teachers.title")}

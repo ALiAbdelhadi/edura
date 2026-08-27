@@ -6,11 +6,6 @@ import { listTeacherBlacklist, teacherBlacklistStudent } from "@/lib/services/bl
 
 export const dynamic = "force-dynamic";
 
-/**
- * T-2: `delegated()`, matching its own POST below — the same GET/PATCH
- * inversion attendance-mode had. An assistant who may ADD to the teacher's
- * blacklist could not LIST it, which made the write surface unbuildable.
- */
 export const GET = delegated(async (_req, _ctx, { acting: user }) => {
   return ok(await listTeacherBlacklist(user.id));
 });

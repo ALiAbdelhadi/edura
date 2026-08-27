@@ -1,20 +1,3 @@
-/**
- * Phase 4 (revenue-operations spec, D5) — the funding-aware refund reversal.
- *
- * What is proven, against the real settle + refund services:
- *   [1] PLATFORM-HELD refund is byte-identical to pre-Phase-4: teacher and
- *       center wallets both reverse, credit_balance never moves.
- *   [2] CENTER-HELD refund: the teacher's wallet reverses, the CENTER WALLET
- *       NEVER MOVES in either direction (it was never credited), the student
- *       is made whole from the platform's pocket, and the center's POSITION
- *       lands at exactly −price:
- *         settlement  −(teacherNet + fees)
- *         refund      −centerNet            (type refund_reversal)
- *         total       −price — the center still physically holds the gross
- *       the platform just refunded. Same clearing model, no special case.
- *
- * Run: bun run --filter edura-superadmin test:db:only center-held-refund
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";

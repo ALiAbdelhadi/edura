@@ -1,28 +1,3 @@
-// Registration proof — the four public sign-up doors (student, parent,
-// teacher, center) against the live DB, plus the login door they hand off to.
-//
-// What this pins down:
-//
-//   1. TEACHER is a real door now. It creates a `pending` user + a
-//      TeacherProfile, which is exactly the shape apps/superadmin's
-//      approveTeacher() already required (it rejects anything not `pending`)
-//      but that nothing could produce until now.
-//   2. PENDING accounts (teacher + center admin) are REJECTED by the www login
-//      door. This is not a regression — it is why the register page must show
-//      "awaiting review" instead of auto-signing in and bouncing to /login,
-//      which is what made center registration look broken.
-//   3. ACTIVE accounts (student + parent) sign in immediately, so the
-//      auto-signIn path is still correct for them.
-//   4. Once approved (status → active) the teacher signs in normally.
-//   5. The API's error envelope carries a MACHINE-READABLE reason for every
-//      rejection — `fields` for validation, code `conflict` for duplicates.
-//      The register page had been discarding all of it (ky >= 2 consumes the
-//      body into `error.data`, so the old `err.response.json()` always threw),
-//      so every failure surfaced as the generic "Registration failed".
-//
-// Nothing is mocked: the real register services, the real zod route schemas,
-// and the real better-auth /sign-in/email pipeline (before-hooks + credential
-// verify + session issuance) all run, via the shared auth-door helper.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { passwordSchema, phoneSchema } from "@repo/server-core/validation/common";
@@ -51,11 +26,6 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-// The real login door — the same /sign-in/email pipeline /login and the
-// register page's auto-signIn both go through. signInDoor mints a fresh IP
-// per call so the C2 per-IP bucket never starves this suite; the per-email
-// bucket (cap 5) is what the negative cases spend, and no email here is
-// tried more than twice.
 const login = (email: string, password: string) => signInDoor(email, password);
 
 async function main() {
@@ -71,7 +41,6 @@ async function main() {
   try {
     console.log("Registration doors —", tag);
 
-    // ------------------------------------------- 1) the four doors all open
     const student = await registerStudent({ email: emailStudent, password: PW, name: "S", locale: "ar" });
     const parent = await registerParent({ email: emailParent, password: PW, name: "P", locale: "ar" });
     const teacher = await registerTeacher({ email: emailTeacher, password: PW, name: "T", locale: "ar" });
@@ -94,7 +63,6 @@ async function main() {
       "center admin registers PENDING (needs approval)",
     );
 
-    // ------------------------- 2) teacher gets the profile the portal needs
     const profile = (
       await admin.query(`SELECT id, onboarding_completed FROM teacher_profiles WHERE user_id=$1`, [
         teacher.userId,
@@ -106,7 +74,6 @@ async function main() {
       "the new teacher starts un-onboarded, so the existing wizard picks them up",
     );
 
-    // ---- 3) the login door: ACTIVE roles in, PENDING roles out (unchanged)
     const inStudent = await login(emailStudent, PW);
     assert(
       inStudent.ok && (inStudent.user.id as string) === student.userId,
@@ -117,10 +84,6 @@ async function main() {
       inParent.ok && (inParent.user.id as string) === parent.userId,
       "parent can sign in right after registering",
     );
-    // The code is ACCOUNT_PENDING, not ACCOUNT_INACTIVE: "awaiting review" and
-    // "suspended" are different facts, and the copy keyed to the latter told a
-    // brand-new signup its account had been suspended. C-03's suspended-account
-    // assertions still expect ACCOUNT_INACTIVE — that partition is unchanged.
     const inTeacherPending = await login(emailTeacher, PW);
     assert(
       !inTeacherPending.ok && inTeacherPending.message === "ACCOUNT_PENDING",
@@ -132,7 +95,6 @@ async function main() {
       "PENDING center admin is refused by the login door — the dead-end the UI now explains",
     );
 
-    // ------------------------------ 4) approval is the only thing missing
     await admin.query(`UPDATE users SET status='active' WHERE id=$1`, [teacher.userId]);
     const inTeacherApproved = await login(emailTeacher, PW);
     assert(
@@ -140,7 +102,6 @@ async function main() {
       "once a super_admin approves (status → active) the teacher signs in normally",
     );
 
-    // --------- 5) failures carry a machine-readable reason the UI can show
     const weak = passwordSchema.safeParse("mypasswordhere");
     assert(
       !weak.success && weak.error.issues.some((i) => /digit/i.test(i.message)),
@@ -170,7 +131,6 @@ async function main() {
     }
     assert(teacherConflict === "conflict", "the teacher door enforces the same uniqueness rule");
 
-    // ------------------------------------- 6) no weakening of the guards
     const wrongPw = await login(emailStudent, "WrongPassword1");
     assert(
       !wrongPw.ok && wrongPw.message === "Invalid email or password",
@@ -194,8 +154,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite registration-doors.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

@@ -4,7 +4,6 @@ import { getShiftSummary } from "@/lib/services/center/shifts";
 
 export const dynamic = "force-dynamic";
 
-/** One shift's summary — live while open, frozen figures once closed. */
 export const GET = centerStaff(
   async (_req, ctx, { acting: user }) => {
     const { id } = await ctx.params;

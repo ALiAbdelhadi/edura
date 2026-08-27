@@ -7,14 +7,6 @@ function prismaErrorStatus(err: unknown): { status: number; code: string; messag
   const e = err as { code?: string; message?: string; meta?: { cause?: unknown } };
   switch (e.code) {
     case "P2023":
-      // P2023 ("inconsistent column data") is overloaded. It covers a
-      // malformed id the CALLER sent — genuinely a 404 — but also a column
-      // whose stored value the client cannot decode, e.g. a DB enum value the
-      // generated client predates. That second case is server-side schema
-      // drift, and reporting it as "not found" hides it: a stale dev server
-      // made the notifications list look like a missing route for an hour.
-      // Only the caller-input flavour stays a 404; the rest falls through to
-      // the 500 branch, which logs the real Prisma message.
       if (/malformed/i.test(e.message ?? "")) {
         return { status: 404, code: "not_found", message: "Resource not found" };
       }
@@ -52,13 +44,7 @@ export function toErrorResponse(err: unknown): NextResponse {
     return fail(prismaMapped.status, prismaMapped.code, prismaMapped.message);
   }
 
-  // Always log the real error server-side, with full detail, in every
-  // environment — the logs keep the table/column names, constraint text, file
-  // paths and library internals we need to debug.
   console.error("[unhandled]", err);
-  // But never leak those internals to the client in production: return a fixed
-  // generic message for the fallback branch. In development, surface the real
-  // message for debuggability.
   const message =
     process.env.NODE_ENV !== "production" && err instanceof Error
       ? err.message

@@ -20,16 +20,6 @@ import styles from "./marketing.module.css";
 import { demoBookingUrl } from "./nav";
 import { TrackedCta } from "./tracked-cta";
 
-/**
- * «إزاي بنحاسب» — the commission model, in numbers.
- *
- * Every figure below comes from `getPricingExamples()`, which reads the live
- * `commission_settings` global row and runs the SETTLEMENT ENGINE'S OWN pure
- * functions over it. Nothing on this page is a number someone typed into a
- * translation file: the copy holds sentences, the server holds arithmetic.
- * That is the whole design — a marketing page that can go stale about money is
- * worse than no page at all.
- */
 export async function PricingScreen({ locale }: { locale: Locale }) {
   const t = await getTranslations("marketing");
   const { rates, teacherDirect, hallSplit, flatFee } = await getPricingExamples();
@@ -40,7 +30,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
 
   return (
     <MarketingShell active="/pricing">
-      {/* Hero */}
       <section className="border-b" style={{ borderColor: "var(--rule)" }}>
         <Container className="py-12 sm:py-16">
           <div className="max-w-3xl">
@@ -58,7 +47,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
         </Container>
       </section>
 
-      {/* The three rules */}
       <section style={{ background: "var(--sheet)" }} className="border-b">
         <Container className="py-14 sm:py-16">
           <SectionHead eyebrow={t("pricing.principles.eyebrow")} title={t("pricing.principles.title")} />
@@ -82,7 +70,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
         </Container>
       </section>
 
-      {/* Worked examples */}
       <section>
         <Container className="py-14 sm:py-16">
           <SectionHead eyebrow={t("pricing.cases.eyebrow")} title={t("pricing.cases.title")} />
@@ -94,7 +81,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
           </p>
 
           <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            {/* A — teacher-direct */}
             <ExampleCard
               tag={t("pricing.cases.a.tag")}
               title={t("pricing.cases.a.title")}
@@ -111,7 +97,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
               <Total label={t("pricing.cases.a.rowNet")} value={egp(teacherDirect.teacherNet)} />
             </ExampleCard>
 
-            {/* B — hall split */}
             <ExampleCard
               tag={t("pricing.cases.b.tag")}
               title={t("pricing.cases.b.title")}
@@ -172,7 +157,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
               )}
             </ExampleCard>
 
-            {/* C — flat fee, no hall pricing */}
             <ExampleCard
               tag={t("pricing.cases.c.tag")}
               title={t("pricing.cases.c.title")}
@@ -194,7 +178,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
               <Total label={t("pricing.cases.c.rowTeacher")} value={egp(flatFee.teacherNet)} />
             </ExampleCard>
 
-            {/* Method 2 — described, never invented: no global rate is seeded. */}
             <div className={styles.card}>
               <div className="flex size-10 items-center justify-center rounded-lg bg-(--amber-soft) text-(--amber)">
                 <Landmark className="size-5" aria-hidden />
@@ -210,7 +193,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
         </Container>
       </section>
 
-      {/* Timing */}
       <section className="border-y" style={{ borderColor: "var(--rule)", background: "var(--sheet)" }}>
         <Container className="py-14 sm:py-16">
           <SectionHead eyebrow={t("pricing.timing.eyebrow")} title={t("pricing.timing.title")} />
@@ -234,7 +216,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
         </Container>
       </section>
 
-      {/* Payment methods + what we don't charge */}
       <section>
         <Container className="py-14 sm:py-16">
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
@@ -286,7 +267,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
         </Container>
       </section>
 
-      {/* CTA */}
       <section className="border-t" style={{ borderColor: "var(--rule)" }}>
         <Container className="py-14 sm:py-16">
           <div className={`${styles.cardMuted} text-center`}>
@@ -327,8 +307,6 @@ export async function PricingScreen({ locale }: { locale: Locale }) {
     </MarketingShell>
   );
 }
-
-/* ── pieces ─────────────────────────────────────────────────────────────── */
 
 function SectionHead({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (

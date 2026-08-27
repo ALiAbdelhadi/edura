@@ -3,25 +3,6 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import RoleGuard from "@/components/refine/role-guard";
 
-/**
- * These groups were already WRITTEN — every entry carried a `group: "Oversight"
- * | "Money" | "Comms"` field, and `navGroup.*` had translations in ar and en —
- * but the shell's `NavItem` type never declared the field and its render was a
- * flat `navItems.map`. So the field was inert and twenty-one destinations
- * shipped as one unbroken column. The shell now takes `navGroups`, which makes
- * the grouping a structure the compiler can see instead of a property nothing
- * reads.
- *
- * ONE TAXONOMY CHANGE while wiring it up: "Comms" held Audit log, Security,
- * Deletion requests and Feature flags. None of those is communication — they
- * are what the platform does to ITSELF, and filing an audit trail beside a
- * WhatsApp log is how an operator stops trusting the headings. They are now
- * @governance, which is also the group whose entries a regulator would ask for.
- *
- * Each group runs in the direction its work runs: oversight from the newest
- * arrivals inward, money from cash in to cash out and then to the rates that
- * govern both.
- */
 const navGroups = [
   {
     label: "",
@@ -30,8 +11,6 @@ const navGroups = [
   {
     label: "@oversight",
     items: [
-      // Registrations first: it is the only queue here with people waiting on
-      // the other end of it.
       {
         href: "/dashboard/superadmin/registrations",
         icon: "bell",
@@ -47,9 +26,6 @@ const navGroups = [
         label: "Collaborations",
         tour: "nav-collaborations",
       },
-      // Catalog is reference data, not a party — last in the group, and moved
-      // off the middle of the list where it interrupted centers → teachers →
-      // collaborations, which are one chain.
       { href: "/dashboard/superadmin/catalog", icon: "book", label: "Catalog", tour: "nav-catalog" },
     ],
   },
@@ -70,9 +46,6 @@ const navGroups = [
         label: "Room settlements",
         tour: "nav-settlements",
       },
-      // The two rate/policy screens last: they CONFIGURE the four ledgers above
-      // rather than reporting them, and a setting listed among records reads as
-      // another record.
       { href: "/dashboard/superadmin/commission", icon: "settings", label: "Commission", tour: "nav-commission" },
       { href: "/dashboard/superadmin/wallet", icon: "wallet", label: "Wallet policy", tour: "nav-wallet" },
     ],
@@ -117,17 +90,11 @@ const navGroups = [
   },
 ];
 
-/**
- * First four = the thumb slots. The tail is the sidebar's order, so the "more"
- * sheet — which holds seventeen of these twenty-one on a phone — does not
- * present a second ordering of the same menu. EVERY href is listed.
- */
 const BAR_ORDER = [
   "/dashboard/superadmin",
   "/dashboard/superadmin/registrations",
   "/dashboard/superadmin/users",
   "/dashboard/superadmin/payouts",
-  // — the "more" sheet, in sidebar order —
   "/dashboard/superadmin/centers",
   "/dashboard/superadmin/teachers",
   "/dashboard/superadmin/collaborations",

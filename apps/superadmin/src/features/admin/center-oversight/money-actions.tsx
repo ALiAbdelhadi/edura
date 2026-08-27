@@ -38,15 +38,6 @@ import { Spinner } from "@/components/kit/spinner";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
-// ---------------------------------------------------------------------------
-// PHASE 4 — the sanctioned money flows, on the Finance tab.
-//
-// Every button here writes through the money engine with a receipt or a
-// reference number. None of them edits a ledger row or sets a balance directly.
-// The two easiest things to misread are labelled where the operator will see
-// them: "mark refunded" is a status flag, and a payout request pays nothing.
-// ---------------------------------------------------------------------------
-
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="space-y-1 text-sm">
@@ -464,10 +455,6 @@ function PayoutDialog({
     </Dialog>
   );
 }
-
-// ===========================================================================
-// Expenses
-// ===========================================================================
 
 const CATEGORIES = ["rent", "salaries", "utilities", "supplies", "marketing", "other"] as const;
 

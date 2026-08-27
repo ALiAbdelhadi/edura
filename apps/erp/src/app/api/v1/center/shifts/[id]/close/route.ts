@@ -10,7 +10,6 @@ const closeSchema = z
   .object({ countedCash: z.number().int().min(0), note: z.string().max(500).optional() })
   .strict();
 
-/** Close MY drawer session against a physical count (Phase 2). */
 export const POST = centerStaff(
   async (req, ctx, { acting: user }) => {
     const { id } = await ctx.params;

@@ -5,7 +5,6 @@ import { listReports } from "@/lib/services/admin/messaging";
 
 export const dynamic = "force-dynamic";
 
-// Safety queue. Reports involving a minor sort first (see listReportsForReview).
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const p = new URL(req.url).searchParams;

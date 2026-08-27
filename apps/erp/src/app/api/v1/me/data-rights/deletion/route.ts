@@ -11,14 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Eligibility AND history in one call.
- *
- * Eligibility is returned rather than inferred client-side because the reason
- * a button is missing matters: "you are registered as a minor, your guardian
- * asks for this" is a different message from "you already have a request under
- * review", and a UI that just hides the button says neither.
- */
 export const GET = withErrors(async (req) => {
   const user = await requireSession();
   const studentId = new URL(req.url).searchParams.get("studentId") ?? undefined;

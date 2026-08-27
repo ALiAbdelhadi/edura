@@ -18,35 +18,6 @@ import {
   listCenterPayouts,
 } from "@repo/server-core/services/finance/center-wallet";
 
-// ---------------------------------------------------------------------------
-// PHASE 4 — MONEY, THE SANCTIONED FLOWS ONLY.
-//
-// Read this before adding anything here.
-//
-// Every operation in this file is a flow the product already has: recording a
-// cash payment against a receipt, taking a cash wallet top-up, selling a
-// walk-in subscription, booking an expense, requesting a payout. Each one
-// writes through the money engine, in one transaction, with a receipt or a
-// reference number and the REAL actor recorded.
-//
-// What is NOT here, and must never be:
-//   • no UPDATE or DELETE of a `transactions`, `points_ledger`,
-//     `wallet_ledger` or `session_settlements` row — the DB REVOKEs refuse it
-//     for the application role, super admin included;
-//   • no direct write to `centers.wallet_balance` or
-//     `student_profiles.wallet_balance` — balances move only as a consequence
-//     of a ledger entry;
-//   • no wallet DEBIT or withdrawal on a student's behalf. The counter can put
-//     cash IN; only the student's own spending or a refund takes it out.
-//
-// On "refund": the center-side transition (paid → refunded) is a STATUS FLAG on
-// the Payment row. It does NOT write a reversal to the ledger. The real refund,
-// which does, is the accountant's `refundLessonForStudent` (H3 — one refund per
-// payment, enforced by a partial unique). `adminMarkPaymentRefunded` below is
-// therefore named for what it is, and says so, so nobody reaches for it
-// expecting money to move.
-// ---------------------------------------------------------------------------
-
 type AuditSpec = {
   action: string;
   targetType: string;
@@ -74,10 +45,6 @@ async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
   );
 }
 
-// ===========================================================================
-// Payments
-// ===========================================================================
-
 export async function adminListPayments(
   actor: SessionUser,
   centerId: string,
@@ -92,19 +59,12 @@ export async function adminGetPayment(actor: SessionUser, centerId: string, paym
   return getPayment(paymentId, acting);
 }
 
-/**
- * Record a cash payment taken at the counter. Writes Payment + Transaction in
- * one go, with a center receipt number and `recordedBy` = the super admin.
- */
 export async function adminRecordPayment(
   actor: SessionUser,
   centerId: string,
   data: { studentId: string; courseId?: string; amount: number; note?: string },
 ) {
   if (data.amount <= 0) {
-    // A negative amount is how the underlying service expresses a refund. That
-    // path is NOT opened here — refunds have their own flow with its own
-    // one-refund-per-payment guard.
     throw new BusinessRuleError(
       "Amount must be positive — use the refund flow to return money, not a negative payment",
     );
@@ -130,14 +90,6 @@ export async function adminRecordPayment(
   return result;
 }
 
-/**
- * Flip a payment's STATUS to refunded (paid → refunded).
- *
- * This is the center's own transition and it is a bookkeeping flag: it writes
- * NO reversal to the ledger and moves no balance. Returning money is
- * `refundLessonForStudent` in the finance surface, which writes the reversal
- * and is guarded to one refund per payment (H3).
- */
 export async function adminMarkPaymentRefunded(
   actor: SessionUser,
   centerId: string,
@@ -170,8 +122,6 @@ export async function adminMarkPaymentRefunded(
     before: { status: result.before.status, amount: result.before.amount },
     after: {
       status: "refunded",
-      // Said plainly in the record, because this is the easiest thing in the
-      // whole system to misread.
       ledgerReversalWritten: false,
       moneyReturned: false,
       note: "Status flag only — use the finance refund flow to return money",
@@ -179,10 +129,6 @@ export async function adminMarkPaymentRefunded(
   });
   return result.updated;
 }
-
-// ===========================================================================
-// Wallet top-up (credit only)
-// ===========================================================================
 
 export async function adminTopUpWallet(
   actor: SessionUser,
@@ -201,17 +147,12 @@ export async function adminTopUpWallet(
       balanceAfter: result.balanceAfter,
       receiptNumber: result.receiptNumber,
       method: "cash",
-      // Credit only — there is no counter-side debit anywhere in the product.
       direction: "credit",
       viaSanctionedFlow: "topUpWalletCash",
     },
   });
   return result;
 }
-
-// ===========================================================================
-// Walk-in subscription
-// ===========================================================================
 
 export async function adminCreateWalkInSubscription(
   actor: SessionUser,
@@ -236,8 +177,6 @@ export async function adminCreateWalkInSubscription(
       studentId: input.studentId,
       courseId: input.courseId,
       plan: input.plan,
-      // The price is the server-side snapshot of the course's plan price — no
-      // amount is accepted from the caller.
       price: (sub as { price?: number }).price ?? null,
       method: "cash",
       viaSanctionedFlow: "createWalkInSubscription",
@@ -245,10 +184,6 @@ export async function adminCreateWalkInSubscription(
   });
   return result;
 }
-
-// ===========================================================================
-// Expenses
-// ===========================================================================
 
 export async function adminListExpenses(
   actor: SessionUser,
@@ -324,16 +259,10 @@ export async function adminDeleteExpense(
     targetType: "expense",
     targetId: expenseId,
     before,
-    // Expenses are the center's own bookkeeping, NOT the append-only ledger —
-    // they carry no REVOKE and deleting one reverses nothing in `transactions`.
     after: { deleted: true, ledgerRowsAffected: 0 },
   });
   return result;
 }
-
-// ===========================================================================
-// Center wallet + payouts
-// ===========================================================================
 
 export async function adminGetCenterWallet(actor: SessionUser, centerId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
@@ -345,11 +274,6 @@ export async function adminListCenterPayouts(actor: SessionUser, centerId: strin
   return listCenterPayouts(acting);
 }
 
-/**
- * Raise a payout REQUEST on the center's behalf. It creates a pending payout —
- * it does not pay anything. Approval and settlement stay in the accountant's
- * finance surface, where the H1 row lock and the H2 balance floor live.
- */
 export async function adminRequestCenterPayout(
   actor: SessionUser,
   centerId: string,
@@ -368,8 +292,6 @@ export async function adminRequestCenterPayout(
     after: {
       amount: amount ?? null,
       status: "pending",
-      // Requesting moves nothing. Approval + settlement are the accountant's,
-      // and that is where the H1 lock and H2 floor apply.
       moneyMoved: false,
       viaSanctionedFlow: "requestCenterPayout",
     },

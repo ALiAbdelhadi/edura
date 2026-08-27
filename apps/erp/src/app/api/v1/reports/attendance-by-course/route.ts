@@ -12,8 +12,6 @@ const querySchema = z.object({
   to: z.string().optional(),
 });
 
-// Operational report — MANAGER (and owner). Financial reports (revenue/profit/
-// expenses) are center_accountant-only; see center-actor.ts CAPABILITY MAP.
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

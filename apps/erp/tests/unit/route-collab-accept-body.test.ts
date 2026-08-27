@@ -1,13 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// Pins the 2026-08-08 approved contract change on POST
-// /api/v1/collaboration-requests/[id]/accept: the body now parses through
-// parseJson like every other route, so a wrong-shape body is a 400
-// validation_error (it used to surface as a raw ZodError 500) — while a
-// request with NO body at all still accepts (the UI always posts {}, but
-// tooling may not send a body).
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),

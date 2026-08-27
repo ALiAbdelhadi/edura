@@ -1,34 +1,5 @@
 "use client";
 
-/**
- * «جرّب بنفسك» — the parent emulator.
- *
- * A working copy of Edura, populated with a fake family, that walks a
- * first-time parent through the five things they must be able to do: read how
- * their child is doing, LINK a child, top up their own wallet, pay for a
- * lesson, and understand exactly what child-safety oversight does and does not
- * let them see. They PERFORM each one; nothing here is a video or a slideshow.
- *
- * FOUR PROPERTIES THAT ARE THE WHOLE POINT
- *
- *  1. IT TOUCHES NOTHING. No fetch, no mutation, no money, no writes. Every
- *     figure is React state over `world.ts`. That is what makes it safe to hand
- *     someone a button reading «ادفع من محفظتي» and let them press it — and it
- *     is why this works on day one, when a parent has no linked child and every
- *     real screen in their portal is an empty state.
- *  2. THE LEARNER ACTS. A step with a `target` does not advance until that
- *     control is pressed. Pressing the wrong one nudges rather than failing.
- *  3. IT IS SKIPPABLE AND REVERSIBLE. Skip and Back are present, per the UX
- *     rule that a forced linear tour is a trap.
- *  4. IT IS RESUMABLE. Progress is in localStorage — a device preference, not a
- *     fact about the account, which is the same split the first-run gate makes.
- *
- * `onDone` is how the first-run gate learns the tour is over (finished OR
- * skipped — both mean "do not open this by itself again"). The gate owns the
- * persistence; this component owns none of it, so the same engine serves the
- * once-only overlay and the permanent /tour page without knowing which it is in.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CreditCard, Check, Home, RotateCcw, ShieldCheck, Users, Wallet } from "lucide-react";
@@ -47,7 +18,6 @@ import {
 } from "./world";
 
 const PROGRESS_KEY = "edura.parentEmulator.step";
-/** 300 EGP — comfortably clears the lesson price without being a round 1000. */
 const TOP_UP_AMOUNT = 30000;
 
 const ICON = {
@@ -65,7 +35,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
   const [index, setIndex] = useState(0);
   const [missed, setMissed] = useState(false);
 
-  /* Simulated world — everything the parent's own actions change. */
   const [linked, setLinked] = useState(false);
   const [balance, setBalance] = useState(EMU_WALLET_OPENING);
   const [rows, setRows] = useState<EmuWalletRow[]>(EMU_WALLET_OPENING_ROWS);
@@ -82,7 +51,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
       const n = Number(window.localStorage.getItem(PROGRESS_KEY) ?? 0);
       if (Number.isFinite(n) && n > 0) setIndex(Math.min(n, FLAT_STEPS.length));
     } catch {
-      /* storage disabled — starting from the beginning is the right fallback */
     }
   }, []);
 
@@ -90,15 +58,9 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(index));
     } catch {
-      /* progress simply is not remembered */
     }
   }, [index]);
 
-  /* The spotlight: mark the region this step TALKS about, as opposed to the
-     control it asks to be pressed (which `EmuTarget` lights itself). Done in an
-     effect over the rendered stage because the relationship is "parent's
-     current step ↔ an arbitrary descendant", which CSS cannot express and
-     prop-drilling would spread across every screen. */
   useEffect(() => {
     const root = stageRef.current;
     if (!root) return;
@@ -136,8 +98,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
   };
 
   const payFromWallet = () => {
-    // All-or-nothing, exactly as the real wallet debit is: short balance means
-    // the whole thing is refused and NO part of it is taken.
     if (balance < EMU_LESSON.pricePerSession) return;
     const next = balance - EMU_LESSON.pricePerSession;
     setBalance(next);
@@ -180,7 +140,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
 
   return (
     <div className="space-y-4">
-      {/* ── Progress ─────────────────────────────────────────────────────── */}
       <Sheet className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -196,8 +155,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
             <LedgerButton onClick={restart}>
               <RotateCcw className="size-3.5" aria-hidden /> {t("restart")}
             </LedgerButton>
-            {/* Skip is a right, not a courtesy: a forced linear tour is the one
-                onboarding pattern people reliably resent. */}
             {onDone ? <LedgerButton onClick={() => onDone()}>{t("skip")}</LedgerButton> : null}
           </div>
         </div>
@@ -229,7 +186,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
         </div>
       </Sheet>
 
-      {/* ── The instruction ──────────────────────────────────────────────── */}
       {finished ? (
         <Sheet className="p-6 text-center">
           <h2 className="text-xl font-semibold" style={{ color: "var(--ink)" }}>
@@ -249,9 +205,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
         </Sheet>
       ) : (
         <Sheet className="p-4" style={{ borderColor: "var(--indigo)" }}>
-          {/* The mission's name, NOT a step number: the header already counts
-              steps, and a second counter numbered within the mission reads as a
-              contradiction. */}
           <Eyebrow>{t(asKey(`missions.${step.mission}`))}</Eyebrow>
           <p className="mt-1 font-semibold" style={{ color: "var(--ink)" }}>
             {t(asKey(`steps.${step.id}.title`))}
@@ -267,7 +220,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
           ) : null}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {/* A step with no target is an explanation, so it needs its own way on. */}
             {!step.target ? (
               <LedgerButton variant="primary" onClick={advance}>
                 {t("gotIt")}
@@ -278,7 +230,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
         </Sheet>
       )}
 
-      {/* ── The simulation ───────────────────────────────────────────────── */}
       <div
         ref={stageRef}
         className="overflow-hidden rounded-(--radius-step-lg)"
@@ -316,8 +267,6 @@ export function ParentEmulator({ onDone }: { onDone?: () => void } = {}) {
     </div>
   );
 }
-
-/* ── The simulation's own sidebar ───────────────────────────────────────── */
 
 function EmuNav({
   screen,

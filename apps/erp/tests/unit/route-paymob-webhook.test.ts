@@ -1,11 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// The gateway webhook is unauthenticated by nature — the HMAC over the RAW
-// body is the credential (c1-payments-mode.test.ts proves the constant-time
-// compare itself). This file pins the ROUTE's contract around it: a failed
-// verification never reaches settlement, an unknown order returns 200 so the
-// gateway stops retrying, and the response carries the intent id on success.
-
 const verifyWebhook = vi.fn();
 const processWebhookEvent = vi.fn();
 vi.mock("@/lib/services/payments/gateway", () => ({
@@ -54,8 +48,6 @@ describe("POST /api/v1/payments/paymob/webhook", () => {
     expect((await res.json()) as object).toEqual({
       data: { intentId: "pi-1", result: "settled" },
     });
-    // The event passed to settlement is the DRIVER's verified event — never
-    // re-derived from the raw payload.
     expect(processWebhookEvent).toHaveBeenCalledWith(
       { orderId: "o-1", success: true },
       { obj: { id: 1 } },

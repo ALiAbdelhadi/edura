@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseStudentCsv } from "@repo/server-core/services/center/student-csv";
 
-// The bulk-import parser. Every case here is a real shape a center's export
-// arrives in — Excel on Windows writes a BOM and CRLF, Arabic headers are the
-// norm in this market, and a guardian name with a comma inside quotes is the
-// classic way a naive split corrupts a whole file.
-
 function rows(text: string) {
   const r = parseStudentCsv(text);
   if (!r.ok) throw new Error(`expected ok, got: ${r.error}`);
@@ -53,7 +48,6 @@ describe("parseStudentCsv — happy paths", () => {
   it("detects TSV when tabs outnumber commas", () => {
     const r = rows("name\tphone\nAhmed, the elder\t0100\n");
     expect(r.delimiter).toBe("\t");
-    // The comma inside the name is data, not a delimiter, in a TSV file.
     expect(r.rows[0].name).toBe("Ahmed, the elder");
   });
 
@@ -116,8 +110,6 @@ describe("parseStudentCsv — whole-file failures", () => {
   });
 
   it("a header with NO data rows parses ok — the import service reports that", () => {
-    // Deliberate split: the parser's job is structure. "You gave me a header
-    // and nothing else" is an import-level message, so it does not fail here.
     const r = rows("name,phone\n");
     expect(r.rows).toEqual([]);
   });

@@ -20,20 +20,6 @@ import type {
   StudentScanResult,
 } from "@repo/server-core/services/students/student-scan";
 
-/* نتيجة مسح البطاقة / What the camera lands on.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   THIS COMPONENT HIDES NOTHING. Every field it can render has already been
-   reduced to the viewer's tier by `resolveStudentScan`; a `null` here means the
-   server decided this reader may not have it. Re-deriving that on the client
-   would put the policy in two places, and the client copy is the one an
-   attacker reads.
-
-   THE VERDICT IS THE HEADLINE, not a badge in a corner. The single question
-   anyone scanning this square has — receptionist, parent, or a stranger who
-   found a card on the pavement — is "is this real?", and a page that answers it
-   in small grey text beside a name has answered a different question. */
-
 export type ScanLabels = {
   eyebrow: string;
   validTitle: string;
@@ -60,7 +46,6 @@ export type ScanLabels = {
   foundCard: string;
 };
 
-/** The four semantic colours, used for exactly what they mean. */
 const TONE = {
   valid: { ink: "var(--teal)", soft: "var(--teal-soft)" },
   warn: { ink: "var(--amber)", soft: "var(--amber-soft)" },
@@ -140,8 +125,6 @@ function IdentityBlock({
 
       <div className="mt-3 divide-y" style={{ borderColor: "var(--rule)" }}>
         <Field label={labels.codeLabel}>
-          {/* The one figure on this page, so it takes the figure treatment —
-              mono, Latin digits, bidi-isolated inside Arabic prose. */}
           <Num style={{ letterSpacing: "0.06em" }}>
             {formatStudentCode(identity.studentCode)}
           </Num>
@@ -163,20 +146,10 @@ export function ScanResultView({
 }: {
   result: StudentScanResult;
   locale: string;
-  /**
-   * Which counter screen this viewer's role actually owns — `/dashboard/admin`
-   * for a center owner, `/dashboard/staff` for a receptionist. Resolved on the
-   * server, where the role is, rather than guessed from the tier: the two are
-   * not the same question and hardcoding one sends half the centers to a 404.
-   */
   counterHref: string | null;
-  /** The same, for the hall door a teacher or their assistant owns. */
   doorHref: string | null;
   labels: ScanLabels;
 }) {
-  // ---- The two dead ends. Neither carries an identity, deliberately: a bad
-  // signature and a code that matches nobody give the SAME answer, so this
-  // page can never be used to ask whether a code exists.
   if (result.outcome === "unreadable" || result.outcome === "invalid") {
     const unreadable = result.outcome === "unreadable";
     return (
@@ -229,9 +202,6 @@ export function ScanResultView({
 
       <IdentityBlock identity={identity} locale={locale} labels={labels} />
 
-      {/* The reason a card was stopped belongs to whoever is holding it. A
-          refusal with no explanation is one nobody can act on — least of all
-          the student standing at the counter with it. */}
       {result.outcome === "revoked" && result.reason ? (
         <p
           className="mt-4 rounded-[10px] p-3 text-sm"
@@ -242,12 +212,8 @@ export function ScanResultView({
         </p>
       ) : null}
 
-      {/* ---- Where each reader goes next. */}
       {isCounter && counterHref && result.outcome === "valid" ? (
         <div className="mt-5 space-y-2">
-          {/* Into the EXISTING counter, with the student already resolved. The
-              check-in flow — sessions, coverage, cash, the ledger — has one
-              screen, and this page does not become a second one. */}
           <Button asChild className="w-full" size="lg">
             <Link href={`${counterHref}?code=${identity.studentCode}`}>
               <ScanLine aria-hidden className="size-4" />
@@ -262,10 +228,6 @@ export function ScanResultView({
         </div>
       ) : null}
 
-      {/* The teacher's equivalent. It carries a HINT the counter's does not,
-          because the door refuses a student who never passed the counter — a
-          refusal is much easier to read when you were told the rule before
-          pressing the button rather than after. */}
       {result.outcome === "valid" && result.door && doorHref ? (
         <div className="mt-5 space-y-2">
           <Button asChild className="w-full" size="lg">
@@ -288,8 +250,6 @@ export function ScanResultView({
           >
             {labels.publicNotice}
           </p>
-          {/* Signing in is what turns this page into the counter. It is an
-              invitation, not a wall: everything above is already answered. */}
           <Button asChild variant="outline" className="w-full">
             <Link href="/login">{labels.signInCta}</Link>
           </Button>

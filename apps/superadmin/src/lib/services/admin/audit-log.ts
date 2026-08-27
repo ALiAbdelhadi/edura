@@ -1,14 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import type { Prisma } from "@repo/database";
 
-// ---------------------------------------------------------------------------
-// Audit-log viewer (roadmap decision #10 — promised in the Step 2 follow-on,
-// never built until now). READ ONLY, and structurally so: `audit_logs` carries
-// `REVOKE UPDATE, DELETE ... FROM edura_app` (migration 00000000000003), so a
-// super admin cannot edit or erase their own trail even by raw SQL. This
-// module only ever calls findMany/count.
-// ---------------------------------------------------------------------------
-
 export type AuditFilters = {
   actorId?: string;
   action?: string;
@@ -28,7 +20,6 @@ export function listAuditLogs(filters: AuditFilters) {
   return platformDb(async (tx) => {
     const where: Prisma.AuditLogWhereInput = {};
     if (filters.actorId) where.actorId = filters.actorId;
-    // Prefix match so "center." pulls every center action in one filter.
     if (filters.action?.trim()) where.action = { startsWith: filters.action.trim() };
     if (filters.targetType) where.targetType = filters.targetType;
     if (filters.targetId) where.targetId = filters.targetId;
@@ -92,7 +83,6 @@ export function listAuditLogs(filters: AuditFilters) {
   });
 }
 
-/** Distinct action strings present in the log — powers the filter dropdown. */
 export function listAuditActions() {
   return platformDb(async (tx) => {
     const rows = await tx.auditLog.findMany({

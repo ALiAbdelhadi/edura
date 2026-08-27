@@ -1,14 +1,3 @@
-// Proof — the forgot-password flow actually DELIVERS an email.
-//
-// Before this, `sendMail` was a stub that only console.logged: the reset token
-// was created in the DB but nothing ever reached the user. This drives the REAL
-// service (requestPasswordReset → sendMail → nodemailer SMTP driver) against a
-// local SMTP server that captures the raw wire traffic, so "an email was sent"
-// is proven by the SMTP transcript, not by a mock's call count.
-//
-// Also pins the two behaviours a reset mailer must never break:
-//   - unknown address  → no email, no throw (anti-enumeration)
-//   - dead SMTP host   → no throw (a 500 would leak that the account EXISTS)
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import net from "node:net";
 import bcrypt from "bcryptjs";
@@ -21,20 +10,6 @@ const OLD_PW = "OldPassw0rd!";
 const NEW_PW = "FreshPassw0rd!";
 const SINK_PORT = 2598;
 
-/**
- * The origin this run pins `APP_BASE_URL` to, and the one the link assertion
- * checks against — ONE constant feeding both, because they were two separate
- * literals that happened to agree. Editing the setup and forgetting the
- * assertion (or the reverse) failed the suite with "link uses APP_BASE_URL"
- * pointing at a link that did exactly that.
- *
- * It is deliberately NOT read from the environment. This suite proves that a
- * reset link is built from `APP_BASE_URL` + the locale segment, so it has to
- * OWN that value: reading whatever the ambient env happens to hold would make
- * the assertion agree with the code by construction and prove nothing. Any
- * absolute https origin works here — the production domain is incidental, and
- * changing it does not touch this file.
- */
 const APP_ORIGIN = "https://app.example.test";
 
 let pass = 0;
@@ -49,13 +24,8 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-/** Captured messages, newest last. */
 const inbox: { rcpt: string; raw: string }[] = [];
 
-/**
- * Minimal SMTP server. Speaks just enough ESMTP for nodemailer to authenticate
- * and hand over a message, then records the DATA payload verbatim.
- */
 function startSink(): Promise<net.Server> {
   const server = net.createServer((sock) => {
     let inData = false;
@@ -77,7 +47,6 @@ function startSink(): Promise<net.Server> {
             raw = "";
             sock.write("250 OK queued\r\n");
           } else {
-            // Undo SMTP dot-stuffing.
             raw += (line.startsWith("..") ? line.slice(1) : line) + "\n";
           }
           continue;
@@ -104,7 +73,6 @@ function startSink(): Promise<net.Server> {
   );
 }
 
-/** Decode the quoted-printable HTML part enough to read the reset link out of it. */
 function decodeQp(raw: string): string {
   return raw.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/g, (_m, h) =>
     String.fromCharCode(parseInt(h, 16)),
@@ -131,8 +99,6 @@ async function main() {
 
   const sink = await startSink();
 
-  // Point the real driver at the sink. Set before the first send so the pooled
-  // transporter is built against this config.
   process.env.MAIL_PROVIDER = "smtp";
   process.env.SMTP_HOST = "127.0.0.1";
   process.env.SMTP_PORT = String(SINK_PORT);
@@ -144,7 +110,6 @@ async function main() {
   try {
     console.log("Password-reset mail delivery —", tag);
 
-    // 1) The core regression: a real email leaves the app for a real user.
     await requestPasswordReset(email, "ar");
     await new Promise((r) => setTimeout(r, 300));
 
@@ -152,7 +117,6 @@ async function main() {
     const msg = inbox[0]!;
     assert(msg.rcpt === email, "delivered to the requesting address");
 
-    // 2) The message is well-formed: Arabic subject, both MIME parts, RTL.
     assert(
       /Content-Type:\s*multipart\/alternative/i.test(msg.raw),
       "multipart/alternative (plain-text alternative present, not spam-shaped)",
@@ -161,8 +125,6 @@ async function main() {
     assert(/Content-Type:\s*text\/plain/i.test(msg.raw), "carries a plain-text part");
     assert(/dir=3D"rtl"|dir="rtl"/.test(msg.raw), "Arabic email renders RTL");
 
-    // 3) The link is usable: correct origin, correct locale segment, and the
-    //    token in the BODY is the one that actually resets the password.
     const link = linkFrom(msg.raw);
     assert(link !== null, "email body contains a reset link");
     assert(
@@ -177,7 +139,6 @@ async function main() {
     ).rows[0].password_hash as string;
     assert(await bcrypt.compare(NEW_PW, after), "the token FROM THE EMAIL resets the password");
 
-    // 4) English request → English copy + /en link.
     inbox.length = 0;
     await requestPasswordReset(email, "en");
     await new Promise((r) => setTimeout(r, 300));
@@ -186,7 +147,6 @@ async function main() {
     assert(enLink?.includes("/en/reset-password") === true, "English request links to the /en page");
     assert(/dir=3D"ltr"|dir="ltr"/.test(inbox[0]!.raw), "English email renders LTR");
 
-    // 5) Anti-enumeration: an unknown address must send nothing and not throw.
     inbox.length = 0;
     let threw = false;
     await requestPasswordReset(`${tag}-nobody@x.io`, "ar").catch(() => (threw = true));
@@ -194,9 +154,6 @@ async function main() {
     assert(!threw, "unknown address does not throw");
     assert(inbox.length === 0, "unknown address sends no email");
 
-    // 6) Resilience: a dead SMTP host must not throw — otherwise the generic
-    //    "if an account exists…" response becomes a 500 for real accounts only,
-    //    which is itself an enumeration oracle.
     process.env.SMTP_PORT = "2597"; // nothing listening
     let threwOnDeadHost = false;
     await requestPasswordReset(email, "ar").catch(() => (threwOnDeadHost = true));
@@ -212,8 +169,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite mail-password-reset.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

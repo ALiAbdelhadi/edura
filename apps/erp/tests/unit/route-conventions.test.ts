@@ -2,30 +2,6 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-/**
- * Convention enforcement over EVERY route handler in apps/www.
- *
- * This suite statically analyses all src/app/api route.ts files and holds
- * three invariants that the 2026-08-08 API audit found to be true of the
- * whole surface — so a future route can't silently regress them:
- *
- *  1. AUTH — every route either uses an approved auth wrapper/helper, or is
- *     on the explicit PUBLIC allowlist below, where each entry records WHY
- *     it is public and which gate must keep standing (rate limit, HMAC,
- *     CRON_SECRET, dedicated internal secret, or "public read, GET-only").
- *  2. DYNAMIC — every route exports `dynamic = "force-dynamic"`. API routes
- *     here serve per-user/stateful data; caching decisions live in the
- *     post-launch pass (docs/reports/api-modernization-audit.md), not in an
- *     accidentally-omitted segment config.
- *  3. BODY PARSING — no route reads a request body raw. JSON goes through
- *     parseJson (zod); `.text()` is only for the Paymob webhook (HMAC needs
- *     raw bytes); `formData()` only for the five known upload routes.
- *
- * If a new route legitimately needs an exception, add it to the relevant
- * allowlist WITH a reason — the suite fails on stale entries, so the lists
- * can never drift from reality.
- */
-
 const API_ROOT = path.resolve(__dirname, "../../src/app/api");
 
 function collectRouteFiles(dir: string): string[] {
@@ -38,15 +14,10 @@ function collectRouteFiles(dir: string): string[] {
   return out;
 }
 
-/** Route key relative to src/app/api, posix separators, no /route.ts. */
 function routeKey(file: string): string {
   return path.relative(API_ROOT, path.dirname(file)).split(path.sep).join("/");
 }
 
-/**
- * Presence of any of these means the route resolves an authenticated actor.
- * `withErrors` alone is NOT auth — it is only the error envelope.
- */
 const AUTH_TOKENS = [
   "requireRole(",
   "requireSession(",
@@ -61,9 +32,7 @@ const AUTH_TOKENS = [
 
 type PublicEntry = {
   reason: string;
-  /** Source markers that must remain — the gate that makes "public" safe. */
   mustContain?: string[];
-  /** Public READ surfaces must never grow a write method. */
   getOnly?: boolean;
 };
 
@@ -182,12 +151,6 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
   },
 };
 
-/**
- * Body-shape exceptions — each entry must record why a raw read is
- * legitimate. Empty since 2026-08-08: the one legacy site
- * (collaboration-requests/[id]/accept) migrated to parseJson with Ali's
- * approval (invalid-body 500→400 documented in the commit).
- */
 const RAW_JSON_ALLOWED: Record<string, PublicEntry> = {};
 
 const RAW_TEXT_ALLOWED: Record<string, PublicEntry> = {
@@ -208,9 +171,6 @@ const RAW_TEXT_ALLOWED: Record<string, PublicEntry> = {
 };
 
 const FORM_DATA_ALLOWED = new Set([
-  // Not an upload: a top-level form navigation carrying the view-as handoff
-  // token in the BODY rather than a query string, so it never lands in browser
-  // history, referrers or access logs.
   "v1/auth/view-as/claim",
   "v1/materials",
   "v1/materials/[id]",
@@ -228,8 +188,6 @@ const sources = new Map(files.map((f) => [routeKey(f), readFileSync(f, "utf8")])
 
 describe("route conventions (all api routes)", () => {
   it("glob actually found the route surface", () => {
-    // If a refactor moves src/app/api, this suite must break loudly rather
-    // than pass vacuously over zero files.
     expect(files.length).toBeGreaterThanOrEqual(200);
   });
 
@@ -261,8 +219,6 @@ describe("route conventions (all api routes)", () => {
     for (const [key, entry] of Object.entries(PUBLIC_ROUTES)) {
       const src = sources.get(key);
       expect(src, `allowlisted route no longer exists: ${key}`).toBeDefined();
-      // If a route gained a real auth wrapper, the entry is stale — remove it
-      // so the list only ever names routes that are actually public.
       expect(
         AUTH_TOKENS.some((t) => src!.includes(t)),
         `${key} now uses an auth wrapper — remove it from PUBLIC_ROUTES`,

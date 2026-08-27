@@ -1,18 +1,3 @@
-// PARENT_IA_AUDIT.md §7.1 finding 4 — a card top-up produced no receipt.
-//
-// Worse than "no receipt": the settler already MINTED a receipt number and put
-// it in the notification, so a parent read "Receipt RCP-EDURA-2026-00042 has
-// been issued" while `sendPaymentReceiptEmail` looked it up, found no `payments`
-// row and returned `no_payment_row`. A number to quote at a counter, and nothing
-// for the counter to match it against.
-//
-// The student online top-up had written a Payment row since it was built. The
-// parent path was the odd one out, and docs/decisions/parent-pays-lesson.md §5
-// was the reason — reversed by Ali on 2026-08-20.
-//
-// THE RISK IN THIS CHANGE IS NOT THE RECEIPT, IT IS THE MONEY. A Payment row is
-// what every center revenue read counts. So most of what follows asserts that
-// the row is INVISIBLE to all of them, and that the ledger is unchanged.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { created } = vi.hoisted(() => ({
@@ -107,7 +92,6 @@ describe("parent wallet top-up — the receipt is real", () => {
   });
 
   it("the notification carries the paymentId a receipt link needs", async () => {
-    // The half that was missing: a receipt number with nothing to open.
     const note = await settle();
     expect(note.data.paymentId).toBe("payment-1");
   });
@@ -127,8 +111,6 @@ describe("parent wallet top-up — the receipt is real", () => {
 describe("parent wallet top-up — it is INVISIBLE to every center money read", () => {
   it("centerId is NULL, so no center's revenue, P&L or payout counts it", async () => {
     await settle();
-    // Every center-scoped read keys on center_id: paymentWhereBase(centerId),
-    // listPayments for a center_admin, getRevenueReport, getAdminDashboard.
     expect(created.payments[0].centerId).toBeNull();
   });
 
@@ -143,9 +125,6 @@ describe("parent wallet top-up — it is INVISIBLE to every center money read", 
   });
 
   it("the row matches the shape the DB CHECK permits, and only that shape", async () => {
-    // payments_student_required:
-    //   student_id IS NOT NULL
-    //   OR (payer_user_id IS NOT NULL AND center_id IS NULL AND course_id IS NULL)
     await settle();
     const p = created.payments[0];
     const permitted =

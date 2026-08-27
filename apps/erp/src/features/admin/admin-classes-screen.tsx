@@ -265,9 +265,6 @@ export function AdminClassesScreen() {
       daysOfWeek: course.schedulePattern?.daysOfWeek ?? [],
       startTime: course.schedulePattern?.startTime || "",
       endTime: course.schedulePattern?.endTime || "",
-      // <input type="date"> only accepts yyyy-MM-dd — the API serializes these
-      // as full ISO timestamps, which the input silently displays as EMPTY, so
-      // every edit used to force re-typing the term dates from scratch.
       startDate: String(course.schedulePattern?.startDate || "").slice(0, 10),
       endDate: String(course.schedulePattern?.endDate || "").slice(0, 10),
       price: (course.price ?? 0) / 100,

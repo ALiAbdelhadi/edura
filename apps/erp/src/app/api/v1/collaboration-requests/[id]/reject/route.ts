@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() }).strict();
 
-// Center side: MANAGER (and owner) may reject a collaboration request.
 export const POST = delegatedWithCenter(
   async (req, ctx, { acting: user }) => {
     const { id } = await ctx.params;

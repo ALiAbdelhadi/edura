@@ -40,12 +40,6 @@ import { useAdminGet } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 import { CollabRequestButton } from "./collab-request-dialog";
 
-// ---------------------------------------------------------------------------
-// PHASE 1 — People tabs. Every button here calls a back-office route that runs
-// the SAME kernel service the center portal runs, scoped to this center, with
-// an audit row per mutation.
-// ---------------------------------------------------------------------------
-
 function useMutate(onDone: () => void) {
   const { mutateAsync } = useCustomMutation();
   return async (
@@ -66,7 +60,6 @@ function useMutate(onDone: () => void) {
   };
 }
 
-/** Small labelled field used by the dialogs below. */
 function Field({
   label,
   value,
@@ -92,10 +85,6 @@ function Field({
     </label>
   );
 }
-
-// ===========================================================================
-// Students
-// ===========================================================================
 
 type StudentRow = {
   studentId: string;
@@ -215,7 +204,6 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
         </div>
       )}
 
-      {/* Edit */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
@@ -234,7 +222,6 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
         </DialogContent>
       </Dialog>
 
-      {/* Invite */}
       <SimpleFormDialog
         open={inviting}
         onOpenChange={setInviting}
@@ -255,7 +242,6 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
         }
       />
 
-      {/* Add an existing student by id */}
       <SimpleFormDialog
         open={adding}
         onOpenChange={setAdding}
@@ -332,10 +318,6 @@ function StudentEditForm({
   );
 }
 
-// ===========================================================================
-// Teachers
-// ===========================================================================
-
 type TeacherRow = {
   teacherId: string;
   name?: string | null;
@@ -364,8 +346,6 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
           the center is held to.
         </p>
         <div className="flex flex-wrap gap-2">
-          {/* Registered teacher → collaboration request (the invite below is
-              shell-account onboarding and refuses one with a 409). */}
           <CollabRequestButton centerId={centerId} onDone={req.refetch} />
           <Button size="sm" onClick={() => setInviting(true)}>
             <UserPlus className="size-4" />{t("pp_inviteTeacher")}</Button>
@@ -396,11 +376,6 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
                   </TableCell>
                   <TableCell>{row.coursesCount}</TableCell>
                   <TableCell className="text-end">
-                    {/* Deactivate and Activate are opposite states, so only the
-                        one that applies is offered — the row already carries the
-                        teacher's status and used to render BOTH regardless,
-                        which made every row ask a question it had the answer
-                        to. Mirrors the page header, which has always done this. */}
                     <div className="flex flex-wrap justify-end gap-2">
                       {row.status === "active" ? (
                         <ControlAction
@@ -475,10 +450,6 @@ export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: 
     </div>
   );
 }
-
-// ===========================================================================
-// Staff
-// ===========================================================================
 
 type StaffRow = {
   id: string;
@@ -704,10 +675,6 @@ function StaffCreateDialog({
   );
 }
 
-// ===========================================================================
-// Co-owner admins (rendered on the Overview tab)
-// ===========================================================================
-
 export function CenterAdminsCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
@@ -784,10 +751,6 @@ export function CenterAdminsCard({ centerId }: { centerId: string }) {
     </Card>
   );
 }
-
-// ===========================================================================
-// Shared small form dialog
-// ===========================================================================
 
 function SimpleFormDialog({
   open,

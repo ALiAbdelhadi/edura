@@ -1,26 +1,3 @@
-/**
- * Phase 5 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 5, D1 + D2) — teacher agreements.
- *
- * What is proven, against the real engine:
- *   [1] GOVERNANCE (D2): a PROPOSAL has no force — a lesson settled while the
- *       proposal is pending splits exactly as the affiliation fallback did.
- *   [2] residual='center' + percent_of_net (the spec's 60%-of-net teacher):
- *       teacher = net × rate, center = the remainder, conserved to the gross.
- *   [3] residual='center' + fixed_per_student (the spec's 50 EGP/student).
- *   [4] residual='teacher' + percent_of_net (today's direction, contracted):
- *       the rate prices the CENTER's share; the teacher keeps the remainder.
- *   [5] EFFECTIVE DATING: a lesson DATED under agreement #1 settles under #1
- *       even when settled AFTER #2 became active — the row live on the
- *       lesson's date governs, not the row live today.
- *   [6] PRECEDENCE: a room-based course ignores the agreement and settles by
- *       its frozen split ("ONE rule per course").
- *   [7] Every combination CONSERVES: teacher + center + platform = gross.
- *   [8] Proposal-shape refusals: mismatched rate shapes and duplicate pending
- *       proposals are refused.
- *
- * Run (this one only): bun run --filter edura test:db:only teacher-agreements
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";
@@ -101,7 +78,6 @@ async function main() {
         },
       });
     const course = await mkCourse();
-    // Room-style course: frozen Method-1 split snapshot (60/20/20).
     const roomCourse = await mkCourse({
       pricingMethod: "whole_room_percent",
       splitPlatformBp: 2000, splitTeacherBp: 6000, splitCenterBp: 2000,
@@ -128,7 +104,6 @@ async function main() {
           startTime: "10:00", endTime: "11:00", status: "scheduled",
         },
       });
-      // Platform-held coverage so wallet deltas measure the SPLIT, not funding.
       for (const stu of students) {
         await tx.subscription.create({
           data: {
@@ -201,7 +176,6 @@ async function main() {
     "[8] a second pending proposal for the pair is refused",
   );
   const stBaseline = await settle(fx.sBaseline);
-  // Affiliation fallback: centerShare 1000 flat → per student: teacher 10000−200−1000=8800, center 1000−200=800.
   assert(
     stBaseline.teacherTotal === 17600 && stBaseline.centerTotal === 1600,
     `pending proposal changed nothing — affiliation math held (${stBaseline.teacherTotal}/${stBaseline.centerTotal})`,
@@ -212,7 +186,6 @@ async function main() {
     approveAgreementTx(tx, proposal.id, fx.admin, new Date(Date.now() - 2 * DAY)),
   );
   const stPercent = await settle(fx.sPercent);
-  // net = 10000−400 = 9600; take = 5760 → per student teacher 5760, center 3840.
   assert(
     stPercent.teacherTotal === 11520 && stPercent.centerTotal === 7680 && stPercent.platformTotal === 800,
     `teacher 60% of net, center the remainder (${stPercent.teacherTotal}/${stPercent.centerTotal}/${stPercent.platformTotal})`,
@@ -224,14 +197,10 @@ async function main() {
     { teacherId: fx.teacher, basis: "fixed_per_student", rateFlat: 5000, residual: "center" },
     owner,
   );
-  // effectiveFrom an hour AGO: resolution is by the LESSON'S date, and the
-  // fixture's sessions are dated before this approval moment — the very
-  // semantics VP5 proves. sOld (yesterday) stays inside #1's window.
   await withPlatformContext((tx) =>
     approveAgreementTx(tx, fixedProposal.id, fx.admin, new Date(Date.now() - 60 * 60 * 1000)),
   );
   const stFixed = await settle(fx.sFixed);
-  // per student: teacher 5000, center 9600−5000=4600.
   assert(
     stFixed.teacherTotal === 10000 && stFixed.centerTotal === 9200,
     `teacher 50 EGP/student, center the remainder (${stFixed.teacherTotal}/${stFixed.centerTotal})`,
@@ -240,7 +209,6 @@ async function main() {
 
   console.log("\n[5] effective dating — the lesson's date governs, not today");
   const stOld = await settle(fx.sOld);
-  // sOld is dated yesterday: agreement #1 (60% of net) was live then; #2 only from now.
   assert(
     stOld.teacherTotal === 11520 && stOld.centerTotal === 7680,
     `a lesson dated under agreement #1 settles under #1 even after #2 activated (${stOld.teacherTotal}/${stOld.centerTotal})`,
@@ -255,7 +223,6 @@ async function main() {
     approveAgreementTx(tx, teacherResProposal.id, fx.admin, new Date(Date.now() - 30 * 60 * 1000)),
   );
   const stTeacherRes = await settle(fx.sTeacherRes);
-  // rate prices the CENTER: share = 9600×0.3 = 2880 → teacher 6920, center 2680.
   assert(
     stTeacherRes.teacherTotal === 13840 && stTeacherRes.centerTotal === 5360,
     `the rate prices the center's share; the teacher keeps the remainder (${stTeacherRes.teacherTotal}/${stTeacherRes.centerTotal})`,
@@ -264,7 +231,6 @@ async function main() {
 
   console.log("\n[6] precedence — a room-based course ignores the agreement");
   const stRoom = await settle(fx.sRoom);
-  // Frozen 20/60/20 split: per student platform 2000, center 2000, teacher 6000.
   assert(
     stRoom.teacherTotal === 12000 && stRoom.centerTotal === 4000 && stRoom.platformTotal === 4000,
     `the frozen room split governed (${stRoom.teacherTotal}/${stRoom.centerTotal}/${stRoom.platformTotal}) — ONE rule per course`,

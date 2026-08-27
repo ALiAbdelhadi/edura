@@ -1,24 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
 
-/**
- * Parse and record one CSP violation report.
- *
- * TWO WIRE FORMATS, because browsers disagree and both are still in the field:
- *   • `report-uri`  → `{"csp-report": { "document-uri", "blocked-uri", ... }}`
- *     with `Content-Type: application/csp-report`. Legacy, still what Safari
- *     and older Chrome send.
- *   • `report-to`   → `[{ "type": "csp-violation", "body": { documentURL,
- *     blockedURL, ... } }]` with `application/reports+json`. The Reporting API
- *     successor, and it batches, so ONE request can carry many reports.
- * Both are normalised to the same shape here so the log has one format to read.
- *
- * NOISE IS THE ENEMY OF THIS FEATURE. Browser extensions inject scripts into
- * every page and generate violations that are not the site's bug; a report
- * stream that is 95% extension noise gets muted, and then the real violation
- * arrives and nobody is listening. Reports whose blocked URI is an extension
- * scheme are dropped before they reach Sentry.
- */
-
 type Normalised = {
   documentUri: string;
   blockedUri: string;
@@ -29,7 +10,6 @@ type Normalised = {
   disposition: string;
 };
 
-/** Extension schemes — the browser's own noise, never the application's bug. */
 const EXTENSION_SCHEMES = [
   "chrome-extension:",
   "moz-extension:",
@@ -51,7 +31,6 @@ function normaliseOne(raw: unknown): Normalised | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
 
-  // report-to / Reporting API shape
   if (str(o.type) === "csp-violation" && o.body && typeof o.body === "object") {
     const b = o.body as Record<string, unknown>;
     return {
@@ -65,7 +44,6 @@ function normaliseOne(raw: unknown): Normalised | null {
     };
   }
 
-  // report-uri shape
   const c = (o["csp-report"] ?? o) as Record<string, unknown>;
   const documentUri = str(c["document-uri"]);
   if (!documentUri && !c["violated-directive"]) return null;
@@ -100,9 +78,6 @@ export function captureCspReport(rawBody: string, userAgent: string | null): voi
         (r.sourceFile ? ` (${r.sourceFile}:${r.lineNumber ?? "?"})` : ""),
     );
 
-    // Grouped by directive + blocked URI, NOT by document: the same missing
-    // allowlist entry fires on every page, and one issue per page would bury
-    // the signal it is supposed to surface.
     Sentry.captureMessage(`CSP ${r.effectiveDirective || "violation"}: ${r.blockedUri}`, {
       level: r.disposition === "enforce" ? "warning" : "info",
       tags: {

@@ -18,7 +18,6 @@ const splitSchema = z
     message: "The three shares must sum to exactly 100% (10000 basis points)",
   });
 
-/** super_admin ONLY — per-room revenue split override (most specific). */
 export const PUT = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id, roomId } = await ctx.params;

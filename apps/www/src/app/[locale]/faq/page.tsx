@@ -7,15 +7,6 @@ import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 
-/**
- * THE FAQ — ten questions, each answered from real system behaviour.
- *
- * Native `<details>` on purpose: the page is static, the browser's own
- * disclosure widget is keyboard- and screen-reader-correct for free, and it
- * works with JavaScript disabled — which is the bar every page on this site
- * holds itself to.
- */
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
@@ -60,9 +51,6 @@ export default async function FaqPage({
               <details key={item.q} className="group border-b border-rule">
                 <summary className="flex cursor-pointer list-none items-baseline justify-between gap-6 py-5 text-[1.0625rem] leading-snug text-ink [&::-webkit-details-marker]:hidden">
                   <span className="display">{item.q}</span>
-                  {/* The marker is typographic, not an icon: a ledger opens a
-                      row, it does not animate a chevron. `+` reads in both
-                      scripts and both directions. */}
                   <span
                     aria-hidden="true"
                     className="figure text-[1.0625rem] text-ink-3 transition-transform group-open:rotate-45"

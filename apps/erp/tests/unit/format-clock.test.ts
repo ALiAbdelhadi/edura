@@ -1,15 +1,7 @@
-/* The counter's clock.
- *
- * `schedule_patterns.start_time` is a bare `HH:MM` wall-clock string, so it never
- * passed through Intl and every screen printed a 24-hour time. These assertions
- * hold the replacement to the two things that make it worth doing: the day period
- * is a WORD, and the digits stay Latin and stay in order inside Arabic text. */
-
 import { describe, expect, it } from "vitest";
 
 import { formatClock, formatClockRange, formatClockText } from "@repo/ui/lib/format";
 
-/** U+2066 LRI … U+2069 PDI — strip when asserting on the visible characters. */
 const bare = (s: string) => s.replace(/[⁦⁩]/g, "");
 
 describe("formatClock", () => {
@@ -28,8 +20,6 @@ describe("formatClock", () => {
     }
   });
 
-  /* CLDR's own dayPeriod calls 00:15 «في المساء» in ar-EG — the wrong half of the
-     day. This is the reason the buckets are written out in format.ts. */
   it("puts midnight in the night, not the evening", () => {
     expect(bare(formatClock("00:15", "ar"))).not.toContain("مساء");
   });
@@ -44,7 +34,6 @@ describe("formatClock", () => {
     const out = formatClock("16:05", "ar");
     expect(out).not.toMatch(/[٠-٩]/);
     expect(out.startsWith("⁦") && out.endsWith("⁩")).toBe(true);
-    // Exactly one island — a second would let an RTL row reorder the pieces.
     expect(out.match(/⁦/g)).toHaveLength(1);
   });
 
@@ -77,9 +66,6 @@ describe("formatClockRange", () => {
     expect(bare(formatClockRange("11:00", "13:00", "en"))).toBe("11:00 AM – 1:00 PM");
   });
 
-  /* One island around the PAIR. Two separately isolated times in an RTL row lay out
-     right-to-left — `4:00 – 6:00` becomes `6:00 – 4:00`, a lesson ending before it
-     starts. This is the assertion that stops someone "tidying" the isolates. */
   it("wraps the pair in exactly one LTR island, start first", () => {
     const out = formatClockRange("16:00", "18:00", "ar");
     expect(out.match(/⁦/g)).toHaveLength(1);
@@ -98,8 +84,6 @@ describe("formatClockRange", () => {
   });
 });
 
-/* The guided-tour worlds hold their schedules as joined literals, so the tour has
-   to read the clock the same way the product it demonstrates does. */
 describe("formatClockText", () => {
   it("reads the joined literals the tour worlds carry", () => {
     expect(bare(formatClockText("16:00 – 17:30", "ar"))).toBe("4:00 – 5:30 عصرًا");

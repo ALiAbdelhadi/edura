@@ -19,21 +19,6 @@ import {
   declineEnrollmentRequest,
 } from "@repo/server-core/services/center/enrollments";
 
-// ---------------------------------------------------------------------------
-// PHASE 2 — ACADEMIC. Superadmin parity with a center over courses,
-// enrollments and enrollment requests. Same shape as center-people.ts: resolve
-// target → shape actor → call the SAME kernel service www calls → audit once.
-//
-// MONEY, and the two places it actually bites:
-//   • A course's frozen pricing snapshot (pricingMethod + the split bps +
-//     m2CenterFee/Bp) is set ONCE at creation from superadmin config. `CoursePatch`
-//     has no field for any of it and the kernel refuses a hall swap, so no edit
-//     from here can re-rate an existing course (M4.5).
-//   • Cancelling a course cancels FUTURE sessions only, and refunds nothing.
-//     Already-settled sessions and every payment are left exactly as they are;
-//     a refund is its own flow.
-// ---------------------------------------------------------------------------
-
 type AuditSpec = {
   action: string;
   targetType: string;
@@ -61,7 +46,6 @@ async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
   );
 }
 
-/** The fields an edit can change, plus the frozen ones, for the audit BEFORE. */
 async function snapshotCourse(id: string) {
   return platformDb((tx) =>
     tx.course.findUnique({
@@ -82,7 +66,6 @@ async function snapshotCourse(id: string) {
         endTime: true,
         startDate: true,
         endDate: true,
-        // Recorded so the log PROVES the frozen snapshot did not move.
         pricingMethod: true,
         splitPlatformBp: true,
         splitTeacherBp: true,
@@ -94,7 +77,6 @@ async function snapshotCourse(id: string) {
   );
 }
 
-/** The frozen-economics subset — compared before/after every course write. */
 function frozenOf(c: Record<string, unknown> | null) {
   if (!c) return null;
   const {
@@ -116,10 +98,6 @@ function frozenOf(c: Record<string, unknown> | null) {
     defaultRoomId,
   };
 }
-
-// ===========================================================================
-// Courses
-// ===========================================================================
 
 export async function adminGetCourse(actor: SessionUser, centerId: string, courseId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
@@ -144,8 +122,6 @@ export async function adminCreateCourse(
       roomId: result.course.defaultRoomId,
       maxStudents: result.course.maxStudents,
       sessionsGenerated: result.sessionsGenerated,
-      // The snapshot resolved AT CREATION from superadmin config — recorded so
-      // the log shows what economics this course was frozen with.
       frozenPricing: frozenOf(result.course as unknown as Record<string, unknown>),
     },
   });
@@ -171,10 +147,6 @@ export async function adminUpdateCourse(
     after: {
       changed: Object.keys(patch),
       course: after,
-      // An explicit, checkable claim in the log itself: the frozen economics
-      // are identical before and after. `CoursePatch` cannot express them and
-      // the kernel refuses a hall change, so this can only ever read true —
-      // which is exactly why it is worth recording.
       frozenPricingUnchanged:
         JSON.stringify(frozenOf(before as never)) === JSON.stringify(frozenOf(after as never)),
     },
@@ -213,9 +185,6 @@ export async function adminCancelCourse(
       status: "cancelled",
       reason,
       notified: result.notified,
-      // Stated plainly in the record, because it is the thing people assume
-      // wrongly: cancelling ends future sessions. It refunds nothing, cancels
-      // no subscription, and does not touch a session that already settled.
       refunded: false,
       subscriptionsCancelled: false,
       settledSessionsUntouched: counts.settledSessions,
@@ -240,18 +209,12 @@ export async function adminReassignTeacher(
     before: { teacherId: before?.teacherId },
     after: {
       teacherId,
-      // Past sessions keep their original teacher — they record who actually
-      // taught, and some of them have already been settled to that person.
       futureSessionsOnly: true,
       frozenPricingUnchanged: true,
     },
   });
   return result;
 }
-
-// ===========================================================================
-// Enrollments
-// ===========================================================================
 
 export async function adminListEnrollments(
   actor: SessionUser,
@@ -277,8 +240,6 @@ export async function adminEnrollStudent(
     after: {
       studentId: input.studentId,
       courseId: input.courseId,
-      // Enrolment is the roster link. Payment coverage is a SUBSCRIPTION, and
-      // none is created here — so this does not hand out paid access.
       subscriptionCreated: false,
     },
   });
@@ -303,15 +264,10 @@ export async function adminUnenrollStudent(
     targetType: "enrollment",
     targetId: enrollmentId,
     before,
-    // Soft — the row survives with unenrolledAt, so the history stays readable.
     after: { status: "unenrolled", refunded: false },
   });
   return result;
 }
-
-// ===========================================================================
-// Enrollment requests
-// ===========================================================================
 
 export async function adminListEnrollmentRequests(
   actor: SessionUser,

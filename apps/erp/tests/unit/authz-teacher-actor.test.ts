@@ -1,11 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// Step 8's delegation boundary, unit level: requireTeacherActor / toActingUser
-// must map an assistant onto their ONE teacher and reject everyone else
-// default-closed. The live-DB suite proves the link resolution against real
-// rows; this pins the pre-DB role gate and the acting-user shape.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...args: unknown[]) => requireSession(...(args as [])),
@@ -31,8 +26,6 @@ beforeEach(() => {
   requireSession.mockReset();
   platformDb.mockReset();
   resolveActingTeacher.mockReset();
-  // platformDb(cb) → run cb against a dummy tx; resolveActingTeacher and the
-  // teacher-row lookup are what the callbacks call.
   platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
     cb({
       user: {

@@ -8,8 +8,6 @@ import { initiatePayment } from "@/lib/services/payments/payment-intents";
 
 export const dynamic = "force-dynamic";
 
-// Deliberately NO amount field: the charge is always the server-side course
-// price snapshot. A client-sent amount is a validation error, not an input.
 const bodySchema = z
   .object({
     courseId: z.string().uuid(),

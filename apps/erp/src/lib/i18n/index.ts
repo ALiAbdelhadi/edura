@@ -13,10 +13,6 @@ import onboardingEn from "@/messages/en/onboarding.json";
 import landingEn from "@/messages/en/landing.json";
 import marketingEn from "@/messages/en/marketing.json";
 import activationEn from "@/messages/en/activation.json";
-// Maturity layer (receipt document, center audit viewer, data rights). A file
-// of its own rather than en.json, deliberately: BASE_KEYS is derived from
-// en.json's keys, so anything added there ships to EVERY page including the
-// login screen. None of these three namespaces is needed before sign-in.
 import maturityEn from "@/messages/en/maturity.json";
 import assistantEn from "@/messages/en/assistant.json";
 import adminHomeAr from "@/messages/ar/admin-home.json";

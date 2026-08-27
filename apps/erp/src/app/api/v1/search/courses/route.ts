@@ -30,18 +30,11 @@ export const GET = withRateLimit(
       limit: url.searchParams.get("limit") ?? undefined,
     };
 
-    // scope=all — explicit browse-all opt-in: skip the student's grade/track
-    // scope entirely. The default stays track-filtered.
     const browseAll = url.searchParams.get("scope") === "all";
 
     let studentScope: StudentCatalogScope | null = null;
     const user = await getSessionUser();
 
-    // WHOSE grade/track narrows the default list. A student's own; for a PARENT
-    // shopping for a child, that child's — but only an APPROVED one. An
-    // unapproved or absent studentId resolves no scope at all, which lands the
-    // caller on the same unnarrowed list any anonymous browser already sees;
-    // it never widens what a course row exposes.
     let scopeUserId: string | null = null;
     if (!browseAll && user?.role === "student") {
       scopeUserId = user.id;

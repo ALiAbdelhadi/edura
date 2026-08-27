@@ -5,19 +5,6 @@ import {
   REPORT_EXPORTS,
 } from "@repo/server-core/services/reports/report-export";
 
-/**
- * DRIFT GUARD — the export must admit exactly who the report itself admits.
- *
- * The kernel cannot import apps/www's ACCOUNTANT / MANAGER constants, so it
- * restates them. Restating is fine; restating SILENTLY is not — this is the
- * test that makes the copy fail loudly if the original moves. Same pattern as
- * the chat-scope EDGES drift test.
- *
- * The asymmetry worth staring at: ACCOUNTANT is `center_accountant` ALONE. A
- * manager runs the center day to day and still may not read revenue. An
- * export endpoint that "helpfully" let managers through would hand every
- * manager the books — and it would look like a convenience, not a breach.
- */
 describe("export tiers mirror the report endpoints' own constants", () => {
   it("accountant tier === ACCOUNTANT", () => {
     expect([...EXPORT_TIER_ROLES.accountant].sort()).toEqual([...ACCOUNTANT].sort());
@@ -48,9 +35,6 @@ describe("the export registry", () => {
   });
 
   it("keeps the money reports on the accountant tier", () => {
-    // These are the five whose own endpoints gate on ACCOUNTANT. If one moves
-    // to `manager` here, that is a decision about who sees the books — it
-    // should fail this test and be argued for, not slip through in a diff.
     for (const key of [
       "net-profit",
       "revenue-by-course",

@@ -17,18 +17,10 @@ const bodySchema = z
   .object({
     guardianEmail: z.string().trim().toLowerCase().email().optional(),
     guardianPhone: z.string().trim().min(6).max(20).optional(),
-    /** Parents only: which of their children this is for. */
     studentId: z.string().uuid().optional(),
   })
   .strict();
 
-/**
- * Whose guardian contact may this session touch?
- *   - a student: their own;
- *   - a parent: any child they have an APPROVED link to.
- * Anyone else is refused here; center staff use the counter route instead,
- * which carries the center-actor scoping.
- */
 async function resolveTarget(
   session: { id: string; role: string },
   studentId?: string,

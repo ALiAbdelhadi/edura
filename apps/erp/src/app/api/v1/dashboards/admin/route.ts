@@ -5,12 +5,6 @@ import { parseProvenance } from "@/lib/http/provenance";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Center home counters. Opened to MANAGER (and the owner). A MANAGER is
- * operational-only: the financial fields (revenue / expenses / net-profit /
- * fee-defaulters / revenue-vs-expenses trend) are STRIPPED for a manager — only
- * the owner and the center_accountant (via the finance reports) see money.
- */
 function stripFinancials(
   result: Awaited<ReturnType<typeof getAdminDashboard>>,
 ) {
@@ -20,18 +14,6 @@ function stripFinancials(
   return { ...rest, totals, analytics };
 }
 
-/**
- * `from` / `to` narrow every money and attendance figure to a period.
- *
- * They were absent, so `revenue` and `attendanceRate` were lifetime totals
- * wearing present-tense names (CENTER_IA_AUDIT.md §7.1 finding 3). OMITTING
- * THEM STILL MEANS LIFETIME — the pre-existing behaviour, unchanged — but the
- * response now carries a `period` saying so, rather than leaving the reader to
- * infer it from a missing parameter.
- *
- * Passed through as the raw strings the service resolves through `dayRange`, so
- * this screen and the reports beneath it bound a day the same way.
- */
 function parsePeriod(url: URL): { from?: string; to?: string } {
   return {
     from: url.searchParams.get("from") ?? undefined,

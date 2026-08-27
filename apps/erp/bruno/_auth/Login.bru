@@ -22,7 +22,6 @@ body:json {
 }
 
 script:post-response {
-  // Capture the bearer token; the session cookie is stored by Bruno's cookie jar.
   if (res.body && res.body.data && res.body.data.token) {
     bru.setEnvVar("token", res.body.data.token);
   }

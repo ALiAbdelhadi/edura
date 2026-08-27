@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// requireRole is the positive allow-list 102 www routes gate on. The
-// load-bearing property: it is a STRICT list — www has no super_admin bypass
-// (that bypass exists only in the superadmin app), which is what keeps the
-// back-office roles locked out of www routes even if a session leaked across.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...args: unknown[]) => requireSession(...(args as [])),
@@ -19,11 +14,6 @@ const user = (role: SessionUser["role"]): SessionUser => ({
   role,
   locale: "ar",
 });
-
-// No beforeEach mock-clearing here, deliberately: every test installs its own
-// implementation, and vitest 4 mis-attributes a later mock rejection as an
-// unhandled test error when the mock was cleared in a beforeEach (verified in
-// this repo, 2026-08-08 — clear-in-beforeEach + mock-rejects = false failure).
 
 describe("requireRole (www)", () => {
   it("returns the session user when the role is allowed", async () => {

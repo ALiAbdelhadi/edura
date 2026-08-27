@@ -1,35 +1,7 @@
-/**
- * Center-share governance (www side) — neither the teacher nor the center may
- * propose a money number on a collaboration request.
- *
- * The flat `center_teacher_affiliations.center_share` is the LEGACY no-room
- * money knob (piasters per present student). It is now superadmin-only config;
- * the request flow must never write it. Proves:
- *  VP1  a crafted TEACHER request carrying proposedCenterShare stores 0.
- *  VP2  a crafted CENTER request carrying proposedCenterShare stores 0.
- *  VP3  acceptance creates the affiliation at 0 — the proposal never reaches
- *       the money engine — while still creating the course + schedule.
- *  VP4  a LATER accepted request does NOT wipe a superadmin-set share
- *       (the regression this change had to avoid).
- *
- * The superadmin setter, its audit trail, and the settlement that consumes the
- * value are proven in apps/superadmin/tests/db/center-share-admin.test.ts.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only center-share-governance
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "center-share-governance.test.ts";
 
@@ -74,7 +46,6 @@ async function main() {
       data: { name: `${tag}-a`, role: "center_admin", email: `${tag}-a@x.io`, status: "active" },
     });
     await tx.centerAdminProfile.create({ data: { userId: admin.id, centerId: center.id } });
-    // Two DIFFERENT offerings: the one-open-request unique is per subject.
     const offerings = await tx.subjectOffering.findMany({
       where: { isActive: true },
       select: { subjectId: true, gradeLevelId: true, trackId: true },
@@ -100,17 +71,12 @@ async function main() {
       startTime: "10:00",
       endTime: "11:00",
       startDate: new Date("2026-03-02T00:00:00Z"),
-      // Short window: acceptance generates the whole schedule inside one
-      // transaction, and the default 3 months of weekly sessions times it out.
       endDate: new Date("2026-03-23T00:00:00Z"),
       ...extra,
     } as never;
   };
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — a crafted TEACHER request cannot smuggle a share");
-  // A hand-rolled client can still PUT this field on the wire (the route keeps
-  // it optional for old bundles); the service must ignore it outright.
   const req1 = await createCollaborationRequest(
     input(0, { proposedCenterShare: 5000 }),
     teacherUser,
@@ -120,11 +86,8 @@ async function main() {
     `teacher-proposed 50 EGP share stored as 0 (got ${req1.proposedCenterShare})`,
   );
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — a crafted CENTER request cannot smuggle one either");
   const req2 = await createCollaborationRequest(
-    // A different slot — VP4 accepts BOTH, and the session generator rejects
-    // a second class in the same hour.
     input(1, { proposedCenterShare: 7500, startTime: "14:00", endTime: "15:00" }),
     centerUser,
   );
@@ -133,7 +96,6 @@ async function main() {
     `center-proposed 75 EGP share stored as 0 (got ${req2.proposedCenterShare})`,
   );
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — acceptance creates the affiliation at 0, not at the proposal");
   const accepted = await acceptCollaborationRequest(req1.id, centerUser);
   const aff = await withPlatformContext((tx) =>
@@ -144,9 +106,7 @@ async function main() {
   assert(aff?.centerShare === 0, `affiliation created with centerShare 0 (got ${aff?.centerShare})`);
   assert(!!accepted.course?.id, "…and the course + schedule were still created normally");
 
-  // ---------------------------------------------------------------- VP4
   console.log("\nVP4 — a later acceptance does NOT wipe the superadmin-set share");
-  // Stand in for the superadmin editor (proven in the superadmin suite).
   await withPlatformContext((tx) =>
     tx.centerTeacherAffiliation.update({ where: { id: aff!.id }, data: { centerShare: 2500 } }),
   );

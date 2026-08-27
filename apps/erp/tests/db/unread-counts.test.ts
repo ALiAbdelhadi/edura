@@ -1,22 +1,3 @@
-/**
- * B.1#11 — unread counts (API session 2).
- *
- * `getUnreadTotal` existed with zero callers while three portals' bars had no
- * badge; the student dashboard's hardcoded `unreadMessages: 0` was removed
- * rather than faked. `getUnreadCounts` is the real read.
- *
- * What is proven here:
- *   1. Own counts: the denormalized conversation counters summed, plus unread
- *      notification rows (readAt IS NULL — a read one does not count).
- *   2. Parents get per-child counts for MINOR children only — the oversight
- *      population exactly. An ADULT child answers `null`, not 0: "told
- *      nothing" is different from "nothing unread". No reach added.
- *   3. Non-parents get `children: null`.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only unread-counts
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { getUnreadCounts } from "@/lib/services/messages/messages";
 import type { SessionUser } from "@/lib/auth/session";
@@ -54,7 +35,6 @@ async function main() {
     const teacher = await tx.user.create({
       data: { name: `${tag}-teacher`, role: "teacher", email: `${tag}-t@x.io`, status: "active" },
     });
-    // Minor by DEFAULT-MINOR: a profile with no DOB resolves to minor.
     const minor = await tx.user.create({
       data: { name: `${tag}-minor`, role: "student", email: `${tag}-m@x.io`, status: "active" },
     });
@@ -62,7 +42,6 @@ async function main() {
       data: { userId: minor.id, fullName: `${tag}-minor`, phone: `+2010${tag.replace(/\D/g, "").padEnd(8, "3").slice(0, 8)}`,
         familyLinkCode: (tag + "f1").slice(0, 18), entityType: "registered", pointsBalance: 0 },
     });
-    // Adult: verified DOB, age ≥ 18 — the one positive adult condition.
     const adult = await tx.user.create({
       data: { name: `${tag}-adult`, role: "student", email: `${tag}-a@x.io`, status: "active" },
     });
@@ -77,9 +56,6 @@ async function main() {
       });
     }
 
-    // Conversations with denormalized unread counters. Canonical pair order:
-    // user_a_id < user_b_id (DB CHECK), so which counter is "theirs" depends
-    // on the sort — computed here instead of assumed.
     const mkConv = async (x: string, y: string, unreadFor: string, count: number) => {
       const [a, b] = x < y ? [x, y] : [y, x];
       await tx.conversation.create({
@@ -94,7 +70,6 @@ async function main() {
     await mkConv(minor.id, teacher.id, minor.id, 2); // the minor's unread
     await mkConv(adult.id, teacher.id, adult.id, 5); // the adult child's — must NOT be served
 
-    // Notifications: two unread + one read for the parent.
     const notif = (readAt: Date | null) =>
       tx.notification.create({
         data: { userId: parent.id, type: "new_chat_message", title: `${tag}-n`, body: "x",

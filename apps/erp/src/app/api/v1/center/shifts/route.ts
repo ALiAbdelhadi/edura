@@ -10,7 +10,6 @@ const openSchema = z
   .object({ openingFloat: z.number().int().min(0).optional() })
   .strict();
 
-/** Open MY drawer session (Phase 2). One open shift per staff member. */
 export const POST = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const body = await parseJson(req, openSchema);
@@ -19,7 +18,6 @@ export const POST = centerStaff(
   { allow: RECEPTION },
 );
 
-/** The reconciliation list — the same service function the CSV export runs. */
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

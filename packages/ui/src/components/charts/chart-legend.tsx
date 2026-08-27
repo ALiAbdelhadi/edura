@@ -4,7 +4,6 @@ import { seriesColor } from "./chart-frame";
 
 type ChartLegendItem = { key: string; label: string; color?: string };
 
-/** A single series is already named by the card title, so it skips the legend box. */
 export function ChartLegend({ items }: { items: ChartLegendItem[] }) {
   if (items.length < 2) return null;
   return (

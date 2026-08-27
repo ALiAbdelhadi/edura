@@ -1,23 +1,3 @@
-/**
- * H-04 proof — a lifted blacklist must give back exactly what it took.
- *
- * The verification report showed: platform-blacklisting a student flipped all 6
- * of her enrollments to `unenrolled`, and `POST /api/v1/admin/blacklist/[id]/
- * remove` returned 200 while leaving every one of them unenrolled. The gate was
- * reversible; its cascade was not, so a blacklist was effectively a one-way
- * destruction of enrollment history.
- *
- * This drives the REAL services against the live DB — platformBlacklistUser,
- * centerBlacklistStudent, teacherBlacklistStudent, removeBlacklistEntry and
- * assertNotBlacklisted as shipped. Nothing is mocked and no guard is bypassed.
- *
- * Everything created is `is_demo` and torn down at the end; the money tables are
- * snapshotted before and after and asserted byte-identical.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only h04-blacklist-cascade-reversal
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
 import {
@@ -55,11 +35,6 @@ async function expectThrows(fn: () => Promise<unknown>, label: string) {
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 const tag = "h04-" + rid();
 
-// ---------------------------------------------------------------------------
-// Money witness — the whole point of "restoration is a roster operation".
-// Counts every money table AND a content hash of the rows, so a mutation that
-// keeps the count identical (an UPDATE) would still be caught.
-// ---------------------------------------------------------------------------
 const MONEY_TABLES = [
   "transactions",
   "payments",
@@ -89,12 +64,6 @@ async function moneyWitness(): Promise<Snapshot> {
   return out;
 }
 
-/**
- * The dev servers run against this same live DB, so a whole-table hash drifts
- * on unrelated traffic. The claim that actually matters is stronger and immune
- * to that: nothing that existed was MODIFIED or DELETED, and nothing NEW was
- * written that references any entity in this run.
- */
 function moneyViolations(before: Snapshot, after: Snapshot, fixtureIds: string[]) {
   const bad: string[] = [];
   for (const t of Object.keys(before)) {
@@ -113,11 +82,6 @@ function moneyViolations(before: Snapshot, after: Snapshot, fixtureIds: string[]
   return bad;
 }
 
-// ---------------------------------------------------------------------------
-// Fixtures — three centers, three teachers, one teacher-direct course, one
-// student with 6 enrollments (the exact shape from the report) + a control
-// student who must never be touched.
-// ---------------------------------------------------------------------------
 type Fx = Awaited<ReturnType<typeof seed>>;
 
 async function seed() {
@@ -191,7 +155,6 @@ async function seed() {
     const tB = await mkTeacher("tB");
     const tD = await mkTeacher("tD");
 
-    // 6 enrollments across 3 centers + 1 teacher-direct — the report's shape.
     const courses = {
       a1: await mkCourse("a1", A.centerId, tA1),
       a2: await mkCourse("a2", A.centerId, tA2),
@@ -199,11 +162,8 @@ async function seed() {
       b2: await mkCourse("b2", B.centerId, tA1), // teacher A1 also teaches at B
       c1: await mkCourse("c1", C.centerId, tB),
       direct: await mkCourse("direct", null, tD), // teacher-direct, centerId NULL
-      // A course the student LEAVES for an unrelated reason (never blacklisted).
       quit: await mkCourse("quit", A.centerId, tA1),
-      // A course that ENDS while the student is blacklisted.
       ending: await mkCourse("ending", B.centerId, tB),
-      // A full course (cap 1) the student is restored into over capacity.
       full: await mkCourse("full", C.centerId, tB, 1),
     };
 
@@ -212,7 +172,6 @@ async function seed() {
       await tx.enrollment.create({
         data: { studentId: student, courseId, centerId: c.centerId, status: "active", enrolledBy: superAdmin.id },
       });
-      // Control student shares every course; must never be touched.
       if (k !== "full") {
         await tx.enrollment.create({
           data: { studentId: control, courseId, centerId: c.centerId, status: "active", enrolledBy: superAdmin.id },
@@ -246,8 +205,6 @@ async function teardown(fx: Fx) {
   await admin.query(`DELETE FROM centers WHERE id = ANY($1::uuid[])`, [centerIds]);
 }
 
-// --- helpers ---------------------------------------------------------------
-
 async function statuses(studentId: string, courses: Record<string, string>) {
   const r = await admin.query(
     `SELECT course_id, status FROM enrollments WHERE student_id = $1`,
@@ -279,8 +236,6 @@ async function main() {
   const fx = await seed();
   const courses = fx.courses;
   const cascaded = ["a1", "a2", "b1", "b2", "c1", "direct"] as const;
-  // Every entity this run touches — a money row naming any of them would be a
-  // money row the blacklist path created.
   const fixtureIds = [
     fx.student, fx.control, fx.superAdmin, fx.tA1, fx.tA2, fx.tB, fx.tD,
     fx.A.centerId, fx.B.centerId, fx.C.centerId,
@@ -289,12 +244,8 @@ async function main() {
   ];
 
   try {
-    // =====================================================================
     console.log("\n[1] PLATFORM — blacklist removes all, lift restores all, only those");
-    // =====================================================================
 
-    // The unrelated departure happens BEFORE the blacklist: the student quits
-    // one course themselves. It must never come back.
     await admin.query(
       `UPDATE enrollments SET status='unenrolled', unenrolled_at=now()
         WHERE student_id=$1 AND course_id=$2`,
@@ -315,7 +266,6 @@ async function main() {
       "platform blacklist unenrolled ALL 6 in-scope enrollments (incl. teacher-direct)",
     );
     const pJournal = await journal(pEntry.id);
-    // 9 courses exist; `quit` was already unenrolled, so 8 removals happened.
     assert(pJournal.length === 8, `journal recorded every removal and only those (${pJournal.length} rows = 9 courses − 1 already gone)`);
     assert(
       !pJournal.some((j) => j.course_id === courses.quit),
@@ -327,9 +277,7 @@ async function main() {
       "control student's enrollments untouched by another student's blacklist",
     );
 
-    // Course "ending" is cancelled while the student is out.
     await admin.query(`UPDATE courses SET status='ended' WHERE id=$1`, [courses.ending]);
-    // Course "full" (cap 1) fills up while the student is out.
     await admin.query(
       `INSERT INTO enrollments (student_id, course_id, center_id, status, enrolled_by, updated_at)
        VALUES ($1, $2, $3, 'active', $4, now())`,
@@ -376,16 +324,12 @@ async function main() {
       `blacklist+restore touched NO money: 0 rows modified/deleted and 0 created for these entities across ${MONEY_TABLES.length} ledger tables + all wallets${moved.length ? " — " + moved.join(", ") : ""}`,
     );
 
-    // =====================================================================
     console.log("\n[2] No duplicate when the student was re-enrolled manually");
-    // =====================================================================
     const p2 = await platformBlacklistUser(fx.student, "dup test", fx.superAdmin);
-    // (a) same row reactivated by hand
     await admin.query(
       `UPDATE enrollments SET status='active', unenrolled_at=NULL WHERE student_id=$1 AND course_id=$2`,
       [fx.student, courses.a1],
     );
-    // (b) a brand-new row created by hand, original left unenrolled
     await admin.query(
       `INSERT INTO enrollments (student_id, course_id, center_id, status, enrolled_by, updated_at)
        VALUES ($1, $2, $3, 'active', $4, now())`,
@@ -410,9 +354,7 @@ async function main() {
       [fx.student, courses.b1],
     );
 
-    // =====================================================================
     console.log("\n[3] CENTER level — scoped to that center only");
-    // =====================================================================
     await admin.query(`UPDATE courses SET status='active' WHERE id=$1`, [courses.ending]);
     const centerAdminA: SessionUser = {
       id: fx.A.adminId,
@@ -448,9 +390,7 @@ async function main() {
       `center journal held ONLY that center's active rows (${cJ.length} = a1 + a2; the quit course at the same center was already gone)`,
     );
 
-    // =====================================================================
     console.log("\n[4] TEACHER level — scoped to that teacher's courses only");
-    // =====================================================================
     const teacherA1: SessionUser = { id: fx.tA1, role: "teacher" } as SessionUser;
     const tEntry = await teacherBlacklistStudent(fx.student, "teacher test", teacherA1);
     const afterT = await statuses(fx.student, courses);
@@ -475,11 +415,7 @@ async function main() {
     );
     assert(afterTLift.quit === "unenrolled", "unrelated departure still not restored (teacher level)");
 
-    // =====================================================================
     console.log("\n[5] Overlapping levels — a lift does not override a blacklist that still stands");
-    // =====================================================================
-    // Platform ban removes everything (and journals it), THEN center A bans the
-    // student too. Lifting the platform ban must not override the center's.
     const pEntry3 = await platformBlacklistUser(fx.student, "overlap platform", fx.superAdmin);
     const cEntry2 = await centerBlacklistStudent(fx.student, "overlap center", centerAdminA);
     await removeBlacklistEntry(pEntry3.id, asSuper(fx.superAdmin), "lifted platform only");
@@ -497,8 +433,6 @@ async function main() {
       oJ.get(courses.a1) === "skipped_still_blacklisted" && oJ.get(courses.a2) === "skipped_still_blacklisted",
       "outcome: skipped_still_blacklisted",
     );
-    // The obligation must survive: it is handed to the blacklist still standing,
-    // otherwise lifting that one later would leave the enrollment gone for good.
     const handed = await journal(cEntry2.id);
     assert(
       handed.length === 2 && handed.every((j) => j.reversed_at === null),
@@ -511,13 +445,10 @@ async function main() {
       "lifting the LAST blacklist covering them restores center A's enrollments",
     );
 
-    // =====================================================================
     console.log("\n[6] Repeat cycles — blacklist → lift → blacklist → lift stay independent");
-    // =====================================================================
     const cyc0 = await statuses(fx.student, courses);
     const e1 = await platformBlacklistUser(fx.student, "cycle 1", fx.superAdmin);
     await removeBlacklistEntry(e1.id, asSuper(fx.superAdmin), "lift 1");
-    // Between the cycles the roster genuinely changes: the student quits c1.
     await admin.query(
       `UPDATE enrollments SET status='unenrolled', unenrolled_at=now() WHERE student_id=$1 AND course_id=$2`,
       [fx.student, courses.c1],
@@ -541,9 +472,7 @@ async function main() {
       "cycle 1's journal rows were stamped and never reconsidered by cycle 2",
     );
 
-    // =====================================================================
     console.log("\n[7] Regressions");
-    // =====================================================================
     const st = await admin.query(`SELECT status, token_version FROM users WHERE id=$1`, [fx.student]);
     assert(st.rows[0].status === "active", "C-03: platform lift returns users.status to active");
     assert(st.rows[0].token_version > 0, "C-03: blacklisting bumped the L1 token_version (session revoked)");
@@ -580,8 +509,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite h04-blacklist-cascade-reversal.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);

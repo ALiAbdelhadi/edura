@@ -8,7 +8,6 @@ const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const DAY = 24 * 60 * 60 * 1000;
 
-// Deterministic UUIDv5 via the shared generator (H-03: never hand-rolled).
 const did = seedId("edura-extteachersdemo:");
 const daysAgo = (d: number) => new Date(Date.now() - d * DAY);
 const daysAhead = (d: number) => new Date(Date.now() + d * DAY);
@@ -21,7 +20,6 @@ const P = (key: string, name: string, role: Role): Person => ({
   role,
 });
 
-// ---- the cast --------------------------------------------------------------
 const MONA = P("mona", "منى شعبان", "center_admin");
 const RANIA = P("rania", "رانيا فؤاد", "center_staff");
 const TAREK = P("tarek", "أ. طارق منصور", "teacher"); // ON-PLATFORM
@@ -35,7 +33,6 @@ const STAFF = [MONA, RANIA, TAREK, HASSAN, SALWA];
 const STUDENTS = [YOUSSEF, MARIAM, OMAR];
 const ALL = [...STAFF, ...STUDENTS];
 
-// Natural keys — stable across any id-formula change (H-03 purge lesson).
 const email = (p: Person) => `extdemo-${p.key}@edura.test`;
 const EMAILS = ALL.map(email);
 const CENTER_SHORT_ID = "EXTDEMO0001";
@@ -48,7 +45,6 @@ const COURSE_SALWA = did("course:salwa-chem");
 async function purge() {
   console.log("Purging off-system-teacher demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve by NATURAL keys, not derived ids (see messaging-demo-seed purge).
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -85,8 +81,6 @@ async function purge() {
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -113,10 +107,6 @@ async function main() {
   console.log("Seeding off-system-teacher demo…");
 
   await withPlatformContext(async (tx) => {
-    // ---- accounts ---------------------------------------------------------
-    // The OFF-SYSTEM teachers are created exactly as the service creates them:
-    // shell + NO password hash. If this seed gave them one, the preview would
-    // quietly disagree with the feature it is demonstrating.
     for (const p of ALL) {
       const offSystem = p === HASSAN || p === SALWA;
       await tx.user.upsert({
@@ -141,7 +131,6 @@ async function main() {
       });
     }
 
-    // ---- the center -------------------------------------------------------
     await tx.center.upsert({
       where: { id: CENTER },
       update: { isDemo: true },
@@ -174,7 +163,6 @@ async function main() {
       },
     });
 
-    // ---- teacher profiles -------------------------------------------------
     await tx.teacherProfile.upsert({
       where: { userId: TAREK.id },
       update: { systemStatus: "enrolled" },
@@ -207,7 +195,6 @@ async function main() {
       });
     }
 
-    // ---- affiliations -----------------------------------------------------
     for (const [teacher, share, source] of [
       [TAREK, 0, "system"],
       [HASSAN, 1000, "manual"], // 10 EGP per lesson to the center
@@ -237,9 +224,6 @@ async function main() {
       }
     }
 
-    // ---- student profiles -------------------------------------------------
-    // National IDs are made-up but well-formed 14-digit strings — the column is
-    // UNIQUE, so a demo value must never collide with a real one.
     const NID: Record<string, string> = {
       youssef: "30105011234501",
       mariam: "30203022345602",
@@ -265,7 +249,6 @@ async function main() {
       });
     }
 
-    // ---- groups -----------------------------------------------------------
     const groups = [
       {
         id: COURSE_HASSAN,
@@ -288,8 +271,6 @@ async function main() {
         source: "system" as const,
       },
       {
-        // Deliberately UNPRICED and empty — the completeness report must have
-        // something real to find, and an empty report proves nothing.
         id: COURSE_SALWA,
         teacher: SALWA,
         title: "كيمياء — الصف الثاني الثانوي",
@@ -326,9 +307,6 @@ async function main() {
         },
       });
 
-      // Four lessons: two in the past (so the gaps report has real material)
-      // and two ahead. NO attendance is seeded — an unmarked past lesson is
-      // precisely the silent failure the report exists to surface.
       for (const [i, offset] of [-21, -14, 7, 14].entries()) {
         const when = offset < 0 ? daysAgo(-offset) : daysAhead(offset);
         const sessionId = did(`session:${g.id}:${i}`);
@@ -350,9 +328,6 @@ async function main() {
       }
     }
 
-    // ---- enrollments: THE SHARED CHILD ------------------------------------
-    // يوسف is in BOTH the off-system teacher's group and the on-platform one,
-    // under ONE user id. That is the case a duplicated record would have hidden.
     const enrollments = [
       { student: YOUSSEF, course: COURSE_HASSAN, source: "manual" as const },
       { student: YOUSSEF, course: COURSE_TAREK, source: "system" as const },

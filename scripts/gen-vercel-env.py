@@ -70,18 +70,14 @@ ensure_secret("PAYMOB_HMAC_SECRET",
 
 MISSING = "REPLACE_ME"
 
-# Empty on purpose, not missing. Marking these REPLACE_ME would send Ali hunting
-# for a value that does not exist — and an env var set to the literal string
-# "REPLACE_ME" is worse than an unset one, because the code's own "is it
-# configured?" checks read it as configured.
 OPTIONAL = {
-    "MAIL_REPLY_TO",              # falls back to MAIL_FROM
-    "TRUSTED_CLIENT_IP_HEADER",   # M3; only for a proxy with a non-standard header
-    "SMS_PROVIDER",               # no SMS driver wired
-    "PAYMOB_API_KEY",             # only read when PAYMENTS_MODE is sandbox/live
+    "MAIL_REPLY_TO",
+    "TRUSTED_CLIENT_IP_HEADER",
+    "SMS_PROVIDER",
+    "PAYMOB_API_KEY",
     "PAYMOB_INTEGRATION_ID_CARD",
     "PAYMOB_INTEGRATION_ID_WALLET",
-    "WHATSAPP_TOKEN",             # only read when WHATSAPP_MODE is not 'mock'
+    "WHATSAPP_TOKEN",
     "WHATSAPP_PHONE_ID",
 }
 
@@ -114,7 +110,6 @@ def emit(filename, title, notes, groups, overrides):
         ", ".join(unresolved) if unresolved else "none",
         len(optional_blank)))
 
-# ── ERP ────────────────────────────────────────────────────────────────────
 emit(".env-erp", "Vercel project: ERP (apps/erp) — the product",
  ["Every URL here is this deployment's own host. If the Vercel project ends up",
   "on a different hostname, change all of them together.",
@@ -141,7 +136,6 @@ emit(".env-erp", "Vercel project: ERP (apps/erp) — the product",
   "NEXT_PUBLIC_APP_URL": ERP_URL, "MARKETING_SITE_URL": WWW_URL,
   "SUPERADMIN_BASE_URL": SA_URL})
 
-# ── superadmin ─────────────────────────────────────────────────────────────
 emit(".env-superadmin", "Vercel project: superadmin (apps/superadmin) — the back office",
  ["NEXTAUTH_SECRET is deliberately ABSENT. apps/superadmin/src/lib/auth/auth.ts:48",
   "treats it as a DEV-ONLY fallback; production must use its own secret, so that a",
@@ -161,7 +155,6 @@ emit(".env-superadmin", "Vercel project: superadmin (apps/superadmin) — the ba
   ("Rate limiting and proxy", ["REDIS_URL","TRUSTED_PROXY_HOPS","TRUSTED_CLIENT_IP_HEADER"])],
  {"NEXTAUTH_URL": SA_URL, "APP_BASE_URL": SA_URL, "ERP_BASE_URL": ERP_URL})
 
-# ── www ────────────────────────────────────────────────────────────────────
 emit(".env-www", "Vercel project: www (apps/www) — the marketing site",
  ["No database, no auth, no session. Do not paste anything else here.",
   "NEXT_PUBLIC_SITE_URL is OPTIONAL: siteOrigin() falls back to Vercel's own",
@@ -171,7 +164,6 @@ emit(".env-www", "Vercel project: www (apps/www) — the marketing site",
   ("This site's own canonical origin — optional", ["NEXT_PUBLIC_SITE_URL"])],
  {"NEXT_PUBLIC_APP_ORIGIN": ERP_URL, "NEXT_PUBLIC_SITE_URL": WWW_URL})
 
-# ── realtime ───────────────────────────────────────────────────────────────
 emit(".env-realtime", "Railway service: realtime (apps/realtime) — NOT a Vercel project",
  ["Included because it is the fourth app and shares these secrets. Railway, not Vercel.",
   "APP_ORIGIN is the browser origin allowed to open a socket; APP_INTERNAL_URL is",

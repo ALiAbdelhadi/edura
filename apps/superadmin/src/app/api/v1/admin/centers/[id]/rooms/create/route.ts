@@ -5,9 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { createCenterRoom } from "@/lib/services/admin/center-control";
 
-// `price` here is the center's HALL PRICE shown to teachers when booking — not
-// a revenue share. The split / per-student rate stay on their own superadmin
-// endpoints (…/rooms/[roomId]/split, …/per-student-rate).
 export const dynamic = "force-dynamic";
 
 const schema = z

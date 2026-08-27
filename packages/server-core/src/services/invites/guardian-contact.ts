@@ -1,19 +1,3 @@
-// =============================================================================
-// Guardian contact — read the state, add the email, escalate the reminder.
-//
-// The gate itself lives in @repo/database/chat-guardian (one rule, shared with
-// the messaging directory). This module is the WRITE side plus the escalation
-// policy the counter and the student's banner talk to.
-//
-// A NOTE ON WHAT THIS IS NOT: storing a guardian email is not VERIFYING one. A
-// student could type a friend's address. What we do get is (a) an adult-shaped
-// channel that actually receives the oversight mail, (b) an audit row naming
-// who supplied it, and (c) a notification to the center when the student
-// supplied it themselves — so a human sees it. Confirm-by-click verification of
-// the guardian address is the natural next step and is deliberately NOT
-// implied here.
-// =============================================================================
-
 import type { SessionUser } from "../../auth/types";
 import { platformDb } from "../../db/scope";
 import { BusinessRuleError, NotFoundError } from "../../errors/classes";
@@ -28,10 +12,6 @@ export type GuardianContactStatus = {
   messagingLocked: boolean;
   dueAt: Date | null;
   overdue: boolean;
-  /**
-   * Once the deadline passes the notice stops being dismissable. It still does
-   * NOT suspend anything — the student paid for their classes.
-   */
   dismissable: boolean;
 };
 
@@ -51,13 +31,6 @@ export async function getGuardianContactStatus(
   };
 }
 
-/**
- * Set (or correct) the guardian contact for a student.
- *
- * Callers: the student/parent from their own banner, and center staff from the
- * counter. `actor` is whoever is signed in; `studentUserId` is who it is for —
- * the ROUTE is responsible for proving the actor may touch that student.
- */
 export async function setGuardianContact(
   actor: SessionUser,
   studentUserId: string,
@@ -80,9 +53,6 @@ export async function setGuardianContact(
         throw new NotFoundError("Student not found");
       }
 
-      // The point of a guardian channel is that it reaches a DIFFERENT adult.
-      // Refusing the student's own address does not make this verification, but
-      // it does close the one bypass that needs no effort at all.
       if (guardianEmail && student.email && guardianEmail === student.email.toLowerCase()) {
         throw new BusinessRuleError(
           "The guardian email must be different from the student's own login email",
@@ -103,27 +73,11 @@ export async function setGuardianContact(
                 guardianEmail,
                 guardianEmailAddedAt: new Date(),
                 guardianEmailAddedBy: actor.id,
-                // A NEW address is unverified, always. Clearing the stamp here
-                // is what stops a proof earned by one inbox from carrying over
-                // to another nobody confirmed — the readers compare the stamped
-                // value against this one, and these two writes keep them honest
-                // together.
                 guardianEmailVerifiedAt: null,
                 guardianEmailVerifiedValue: null,
               }
             : {}),
           ...(guardianPhone ? { guardianPhone } : {}),
-          // No email yet ⇒ start the clock if it is not already running.
-          //
-          // Both halves of that sentence are now enforced. This used to test
-          // only the INCOMING email, which was harmless while the sole caller
-          // was the "we need a guardian email" banner — it never sent a phone
-          // on its own. The settings card does: a family that already has an
-          // email on file and corrects the phone beside it would otherwise
-          // start (or silently push out) an escalation deadline for a
-          // requirement they had already met. And "if it is not already
-          // running" means exactly that — re-stamping a live clock hands back
-          // time the deadline had already spent.
           ...(guardianEmail || profile.guardianEmail || profile.guardianContactDueAt
             ? {}
             : { guardianContactDueAt: guardianContactDueAt() }),
@@ -154,8 +108,6 @@ export async function setGuardianContact(
     { actorId: actor.id },
   );
 
-  // A student who supplies their own guardian's email unlocks adult messaging.
-  // That is intended — but an adult should SEE it happen, so tell the center.
   if (selfSupplied && guardianEmail && centerIds.length) {
     await notifyCenters(
       centerIds,
@@ -194,15 +146,6 @@ async function notifyCenters(
   await notify({ recipients, type: "guardian_contact_required", title, body, data });
 }
 
-/**
- * Reminder sweep (cron). ESCALATION ONLY — it never suspends an account and
- * never unlocks messaging:
- *   - before the deadline: a periodic notice to the student and their parents;
- *   - after it: the same notice PLUS the owning center, because at that point
- *     the family is not responding and a human at the counter has to ask.
- *
- * Idempotent by day: re-running it inside the same reminder window is a no-op.
- */
 export async function runGuardianContactReminders(now: Date = new Date()) {
   const everyDays = Number(process.env.GUARDIAN_REMINDER_EVERY_DAYS) || 3;
   const windowStart = new Date(now.getTime() - everyDays * 24 * 60 * 60 * 1000);
@@ -224,15 +167,12 @@ export async function runGuardianContactReminders(now: Date = new Date()) {
     if (!profiles.length) return [];
 
     const ids = profiles.map((p) => p.userId as string);
-    // Only students who are still active — a deleted/suspended account is not
-    // owed a reminder.
     const users = await tx.user.findMany({
       where: { id: { in: ids }, deletedAt: null, status: { in: ["active", "shell"] } },
       select: { id: true },
     });
     const alive = new Set(users.map((u) => u.id));
 
-    // Idempotence: skip anyone already reminded inside the current window.
     const recent = await tx.notification.findMany({
       where: {
         userId: { in: ids },

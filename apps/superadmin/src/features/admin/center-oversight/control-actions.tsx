@@ -18,13 +18,6 @@ import { useTranslations } from "next-intl";
 
 import { Spinner } from "@/components/kit/spinner";
 
-// ---------------------------------------------------------------------------
-// Every control operation goes through THIS dialog, so no oversight write can
-// happen without the operator seeing what changes and (for anything that cuts
-// access or removes data) typing a reason. The reason is stored in the audit
-// row's afterState — the log answers "why", not just "what".
-// ---------------------------------------------------------------------------
-
 export function ControlAction({
   label,
   title,

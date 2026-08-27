@@ -22,8 +22,6 @@ export const POST = withErrors(async (req) => {
   const data = await parseJson(req, subscribeSchema);
   const userAgent = req.headers.get("user-agent") ?? undefined;
 
-  // Ownership rule lives in the service (M-2), shared with the device-token
-  // channel so the two cannot drift apart.
   await registerPushSubscription(user, {
     endpoint: data.endpoint,
     p256dh: data.keys.p256dh,
@@ -36,8 +34,6 @@ export const POST = withErrors(async (req) => {
 
 const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 
-// Body-based (not /push-subscription/[endpoint]) because a push endpoint is a
-// full URL — putting it in a path segment would need double URL-encoding.
 export const DELETE = withErrors(async (req) => {
   const user = await requireSession();
   const data = await parseJson(req, unsubscribeSchema);

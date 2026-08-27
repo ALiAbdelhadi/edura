@@ -6,17 +6,6 @@ import { MarketingShell } from "./marketing-shell";
 import styles from "./marketing.module.css";
 import { TrackedCta } from "./tracked-cta";
 
-/**
- * The FAQ. Ten questions, each answered from real system behaviour — see the
- * `marketing.faq.items` block, which is written against what the code actually
- * does rather than what would be nice to promise.
- *
- * The question/answer pairs are enumerated by an explicit tuple list rather
- * than by iterating the message object: next-intl types `t()` against the tree,
- * so a question added to the dictionary without a row here is invisible, and a
- * row here without a translation is a compile error. The compile error is the
- * one worth having.
- */
 const QUESTIONS = [
   ["q1", "a1"],
   ["q2", "a2"],

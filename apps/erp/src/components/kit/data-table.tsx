@@ -7,16 +7,6 @@ import * as React from "react";
 export type { ColumnDef };
 export type { DataTableDensity, DataTableLabels } from "@repo/ui/components/data-table";
 
-/* Shim → @repo/ui/components/data-table.
-   NOT a bare re-export: @repo/ui carries no i18n runtime, so the table's own chrome
-   copy is injected here. This is what fixes the hard-coded English `aria-label`s on
-   the pagination buttons, which shipped regardless of locale.
-
-   It is ALSO where `mobile` is defaulted, and the default differs by app on purpose.
-   www is where a phone actually is — a parent checking a fee, a student reading a
-   grade — so a row becomes a labelled card below `md`. apps/superadmin keeps the
-   package default (`scroll`): an operator comparing 166 rows across columns is not
-   served by a card list. A screen may still override per table. */
 export function DataTable<TData, TValue>(
   props: Omit<React.ComponentProps<typeof UIDataTable<TData, TValue>>, "labels"> & {
     labels?: Partial<React.ComponentProps<typeof UIDataTable<TData, TValue>>["labels"]>;

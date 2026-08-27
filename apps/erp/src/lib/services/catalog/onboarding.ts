@@ -5,18 +5,6 @@ import { Prisma } from "@repo/database";
 import { finalizeStudentCode } from "@repo/database/student-code-issue";
 
 
-/**
- * Just the boolean — for the SERVER-SIDE portal gate, which runs on every
- * dashboard request and must not pay for the whole onboarding payload (joined
- * catalog names, the draft blob) to answer one yes/no.
- *
- * MISSING PROFILE MEANS "DO NOT GATE", deliberately. `getOnboardingState`
- * throws NotFoundError there, and the old client gate swallowed that error and
- * let the user through. Returning `false` instead would send them to
- * /onboarding, whose own loader would hit the same NotFoundError and bounce
- * them to /login — a redirect loop in place of a broken profile. A broken
- * profile is a data problem; it must not become a lockout.
- */
 export function isOnboardingComplete(user: SessionUser): Promise<boolean> {
   if (user.role !== "student" && user.role !== "teacher" && user.role !== "center_admin") {
     return Promise.resolve(true);
@@ -208,11 +196,6 @@ export function completeStudentOnboarding(user: SessionUser, input: StudentOnboa
       select: { onboardingCompleted: true, gradeLevelId: true, trackId: true },
     });
 
-    // The student now has an education system, so this is the moment their
-    // Student ID stops being provisional. Same transaction as the write above:
-    // a student can never end up onboarded and still carrying the pending 'X'.
-    // Issuance is once-only and guarded inside finalizeStudentCode — calling
-    // this again (a re-run, a changed grade) never moves an issued code.
     const code = await finalizeStudentCode(tx, user.id);
 
     return { ...updated, studentCode: code?.studentCode ?? null };
@@ -289,8 +272,6 @@ export type CenterOnboardingInput = {
   stageIds: string[];
 };
 
-// Center onboarding (§6): center data + covered stages (multi-select from the
-// same catalog). Replace-style save on center_stages.
 export function completeCenterOnboarding(user: SessionUser, input: CenterOnboardingInput) {
   return platformDb(async (tx) => {
     if (user.role !== "center_admin" || !user.centerId)

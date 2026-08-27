@@ -4,34 +4,6 @@ import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
-// ---------------------------------------------------------------------------
-// GUARDIAN EMAIL VERIFICATION demo — five students, five states, and a live
-// link you can actually click.
-//
-// The point of this feature is a DISTINCTION that is invisible in a list of
-// rows: an address that is merely stored versus one somebody has proven. So
-// the seed puts the states side by side, including the two nobody thinks about
-// until they happen — an address EDITED after it was verified (the stamp is
-// still on the row and every reader correctly reports unverified), and a link
-// that has EXPIRED.
-//
-// THE TOKENS ARE REAL AND ARE PRINTED. Only a SHA-256 is ever stored, so a
-// link cannot be recovered from the database later — it has to be minted here
-// and handed to you now. That is the same reason the walk-in seed prints its
-// claim links. These are demo accounts on a dev database; a token minted here
-// grants nothing beyond flipping one timestamp on a demo student, and the
-// purpose is deliberately absent from CLAIMABLE so it can never mint a session.
-//
-// ZERO money rows, and no center: verification touches neither. The notice
-// lives on the student's own dashboard.
-//
-// ONE THING `--purge` CANNOT REMOVE, and should not be able to: confirming an
-// address writes a `student.guardian_email_verified` row, and `audit_logs` is
-// REVOKEd DELETE for the app role. So a link you click in the preview leaves a
-// permanent, actor-less record — which is the trail behaving exactly as the
-// money ledger does. The seed itself writes no audit row; only a click does.
-// ---------------------------------------------------------------------------
-
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -44,7 +16,6 @@ type State = "verified" | "unverified" | "edited" | "expired" | "none";
 type Kid = {
   key: string;
   name: string;
-  /** The address currently on file. */
   guardian: string | null;
   state: State;
 };
@@ -65,9 +36,6 @@ const KIDS: Kid[] = [
   {
     key: "nada",
     name: "ندى إيهاب",
-    // The address was CHANGED after being verified. The stamp below names the
-    // OLD one, so `isGuardianEmailVerified` reports false — the whole reason
-    // there are two columns and not one.
     guardian: "gverdemo-parent-nada-new@edura.test",
     state: "edited",
   },
@@ -80,7 +48,6 @@ const KIDS: Kid[] = [
   {
     key: "malak",
     name: "ملك حسن",
-    // No guardian address at all — the state the dashboard notice exists for.
     guardian: null,
     state: "none",
   },
@@ -109,13 +76,9 @@ async function purge() {
       console.log("Purged: nothing to remove.");
       return;
     }
-    // The tokens go first: they reference the user, and leaving a live one
-    // behind would be a working link to an account that no longer exists.
     await tx.inviteToken.deleteMany({ where: { userId: { in: ids } } });
     await tx.notification.deleteMany({ where: { userId: { in: ids } } });
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
     const hardDeleted = await tx.$executeRaw`
       DELETE FROM users WHERE is_demo = true AND id = ANY(${ids}::uuid[])`;
     console.log("Purged:", { users: hardDeleted, tokens: "removed" });
@@ -162,9 +125,6 @@ async function main() {
         },
       });
 
-      // The stamp. `verifiedValue` is what makes the `edited` case work: it
-      // records WHICH address was proven, and a reader that finds it different
-      // from the current `guardianEmail` reports unverified.
       const stamp =
         kid.state === "verified"
           ? { guardianEmailVerifiedAt: daysAgo(3), guardianEmailVerifiedValue: kid.guardian }
@@ -190,9 +150,6 @@ async function main() {
         },
       });
 
-      // Start from a clean slate on a re-run: a resend is supposed to leave
-      // exactly ONE live link, and a seed that piled them up would contradict
-      // the behaviour it is demonstrating.
       await tx.inviteToken.deleteMany({ where: { userId: id, purpose: PURPOSE } });
 
       if (kid.state === "unverified" || kid.state === "expired") {

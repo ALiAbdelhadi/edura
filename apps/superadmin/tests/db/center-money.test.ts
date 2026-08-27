@@ -1,30 +1,3 @@
-/**
- * ===========================================================================
- * PHASE 4 — MONEY PARITY: the SANCTIONED flows, on any center.
- * ===========================================================================
- * Drives the REAL shipped services:
- *
- *   apps/superadmin/src/lib/services/admin/center-money.ts
- *     → @repo/server-core/services/{payments,expenses,subscriptions,
- *        wallet/cash-topup,finance/center-wallet}
- *
- * This is the phase that deliberately DOES move money, so the proof has two
- * halves and both matter:
- *
- *   POSITIVE — each flow really works: a recorded payment writes a Payment +
- *   a mirrored Transaction with a receipt; a cash top-up writes the
- *   Payment/Transaction/WalletLedger trio and raises the balance; a walk-in
- *   subscription charges the course's own plan price; a payout request raises
- *   a PENDING payout and pays nothing.
- *
- *   NEGATIVE — the boundary still holds. As the super admin, through the app's
- *   own connection: no ledger row can be updated or deleted, no balance can be
- *   set directly, there is no wallet debit, a negative "payment" is refused,
- *   and marking a payment refunded writes NO reversal.
- *
- *   bunx tsx --env-file=<env> tests/db/center-money.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
@@ -128,7 +101,6 @@ async function main() {
         [sid, `${tag}-s${i}`, `${i}${tag}`.toUpperCase().replace(/-/g, "").slice(0, 12)],
       );
     }
-    // Only `student` is on A's roster; `outsider` is not.
     await q(`INSERT INTO center_student_rosters (center_id, student_id, updated_at) VALUES ($1,$2,now())`, [centerA, student]);
 
     const courseId = (
@@ -141,17 +113,13 @@ async function main() {
       )
     )[0].id as string;
 
-    // recordPayment requires the student to be ENROLLED when a courseId is
-    // given — a real guard, kept rather than worked around.
     await q(
       `INSERT INTO enrollments (student_id, course_id, center_id, status, enrolled_by, updated_at)
        VALUES ($1,$2,$3,'active',$4,now())`,
       [student, courseId, centerA, superAdminId],
     );
 
-    // =====================================================================
     section("Recorded cash payment");
-    // =====================================================================
     const payResult = await adminRecordPayment(actor, centerA, {
       studentId: student,
       courseId,
@@ -179,15 +147,12 @@ async function main() {
       "audit: records that this went through the sanctioned flow",
     );
 
-    // A negative "payment" is how the underlying service expresses a refund —
-    // that door is closed on this surface.
     const negative = await rejects(
       () => adminRecordPayment(actor, centerA, { studentId: student, amount: -5000 }),
       /must be positive|use the refund flow/i,
     );
     assert(negative.threw && negative.matched, "MONEY: a NEGATIVE payment is refused — refunds have their own flow");
 
-    // Roster scoping still applies to money.
     const offRoster = await rejects(
       () => adminRecordPayment(actor, centerA, { studentId: outsider, amount: 1000 }),
       /roster/i,
@@ -197,9 +162,7 @@ async function main() {
     const list = await adminListPayments(actor, centerA, {});
     assert(!!list, "payments are listable for the center");
 
-    // =====================================================================
     section("Cash wallet top-up — credit only");
-    // =====================================================================
     const walletBefore = Number(
       (await q(`SELECT wallet_balance FROM student_profiles WHERE user_id=$1`, [student]))[0].wallet_balance,
     );
@@ -227,8 +190,6 @@ async function main() {
       "audit: one row, recorded as a CREDIT",
     );
 
-    // There is no counter-side debit. Assert the SURFACE has none rather than
-    // only trusting the comment.
     const moneyModule = (await import("@/lib/services/admin/center-money")) as Record<string, unknown>;
     const debitish = Object.keys(moneyModule).filter((k) =>
       /debit|withdraw|deduct|setBalance|adjustBalance/i.test(k),
@@ -238,9 +199,7 @@ async function main() {
       `MONEY: the money surface exports NO debit/withdraw/balance-setter (found: ${debitish.join(", ") || "none"})`,
     );
 
-    // =====================================================================
     section("Walk-in subscription — the price is the course's, not the caller's");
-    // =====================================================================
     const sub = await adminCreateWalkInSubscription(actor, centerA, {
       studentId: student,
       courseId,
@@ -254,9 +213,7 @@ async function main() {
     assert(rows.length === 1, "audit: exactly one walk-in subscription row");
     assert(!!sub, "the service returned the subscription");
 
-    // =====================================================================
     section("Mark refunded — a STATUS FLAG, not a reversal");
-    // =====================================================================
     const ledgerBefore = await q(
       `SELECT id, type, amount FROM transactions WHERE center_id=$1 ORDER BY id`,
       [centerA],
@@ -293,9 +250,7 @@ async function main() {
     );
     assert(crossCenter.threw && crossCenter.matched, "isolation: A's payment is unreachable as center B");
 
-    // =====================================================================
     section("Expenses + payout request");
-    // =====================================================================
     const exp = await adminCreateExpense(actor, centerA, {
       amount: 12_000,
       category: "utilities",
@@ -344,9 +299,7 @@ async function main() {
       "audit: one row, recording that nothing was paid",
     );
 
-    // =====================================================================
     section("THE BOUNDARY — still closed, for a super admin too");
-    // =====================================================================
     const viaApp = (fn: (tx: never) => Promise<unknown>) => () => withPlatformContext(fn as never);
     const txnId = ledgerAfter[0].id as string;
 
@@ -377,8 +330,6 @@ async function main() {
       } catch (e) {
         return { threw: true, message: (e as { message?: string })?.message ?? String(e) };
       } finally {
-        // Never COMMIT, and the GUC is transaction-local so it cannot leak onto
-        // a pooled backend.
         await client.query("ROLLBACK").catch(() => {});
         client.release();
       }
@@ -445,8 +396,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-money.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

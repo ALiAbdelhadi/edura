@@ -42,9 +42,6 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          // Skin and motion live in `chrome-2026.css` on the `data-slot`
-          // above; this keeps only what a call site overrides or what is
-          // genuinely layout. See the note there.
           "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto border p-1",
           className
         )}
@@ -233,10 +230,6 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        // A submenu is the SAME object as its parent panel, so it takes the
-        // same `--chrome-shadow-md` from the stylesheet rather than the
-        // `shadow-lg` stock shadcn gave it — a nested menu that sits higher
-        // than the one it came out of reads as a mistake.
         "z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden border p-1",
         className
       )}

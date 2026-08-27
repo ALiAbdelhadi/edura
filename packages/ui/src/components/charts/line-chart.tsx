@@ -16,8 +16,6 @@ import { ChartLegend } from "./chart-legend";
 import { ChartTooltip } from "./chart-tooltip";
 
 export type LineSeriesPoint = { x: string; value: number };
-/** `color` is OPTIONAL. Omit it and the series takes its semantic slot from the token
-    palette — that is what stops callers reaching for literal hexes. */
 export type LineSeries = {
   id: string;
   label: string;

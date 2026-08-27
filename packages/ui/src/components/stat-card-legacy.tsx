@@ -1,13 +1,3 @@
-/* LEGACY — the pre-Ledger stat card. Do NOT use in new code; use <MetricCard>.
-   ══════════════════════════════════════════════════════════════════════════════
-   Kept only so the 25 unconverted call sites that pass `filled` / `trend` /
-   `trendValue` / `unit` / `accent` keep compiling. Every one of those props is
-   something the Ledger system deliberately removed:
-     · `filled`  hierarchy from shine rather than from order and reason
-     · `trend`   a percentage delta with no referent
-   Each portal session swaps its own StatCards for MetricCard as it converts. When no
-   call site remains, delete this file and the two shims that re-export it. */
-
 import type { LucideIcon } from "lucide-react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";

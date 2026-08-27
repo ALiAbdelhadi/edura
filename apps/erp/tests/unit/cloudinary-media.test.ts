@@ -116,19 +116,11 @@ describe("magic-byte detection (M6 parity for images)", () => {
 
 describe("the size ceiling is bounded by the platform, not by taste", () => {
   it("accepts no image the deployment's request-body cap would kill at the edge", () => {
-    // The bug this locks out: the ceiling used to sit ABOVE the cap, so a file
-    // between the two passed every check and then died at the edge as a
-    // platform HTML page — no envelope, no reason code, a generic toast.
     expect(MAX_IMAGE_BYTES).toBeLessThan(PLATFORM_BODY_LIMIT_BYTES);
-    // …with real headroom for the multipart envelope, not a single byte of it.
     expect(PLATFORM_BODY_LIMIT_BYTES - MAX_IMAGE_BYTES).toBeGreaterThanOrEqual(256 * 1024);
   });
 
   it("the browser control refuses at exactly the size the server refuses at", () => {
-    // @repo/ui cannot import server-core (Prisma), so the number is duplicated
-    // there by necessity. This is the assertion that keeps the copy honest: a
-    // client ceiling ABOVE the server's turns a translated refusal into a
-    // round-trip that fails, and one BELOW it silently narrows what is allowed.
     expect(UI_MAX_IMAGE_BYTES).toBe(MAX_IMAGE_BYTES);
   });
 
@@ -144,16 +136,10 @@ describe("the size ceiling is bounded by the platform, not by taste", () => {
 
 describe("the file picker offers exactly what the sniffer admits", () => {
   it("the browser accept= list equals the server's accepted set", () => {
-    // The bug: `image/gif` was accepted by the server and preserved by
-    // Cloudinary, but missing from `accept=`. So the product disagreed with
-    // itself by route — the picker hid GIFs, drag-and-drop (which ignores
-    // `accept`) allowed them, and the server took them.
     expect([...UI_ACCEPTED_IMAGE_MIMES].sort()).toEqual([...ACCEPTED_IMAGE_MIMES].sort());
   });
 
   it("every advertised type really is sniffable — the list cannot outrun the sniffer", () => {
-    // Derived from the extension table, so a type added to one and not the
-    // other would surface here rather than as a refusal at upload time.
     for (const mime of ACCEPTED_IMAGE_MIMES) {
       expect(extensionFor(mime), `no extension mapped for ${mime}`).toBeTruthy();
     }

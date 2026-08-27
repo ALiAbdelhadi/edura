@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 extract_tables.py — استخراج الجداول من ملفات Excel ومن الصور/PDF الممسوحة.
 
@@ -73,9 +72,6 @@ NS = {
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 
 
-# ===========================================================================
-# مسار Excel
-# ===========================================================================
 def col_index(ref: str) -> int:
     """A1 → 0، AB7 → 27. موضع الخلية معلومة: بدونه تنزلق الأعمدة عند خانة فارغة."""
     n = 0
@@ -86,7 +82,6 @@ def col_index(ref: str) -> int:
     return n - 1
 
 
-# أرقام التنسيقات المدمجة التي تعني تاريخًا/وقتًا في معيار OOXML.
 BUILTIN_DATE_FMTS = {14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47}
 DATE_CHARS_RE = re.compile(r"[ymdhs]", re.I)
 
@@ -101,7 +96,6 @@ def serial_to_iso(n: float, date1904: bool) -> str:
     if date1904:
         base, days = date(1904, 1, 1), n
     else:
-        # علة 1900 الكبيسة في Excel: التسلسل 60 يوم غير موجود أصلًا.
         base, days = date(1899, 12, 31), (n - 1 if n >= 61 else n)
     whole = int(days)
     frac = days - whole
@@ -132,14 +126,12 @@ def load_xlsx(path: Path) -> tuple[list[tuple[str, list[list[str]]]], list[str]]
     with zipfile.ZipFile(path) as z:
         names = set(z.namelist())
 
-        # النصوص المشتركة
         shared: list[str] = []
         if "xl/sharedStrings.xml" in names:
             root = ET.fromstring(z.read("xl/sharedStrings.xml"))
             for si in root.findall("m:si", NS):
                 shared.append("".join(t.text or "" for t in si.iter(f"{{{NS['m']}}}t")))
 
-        # التنسيقات، لمعرفة أي خلية تاريخ
         date_style: set[int] = set()
         if "xl/styles.xml" in names:
             sroot = ET.fromstring(z.read("xl/styles.xml"))
@@ -178,10 +170,6 @@ def load_xlsx(path: Path) -> tuple[list[tuple[str, list[list[str]]]], list[str]]
         for sheet_name, target in sheets:
             root = ET.fromstring(z.read(target))
 
-            # الخلايا المدمَجة: القيمة مخزَّنة في الخلية العليا اليمنى فقط،
-            # وبقية النطاق فارغة في الملف — فتخرج فارغةً هنا. لا نملؤها
-            # تلقائيًا (نسخ عنوان مدمَج إلى ثلاثة أعمدة يُفسد مطابقة العناوين)،
-            # لكن السكوت عنها يجعل فراغًا مقصودًا يبدو كفراغ في البيانات.
             merges = [mc.get("ref", "") for mc in root.iter(f"{{{NS['m']}}}mergeCell")]
             if merges:
                 warns.append(
@@ -224,7 +212,6 @@ def load_xlsx(path: Path) -> tuple[list[tuple[str, list[list[str]]]], list[str]]
                         cells[idx] = val
                 width = max(cells) + 1 if cells else 0
                 rows.append([cells.get(i, "") for i in range(width)])
-            # توحيد عرض الصفوف حتى لا تنزلق الأعمدة في الـCSV
             w = max((len(r) for r in rows), default=0)
             rows = [r + [""] * (w - len(r)) for r in rows]
             out.append((sheet_name, rows))
@@ -235,9 +222,6 @@ def load_xlsx(path: Path) -> tuple[list[tuple[str, list[list[str]]]], list[str]]
     return out, warns
 
 
-# ===========================================================================
-# مسار الصور / PDF
-# ===========================================================================
 def preflight_ocr(lang: str) -> list[str]:
     """يعيد قائمة أسباب المنع، كلٌّ ومعه أمرُ إصلاحه. فارغة = جاهز."""
     problems: list[str] = []
@@ -245,8 +229,6 @@ def preflight_ocr(lang: str) -> list[str]:
         problems.append("محرّك OCR غير مثبت.  الإصلاح:  brew install tesseract")
         return problems
     try:
-        # السطر الأول من المخرَج عنوان («List of available languages…») لا لغة —
-        # وإدراجه يجعل رسالة الخطأ نفسها كاذبة.
         out = subprocess.run(["tesseract", "--list-langs"], capture_output=True,
                              text=True, timeout=30).stdout.splitlines()
         langs = [l.strip() for l in out[1:] if l.strip()]
@@ -267,9 +249,6 @@ def preflight_pdf() -> list[str]:
     return []
 
 
-# خطوط الجدول نفسها يقرؤها المحرّك كحروف («|» غالبًا)، وهي تقع **في الفجوات
-# بين الأعمدة بالضبط** — فتملؤها وتُخفيها، وينهار كشف الأعمدة إلى عمود واحد.
-# هذا ما كان يحدث فعلًا قبل هذا الترشيح، لا احتمالًا نظريًا.
 BORDER_RE = re.compile(r"^[|¦‖_—–\-=~/\\]{1,3}$")
 
 
@@ -323,8 +302,6 @@ def find_column_bounds(words: list[dict], min_gap_ratio: float = 0.012) -> list[
             occupied[x] = 1
     min_gap = max(6, int((right - left_edge) * min_gap_ratio))
     bounds, run_start = [], None
-    # المسح يبدأ من أول كلمة لا من حافة الصورة: هامش الصفحة فراغ لا فاصل بين
-    # عمودين، وحسبانه فاصلًا يولّد عمودًا وهميًا فارغًا في أول كل جدول.
     for x in range(left_edge, right + 1):
         if not occupied[x]:
             if run_start is None:
@@ -398,7 +375,6 @@ def header_from(row: list[str]) -> list[str] | None:
     return row if hits >= 2 else None
 
 
-# ===========================================================================
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="استخراج الجداول من Excel ومن الصور/PDF الممسوحة")
@@ -407,9 +383,6 @@ def main() -> int:
     ap.add_argument("--sheet", default=None, help="اسم ورقة بعينها (Excel)")
     ap.add_argument("--list-sheets", action="store_true")
     ap.add_argument("--lang", default="ara+eng", help="لغات OCR")
-    # PSM 4 («عمود واحد بأحجام خطوط متفاوتة») لا 6 («كتلة موحّدة»): مقيسًا على
-    # كشف عربي مطبوع، أعطى 6 قمامةً بثقة 29% بينما قرأ 4 الجدولَ كلَّه وكل رقم
-    # فيه. الفرق ليس ضبطًا دقيقًا بل الفرق بين أداة تعمل وأداة لا تعمل.
     ap.add_argument("--psm", default="4", help="نمط تقسيم الصفحة في tesseract "
                     "(4 = عمود بأحجام متفاوتة، الأنسب للجداول)")
     ap.add_argument("--ltr", action="store_true",
@@ -433,7 +406,6 @@ def main() -> int:
     ext = src.suffix.lower()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------------ xls
     if ext == ".xls":
         raise SystemExit(
             "‏.xls (الصيغة الثنائية القديمة) غير مدعومة، ولن تُدعم بمكتبة إضافية "
@@ -441,7 +413,6 @@ def main() -> int:
             "والحفظ كـ .xlsx يحتفظ بالأرقام كاملة، بخلاف الحفظ كـ CSV."
         )
 
-    # ----------------------------------------------------------------- xlsx
     if ext == ".xlsx":
         sheets, warns = load_xlsx(src)
         if args.list_sheets:
@@ -473,7 +444,6 @@ def main() -> int:
               "مفقودة. مرّرها الآن على normalize_contacts.py.")
         return 0
 
-    # ------------------------------------------------------------ صورة/PDF
     if ext == ".pdf":
         problems = preflight_pdf()
         if problems:
@@ -482,10 +452,6 @@ def main() -> int:
                 print("   - " + p, file=sys.stderr)
             return 2
 
-        # ── الفرق الذي يخلط بين الناس: PDF **نصّي** ≠ PDF **ممسوح**.
-        # الأول يحمل النص داخله فيُستخرج حرفًا بحرف بلا تخمين ولا درجة ثقة؛
-        # والثاني صورةٌ لا غير. تشغيل OCR على نصّي إتلافٌ لبيانات سليمة، لذا
-        # نسأل الملف أولًا بدل أن نفترض.
         txt = subprocess.run(["pdftotext", "-layout", "-q", str(src), "-"],
                              capture_output=True, text=True).stdout
         dense = len("".join(txt.split()))
@@ -499,8 +465,6 @@ def main() -> int:
             if head is None:
                 head = [f"col_{i + 1}" for i in range(width)]
             out = args.out_dir / f"{src.stem}.csv"
-            # `pdf_text` لا `scan`: هذه قيم منقولة لا مُخمَّنة، ولا يجوز أن
-            # تحمل الوسم الذي يعني «راجعني قبل أن تثق بي».
             write_csv(out, head + ["source"], [r + ["pdf_text"] for r in body])
             print(f"\n{src.name}: ملف PDF **نصّي** ({dense} حرفًا) — استُخرج النص "
                   f"مباشرةً بلا OCR وبلا تخمين.\n  {len(body)} صفًا × {width} "
@@ -518,8 +482,6 @@ def main() -> int:
 
         pages_dir = args.out_dir / f"{src.stem}.pages"
         pages_dir.mkdir(parents=True, exist_ok=True)
-        # 300dpi: ما دون ذلك يفقد tesseract التشكيل العربي، وما فوقه يبطّئ بلا
-        # مقابل على مسح ثنائي اللون.
         res = subprocess.run(["pdftoppm", "-r", str(args.dpi), "-png",
                               str(src), str(pages_dir / "page")],
                              capture_output=True, text=True)
@@ -567,15 +529,12 @@ def process_image(src: Path, args) -> int:
 
     grid, confs = build_grid(words, rtl=not args.ltr)
     if grid and len(grid[0]) < 2:
-        # عمود واحد ليس جدولًا. قولها صراحةً: الملف سيُكتب على أي حال، وبلا هذه
-        # الجملة يبدو كأنه نجح في استخراج «عمود واحد» لا كأنه أخفق في إيجاد جدول.
         print("\n⚠️  لم يُعثر على أي فاصل بين أعمدة — الناتج عمود واحد، أي أن هذه "
               "ليست جدولًا في نظر الأداة. الأسباب المعتادة: الصفحة مائلة، أو "
               "الفواصل بين الأعمدة أضيق من أن تُرى، أو اللغة المطلوبة ليست لغة "
               "الصفحة (جرّب --lang)، أو الكشف بخط اليد.", file=sys.stderr)
     ncols = max((len(r) for r in grid), default=0)
     if args.columns:
-        # عناوين يعطيها المشغّل: كل الصفوف بيانات، فالصفحة لا رأس لها أصلًا.
         header = [c.strip() for c in args.columns.split(",")]
         if len(header) != ncols:
             print(f"\n⚠️  أعطيت {len(header)} عنوانًا والمكتشَف {ncols} عمودًا — "
@@ -589,7 +548,6 @@ def process_image(src: Path, args) -> int:
         if header is None:
             header = [f"col_{i + 1}" for i in range(ncols)]
 
-    # عمود `source` مطلوب في CLAUDE.md §4/5: كل صف من مسح يُعرَف بأنه كذلك.
     out = args.out_dir / f"{src.stem}.csv"
     write_csv(out, header + ["source"], [r + ["scan"] for r in body])
 
@@ -599,12 +557,6 @@ def process_image(src: Path, args) -> int:
         for j, cell in enumerate(row):
             conf = crow[j] if j < len(crow) else 0.0
             if not cell.strip():
-                # الخانة الفارغة هي أخطر ما في المسح، ولا تكاد تُرى: المحرّك
-                # يُسقط خانات كاملة بلا أثر — لا نص خاطئ ولا ثقة منخفضة، فقط
-                # فراغ يبدو كأنه فراغ في الأصل. قِيس هذا على مسح حقيقي: ثلاث
-                # خانات مقروءة تمامًا في الصورة المباشرة اختفت من نفس الصفحة
-                # بعد مسحها. فلا يمكن لملف المراجعة أن يُبلّغ عمّا لا وجود له،
-                # وكل ما يستطيعه — وهو ما يفعله هنا — أن يطلب تأكيد كل فراغ.
                 empty_cells[0] += 1
                 review.append({
                     "row": str(i + 2),

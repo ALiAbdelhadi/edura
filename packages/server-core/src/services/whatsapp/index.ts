@@ -9,11 +9,6 @@ export { WHATSAPP_TEMPLATES, renderTemplate, type TemplateKey } from "./template
 export { normalizeEgyptPhone } from "./phone";
 export { sendWhatsApp } from "./send";
 
-/**
- * WHATSAPP_MODE (env, default "mock") picks the driver:
- *   mock -> mockWhatsAppDriver (fully local, no credentials)
- *   live -> cloudApiWhatsAppDriver (Meta WhatsApp Business Cloud API)
- */
 export function resolveWhatsAppDriver(): WhatsAppDriver {
   return whatsappMode() === "mock" ? mockWhatsAppDriver : cloudApiWhatsAppDriver;
 }

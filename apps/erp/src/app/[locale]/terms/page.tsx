@@ -25,12 +25,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-/**
- * DRAFT terms of service — grounded in what the product actually does (roles,
- * commission-based money engine, wallets, attendance, minors). Needs review by
- * qualified Egyptian counsel before the official launch; the structure and the
- * factual claims about how the platform works are accurate today.
- */
 export default async function TermsPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale as Locale);

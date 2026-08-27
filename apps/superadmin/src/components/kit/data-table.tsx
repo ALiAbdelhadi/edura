@@ -7,10 +7,6 @@ import * as React from "react";
 export type { ColumnDef };
 export type { DataTableDensity, DataTableLabels } from "@repo/ui/components/data-table";
 
-/* Shim → @repo/ui/components/data-table.
-   NOT a bare re-export: @repo/ui carries no i18n runtime, so the table's own chrome
-   copy is injected here. This is what fixes the hard-coded English `aria-label`s on
-   the pagination buttons, which shipped regardless of locale. */
 export function DataTable<TData, TValue>(
   props: Omit<React.ComponentProps<typeof UIDataTable<TData, TValue>>, "labels"> & {
     labels?: Partial<React.ComponentProps<typeof UIDataTable<TData, TValue>>["labels"]>;

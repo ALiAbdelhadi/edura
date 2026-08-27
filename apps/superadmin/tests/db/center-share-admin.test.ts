@@ -1,32 +1,8 @@
-/**
- * Center-share governance (superadmin side) — the flat no-room share is
- * settable ONLY here, and settlement consumes exactly what superadmin set.
- *
- * Companion to apps/www/tests/db/center-share-governance.test.ts (which proves
- * neither the teacher nor the center can propose the number). Proves:
- *  VP1  the listing surfaces each arrangement + whether a hall-free course
- *       actually consumes the value.
- *  VP2  superadmin sets it, and a NO-ROOM session then settles at exactly that
- *       value through the existing append-only ledger.
- *  VP3  the write is audited (actor + before/after).
- *  VP4  invalid amounts and cross-center affiliations are rejected.
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only center-share-admin
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "center-share-admin.test.ts";
 
@@ -103,7 +79,6 @@ async function main() {
         expiresAt,
       },
     });
-    // A NO-ROOM course — the only kind that consumes the flat share.
     const course = await tx.course.create({
       data: {
         centerId: center.id,
@@ -150,14 +125,12 @@ async function main() {
   });
   const su = { id: fx.su, role: "super_admin" } as never;
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — listing surfaces the arrangement and whether it is live");
   const listing = await getCenterAffiliations(fx.center);
   const row = listing.affiliations.find((a) => a.teacherId === fx.teacher);
   assert(!!row && row.centerShare === 0, "arrangement listed at 0 (what acceptance creates)");
   assert(!!row && row.noRoomCourses === 1, "…flagged as consumed by 1 hall-free course");
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — superadmin sets it; the no-room session settles at that value");
   await updateAffiliationCenterShare(fx.center, fx.aff, 2500, su); // 25 EGP/student
 
@@ -177,39 +150,18 @@ async function main() {
   const dist = await completeSession(fx.sessionId, { id: fx.teacher, role: "teacher" } as never);
   const after = await snapshot();
 
-  // Legacy no-room path: center gets share − platform center fee; teacher gets
-  // price − platform teacher fee − share. Fees come from commission_settings.
   const fees = await withPlatformContext((tx) =>
     tx.commissionSetting.findFirst({ where: { scope: "global" } }),
   );
   const tFee = fees?.platformTeacherFee ?? 200;
   const cFee = fees?.platformCenterFee ?? 200;
 
-  // The superadmin-set share, read back out of the engine's OWN return value.
-  //
-  // This used to assert `dist.distribution.centerShare === 2500` and failed
-  // with `got undefined` — while the money underneath was correct. The reason
-  // is worth keeping: `Distribution.centerShare` is OPTIONAL, and this
-  // (hall-free, legacy) path never sets it. It cannot honestly set one, either:
-  // `centerShare` comes out of `economicsAt(studentPrice, …)` INSIDE the
-  // per-student loop, so when two attendees pay different prices there is no
-  // single per-session share to report.
-  //
-  // So this asserts the same fact from values that path does define. With one
-  // present student, centerNetTotal is exactly share − centre fee.
-  // Do NOT reinstate the centerShare form without first deciding what it should
-  // mean for a mixed-price lesson — that is a money-engine decision, not a test
-  // fix.
   const centerNet = dist.distribution.centerNetTotal;
   const seen = dist.distribution.presentCount;
   assert(
     centerNet === (2500 - cFee) * (seen ?? 0),
     `settlement used the SUPERADMIN share (center net ${centerNet} === (2500 − ${cFee}) × ${seen})`,
   );
-  // D5 (Phase 4): this student has NO subscription, so the lesson settles
-  // CENTER-HELD — the center's net (share − centre fee) stays in its drawer,
-  // wallet_balance never moves, and the credit POSITION is debited what the
-  // center owes on: the teacher's net plus both platform fees.
   assert(
     after.center - before.center === 0,
     `center wallet NOT credited, center-held (got ${after.center - before.center})`,
@@ -227,7 +179,6 @@ async function main() {
   );
   assert(ledger.length === 3, `settled through the SAME ledger shape (3 rows, got ${ledger.length})`);
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — the write is audited");
   const audit = await withPlatformContext((tx) =>
     tx.auditLog.findFirst({
@@ -242,7 +193,6 @@ async function main() {
     `audit records before/after (${JSON.stringify(afterState)})`,
   );
 
-  // ---------------------------------------------------------------- VP4
   console.log("\nVP4 — validation");
   await expectThrows(
     () => updateAffiliationCenterShare(fx.center, fx.aff, -5, su),

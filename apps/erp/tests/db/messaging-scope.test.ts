@@ -1,33 +1,3 @@
-// Messaging scope + child safety — proofs against the LIVE DB, driving the
-// REAL authorization module (@repo/database/chat-scope) and the REAL domain
-// services. No mocks, no stubbed relationships: every ALLOW and every DENY is
-// decided by the same code the HTTP and WebSocket transports call.
-//
-// Proves, per the approved plan:
-//   1.  a student CAN message a teacher they study with;
-//   2.  a student CANNOT message a teacher they do NOT study with;
-//   3.  a student CAN reach their teacher's assistant, NOT another's;
-//   4.  a parent mirrors their child's scope exactly, and only for APPROVED
-//       links;
-//   5.  an assistant reaches THEIR teacher's students only — never a second
-//       teacher's (the Step 8 boundary, and revocation cuts it immediately);
-//   6.  a center reaches only its OWN people (center-vs-center isolation),
-//       and center_accountant staff reach NOBODY;
-//   7.  DRIFT PROOF — the contacts directory returns exactly the set the gate
-//       accepts, for every seeded actor;
-//   8.  DEFAULT-DENY SWEEP — every Role x Role pair matches an explicit
-//       expectation table, and unlisted roles reach nobody;
-//   9.  DEFAULT-MINOR — a student with NO date of birth is a minor, an
-//       unverified DOB is a minor, and only a VERIFIED 18+ DOB is an adult;
-//   10. parent oversight reads a minor's adult threads, is READ-ONLY (unread
-//       counters and read receipts provably unchanged), refuses non-linked
-//       parents, refuses verified adults, and has no write path;
-//   11. rate limiting trips on the shared domain path (REST and socket both
-//       call it);
-//   12. block halts BOTH directions, keeps history, and stays visible to the
-//       super-admin log; report reaches the review queue flagged for a minor;
-//   13. group membership is DERIVED — a dropped student loses access even with
-//       a stale cached membership row, and owner_only blocks student posts.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import type { Role } from "@repo/database";
@@ -42,10 +12,6 @@ import * as minors from "@repo/database/chat-minors";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// This suite DID have cleanup and still left 105 rows in dev — the delete list
-// had drifted behind the schema. sweepTagQuietly walks the FK graph instead, so
-// it cannot drift. The existing per-table deletes are left in place; the sweep is
-// a backstop, and double-deleting is a no-op.
 let __sweepTag = "";
 
 const admin = testPool();
@@ -62,11 +28,9 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-/** An unlimited limiter for the tests that are not ABOUT rate limiting. */
 const allow: scope.ChatLimiter = async () => true;
 const deny: scope.ChatLimiter = async () => false;
 
-/** Counting limiter — allows the first N calls, then refuses. */
 function budget(n: number): scope.ChatLimiter {
   let used = 0;
   return async () => ++used <= n;
@@ -116,10 +80,6 @@ async function main() {
   __sweepTag = tag;
   console.log("Messaging scope + child-safety DB tests —", tag);
 
-  // -------------------------------------------------------------------------
-  // FIXTURE: two independent centers, each with its own teacher/assistant/
-  // students, plus one parent. Everything below is decided from THIS data.
-  // -------------------------------------------------------------------------
   const fx = await withPlatformContext(async (tx) => {
     const mkUser = async (k: string, role: Role) =>
       tx.user.create({
@@ -136,8 +96,6 @@ async function main() {
       tx.center.create({
         data: {
           name: `${tag}-${k}`,
-          // Keep the discriminator: `tag` alone already fills the column, so
-          // slicing tag+k would give both centers the SAME shortId.
           shortId: (k + tag.slice(-10)).toUpperCase(),
           status: "active",
           ownerUserId: owner,
@@ -145,7 +103,6 @@ async function main() {
         },
       });
 
-    // --- Center A ---
     const adminA = await mkUser("adminA", "center_admin");
     const centerA = await mkCenter("A", adminA.id);
     await tx.centerAdminProfile.create({
@@ -194,12 +151,10 @@ async function main() {
       },
     });
 
-    // studentA: NO dob at all -> minor by default.
     const studentA = await mkUser("studentA", "student");
     await tx.studentProfile.create({
       data: { userId: studentA.id, fullName: `${tag}-studentA`, familyLinkCode: tag + "A" },
     });
-    // studentAdult: VERIFIED 20-year-old -> the only route to "adult".
     const studentAdult = await mkUser("studentAdult", "student");
     await tx.studentProfile.create({
       data: {
@@ -210,7 +165,6 @@ async function main() {
         dateOfBirthVerifiedAt: new Date(),
       },
     });
-    // studentUnverified: DOB says 30, but NOBODY verified it -> still a minor.
     const studentUnverified = await mkUser("studentUnverified", "student");
     await tx.studentProfile.create({
       data: {
@@ -221,7 +175,6 @@ async function main() {
         dateOfBirthVerifiedAt: null,
       },
     });
-    // studentDropped: enrolled then dropped — used for the group staleness proof.
     const studentDropped = await mkUser("studentDropped", "student");
     await tx.studentProfile.create({
       data: { userId: studentDropped.id, fullName: `${tag}-drop`, familyLinkCode: tag + "DR" },
@@ -252,7 +205,6 @@ async function main() {
         initiatedBy: "parent",
       },
     });
-    // Also linked to the verified adult — to prove oversight refuses adults.
     await tx.parentStudentLink.create({
       data: {
         parentId: parentA.id,
@@ -261,7 +213,6 @@ async function main() {
         initiatedBy: "parent",
       },
     });
-    // A PENDING link must grant nothing.
     const parentPending = await mkUser("parentPending", "parent");
     await tx.parentProfile.create({ data: { userId: parentPending.id } });
     await tx.parentStudentLink.create({
@@ -273,7 +224,6 @@ async function main() {
       },
     });
 
-    // --- Center B (entirely separate) ---
     const adminB = await mkUser("adminB", "center_admin");
     const centerB = await mkCenter("B", adminB.id);
     await tx.centerAdminProfile.create({
@@ -347,17 +297,10 @@ async function main() {
     };
   });
 
-  /**
-   * One platform-context transaction per call. Deliberately NOT one big
-   * transaction for the whole suite: the drift proof alone runs ~105 gate
-   * calls, which would blow the 20s interactive-transaction budget.
-   */
   const run = <T>(fn: (tx: TenantTx) => Promise<T>): Promise<T> =>
     withPlatformContext(fn);
 
-  // =========================================================================
   console.log("\n1-3. STUDENT scope — own teachers and their assistants only");
-  // =========================================================================
   await run(async (tx) => {
     await expectAllowed(
       () => scope.assertCanReach(tx, actor(fx.studentA, "student"), fx.teacherA),
@@ -393,9 +336,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n4. PARENT scope — exactly the child's, approved links only");
-  // =========================================================================
   await run(async (tx) => {
     await expectAllowed(
       () => scope.assertCanReach(tx, actor(fx.parentA, "parent"), fx.teacherA),
@@ -413,9 +354,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n5. ASSISTANT — their ONE teacher's world only (Step 8 boundary)");
-  // =========================================================================
   await run(async (tx) => {
     await expectAllowed(
       () => scope.assertCanReach(tx, actor(fx.assistantA, "assistant"), fx.studentA),
@@ -437,7 +376,6 @@ async function main() {
     );
   });
 
-  // Revocation collapses the whole scope on the NEXT call.
   await run(async (tx) => {
     await tx.teacherAssistant.updateMany({
       where: { assistantId: fx.assistantA },
@@ -460,9 +398,7 @@ async function main() {
     });
   });
 
-  // =========================================================================
   console.log("\n6. CENTER isolation + staff sub-roles");
-  // =========================================================================
   await run(async (tx) => {
     await expectAllowed(
       () =>
@@ -492,7 +428,6 @@ async function main() {
       "center A -> center B's ASSISTANT = DENIED",
     );
 
-    // Receptionist: families yes, teaching side no.
     await expectAllowed(
       () => scope.assertCanReach(tx, actor(fx.receptionA, "center_staff"), fx.studentA),
       "receptionist -> own center's student = ALLOWED",
@@ -508,7 +443,6 @@ async function main() {
       "receptionist -> another center's student = DENIED",
     );
 
-    // center_accountant appears on NO edge at all.
     await expectDenied(
       () => scope.assertCanReach(tx, actor(fx.accountantA, "center_staff"), fx.studentA),
       "no_relationship",
@@ -518,9 +452,7 @@ async function main() {
     assert(acc.length === 0, "center_accountant's directory is EMPTY");
   });
 
-  // =========================================================================
   console.log("\n7. DRIFT PROOF — directory === gate, for every actor");
-  // =========================================================================
   {
     const everyone = [
       [fx.studentA, "student"],
@@ -532,7 +464,6 @@ async function main() {
       [fx.accountantA, "center_staff"],
     ] as const;
 
-    // Every user in the fixture is a reach CANDIDATE for every actor.
     const candidates = [
       fx.studentA,
       fx.studentAdult,
@@ -551,8 +482,6 @@ async function main() {
       fx.accountantA,
     ];
 
-    // One transaction PER ACTOR: the full cross-product is ~105 gate calls,
-    // which blows the 20s interactive-transaction budget if run as one unit.
     for (const [id, role] of everyone) {
       const listed = await run(async (tx) =>
         new Set(
@@ -578,9 +507,7 @@ async function main() {
     }
   }
 
-  // =========================================================================
   console.log("\n8. DEFAULT-DENY SWEEP — every Role x Role pair");
-  // =========================================================================
   {
     const ALL_ROLES: Role[] = [
       "super_admin",
@@ -592,7 +519,6 @@ async function main() {
       "parent",
       "student",
     ];
-    // The COMPLETE expectation table. Anything not listed must be denied.
     const EXPECTED: Record<string, Role[]> = {
       student: ["teacher", "assistant", "center_admin", "center_staff"],
       parent: ["teacher", "assistant", "center_admin", "center_staff"],
@@ -624,7 +550,6 @@ async function main() {
       "back-office roles (super_admin, accountant) reach NOBODY",
     );
 
-    // An unlisted role must fail closed rather than throw or default-open.
     const bogus = "auditor_from_the_future" as unknown as Role;
     assert(
       scope.reachableRoles(bogus).length === 0,
@@ -639,9 +564,7 @@ async function main() {
     });
   }
 
-  // =========================================================================
   console.log("\n9. DEFAULT-MINOR rule");
-  // =========================================================================
   await run(async (tx) => {
     assert(
       await minors.isMinorStudent(tx, fx.studentA),
@@ -682,11 +605,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n10. PARENT OVERSIGHT of a minor's adult conversations");
-  // =========================================================================
-  // Seed a real thread between the minor and their teacher, plus one with an
-  // unread count so the read-only proof has something to measure.
   const convId = await run(async (tx) => {
     const r = await chat.appendMessage(
       tx,
@@ -727,7 +646,6 @@ async function main() {
     );
   });
 
-  // READ-ONLY proof: counters and receipts are byte-identical before/after.
   await run(async (tx) => {
     const before = await tx.conversation.findUnique({ where: { id: convId } });
     const msgsBefore = await tx.conversationMessage.findMany({
@@ -779,7 +697,6 @@ async function main() {
       "parent CANNOT view a VERIFIED ADULT child's conversations (privacy)",
     );
 
-    // Disclosure: both sides are told the thread is visible to a parent.
     const notice = await oversight.oversightNoticeFor(tx, convId);
     assert(
       notice.monitored && notice.minorParticipantId === fx.studentA,
@@ -787,9 +704,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n11. RATE LIMITING (the shared domain path REST + socket use)");
-  // =========================================================================
   await run(async (tx) => {
     await expectDenied(
       () =>
@@ -803,7 +718,6 @@ async function main() {
       "send is REFUSED when the bucket is empty",
     );
 
-    // 3 allowed, the 4th trips — the same call the socket server makes.
     const b = budget(3);
     let sent = 0;
     let limited = false;
@@ -822,7 +736,6 @@ async function main() {
     }
     assert(sent === 3 && limited, `exactly 3 of 5 sends succeeded, then rate_limited`);
 
-    // Opening NEW conversations has its own, tighter bucket.
     await expectDenied(
       () =>
         chat.getOrCreateConversation(tx, actor(fx.teacherA, "teacher"), fx.studentAdult, {
@@ -833,9 +746,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n12. BLOCK & REPORT");
-  // =========================================================================
   await run(async (tx) => {
     const msgsBefore = await tx.conversationMessage.count({
       where: { conversationId: convId },
@@ -879,7 +790,6 @@ async function main() {
     });
     assert(msgsBefore === msgsAfter, "blocking DELETES NO history");
 
-    // Still fully visible to the platform — a block cannot bury a thread.
     const adminView = await oversight.adminGetThread(tx, convId);
     assert(
       adminView.messages.length === msgsAfter,
@@ -895,7 +805,6 @@ async function main() {
       "blocked conversation is STILL visible to the minor's parent",
     );
 
-    // Unblock restores messaging.
     await safety.unblockUser(tx, actor(fx.studentA, "student"), fx.teacherA);
     await expectAllowed(
       () =>
@@ -909,7 +818,6 @@ async function main() {
     );
   });
 
-  // An ADULT blocking a MINOR raises a safety_concern for review.
   await run(async (tx) => {
     const res = await safety.blockUser(tx, actor(fx.teacherA, "teacher"), fx.studentA);
     assert(
@@ -941,13 +849,11 @@ async function main() {
       reports.some((r) => r.id === report.id),
       "the report appears in the super-admin review queue",
     );
-    // Minor-involving reports sort first.
     assert(
       reports.length > 0 && reports[0]!.involvesMinor,
       "minor-involving reports sort to the TOP of the queue",
     );
 
-    // You cannot report a conversation you are not part of.
     await expectDenied(
       () =>
         safety.fileReport(tx, actor(fx.studentB, "student"), {
@@ -959,9 +865,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n13. GROUP channels — membership is DERIVED, cache is not trusted");
-  // =========================================================================
   const groupId = await run(async (tx) => {
     const g = await groups.createGroup(tx, actor(fx.teacherA, "teacher"), {
       kind: "course",
@@ -1035,7 +939,6 @@ async function main() {
     );
   });
 
-  // THE staleness proof: drop the enrolment but LEAVE the cached member row.
   await run(async (tx) => {
     await tx.enrollment.updateMany({
       where: { studentId: fx.studentDropped, courseId: fx.courseA },
@@ -1054,7 +957,6 @@ async function main() {
       "a DROPPED student is denied despite the stale cache row (live derivation wins)",
     );
 
-    // And the cache converges once refreshed.
     await groups.syncGroupMembers(tx, groupId);
     const after = await tx.groupMember.findFirst({
       where: { groupId, userId: fx.studentDropped, leftAt: null },
@@ -1063,7 +965,6 @@ async function main() {
     assert(!after, "syncGroupMembers marks the dropped student as left");
   });
 
-  // Students/parents can never create channels.
   await run(async (tx) => {
     await expectDenied(
       () =>
@@ -1085,9 +986,7 @@ async function main() {
     );
   });
 
-  // =========================================================================
   console.log("\n14. SEED HYGIENE — messaging writes ZERO money rows");
-  // =========================================================================
   await run(async (tx) => {
     const userIds = [
       fx.studentA,
@@ -1113,7 +1012,6 @@ async function main() {
     );
   });
 
-  // -------------------------------------------------------------------------
   console.log("\nCleaning up fixture…");
   await withPlatformContext(async (tx) => {
     const ids = Object.values(fx);

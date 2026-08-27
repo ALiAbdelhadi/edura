@@ -59,14 +59,6 @@ import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
 
-/**
- * The direction of a payment row, read off the figure itself.
- *
- * `payments` has no `type` column — the schema stores the direction in the SIGN
- * of `amount` ("positive=payment, negative=refund"). Every reader here used to
- * compare against a `record.type` that does not exist, so a refund rendered as
- * a teal "Receipt" carrying a negative number.
- */
 function isRefundRow(record: { amount?: number | null }): boolean {
   return Number(record?.amount ?? 0) < 0;
 }
@@ -75,16 +67,7 @@ export function AdminFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate, formatClockRange, locale } =
     useFormatters();
-  // One <DateRangeField> replaces the pair of raw `<input type="date">` plus the
-  // separate reset button, and the three pieces of state they needed (two draft
-  // strings kept in sync with a dayjs tuple). The field speaks YYYY-MM-DD, which
-  // is already the query's language, so nothing is converted here at all.
   const [range, setRange] = useState<DateKeyRange>(EMPTY_RANGE);
-  // Arrived from «اتحصّل النهاردة» on the home: land on the SAME rows that
-  // figure summed, rather than on the whole log with the day still to pick.
-  // A total you cannot open is a claim; a total whose rows you can read is a
-  // record. Seeds once and then leaves the operator's own edits alone — see
-  // `useParamSeed`.
   useParamSeed("from", (v) => setRange((r) => ({ ...r, from: v })));
   useParamSeed("to", (v) => setRange((r) => ({ ...r, to: v })));
   const dateQuery = useMemo(
@@ -125,9 +108,7 @@ export function AdminFeesScreen() {
     pagination: { mode: "off" },
   });
 
-  // Center wallet + withdraw (Step 4.5).
   const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
-  // Phase 4 (D4): the center<->platform credit position.
   const { query: creditQuery, result: creditRes } = useCustom({ url: "center/credit", method: "get" });
   const { query: centerPayoutsQuery, result: centerPayoutsRes } = useCustom({ url: "center/wallet/payouts", method: "get" });
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
@@ -139,8 +120,6 @@ export function AdminFeesScreen() {
   const [creditTopupEgp, setCreditTopupEgp] = useState("");
   const [creditBusy, setCreditBusy] = useState(false);
   const [creditMockIntent, setCreditMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
-  // MVP blocker #2: the top-up CONTROLS are absent when online checkout
-  // cannot settle; the balance, arrears hint and ledger always render.
   const onlineCheckout = useOnlineCheckout();
 
   const initiateCreditTopup = async () => {
@@ -196,11 +175,6 @@ export function AdminFeesScreen() {
     | undefined;
   const centerPayouts = asArray<any>(centerPayoutsRes?.data);
 
-  /**
-   * What the armed button will actually request, in piasters. An empty field
-   * means "everything available" — so the button says that figure rather than
-   * leaving the operator to infer it.
-   */
   const withdrawPiasters = useMemo(() => {
     const raw = withdrawEgp.trim();
     if (raw === "") return centerWallet?.available ?? 0;
@@ -210,17 +184,6 @@ export function AdminFeesScreen() {
 
   const [withdrawBusy, setWithdrawBusy] = useState(false);
 
-  /**
-   * Deliberately a raw `postMoney` rather than refine's `useCreate`.
-   *
-   * Two reasons, both about this being an irreversible ledger write:
-   *  - refine routes through the shared data provider, which cannot carry a
-   *    per-request timeout, so this would keep the 10s default. A payout request
-   *    reserves money; the client giving up while the server commits is the
-   *    worst failure mode this screen has.
-   *  - the data provider also flattens the error envelope, discarding `code`,
-   *    so a business-rule refusal arrives as ky's generic English string.
-   */
   const handleWithdraw = async () => {
     const egp = withdrawEgp.trim() === "" ? null : Number(withdrawEgp);
     if (egp !== null && (!Number.isFinite(egp) || egp <= 0)) {
@@ -241,8 +204,6 @@ export function AdminFeesScreen() {
     } catch (err) {
       const e = await readApiError(err);
       if (e.indeterminate) {
-        // No answer from the server — the request MAY have been recorded. Never
-        // say "failed" here; a second armed press would reserve the money twice.
         toast.error(t("adminManage.fees.walletIndeterminate"), { duration: 12000 });
         setIsWithdrawOpen(false);
         walletQuery.refetch();
@@ -257,8 +218,6 @@ export function AdminFeesScreen() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Walk-in cash subscription (Step 4): one-step counter workflow — pay cash
-  // for a plan (+ optional immediate check-in for a per-session pass).
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [subStudentId, setSubStudentId] = useState("");
   const [subCourseId, setSubCourseId] = useState("");
@@ -283,15 +242,6 @@ export function AdminFeesScreen() {
 
   const [subBusy, setSubBusy] = useState(false);
 
-  /**
-   * Cash subscription at the counter — a ledger write, so it goes through
-   * `postMoney` for the same two reasons as the payout: the 45s timeout, and an
-   * error envelope that survives to the operator instead of being flattened.
-   *
-   * This is the heaviest write on the screen (Payment + Transaction + points +
-   * notification, and optionally an attendance mark), which makes it the most
-   * likely of the three to breach the shared 10s default.
-   */
   const handleRecordSubscription = async () => {
     if (!subStudentId || !subCourseId) {
       toast.error(t("adminManage.fees.subMissingFields"));
@@ -322,8 +272,6 @@ export function AdminFeesScreen() {
     } catch (err) {
       const e = await readApiError(err);
       if (e.indeterminate) {
-        // No answer — the charge may have committed. Send the operator to the
-        // payment log rather than letting them record the same cash twice.
         toast.error(t("adminManage.fees.writeIndeterminate"), { duration: 12000 });
         setIsSubOpen(false);
         paymentsQuery.refetch();
@@ -366,7 +314,6 @@ export function AdminFeesScreen() {
         studentId: z.string().min(1, t("adminManage.fees.selectStudentRequired")),
         courseId: z.string().min(1, t("adminManage.fees.selectClassRequired")),
         amount: z.number({ error: t("adminManage.fees.enterAmountRequired") }),
-        // Phase 1: how the desk took the money. Cash preselected.
         paymentMethod: z.enum(["cash", "instapay", "pos_card", "mobile_wallet"]),
       }),
     [t],
@@ -393,34 +340,6 @@ export function AdminFeesScreen() {
 
   const [paymentBusy, setPaymentBusy] = useState(false);
 
-  // ---------------------------------------------------------------------
-  // REFUND — the correction this screen documented but never offered.
-  //
-  // The whole path already existed on the server: `payments.amount` is SIGNED
-  // by design ("positive=payment, negative=refund" in the schema), the route's
-  // body schema is `signedMoneySchema`, and `recordPayment` mirrors a negative
-  // amount into the ledger as `type: "refund"` with the parties reversed, skips
-  // the points award, and notifies the family with "Refund recorded". Every
-  // piece was reachable except a button: this client refused any amount `<= 0`,
-  // so a center could collect and then had no way to correct its own
-  // collection — the log rendered refunds it could not produce.
-  //
-  // The boundary this adds is deliberately narrow:
-  //   - it opens FROM a specific receipt, never as a free-floating negative;
-  //   - the amount is capped at that receipt's own value, and the commit is
-  //     BLOCKED rather than silently clamped when it exceeds it;
-  //   - a reason is required and is written into the ledger row's note along
-  //     with the original receipt number;
-  //   - it is the same two-step, amount-carrying commit as every other write
-  //     here, through the same `postMoney` wrapper (so a dropped connection
-  //     reports "check before repeating" instead of inviting a second refund).
-  //
-  // HONEST LIMIT: `payments` has no `reversal_of` column, so nothing at the
-  // database level links a refund to its receipt or stops a second refund
-  // against the same one. The cap here is a UI guard and the link lives in the
-  // note. Making it an invariant is a migration, and a migration needs its own
-  // approved plan.
-  // ---------------------------------------------------------------------
   const [refundRow, setRefundRow] = useState<any | null>(null);
   const [refundEgp, setRefundEgp] = useState("");
   const [refundReason, setRefundReason] = useState("");
@@ -435,9 +354,6 @@ export function AdminFeesScreen() {
 
   const openRefund = (row: any) => {
     setRefundRow(row);
-    // Pre-filled with the full receipt, because refunding all of it is the
-    // common case and re-typing a figure that is already on screen is how the
-    // wrong figure gets typed.
     setRefundEgp((Math.abs(Number(row.amount ?? 0)) / 100).toFixed(2));
     setRefundReason("");
   };
@@ -465,10 +381,6 @@ export function AdminFeesScreen() {
     try {
       await postMoney("payments", {
         studentId: refundRow.studentId,
-        // `courseId` is deliberately NOT sent. `recordPayment` verifies an
-        // ACTIVE enrolment whenever a course is named, and a refund is most
-        // needed exactly when that is no longer true — a student who withdrew,
-        // or was moved. A refund answers to a receipt, not to a roster.
         amount: -refundPiasters,
         note: `${t("adminManage.fees.refundNotePrefix", {
           receipt: refundRow.receiptNumber ?? "",
@@ -494,7 +406,6 @@ export function AdminFeesScreen() {
     }
   };
 
-  /** Manual payment entry — a ledger write, same treatment as the other two. */
   const handleRecordPayment = async (values: {
     studentId: string;
     courseId: string;
@@ -594,8 +505,6 @@ export function AdminFeesScreen() {
       ),
     },
     {
-      // The printable student code, not the internal UUID — the code is what
-      // the receipt in the same row carries.
       id: "studentCode",
       header: t("adminHome.students_colCode"),
       enableSorting: false,
@@ -609,10 +518,6 @@ export function AdminFeesScreen() {
     {
       accessorKey: "courseName",
       header: t("adminManage.fees.course"),
-      // A row with no `courseId` has no class to name — a refund is one, and so
-      // is any payment recorded against the student rather than a class. It read
-      // "unknown course", which describes a lookup that failed rather than a
-      // column that is legitimately empty.
       cell: ({ row }) =>
         row.original.courseName ||
         (row.original.courseId ? t("adminManage.fees.unknownCourse") : "—"),
@@ -622,14 +527,6 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.amount"),
       cell: ({ row }) => {
         const record = row.original;
-        // A refund is money leaving the center — red, signed. A receipt is money
-        // arriving — teal. The sign comes from the figure itself, not a prefix
-        // glued onto a formatted string.
-        //
-        // It is read off the AMOUNT, not off a `type` field: `payments` has no
-        // such column (the schema stores the direction in the sign), so the old
-        // `record.type === "refund"` was never true and every refund rendered as
-        // a teal "Receipt" — with a negative figure inside it.
         return (
           <Amount
             piasters={record.amount ?? 0}
@@ -670,7 +567,6 @@ export function AdminFeesScreen() {
             value={row.original.receiptNumber}
             label={t("adminManage.fees.receiptNumberLabel")}
           />
-          {/* The counter is where a receipt is most often ASKED for out loud. */}
           {row.original.id ? <ReceiptLink paymentId={row.original.id} /> : null}
         </div>
       ),
@@ -697,8 +593,6 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.refundOpen"),
       enableSorting: false,
       cell: ({ row }) =>
-        // Only a receipt can be refunded. A refund row offers nothing: refunding
-        // a refund is a payment, and it would be recorded as one.
         isRefundRow(row.original) ? null : (
           <Button
             variant="ghost"
@@ -732,8 +626,6 @@ export function AdminFeesScreen() {
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
-        {/* The P&L reads as one statement closing on the accountant's rule.
-            Three disconnected stat cards made the operator do the subtraction. */}
         <Sheet>
           <SheetHead title={t("adminManage.fees.netProfit")} />
           <div className="flex flex-col p-[18px]">
@@ -766,8 +658,6 @@ export function AdminFeesScreen() {
           </div>
         </Sheet>
 
-        {/* أموال محتجزة — a real reconciliation, not three tiles. Balance minus
-            what is already committed to pending payouts equals what can move. */}
         <Sheet>
           <SheetHead
             title={t("adminManage.fees.walletTitle")}
@@ -834,8 +724,6 @@ export function AdminFeesScreen() {
                     locale={locale}
                     className="text-[13px] font-semibold text-[var(--ink)]"
                   />
-                  {/* Status was rendered raw from the API — an untranslated
-                      English enum in an Arabic-first screen. */}
                   <Badge
                     tone={
                       p.status === "paid" ? "done" : p.status === "rejected" ? "failed" : "pending"
@@ -850,10 +738,6 @@ export function AdminFeesScreen() {
           ) : null}
         </Sheet>
 
-        {/* Phase 4 (D4): the center<->platform CREDIT position. Separate from
-            the wallet above on purpose — wallet_balance is platform-held money
-            owed TO the center; this is the two-way position the settlement
-            debits land on. Negative = arrears. */}
         <Sheet>
           <SheetHead title={t("adminManage.fees.creditTitle")} />
           <div className="flex flex-col p-[18px]">
@@ -949,11 +833,6 @@ export function AdminFeesScreen() {
             <DialogTitle>{t("adminManage.fees.walletWithdraw")}</DialogTitle>
           </DialogHeader>
 
-          {/* This is the decision panel: the whole computation before the
-              commit, then a commit that names its own amount. It was a single
-              click on a button labelled only "confirm" — an irreversible payout
-              request against the center's wallet with no figure on the control
-              and no statement of consequence. */}
           <div className="flex flex-col gap-3">
             <div>
               <label
@@ -999,16 +878,8 @@ export function AdminFeesScreen() {
             <FinalityNotice>{t("adminManage.fees.walletFinality")}</FinalityNotice>
 
             <TwoStepCommit
-              // Disarms if the operator edits the amount after arming — the
-              // armed button must never carry a figure that is no longer true.
               resetKey={withdrawEgp}
               icon={<DollarSign className="size-4" />}
-              // `decimals: true` matters: formatEGP rounds to whole pounds by
-              // default, so a 13.33 balance produced a button reading "13 ج.م"
-              // above a total reading "13.33 ج.م". The commit sent the correct
-              // 1333 piasters either way, but a button that names a different
-              // figure than the total it sits under defeats the whole point of
-              // making the button carry its own amount.
               label={t("adminManage.fees.walletArm", {
                 amount: formatEGP(withdrawPiasters, { decimals: true }),
               })}
@@ -1021,8 +892,6 @@ export function AdminFeesScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* REFUND — opened from one receipt, capped by that receipt, reasoned,
-          and committed in the same two steps as every other write here. */}
       <Dialog open={!!refundRow} onOpenChange={closeRefund}>
         <DialogContent>
           <DialogHeader>
@@ -1096,9 +965,6 @@ export function AdminFeesScreen() {
             <FinalityNotice>{t("adminManage.fees.refundFinality")}</FinalityNotice>
 
             <TwoStepCommit
-              // Editing either the figure or the reason after arming disarms:
-              // the armed button names an amount, and the note it will write is
-              // part of the same commitment.
               resetKey={`${refundRow?.id ?? ""}:${refundEgp}:${refundReason}`}
               icon={<Undo2 className="size-4" />}
               label={t("adminManage.fees.refundArm", {
@@ -1284,9 +1150,6 @@ export function AdminFeesScreen() {
             <DialogTitle>{t("adminManage.fees.recordPayment")}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            {/* `noValidate` — the zod schema is the only validator, so its
-                Arabic messages appear under the field instead of the browser
-                stopping the submit with an English bubble. */}
             <form
               noValidate
               onSubmit={form.handleSubmit(handleRecordPayment)}
@@ -1347,11 +1210,6 @@ export function AdminFeesScreen() {
                       <Input
                         type="number"
                         min={0.01}
-                        /* `step` is a validity rule, not a stepper size. At
-                           `step={10}` the browser rejected every amount that
-                           was not 10n + 0.01 — including this field's own
-                           placeholder, 800 — and rejected it by refusing to
-                           submit. */
                         step="0.01"
                         inputMode="decimal"
                         dir="ltr"
@@ -1381,8 +1239,6 @@ export function AdminFeesScreen() {
                   <FormItem>
                     <FormLabel>{t("shared.checkin.methodLabel")}</FormLabel>
                     <FormControl>
-                      {/* Phase 1: same four counter channels as the check-in
-                          desk — big targets, one always selected. */}
                       <div className="grid grid-cols-2 gap-2" role="radiogroup">
                         {(["cash", "instapay", "pos_card", "mobile_wallet"] as const).map((m) => (
                           <button

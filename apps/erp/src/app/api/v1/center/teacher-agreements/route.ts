@@ -21,18 +21,12 @@ const proposeSchema = z
   })
   .strict();
 
-/**
- * D2 — the CENTER proposes a teacher agreement; ONLY a superadmin approval
- * puts a rate in force. This route can never write anything but a proposal —
- * center-share-governance keeps its exact meaning. Owner only (money terms).
- */
 export const POST = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const body = await parseJson(req, proposeSchema);
   return ok(await proposeAgreement(body, user), { status: 201 });
 });
 
-/** The center's own agreements + proposals (optionally one teacher's). */
 export const GET = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const teacherId = new URL(req.url).searchParams.get("teacherId") ?? undefined;

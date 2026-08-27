@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// One representative of the 169 /api/v1/admin routes, tested end-to-end at
-// the route level: the accountant-creation door. It pins the admin-surface
-// contract every sibling shares — anonymous 401, accountant 403 on an
-// admin-only route, validation before any write, conflict → 409 — plus this
-// route's own rule: the created row is role=accountant, never anything else.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),
@@ -96,8 +90,6 @@ describe("POST /api/v1/admin/accountants", () => {
     platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({ user: { findFirst: async () => null, create } }),
     );
-    // A body trying to smuggle a role — the schema has no role field, and the
-    // route hardcodes role: "accountant" in the create.
     const res = await hit({ ...VALID_BODY, role: "super_admin" });
     expect([200, 201]).toContain(res.status);
     expect(create).toHaveBeenCalledTimes(1);

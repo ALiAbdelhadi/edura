@@ -1,8 +1,3 @@
-// The role-pair matrix + the default-deny shape of the EDGES table, pinned.
-//
-// These are PURE assertions (no DB): they guard the two tables that decide who
-// may message whom, so a careless edit to either shows up as a failing test
-// rather than as a quietly widened messaging surface in production.
 import { describe, expect, it } from "vitest";
 import {
   CONVERSATION_INITIATION,
@@ -23,7 +18,6 @@ const ALL_ROLES: Role[] = [
   "student",
 ];
 
-/** The complete, intended matrix. Anything absent must be denied. */
 const EXPECTED: Record<Role, Role[]> = {
   student: ["teacher", "assistant", "center_admin", "center_staff"],
   parent: ["teacher", "assistant", "center_admin", "center_staff"],
@@ -49,8 +43,6 @@ describe("conversation matrix", () => {
   });
 
   it("denies back-office roles any conversation at all", () => {
-    // Super-admin live chat is dropped (approved decision #1) — they observe
-    // the log, they are never participants.
     expect(Object.keys(CONVERSATION_INITIATION.super_admin)).toHaveLength(0);
     expect(Object.keys(CONVERSATION_INITIATION.accountant)).toHaveLength(0);
     expect(reachableRoles("super_admin")).toHaveLength(0);
@@ -67,9 +59,6 @@ describe("conversation matrix", () => {
   });
 
   it("keeps the EDGES table and the matrix in agreement", () => {
-    // reachableRoles() already intersects the two; this asserts the edge table
-    // covers every pair the matrix permits, so no allowed pair is unreachable
-    // for lack of a relationship rule.
     for (const from of ALL_ROLES) {
       expect([...reachableRoles(from)].sort()).toEqual([...EXPECTED[from]].sort());
     }
@@ -128,14 +117,12 @@ describe("default-minor rule", () => {
   });
 
   it("handles the exact-18 boundary by completed years", () => {
-    // Turns 18 the day before `now` -> adult.
     expect(
       isMinorFromProfile(
         { dateOfBirth: new Date("2008-07-21"), dateOfBirthVerifiedAt: verified },
         now,
       ),
     ).toBe(false);
-    // Turns 18 the day after `now` -> still a minor.
     expect(
       isMinorFromProfile(
         { dateOfBirth: new Date("2008-07-23"), dateOfBirthVerifiedAt: verified },

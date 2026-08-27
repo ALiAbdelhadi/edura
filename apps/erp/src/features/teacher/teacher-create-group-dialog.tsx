@@ -22,12 +22,6 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 
-/**
- * Teacher-direct group creation (decision #2): the group belongs to the
- * TEACHER — no center, no hall, free-text venue. The API forces the owner to
- * the caller, so this dialog never sends a teacherId. Prices are entered in
- * EGP and sent in piasters, same convention as the center screens.
- */
 export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -271,9 +265,6 @@ export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void
               </div>
               <div>
                 <div className="mb-1 text-sm font-medium">{t("teacher.priceMonth")}</div>
-                {/* `step="0.01"` — the price is read back with `parseFloat`
-                    and rounded to piasters, so the field must accept the
-                    piasters. The default step is 1, which does not. */}
                 <Input
                   type="number"
                   min={0}

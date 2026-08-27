@@ -8,10 +8,6 @@ import {
   restoreStudentToCenter,
 } from "@/lib/services/admin/center-control";
 
-// Control op #4 — the ONLY oversight action that removes enrollments, and the
-// reason it is a separate, explicitly-named endpoint rather than a flag on the
-// status op. Removal goes through the H-04 cascade journal, so `restore`
-// replays exactly the enrollments this action removed.
 export const dynamic = "force-dynamic";
 
 const schema = z

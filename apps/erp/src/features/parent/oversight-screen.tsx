@@ -1,24 +1,5 @@
 "use client";
 
-// Parent oversight — read-only view of a MINOR child's conversations with
-// adults (teachers, assistants, center admins/staff).
-//
-// This is the portal's signature surface, and the place the product is most
-// explicitly principled. Four of the five boundaries the API enforces are
-// limits on the PARENT, not on the child:
-//
-//   approved links only · minors only · adult threads only · read-only ·
-//   never touches the child's unread counters or read receipts
-//
-// Those are not caveats to bury. They are the feature. The rule this screen
-// follows throughout: no affordance may imply a write the API will refuse —
-// so where a parent cannot act there is nothing to click, and a plain line
-// says why. Not a disabled button, not a greyed card, not a dead composer.
-//
-// The authoritative rules for this screen are the parent-oversight decisions in
-// CLAUDE.md ("Messaging", §6) and the gate itself in chat-guardian.ts /
-// chat-minors.ts. This file must not be the place a new oversight rule is
-// invented — read those first.
 import React, { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Eye, MessageSquare, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -44,7 +25,6 @@ type Child = {
   conversationCount: number;
 };
 
-/** The adult roles a monitored thread can involve (server-enforced). */
 type AdultRole = "teacher" | "assistant" | "center_admin" | "center_staff";
 
 type OversightConversation = {
@@ -64,38 +44,14 @@ type ThreadMessage = {
   deleted: boolean;
 };
 
-/**
- * Three-state async: loading / failed / loaded.
- *
- * Deliberately NOT `T[] | null`. The screen this replaces collapsed every
- * `catch` into an empty array, so a failed request rendered as "no children"
- * and "no conversations" — a child-safety surface reporting *nothing to see*
- * when the truth was *we could not check*. Making failure unrepresentable as
- * emptiness is the fix, at the type level rather than by remembering.
- */
 type Async<T> = { status: "loading" } | { status: "error" } | { status: "ok"; data: T };
 
 const LOADING = { status: "loading" } as const;
 const FAILED = { status: "error" } as const;
 
-/**
- * The disclosure strip.
- *
- * A rule-bounded strip, never a toast and never a tooltip: it holds for the
- * life of the surface. Not dismissable — a disclosure you can switch off is
- * not a disclosure. Neutral ink on sheet, because oversight is lawful and
- * ordinary: colouring it amber would frame a safeguard as a fault, and the
- * child reading its twin on their side would learn they had done something
- * wrong.
- *
- * The child's half of this renders in features/messaging/chat-screen.tsx and
- * is built by the student session. Same slot, same anatomy, same persistence —
- * only the string differs. Keep them in step.
- */
 function DisclosureStrip({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2 border-b border-rule bg-sheet px-4 py-2.5">
-      {/* Non-directional icon: does not flip in RTL. */}
       <Eye className="mt-px size-3.5 shrink-0 text-ink-3" aria-hidden />
       <p className="text-xs leading-relaxed text-ink-2">{children}</p>
     </div>
@@ -106,21 +62,6 @@ export function OversightScreen() {
   const t = useTranslations();
   const [children, setChildren] = useState<Async<Child[]>>(LOADING);
   const { childId: contextChildId, setChildId } = useChildSelector();
-  /**
-   * "Back to the children" — the ONE reason this screen shows its grid while a
-   * child is selected everywhere else in the portal.
-   *
-   * ── WHY THIS SCREEN NO LONGER OWNS THE CHOICE ─────────────────────────
-   *
-   * It used to hold `child` in its own state, so it was the portal's SECOND
-   * way of saying which child: a parent picked يوسف on Attendance, opened Child
-   * Safety, and was handed a two-card chooser starting from nothing. The
-   * choice now lives in the portal's child context, and this screen reads it —
-   * which is also what makes the switcher above the page work here.
-   *
-   * The grid is not lost. It is the entry when the selected child cannot be
-   * monitored, and it is where "back" returns.
-   */
   const [browsing, setBrowsing] = useState(false);
 
   const load = useCallback(async () => {
@@ -139,18 +80,10 @@ export function OversightScreen() {
     void load();
   }, [load]);
 
-  // Switching child in the context bar re-opens the reading view: the parent
-  // asked for a different child, not for the chooser.
   useEffect(() => {
     setBrowsing(false);
   }, [contextChildId]);
 
-  /**
-   * A verified ADULT child is deliberately absent from this lookup, not merely
-   * filtered out of the view. `isMinor` is the server's answer, and when it is
-   * false there is no thread to open at any permission — so the grid renders,
-   * carrying that child as a non-card with the reason. See `ChildrenList`.
-   */
   const monitored =
     children.status === "ok"
       ? (children.data.find((c) => c.studentId === contextChildId && c.isMinor) ??
@@ -171,9 +104,6 @@ export function OversightScreen() {
       ) : (
         <ChildrenList
           state={children}
-          // Picking here sets the PORTAL's child, not a local copy — so
-          // Attendance, Fees and Pay follow the parent out of this screen
-          // rather than silently staying on whoever was selected before.
           onPick={(c) => {
             setChildId(c.studentId);
             setBrowsing(false);
@@ -216,7 +146,6 @@ function ChildrenList({
     <ul className="grid gap-3 sm:grid-cols-2">
       {state.data.map((c) =>
         c.isMinor ? (
-          // Oversight is available: the whole row is the control.
           <li key={c.studentId}>
             <button
               type="button"
@@ -236,11 +165,6 @@ function ChildrenList({
             </button>
           </li>
         ) : (
-          // A verified adult keeps their privacy — the only way out of the
-          // default-minor rule. There is NOTHING to click here: not a disabled
-          // card, not a greyed one. Just the name and the reason. A greyed
-          // affordance would imply a door that opens with the right permission,
-          // and no permission opens this one.
           <li
             key={c.studentId}
             className="flex flex-col items-start gap-1 rounded-xl border border-dashed border-rule bg-paper p-4"
@@ -313,7 +237,6 @@ function ChildConversations({
           onClick={onBack}
           className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo"
         >
-          {/* Directional icon: flips in RTL. */}
           <ArrowLeft className="size-4 rtl:-scale-x-100" aria-hidden />
           {t("oversight.backToChildren")}
         </button>
@@ -429,9 +352,6 @@ function ChildConversations({
                             m.deleted ? "text-ink-3 italic" : "text-ink",
                           )}
                         >
-                          {/* Oversight follows the PARTICIPANT rule, not the
-                              admin one: a soft-deleted body stays hidden here.
-                              A parent is watching, not moderating. */}
                           {m.deleted ? t("chat.removedMessage") : m.body}
                         </div>
                         <Figure className="mt-1 block text-end text-[10px] text-ink-3">
@@ -447,10 +367,6 @@ function ChildConversations({
               </div>
             </div>
           )}
-          {/* No composer, and no disabled placeholder for one, deliberately:
-              there is no write path for a parent into their child's
-              conversation, in the UI or on the server. The area simply ends —
-              absence is the honest signal. */}
         </div>
       </div>
     </div>

@@ -1,29 +1,3 @@
-// Profile imagery (center logo + teacher photo) — proofs against the LIVE DB
-// AND the REAL Cloudinary account, driving the REAL services with plain
-// SessionUser objects (same style as team-notes / center-staff-delegation).
-// No mocks: every asset asserted here is looked up through Cloudinary's Admin
-// API, not inferred from a return value.
-//
-// Proves:
-//   1. a teacher's upload lands on its deterministic slot (edura/avatars/<userId>)
-//      and the row points at the URL Cloudinary actually served;
-//   2. replacing OVERWRITES in place — same public_id, new version — and the
-//      cleanup pass does NOT destroy the asset the row now points at;
-//   3. the cleanup pass can NEVER destroy an asset outside the caller's own
-//      slot — proven against a center's logo and a teacher's photo;
-//   4. removal nulls the column AND destroys the asset;
-//   5. the ownership/sub-role gates: center owner and `manager` may write a
-//      logo, `receptionist` may not, the target center always comes from the
-//      SESSION, and a session carrying no center at all is refused;
-//   6. a teacher's upload cannot touch another teacher's row;
-//   7. refusals (spoofed SVG-as-JPEG, oversize, non-image) each carry a
-//      machine-readable reason code, not just an English sentence;
-//   8. a missing profile / center is a NotFoundError, not a crash;
-//   9. store-time transform caps the stored pixels;
-//  10. every refusal happens BEFORE anything reaches Cloudinary (no orphan);
-//  11. a delete REPORTS what it did — deleted / not_found / failed / skipped —
-//      so a wrong resource_type, a stale key or an out-of-slot target is no
-//      longer indistinguishable from success, and none of them throw.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -80,10 +54,6 @@ async function expectError(
   }
 }
 
-/**
- * A refusal must carry a machine-readable `details.reason` (and any meta the
- * UI interpolates), not just an English sentence.
- */
 async function expectReason(
   fn: () => Promise<unknown>,
   reason: string,
@@ -110,7 +80,6 @@ function fileOf(name: string, mime: string, rename = name): File {
   return new File([new Uint8Array(readFileSync(path.join(FIXTURES, name)))], rename, { type: mime });
 }
 
-// ---- Cloudinary Admin API: the ONLY trustworthy "does this asset exist?" ----
 const CLOUD = process.env.CLOUDINARY_CLOUD_NAME!;
 const CLD_AUTH =
   "Basic " +
@@ -204,7 +173,6 @@ async function main() {
   const OWNER_B = su({ id: fx.ownerB.id, role: "center_admin", centerId: fx.centerB });
 
   try {
-    // ------------------------------------------------------------------ 1
     console.log("\n[1] teacher photo — upload lands on the deterministic slot");
     const p1 = await setTeacherPhoto(fileOf("small.png", "image/png"), T1);
     strays.push(p1.photoUrl);
@@ -217,7 +185,6 @@ async function main() {
     const row1 = await admin.query(`SELECT photo_url FROM teacher_profiles WHERE user_id = $1`, [fx.t1.id]);
     assert(row1.rows[0].photo_url === p1.photoUrl, "the row points at exactly that URL");
 
-    // ------------------------------------------------------------------ 2
     console.log("\n[2] replace OVERWRITES in place — no orphan, no self-destruct");
     const before = await assetInfo(p1.photoUrl!);
     const p2 = await setTeacherPhoto(fileOf("big.jpg", "image/jpeg"), T1);
@@ -231,7 +198,6 @@ async function main() {
     assert(await assetExists(p2.photoUrl!), "the replacement asset survived the cleanup pass");
     assert(after.width <= 1024 && after.height <= 1024, `store transform capped a 3000x2000 upload (${after.width}x${after.height})`);
 
-    // ------------------------------------------------------------------ 3
     console.log("\n[3] teacher isolation");
     const q2 = await admin.query(`SELECT photo_url FROM teacher_profiles WHERE user_id = $1`, [fx.t2.id]);
     assert(q2.rows[0].photo_url === null, "t1's uploads never touched t2's row");
@@ -240,7 +206,6 @@ async function main() {
     assert(publicIdFromUrl(p2b.photoUrl!) === `edura/avatars/${fx.t2.id}`, "t2 gets its own slot");
     assert(await assetExists(p2.photoUrl!), "t2's upload did not destroy t1's asset");
 
-    // ------------------------------------------------------------------ 4
     console.log("\n[4] remove nulls the column AND destroys the asset");
     const removedUrl = p2.photoUrl!;
     const r = await removeTeacherPhoto(T1);
@@ -253,12 +218,10 @@ async function main() {
       "removing again is idempotent, not an error",
     );
 
-    // ------------------------------------------------------------------ 5
     console.log("\n[5] missing profile is a NotFoundError, not a crash");
     await expectError(() => setTeacherPhoto(fileOf("small.png", "image/png"), T0), NotFoundError, "teacher with no profile");
     await expectError(() => removeTeacherPhoto(T0), NotFoundError, "remove with no profile");
 
-    // ------------------------------------------------------------------ 6
     console.log("\n[6] center logo — owner writes, and the slot is per-center");
     const l1 = await setCenterLogo(fileOf("small.webp", "image/webp"), OWNER_A);
     strays.push(l1.logoUrl);
@@ -270,13 +233,7 @@ async function main() {
     const cRow = await admin.query(`SELECT logo_url FROM centers WHERE id = $1`, [fx.centerA]);
     assert(cRow.rows[0].logo_url === l1.logoUrl, "centers.logo_url points at it");
 
-    // ------------------------------------------------------------------ 7
     console.log("\n[7] the cleanup pass CANNOT reach outside the center's own slot");
-    // The hazard this guards: a row's image column pointed at ANOTHER entity's
-    // (publicly visible) Cloudinary URL, so the replace-cleanup would destroy an
-    // asset this center never owned. `PATCH /centers/me` no longer accepts a
-    // free-text `logoUrl` at all — but the DB state is still forced here by raw
-    // SQL, because the guard has to hold no matter how the column got that way.
     const victim = await setCenterLogo(fileOf("small.png", "image/png"), OWNER_B);
     strays.push(victim.logoUrl);
     await admin.query(`UPDATE centers SET logo_url = $1 WHERE id = $2`, [victim.logoUrl, fx.centerA]);
@@ -289,25 +246,17 @@ async function main() {
       "…and centerB's row still resolves to a live asset",
     );
     assert(await assetExists(l2.logoUrl!), "centerA's own new logo is stored");
-    // The same guard, one level down: a teacher's avatar slot is not a center's.
     const tPhoto = await setTeacherPhoto(fileOf("small.png", "image/png"), T2);
     strays.push(tPhoto.photoUrl);
     await admin.query(`UPDATE centers SET logo_url = $1 WHERE id = $2`, [tPhoto.photoUrl, fx.centerA]);
     await setCenterLogo(fileOf("small.webp", "image/webp"), OWNER_A);
     assert(await assetExists(tPhoto.photoUrl!), "a teacher's photo survived a center's logo upload");
 
-    // NOTE: that `PATCH /centers/me` no longer accepts `logoUrl` is proven at
-    // the HTTP door, not here — the schema lives inside a Next route file,
-    // which may not export anything besides its handlers.
-
-    // ------------------------------------------------------------------ 8
     console.log("\n[8] sub-role + ownership gates");
     const mgrActor = await authorizeCenterActor(su({ id: fx.mgrA.id, role: "center_staff" }), { allow: MANAGER });
     const l3 = await setCenterLogo(fileOf("small.png", "image/png"), mgrActor.acting);
     strays.push(l3.logoUrl);
     assert(publicIdFromUrl(l3.logoUrl!) === `edura/logos/${fx.centerA}`, "manager writes centerA's slot");
-    // A manager who may REPLACE the logo must be able to READ it — reading via
-    // `centers/me` (center_admin-only) is what 403'd the settings card for them.
     assert(
       (await getCenterLogo(mgrActor.acting)).logoUrl === l3.logoUrl,
       "manager reads the logo back through the same gate",
@@ -321,27 +270,17 @@ async function main() {
       ForbiddenError,
       "receptionist refused by the route's allow-list",
     );
-    // The target center is taken from the SESSION, never from the request, so
-    // ownerB's session can only ever write centerB's slot.
     const lB = await setCenterLogo(fileOf("small.png", "image/png"), OWNER_B);
     strays.push(lB.logoUrl);
     assert(publicIdFromUrl(lB.logoUrl!) === `edura/logos/${fx.centerB}`, "ownerB writes only centerB's slot");
     assert(await assetExists(l3.logoUrl!), "…and left centerA's logo alone");
-    // requireCenterScope(user, user.centerId) is a TAUTOLOGY here — it compares
-    // the session's centerId with itself. The one thing it still catches is a
-    // session with no center at all; asserted so the degenerate check is not
-    // mistaken for isolation it does not provide.
     await expectError(
       () => setCenterLogo(fileOf("small.png", "image/png"), su({ id: fx.ownerA.id, role: "center_admin" })),
       ForbiddenError,
       "a center_admin session with NO centerId is refused",
     );
 
-    // ------------------------------------------------------------------ 9
     console.log("\n[9] refusals carry a REASON CODE and reach nothing");
-    // The message is English on purpose (it is for logs). What a localized UI
-    // needs is the code — returning only the sentence is what put an English
-    // toast on an Arabic screen.
     const liveBefore = (await admin.query(`SELECT logo_url FROM centers WHERE id = $1`, [fx.centerA]))
       .rows[0].logo_url as string;
     await expectReason(
@@ -360,8 +299,6 @@ async function main() {
       "one byte over the ceiling",
       { maxMb: 4 },
     );
-    // The band that used to pass every check and then die at the edge as a
-    // platform 413 — no envelope, no reason code. It must be a normal refusal.
     await expectReason(
       () => setTeacherPhoto(new File([new Uint8Array(4.4 * 1024 * 1024)], "x.jpg", { type: "image/jpeg" }), T2),
       "image_too_large",
@@ -376,22 +313,16 @@ async function main() {
     const cRow2 = await admin.query(`SELECT logo_url FROM centers WHERE id = $1`, [fx.centerA]);
     assert(cRow2.rows[0].logo_url === liveBefore, "and left the row untouched");
 
-    // ----------------------------------------------------------------- 10
     console.log("\n[11] a delete that does nothing is DISTINGUISHABLE from one that works");
-    // This used to fire-and-forget: a rotated key, a quota wall or a typo'd
-    // resource_type produced exactly the same silence as a successful delete.
     {
       const a = await setTeacherPhoto(fileOf("small.png", "image/png"), T2);
       const id = publicIdFromUrl(a.photoUrl!)!;
-      // Cloudinary answers a destroy with HTTP 200 even when it deleted
-      // NOTHING, so the WRONG resource_type has to surface as `not_found`.
       assert((await deleteResource(id, "raw")) === "not_found", "wrong resource_type -> not_found");
       assert(await assetExists(a.photoUrl!), "…and the asset is, correctly, still there");
       assert((await deleteResource(id, "image")) === "deleted", "right resource_type -> deleted");
       assert(!(await assetExists(a.photoUrl!)), "…and it really is gone");
       assert((await deleteResource(id, "image")) === "not_found", "deleting it again -> not_found");
 
-      // An asset outside the caller's slot is refused before any network call.
       const other = await setCenterLogo(fileOf("small.png", "image/png"), OWNER_B);
       strays.push(other.logoUrl);
       assert(
@@ -401,8 +332,6 @@ async function main() {
       );
       assert(await assetExists(other.logoUrl!), "…and it survives");
 
-      // Credentials that do not work must REPORT failure, never throw: every
-      // caller runs after a committed write.
       const realSecret = process.env.CLOUDINARY_API_SECRET;
       process.env.CLOUDINARY_API_SECRET = "definitely-not-the-secret";
       const outcome = await deleteResource(publicIdFromUrl(other.logoUrl!)!, "image");

@@ -11,12 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Team notes board — one route, four callers:
-//   teacher / assistant        -> the teacher's board (Step 8 delegated path)
-//   center_admin / center_staff -> the center's board (center-actor path)
-// ALL staff sub-roles may read (center_accountant included — they are on the
-// team); the accountant's mutations are rejected by the center-actor method
-// gate, and their read receipts still register because listing IS the read.
 const STAFF_ALL = [...RECEPTION, ...ACCOUNTANT];
 
 export const GET = delegatedWithCenter(

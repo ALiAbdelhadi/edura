@@ -1,23 +1,3 @@
-// =============================================================================
-// SAFETY — block & report.
-//
-// Enforcement of a block lives in chat-scope.ts (`assertNotBlocked`), which
-// every send path already calls, so blocking cannot be bypassed by a transport
-// that forgets about it. This module is the write side plus the super-admin
-// read side.
-//
-// DELIBERATE ASYMMETRIES, all child-safety motivated:
-//   - A block stops NEW messages both ways but NEVER deletes history, and
-//     never hides a thread from parent oversight or the super-admin log. An
-//     adult cannot use "block" to bury a conversation with a minor.
-//   - An adult blocking a MINOR is recorded and surfaced to super admins, not
-//     silently accepted like a peer-to-peer block.
-//   - Announcement channels are not blockable (a teacher's class channel is
-//     not a personal thread); students mute them instead.
-//   - Any report involving a minor is flagged `involvesMinor` and sorts to the
-//     top of the super-admin queue.
-// =============================================================================
-
 import type { TenantTx } from "../client";
 import type {
   ConversationBlock,
@@ -28,10 +8,6 @@ import type {
 } from "../generated/client/index";
 import { ChatError, type ChatActor } from "./chat-scope";
 import { isAdultRole, isMinorStudent } from "./chat-minors";
-
-// ---------------------------------------------------------------------------
-// Blocks
-// ---------------------------------------------------------------------------
 
 export type BlockView = {
   id: string;
@@ -71,9 +47,6 @@ export async function blockUser(
     },
   });
 
-  // An ADULT blocking a MINOR is a safeguarding signal, not a routine mute:
-  // it can be an attempt to cut a child off from a channel their parent and
-  // the platform can see. Allowed, but recorded for review.
   const flagged =
     isAdultRole(actor.role) &&
     target.role === "student" &&
@@ -136,7 +109,6 @@ export async function listMyBlocks(
   }));
 }
 
-/** Is there an active block between these two, in either direction? */
 export async function isBlockedPair(
   db: TenantTx,
   a: string,
@@ -155,10 +127,6 @@ export async function isBlockedPair(
   return !!hit;
 }
 
-// ---------------------------------------------------------------------------
-// Reports
-// ---------------------------------------------------------------------------
-
 export type FileReportInput = {
   reportedUserId?: string;
   conversationId?: string;
@@ -168,11 +136,6 @@ export type FileReportInput = {
   details?: string;
 };
 
-/**
- * File a report. The reporter must be a participant in whatever they are
- * reporting — you cannot report a conversation you are not in (that would be a
- * read oracle on other people's threads).
- */
 export async function fileReport(
   db: TenantTx,
   actor: ChatActor,
@@ -209,7 +172,6 @@ export async function fileReport(
     throw new ChatError("invalid_body", "Could not determine who is being reported");
   }
 
-  // Flag if EITHER side is a minor — the reporter may be the child.
   const involvesMinor = await eitherIsMinor(db, actor.id, reportedUserId);
 
   return db.conversationReport.create({
@@ -252,10 +214,6 @@ export async function listMyReports(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Super-admin review side
-// ---------------------------------------------------------------------------
-
 export type ReportListItem = ConversationReport & {
   reporter: { id: string; name: string | null; role: Role | null } | null;
   reported: { id: string; name: string | null; role: Role | null } | null;
@@ -270,7 +228,6 @@ export async function listReportsForReview(
   const [rows, total] = await Promise.all([
     db.conversationReport.findMany({
       where,
-      // Minor-involving reports first, then newest.
       orderBy: [{ involvesMinor: "desc" }, { createdAt: "desc" }],
       skip: opts.offset ?? 0,
       take: limit,
@@ -347,10 +304,6 @@ export async function listAllBlocks(
   };
 }
 
-/**
- * Soft-delete a message (super admin / participant moderation). The body is
- * RETAINED in the row — participants stop seeing it, the log does not.
- */
 export async function softDeleteMessage(
   db: TenantTx,
   actorId: string,

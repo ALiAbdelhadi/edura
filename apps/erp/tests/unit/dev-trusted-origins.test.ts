@@ -1,14 +1,3 @@
-// Proof for the dev-only localhost origin allowance.
-//
-// better-auth 403s any request whose `Origin` is not trusted. Both apps used
-// to satisfy that with a hand-written list of preview ports copied out of
-// `.claude/launch.json`; the copy drifted, and a preview on an unlisted port
-// returned 403 on a sign-in with entirely valid credentials — which reads as
-// "the demo accounts are broken", not "this port is not on a list".
-//
-// The list is gone. What has to stay true is the boundary: this widens
-// development ONLY, and it may never trust a host that merely *looks* like
-// localhost.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { devLocalhostOrigins } from "@repo/server-core/auth/dev-origins";
 
@@ -16,7 +5,6 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-/** better-auth's rule: a pattern with `*` and `://` is globbed against the origin. */
 function matches(patterns: string[], origin: string): boolean {
   return patterns.some((p) => {
     const rx = new RegExp(
@@ -38,8 +26,6 @@ describe("devLocalhostOrigins", () => {
   });
 
   describe("in development", () => {
-    // Every preview port in .claude/launch.json, plus the one that exposed the
-    // drift (3058) and an arbitrary future one.
     it.each([
       "http://localhost:3002",
       "http://localhost:3004",
@@ -55,8 +41,6 @@ describe("devLocalhostOrigins", () => {
       expect(matches(devLocalhostOrigins(), origin)).toBe(true);
     });
 
-    // The wildcard is host-anchored. A hostname that merely starts with or
-    // contains "localhost" is a DIFFERENT host and must not match.
     it.each([
       "http://localhost.evil.com",
       "http://localhost.evil.com:3058",

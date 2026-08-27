@@ -7,7 +7,6 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { authClient } from "@/lib/auth/client";
 
-/** Second factor after a correct password (better-auth twoFactorRedirect). */
 export default function TwoFactorPage() {
   const t = useTranslations();
   const [mode, setMode] = useState<"totp" | "backup">("totp");

@@ -12,23 +12,10 @@ import { notFound, redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  // The printed page header and the saved-PDF filename both come from this.
   title: "Edura — Report",
   robots: { index: false, follow: false },
 };
 
-/**
- * A report as a printable sheet — the PDF path.
- *
- * OUTSIDE /dashboard on purpose (the receipt and the student ID card set this
- * precedent): no sidebar, no nav, no theme chrome to fight the printer. It
- * calls the SAME `buildReportExport` the CSV endpoint calls, so the sheet a
- * center files and the file their accountant opens are the same numbers from
- * the same service — there is no second query anywhere in this feature.
- *
- * Authorization is the same two gates as the API route: the union wrapper's
- * roles here, then the report's own tier inside buildReportExport.
- */
 export default async function ReportPrintPage({
   params,
   searchParams,
@@ -83,11 +70,7 @@ export default async function ReportPrintPage({
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="report-print">
       <AutoPrint enabled={print === "1"} />
-      {/* Scoped to this route; the print stylesheet is the whole design here. */}
       <style>{`
-        /* min-height so the sheet is white to the bottom of the window: this
-           route renders outside the dashboard, and the app's dark theme would
-           otherwise show below the table on screen. Printing is unaffected. */
         .report-print { padding: 24px; color: #17150f; background: #fff; font-size: 13px; min-height: 100vh; }
         .report-print h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
         .report-print .meta { color: #6b6867; font-size: 12px; margin-bottom: 16px; }
@@ -95,7 +78,6 @@ export default async function ReportPrintPage({
         .report-print th, .report-print td { padding: 6px 8px; text-align: start; }
         .report-print thead th { border-bottom: 1px solid #17150f; font-weight: 600; }
         .report-print tbody tr { border-bottom: 1px solid rgba(23,21,15,0.16); }
-        /* Constitution #4: a total is 2px double, drawn from the ink. */
         .report-print tfoot td { border-top: 2px double #17150f; font-weight: 600; padding-top: 8px; }
         .report-print .num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
         @media print {

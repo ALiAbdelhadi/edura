@@ -1,5 +1,3 @@
-// Room amenity keys mirror apps/www/src/lib/rooms/amenities.ts (kept in sync).
-// Superadmin is English-only staff UI, so only the English label is needed.
 const AMENITY_EN: Record<string, string> = {
   ac: "Air conditioning",
   whiteboard: "Whiteboard",
@@ -10,7 +8,6 @@ const AMENITY_EN: Record<string, string> = {
   seating: "Comfortable seating",
 };
 
-/** A known amenity key → its English label; any free-text extra → the raw string. */
 export function amenityLabel(value: string): string {
   return AMENITY_EN[value] ?? value;
 }

@@ -1,24 +1,3 @@
-/**
- * Phase 1 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 1) — the counter's four channels.
- *
- * What is proven, against the real walk-in service and real money writes:
- *   [1] EACH METHOD ROUND-TRIPS IDENTICALLY: for cash / instapay / pos_card /
- *       mobile_wallet the subscription, its Payment row and its ledger
- *       Transaction all record the SAME method — the drawer can only be
- *       reconciled if the three never disagree.
- *   [2] THE DEFAULT IS CASH, at the service: an input without a method behaves
- *       byte-identically to before Phase 1 (note text included).
- *   [3] EVERY COUNTER CHANNEL IS AN IN-PERSON PAYMENT for points: instapay at
- *       the desk lands as `cash_payment`, not `online_payment` (the channel
- *       changes the reconciliation, not the event).
- *   [4] THE RECEIPT STATES THE METHOD — first-class from `payments.
- *       payment_method` (MC-3), no heuristic.
- *   [5] THE MANUAL DESK (`recordPayment`) records the channel too, and its
- *       cash note stays byte-identical to before Phase 1.
- *
- * Run (this one only): bun run --filter edura test:db:only counter-payment-methods
- */
 import { withPlatformContext } from "@repo/database";
 import {
   createWalkInSubscription,
@@ -90,8 +69,6 @@ async function main() {
         data: { name: `${tag}-stu${i}`, role: "student", email: `${tag}-s${i}@x.io`, status: "active" },
       });
       students.push(stu.id);
-      // awardPoints silently no-ops for a student with no profile — the points
-      // assertions below need the row to actually land.
       await tx.studentProfile.create({
         data: { userId: stu.id, fullName: `${tag}-stu${i}`, familyLinkCode: `${tag.toUpperCase()}F${i}` },
       });

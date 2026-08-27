@@ -20,18 +20,10 @@ export const GET = withErrors(async (req) => {
   const user = await requireSession();
   const params = new URL(req.url).searchParams;
 
-  // ?all=1 — every active catalog subject (the "Browse all" mode).
   if (params.get("all") === "1") {
     return ok(await getAllActiveSubjects());
   }
 
-  // ?mine=1 — the session student's own track subjects (their picked second
-  // language only), resolved server-side from their profile so the default list
-  // always tracks profile changes.
-  //
-  // A PARENT asks the same question about a child by adding ?studentId=. The
-  // subject list itself is catalog reference data, so this widens WHOSE profile
-  // is read, nothing more — and only for an APPROVED child.
   if (params.get("mine") === "1") {
     if (user.role === "parent") {
       const studentId = params.get("studentId");

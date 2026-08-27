@@ -1,20 +1,3 @@
-/**
- * Global commission rates — the write is AUDITED (gap closed 2026-07-23).
- *
- * Every other write to commission_setting already logged itself (rooms-split.ts
- * → revenue_split.* / m2_rate.*); the global rates the money engine charges at
- * did not. Proves:
- *  VP1  a save writes ONE audit row attributed to the acting superadmin.
- *  VP2  the row carries BEFORE and AFTER (what the rates were, what they became).
- *  VP3  exactly one row per save — no double-logging from the model-level
- *       extension (CommissionSetting is deliberately not in AUDITED).
- *
- * Restores the original rates at the end (this touches the GLOBAL row).
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only commission-audit
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   getGlobalCommission,
@@ -25,13 +8,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "commission-audit.test.ts";
 
@@ -75,7 +51,6 @@ async function main() {
   };
   const row = await updateGlobalCommission(next, suUser);
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — the save is audited to the acting superadmin");
   const rows = await withPlatformContext((tx) =>
     tx.auditLog.findMany({
@@ -89,7 +64,6 @@ async function main() {
     "audit row points at the global commission_setting row",
   );
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — the row carries before AND after");
   const state = (rows[0]?.afterState ?? {}) as {
     before?: Record<string, number> | null;
@@ -108,10 +82,7 @@ async function main() {
     `after = the rates saved (${JSON.stringify(state.after)})`,
   );
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — one row per save, not two");
-  // The columns are nullable (scope rows may set only the split columns); the
-  // global row always has them, fall back to the service defaults regardless.
   await updateGlobalCommission(
     {
       teacherDirectCommissionBp: original.teacherDirectCommissionBp ?? 1500,

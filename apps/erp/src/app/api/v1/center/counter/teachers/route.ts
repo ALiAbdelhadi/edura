@@ -4,8 +4,6 @@ import { listCounterTeachers } from "@repo/server-core/services/attendance/count
 
 export const dynamic = "force-dynamic";
 
-/** The counter board's teacher picker: every affiliated teacher, today's
- *  schedule deciding the order and the default. */
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const q = new URL(req.url).searchParams.get("q");

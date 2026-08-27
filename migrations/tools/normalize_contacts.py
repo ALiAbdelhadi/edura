@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 normalize_contacts.py — توحيد أرقام الهواتف والرقم القومي في ملف طلاب قبل استيراده
 إلى Edura.
@@ -52,8 +51,6 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-# المشترك (جدول أسماء الأعمدة، قراءة الملفات) يعيش في ملف واحد — ثلاث نسخ
-# منه تعني ثلاثة تعريفات لـ«عمود الهاتف» حرةً في أن تختلف.
 from _common import (
     INVISIBLE,
     dump_dicts,
@@ -63,18 +60,14 @@ from _common import (
     write_csv,
 )
 
-# الصيغة التي تفرضها المنصة على كل شاشة تسجيل ودخول
-# (EGYPT_PHONE_RE في packages/server-core/src/validation/common.ts).
 EGYPT_MOBILE_RE = re.compile(r"^01[0125]\d{8}$")
 
-# أرقام عربية-هندية (٠-٩) وفارسية (۰-۹) → لاتينية.
 DIGIT_MAP = {ord(c): str(i) for i, c in enumerate("٠١٢٣٤٥٦٧٨٩")}
 DIGIT_MAP.update({ord(c): str(i) for i, c in enumerate("۰۱۲۳۴۵۶۷۸۹")})
 
 
 SCIENTIFIC_RE = re.compile(r"^\s*(\d)(?:[.,](\d+))?\s*[eE]\s*\+?\s*(\d+)\s*$")
 
-# أكواد المحافظات في الرقم القومي المصري (الخانتان 8-9)، و88 = مولود بالخارج.
 GOVERNORATES = {
     "01", "02", "03", "04", "11", "12", "13", "14", "15", "16", "17", "18",
     "19", "21", "22", "23", "24", "25", "26", "27", "28", "29", "31", "32",
@@ -82,9 +75,6 @@ GOVERNORATES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# أدوات نصية
-# ---------------------------------------------------------------------------
 def clean_cell(raw: str) -> str:
     """إزالة العلامات غير المرئية وتحويل الأرقام إلى لاتينية، بلا تغيير آخر."""
     return raw.translate(INVISIBLE).translate(DIGIT_MAP).strip()
@@ -125,9 +115,6 @@ def digit_runs(text: str) -> list[str]:
     return out
 
 
-# ---------------------------------------------------------------------------
-# الهاتف
-# ---------------------------------------------------------------------------
 def canonicalize_one_phone(token: str) -> str | None:
     """
     محاولة إيصال تسلسل أرقام واحد إلى الصيغة 01XXXXXXXXX. يعيد None إن لم يصل.
@@ -136,11 +123,11 @@ def canonicalize_one_phone(token: str) -> str | None:
     d = re.sub(r"\D", "", token)
     if not d:
         return None
-    if d.startswith("00"):            # 00201012345678
+    if d.startswith("00"):
         d = d[2:]
-    if len(d) == 12 and d.startswith("20"):   # 201012345678
+    if len(d) == 12 and d.startswith("20"):
         d = d[2:]
-    if len(d) == 10 and d.startswith("1"):    # Excel ابتلع الصفر الأول
+    if len(d) == 10 and d.startswith("1"):
         d = "0" + d
     return d if EGYPT_MOBILE_RE.match(d) else None
 
@@ -181,9 +168,6 @@ def normalize_phone(raw: str, pick_first: bool) -> tuple[str, str, str]:
     return value, ("ok" if value == raw.strip() else "fixed"), ""
 
 
-# ---------------------------------------------------------------------------
-# الرقم القومي
-# ---------------------------------------------------------------------------
 def normalize_national_id(raw: str) -> tuple[str, str, str]:
     """
     يعيد (القيمة_المقترحة, الحالة, ملاحظة).
@@ -223,9 +207,6 @@ def normalize_national_id(raw: str) -> tuple[str, str, str]:
     return digits, status, "؛ ".join(problems)
 
 
-# ---------------------------------------------------------------------------
-# التشغيل
-# ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="توحيد الهواتف والرقم القومي في ملف طلاب قبل استيراده إلى Edura",
@@ -254,9 +235,6 @@ def main() -> int:
             "أضف رأسًا مثل \"الاسم\" أو \"name\"."
         )
 
-    # هاتف ولي الأمر يُعامَل بتساهل عن هاتف الطالب: ليس مفتاح مطابقة ولا عمودًا
-    # فريدًا، وغرضه الاتصال بالبيت. أرضي ثابت أن يبقى رقم أرضي صالح للاتصال على
-    # أن يُمحى لأنه ليس موبايل.
     targets = [
         ("phone", cols.get("phone"), "student"),
         ("guardianPhone", cols.get("guardianPhone"), "guardian"),
@@ -273,11 +251,11 @@ def main() -> int:
     out_body: list[list[str]] = []
 
     for i, row in enumerate(body):
-        line = i + 2  # ترقيم المستورد: الرأس سطر 1
+        line = i + 2
         if is_blank(row):
-            out_body.append(row)          # صف فارغ يُمرَّر كما هو؛ المستورد يتخطاه
+            out_body.append(row)
             continue
-        row = list(row) + [""] * (len(header) - len(row))  # لا نقص خانات
+        row = list(row) + [""] * (len(header) - len(row))
         name = row[name_idx].strip() if name_idx < len(row) else ""
 
         for field, idx, kind in targets:
@@ -289,7 +267,6 @@ def main() -> int:
             else:
                 value, status, note = normalize_phone(original, args.pick_first_of_multiple)
                 if status in ("not_mobile", "multiple", "unrecoverable_precision"):
-                    # الطالب: STRICT حسب الخيار. وليّ الأمر: نُبقي الأصل دائمًا.
                     keep = (kind == "guardian") or (args.invalid_phone == "keep")
                     value = original.strip() if keep else ""
 
@@ -304,7 +281,6 @@ def main() -> int:
 
         out_body.append(row)
 
-    # تكرارات ظهرت بعد التوحيد: صفّان كانا يبدوان مختلفين وصارا مفتاحًا واحدًا.
     dupes: list[str] = []
     for field in ("phone", "nationalId"):
         idx = cols.get(field)
@@ -322,9 +298,6 @@ def main() -> int:
             else:
                 seen[v] = i + 2
 
-    # ------------------------------------------------------------------
-    # الضمانة: لا صف يُفقد. تُفحص قبل أي كتابة.
-    # ------------------------------------------------------------------
     if len(out_body) != len(body):
         raise SystemExit(f"خلل داخلي: دخل {len(body)} صفًا وخرج {len(out_body)} — أوقفتُ الكتابة")
 
@@ -335,9 +308,6 @@ def main() -> int:
                ["line", "name", "field", "original", "normalized", "status", "note"],
                report_rows)
 
-    # ------------------------------------------------------------------
-    # الملخص
-    # ------------------------------------------------------------------
     print(f"\nالمصدر: {args.src}   (فاصل: {'TAB' if delim == chr(9) else 'فاصلة'})")
     print(f"صفوف الدخل: {len(body)}   صفوف الخرج: {len(out_body)}   ✅ لا صف مفقود")
     labels = {

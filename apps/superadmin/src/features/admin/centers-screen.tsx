@@ -52,8 +52,6 @@ function bpToPct(bp: number) {
   return String(Math.round((bp / 100) * 100) / 100);
 }
 
-// Method-2 (per-attending-student) rate editor: EXACTLY one form — a flat EGP
-// amount per attending student, or a % of the per-session price per student.
 function M2RateEditor({
   label,
   override,
@@ -180,14 +178,11 @@ function M2RateEditor({
   );
 }
 
-// Translation KEYS, not labels — the wording is resolved at render so this row
-// speaks the operator's language like the rest of the screen.
 const METHOD_LABEL_KEYS: Record<PricingMethod, string> = {
   whole_room_percent: "methodWholeRoom",
   per_attending_student: "methodPerStudent",
 };
 
-// The center-set availability, editable here for full-control oversight.
 function RoomMethodsRow({
   methods,
   onSave,
@@ -242,7 +237,6 @@ function RoomMethodsRow({
   );
 }
 
-// A reusable platform/teacher/center % editor (must sum to 100).
 function SplitEditor({
   label,
   override,
@@ -493,7 +487,6 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
               </AlertDescription>
             </Alert>
 
-            {/* Center-level split */}
             <div>
               <div className="mb-2 text-sm font-semibold">{t("centerSplit")}</div>
               <SplitEditor
@@ -511,7 +504,6 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
               />
             </div>
 
-            {/* Center-level Method-2 rate */}
             <div>
               <div className="mb-2 text-sm font-semibold">{t("perStudentRate")}</div>
               <M2RateEditor
@@ -529,7 +521,6 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
               />
             </div>
 
-            {/* Teacher arrangements — the flat share for NO-ROOM courses */}
             <div className="space-y-2">
               <div className="text-sm font-semibold">{t("teacherArrangements")}</div>
               <p className="text-xs text-ink-2">
@@ -556,7 +547,6 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
               )}
             </div>
 
-            {/* Rooms */}
             <div className="space-y-3">
               <div className="text-sm font-semibold">{t("colRooms")}</div>
               {(roomsData?.rooms ?? []).length === 0 ? (
@@ -588,20 +578,17 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                         </div>
                       ) : null}
 
-                      {/* Which methods the room offers (center-set; oversight here) */}
                       <RoomMethodsRow
                         methods={(room.allowedPricingMethods ?? ["whole_room_percent"]) as PricingMethod[]}
                         onSave={(m) => saveRoomMethods(room.id, m)}
                       />
 
-                      {/* Price override */}
                       <RoomPriceRow
                         initial={room.price != null ? String(room.price / 100) : ""}
                         formatted={room.price != null ? <Num.Money piasters={room.price} locale={locale} sign={false} /> : "—"}
                         onSave={(v) => saveRoomPrice(room.id, v)}
                       />
 
-                      {/* Per-room split override */}
                       <SplitEditor
                         label={t("roomSplitOverride")}
                         override={room.roomSplitOverride ?? null}
@@ -610,7 +597,6 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                         onClear={() => clearRoomSplit(room.id)}
                       />
 
-                      {/* Per-room Method-2 rate override */}
                       <M2RateEditor
                         label={t("roomPerStudentOverride")}
                         override={room.roomM2Override ?? null}
@@ -772,7 +758,6 @@ function GlobalSplitCard() {
 
 export function CentersScreen() {
   const t = useTranslations("centersAdmin");
-  // Shared status namespace — the same wording every other screen uses.
   const tStatus = useTranslations("status");
   const [detailId, setDetailId] = useState<string | null>(null);
   const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });

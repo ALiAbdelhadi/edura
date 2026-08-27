@@ -27,7 +27,6 @@ type SessionRow = {
   userAgent?: string | null;
 };
 
-/** Exported so the admin user-detail screen labels a device the same way. */
 export function deviceLabel(ua: string | null | undefined, fallback: string) {
   if (!ua) return { label: fallback, mobile: false };
   const browser = /Edg\//.test(ua)
@@ -179,11 +178,6 @@ function SessionsSection() {
   );
 }
 
-/**
- * TOTP enrollment (QR + backup codes). 2FA is REQUIRED for back-office roles:
- * the /two-factor-setup gate renders this with `required` until the account
- * has enrolled; afterwards it appears on the security page for management.
- */
 export function TwoFactorSetup({ required = false }: { required?: boolean }) {
   const t = useTranslations();
   const [enabled, setEnabled] = useState<boolean | null>(null);

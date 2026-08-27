@@ -8,17 +8,6 @@ import { Section, SectionTitle } from "@/components/section";
 import { ROLE_SLUGS, getRolePage } from "@/i18n/roles";
 import type { MediaKey } from "@/media/manifest";
 
-/**
- * Five roles as five entries in the register — not five cards in a grid.
- *
- * Each entry leads with the QUESTION that role opens the app to answer,
- * because that is what actually distinguishes them; the capability list
- * underneath is secondary and is set as such.
- *
- * One plate stands beside the register and changes with the role being read.
- * The rows are handed to the client component as plain strings, so they still
- * render on the server and hydration buys nothing but the selection.
- */
 const SHOT_KEYS: MediaKey[] = [
   "roleCenter",
   "roleTeacher",
@@ -53,14 +42,6 @@ export function Roles({ t, locale }: { t: Messages; locale: Locale }) {
       <div className="mt-12">
         <RolePlate entries={entries} plateLabel={t.media.roles} locale={locale} />
 
-        {/* The way into each role's own page.
-
-            These sit OUTSIDE the register on purpose. Every row above is a
-            `role="radio"`, and a link nested inside a radio is an interactive
-            control inside an interactive control — a keyboard reader would
-            have to escape the group to reach it, and a screen reader would
-            announce both. Four links under the group is the same destination
-            with none of that. */}
         <nav className="mt-10 border-t border-rule pt-6">
           <Eyebrow locale={locale} tone="gold">
             {t.roles.pagesLabel}

@@ -1,16 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// Phase 3 (revenue-operations spec §2.6): "إنهاء الحصة" is the counter's
-// button. What lives in the ROUTE and is proven here:
-//   - a receptionist/manager passes the staff gate and reaches completeSession
-//     with a center_admin-shaped acting user,
-//   - the staff completion writes an ON-BEHALF-OF audit row AFTER the money,
-//   - a center_accountant stays refused (staffAllow is receptionist+manager),
-//   - a teacher's own completion is unchanged and writes NO staff audit.
-// The money itself (settlement rows for every lesson, counterOnlyCount) is
-// proven by the live-DB suite settlements-for-all.test.ts.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),
@@ -52,8 +42,6 @@ const teacherUser: SessionUser = {
   locale: "ar",
 } as SessionUser;
 
-/** platformDb serves BOTH the staff-link lookup (center-actor) and the audit
- *  write; hand it a fake tx and run the callback so both paths exercise. */
 function fakeTx(staffRole: string | null) {
   const auditCreate = vi.fn(async () => ({}));
   const tx = {

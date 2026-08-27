@@ -6,16 +6,6 @@ import {
   type SchedulableSession,
 } from "@repo/server-core/services/sessions/conflict-detector";
 
-/**
- * The calendar's clash rule.
- *
- * It must agree with the WRITE gate (`checkConflicts`, which asks Postgres
- * `start_time < :end AND end_time > :start` on the same day for the same
- * teacher or room). If the read side were more eager, the board would show
- * red for bookings the system happily accepts; if it were laxer, a center
- * would look at a clean week that is actually double-booked.
- */
-
 const base: SchedulableSession = {
   id: "a",
   date: "2026-08-10T00:00:00.000Z",
@@ -115,8 +105,6 @@ describe("findScheduleClashes", () => {
   });
 
   it("two roomless sessions do not clash on a null room (only on their teacher)", () => {
-    // A teacher-direct group has no hall. Two of them sharing `null` must not
-    // read as one double-booked room.
     const out = findScheduleClashes([
       s({ id: "a", roomId: null }),
       s({ id: "b", roomId: null, teacherId: "t2" }),

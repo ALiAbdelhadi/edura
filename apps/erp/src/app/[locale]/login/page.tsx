@@ -49,45 +49,18 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const nextParam = searchParams.get("next");
   const next = isSafeNext(nextParam) ? nextParam : "/dashboard";
-  // Arrived here because the session was ended FOR them. Rendered as a calm
-  // notice, not the red alert: nothing they did was wrong, and the account is
-  // fine — the only thing asked of them is to sign in again.
-  //
-  // TWO REASONS, TWO SENTENCES, because they are different facts and the notice
-  // must not state the wrong one. `session_conflict` = the browser really was
-  // holding more than one session. `session_mismatch` = it held exactly one, but
-  // it was not the person the screen was named after — saying "more than one" to
-  // that reader would be a plain untruth in a safety message.
-  // See docs/reports/session-identity-mismatch.md.
   const signedOutReason = searchParams.get("reason");
   const sessionExpired = signedOutReason === "session_expired";
   const signedOutForSafety =
     signedOutReason === "session_conflict" ||
     signedOutReason === "session_mismatch" ||
     sessionExpired;
-  // WHOEVER WAS HERE HAS GONE — drop the analytics identity.
-  //
-  // This used to happen implicitly: the root layout read the session on every
-  // page and passed `null` to the analytics provider when there was none, which
-  // called `posthog.reset()`. That read is gone (it made all 122 pages dynamic),
-  // and identity is now supplied only by the portal layouts, which never see a
-  // signed-out visitor.
-  //
-  // The login screen is where leaving lands you, so it is where the reset
-  // belongs. It matters on a SHARED DEVICE — a family laptop, a center's front
-  // desk — where the previous person's distinct_id must not follow the next one.
-  // Doing it here rather than on every public page is deliberate: `reset()`
-  // mints a fresh anonymous id, and calling it on every marketing page load
-  // would fragment every funnel that crosses one.
   useEffect(() => {
     identifyUser(null);
   }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // USER_NOT_FOUND is a guidance state, not a failure — it renders as a calm
-  // inline panel with a sign-up CTA (email carried over), never as the red
-  // alert. Holds the email exactly as typed so the CTA prefills it.
   const [notFoundEmail, setNotFoundEmail] = useState<string | null>(null);
 
   const schema = z.object({
@@ -116,9 +89,6 @@ export default function LoginPage() {
         password: values.password,
       });
       if (signInError) {
-        // The sign-in hook surfaces typed codes as the APIError message; any
-        // unrecognized value stays the generic invalid-credentials line, so
-        // nothing new is ever leaked.
         if (signInError.message === "USER_NOT_FOUND") {
           setNotFoundEmail(values.email.trim());
         } else if (signInError.message === "ACCOUNT_PENDING") {
@@ -218,9 +188,6 @@ export default function LoginPage() {
                 border: "1px solid var(--rule)",
               }}
             >
-              {/* An expiry is not a safety event, so it does not wear the
-                  safety mark. The shield says "something protected you"; time
-                  running out protected nobody. */}
               {sessionExpired ? (
                 <Clock
                   className="mt-0.5 size-4 shrink-0"
@@ -244,8 +211,6 @@ export default function LoginPage() {
           {error ? (
             <p
               role="alert"
-              // Next renders its own always-present `<div role="alert">` route
-              // announcer, so role alone is never unique in a test.
               data-slot="form-error"
               className="flex items-start gap-2 rounded-lg px-3 py-2 text-sm font-medium"
               style={{

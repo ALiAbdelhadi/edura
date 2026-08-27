@@ -56,11 +56,6 @@ import {
 import { ReportsTab, PlatformActionsCard } from "./platform-tabs";
 import { AuditLogTable } from "../audit-log-screen";
 
-// ---------------------------------------------------------------------------
-// One center, end to end: everything readable on the left-hand tabs, and a
-// closed set of named, audited actions inline where they belong.
-// ---------------------------------------------------------------------------
-
 type Overview = {
   center: {
     id: string;
@@ -84,13 +79,6 @@ type Overview = {
   counts: Record<string, number>;
 };
 
-// Fifteen tabs in one flat strip overflowed its row and pushed the first items
-// off-screen, so the nav could not tell you where you were. They are grouped
-// into the five sections the feature is already split into on disk
-// (people-tabs / academic-tabs / operations-tabs / finance-tab / platform-tabs),
-// and only ONE group's tabs are rendered at a time — five items instead of
-// fifteen. Every tab `value` is unchanged, so every TabsContent below still
-// matches and no screen moved.
 const TAB_GROUPS = [
   { key: "overview", tabs: ["overview"] },
   { key: "people", tabs: ["teachers", "students", "staff"] },
@@ -106,7 +94,6 @@ const GROUP_OF = new Map<string, string>(
 export function CenterOversightScreen({ centerId }: { centerId: string }) {
   const [tab, setTab] = useState<string>("overview");
   const t = useTranslations("oversight");
-  // Shared status namespace — same wording as every other screen.
   const tStatus = useTranslations("status");
   const locale = useLocale() as Locale;
   const overview = useOversight<Overview>(centerId, "overview");
@@ -175,7 +162,6 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        {/* Level 1 — section. Selecting one lands on its first tab. */}
         <div
           role="tablist"
           aria-label={t("sections")}
@@ -204,8 +190,6 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
           })}
         </div>
 
-        {/* Level 2 — the selected section's tabs only. A one-tab section needs
-            no second row, so Overview shows none. */}
         {(TAB_GROUPS.find((g) => g.key === GROUP_OF.get(tab))?.tabs.length ?? 0) > 1 ? (
           <TabsList className="flex-wrap">
             {TAB_GROUPS.find((g) => g.key === GROUP_OF.get(tab))?.tabs.map((x) => (
@@ -216,7 +200,6 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
           </TabsList>
         ) : null}
 
-        {/* ---------------- Overview ---------------- */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard label={t("cntTeachers")} value={<Num.Figure value={overview.data?.counts.teachers ?? 0} locale={locale} />} />
@@ -236,38 +219,31 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
           <PlatformActionsCard centerId={centerId} />
         </TabsContent>
 
-        {/* ---------------- Rooms ---------------- */}
         <TabsContent value="rooms">
           <RoomsTab centerId={centerId} enabled={tab === "rooms"} />
         </TabsContent>
 
-        {/* ---------------- Teachers ---------------- */}
         <TabsContent value="teachers">
           <TeachersTab centerId={centerId} enabled={tab === "teachers"} />
         </TabsContent>
 
-        {/* ---------------- Students ---------------- */}
         <TabsContent value="students" className="space-y-4">
           <StudentsTab centerId={centerId} enabled={tab === "students"} />
           {tab === "students" ? <CenterBlacklistCard centerId={centerId} /> : null}
         </TabsContent>
 
-        {/* ---------------- Courses ---------------- */}
         <TabsContent value="courses">
           <CoursesTab centerId={centerId} enabled={tab === "courses"} />
         </TabsContent>
 
-        {/* ---------------- Sessions ---------------- */}
         <TabsContent value="sessions">
           <SessionsTab centerId={centerId} enabled={tab === "sessions"} />
         </TabsContent>
 
-        {/* ---------------- Enrollments ---------------- */}
         <TabsContent value="enrollments">
           <EnrollmentsTab centerId={centerId} enabled={tab === "enrollments"} />
         </TabsContent>
 
-        {/* ---------------- Subscriptions ---------------- */}
         <TabsContent value="subscriptions">
           <SimpleTable
             centerId={centerId}
@@ -285,38 +261,31 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
           />
         </TabsContent>
 
-        {/* ---------------- Attendance ---------------- */}
         <TabsContent value="attendance">
           <AttendanceTab centerId={centerId} enabled={tab === "attendance"} />
         </TabsContent>
 
-        {/* ---------------- Staff ---------------- */}
         <TabsContent value="staff">
           <StaffTab centerId={centerId} enabled={tab === "staff"} />
         </TabsContent>
 
-        {/* ---------------- Pending ---------------- */}
         <TabsContent value="pending" className="space-y-4">
           <PendingTab centerId={centerId} enabled={tab === "pending"} />
           {tab === "pending" ? <EnrollmentRequestsCard centerId={centerId} /> : null}
         </TabsContent>
 
-        {/* ---------------- Deletion requests ---------------- */}
         <TabsContent value="deletions">
           <DeletionRequestsTab centerId={centerId} enabled={tab === "deletions"} />
         </TabsContent>
 
-        {/* ---------------- Reports ---------------- */}
         <TabsContent value="reports">
           <ReportsTab centerId={centerId} enabled={tab === "reports"} />
         </TabsContent>
 
-        {/* ---------------- Finance ---------------- */}
         <TabsContent value="finance">
           {tab === "finance" ? <FinanceTab centerId={centerId} /> : null}
         </TabsContent>
 
-        {/* ---------------- Audit ---------------- */}
         <TabsContent value="audit">
           <Alert className="mb-3">
             <Info className="size-4" />
@@ -336,10 +305,6 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Profile editor — the allowlisted fields only.
-// ---------------------------------------------------------------------------
 
 type ProfileField = {
   key: "name" | "phone" | "whatsapp" | "email" | "governorate" | "area" | "address" | "logoUrl";
@@ -461,14 +426,6 @@ function CenterProfileCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Generic read-only table for the simple tabs.
-// ---------------------------------------------------------------------------
-
-// `enumNs` names a SHARED top-level namespace (plans / status / sources / methods)
-// so an enum reads the same here as on the screen that owns it. Without it a cell
-// falls back to the raw column value, which is how `cash` / `per_session` reached
-// the operator.
 type Col = {
   key: string;
   label: string;
@@ -492,8 +449,6 @@ function SimpleTable({
 }) {
   const t = useTranslations("oversight");
   const tRoot = useTranslations();
-  // Fall back to the raw value when a key is missing. Printing the key path
-  // instead would be worse than the untranslated enum it replaced.
   const tEnum = (key: string, raw: string) =>
     tRoot.has(asKey(key)) ? tRoot(asKey(key)) : raw;
   const locale = useLocale() as Locale;
@@ -565,10 +520,6 @@ function SimpleTable({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Pending items — approve / reject
-// ---------------------------------------------------------------------------
 
 function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");

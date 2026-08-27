@@ -1,9 +1,5 @@
 "use client";
 
-/* Phase 5 (D2) — the center's side of a teacher agreement: a PROPOSAL.
-   Nothing this dialog submits ever becomes a rate in force — only a platform
-   approval activates it (center-share-governance, kept intact). */
-
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,

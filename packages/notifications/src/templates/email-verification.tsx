@@ -3,16 +3,6 @@ import { normalizeLocale, type Locale } from "../locale";
 import type { EmailVerificationData } from "../types";
 import { Cta, EmailLayout, FallbackLink, Note, P } from "./layout";
 
-// =============================================================================
-// Confirm-by-click address verification.
-//
-// This is the template the guardian-email work explicitly left unbuilt (see
-// CLAUDE.md "Guardian email is stored, NOT verified"): a student can type a
-// friend's address and today nothing checks it. The RENDERER lives here now so
-// that work is a service away, not a design away. No flow sends it yet — wiring
-// it is a decision about what happens to an unverified address, which is a
-// product rule, not a template.
-// =============================================================================
 const COPY = {
   ar: {
     subject: "تأكيد بريدك الإلكتروني - Edura",

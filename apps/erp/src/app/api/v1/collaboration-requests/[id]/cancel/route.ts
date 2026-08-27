@@ -5,7 +5,6 @@ import { cancelCollaborationRequest } from "@/lib/services/collaboration/collabo
 
 export const dynamic = "force-dynamic";
 
-// Center side: MANAGER (and owner) may cancel a center-initiated request.
 export const POST = delegatedWithCenter(
   async (_req, ctx, { acting: user }) => {
     const { id } = await ctx.params;

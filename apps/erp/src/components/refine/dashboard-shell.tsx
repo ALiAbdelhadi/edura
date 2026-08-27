@@ -16,18 +16,6 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import React from "react";
 
-/* ════════════════════════════════════════════════════════════════════════════
- * This file used to BE the shell — 489 lines of it, beside a 505-line twin in
- * apps/superadmin. The chrome now lives once, in @repo/ui/components/app-shell,
- * and this is the seam that hands it everything @repo/ui cannot import: this
- * app's locale-aware router, its next-intl catalogue, its refine identity and
- * data hooks, and its own header controls.
- *
- * The public shape is UNCHANGED — same default export, same `role` /
- * `navItems` / `navGroups` / `bottomNav` props — so all eight portal layouts
- * render exactly as before without an edit.
- * ════════════════════════════════════════════════════════════════════════════ */
-
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
   Registrations: "nav.registrations",
@@ -35,9 +23,6 @@ const NAV_KEY: Record<string, string> = {
   Payouts: "nav.payouts",
   Statements: "nav.statements",
   Alerts: "nav.alerts",
-  // Group headings. The `@` prefix is not decoration — it keeps a heading from
-  // ever colliding with a destination label, so a screen called "Money" could
-  // not silently resolve to the money group's translation.
   "@learn": "navGroup.learn",
   "@teach": "navGroup.teach",
   "@counter": "navGroup.counter",
@@ -57,18 +42,9 @@ const NAV_KEY: Record<string, string> = {
   "Child Progress": "nav.childProgress",
   "Fees & Payments": "nav.feesPayments",
   Dashboard: "nav.dashboard",
-  // The student portal's own two. Not a second naming system: the same
-  // destination named ONCE, in the vocabulary of the role that opens it.
-  // "لوحة التحكم" is a phrase for staff, and the student bar could not fit
-  // either it or "المواد الدراسية" at 375px — measured, six targets, 63px each.
   "Student Home": "nav.studentHome",
   "My Subjects": "nav.mySubjects",
   "Student ID": "nav.studentId",
-  // The teacher side's own word for the same destination, on the same
-  // precedent as the student's two above. A teacher and their assistant say
-  // "الملازم"; the STUDENT portal's page title, subtitle and empty state all
-  // say "الملفات التعليمية", so re-pointing the shared key would have left
-  // that portal's nav disagreeing with its own screen.
   "Teacher Materials": "nav.teacherMaterials",
   Practice: "nav.practice",
   Students: "nav.students",
@@ -83,9 +59,6 @@ const NAV_KEY: Record<string, string> = {
   Schedule: "nav.schedule",
   Enrollments: "nav.enrollments",
   "Enrollment Requests": "nav.enrollmentRequests",
-  // NOT `nav.affiliations`. "الانتسابات" is the SUPERSEDED name that
-  // collaboration requests replaced (CLAUDE.md decision #3), and reusing that
-  // key would put a retired term back in two sidebars. This is its own row.
   "Collaboration Requests": "nav.collaborationRequests",
   Expenses: "nav.expenses",
   Rooms: "nav.rooms",
@@ -115,19 +88,12 @@ const NAV_KEY: Record<string, string> = {
   Finance: "nav.finance",
   Catalog: "nav.catalog",
   "Child Safety": "nav.childSafety",
-  // Not `nav.subscriptions` — that one reads "اشتراكاتي", which is the
-  // student saying MINE. A parent is reading a child's.
   "Child Subscriptions": "nav.childSubscriptions",
   "Pay for a Lesson": "nav.payForChild",
   "My Wallet": "nav.parentWallet",
   "Guided tour": "nav.tour",
 };
 
-/**
- * Search result kind → its heading key. Mirrors `SearchKind` in
- * `@repo/server-core/services/search/global-search`; a kind missing here
- * renders its raw key, which is deliberately ugly rather than invisible.
- */
 const SEARCH_KIND_KEY: Record<string, string> = {
   student: "shared.searchKind_student",
   child: "shared.searchKind_child",
@@ -156,25 +122,6 @@ const roleLabels: Record<string, string> = {
 
 export type NavGroup = ShellNavGroup;
 
-/**
- * Counts for the nav entries that own them.
- *
- * TWO RULES, and both are about not lying.
- *
- * 1. A QUERY IS ONLY ISSUED IF THE ROLE HOLDS THE DESTINATION. Not an
- *    optimisation — the endpoints are role-scoped, so asking on a portal that
- *    does not own the screen means a 403 on every page load for every user of
- *    that portal. It is also the constitution's own posture: do not reach for a
- *    capability this role does not have.
- *
- * 2. NO BADGE IS BETTER THAN A WRONG BADGE. `enrollment-requests` returns its
- *    full filtered set unpaginated, so the length IS the count and cannot
- *    undercount. Endpoints that page (the conversation list) are deliberately
- *    NOT wired here: a messages badge summed over the first page would read
- *    "3" while eleven were waiting, which tells the reader they are caught up
- *    when they are not. That is worse than a bare entry, so it stays bare until
- *    there is a count endpoint to read.
- */
 function useNavBadges(hrefs: Set<string>): Record<string, number> {
   const enrollmentRequestsHref = [...hrefs].find((h) =>
     h.endsWith("/enrollment-requests"),

@@ -5,12 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { decideCollaborationRequest } from "@/lib/services/admin/center-control";
 
-// Control op #5 — approve / reject a pending collaboration request on behalf of
-// the platform. Runs the SAME acceptance transaction the parties run (shared
-// kernel, `platform_override` mode), so the resulting course, affiliation,
-// sessions and frozen pricing snapshot are identical. No money value is
-// accepted from the client: `pricingMethod` selects WHICH superadmin-configured
-// rate applies, never the rate itself.
 export const dynamic = "force-dynamic";
 
 const schema = z

@@ -5,17 +5,6 @@ import { buildStatement } from "@/lib/services/external-teachers";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The reconciliation statement: what students paid for this teacher's groups,
- * what the platform took, what the center's cut was, and what is still owed.
- *
- * READ-ONLY and open to the read-only finance tier as well as managers — it is
- * a report, and the service that builds it imports nothing that mutates.
- * Actually PAYING the teacher is a different route with a different gate.
- *
- * Defaults to the current calendar month, which is the period a center settles
- * on.
- */
 export const GET = centerStaff(
   async (req, ctx, { acting }) => {
     const { teacherId } = (await ctx.params) as { teacherId: string };

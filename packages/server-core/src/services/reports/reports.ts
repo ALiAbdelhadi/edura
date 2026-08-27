@@ -31,25 +31,12 @@ function isValidDate(value: Date): boolean {
   return !Number.isNaN(value.getTime());
 }
 
-// Day bounds moved to `lib/day-range` and are imported above. They were
-// private here, which is exactly why `listPayments` grew its own — and got the
-// `to` end wrong. One derivation, one place.
 const dateFilter = dayRange;
 
-/** Is this a `from`/`to` value we can resolve to a day at all? */
 function isUsableDay(value?: string): boolean {
   return !!value && (/^\d{4}-\d{2}-\d{2}$/.test(value) || isValidDate(new Date(value)));
 }
 
-/**
- * The bounded range an analytics call runs over, with defaults when either end
- * is missing or unparseable.
- *
- * The window arithmetic ("five months back", "eight weeks back") happens on
- * CALENDAR KEYS, not by subtracting from an instant. Subtracting months from an
- * instant and then taking day bounds re-derives the day a second time, and the
- * two derivations disagree for the couple of hours a Cairo day leads UTC by.
- */
 function parseRange(from?: string, to?: string, granularity: AnalyticsGranularity = "month") {
   const toKey = isUsableDay(to) ? platformDayKey(to as string) : todayKey();
   let fromKey: string;
@@ -58,7 +45,6 @@ function parseRange(from?: string, to?: string, granularity: AnalyticsGranularit
   } else if (granularity === "week") {
     fromKey = shiftDayKey(toKey, -(7 * 8) + 1);
   } else {
-    // Five months back, from the 1st — six month-buckets including this one.
     let year = Number(toKey.slice(0, 4));
     let month = Number(toKey.slice(5, 7)) - 5;
     while (month < 1) {
@@ -70,13 +56,6 @@ function parseRange(from?: string, to?: string, granularity: AnalyticsGranularit
   return { fromDate: startOfPlatformDay(fromKey), toDate: endOfPlatformDay(toKey) };
 }
 
-/**
- * The ISO week a CALENDAR DATE belongs to. Takes parts, not an instant, on
- * purpose: once the Cairo day is known, "which ISO week is it" is pure calendar
- * arithmetic with no timezone left in it. The UTC accessors below operate on a
- * Date built from those parts and are therefore reading back exactly what was
- * put in.
- */
 function isoWeekKeyOfDay(key: string): string {
   const temp = new Date(
     Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10))),
@@ -88,16 +67,6 @@ function isoWeekKeyOfDay(key: string): string {
   return `${temp.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
-/**
- * Which bucket a row falls in — resolved through its CAIRO day.
- *
- * This has to move in step with `parseRange`, and that is the whole reason it
- * was touched. A payment at 00:30 Cairo on 1 September is 21:30Z on 31 August:
- * with Cairo bounds and a UTC bucket key it would be selected by the query,
- * bucketed into `2026-08`, find no such entry in a September-onward series, and
- * be DROPPED — money inside the range that appears in no bar of the chart.
- * Cairo bounds with Cairo buckets is coherent; either one alone is not.
- */
 function getPeriodKey(date: Date, granularity: AnalyticsGranularity): string {
   const key = todayKey(date);
   if (granularity === "week") return isoWeekKeyOfDay(key);
@@ -114,23 +83,12 @@ function formatPeriodLabel(period: string, granularity: AnalyticsGranularity): s
   return `${monthLabel} ${year.slice(2)}`;
 }
 
-/**
- * Every bucket the series must show, including the empty ones — a month with no
- * revenue is a fact about the business and has to appear as a zero, not as a
- * missing bar.
- *
- * Walks the CAIRO calendar between the two bounds, so the set of buckets and
- * the bucket each row lands in are derived the same way. Stepping a cursor
- * `Date` forward through instants would drift across the DST change; stepping
- * calendar keys cannot.
- */
 function buildPeriodKeys(fromDate: Date, toDate: Date, granularity: AnalyticsGranularity): string[] {
   const fromKey = todayKey(fromDate);
   const toKey = todayKey(toDate);
   const keys: string[] = [];
 
   if (granularity === "week") {
-    // Back up to the Monday of the ISO week the range starts in.
     const cursor = new Date(
       Date.UTC(
         Number(fromKey.slice(0, 4)),
@@ -173,45 +131,15 @@ function paymentWhereBase(centerId: string) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// PROVENANCE FILTERING (off-system teachers)
-//
-// The DEFAULT IS COMBINED, and that is not an oversight — it is the point. A
-// center's revenue is its revenue whether the teacher who earned it signs in or
-// not, so every report below reads both kinds unless an operator asks for one.
-// Passing no filter therefore leaves every existing report byte-for-byte as it
-// was.
-//
-// The two filters answer different questions and are deliberately separate:
-//   dataSource   — "which rows did my staff key in by hand?"   (a column)
-//   systemStatus — "which rows belong to my off-system teachers?" (a property
-//                  of the TEACHER, resolved to their groups)
-// They usually agree, but not always: a teacher who joins the platform keeps
-// the groups the center keyed in for them, so those rows stay `manual` while
-// their teacher is now `enrolled`. Collapsing the two into one flag would make
-// that perfectly ordinary case unrepresentable.
-// ---------------------------------------------------------------------------
-
 export type ProvenanceFilter = {
   systemStatus?: "enrolled" | "external" | null;
   dataSource?: "system" | "manual" | null;
 };
 
-/** Nothing asked for -> nothing narrowed. One check, used by every report. */
 function isUnfiltered(f?: ProvenanceFilter): boolean {
   return !f || (!f.systemStatus && !f.dataSource);
 }
 
-/**
- * Turn a provenance filter into the two narrowings the reports need: a
- * `dataSource` value, and the course ids belonging to teachers of the requested
- * kind.
- *
- * `courseIds: null` means "do not narrow by course" — distinct from `[]`, which
- * means "narrow to nothing", the correct answer when a center has no teacher of
- * the requested kind. Conflating them would silently show the whole center's
- * numbers under a filter that matched nobody.
- */
 async function resolveProvenance(
   tx: TenantTx,
   centerId: string,
@@ -238,7 +166,6 @@ async function resolveProvenance(
   return { ...(f?.dataSource ? { dataSource: f.dataSource } : {}), courseIds };
 }
 
-/** `courseId` narrowing that is a no-op when nothing was asked for. */
 function courseNarrow(courseIds: string[] | null) {
   return courseIds === null ? {} : { courseId: { in: courseIds } };
 }
@@ -319,10 +246,6 @@ export async function getRevenueTimeseries(
       },
       select: { amount: true, paidAt: true },
     });
-    // Expenses are the CENTER's own costs (rent, salaries, supplies) and belong
-    // to no teacher, so a provenance filter cannot narrow them. Left whole
-    // rather than zeroed: under a filter the series shows the filtered revenue
-    // against the center's real costs, which is the honest comparison.
     const expenses = await tx.expense.findMany({
       where: { centerId, expenseDate: { gte: fromDate, lte: toDate } },
       select: { amount: true, expenseDate: true },
@@ -886,16 +809,6 @@ export async function getNetProfitReport(user: SessionUser, from?: string, to?: 
   };
 }
 
-/**
- * The center home.
- *
- * COMBINED BY DEFAULT: with no filter it counts on-platform and off-system
- * teachers together, which is the whole promise — one number for the center's
- * own business, not two half-pictures. `provenance` narrows it only when the
- * operator switches the toggle, and the breakdown below always reports BOTH
- * sides regardless of the filter, so the split is visible without having to go
- * looking for it.
- */
 export async function getAdminDashboard(
   user: SessionUser,
   provenance?: ProvenanceFilter,
@@ -903,34 +816,10 @@ export async function getAdminDashboard(
 ) {
   const centerId = user.centerId as string;
 
-  // THE PERIOD, AND WHY THE FIELDS STOPPED LYING.
-  //
-  // `revenue`, `expenses`, `netProfit` and `attendanceRate` were LIFETIME BY
-  // CONSTRUCTION — every payment and every attendance row this center has ever
-  // had — under names that read like current figures. An owner seeing "الإيرادات"
-  // beside "حصص النهاردة" reads them as the same timeframe, and they never were
-  // (CENTER_IA_AUDIT.md §7.1 finding 3).
-  //
-  // Renaming them to `lifetimeRevenue` would have been honest and useless: the
-  // question the screen is actually asked is "how much did we take THIS month",
-  // and a longer name does not answer it. So the range became a parameter and
-  // the payload now SAYS which one it used — `period` below is part of the
-  // contract, not decoration.
-  //
-  // NO PERIOD MEANS LIFETIME, unchanged, so every existing caller — the www
-  // Overview, apps/superadmin's center oversight, the external-teachers suite —
-  // keeps the numbers it had.
-  //
-  // Bounds are Cairo days via `dayRange` (docs/decisions/money-day-boundary.md),
-  // the same helper the Fees P&L and the payments log use, so the Overview and
-  // the reports beneath it cannot disagree about what "this month" means.
   const money = dayRange(period?.from, period?.to);
   const periodFrom = period?.from ?? null;
   const periodTo = period?.to ?? null;
 
-  // TODAY IS A CAIRO DAY. Computed through UTC, "today's sessions" meant
-  // YESTERDAY's between midnight and 02:00/03:00 Cairo — the hours a center
-  // that runs a late evening slot is still closing up in.
   const { gte: todayStart, lt: todayEnd } = platformTodayWindow();
 
   const [base, feeDefaulters, trend, sessionStatusMix, attendanceByCourse, courseFillRates, enrollmentFunnel] =
@@ -977,8 +866,6 @@ export async function getAdminDashboard(
           },
           _sum: { amount: true },
         });
-        // Center-own costs; no teacher owns them, so no provenance filter
-        // applies (same reasoning as the revenue timeseries).
         const expenseAgg = await tx.expense.aggregate({
           where: { centerId, ...(money ? { expenseDate: money } : {}) },
           _sum: { amount: true },
@@ -986,8 +873,6 @@ export async function getAdminDashboard(
         const pendingEnrollmentRequests = await tx.enrollmentRequest.count({
           where: { centerId, status: "pending", ...courseScope },
         });
-        // An attendance record carries no date of its own — it is dated by the
-        // session it belongs to, which is how every other report reaches it.
         const attendanceWhen = money ? { session: { date: money } } : {};
         const attendanceTotal = await tx.attendanceRecord.count({
           where: { centerId, ...courseScope, ...(dataSource ? { dataSource } : {}), ...attendanceWhen },
@@ -1002,10 +887,6 @@ export async function getAdminDashboard(
           },
         });
 
-        // THE SPLIT IS ALWAYS REPORTED, whatever the filter says. A center that
-        // has to change a setting to discover how much of its business runs
-        // off-system will not think to look; showing it beside the headline is
-        // what makes the combined number trustworthy rather than opaque.
         const externalProfiles = await tx.teacherProfile.findMany({
           where: { managedByCenterId: centerId, systemStatus: "external" },
           select: { userId: true },
@@ -1023,9 +904,6 @@ export async function getAdminDashboard(
               where: {
                 ...paymentWhereBase(centerId),
                 courseId: { in: externalCourseIds },
-                // Same window as the headline it is a breakdown OF. A lifetime
-                // split under a monthly headline would read as the off-system
-                // share of that month, and be wrong by years.
                 ...(money ? { paidAt: money } : {}),
               },
               _sum: { amount: true },
@@ -1055,8 +933,6 @@ export async function getAdminDashboard(
           },
         };
       }),
-      // Lifetime on purpose: "who owes money right now" is a state, not a
-      // range, and narrowing it to a month would hide every older debt.
       countFeeDefaulters(user),
       getRevenueTimeseries(user, periodFrom ?? undefined, periodTo ?? undefined, "month", provenance),
       getSessionStatusMix(user, periodFrom ?? undefined, periodTo ?? undefined),
@@ -1068,15 +944,6 @@ export async function getAdminDashboard(
   const attendanceRate = percentage(base.attendancePresent, base.attendanceTotal);
 
   return {
-    /**
-     * The window every money and attendance figure below was computed over.
-     * `null`/`null` means LIFETIME — and says so, which is the whole point: a
-     * consumer no longer has to know that omitting a parameter silently means
-     * "since the beginning of the center".
-     *
-     * `students`, `teachers`, `activeCourses`, `pendingEnrollmentRequests` and
-     * `feeDefaulters` are CURRENT STATE and are deliberately outside it.
-     */
     period: { from: periodFrom, to: periodTo },
     totals: {
       students: base.totalStudents,
@@ -1097,7 +964,6 @@ export async function getAdminDashboard(
     attendanceRate,
     feeDefaulters,
     pendingEnrollmentRequests: base.pendingEnrollmentRequests,
-    /** How much of the above runs through off-system teachers. Always present. */
     external: base.external,
     analytics: {
       revenueVsExpenses: trend.series,
@@ -1148,16 +1014,8 @@ export async function getTeacherDashboard(
 ) {
   const teacherId = user.id;
 
-  // TODAY IS A CAIRO DAY. Computed through UTC, "today's sessions" meant
-  // YESTERDAY's between midnight and 02:00/03:00 Cairo — the hours a center
-  // that runs a late evening slot is still closing up in.
   const { gte: todayStart, lt: todayEnd } = platformTodayWindow();
 
-  // `from`/`to` bound the attendance rate to a period — the same repair
-  // getAdminDashboard received (T-7 in the improvement report: a lifetime
-  // figure sat beside "حصص اليوم" wearing a present-tense name). OMITTING THEM
-  // STILL MEANS LIFETIME — pre-existing behaviour, unchanged — but the
-  // response now carries a `period` saying so.
   const when = dayRange(period?.from, period?.to);
 
   const base = await scopedDb(user, async (tx) => {
@@ -1178,8 +1036,6 @@ export async function getTeacherDashboard(
       },
       select: { id: true, courseId: true, startTime: true, endTime: true, roomId: true, status: true },
     });
-    // An attendance record carries no date of its own — it is dated by the
-    // SESSION it belongs to (same rule as getAdminDashboard above).
     const attendanceWhen = when ? { session: { date: when } } : {};
     const attendanceTotal = await tx.attendanceRecord.count({
       where: { courseId: { in: activeCourseIds }, ...attendanceWhen },
@@ -1243,12 +1099,6 @@ export async function getTeacherDashboard(
   });
 
   return {
-    /**
-     * The window `avgAttendanceRate` was computed over. `null`/`null` means
-     * LIFETIME — and says so. `activeStudents`, `activeCourses`,
-     * `todaySessions` and `pendingGradeEntries` are current state and are
-     * deliberately outside it.
-     */
     period: { from: period?.from ?? null, to: period?.to ?? null },
     activeStudents: base.activeStudents,
     activeCourses: base.activeCourses.length,

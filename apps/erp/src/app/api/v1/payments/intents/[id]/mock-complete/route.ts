@@ -13,15 +13,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ outcome: z.enum(["success", "failure"]) }).strict();
 
-/**
- * MOCK MODE ONLY — simulates Paymob calling our webhook for this intent.
- * Builds a mock-signed payload and pushes it through the SAME verification +
- * idempotent processing path as the real webhook endpoint, so local testing
- * exercises HMAC checking and replay behavior for real.
- */
 export const POST = withErrors(async (req, ctx) => {
-  // C1: the mock settlement path must not exist in production, regardless of
-  // any env config — 404 as if the route weren't there.
   if (process.env.NODE_ENV === "production") {
     throw new NotFoundError("Not found");
   }
@@ -37,14 +29,11 @@ export const POST = withErrors(async (req, ctx) => {
     tx.paymentIntent.findUnique({ where: { id } }),
   );
   if (!intent) throw new NotFoundError("Payment intent not found");
-  // Same ownership rule as the polling endpoint: you may only complete an
-  // intent you are PAYING for — a student their own, a parent theirs.
   const owns =
     (user.role === "student" &&
       intent.payerUserId === null &&
       intent.studentId === user.id) ||
     (user.role === "parent" && intent.payerUserId === user.id) ||
-    // Phase 4: a center owner completing their own credit top-up.
     (user.role === "center_admin" &&
       intent.purpose === "center_credit_topup" &&
       intent.payerUserId === user.id &&

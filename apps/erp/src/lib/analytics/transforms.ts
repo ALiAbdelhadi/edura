@@ -6,12 +6,6 @@ import type {
   TeacherGradeLoadPoint,
 } from "@/lib/analytics/contracts";
 
-// Series colours come from the token layer, never from literals. The token is
-// `--chart-*`: that is the name the shipped layer defines, and a var() that
-// resolves to nothing makes SVG fill fall back to BLACK — silently. Explicit
-// per-series assignment (rather than the components' positional seriesColor
-// fallback) keeps a series' hue stable when a sibling series is added,
-// removed, or reordered.
 const DEFAULT_COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -20,9 +14,6 @@ const DEFAULT_COLORS = [
   "var(--chart-5)",
 ];
 
-// `labels` / `labelFor` exist because these strings land on ARABIC screens:
-// the hardcoded English defaults are only the fallback for callers that have
-// no translator in scope, never the intended display.
 export function sessionStatusDonutData(
   items: SessionStatusPoint[],
   labelFor?: (status: string) => string,
@@ -64,29 +55,11 @@ export function teacherGradeLoadBarData(items: TeacherGradeLoadPoint[]) {
   }));
 }
 
-/**
- * The last `days` calendar days ending today, as one cell per DAY — not one
- * cell per record.
- *
- * The previous version mapped records straight to cells, so a student with four
- * attendance rows got a four-cell "last 28 days". A calendar's gaps are its
- * content: a fortnight with no lessons is a fact about the fortnight, and it
- * cannot be read off a grid that only draws the days something happened.
- *
- * The grid is padded at the FRONT to the week boundary so every column is one
- * weekday down its whole height — without that the columns mean nothing and the
- * weekday header would be a lie.
- *
- * Dates are keys, never instants: `YYYY-MM-DD` is compared as a string and
- * built in local time, so a student in Cairo does not lose a day to UTC.
- */
 export function attendanceDayCells(
   records: Array<{ date: string; status: "present" | "absent" | "late" }>,
   opts: {
     days?: number;
-    /** Localized day-of-month, e.g. `3`. */
     formatDayNumber: (date: Date) => string;
-    /** The full accessible sentence for one cell. */
     describe: (date: Date, status: "present" | "absent" | "late" | null) => string;
     today?: Date;
   },
@@ -94,7 +67,6 @@ export function attendanceDayCells(
   const { days = 28, formatDayNumber, describe } = opts;
 
   const byDate = new Map<string, "present" | "absent" | "late">();
-  // Worst status wins a day: two lessons, one missed, is not a present day.
   const rank = { absent: 2, late: 1, present: 0 } as const;
   for (const record of records) {
     if (!record.date) continue;
@@ -110,9 +82,6 @@ export function attendanceDayCells(
   const windowStart = new Date(end);
   windowStart.setDate(windowStart.getDate() - (days - 1));
 
-  // Back up to Sunday so column 1 is Sunday down every row. Those extra days
-  // are real dates OUTSIDE the stated window, so they are emitted as `blank`
-  // and drawn as nothing — the card shows exactly `days` days, as it says.
   const start = new Date(windowStart);
   start.setDate(start.getDate() - start.getDay());
 

@@ -26,12 +26,6 @@ const schedulePatternSchema = z
     path: ["endDate"],
   });
 
-// NOT editable, and absent from this schema on purpose: pricingMethod and the
-// frozen split columns (splitPlatformBp / splitTeacherBp / splitCenterBp /
-// m2CenterFee / m2CenterBp). They are snapshotted at creation and settlement
-// reads them, so editing one would retroactively re-rate a live course (M4.5).
-// `defaultRoomId` is absent for the same reason — the snapshot came from the
-// hall, so a different hall means a new course.
 const patchSchema = z
   .object({
     title: z.string().trim().min(1).optional(),

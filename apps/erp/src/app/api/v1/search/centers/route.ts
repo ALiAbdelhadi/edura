@@ -15,8 +15,6 @@ export const GET = withRateLimit(withErrors(async (req) => {
     q: url.searchParams.get("q") ?? undefined,
     page: url.searchParams.get("page") ?? undefined,
     limit: url.searchParams.get("limit") ?? undefined,
-    // Teacher-facing directory ("apply to teach at a center"): a center with no
-    // courses yet is a valid target, unlike in student discovery.
     includeEmpty: url.searchParams.get("includeEmpty") === "1",
   };
 

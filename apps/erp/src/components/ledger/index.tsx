@@ -7,13 +7,9 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import styles from "./ledger.module.css";
 
 export { ledgerMono } from "./fonts";
-/** Wraps DashboardShell — re-points the tokens the shared chrome is built from. */
 export const ledgerShellScope = styles.shellScope;
-/** The page-content canvas inside the shell. */
 export const ledgerScope = styles.scope;
-/** The editorial serif display face used by marketing headings. */
 export const ledgerDisplay = styles.display;
-/** Tight heading tracking — applies in Latin only; Arabic is never tracked. */
 export const ledgerTrackTight = styles.trackTight;
 
 const ARABIC = /[؀-ۿ]/;
@@ -22,10 +18,6 @@ function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");
 }
 
-/* ── Num ───────────────────────────────────────────────────────────────────
-   Every figure in the system. Rendered `dir="ltr"` because numbers, dates,
-   IDs, refs and emails are Latin data sitting inside Arabic prose — without
-   the isolation the bidi algorithm reorders them. */
 function NumBase({
   children,
   className,
@@ -104,7 +96,6 @@ function ClockRange({
 }
 
 
-/** A joined literal — `"16:00 – 17:30"` — as the guided-tour worlds hold them. */
 function splitClockText(value: string | null | undefined) {
   const [start, end, ...rest] = (value ?? "").split(/\s*[–—-]\s*/);
   return rest.length > 0 ? { start: value, end: undefined } : { start, end };

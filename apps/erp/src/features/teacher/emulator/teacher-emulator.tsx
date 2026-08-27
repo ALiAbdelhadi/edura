@@ -1,39 +1,5 @@
 "use client";
 
-/**
- * «جرّب بنفسك» — the teacher emulator.
- *
- * A working copy of Edura, populated with a fake teaching day, that walks a
- * first-time teacher through the five things they must be able to do: read
- * their day, price a class, take attendance (including the state that silently
- * costs them money), CLOSE the lesson, and request a payout. They PERFORM each
- * one; nothing here is a video or a slideshow.
- *
- * FOUR PROPERTIES THAT ARE THE WHOLE POINT
- *
- *  1. IT TOUCHES NOTHING. No fetch, no mutation, no money, no writes. Every
- *     figure is React state over `world.ts`. That is what makes it safe to hand
- *     a stranger a button reading "close the lesson and distribute EGP 360" and
- *     let them press it — and it is why this works on day one, when the real
- *     account has no class, no student and no lesson, so a tour of the real
- *     screens would be a tour of empty states.
- *  2. THE LEARNER ACTS. A step with a `target` does not advance until that
- *     control is pressed. Pressing the wrong one nudges rather than failing.
- *  3. IT IS SKIPPABLE AND REVERSIBLE. Skip and Back are present, per the UX
- *     rule that a forced linear tour is a trap; Skip is also what a returning
- *     teacher who already knows the product needs, and denying it is how a
- *     first-run overlay becomes a thing people resent.
- *  4. IT IS RESUMABLE. Progress is in localStorage, so closing the tab does not
- *     restart the lesson — the failure that makes people abandon tours. It is a
- *     preference, not a fact about the business, which is the same reasoning the
- *     student emulator records for its own progress key.
- *
- * `onDone` is how the first-run gate learns the tour is over (finished OR
- * skipped — both mean "do not open this by itself again"). The gate owns the
- * persistence; this component owns none of it, so the same engine serves the
- * once-only overlay and the permanent /tour page without knowing which it is in.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -85,7 +51,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
   const [index, setIndex] = useState(0);
   const [missed, setMissed] = useState(false);
 
-  /* Simulated world — everything the teacher's own actions change. */
   const [classOpen, setClassOpen] = useState(false);
   const [priced, setPriced] = useState(false);
   const [lessonOpen, setLessonOpen] = useState(false);
@@ -97,11 +62,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
   const [reserved, setReserved] = useState(0);
   const [walletRows, setWalletRows] = useState<EmuWalletRow[]>(EMU_WALLET_OPENING_ROWS);
   const [requests, setRequests] = useState<EmuPayoutRow[]>([]);
-  /* The withdraw is ARMED before it commits, because the real one is. The
-     screen this rehearses now uses TwoStepCommit — press once to arm, again to
-     send, with the amount on the button and "no cancel after this" underneath.
-     An emulator that still took one press would be teaching a ceremony the
-     product no longer has. */
   const [withdrawArmed, setWithdrawArmed] = useState(false);
   const [screenOverride, setScreenOverride] = useState<EmuScreen | null>(null);
 
@@ -109,14 +69,11 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
   const step = FLAT_STEPS[Math.min(index, FLAT_STEPS.length - 1)]!;
   const screen: EmuScreen = screenOverride ?? step.screen;
 
-  /* Resume where they stopped. Clamped: a stored index from a longer earlier
-     script must not land past the end and render nothing. */
   useEffect(() => {
     try {
       const n = Number(window.localStorage.getItem(PROGRESS_KEY) ?? 0);
       if (Number.isFinite(n) && n > 0) setIndex(Math.min(n, FLAT_STEPS.length));
     } catch {
-      /* storage disabled — starting from the beginning is the right fallback */
     }
   }, []);
 
@@ -124,15 +81,9 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(index));
     } catch {
-      /* progress simply is not remembered */
     }
   }, [index]);
 
-  /* The spotlight: mark the region this step is TALKING about (as opposed to
-     the control it asks to be pressed, which `EmuTarget` lights itself). Done
-     in an effect over the rendered stage because the relationship is
-     "parent's current step ↔ an arbitrary descendant", which CSS cannot
-     express and prop-drilling would spread across every screen. */
   useEffect(() => {
     const root = stageRef.current;
     if (!root) return;
@@ -154,8 +105,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     setScreenOverride(null);
     setIndex((i) => Math.max(0, i - 1));
   }, []);
-
-  /* ── The world's own actions ──────────────────────────────────────────── */
 
   const setStatus = (id: string, status: EmuAttendance) =>
     setRoster((rows) => rows.map((p) => (p.id === id ? { ...p, status } : p)));
@@ -187,9 +136,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     const amount = Math.max(0, balance - reserved);
     if (amount <= 0) return;
     setWithdrawArmed(false);
-    // Reserving rather than deducting is the point of the step that follows:
-    // "available" drops to zero while "balance" does not move, which is the
-    // wallet's most misread pair.
     setReserved((r) => r + amount);
     setRequests((rows) => [
       ...rows,
@@ -228,7 +174,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
 
   return (
     <div className="space-y-4">
-      {/* ── Progress ─────────────────────────────────────────────────────── */}
       <Sheet className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -244,9 +189,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
             <LedgerButton onClick={restart}>
               <RotateCcw className="size-3.5" aria-hidden /> {t("restart")}
             </LedgerButton>
-            {/* Skip is a right, not a courtesy: a forced linear tour is the one
-                thing users are documented to resent. It ends the tour for good,
-                which is why the gate treats it exactly like finishing. */}
             <LedgerButton onClick={() => onDone?.()}>{t("skip")}</LedgerButton>
           </div>
         </div>
@@ -278,7 +220,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
         </div>
       </Sheet>
 
-      {/* ── The instruction ──────────────────────────────────────────────── */}
       {finished ? (
         <Sheet className="p-6 text-center">
           <h2 className="text-xl font-semibold" style={{ color: "var(--ink)" }}>
@@ -313,7 +254,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* A step with no target is an explanation, so it needs its own way on. */}
             {!step.target ? (
               <LedgerButton variant="primary" onClick={advance}>
                 {t("gotIt")} <ChevronRight className="size-3.5 rtl:-scale-x-100" aria-hidden />
@@ -324,7 +264,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
         </Sheet>
       )}
 
-      {/* ── The simulation ───────────────────────────────────────────────── */}
       <div
         ref={stageRef}
         className="overflow-hidden rounded-(--radius-step-lg)"
@@ -379,8 +318,6 @@ export function TeacherEmulator({ onDone }: { onDone?: () => void } = {}) {
     </div>
   );
 }
-
-/* ── The simulation's own sidebar ───────────────────────────────────────── */
 
 function EmuNav({
   screen,

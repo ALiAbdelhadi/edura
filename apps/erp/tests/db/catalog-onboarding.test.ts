@@ -1,19 +1,3 @@
-// =============================================================================
-// Education catalog + onboarding acceptance tests (PRD §10) — runs against the
-// live Neon DB like the other tests/db scripts:
-//   bun run --filter edura test:db                  # all suites, guarded
-//   bun run --filter edura test:db:only catalog-onboarding
-//   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
-//
-// Covers:
-//   * bacc grade 1 asks for no track; grade 2 offers exactly 4 tracks
-//   * azhari students see shariah subjects on top of stage subjects
-//   * student completion validation (missing/foreign track, chain mismatch)
-//   * teacher completion (multi-grade, offered-subject rule, replace-save)
-//   * center completion (stage coverage replace-save)
-//   * admin adds a system + subject with zero code changes → instantly visible
-//   * course search scoped to the student's grade/track
-// =============================================================================
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import type { SessionUser } from "@/lib/auth/session";
@@ -66,7 +50,6 @@ async function main() {
   };
 
   try {
-    // ---- fixtures ----------------------------------------------------------
     const fx = await withPlatformContext(async (tx) => {
       const student = await tx.user.create({
         data: { email: `student-${SUFFIX}@test.eg`, name: "Test Student", role: "student", passwordHash: "x" },
@@ -125,7 +108,6 @@ async function main() {
     const teacherUser: SessionUser = { id: fx.teacher.id, role: "teacher", locale: "ar" };
     const centerUser: SessionUser = { id: fx.centerAdmin.id, role: "center_admin", centerId: fx.center.id, locale: "ar" };
 
-    // ---- 1. catalog shape ACs ----------------------------------------------
     console.log("\n1) Catalog shape (بكالوريا track rules)");
     const tree = await getCatalogTree();
     const bacc = tree.find((s) => s.code === "bacc")!;
@@ -141,7 +123,6 @@ async function main() {
     assert(shariahCount === 15, `all 15 shariah subjects offered (got ${shariahCount})`);
     assert(azhariSubjects.some((s) => !s.isAzhari), "…on top of regular stage subjects");
 
-    // ---- 3. student completion ---------------------------------------------
     console.log("\n3) Student completion validation");
     await expectValidationError(
       () => completeStudentOnboarding(studentUser, {
@@ -177,7 +158,6 @@ async function main() {
     assert("gradeLevel" in state && (state as { gradeLevel: { nameAr: string } }).gradeLevel?.nameAr === "الصف الثالث الثانوي",
       "profile stores the catalog grade");
 
-    // ---- 4. teacher completion ---------------------------------------------
     console.log("\n4) Teacher completion");
     await expectValidationError(
       () => completeTeacherOnboarding(teacherUser, {
@@ -191,13 +171,11 @@ async function main() {
     assert(tDone.gradeLevelIds.length === 2 && tDone.subjectIds.length === 2, "multi-grade multi-subject saved");
     const filtered = await getSubjectsForGradeLevels([fx.g3Id, fx.azhari2Id]);
     assert(filtered.some((s) => s.isAzhari), "teacher subject list includes shariah for azhari grades");
-    // replace-save: re-run with one subject
     const tDone2 = await completeTeacherOnboarding(teacherUser, {
       gradeLevelIds: [fx.g3Id], subjectIds: [fx.mathId],
     });
     assert(tDone2.gradeLevelIds.length === 1 && tDone2.subjectIds.length === 1, "re-running the wizard replaces links");
 
-    // ---- 5. center completion ----------------------------------------------
     console.log("\n5) Center completion");
     const cDone = await completeCenterOnboarding(centerUser, {
       governorate: "القاهرة", area: "مدينة نصر", phone: "0221234567",
@@ -205,7 +183,6 @@ async function main() {
     });
     assert(cDone.stageIds.length === 2, "center coverage saved (2 stages)");
 
-    // ---- 6. admin adds system + subject with zero code (AC §10) -------------
     console.log("\n6) Admin adds a new system + subject from the panel — zero deploys");
     const sys = await createSystem({ code: `intl-${SUFFIX}`, nameAr: "دولي (اختبار)", sortOrder: 99 });
     ids.systems.push(sys.id);
@@ -224,7 +201,6 @@ async function main() {
     const newSubjects = await getSubjectsForSelection(grd.id);
     assert(newSubjects.some((s) => s.id === subj.id), "new subject appears for the new grade instantly");
 
-    // ---- 7. course search scoped by student profile -------------------------
     console.log("\n7) Course search scoped to the student's grade/track");
     const mk = (title: string, extra: object) =>
       withPlatformContext((tx) =>
@@ -247,7 +223,6 @@ async function main() {
     assert(titles.includes(`all-tracks-${SUFFIX}`), "NULL-track course visible (all tracks)");
     assert(!titles.includes(`other-grade-${SUFFIX}`), "other-grade course hidden");
   } finally {
-    // ---- cleanup (owner connection: not subject to RLS) ----------------------
     const c = await adminPool.connect();
     try {
       await c.query(`DELETE FROM courses WHERE id = ANY($1::uuid[])`, [ids.courses]);
@@ -276,8 +251,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite catalog-onboarding.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);

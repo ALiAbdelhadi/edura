@@ -3,31 +3,20 @@ import { platformDb } from "../../db/scope";
 import { resolveWhatsAppDriver } from "./index";
 import { WHATSAPP_TEMPLATES, type TemplateKey } from "./templates";
 
-/** Mask token query params so a usable login token never lands in the log. */
 function redactSecrets(value: string): string {
   return value.replace(/([?&]token=)[A-Za-z0-9._~-]+/g, "$1***");
 }
 
 export type SendWhatsAppInput = {
-  /** E.164 recipient (normalize with normalizeEgyptPhone first). */
   to: string;
   template: TemplateKey;
   params: string[];
   locale?: "ar" | "en";
-  /** Attribution (all optional). */
   userId?: string;
   centerId?: string;
   createdBy?: string;
 };
 
-/**
- * Send a WhatsApp template message and log the attempt. The row is written
- * BEFORE the provider call (status queued) and updated with the outcome, so
- * every attempt — mock included — is visible in the back-office log.
- *
- * Never throws on delivery failure: registration must not roll back because
- * a message didn't go out. Callers get the status back.
- */
 export async function sendWhatsApp(
   input: SendWhatsAppInput,
   tx?: TenantTx,
@@ -39,9 +28,6 @@ export async function sendWhatsApp(
   const createData = {
     recipientPhone: input.to,
     template: templateName,
-    // Login secrets never persist in the log: claim links keep their shape but
-    // the token itself is masked. The only durable copy of a token is the
-    // HASHED invite_tokens row.
     params: input.params.map(redactSecrets),
     locale,
     status: "queued" as const,
@@ -55,7 +41,6 @@ export async function sendWhatsApp(
     ? await tx.whatsAppMessage.create({ data: createData })
     : await platformDb((ptx) => ptx.whatsAppMessage.create({ data: createData }));
 
-  // The driver gets the REAL params — redaction applies to the log only.
   const result = await driver.sendTemplate({
     to: input.to,
     template: templateName,
@@ -63,8 +48,6 @@ export async function sendWhatsApp(
     locale,
   });
 
-  // providerResponse can echo message content (the mock's rendered body does)
-  // — scrub it the same way before persisting.
   const scrubbedRaw =
     result.raw == null
       ? result.raw

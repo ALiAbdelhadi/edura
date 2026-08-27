@@ -32,7 +32,6 @@ import {
   sessionsOnDay,
   weekDayKeys,
 } from "@/features/sessions/session-time";
-// The CAIRO day — see the note in session-time.ts about the two `todayKey`s.
 import { todayKey } from "@repo/server-core/lib/date-key";
 
 type Session = {
@@ -49,40 +48,6 @@ type Session = {
   roomName?: string;
 };
 
-/**
- * مواعيدي — the week, by date.
- *
- * ── THE DAY PICKER WAS MATCHING A WEEKDAY NAME ────────────────────────────
- *
- * It held an index 0–6 and filtered with
- * `dayNames[new Date(s.date).getDay()] === selectedDayName`, which matches
- * EVERY session ever held on that weekday. Picking "الثلاثاء" listed a lesson
- * from three weeks ago beside next Tuesday's, in one undated list, and the
- * chips carried no dates to reveal it. The strip is now seven real DAYS with
- * their numbers, arrows to the week either side, and a dot on the days that
- * have something. `sessionsOnDay` matches the calendar day.
- *
- * The week opens on Sunday because the attendance heatmap already draws it that
- * way; two calendars in one portal must not disagree about where a week starts.
- *
- * ── ROWS, NOT A FOUR-COLUMN TABLE ─────────────────────────────────────────
- *
- * Each row already stacked start over end and course over teacher, so it was a
- * card pretending to be a table — and at 375px the room column had nothing left
- * to sit in. A lesson is now one row: when, what, with whom, where.
- *
- * ── TWO SHEETS WENT ───────────────────────────────────────────────────────
- *
- * 1. The four counters (total / completed / upcoming / cancelled). No student
- *    asks how many sessions exist in total; "completed" is what /attendance
- *    owns and states with a denominator, and a cancellation is a notification,
- *    not a statistic.
- * 2. "الحصص المسجّلة" — the enrolled-course list with its weekday pattern. It is
- *    now covered twice over: اشتراكاتي lists the courses WITH what was paid and
- *    when the cover ends, and a Subjects row expands to the same course showing
- *    its days and its hours. Neither the list nor the pattern was lost; the
- *    third copy was.
- */
 export function ScheduleScreen() {
   const t = useTranslations();
   const { formatDate, formatNumber, locale } = useFormatters();
@@ -101,9 +66,6 @@ export function ScheduleScreen() {
   const days = weekDayKeys(new Date(), weekOffset);
   const today = todayKey();
 
-  // Moving weeks moves the SELECTION with it — landing on the same weekday —
-  // rather than leaving a highlighted chip behind in a week nobody is looking
-  // at. Derived rather than stored so the two can never fall out of step.
   const selected = days.includes(selectedKey) ? selectedKey : days[0]!;
   const daySessions = sessionsOnDay(sessions, selected);
 
@@ -193,10 +155,6 @@ export function ScheduleScreen() {
     <div className="space-y-5">
       <PageTitle title={t("nav.schedule")} subtitle={t("studentClass.scheduleSubtitle")} />
 
-      {/* ── The week ────────────────────────────────────────────────────────
-          Seven dated chips, sized for a thumb and fitting 375px without
-          wrapping. A dot marks a day that has something on it, so the student
-          can find their next lesson without opening each day in turn. */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <LedgerButton onClick={() => goWeek(-1)} aria-label={t("studentClass.weekPrevious")}>
@@ -244,8 +202,6 @@ export function ScheduleScreen() {
                 >
                   {formatNumber(d.getDate())}
                 </Num>
-                {/* Presence, not a count: a number here would compete with the
-                    day number 2px above it. */}
                 <span
                   aria-hidden
                   className="size-1 rounded-full"
@@ -309,8 +265,6 @@ export function ScheduleScreen() {
                           <Num.ClockRange start={s.startTime} end={s.endTime} locale={locale} />
                         </span>
 
-                        {/* Where and with whom — on the row, not one tap in.
-                            They are half of "عندي حصة النهاردة؟ امتى وفين؟". */}
                         <span
                           className="mt-1 flex flex-col gap-0.5 text-xs sm:flex-row sm:flex-wrap sm:gap-x-4"
                           style={{ color: "var(--ink-3)" }}

@@ -10,15 +10,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Download the built export.
- *
- * Not wrapped in the `{ data }` envelope: this response IS the file. It is
- * served as an attachment from an authenticated route rather than from a
- * signed object-storage URL, so there is no address that outlives the session
- * and no artifact to leak. `no-store` keeps a complete copy of a person's
- * record out of every intermediate cache.
- */
 export const GET = withErrors(async (_req, ctx) => {
   const user = await requireSession();
   const { id } = await ctx.params;

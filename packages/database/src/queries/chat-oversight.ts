@@ -1,27 +1,3 @@
-// =============================================================================
-// PARENT OVERSIGHT of a MINOR child's conversations with ADULTS, plus the
-// super-admin read-only log.
-//
-// This is PROTECTIVE TRANSPARENCY, not surveillance, and three properties make
-// that difference real rather than rhetorical:
-//
-//  1. STRICTLY READ-ONLY. These functions never write. In particular they never
-//     touch unread counters or read receipts: if a parent's viewing marked the
-//     child's messages read, it would both corrupt the child's inbox state and
-//     leak the parent's presence to the other participant. The parent also can
-//     never post — there is no write path in this module at all.
-//
-//  2. DISCLOSED. `oversightNoticeFor` tells BOTH sides of a monitored thread
-//     that a parent can see it, and the UI renders that as a persistent banner.
-//     A child who knows the channel is visible is protected by the deterrent;
-//     a child who is watched secretly is merely surveilled.
-//
-//  3. SCOPED. Only conversations between the MINOR child and an ADULT
-//     (teacher / assistant / center admin / center staff) are visible. The
-//     parent link must be `approved`, and the child must be a minor under the
-//     default-minor rule in chat-minors.ts.
-// =============================================================================
-
 import type { TenantTx } from "../client";
 import type { Role } from "../generated/client/index";
 import { ChatError } from "./chat-scope";
@@ -44,11 +20,6 @@ export type OversightChild = {
   conversationCount: number;
 };
 
-/**
- * Gate: this parent may oversee this child iff the link is APPROVED and the
- * child is a MINOR. Adults get privacy — that is the whole point of having a
- * verified-DOB path out.
- */
 async function assertOversightAllowed(
   db: TenantTx,
   parentId: string,
@@ -72,7 +43,6 @@ async function assertOversightAllowed(
   }
 }
 
-/** The children a parent may oversee, with their minor status. */
 export async function listOversightChildren(
   db: TenantTx,
   parentId: string,
@@ -136,7 +106,6 @@ async function countAdultConversations(
   });
 }
 
-/** READ-ONLY list of the child's conversations with adults. */
 export async function listChildConversations(
   db: TenantTx,
   parentId: string,
@@ -187,10 +156,6 @@ export async function listChildConversations(
   });
 }
 
-/**
- * READ-ONLY thread view. Deliberately does NOT call markConversationRead or
- * touch any counter — see the module header.
- */
 export async function getChildThread(
   db: TenantTx,
   parentId: string,
@@ -215,8 +180,6 @@ export async function getChildThread(
     where: { id: partnerId },
     select: { id: true, name: true, role: true },
   });
-  // Only adult-facing threads are visible. A student↔student thread (which the
-  // matrix does not permit today) would be denied here too — default-closed.
   if (!isAdultRole(partner?.role)) {
     throw new ChatError(
       "policy_denied",
@@ -254,22 +217,11 @@ export async function getChildThread(
   };
 }
 
-// ---------------------------------------------------------------------------
-// DISCLOSURE — what the participants are told.
-// ---------------------------------------------------------------------------
-
 export type OversightNotice = {
-  /** True when a parent can see this thread; the UI shows a banner for both. */
   monitored: boolean;
-  /** Which side is the minor (for wording). */
   minorParticipantId: string | null;
 };
 
-/**
- * Does this 1:1 conversation fall under parent oversight? Called for BOTH
- * participants so neither is surprised: the adult sees "a parent can view this
- * conversation" and the student sees the same. No hidden monitoring.
- */
 export async function oversightNoticeFor(
   db: TenantTx,
   conversationId: string,
@@ -292,7 +244,6 @@ export async function oversightNoticeFor(
   if (!(await isMinorStudent(db, student.id))) {
     return { monitored: false, minorParticipantId: null };
   }
-  // Only actually monitored if an APPROVED parent link exists.
   const link = await db.parentStudentLink.findFirst({
     where: { studentId: student.id, status: "approved" },
     select: { id: true },
@@ -302,12 +253,6 @@ export async function oversightNoticeFor(
     minorParticipantId: link ? student.id : null,
   };
 }
-
-// ---------------------------------------------------------------------------
-// SUPER-ADMIN LOG (read-only). Retention requirement: no adult↔minor channel
-// is private and unlogged. Opening a thread here is itself audited by the
-// route layer — the watchers get watched.
-// ---------------------------------------------------------------------------
 
 export type AdminConversationRow = {
   id: string;
@@ -334,7 +279,6 @@ export async function adminSearchConversations(
 ): Promise<{ rows: AdminConversationRow[]; total: number }> {
   const limit = Math.min(Math.max(opts.limit ?? 25, 1), 100);
 
-  // Resolve the participant filter first so paging stays a single query.
   let participantIds: string[] | null = null;
   if (opts.q || opts.role) {
     const users = await db.user.findMany({
@@ -426,11 +370,6 @@ export async function adminSearchConversations(
   return { rows, total };
 }
 
-/**
- * Full thread for the super-admin log, INCLUDING soft-deleted bodies — that is
- * the point of soft-delete: participants stop seeing a message, the platform
- * record does not lose it.
- */
 export async function adminGetThread(
   db: TenantTx,
   conversationId: string,

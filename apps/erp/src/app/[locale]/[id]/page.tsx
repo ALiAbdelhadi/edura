@@ -137,26 +137,17 @@ export default function AffiliationLandingPage() {
         credentials: "same-origin",
       });
       if (!res.ok) {
-        // The API envelope's `error.message` is written FOR the reader ("this
-        // invitation was already used"), so it is shown as-is. It is set
-        // directly rather than thrown and re-read, because once it is an Error
-        // it is indistinguishable from a network failure or a TypeError — and
-        // those carry text like "Failed to fetch", which tells a parent nothing
-        // and looks like the app broke.
         let msg = t("common.requestFailed");
         try {
           const body = await res.json();
           msg = body?.error?.message ?? msg;
         } catch {
-          /* not JSON — keep the generic message */
         }
         setError(msg);
         return;
       }
       setDone(action === "accept" ? "accepted" : "declined");
     } catch {
-      // Anything reaching here is a transport or runtime fault, never something
-      // authored for a reader.
       setError(t("common.genericError"));
     } finally {
       setActing(null);

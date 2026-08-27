@@ -27,20 +27,6 @@ export type OnboardingTokenState = "ok" | "expired" | "invalid" | "mismatch";
 
 export type WizardRole = "student" | "teacher" | "center_admin";
 
-/**
- * What is left of this screen once the routing left it.
- *
- * It used to open with three sequential fetches — `/api/v1/me`, then
- * `/api/v1/me/onboarding`, then the token check — under a skeleton, and only
- * then mount a wizard that fetched the catalog tree and the SAME onboarding
- * state again. All of that is resolved in one server pass now (see page.tsx),
- * so this component starts already knowing who it is drawing for and paints the
- * wizard filled on first render.
- *
- * What genuinely belongs on the client stays: the expired/invalid link notice
- * is a decision the reader makes (continue anyway, or resend), and resending is
- * an action, not a load.
- */
 export default function OnboardingClient({
   role,
   tokenState,
@@ -70,8 +56,6 @@ export default function OnboardingClient({
     }
   };
 
-  // `mismatch` deliberately does NOT block: the link was signed for a different
-  // student, but this one is signed in and entitled to onboard.
   if (!dismissed && (tokenState === "expired" || tokenState === "invalid")) {
     return (
       <OnboardingTokenNotice
@@ -105,9 +89,6 @@ function OnboardingTokenNotice({
 }) {
   const t = useTranslations();
   return (
-    /* The same two scopes the wizard itself carries — this notice is the first
-       thing some readers ever see of the product, and it used to render with
-       raw inline colours and no focus ring. */
     <div
       className={`${ledgerMono.variable} ${ledgerShellScope} ${ledgerScope} min-h-dvh`}
       style={{ background: "var(--paper)" }}
@@ -123,8 +104,6 @@ function OnboardingTokenNotice({
             {t("auth.onboardingLinkHint")}
           </p>
           <div className="mt-5 flex flex-col gap-2">
-            {/* Continuing is the path forward and reads as primary; resending
-                is the fallback. The old screen gave them near-equal weight. */}
             <LedgerButton variant="primary" className="min-h-11 w-full" onClick={onContinue}>
               {t("auth.onboardingContinueCta")}
             </LedgerButton>

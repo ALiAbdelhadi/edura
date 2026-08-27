@@ -6,11 +6,6 @@ import { Button } from "@repo/ui/components/button";
 import { TwoFactorSetup } from "@/features/security/security-screen";
 import { authClient } from "@/lib/auth/client";
 
-/**
- * Forced enrollment gate — the dashboard layout redirects back-office
- * accounts here until twoFactorEnabled is true (2FA is REQUIRED for
- * super_admin/accountant). Completing enrollment redirects to /dashboard.
- */
 export default function TwoFactorSetupPage() {
   const t = useTranslations();
   return (

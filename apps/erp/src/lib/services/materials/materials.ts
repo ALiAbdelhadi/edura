@@ -16,12 +16,6 @@ import {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// M6 — trust the actual bytes, not the client-declared MIME type. `file.type`
-// is attacker-controlled: a teacher could spoof "application/pdf" on an
-// HTML/SVG/EXE payload, which students would then open as trusted course
-// material (phishing, or HTML rendering on the Cloudinary domain). Every real
-// PDF begins with the "%PDF-" signature (0x25 0x50 0x44 0x46 0x2D), so verify
-// it server-side against the uploaded buffer and reject anything else.
 const PDF_MAGIC = Buffer.from("%PDF-", "latin1");
 
 function assertPdfBytes(buffer: Buffer): void {
@@ -95,8 +89,6 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
     verifyTeacherOwnsCourse(tx, courseId, user.id),
   );
   if (!course.centerId) {
-    // materials.center_id stays NOT NULL in Step 4 — materials for
-    // teacher-direct courses are deliberately deferred (tracked for 4.5+).
     throw new BusinessRuleError("Materials are not yet available for teacher-direct courses");
   }
   const materialCenterId = course.centerId;
@@ -222,12 +214,6 @@ export async function listMaterials(
         where.courseId = { in: courseIds };
       }
     } else {
-      // DEFAULT-DENY. Only center_admin runs under withTenant() in scopedDb —
-      // every other role runs in PLATFORM context (RLS bypassed), so an
-      // unlisted role reaching this point would fall through with an empty
-      // `where` and receive every material on the platform. A center_staff
-      // member did exactly that: 4 materials across 3 centers.
-      // Roles are admitted here by NAME, never by omission.
       throw new ForbiddenError();
     }
 
@@ -267,11 +253,6 @@ export async function getMaterialDownloadUrl(
     } else if (user.role === "teacher") {
       if (found.teacherId !== user.id) throw new ForbiddenError();
     } else {
-      // DEFAULT-DENY — see listMaterials. This chain is the ONLY protection on
-      // this path: the lookup above is a findUnique by id, and every role
-      // except center_admin runs with RLS bypassed. Without this branch a
-      // center_staff member or an assistant received a signed download URL for
-      // ANY material on the platform, including other centers'.
       throw new ForbiddenError();
     }
 
@@ -341,8 +322,6 @@ export async function updateMaterial(
     if (file.size > MAX_FILE_SIZE)
       throw new BusinessRuleError("File size must be 10 MB or less");
 
-    // Read + verify the real bytes BEFORE deleting the existing resource, so a
-    // rejected spoof can never destroy the current valid PDF.
     const buffer = Buffer.from(await file.arrayBuffer());
     assertPdfBytes(buffer);
 

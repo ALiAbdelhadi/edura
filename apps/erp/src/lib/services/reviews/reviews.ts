@@ -9,15 +9,6 @@ import {
 } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 
-/**
- * The teacher's headline rating — ONE VOTE PER STUDENT.
- *
- * Counts only OVERALL reviews (`lessonId: null`). Per-lesson ratings are about
- * a lesson, and a student who rates twelve lessons must not outweigh eleven
- * other students in the number shown on a teacher's profile. Every row that
- * existed before per-lesson ratings has `lessonId` NULL, so this filter leaves
- * every already-computed ratingAvg/ratingCount byte-identical.
- */
 async function recomputeRating(tx: TenantTx, teacherId: string) {
   const reviews = await tx.review.findMany({
     where: { teacherId, lessonId: null },
@@ -31,18 +22,6 @@ async function recomputeRating(tx: TenantTx, teacherId: string) {
   });
 }
 
-/**
- * You may rate only what you actually attended.
- *
- * Two shapes, one rule. Rating a TEACHER needs one present attendance with
- * that teacher, anywhere. Rating a LESSON needs a present attendance at THAT
- * lesson — and the lesson must be the named teacher's, so a lesson cannot be
- * rated under someone else's name (which is also what keeps the
- * reviews_one_per_lesson index, keyed on student+lesson, sufficient).
- *
- * Returns the centerId to stamp on the review, taken from the attendance
- * record rather than from the caller.
- */
 async function checkEligibility(
   tx: TenantTx,
   studentId: string,
@@ -104,11 +83,6 @@ export async function createReview(
     });
     if (!teacher) throw new NotFoundError("Teacher not found");
 
-    // The duplicate check is scoped to the SAME axis the database enforces, so
-    // the friendly 409 and the index agree about what a duplicate is. Overall
-    // reviews collide per teacher; lesson ratings collide per lesson. Checking
-    // the old way (any row for this teacher) would have refused a student's
-    // second lesson rating with "you already reviewed this teacher".
     const existing = await tx.review.findFirst({
       where: lessonId
         ? { studentId: user.id, lessonId }
@@ -133,11 +107,6 @@ export async function createReview(
 
     await recomputeRating(tx, input.teacherId);
 
-    // Points for the STANDING review only. `teacher_rating` is worth 15 points
-    // (seed.ts), and a student can attend dozens of lessons — awarding per
-    // lesson rating would turn the new per-lesson path into a points farm.
-    // Restricting it here also keeps the award identical to what every
-    // existing review earned, since those are all overall reviews.
     if (!lessonId) {
       await awardPoints(tx, user.id, "teacher_rating", { reason: "Submitted a rating" });
     }
@@ -241,8 +210,6 @@ export async function getEligibleTeachers(studentId: string) {
 
     const teacherIds = [...new Set(sessions.map((s) => s.teacherId))];
 
-    // Overall reviews only: rating one lesson must not remove the teacher from
-    // the "teachers you can review" list, which is about the standing review.
     const reviewed = await tx.review.findMany({
       where: { studentId, lessonId: null },
       select: { teacherId: true },

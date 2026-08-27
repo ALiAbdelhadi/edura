@@ -1,31 +1,3 @@
-// REPORT EXPORT proof — the file an accountant opens says what the screen says.
-//
-// The unit suites already cover the parts that need no database: the CSV's BOM
-// and quoting (`report-export-csv.test.ts`), the tier constants matching
-// center-actor's (`report-export-tiers.test.ts`), and the route's gate against
-// a mocked service (`route-reports-export.test.ts`). None of them can make the
-// claim this module actually exists to make, because it is a claim about real
-// rows read through the real reports:
-//
-//   1. THE EXPORT IS NOT A SECOND SET OF BOOKS. Every figure in the file must
-//      be the SAME figure the screen's own service returns for the same range
-//      — asserted by calling both against one center's real payments and
-//      expenses and comparing them, not by reading the code and agreeing that
-//      it looks like a mapping.
-//   2. THE REPORT'S OWN TIER TRAVELS WITH IT. A manager may read attendance
-//      and must NOT read revenue. The unit test proves the constants agree;
-//      this proves the refusal happens before a single money row is read.
-//   3. TENANT ISOLATION SURVIVES THE EXPORT. The reports run under `scopedDb`;
-//      an export that quietly widened the scope would hand one center another
-//      center's revenue in a downloadable file. Asserted against a second
-//      center holding money of its own.
-//   4. THE RANGE NARROWS. A payment outside the requested window must be
-//      absent from the file, not merely absent from the total.
-//   5. FORMULA NEUTRALISATION SURVIVES A ROUND TRIP THROUGH POSTGRES. The unit
-//      test neutralises a literal; the injection this defends against arrives
-//      as a course title typed by a user and stored in the database.
-//   6. AN EXPORT WRITES NOTHING. It is a read. Asserted by counting the money
-//      tables before and after, not by reading the imports.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
@@ -51,14 +23,11 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 
 const tag = "rexp-" + Math.floor(Math.random() * 1e9).toString(36);
 
-/** The window every in-range fixture row falls inside. */
 const FROM = "2026-03-01";
 const TO = "2026-03-31";
 const inRange = (day: number) => new Date(Date.UTC(2026, 2, day, 10, 0, 0));
-/** Deliberately outside [FROM, TO] — the row the range must exclude. */
 const OUT_OF_RANGE = new Date(Date.UTC(2026, 0, 15, 10, 0, 0));
 
-/** A title that EXECUTES when a naive CSV is opened in Excel. */
 const HOSTILE_TITLE = "=1+1+cmd|'/c calc'!A0";
 
 async function q<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -81,19 +50,16 @@ async function expectThrows(fn: () => Promise<unknown>, match: RegExp, label: st
   }
 }
 
-/** Strip the BOM and split into the lines a spreadsheet would see. */
 function csvLines(csv: string): string[] {
   return csv.replace(/^﻿/, "").trimEnd().split("\r\n");
 }
 
-/** The rows below the header block — everything after the blank separator. */
 function tableLines(csv: string): string[] {
   const lines = csvLines(csv);
   const blank = lines.indexOf("");
   return blank === -1 ? lines : lines.slice(blank + 1);
 }
 
-/** Piasters as the file renders them, for comparing a figure to a cell. */
 const egp = (piasters: number) => {
   const sign = piasters < 0 ? "-" : "";
   const abs = Math.abs(Math.trunc(piasters));
@@ -151,9 +117,6 @@ async function main() {
       status: "active" as const,
       isDemo: true,
     };
-    // An ordinary Arabic title, and one that is a spreadsheet formula. Both are
-    // stored in Postgres and read back by the report — the neutralisation has
-    // to survive that round trip, which is the only version of it that counts.
     const courseArabic = await tx.course.create({
       data: { ...courseBase, centerId: centerA.id, title: "رياضيات — الصف الثالث" },
     });
@@ -195,7 +158,6 @@ async function main() {
       },
     });
 
-    // Center A's money: two in-range receipts on two courses, one out of range.
     await tx.payment.create({
       data: {
         centerId: centerA.id, studentId: student.id, courseId: courseArabic.id,
@@ -230,7 +192,6 @@ async function main() {
       },
     });
 
-    // Center B's money — the rows center A must never see.
     await tx.payment.create({
       data: {
         centerId: centerB.id, studentId: student.id, courseId: courseB.id,
@@ -254,9 +215,7 @@ async function main() {
   const censusBefore = await moneyCensus([fx.centerA, fx.centerB]);
 
   try {
-    // =====================================================================
     console.log("\n[1] The export is the report — not a second read of the same tables");
-    // =====================================================================
     const report = await getNetProfitReport(A, FROM, TO);
     const { table: netTable } = await buildReportExport({
       key: "net-profit", user: A, staffRole: null, from: FROM, to: TO,
@@ -307,9 +266,7 @@ async function main() {
       "the fill-rate export is the fill-rate report's own rows",
     );
 
-    // =====================================================================
     console.log("\n[2] The range narrows the FILE, not just the total");
-    // =====================================================================
     const { table: wideTable } = await buildReportExport({ key: "net-profit", user: A, staffRole: null });
     ok(
       (wideTable.totalRow!.revenue as number) === 1499_00,
@@ -328,9 +285,7 @@ async function main() {
       "the out-of-range absence is counted only when the range is dropped",
     );
 
-    // =====================================================================
     console.log("\n[3] Tenant isolation — an export cannot widen scopedDb");
-    // =====================================================================
     const csvA = toCsv(
       (await buildReportExport({ key: "revenue-by-course", user: A, staffRole: null, from: FROM, to: TO })).table,
       { locale: "en" },
@@ -346,9 +301,7 @@ async function main() {
       `center B's own export shows exactly its own 777.00 (got ${egp(tableB.totalRow!.revenue as number)})`,
     );
 
-    // =====================================================================
     console.log("\n[4] The report's OWN tier — read from the registry, not the route");
-    // =====================================================================
     await expectThrows(
       () => buildReportExport({ key: "net-profit", user: A, staffRole: "manager", from: FROM, to: TO }),
       /cannot export this report/i,
@@ -381,8 +334,6 @@ async function main() {
     });
     ok(asManager.table.rows.length === attendance.items.length, "the manager exports the attendance report");
 
-    // The refusal must land BEFORE the money is read — otherwise the tier is a
-    // presentation detail and the rows are already in memory.
     let leaked: unknown = "no result";
     try {
       leaked = await buildReportExport({ key: "expenses", user: A, staffRole: "manager" });
@@ -395,9 +346,7 @@ async function main() {
       "an unknown report key is refused, never guessed",
     );
 
-    // =====================================================================
     console.log("\n[5] The hostile course title, after a round trip through Postgres");
-    // =====================================================================
     const revCsv = toCsv(
       (await buildReportExport({ key: "revenue-by-course", user: A, staffRole: null, from: FROM, to: TO })).table,
       { locale: "ar", title: "الإيرادات" },
@@ -414,11 +363,7 @@ async function main() {
     ok(revCsv.startsWith("﻿"), "the file opens with the BOM — without it the Arabic title is mojibake in Excel");
     ok(revCsv.includes("رياضيات — الصف الثالث"), "and the Arabic group name survives intact");
 
-    // =====================================================================
     console.log("\n[6] Every registry entry loads against real data");
-    // =====================================================================
-    // A report that throws only for one center's shape is a report nobody can
-    // download on the day they need it. All eight are exercised as the owner.
     for (const key of Object.keys(REPORT_EXPORTS) as ReportExportKey[]) {
       try {
         const { table, def } = await buildReportExport({ key, user: A, staffRole: null, from: FROM, to: TO });
@@ -437,9 +382,7 @@ async function main() {
       "the filename is the report key plus the date, so a folder of downloads sorts",
     );
 
-    // =====================================================================
     console.log("\n[7] An export is a READ");
-    // =====================================================================
     const censusAfter = await moneyCensus([fx.centerA, fx.centerB]);
     ok(censusBefore === censusAfter, "payments, expenses and the ledger are byte-identical after 20+ exports");
     const [auditRows] = await q<{ n: number }>(

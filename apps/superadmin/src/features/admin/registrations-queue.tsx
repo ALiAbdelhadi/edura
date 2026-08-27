@@ -1,19 +1,5 @@
 "use client";
 
-/* طلبات التسجيل / Registrations — a decision queue.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Converted to the list + panel archetype (D-038). The screen previously rendered a
-   filled Approve and a FILLED DESTRUCTIVE Reject in every row, at equal weight — the
-   exact pattern §5.2 removes from payouts, for the same reason: an operator scanning
-   a queue should not have two saturated buttons per row competing for a decision they
-   have not made yet. Selecting a row opens the panel; that is where the action lives.
-
-   NOT a two-step commit. Approving a registration writes no ledger entry and the
-   status can be changed again — claiming permanence where there is none devalues the
-   ceremony where permanence is real (D-022). Rejection still requires its reason,
-   because a rejection with no reason cannot be explained to the applicant (D-026). */
-
 import React, { useEffect, useState } from "react";
 import { useApiUrl, useCustom, useInvalidate } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -82,7 +68,6 @@ export function RegistrationsQueue() {
   const centers = result?.data?.centers ?? [];
   const teachers = result?.data?.teachers ?? [];
 
-  // The panel must never outlive its subject (D-038).
   useEffect(() => {
     if (!open) return;
     const still =
@@ -144,7 +129,6 @@ export function RegistrationsQueue() {
         cell: ({ row }) => (
           <StatusBadge
             tone={TONE[row.original.status] ?? "neutral"}
-            // Waiting is the operator's real metric (D-026).
             age={
               row.original.status === "pending" ? (
                 <ProseCount
@@ -438,7 +422,6 @@ function DecisionPanel({
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
-              {/* One press — this writes no ledger entry (D-022). */}
               <Button
                 className="h-[46px] w-full justify-center gap-2 font-semibold"
                 disabled={busy === selected.id}
@@ -447,7 +430,6 @@ function DecisionPanel({
                 <Check className="size-4" aria-hidden="true" />
                 {t("actions.approve")}
               </Button>
-              {/* Bordered, never filled — not a twin of the approve. */}
               <Button
                 variant="outline"
                 className="border-rule text-red hover:bg-red-soft"

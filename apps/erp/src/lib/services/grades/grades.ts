@@ -49,8 +49,6 @@ export async function createGrade(
   return scopedDb(asAuthUser(user), async (tx) => {
     const course = await getCourseAndVerifyTeacher(tx, data.courseId, user.id);
     if (!course.centerId) {
-      // grades.center_id stays NOT NULL in Step 4 — gradebook support for
-      // teacher-direct courses is deliberately deferred (tracked for 4.5+).
       throw new BusinessRuleError("Grades are not yet available for teacher-direct courses");
     }
 
@@ -66,9 +64,6 @@ export async function createGrade(
         gradeType,
         maxScore,
         date: new Date(data.date),
-        // Provenance inherited from the group (see the DataSource enum). A
-        // teacher who joined the platform keeps entering grades on the groups
-        // the center keyed in for them, and those stay labelled `manual`.
         dataSource: course.dataSource,
       },
       include: { scores: true },

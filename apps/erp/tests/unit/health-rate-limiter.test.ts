@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The database is not what is under test here — /api/health's DB behaviour
-// (8s bound, 503, no leakage) is unchanged. What is under test is the
-// `rateLimiter` field: whether an operator can SEE that limits stopped being
-// shared, which until now was invisible in production.
 const G = globalThis as never as { __DB_UP: boolean };
 G.__DB_UP = true;
 
@@ -48,12 +44,6 @@ describe("/api/health — rate-limiter visibility", () => {
     expect((await body()).rateLimiter).toBe("local");
   }, 30_000);
 
-  /**
-   * The whole point of putting this in the BODY rather than the status code.
-   * A 503 pulls the instance out of rotation; doing that because Redis is down
-   * turns a degradation into an outage, and during a Redis outage it would do
-   * it to every instance at once.
-   */
   it("a degraded limiter never changes the status code or the `status` keyword", async () => {
     vi.stubEnv("REDIS_URL", "redis://127.0.0.1:6399");
     __resetRateLimiterForTests();

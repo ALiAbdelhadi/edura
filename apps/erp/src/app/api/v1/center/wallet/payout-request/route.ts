@@ -7,7 +7,6 @@ import { requestCenterPayout } from "@/lib/services/finance/center-wallet";
 
 export const dynamic = "force-dynamic";
 
-// amount in piasters; omitted = withdraw the full available balance.
 const bodySchema = z.object({ amount: z.number().int().positive().optional() }).strict();
 
 async function readAmount(req: Request): Promise<number | undefined> {

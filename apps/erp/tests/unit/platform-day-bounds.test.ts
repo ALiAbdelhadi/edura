@@ -1,14 +1,3 @@
-// MC-2 — "today" was a UTC day on the money screens and a Cairo day at the counter.
-//
-// The counter has resolved the day through `todayKey()` / `PLATFORM_TIME_ZONE`
-// since docs/decisions/counter-board.md #4. The books resolved it through UTC.
-// Cairo is UTC+2 (UTC+3 on DST), so cash taken between midnight and 02:00/03:00
-// Cairo landed on the PREVIOUS day in every report — while the counter that
-// took it filed it under today. Two clocks, one drawer.
-//
-// These are the boundary proofs. They run against real ICU timezone data, not
-// a hardcoded offset, because Egypt suspended DST from 2015 and reinstated it
-// in 2023 — an assumed `+02:00` would be wrong for half of every year.
 import { describe, expect, it } from "vitest";
 import {
   PLATFORM_TIME_ZONE,
@@ -20,7 +9,6 @@ import {
 } from "@repo/server-core/lib/date-key";
 import { dayRange, platformTodayWindow } from "@repo/server-core/lib/day-range";
 
-/** The Cairo wall-clock reading of an instant — what a person there would see. */
 function cairoClock(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: PLATFORM_TIME_ZONE,
@@ -41,8 +29,6 @@ describe("a platform day is bounded on the Cairo clock", () => {
   });
 
   it("in UTC that day begins on the PREVIOUS date — the whole finding", () => {
-    // 21:00Z on the 19th, not 00:00Z on the 20th. Everything between those two
-    // instants is money the old filter attributed to the wrong day.
     expect(startOfPlatformDay("2026-08-20").toISOString()).toBe("2026-08-19T21:00:00.000Z");
   });
 
@@ -71,14 +57,9 @@ describe("a platform day is bounded on the Cairo clock", () => {
 });
 
 describe("the two DST transitions, which is where an assumed offset breaks", () => {
-  // Measured from ICU rather than assumed: in 2026 Egypt springs forward at
-  // 2026-04-23T22:00Z and falls back at 2026-10-29T21:00Z.
   it("DST START: midnight does not exist, so the day starts at 01:00", () => {
-    // Clocks jump 00:00 -> 01:00. A start bound of "00:00" has no instant to
-    // point at; the first instant the day HAS is the right answer.
     expect(cairoClock(startOfPlatformDay("2026-04-24"))).toBe("2026-04-24, 01:00:00");
     expect(todayKey(startOfPlatformDay("2026-04-24"))).toBe("2026-04-24");
-    // And nothing from the 23rd leaks in.
     expect(todayKey(new Date(startOfPlatformDay("2026-04-24").getTime() - 1))).toBe("2026-04-23");
   });
 
@@ -88,14 +69,10 @@ describe("the two DST transitions, which is where an assumed offset breaks", () 
   });
 
   it("DST END: 23:00-23:59 happens twice and the day ends at the SECOND one", () => {
-    // Clocks fall back 24:00 -> 23:00. Resolving to the first occurrence would
-    // cut an hour of trading out of the day's takings.
     const end = endOfPlatformDay("2026-10-29");
     expect(cairoClock(end)).toBe("2026-10-29, 23:59:59");
     expect(end.toISOString()).toBe("2026-10-29T21:59:59.999Z");
-    // The FIRST 23:30 that day (20:30Z) is comfortably inside the range.
     expect(new Date("2026-10-29T20:30:00.000Z") <= end).toBe(true);
-    // And so is the second (21:30Z), which is the one an hour-naive bound loses.
     expect(new Date("2026-10-29T21:30:00.000Z") <= end).toBe(true);
   });
 
@@ -111,7 +88,6 @@ describe("platformDayKey — whatever shape the filter value arrives in", () => 
   });
 
   it("an instant resolves to the Cairo day it falls in", () => {
-    // 23:30Z on the 19th is already 02:30 on the 20th in Cairo.
     expect(platformDayKey("2026-08-19T23:30:00.000Z")).toBe("2026-08-20");
   });
 
@@ -129,9 +105,6 @@ describe("dayRange — one derivation for every money filter", () => {
   });
 
   it("THE SCENARIO: cash taken at 01:00 Cairo is on that Cairo day", () => {
-    // 01:00 Cairo on 20 Aug == 22:00Z on 19 Aug. Under the old UTC filter,
-    // asking for 20 Aug missed it and asking for 19 Aug found it — while the
-    // counter that took the money had already filed it under the 20th.
     const takenAt = new Date("2026-08-19T22:00:00.000Z");
     expect(cairoClock(takenAt)).toBe("2026-08-20, 01:00:00");
 
@@ -144,8 +117,6 @@ describe("dayRange — one derivation for every money filter", () => {
   });
 
   it("the counter and the books now agree on which day a payment is on", () => {
-    // `todayKey` is what the counter board resolves its day through. For any
-    // instant, the range for THAT key is the one range containing it.
     for (const iso of [
       "2026-08-19T22:00:00.000Z", // 01:00 Cairo — the hazardous window
       "2026-08-20T20:59:59.999Z", // 23:59:59 Cairo — the last instant
@@ -167,9 +138,6 @@ describe("dayRange — one derivation for every money filter", () => {
   });
 
   it("date-ONLY columns still select correctly under a Cairo window", () => {
-    // `session.date` and `grade.date` are anchored at midnight UTC. The Cairo
-    // window has to contain that anchor for the target day and exclude its
-    // neighbours — the property that lets one helper serve both column kinds.
     const r = dayRange("2026-08-20", "2026-08-20")!;
     const anchor = (k: string) => new Date(`${k}T00:00:00.000Z`);
     expect(anchor("2026-08-20") >= r.gte! && anchor("2026-08-20") <= r.lte!).toBe(true);
@@ -186,18 +154,13 @@ describe("platformTodayWindow — the dashboards' 'today'", () => {
   });
 
   it("THE BUG: at 00:30 Cairo it is TODAY, not yesterday", () => {
-    // 00:30 Cairo on 20 Aug == 21:30Z on 19 Aug. `startOfUtcDay(new Date())`
-    // returned 19 Aug 00:00Z here, so the center home showed the previous day's
-    // sessions to anyone still closing up after midnight.
     const afterMidnight = new Date("2026-08-19T21:30:00.000Z");
     expect(cairoClock(afterMidnight)).toBe("2026-08-20, 00:30:00");
 
     const w = platformTodayWindow(afterMidnight);
     expect(todayKey(w.gte)).toBe("2026-08-20");
-    // A session dated 20 Aug (midnight-UTC anchored) is inside the window.
     const session20 = new Date("2026-08-20T00:00:00.000Z");
     expect(session20 >= w.gte && session20 < w.lt).toBe(true);
-    // One dated 19 Aug is not.
     const session19 = new Date("2026-08-19T00:00:00.000Z");
     expect(session19 >= w.gte).toBe(false);
   });

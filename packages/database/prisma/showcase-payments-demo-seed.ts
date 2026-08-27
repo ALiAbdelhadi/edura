@@ -1,38 +1,4 @@
 /* eslint-disable no-console */
-// ---------------------------------------------------------------------------
-// SHOWCASE PAYMENTS demo — makes the center's REVENUE screens show revenue.
-//
-// Settling lessons (see settled-lessons-demo-seed.ts) moved the wallets but
-// not the reports, and that is correct product behaviour rather than a bug:
-// a center's revenue is what STUDENTS PAID, and a settlement is where that
-// money then went. `getNetProfitReport` and the center home both derive
-// revenue from `payment` rows —
-//
-//     tx.payment.groupBy({ by: ["courseId"], where: { ...paymentWhereBase(centerId) } })
-//
-// — so a center with 35 settled lessons and no payments still reads
-// 0.00 ج.م إجمالي الإيرادات. This script creates the missing half.
-//
-// LIKE ITS SIBLING, IT WRITES NO MONEY OF ITS OWN. Every subscription goes
-// through `POST /api/v1/center/subscriptions`, the counter's own cash route,
-// which runs `createWalkInSubscription` → `settleSubscriptionMoney` and writes
-// the Payment and its Transaction in ONE transaction. There is no INSERT into
-// payments, transactions or wallets in this file, per the binding NO SECOND
-// MONEY ENGINE invariant. It needs the dev server running for that reason.
-//
-// NOT EVERYONE PAYS. `UNPAID_KEEP` enrolments are deliberately left alone: a
-// center where every student has paid has nothing in "طلاب متأخرون عن السداد",
-// and that counter is half of what the center home exists to show. A demo that
-// quietly zeroes it would be a prettier screenshot of a less honest product.
-//
-// PURGE: none, same as the settlement seed — `transactions` is append-only by
-// DB grant, so nothing here can unwrite itself. Removal is `bun run db:wipe
-// dev --yes`, label-guarded to dev/test.
-//
-// Usage:
-//   bun run --cwd apps/erp dev                  # in another terminal, :3002
-//   bun --env-file=.env prisma/showcase-payments-demo-seed.ts [--dry-run]
-// ---------------------------------------------------------------------------
 import { assertNotProduction } from "../scripts/db-guard";
 import {
   assertHttpTargetSharesDatabase,
@@ -40,8 +6,6 @@ import {
 } from "./http-target-guard";
 import { prisma, withPlatformContext } from "../src/index";
 
-// Resolved lazily: --dry-run never reaches the network, so it must not
-// demand a target. Everything that DOES write calls baseUrl().
 let _baseUrl: string | null = null;
 const baseUrl = () => (_baseUrl ??= requireErpBaseUrl("showcase-payments-demo-seed"));
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -50,17 +14,10 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const CENTER_SHORT_ID = "SHOWCASE01";
 const OWNER_EMAIL = "showcasedemo-marwan@edura.test";
 
-/** How many enrolments to leave unpaid, so the arrears counter stays true. */
 const UNPAID_KEEP = 6;
 
 const egp = (piastres: number) => `${(piastres / 100).toFixed(2)} ج.م`;
 
-/**
- * L-8: `assertNotProduction()` above guards the DATABASE this process is
- * connected to. Everything below writes MONEY through an app over HTTP, and
- * that app reads whatever database IT was started with. Prove they are the
- * same before writing a single row.
- */
 async function assertSameDatabase(cookie: string): Promise<void> {
   const owner = await withPlatformContext((tx) =>
     tx.user.findUnique({ where: { email: OWNER_EMAIL }, select: { id: true } }),
@@ -112,10 +69,6 @@ async function main() {
   );
   if (!center) throw new Error(`center ${CENTER_SHORT_ID} not found — run seed:showcase-demo first`);
 
-  // Only enrolments that have no active subscription yet. Re-running is
-  // therefore a no-op rather than a second charge — `assertNoDuplicateActive`
-  // would refuse anyway, but sending the request at all would report failures
-  // that are not failures.
   const enrolments = await withPlatformContext(async (tx) => {
     const rows = await tx.enrollment.findMany({
       where: { course: { centerId: center.id } },
@@ -126,8 +79,6 @@ async function main() {
       },
       orderBy: [{ courseId: "asc" }, { studentId: "asc" }],
     });
-    // `Enrollment` has no `student` relation — the name is looked up
-    // separately rather than joined.
     const students = await tx.user.findMany({
       where: { id: { in: [...new Set(rows.map((r) => r.studentId))] } },
       select: { id: true, name: true },

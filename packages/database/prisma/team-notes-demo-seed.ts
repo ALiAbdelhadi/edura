@@ -171,7 +171,6 @@ async function main() {
       readers: Person[];
     };
     const NOTES: NoteSpec[] = [
-      // Center board.
       {
         key: "c-pinned",
         centerId: CENTER,

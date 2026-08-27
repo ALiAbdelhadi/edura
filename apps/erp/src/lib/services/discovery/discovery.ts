@@ -93,28 +93,7 @@ export async function searchCourses(
       if (bucket) where.startTime = { gte: bucket.start, lt: bucket.end };
     }
 
-    /* THE PUBLIC LIST FILTERS ARE EXACT, AND INDEXED.
-     *
-     * `%احمد%` matched none of the rows stored «أحمد» — ILIKE folds ASCII case
-     * and nothing else — so these boxes returned nothing for a name typed the
-     * way Egyptians type it. They filter `search_text` now: a stored generated
-     * column (migration 20260820160000) holding each row's searchable fields
-     * already normalized, plus the same text with its spaces closed up, which
-     * is exactly what `matchesSearchTerms` compares.
-     *
-     * These queries are offset-paginated with a `count`, which is why the
-     * column had to exist at all: a JS filter applied after the page is cut
-     * returns a short page and a wrong total, so before it these could only
-     * NARROW and returned a superset («احمد» also listed «محمد»). One
-     * `contains` per typed term against the column is exact, served by a GIN
-     * trigram index, and counts correctly. */
-    // `AND`, not `OR`: each clause is already an OR over the three columns, and
-    // they must be ANDed so a second typed word NARROWS the list. The centre arm
-    // added further down merges into the same `AND`, so this survives it.
     if (filters.q) {
-      // APPENDED, never assigned: `studentScope` above already put the grade and
-      // track arms in `where.AND`, and overwriting them would have shown a
-      // student every year's groups the moment they typed in the box.
       where.AND = [
         ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
         ...exactQuery(filters.q, (t) => ({ searchText: { contains: t } })),
@@ -132,9 +111,6 @@ export async function searchCourses(
       centerFilter.lat = { gte: box.latMin, lte: box.latMax };
       centerFilter.lng = { gte: box.lngMin, lte: box.lngMax };
     }
-    // Teacher-direct courses (centerId NULL) have no center to be "active" —
-    // a bare relation filter would silently drop them. Include them unless a
-    // geo filter is applied (they have no coordinates to match).
     const centerArm: Prisma.CourseWhereInput = hasGeoFilter
       ? { center: { is: centerFilter } }
       : { OR: [{ centerId: null }, { center: { is: centerFilter } }] };
@@ -207,7 +183,6 @@ export async function searchCourses(
 
     const courseIds = courses.map((c) => c.id);
 
-    // Upcoming sessions (for the per-session pass picker on the student UI).
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const upcoming = await tx.session.findMany({
@@ -256,12 +231,6 @@ type CenterSearchInput = {
   q?: string;
   page?: string;
   limit?: string;
-  /**
-   * Student discovery (the default) lists only centers a student can actually
-   * enroll at, so it requires at least one active course. A teacher looking for
-   * a center to APPLY TO needs the opposite: a brand-new center with no courses
-   * yet is precisely the one that needs teachers. Opt in to include those.
-   */
   includeEmpty?: boolean;
 };
 
@@ -290,7 +259,6 @@ export async function searchCenters(filters: CenterSearchInput) {
       where.lng = { gte: box.lngMin, lte: box.lngMax };
     }
 
-    // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q) {
       where.AND = exactQuery(filters.q, (t) => ({ searchText: { contains: t } }));
     }
@@ -340,7 +308,6 @@ export async function searchTeachers(filters: TeacherSearchInput) {
       status: "active",
       role: "teacher",
     };
-    // Narrow-only, for the pagination reason recorded in `searchCourses`.
     if (filters.q)
       userFilter.AND = exactQuery(filters.q, (t) => ({ searchText: { contains: t } }));
 

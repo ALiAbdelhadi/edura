@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { APIError } from "better-auth/api";
 
-// The four public auth doors that are not registration: the REST login door
-// (which holds NO policy of its own — C-04 lives in lib/auth/auth.ts), the
-// invite claim, and the password forgot/reset pair. Services and the
-// better-auth instance are mocked; the live-DB suites (c04-parity,
-// invite-claim, mail-password-reset) own the real behavior.
-
 const signInEmail = vi.fn();
 vi.mock("@/lib/auth/auth", () => ({
   auth: { api: { signInEmail: (...a: unknown[]) => signInEmail(...(a as [])) } },
@@ -41,11 +35,6 @@ function post(path: string, body: unknown) {
   });
 }
 const ctx = { params: Promise.resolve({}) };
-
-// NOTE: the `POST /api/v1/auth/login` block that stood here was removed with the
-// route itself (retired 2026-08-18). It was a REST mirror of the better-auth
-// sign-in door, used by no application code; its behaviour is now covered by
-// the better-auth door's own tests and by tests/db/c04-login-parity.test.ts.
 
 describe("POST /api/v1/auth/invite/accept", () => {
   it("claims the invite and returns the activated user", async () => {

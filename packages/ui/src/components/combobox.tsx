@@ -42,12 +42,6 @@ export function Combobox({
   clearLabel?: string;
   disabled?: boolean;
   id?: string;
-  /**
-   * Controlled search. Pass both to drive the option list from a server query;
-   * local filtering is then turned OFF so the server's results are shown as-is
-   * (filtering them again by label would hide rows the server matched on other
-   * fields). Omit both to keep the default local-filtering behaviour.
-   */
   search?: string;
   onSearchChange?: (search: string) => void;
 }) {

@@ -97,8 +97,6 @@ const TYPE_META: Record<string, { tone: StatusTone; icon: LucideIcon }> = {
   default: { tone: "neutral", icon: Bell },
 };
 
-// Matches StatusBadge's own tone→colour map — the icon's soft circle has to
-// use the same pair the badge beside it uses, or the two would disagree.
 const TONE_CIRCLE: Record<StatusTone, string> = {
   pending: "bg-amber-soft text-amber",
   paid: "bg-teal-soft text-teal",
@@ -141,10 +139,6 @@ export function NotificationsScreen() {
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
-  // The portal segment comes from the ACTUAL path (/dashboard/<portal>/…):
-  // these routes are fixed folders, so there is no `role` route param — the
-  // old params-based read always fell back to "student" and mislinked every
-  // deep link on the staff/assistant/admin portals.
   const portalFromPath = pathname?.split("/dashboard/")[1]?.split("/")[0];
   const portal = NOTIFICATION_PORTALS.includes(
     portalFromPath as NotificationPortal,
@@ -161,10 +155,6 @@ export function NotificationsScreen() {
   const { mutateAsync: markReadMut } = useCustomMutation();
   const { mutateAsync: markAllReadMut } = useCustomMutation();
 
-  // ONE destination map, shared with web push (see deep-link.ts). The switch
-  // that used to live here applied a single suffix to every portal, so a
-  // parent's grade notification opened /dashboard/parent/grades and a teacher's
-  // cancelled lesson opened /dashboard/teacher/schedule — neither route exists.
   const getNotificationLink = (n: Notification): string | null =>
     notificationPath(n.type, portal);
 
@@ -199,11 +189,6 @@ export function NotificationsScreen() {
   const unread = notifications.filter((n) => !n.read).length;
   const visible = tab === "unread" ? notifications.filter((n) => !n.read) : notifications;
 
-  // Today / Yesterday / Earlier, computed once per render off the already-
-  // loaded (and already-filtered) list — the API returns newest-first, so a
-  // single pass forward preserves that order inside each bucket. Runs
-  // unconditionally (ABOVE the loading/empty early returns below) — a hook
-  // cannot be called on some renders and skipped on others.
   const groups = useMemo(() => {
     const now = new Date();
     const yesterday = new Date(now);
@@ -270,7 +255,6 @@ export function NotificationsScreen() {
       />
 
       <div className="flex flex-col gap-5">
-        {/* Filter */}
         <Tabs
           value={tab}
           onValueChange={(value) => setTab(value as "all" | "unread")}
@@ -303,7 +287,6 @@ export function NotificationsScreen() {
           <div className="flex flex-col gap-8">
             {groups.map((group) => (
               <section key={group.key} className="flex flex-col gap-3">
-                {/* Group heading */}
                 <div className="flex items-center gap-3 px-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
                     {GROUP_LABEL[group.key]}
@@ -316,7 +299,6 @@ export function NotificationsScreen() {
                   </span>
                 </div>
 
-                {/* Notifications */}
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-sheet">
                   {group.items.map((n, index) => {
                     const meta = TYPE_META[n.type] ?? TYPE_META.default;
@@ -345,7 +327,6 @@ export function NotificationsScreen() {
                           !n.read && "bg-indigo-soft/20",
                         )}
                       >
-                        {/* Unread indicator */}
                         <span
                           className={cn(
                             "absolute inset-y-0 start-0 w-0.5 transition-opacity",
@@ -353,7 +334,6 @@ export function NotificationsScreen() {
                           )}
                         />
 
-                        {/* Icon */}
                         <span
                           className={cn(
                             "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl",
@@ -366,7 +346,6 @@ export function NotificationsScreen() {
                           />
                         </span>
 
-                        {/* Content */}
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                             <span

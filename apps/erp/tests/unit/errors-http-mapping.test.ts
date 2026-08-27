@@ -9,11 +9,6 @@ import {
   ValidationError,
 } from "@/lib/errors/classes";
 
-// Complements m4-error-messages.test.ts (which owns the prod-vs-dev message
-// hiding). This file pins the STATUS/CODE mapping: every AppError subclass and
-// every Prisma error code withErrors translates. All ~390 handlers depend on
-// this table — a route test asserting "404" is really asserting this mapping.
-
 afterEach(() => vi.restoreAllMocks());
 
 async function errBody(res: Response) {
@@ -108,7 +103,6 @@ describe("withErrors wrapper", () => {
       expect(params).toEqual({});
       return new Response(null, { status: 200 }) as never;
     });
-    // Next.js calls route handlers without ctx for non-dynamic routes.
     const res = await handler(
       new Request("http://t.local"),
       undefined as unknown as { params: Promise<Record<string, string>> },

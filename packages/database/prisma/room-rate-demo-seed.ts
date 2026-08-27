@@ -23,7 +23,6 @@ const NOKHBA_OWNER = P("nokhba-owner", "شريف الجندي", "center_admin");
 const TEACHER = P("teacher", "أ. طارق منصور", "teacher");
 const ALL = [OFOK_OWNER, NOKHBA_OWNER, TEACHER];
 
-// Natural keys — stable across any id-formula change (H-03 purge lesson).
 const email = (p: Person) => `roomratedemo-${p.key}@edura.test`;
 const EMAILS = ALL.map(email);
 

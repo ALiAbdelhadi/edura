@@ -60,8 +60,6 @@ export function AdminCheckinScreen() {
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [student, setStudent] = useState<Match | null>(null);
   const [sessions, setSessions] = useState<{ suggested: SessionOption[]; today: SessionOption[] } | null>(null);
-  // Search / walk-in / resend own this flag; the commit flow owns its own and
-  // the two are read together below, so one spinner still covers the screen.
   const [localBusy, setLocalBusy] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{

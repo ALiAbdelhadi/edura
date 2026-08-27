@@ -1,24 +1,3 @@
-/**
- * Phase 2 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 2) — shift / drawer reconciliation.
- *
- * What is proven, against the real services and real money writes:
- *   [1] THE STAMP IS DERIVED, NOT PASSED: money recorded while the recorder
- *       has an open shift carries its id; before opening and after closing it
- *       carries NULL — and nothing else about those writes changes.
- *   [2] METHODS LAND IN THEIR OWN BUCKETS, and only CASH shapes the drawer:
- *       expected = opening float + Σ signed cash; instapay reports bank-side
- *       and never touches the expectation (Phase 1's channel semantics).
- *   [3] A REFUND REDUCES EXPECTED CASH by plain signed summation.
- *   [4] A SHORT COUNT FREEZES A NEGATIVE VARIANCE at close; the frozen figures
- *       never recompute afterwards.
- *   [5] THE LIFECYCLE GUARDS HOLD: one open shift per staff member, only the
- *       drawer's owner closes it, a second close refuses.
- *   [6] THE EXPORT IS THE SCREEN: REPORT_EXPORTS["shift-reconciliation"] rows
- *       equal listShiftReconciliation's — one function, two renderings.
- *
- * Run (this one only): bun run --filter edura test:db:only shift-reconciliation
- */
 import { withPlatformContext } from "@repo/database";
 import {
   openShift,
@@ -219,7 +198,6 @@ async function main() {
     "export rows equal the screen's — one service function, two renderings",
   );
 
-  // tidy: close the colleague's empty drawer so no open fixture lingers
   await closeShift(colleague, colleagueShift.id, { countedCash: 0 });
 
   console.log(`\n${pass} passed, ${fail} failed`);

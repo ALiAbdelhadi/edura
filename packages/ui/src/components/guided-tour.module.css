@@ -1,13 +1,3 @@
-/* ── The guided tour's overlay ─────────────────────────────────────────────
-   Two ways of dimming, because there are two kinds of step:
-
-     .spot — a step WITH an anchor. One element sits over the anchor and casts
-             an enormous spread shadow outward, so the anchor stays lit and
-             everything else darkens. One paint, no seams at the corners, and
-             it follows the element's own rounding.
-     .dim  — a step with no anchor (welcome, finish, or a missing anchor on a
-             phone). A plain scrim; there is nothing to cut out. */
-
 .overlay {
   position: fixed;
   inset: 0;
@@ -36,9 +26,6 @@
 
 .card {
   position: absolute;
-  /* Wider than a pure tooltip, because these cards carry a procedure rather
-     than a label. Capped in height with its own scroll so a long step can
-     never push its own buttons off the screen. */
   width: min(26rem, calc(100vw - 2rem));
   max-height: min(30rem, calc(100vh - 2rem));
   overflow-y: auto;
@@ -73,8 +60,6 @@
   color: var(--ink-2);
 }
 
-/* The procedure. Numbers are the point — these are presses in order, not a
-   bulleted set of facts — so it is an <ol> and the marker stays visible. */
 .how {
   margin-top: 0.625rem;
   padding-inline-start: 1.25rem;
@@ -91,8 +76,6 @@
   font-weight: 600;
 }
 
-/* The caveat. Amber and set apart, because it is the sentence that stops the
-   procedure above it going wrong — not more of the procedure. */
 .note {
   margin-top: 0.625rem;
   padding: 0.5rem 0.625rem;
@@ -103,7 +86,6 @@
   line-height: 1.55;
 }
 
-/* Shown only when the step had to fall back to the phone's "more" button. */
 .fallback {
   margin-top: 0.5rem;
   font-size: 0.75rem;
@@ -117,20 +99,11 @@
   gap: 0.5rem;
 }
 
-/* The spotlight's travel between steps is orientation, not decoration — but it
-   is not load-bearing either, so reduced motion drops it and keeps the jump. */
 @media (prefers-reduced-motion: reduce) {
   .spot {
     transition: none;
   }
 }
-
-/* ── The card's own buttons ────────────────────────────────────────────────
-   Written here rather than imported from an app's button component: this
-   package cannot reach into `apps/www`, and the engine is shared by two apps
-   whose button primitives are not the same object. The geometry and weights
-   below are the Ledger button's, so the tour looks identical to what it looked
-   like when the buttons came from `LedgerButton`. */
 
 .primary,
 .secondary {

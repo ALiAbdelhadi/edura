@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 reconcile.py — المطابقة النهائية وتقرير الترحيل (الخطوتان 8 و9).
 
@@ -82,9 +81,6 @@ def norm_name(s: str) -> str:
     return " ".join(s.translate(INVISIBLE).split()).strip()
 
 
-# ---------------------------------------------------------------------------
-# قراءة ردّ الاستيراد
-# ---------------------------------------------------------------------------
 def load_summaries(paths: list[Path]) -> list[dict]:
     """
     يقبل ما يخرج فعلًا من المنصة بأشكاله: ملخّصًا واحدًا، أو مغلّفًا في
@@ -111,7 +107,6 @@ def load_summaries(paths: list[Path]) -> list[dict]:
     return out
 
 
-# ---------------------------------------------------------------------------
 def summarize_report(path: Path | None, label: str) -> list[str]:
     """يلخّص تقرير توحيد (هواتف/أسماء) إلى أسطر «الافتراضات المطبقة»."""
     if not path or not path.exists():
@@ -129,16 +124,10 @@ def summarize_report(path: Path | None, label: str) -> list[str]:
     return lines
 
 
-# ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(description="المطابقة النهائية وتقرير الترحيل")
-    # يتكرر: السنتر يسلّم عادةً ملفًا لكل صف دراسي، وكلها تُجمَّع في ملف
-    # استيراد واحد. الميزان يجمع صفوف كل المصادر مقابل ذلك الملف الواحد.
     ap.add_argument("--source", required=True, type=Path, action="append",
                     help="ملف مصدر في 01-source (يتكرر لملفات متعددة)")
-    # مفرد **عمدًا**: كل ملف استيراد يُرفع وحده فيستأنف ترقيم أسطره من 2،
-    # فملفان يعنيان رقمَي سطر متطابقين لطفلين مختلفين — وينهار الربط بين الردّ
-    # وصفوف الملف. اجمع المصادر في ملف واحد بدل تقسيم المخرَج.
     ap.add_argument("--import-file", required=True, type=Path, help="ملف الاستيراد في 03-output")
     ap.add_argument("--rejected", type=Path, action="append", default=[],
                     help="ملف مرفوضات (يتكرر)")
@@ -158,7 +147,6 @@ def main() -> int:
     problems: list[str] = []
     notes: list[str] = []
 
-    # ---------------------------------------------------------------- المصدر
     src_rows = 0
     src_blank = 0
     per_source: list[tuple[str, int]] = []
@@ -169,10 +157,8 @@ def main() -> int:
         src_rows += len(body) - blank
         src_blank += blank
 
-    # ------------------------------------------------------- ملف الاستيراد
     imp_header, imp_body, _ = read_records(args.import_file)
     imp_blank = sum(1 for r in imp_body if is_blank(r))
-    # نفس رؤية الواجهة: الفارغ يُحذف، ثم أول صف بيانات هو السطر 2.
     imp_records = [r for r in imp_body if not is_blank(r)]
     imp_rows = len(imp_records)
     line_of = {i + 2: r for i, r in enumerate(imp_records)}
@@ -202,7 +188,6 @@ def main() -> int:
                 "الاستيراد — جدول الربط سيخرج بلا الكود القديم، وهو نصف قيمته."
             )
 
-    # --------------------------------------------------------- المرفوضات
     rejected_total = 0
     reject_reasons: dict[str, int] = {}
     for p in args.rejected:
@@ -221,7 +206,6 @@ def main() -> int:
                     reason = r[ridx].strip() or "(بلا سبب مذكور)"
                     reject_reasons[reason] = reject_reasons.get(reason, 0) + 1
 
-    # ================================================== الطَور الأول: الميزان
     balance_1_ok = (src_rows == imp_rows + rejected_total)
     if not balance_1_ok:
         diff = src_rows - (imp_rows + rejected_total)
@@ -231,7 +215,6 @@ def main() -> int:
             "صف اختفى بلا سبب مسجَّل، أو ازدوج."
         )
 
-    # ================================================ الطَور الثاني: بعد الاستيراد
     summaries = load_summaries(args.response) if args.response else []
     crosswalk: list[dict[str, str]] = []
     totals = {"total": 0, "created": 0, "reused": 0, "duplicatesInFile": 0, "failed": 0}
@@ -264,7 +247,6 @@ def main() -> int:
             src_row = line_of.get(line)
             file_name = src_row[name_idx] if src_row and name_idx < len(src_row) else ""
 
-            # ---- التحقق من الربط نفسه، قبل الوثوق بأي حرف منه.
             if src_row is None:
                 problems.append(f"السطر {line} في الردّ لا يقابل أي صف في ملف الاستيراد")
             elif norm_name(str(r.get("name", ""))) != norm_name(file_name):
@@ -320,12 +302,9 @@ def main() -> int:
                 f"(أوّلها: {sorted(missing)[:20]}) — هذه هي حالة «الصف الضائع» بعينها."
             )
 
-    # صفّان صارا طالبًا واحدًا: مشروع تمامًا (إعادة استخدام)، لكنه يفسّر لماذا
-    # عدد الطلاب في المنصة أقل من عدد صفوف كشف العميل — ويجب أن يُقال، لا يُكتشف.
     merged = {c: ls for c, ls in code_lines.items() if len(ls) > 1}
     distinct_codes = len(code_lines)
 
-    # ---------------------------------------------------------------- المخرجات
     out = args.out_dir
     if crosswalk:
         dump_dicts(out / "crosswalk.csv",
@@ -346,7 +325,6 @@ def main() -> int:
                    [{k: s[k] for k in ("student_code", "name", "phone", "legacy_id",
                                        "line", "status")} for s in sample])
 
-    # ------------------------------------------------------------- التقرير
     L: list[str] = []
     L.append(f"# تقرير ترحيل — {args.client or args.source[0].parent.parent.name}")
     L.append("")
@@ -447,8 +425,6 @@ def main() -> int:
                  f"بذرة {args.seed} فيعيدها أي شخص كما هي) وقارن الاسم والهاتف "
                  "بالمصدر:")
         L.append("")
-        # «سطر ملف الاستيراد» لا «سطر المصدر»: الرقمان يفترقان بمجرد رفض صف
-        # واحد، وتقرير غايته الدقة لا يجوز أن يُسمّي أحدهما بالآخر.
         L.append("| كود Edura | الاسم | الهاتف | الكود القديم | سطر ملف الاستيراد |")
         L.append("|---|---|---|---|---|")
         for s in sample:
@@ -482,7 +458,6 @@ def main() -> int:
     report_path = out / "migration-report.md"
     report_path.write_text("\n".join(L), encoding="utf-8")
 
-    # ------------------------------------------------------------- الشاشة
     if len(per_source) > 1:
         print("\nالمصادر: " + "، ".join(f"{n} ({c})" for n, c in per_source))
     print(f"\nالمصدر {src_rows} صفًا  |  الاستيراد {imp_rows}  |  المرفوض {rejected_total}")

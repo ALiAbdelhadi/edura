@@ -11,8 +11,6 @@ const bodySchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
-// The admin never sees or sets the password — the user receives a link and
-// chooses their own, exactly like the invite flow.
 export const POST = withErrors(async (req, ctx) => {
   const actor = await requireRole("super_admin");
   const { id } = await ctx.params;

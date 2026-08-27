@@ -1,29 +1,3 @@
-/**
- * ===========================================================================
- * PHASE 3 — OPERATIONS PARITY: attendance, sessions, deletion requests,
- * broadcast and the center blacklist, on ANY center.
- * ===========================================================================
- * Drives the REAL shipped services:
- *
- *   apps/superadmin/src/lib/services/admin/center-operations.ts
- *     → @repo/server-core/services/{attendance,session-actions,walk-in,
- *        temp-students,center/deletion-requests,finance/distribution}
- *
- * This is the phase where the money engine is actually reachable, so the file
- * is built around the three boundaries that had to be earned:
- *
- *   1. COMPLETE is a real settlement. It writes the ledger — and it is
- *      exactly-once, refused on an already-settled session, and it distributes
- *      at the course's FROZEN rates. Proven by settling for real and reading
- *      the ledger rows back.
- *   2. CANCEL and POSTPONE are REFUSED once a session has settled.
- *   3. Correcting attendance on a settled session is ALLOWED but never
- *      silent: the settlement is not recomputed, and the divergence from the
- *      frozen present_count is recorded in the audit row.
- *
- *   bunx tsx --env-file=<env> tests/db/center-operations.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -99,7 +73,6 @@ async function main() {
   try {
     console.log(`PHASE 3 — OPERATIONS PARITY — ${tag}`);
 
-    // ---------------- fixtures ----------------
     const superAdminId = await mkUser("super", "super_admin");
     const actor = { id: superAdminId, role: "super_admin" } as SessionUser;
 
@@ -148,10 +121,6 @@ async function main() {
       )
     )[0].id as string;
 
-    // ROOM-BASED on purpose: session_settlements is written only for room-based
-    // courses, and that frozen present_count is what the §3.3 divergence proof
-    // below measures against. The split is written directly here — it is the
-    // snapshot a real creation would have frozen, and settling reads it.
     const courseId = (
       await q(
         `INSERT INTO courses (center_id, teacher_id, default_room_id, title, subject, days_of_week,
@@ -185,9 +154,7 @@ async function main() {
       );
     }
 
-    // =====================================================================
     section("Attendance — read and bulk mark");
-    // =====================================================================
     const view = await adminGetSessionAttendance(actor, centerA, sessSettle);
     assert(!!view, "reads a session's attendance sheet for the target center");
 
@@ -212,9 +179,7 @@ async function main() {
     );
     assert(crossSession.threw && crossSession.matched, "isolation: A's session is unreachable as center B");
 
-    // =====================================================================
     section("Settlement — preview, then complete (the ledger write)");
-    // =====================================================================
     const preview = await adminSettlementPreview(actor, centerA, sessSettle);
     assert(preview.presentCount === 2, "preview reports the present headcount");
     assert(preview.alreadySettled === false, "preview reports the session is not settled yet");
@@ -251,7 +216,6 @@ async function main() {
       "audit: the preview shown before confirming is recorded too",
     );
 
-    // Exactly-once.
     const twice = await rejects(
       () => adminCompleteSession(actor, centerA, sessSettle),
       /already been settled/i,
@@ -263,9 +227,7 @@ async function main() {
       "MONEY: the refused retry wrote no additional ledger rows",
     );
 
-    // =====================================================================
     section("Settled sessions are locked");
-    // =====================================================================
     const cancelSettled = await rejects(
       () => adminCancelSession(actor, centerA, sessSettle, "nope"),
       /already been settled/i,
@@ -287,10 +249,6 @@ async function main() {
       "MONEY: a settled session cannot be moved (refused by BOTH the wrapper and the kernel)",
     );
 
-    // Straight at the KERNEL, bypassing the superadmin wrapper entirely — this
-    // is the www path (a teacher postponing their own session), and it must
-    // refuse too. Without this, the wrapper's guard could be the only one and
-    // www would still be able to move a settled session.
     const kernelPostpone = await rejects(
       () =>
         postponeSession(
@@ -321,7 +279,6 @@ async function main() {
       "the settled session is untouched by both refused attempts",
     );
 
-    // …but an unsettled one can.
     await adminCancelSession(actor, centerA, sessCancel, "Proof run");
     assert(
       (await q(`SELECT status FROM sessions WHERE id=$1`, [sessCancel]))[0].status === "cancelled",
@@ -344,9 +301,7 @@ async function main() {
     rows = await auditRows("center.session_postponed", sessPostpone, superAdminId);
     assert(rows.length === 1, "audit: one postpone row");
 
-    // =====================================================================
     section("§3.3 — correcting attendance on a SETTLED session");
-    // =====================================================================
     const settlement = (
       await q(`SELECT id, present_count FROM session_settlements WHERE session_id=$1`, [sessSettle])
     )[0];
@@ -401,17 +356,13 @@ async function main() {
         "audit: the divergence is written into the log rather than discovered later",
       );
     } else {
-      // Not skipped quietly: assert the service reported NO divergence rather
-      // than letting an absent settlement read as a passing divergence check.
       assert(
         corrected.settlementDivergence === null,
         "no settlement record for this session, so no divergence is claimed",
       );
     }
 
-    // =====================================================================
     section("Deletion requests");
-    // =====================================================================
     const delReq = (
       await q(
         `INSERT INTO deletion_requests (user_id, center_id, reason, status, updated_at)
@@ -441,9 +392,7 @@ async function main() {
       "audit: one row, recording that history is preserved",
     );
 
-    // =====================================================================
     section("Broadcast + center blacklist");
-    // =====================================================================
     const sent = await adminBroadcast(actor, centerA, {
       scope: "center",
       title: `${tag} notice`,
@@ -477,7 +426,6 @@ async function main() {
     rows = await auditRows("center.blacklist_lifted", student1, superAdminId);
     assert(rows.length === 1, "audit: one blacklist-lift row");
 
-    // The settled ledger is STILL untouched by everything after it.
     const ledgerFinal = await q(
       `SELECT id, amount FROM transactions WHERE lesson_id=$1 ORDER BY id`,
       [sessSettle],
@@ -521,8 +469,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-operations.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

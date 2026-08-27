@@ -48,9 +48,6 @@ export default function LoginPage() {
       </div>
       <div className="w-full max-w-sm rounded-xl border border-rule bg-sheet p-6 shadow-(--lift-2)">
         <div className="mb-6 flex flex-col items-center text-center">
-          {/* The real Edura mark — same file the dashboard sidebar renders —
-              in place of the generic shield placeholder. "back office" below
-              already says who this login is for; the icon doesn't need to. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/edura-mark.svg" alt="" width={40} height={40} className="mb-4 size-10 shrink-0" />
           <Eyebrow locale={locale} script="latin" marker={false} className="mb-2">

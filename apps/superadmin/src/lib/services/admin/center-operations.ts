@@ -36,28 +36,6 @@ import {
 import { notify } from "@/lib/services/notifications/notify";
 import { resolveCourseStudentsAndParents } from "@repo/server-core/services/notifications/fanout";
 
-// ---------------------------------------------------------------------------
-// PHASE 3 — OPERATIONS. Attendance, sessions, the counter, walk-ins, deletion
-// requests, broadcast and the center blacklist.
-//
-// This phase is where the money engine is nearest, so the boundaries are drawn
-// explicitly rather than left to the reader:
-//
-//   • `adminCompleteSession` IS a settlement trigger — it runs
-//     distributeSessionRevenue and writes the ledger. It is a sanctioned flow,
-//     not a manual edit, it is exactly-once by construction (distributedAt +
-//     UNIQUE(session_id) on session_settlements), and it is refused outright on
-//     an already-settled session. `adminSettlementPreview` exists so the
-//     operator sees what will be distributed BEFORE confirming.
-//   • Cancel and postpone are REFUSED on a settled session — cancel by the
-//     kernel's own guard, postpone by the guard added here (see the note on
-//     `adminPostponeSession`).
-//   • Correcting attendance on a settled session is ALLOWED but never silent:
-//     the divergence from the frozen `present_count` is measured and written
-//     into the audit row. The settlement is not recomputed — that would be a
-//     retroactive re-rate, which M4.5 forbids.
-// ---------------------------------------------------------------------------
-
 type AuditSpec = {
   action: string;
   targetType: string;
@@ -85,7 +63,6 @@ async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
   );
 }
 
-/** The session, proven to belong to the center being acted on. */
 async function sessionInCenter(centerId: string, sessionId: string) {
   const row = await platformDb(async (tx) => {
     const session = await tx.session.findUnique({ where: { id: sessionId } });
@@ -103,10 +80,6 @@ async function sessionInCenter(centerId: string, sessionId: string) {
   return row;
 }
 
-// ===========================================================================
-// Attendance
-// ===========================================================================
-
 export async function adminGetSessionAttendance(
   actor: SessionUser,
   centerId: string,
@@ -116,15 +89,6 @@ export async function adminGetSessionAttendance(
   return getSessionAttendance(sessionId, actor.id, "center_admin", centerId);
 }
 
-/**
- * Correct one attendance record.
- *
- * §3.3 — allowed even after the session settled, because the record is the
- * truth about a student and pretending otherwise helps nobody. But the
- * divergence it creates from the settlement's frozen `present_count` is
- * measured and recorded, so the mismatch is visible in the log instead of
- * being discovered later. The settlement itself is NOT recomputed.
- */
 export async function adminEditAttendance(
   actor: SessionUser,
   centerId: string,
@@ -142,13 +106,10 @@ export async function adminEditAttendance(
     throw new ForbiddenError("Attendance record belongs to a different center");
   }
 
-  // §3.3: the one caller of the settled-lock override — this function is what
-  // measures the divergence and writes the audit row that justify it.
   const result = await editAttendance(attendanceId, newStatus, actor.id, centerId, {
     overrideSettledLock: true,
   });
 
-  // Did this correction move a session that has already been settled?
   const settlement = await platformDb((tx) =>
     tx.sessionSettlement.findUnique({
       where: { sessionId: before.sessionId },
@@ -167,7 +128,6 @@ export async function adminEditAttendance(
       settledPresentCount: settlement.presentCount,
       presentCountNow: presentNow,
       diverged: presentNow !== settlement.presentCount,
-      // Stated so nobody reads the correction as a money correction.
       settlementRecomputed: false,
     };
   }
@@ -212,10 +172,6 @@ export async function adminBulkAttendance(
   return result;
 }
 
-// ===========================================================================
-// Sessions
-// ===========================================================================
-
 export async function adminCancelSession(
   actor: SessionUser,
   centerId: string,
@@ -223,17 +179,11 @@ export async function adminCancelSession(
   reason: string,
 ) {
   const { session } = await sessionInCenter(centerId, sessionId);
-  // The kernel refuses a settled session itself; this is the same guard stated
-  // where the operator can see it, and it keeps the error specific.
   if (session.distributedAt) {
     throw new BusinessRuleError(
       "This session has already been settled — its revenue is distributed and it cannot be cancelled",
     );
   }
-  // The kernel's guard is "only the assigned teacher". A super admin is not the
-  // teacher, so the session's OWN teacherId is passed — the guard is satisfied,
-  // not bypassed. The real authorization happened above: super_admin + the
-  // session provably belonging to the center being acted on.
   const result = await cancelSession(sessionId, session.teacherId, reason);
   await audit(actor, centerId, {
     action: "center.session_cancelled",
@@ -245,15 +195,6 @@ export async function adminCancelSession(
   return result;
 }
 
-/**
- * Postpone a session.
- *
- * NOTE — the settled-session guard here has no counterpart in the www kernel:
- * `cancelSession` refuses `distributedAt`, `postponeSession` does not. Moving
- * a settled session would detach a distributed settlement from its date, so it
- * is refused on this path. The www gap is deliberately left alone rather than
- * changed silently as part of a parity phase; it is written up for review.
- */
 export async function adminPostponeSession(
   actor: SessionUser,
   centerId: string,
@@ -290,10 +231,6 @@ export async function adminPostponeSession(
   return result;
 }
 
-/**
- * What completing this session WOULD distribute — shown before the operator
- * confirms. Read-only: it writes nothing and settles nothing.
- */
 export async function adminSettlementPreview(
   actor: SessionUser,
   centerId: string,
@@ -317,12 +254,6 @@ export async function adminSettlementPreview(
         },
       }),
     ]);
-    // THE PREVIEW MUST QUOTE WHAT THE LEDGER WILL WRITE. This read
-    // `pricePerSession` FIRST while the settlement engine read
-    // `price / plannedSessions`, so on every course carrying both the confirm
-    // dialog showed one amount and the settlement wrote another — 13 of the 14
-    // such courses on dev disagree, often by 2-3x. Both now call the one
-    // derivation in the money kernel, so they cannot drift again.
     const perSessionPrice = resolveLessonPrice(
       { price: course.price, pricePerSession: full?.pricePerSession ?? null },
       plannedSessions,
@@ -337,21 +268,11 @@ export async function adminSettlementPreview(
       presentCount,
       plannedSessions,
       perSessionPrice,
-      // The FROZEN economics this session will settle at.
       frozenPricing: full,
     };
   });
 }
 
-/**
- * §3.1 — the settlement trigger. Named action, and the most
- * money-consequential thing in this whole parity effort.
- *
- * It is a sanctioned flow, not a ledger edit: it runs the same
- * `distributeSessionRevenue` a teacher's own "complete" runs, at the course's
- * frozen rates, and it is exactly-once by construction. An already-settled
- * session is refused before anything runs.
- */
 export async function adminCompleteSession(
   actor: SessionUser,
   centerId: string,
@@ -366,8 +287,6 @@ export async function adminCompleteSession(
 
   const result = await completeSession(sessionId, acting);
 
-  // Read back what the ledger actually recorded, so the audit row carries the
-  // real outcome rather than the intention.
   const settled = await platformDb(async (tx) => {
     const s = await tx.sessionSettlement.findUnique({ where: { sessionId } });
     const txns = await tx.transaction.findMany({
@@ -390,18 +309,12 @@ export async function adminCompleteSession(
       centerTotal: settled.settlement?.centerTotal ?? null,
       teacherTotal: settled.settlement?.teacherTotal ?? null,
       ledgerRows: settled.ledger,
-      // The distribution is exactly-once by construction; recorded so the log
-      // shows this was the sanctioned flow, not a hand-written ledger entry.
       viaSanctionedFlow: "distributeSessionRevenue",
     },
   });
 
   return { ...result, settlement: settled.settlement, ledger: settled.ledger };
 }
-
-// ===========================================================================
-// Counter / walk-in / temp students
-// ===========================================================================
 
 export async function adminLookupStudents(actor: SessionUser, centerId: string, q: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
@@ -453,7 +366,6 @@ export async function adminRegisterWalkIn(
     targetType: "user",
     targetId: (result as { studentId?: string }).studentId ?? centerId,
     before: null,
-    // Never the token/link — an audit reader must not be able to claim the account.
     after: { fullName: input.fullName, hasGuardianContact: !!(input.guardianEmail || input.guardianPhone) },
   });
   return result;
@@ -510,10 +422,6 @@ export async function adminSendTempStudentInvite(
   return result;
 }
 
-// ===========================================================================
-// Deletion requests
-// ===========================================================================
-
 export async function adminListDeletionRequests(
   actor: SessionUser,
   centerId: string,
@@ -553,8 +461,6 @@ export async function adminDecideDeletionRequest(
     after: {
       status: decision === "approve" ? "approved" : "rejected",
       note: note ?? null,
-      // Soft delete: the row and its financial history survive, and C-03 cuts
-      // the account's live session on its next request.
       ...(decision === "approve"
         ? { userSoftDeleted: before?.userId ?? null, historyPreserved: true }
         : {}),
@@ -562,10 +468,6 @@ export async function adminDecideDeletionRequest(
   });
   return result;
 }
-
-// ===========================================================================
-// Broadcast
-// ===========================================================================
 
 export async function adminBroadcast(
   actor: SessionUser,
@@ -621,10 +523,6 @@ export async function adminBroadcast(
   return { sent: true as const, recipients: recipients.length };
 }
 
-// ===========================================================================
-// Center blacklist
-// ===========================================================================
-
 export async function adminListCenterBlacklist(_actor: SessionUser, centerId: string) {
   return listCenterBlacklist(centerId);
 }
@@ -635,8 +533,6 @@ export async function adminAddCenterBlacklist(
   studentId: string,
   reason: string,
 ) {
-  // Goes through the H-04 journal, exactly like the oversight "remove from
-  // center" action — so lifting it restores precisely the enrollments it took.
   const entry = await centerBlacklistStudent(studentId, reason, actor, centerId);
   const journaled = await platformDb((tx) =>
     tx.blacklistCascadeAction.findMany({

@@ -1,18 +1,5 @@
 "use client";
 
-/* الشؤون المالية / Finance overview — the accountant's decision queue.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Same archetype as اليوم (D-037), scoped to the accountant's six nav items: the
-   decision leads, the totals support it. The screen it replaces was five equal-weight
-   StatCards — one of them gradient-filled for emphasis it had not earned — so the one
-   number an accountant can ACT on (pending payouts) sat beside four they can only
-   read.
-
-   The alert strip stays, but amber now means waiting and red means blocking, per the
-   colour discipline. It previously used `--info`, a fifth hue the system removed
-   (D-010). */
-
 import React from "react";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -99,7 +86,6 @@ export function FinanceDashboard() {
   }
 
   if (kq.isError) {
-    // Denied and error are different truths; a 403 gets no Retry (D-027).
     const denied = (kq.error as { statusCode?: number } | null)?.statusCode === 403;
     return (
       <div className="flex w-full flex-col gap-6">
@@ -152,7 +138,6 @@ export function FinanceDashboard() {
         </div>
       )}
 
-      {/* The decision first — the only figure here an accountant can act on. */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           href="/dashboard/finance/payouts"
@@ -213,7 +198,6 @@ export function FinanceDashboard() {
               {
                 id: "gross",
                 label: t("financeHome.grossRevenue"),
-                // Colour omitted → the series takes its semantic slot (D-011).
                 points: series.map((p) => ({
                   x: p.period.slice(5),
                   value: Math.round(p.grossRevenue / 100),

@@ -1,23 +1,5 @@
 import { createHash } from "crypto";
 
-/**
- * Cloudinary kernel — the ONE signed server-side client for both apps.
- *
- * Design notes:
- * - No SDK. Cloudinary's upload/destroy endpoints are plain signed multipart
- *   POSTs, so a ~150-line client avoids a dependency that would otherwise pull
- *   in Node-only transitives across two Next apps.
- * - Signing is SHA1(sorted `k=v&…` + api_secret), exactly per Cloudinary's spec.
- *   `api_key`, `file`, `resource_type` and `cloud_name` are NEVER signed.
- * - Delivery/transformation URLs are built CLIENT-side (@repo/ui/lib/cloudinary)
- *   because they need no secret; this module only does the privileged calls.
- *
- * The env vars (CLOUDINARY_CLOUD_NAME / _API_KEY / _API_SECRET) are already set
- * for both apps. NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME mirrors the cloud name to
- * the browser — that value is public by construction (it appears in every
- * delivery URL), the key/secret never leave the server.
- */
-
 export type CloudinaryResourceType = "image" | "raw" | "video";
 
 export type UploadedAsset = {
@@ -59,7 +41,6 @@ function sha1(input: string): string {
   return createHash("sha1").update(input).digest("hex");
 }
 
-/** SHA1 of the sorted, `&`-joined params + api_secret (Cloudinary's scheme). */
 function signParams(params: Record<string, string | number>, apiSecret: string): string {
   const toSign = Object.keys(params)
     .sort()
@@ -70,22 +51,13 @@ function signParams(params: Record<string, string | number>, apiSecret: string):
 
 export type UploadOptions = {
   folder?: string;
-  /**
-   * Deterministic id (WITHOUT the folder prefix) — pass it together with
-   * `overwrite` so re-uploading an entity's image REPLACES the old asset in
-   * place instead of accumulating orphans in the account.
-   */
   public_id?: string;
   resource_type?: CloudinaryResourceType;
   filename?: string;
   contentType?: string;
-  /** Replace an existing asset with the same public_id. */
   overwrite?: boolean;
-  /** Purge the CDN edge caches for that public_id after an overwrite. */
   invalidate?: boolean;
-  /** Server-side transformation applied BEFORE storage (e.g. cap dimensions). */
   transformation?: string;
-  /** Free-form tags — handy for bulk cleanup of demo assets. */
   tags?: string[];
 };
 
@@ -96,7 +68,6 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
   const folder = options.folder ?? "edura";
   const resource_type = options.resource_type ?? "raw";
 
-  // Only signed params go in here — api_key/file/resource_type are excluded.
   const params: Record<string, string | number> = { folder, timestamp };
   if (options.public_id) params.public_id = options.public_id;
   if (options.overwrite !== undefined) params.overwrite = options.overwrite ? "true" : "false";
@@ -106,9 +77,6 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
   const signature = signParams(params, api_secret);
 
   const form = new FormData();
-  // contentType defaults to PDF for the original materials caller; image
-  // callers (avatars, logos, room photos) pass the detected image MIME +
-  // resource_type "image".
   form.append(
     "file",
     new Blob([new Uint8Array(buffer)], { type: options.contentType ?? "application/pdf" }),
@@ -151,10 +119,6 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
   };
 }
 
-/**
- * Signed delivery URL for a PRIVATE/authenticated asset (used by materials).
- * Public images never need this — they are served straight from the CDN.
- */
 export async function generateSignedUrl(publicId: string, expiresInSeconds = 3600): Promise<string> {
   const { cloud_name, api_secret } = getConfig();
   const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
@@ -162,28 +126,8 @@ export async function generateSignedUrl(publicId: string, expiresInSeconds = 360
   return `https://res.cloudinary.com/${cloud_name}/raw/upload/s--${signature}--/e_${expiresAt}/${publicId}`;
 }
 
-/**
- * What a destroy actually did. Cloudinary answers a destroy with HTTP 200 even
- * when it deleted NOTHING (`{"result":"not found"}`), so the status code alone
- * is not evidence — the body has to be read.
- */
 export type DeleteOutcome = "deleted" | "not_found" | "failed";
 
-/**
- * Delete an asset. `resourceType` MUST match the type it was uploaded under —
- * destroying an image with resource_type "raw" silently no-ops (Cloudinary
- * returns `not found`), which is how orphan images accumulate. Defaults to
- * "raw" to preserve the original materials caller's behaviour.
- *
- * NEVER THROWS, deliberately: every caller runs this after a committed write,
- * where a stranded asset is a cost worth paying and a failed user request is
- * not. What changed is that the failure is no longer INVISIBLE — this used to
- * fire and forget, so a rotated key, a quota wall or a plain typo'd
- * resource_type produced exactly the same silence as a successful delete, and
- * the account would fill up with nothing anywhere to notice it. The outcome is
- * returned for callers that can act on it, and logged for the ones that
- * cannot.
- */
 export async function deleteResource(
   publicId: string,
   resourceType: CloudinaryResourceType = "raw",
@@ -215,10 +159,6 @@ export async function deleteResource(
     const body = (await res.json().catch(() => null)) as { result?: string } | null;
     if (body?.result === "ok") return "deleted";
     if (body?.result === "not found") {
-      // Legitimate whenever the asset was already gone (a repeated cleanup, an
-      // externally deleted asset). Logged at a lower key than a failure because
-      // it is also the signature of a WRONG resource_type — the trap this
-      // function's own docblock warns about.
       console.warn(`[cloudinary] destroy ${resourceType}/${publicId}: not found (nothing deleted)`);
       return "not_found";
     }
@@ -232,26 +172,15 @@ export async function deleteResource(
   }
 }
 
-/**
- * Recover the public_id from a stored delivery URL.
- *
- * Rows written before this kernel existed (room photos, center logos pasted as
- * URLs) store only `secure_url`, so deletion and transformation both need this
- * to work backwards. Returns null for non-Cloudinary URLs — callers treat that
- * as "externally hosted, don't touch".
- */
 export function publicIdFromUrl(url: string): string | null {
   const match = /^https?:\/\/res\.cloudinary\.com\/[^/]+\/(image|raw|video)\/upload\/(.+)$/.exec(
     url,
   );
   if (!match) return null;
   const segments = (match[2] as string).split("/");
-  // Drop any leading transformation segments and the version segment.
   while (segments.length > 1 && /^[a-z]{1,3}_[^/]*$/.test(segments[0] as string)) segments.shift();
   if (segments.length > 1 && /^v\d+$/.test(segments[0] as string)) segments.shift();
   const rest = segments.join("/");
   if (!rest) return null;
-  // Images/videos carry a format extension that is NOT part of the public_id;
-  // raw assets keep theirs.
   return match[1] === "raw" ? rest : rest.replace(/\.[a-zA-Z0-9]+$/, "");
 }

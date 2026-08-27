@@ -23,7 +23,6 @@ const putSchema = z
   })
   .strict();
 
-/** super_admin ONLY — the accountant portal gets a read-only GET (finance/). */
 export const PUT = withErrors(async (req) => {
   const user = await requireRole("super_admin");
   const body = await parseJson(req, putSchema);

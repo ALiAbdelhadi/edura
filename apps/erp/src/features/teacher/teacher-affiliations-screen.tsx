@@ -41,8 +41,6 @@ export function TeacherAffiliationsScreen() {
   const { mutate, mutation } = useCustomMutation();
   const invalidate = useInvalidate();
 
-  // asArray, not an inline Array.isArray: refine hands back a frozen `{}`
-  // placeholder while the query is idle, and the guard belongs in one helper.
   const affiliations = asArray<Affiliation>(result?.data);
 
   const statusLabel = (s: Affiliation["status"]): string => {
@@ -69,7 +67,6 @@ export function TeacherAffiliationsScreen() {
 
   const pendingCount = affiliations.filter((a) => a.status === "pending").length;
 
-  /** The expiry line for a pending invite — red inside two days. */
   const expiryNote = (a: Affiliation) => {
     if (a.status !== "pending" || !a.expiresAt) return null;
     const days = dayjs(a.expiresAt).diff(dayjs(), "day");
@@ -90,14 +87,6 @@ export function TeacherAffiliationsScreen() {
 
   return (
     <div className="space-y-6">
-      {/* ── THE STANDING RELATIONSHIPS COME FIRST ───────────────────────────
-          The 1058-line collaboration panel used to render ABOVE this list, so
-          a teacher opening "مراكزي" met request traffic before they could see
-          which centres they actually work with. The panel stays on this page —
-          unlike the centre portal's copy, which was a queue mounted inside a
-          DIRECTORY OF PEOPLE, this page IS the centre relationship, and the
-          request volume is far too low to earn its own destination. What was
-          wrong was only the order. */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -117,9 +106,6 @@ export function TeacherAffiliationsScreen() {
               <EmptyState icon={Building2} title={t("teacher.noAffiliations")} />
             </div>
           ) : (
-            /* Rows, not a five-column table. This list is one to four entries
-               and it was rendering centre / status / invited / expires /
-               actions across a 375px phone. */
             <ul className="divide-y divide-border border-y border-border">
               {affiliations.map((a) => {
                 const id = a.id || a._id || "";
@@ -148,10 +134,6 @@ export function TeacherAffiliationsScreen() {
                       </span>
                     </span>
 
-                    {/* The weighting is untouched: accept is the affirmative
-                        button behind a confirm, decline is destructive behind
-                        its own. Joining a centre changes who shares in the
-                        money from every lesson taught there. */}
                     {a.status === "pending" ? (
                       <span className="flex shrink-0 items-center gap-2">
                         <ConfirmDialog

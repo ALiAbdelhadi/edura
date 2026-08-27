@@ -1,18 +1,5 @@
 "use client";
 
-/* مدفوعات الطلاب / Student payments — a money RECORD screen.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Read-only by design: a payment intent is settled by the gateway webhook, never by
-   an operator, so there is no action here and no two-step commit — applying the
-   ceremony to a screen that writes nothing would devalue it where permanence is real
-   (D-022).
-
-   What it owes the reader instead is LINEAGE. A successful intent produced a receipt
-   and a ledger entry, and both refs are shown so the row can be traced to the
-   append-only record it created. A failed one carries its reason, because a failure
-   with no reason cannot be explained to a parent at a counter (D-026). */
-
 import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -59,10 +46,8 @@ type IntentRow = {
   id: string;
   studentName: string | null;
   studentEmail: string | null;
-  /** Set whenever someone other than the student paid — e.g. a parent top-up. */
   payerName: string | null;
   payerEmail: string | null;
-  /** `subscription` | `wallet_topup` | `parent_wallet_topup`. */
   purpose: string | null;
   courseTitle: string | null;
   centerName: string | null;
@@ -88,8 +73,6 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  // Arrived here from the global palette: seed the box it would have been typed
-  // into, so the list opens on the row the reader already picked.
   useParamSeed("q", setQ);
 
   const resource = `${apiBase}/payment-intents`;
@@ -113,7 +96,6 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
     id: detailId ?? "",
     queryOptions: { enabled: !!detailId },
   });
-  // Data-provider getOne unwraps the envelope; be tolerant of either shape.
   const d = ((detail as any)?.data ?? detail) as any;
 
   const filter = (
@@ -232,10 +214,6 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
                   onClick={() => setDetailId(r.id)}
                 >
                   <TableCell className="px-3 py-[7px]">
-                    {/* A parent wallet top-up legitimately has NO student, course
-                        or center (see the nullable student_id + its CHECK). Falling
-                        back to the payer names the row instead of showing three
-                        dashes and an unattributable amount. */}
                     <IdentityCell
                       initials={initialsOf(r.studentName ?? r.payerName ?? "—")}
                       name={r.studentName ?? r.payerName ?? "—"}
@@ -348,7 +326,6 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
                   {d.gatewayOrderId ?? "—"} / {d.gatewayRef ?? "—"}
                 </Num.Code>
               </Row>
-              {/* The lineage: what this payment actually wrote. */}
               <Row label={t("paymentIntents.receipt")}>
                 {d.payment?.receiptNumber ? <Num.Code>{d.payment.receiptNumber}</Num.Code> : "—"}
               </Row>

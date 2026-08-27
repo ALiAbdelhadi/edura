@@ -1,22 +1,3 @@
-/**
- * Room-based revenue split — money-path verification (live DB).
- *
- * Proves:
- *  VP1  the three shares sum to exactly 100% (DB-level CHECK) AND resolution
- *       order is per-room → per-center → global.
- *  VP2  a room-based course settles through the EXISTING append-only ledger with
- *       exactly-once settlement — platform/teacher/center each get their share
- *       ONCE, conserving the price; a re-run does not double-pay; a %-mode
- *       refund reverses it exactly.
- *  VP3  the split is SNAPSHOT at course creation — changing the config afterwards
- *       leaves an existing course settling at its ORIGINAL split while a newly
- *       created course uses the NEW split.
- *  VP5  the is_demo seed wrote room profiles but NO ledger rows.
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only room-revenue-split
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import {
@@ -31,13 +12,6 @@ import {
   ROOM_SEED_CENTER_SHORT_IDS,
 } from "../../../../packages/database/scripts/seed-money-scan";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "room-revenue-split.test.ts";
 
@@ -169,10 +143,8 @@ async function main() {
   );
   const su = { id: suId, role: "super_admin" } as never;
 
-  // Baseline: a known global split so tests are deterministic.
   await updateGlobalSplit({ platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 }, su);
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — DB sum=100 CHECK + resolution order");
   const { centerId, roomId } = await mkCenterRoom(tag);
 
@@ -205,7 +177,6 @@ async function main() {
   r = await withPlatformContext((tx) => resolveRevenueSplit(tx, { roomId, centerId }));
   assert(r?.source === "global", "clearing center override falls back to global");
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — room-based settlement through the existing ledger, exactly-once");
   await upsertRoomSplit(centerId, roomId, { platformShareBp: 2000, teacherShareBp: 6000, centerShareBp: 2000 }, su);
   const teacherId = await mkTeacher(tag + "2");
@@ -226,11 +197,6 @@ async function main() {
   const centerCut = Math.round((price * 2000) / 10000); // 4000
   const teacherCut = price - platformCut - centerCut; // 12000
   assert(after.teacher - before.teacher === teacherCut, `teacher credited its share once (+${teacherCut})`);
-  // D5 (Phase 4): this fixture's student has NO subscription, so the lesson
-  // resolves CENTER-HELD — the gross sits in the center's own drawer. Its net
-  // therefore never touches wallet_balance (crediting it was the F2
-  // double-pay), and the center's credit POSITION is debited what it owes on:
-  // the teacher's net plus the platform's fees.
   assert(after.center - before.center === 0, "center-held lesson: center wallet NOT credited (net already in its drawer)");
   assert(
     after.credit - before.credit === -(teacherCut + platformCut),
@@ -247,7 +213,6 @@ async function main() {
   assert(ledger.payment === price, `ledger payment row = price (${price})`);
   assert(ledger.commission === platformCut, `ledger commission total = platform cut (${platformCut})`);
 
-  // Exactly-once: settling again must not move money.
   await completeSession(sessionId, { id: teacherId, role: "teacher" } as never);
   const after2 = await wallets(teacherId, centerId);
   assert(
@@ -255,35 +220,27 @@ async function main() {
     "re-settling the same session does NOT double-pay (distributedAt exactly-once, credit included)",
   );
 
-  // %-mode refund reverses exactly (uses the course snapshot).
   await refundLessonForStudent(sessionId, studentId, "verification", su);
   const afterRefund = await wallets(teacherId, centerId);
   assert(
     afterRefund.teacher === before.teacher && afterRefund.center === before.center,
     "a %-mode refund reverses the split exactly (wallets back to pre-settlement)",
   );
-  // D5: the refund's extra credit debit is −centerNet, so the position lands
-  // at −price — the platform refunded the student from its own pocket while
-  // the gross still sits in the center's drawer, so the center owes it all.
   assert(
     afterRefund.credit - before.credit === -price,
     `center-held refund leaves the credit position at −price (−${price})`,
   );
 
-  // Course-level snapshot CHECK is DB-enforced too.
   await expectThrows(
     () =>
       withPlatformContext(
         (tx) =>
           tx.$executeRaw`UPDATE courses SET split_platform_bp = 5000, split_teacher_bp = 4000, split_center_bp = 2000 WHERE id = ${courseId}::uuid` as unknown as Promise<unknown>,
       ),
-    // Renamed from course_split_shape by the room-pricing-methods migration
-    // (method-aware CHECK, same rule for Method-1 rows).
     "course_pricing_shape",
     "DB CHECK rejects a course snapshot not summing to 100%",
   );
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — snapshot: config change does NOT re-rate an existing course");
   const t3 = await mkTeacher(tag + "3");
   const s3 = await mkStudent(tag + "3");
@@ -298,7 +255,6 @@ async function main() {
   const c2 = await mkRoomBasedCourse(tag + "3b", cr3.centerId, cr3.roomId, t3, s3b, 20000);
   assert((c2.snapshot as Record<string, number>).splitTeacherBp === 5000, "course2 (created after) froze split B (teacher 50%)");
 
-  // Settle course1 AFTER the config changed to B → it must still use A.
   const b1 = await wallets(t3, cr3.centerId);
   await completeSession(c1.sessionId, { id: t3, role: "teacher" } as never);
   const a1 = await wallets(t3, cr3.centerId);
@@ -309,19 +265,8 @@ async function main() {
   const a2 = await wallets(t3, cr3.centerId);
   assert(a2.teacher - b2.teacher === 10000, "NEW course settles at NEW split B (teacher +10000)");
 
-  // Restore the shared global default split (this test mutated it above).
   await updateGlobalSplit({ platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 }, su);
 
-  // ---------------------------------------------------------------- VP5
-  // This proof used to count `transactions` across EVERY is_demo center and
-  // assert zero. That census broke the day demo money became sanctioned: the
-  // showcase seeds settle lessons and record counter payments THROUGH THE
-  // REAL ENGINE, so shared dev legitimately holds engine-written demo ledger
-  // rows this suite never wrote (and, symmetrically, the photo/price checks
-  // were passing on showcase rooms while room-rate-demo-seed's own centers
-  // had been absent since the 2026-07-31 wipe). The "no ledger" half is a
-  // property of the SEED SOURCE and is asserted there; the positive half is
-  // scoped to the centers the room seeds actually own.
   console.log("\nVP5 — room demo seeds write profiles/config, never the ledger");
   const ledgerWrites = scanSeedsForDirectLedgerWrites();
   assert(

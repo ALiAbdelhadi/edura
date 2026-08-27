@@ -1,24 +1,3 @@
-/**
- * HALL BOOKING (collaboration requests) — every case of the ERP flow.
- *
- * A "hall booking" in this product is a CollaborationRequest: one side proposes
- * a class (subject/grade/track, schedule, optionally a HALL), the other side
- * decides, and acceptance is the one transaction that creates the affiliation,
- * the course (with its FROZEN pricing snapshot) and the whole session schedule.
- *
- * This suite walks the flow end to end in both directions and asserts the money
- * rules that hang off the hall choice. Grouped:
- *
- *   A  create — teacher-initiated (halls, pricing methods, every refusal)
- *   B  create — center-initiated (who may pick the method)
- *   C  accept — affiliation + course + schedule, snapshots, races, rollback
- *   D  reject / cancel / expire
- *   E  what the teacher SEES of a hall's rate (picker vs settlement parity)
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only hall-booking
- * NEVER --env-file=.env.local: that bypasses the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
@@ -65,9 +44,6 @@ async function expectError(fn: () => Promise<unknown>, needle: string, label: st
 
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
-// Distinct hour per accepted course: the session generator refuses a second
-// class for the same TEACHER (or hall) in an overlapping slot, and most of
-// these fixtures share one teacher.
 let slot = 8;
 const nextSlot = () => {
   const h = slot++;
@@ -82,10 +58,7 @@ async function main() {
   __sweepTag = tag;
   console.log("Hall booking (collaboration requests) DB tests —", tag);
 
-  // ------------------------------------------------------------------ fixtures
   const fx = await withPlatformContext(async (tx) => {
-    // Distinct SUBJECTS: the one-open-request unique is per
-    // (teacher, center, subject), so every pending request below needs its own.
     const all = await tx.subjectOffering.findMany({
       where: { isActive: true },
       select: { subjectId: true, gradeLevelId: true, trackId: true },
@@ -98,8 +71,6 @@ async function main() {
       throw new Error(`Need 16 offerings on distinct subjects, catalog has ${offerings.length}`);
     }
 
-    // A (subject, grade) pair the catalog does NOT offer — computed rather
-    // than guessed, so A10 tests the offering gate and not something else.
     const gradesOf = new Map<string, Set<string>>();
     for (const o of all) {
       const set = gradesOf.get(o.subjectId) ?? new Set<string>();
@@ -160,8 +131,6 @@ async function main() {
     const center = await mkCenter("C1");
     const other = await mkCenter("C2");
     const dead = await mkCenter("C3", "suspended");
-    // A center with NO per-student rate anywhere in its chain (the global row
-    // carries none), so a per-student hall there resolves to nothing.
     const bare = await mkCenter("C4");
     const teacher = await mkTeacher("T1");
     const teacher2 = await mkTeacher("T2");
@@ -175,15 +144,11 @@ async function main() {
       both: await mkRoom(center.id, "hall-both", ["whole_room_percent", "per_attending_student"], {
         price: 45_000,
       }),
-      // At the BARE center, so nothing in its room > center > global chain
-      // carries a rate → per-student pricing must fail fast on it.
       unrated: await mkRoom(bare.id, "hall-unrated", ["per_attending_student"]),
       inactive: await mkRoom(center.id, "hall-inactive", ["whole_room_percent"], { isActive: false }),
       foreign: await mkRoom(other.id, "hall-foreign", ["whole_room_percent"]),
     };
 
-    // Rates: a ROOM-scope rate on `both` (900bp) and a CENTER-scope rate
-    // (500bp) that `perStudent` inherits — so precedence is observable.
     await tx.commissionSetting.create({
       data: { scope: "room", roomId: rooms.both, centerPerStudentBp: 900 },
     });
@@ -218,7 +183,6 @@ async function main() {
   const SA = { id: fx.superAdmin, role: "super_admin" } as never;
 
   let offIdx = 0;
-  /** A fresh request payload on an unused subject. */
   const input = (extra: Record<string, unknown> = {}) => {
     const off = fx.offerings[offIdx++]!;
     return {
@@ -236,7 +200,6 @@ async function main() {
     } as never;
   };
 
-  // =========================================================== A — create (teacher)
   console.log("\nA — a TEACHER books at a center");
 
   const aNoHall = await createCollaborationRequest(input({ expectedStudents: 12 }), T);
@@ -321,7 +284,6 @@ async function main() {
   const smuggled = await createCollaborationRequest(input({ proposedCenterShare: 9_500 }), T);
   assert(smuggled.proposedCenterShare === 0, "A15 a crafted money number on the wire is stored as 0");
 
-  // =========================================================== B — create (center)
   console.log("\nB — a CENTER invites a teacher");
 
   await expectError(
@@ -338,7 +300,6 @@ async function main() {
   const bForced = await createCollaborationRequest(input({ roomId: fx.rooms.perStudent }), C);
   assert(bForced.proposedPricingMethod === "per_attending_student", "B3 a forced hall still imposes its method on a center invite");
 
-  // =========================================================== C — accept
   console.log("\nC — acceptance: affiliation + course + schedule, in ONE transaction");
 
   const c1 = await acceptCollaborationRequest(aNoHall.id, C);
@@ -407,7 +368,6 @@ async function main() {
     "C9 a replay of an accepted request is refused (the claim is atomic)",
   );
 
-  // Expiry, checked at the door.
   const expiring = await createCollaborationRequest(input(), T);
   await withPlatformContext((tx) =>
     tx.collaborationRequest.update({
@@ -419,7 +379,6 @@ async function main() {
   const expiredRow = await withPlatformContext((tx) => tx.collaborationRequest.findUnique({ where: { id: expiring.id } }));
   assert(expiredRow?.status === "expired", "C10 …and the attempt flips it to `expired` rather than leaving it pending");
 
-  // Schedule conflict → the WHOLE acceptance rolls back.
   console.log("\nC11 — a clashing schedule rolls the entire acceptance back");
   const clash = await createCollaborationRequest(
     input({
@@ -439,7 +398,6 @@ async function main() {
   assert(after.courses === coursesBefore, `C11 …no orphan course was left behind (${coursesBefore} → ${after.courses})`);
   assert(after.row?.status === "pending" && after.row?.courseId === null, "C11 …and the request is STILL pending, so it can be re-tried");
 
-  // Platform override.
   console.log("\nC12 — the platform can decide a request neither side answered");
   const stuck = await createCollaborationRequest(input(), C);
   await expectError(
@@ -450,7 +408,6 @@ async function main() {
   const overridden = await acceptCollaborationRequest(stuck.id, SA, { as: "platform_override" });
   assert(!!overridden.course?.id, "C12 …a super admin CAN decide it, and the class is created normally");
 
-  // =========================================================== D — reject / cancel / expire
   console.log("\nD — declining, withdrawing, and the TTL sweep");
 
   const dReject = await createCollaborationRequest(input(), T);
@@ -484,7 +441,6 @@ async function main() {
   assert(swept.old?.status === "expired", "D7 the TTL sweep expires an over-due pending request");
   assert(swept.new?.status === "pending", "D7 …and leaves a live one alone");
 
-  // =========================================================== E — what each side sees
   console.log("\nE — the booking list, and the rate the teacher is quoted");
 
   const teacherList = await listCollaborationRequests(T);
@@ -496,9 +452,6 @@ async function main() {
   assert(pendingOnly.every((r) => r.status === "pending"), "E2 the status filter narrows the list");
   await expectError(() => listCollaborationRequests({ id: fx.teacher, role: "student" } as never), "", "E3 a role with no side in this flow is refused a list");
 
-  // The picker's batch resolver must agree with the per-room resolver the
-  // settlement engine uses — a hall may never be quoted a rate it does not
-  // settle at.
   const roomIds = [fx.rooms.both, fx.rooms.perStudent, fx.rooms.percent, fx.rooms.unrated];
   const parity = await withPlatformContext(async (tx) => {
     const batch = await resolveMethod2RatesForRooms(tx, { centerId: fx.center, roomIds });

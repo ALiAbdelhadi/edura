@@ -16,26 +16,8 @@ import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
 import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 
-// ============================================================================
-// better-auth instance — apps/superadmin (replaces NextAuth v4, 2026-08).
-//
-// Fully separated from apps/www: its own cookie prefix AND its own signing
-// secret, so sessions are mutually invalid across apps even on one domain.
-// The role partition (C-04) means only super_admin/accountant pass the
-// before-hook; a www role can never mint a back-office session.
-//
-// FULL H5 semantics (unlike www): every failure is the same generic
-// invalid-credentials error — no typed USER_NOT_FOUND here, staff accounts
-// are the highest-value enumeration target.
-//
-// 2FA (TOTP + backup codes) is REQUIRED for both back-office roles: sign-in
-// succeeds, but the dashboard layout refuses to render until the account has
-// twoFactorEnabled — see the enrollment gate in the app layout.
-// ============================================================================
-
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days — unchanged
 
-// C2: staff accounts get a strict backoff — small burst, ~1/min sustained.
 const LOGIN_IP_CAP = 10;
 const LOGIN_IP_RATE = 10;
 const LOGIN_EMAIL_CAP = 5;
@@ -44,8 +26,6 @@ const LOGIN_EMAIL_RATE = 1;
 const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
 const useSecureCookies = baseURL.startsWith("https://");
 
-// Distinct signing secret (M2-style separation). Dev may fall back to the
-// shared NEXTAUTH_SECRET; production must set SUPERADMIN_NEXTAUTH_SECRET.
 export const superadminSecret =
   process.env.SUPERADMIN_NEXTAUTH_SECRET ??
   (process.env.NODE_ENV !== "production"
@@ -58,10 +38,6 @@ export const auth = betterAuth({
   basePath: "/api/auth",
   secret: superadminSecret,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  // Dev-only extra: the preview server in .claude/launch.json may run this
-  // app on an alternate localhost port while NEXTAUTH_URL stays 3004. Ports
-  // are NOT enumerated here — see dev-origins.ts; it returns [] in production,
-  // so baseURL stays the only trusted origin there.
   trustedOrigins: [baseURL, ...devLocalhostOrigins()],
   advanced: {
     cookiePrefix: SESSION_COOKIE_PREFIX,
@@ -80,8 +56,6 @@ export const auth = betterAuth({
     expiresIn: SESSION_MAX_AGE,
     updateAge: 60 * 60 * 24,
     additionalFields: {
-      // Shared auth_sessions table with www — the column exists; superadmin
-      // sessions simply never set it.
       centerId: { type: "string", required: false, input: false },
     },
   },
@@ -99,16 +73,8 @@ export const auth = betterAuth({
     disableSignUp: true, // staff accounts are created by the back office only
     minPasswordLength: 1, // policy enforced at creation; sign-in accepts legacy
     password: { hash: hashPassword, verify: verifyPassword },
-    // `sendResetPassword` is DELIBERATELY NOT SET, exactly as in apps/www:
-    // better-auth's own reset writer does not bump `users.token_version`, so it
-    // would set a password without firing the `users_revoke_sessions` trigger
-    // and leave pre-existing sessions alive. Back-office resets go through
-    // `requestPasswordReset` (@repo/server-core/services/auth/password-reset),
-    // which the admin user directory already triggers.
   },
   emailVerification: {
-    // No competing implementation, so better-auth owns it. Setting this does
-    // NOT set `requireEmailVerification` — no sign-in behaviour changes.
     sendVerificationEmail: async ({ user, url }) => {
       await send(
         "email_verification",
@@ -159,23 +125,15 @@ export const auth = betterAuth({
         user.status === "active" &&
         !!user.passwordHash;
       if (!eligible) {
-        // H5: one dummy compare, one generic failure — a nonexistent email, a
-        // www role, a shell and a suspended staff account are indistinguishable.
         await verifyPassword({ hash: DUMMY_HASH, password });
         throw new APIError("UNAUTHORIZED", {
           message: "Invalid email or password",
         });
       }
-      // Eligible: the endpoint runs the single real bcrypt compare against
-      // the trigger-mirrored credential account.
     }),
   },
   plugins: [
     twoFactor({ issuer: "Edura Back Office" }),
-    // Platform user management APIs (UI lands in a later workstream). Only
-    // super_admin is an admin; accountant maps to the plain-user permission
-    // set, so it gets NO admin API surface. The roles map is required by the
-    // plugin whenever adminRoles uses non-default names.
     admin({
       adminRoles: ["super_admin"],
       roles: { super_admin: adminAc, accountant: userAc },

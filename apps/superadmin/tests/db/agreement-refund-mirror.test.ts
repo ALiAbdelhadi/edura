@@ -1,20 +1,3 @@
-/**
- * Phase 5 (revenue-operations spec, D1/D2) — the superadmin side.
- *
- * What is proven:
- *   [1] APPROVAL puts a rate in force in ONE tx: the previous active row is
- *       ended at the new effectiveFrom, the partial unique holds, and both
- *       decisions write their audit rows.
- *   [2] REJECT / TERMINATE guards: only a pending proposal rejects; only an
- *       active agreement terminates; termination falls the pair back to the
- *       affiliation rate.
- *   [3] THE REFUND MIRROR: refunding an agreement-settled lesson reverses
- *       under the agreement live ON THE LESSON'S DATE — teacher and center
- *       wallets return exactly to their pre-settlement figures (platform-held
- *       coverage, so the wallets are the measure).
- *
- * Run: bun run --filter edura-superadmin test:db:only agreement-refund-mirror
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";
@@ -178,8 +161,6 @@ async function main() {
   const st = (await withPlatformContext((tx) =>
     tx.sessionSettlement.findUnique({ where: { sessionId: fx.session } }),
   ))!;
-  // Agreement #2 (fixed 40 EGP to the teacher, residual center) governs today:
-  // net = 10000−400 = 9600 → teacher 4000, center 5600.
   assert(
     st.teacherTotal === 4000 && st.centerTotal === 5600,
     `settled under the LIVE agreement (${st.teacherTotal}/${st.centerTotal})`,

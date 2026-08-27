@@ -1,14 +1,3 @@
-// =============================================================================
-// Chat domain queries — shared by the Next.js REST layer AND the standalone
-// realtime WebSocket server (both pass their own transaction/context wrapper).
-// Every function takes a `db: TenantTx` so callers control tenancy/RLS context.
-//
-// AUTHORIZATION LIVES IN chat-scope.ts, NOT HERE. This module persists and
-// reads; it delegates every "may they?" question to `assertCanReach` /
-// `assertNotBlocked` so there is exactly one implementation of the rules.
-// The types below are re-exported from chat-scope for import compatibility.
-// =============================================================================
-
 import type { TenantTx } from "../client";
 import type {
   Conversation,
@@ -49,12 +38,8 @@ export type { InitiationMode } from "./chat-policy";
 export const MAX_MESSAGE_LENGTH = 4000;
 export const PREVIEW_LENGTH = 140;
 
-/** Body shown in place of a soft-deleted message for participants. */
 export const REMOVED_BODY = "";
 
-// ---------------------------------------------------------------------------
-// Wire types (JSON-safe: BigInt seq → number)
-// ---------------------------------------------------------------------------
 export type MessageView = {
   id: string;
   conversationId: string;
@@ -66,7 +51,6 @@ export type MessageView = {
   deliveredAt: Date | null;
   readAt: Date | null;
   createdAt: Date;
-  /** Soft-deleted: body is blanked for participants, retained in the log. */
   deleted: boolean;
 };
 
@@ -77,7 +61,6 @@ export type ConversationView = {
   lastMessagePreview: string | null;
   lastMessageSenderId: string | null;
   unreadCount: number;
-  /** Partner's read cursor — my messages up to this instant are "read". */
   partnerLastReadAt: Date | null;
   centerId: string | null;
   createdAt: Date;
@@ -90,8 +73,6 @@ export function toMessageView(m: ConversationMessage): MessageView {
     conversationId: m.conversationId,
     senderId: m.senderId,
     seq: Number(m.seq),
-    // Retention: the row keeps the body forever (super-admin log); participants
-    // just stop seeing it. There is no hard-delete path anywhere.
     body: deleted ? REMOVED_BODY : m.body,
     clientId: m.clientId,
     status: m.status,
@@ -126,9 +107,6 @@ function toConversationView(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 export function canonicalPair(u1: string, u2: string) {
   return u1 < u2 ? { userAId: u1, userBId: u2 } : { userAId: u2, userBId: u1 };
 }
@@ -157,18 +135,8 @@ function isUniqueViolation(e: unknown): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Conversations
-// ---------------------------------------------------------------------------
-
 export type GetOrCreateOptions = {
-  /**
-   * REQUIRED on every path that can CREATE a conversation. Typed as required so
-   * a new transport cannot ship an unlimited channel by omission — the socket
-   * server was exactly that gap before this existed.
-   */
   limiter: ChatLimiter;
-  /** Skip the new-conversation bucket when the caller already consumed one. */
   skipRateLimit?: boolean;
 };
 
@@ -189,9 +157,6 @@ export async function getOrCreateConversation(
 
   if (existing) {
     assertParticipant(existing, initiator.id);
-    // Replies inside an existing conversation skip the relationship gate (the
-    // relationship may legitimately have ended — a finished course still needs
-    // its thread readable) but NEVER skip blocks.
     await assertNotBlocked(db, initiator.id, recipientId);
     const recipient = await db.user.findFirst({
       where: { id: recipientId },
@@ -201,9 +166,6 @@ export async function getOrCreateConversation(
     return { conversation: existing, created: false, recipient };
   }
 
-  // Opening a NEW conversation is the harassment-relevant action: gate it
-  // BEFORE doing the relationship lookups so a flood cannot be used to probe
-  // the directory either.
   if (!opts.skipRateLimit) {
     await consume(
       opts.limiter,
@@ -213,7 +175,6 @@ export async function getOrCreateConversation(
     );
   }
 
-  // THE gate — matrix + relationship + block, all in one call.
   const { centerId, recipient } = await assertCanReach(db, initiator, recipientId);
 
   try {
@@ -293,9 +254,6 @@ export async function getConversationView(
   return toConversationView(conversation, userId, partner ?? undefined);
 }
 
-// ---------------------------------------------------------------------------
-// Messages
-// ---------------------------------------------------------------------------
 export async function listMessages(
   db: TenantTx,
   userId: string,
@@ -333,14 +291,6 @@ export type AppendMessageResult = {
   duplicate: boolean;
 };
 
-/**
- * Persist a message. `sender` is ALWAYS the authenticated actor — transports
- * must never accept a senderId from the client. Handles clientId idempotency
- * (safe retries after reconnects) and updates the denormalized list state.
- *
- * `limiter` is REQUIRED: every send path is rate limited, and a transport that
- * forgets one fails to compile.
- */
 export async function appendMessage(
   db: TenantTx,
   sender: ChatActor,
@@ -366,8 +316,6 @@ export async function appendMessage(
   let conversation: Conversation;
   if (input.conversationId) {
     conversation = await getConversationForUser(db, sender.id, input.conversationId);
-    // Blocks apply to replies too — the relationship gate does not run for an
-    // existing thread, so this is the check that stops a blocked sender.
     await assertNotBlocked(
       db,
       sender.id,
@@ -417,7 +365,6 @@ export async function appendMessage(
       },
     });
   } catch (e) {
-    // clientId retry race — the first attempt won; return it idempotently.
     if (isUniqueViolation(e) && input.clientId) {
       const dup = await db.conversationMessage.findUnique({
         where: {
@@ -460,11 +407,6 @@ export async function appendMessage(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Delivery / read state
-// ---------------------------------------------------------------------------
-
-/** Recipient's client confirmed receipt of a single just-sent message. */
 export async function markMessageDelivered(
   db: TenantTx,
   messageId: string,
@@ -484,11 +426,6 @@ export type DeliveredSweepGroup = {
   deliveredAt: Date;
 };
 
-/**
- * Delivered-on-connect sweep: everything addressed to `userId` that was sent
- * while they were offline becomes "delivered". Returns per-conversation groups
- * so the socket layer can push receipts to each sender.
- */
 export async function markDeliveredForUser(
   db: TenantTx,
   userId: string,
@@ -535,7 +472,6 @@ export type ReadReceipt = {
   updatedCount: number;
 };
 
-/** Reader opened the conversation: zero their counter, mark partner's messages read. */
 export async function markConversationRead(
   db: TenantTx,
   userId: string,
@@ -544,7 +480,6 @@ export async function markConversationRead(
   const conversation = await getConversationForUser(db, userId, conversationId);
   const now = new Date();
 
-  // Anything not yet delivered is implicitly delivered the moment it is read.
   await db.conversationMessage.updateMany({
     where: { conversationId, senderId: { not: userId }, deliveredAt: null },
     data: { deliveredAt: now },
@@ -588,7 +523,6 @@ export async function getTotalUnread(
   return (a._sum.aUnreadCount ?? 0) + (b._sum.bUnreadCount ?? 0);
 }
 
-/** Distinct partner ids of a user's most recent conversations (presence fanout). */
 export async function listPartnerIds(
   db: TenantTx,
   userId: string,

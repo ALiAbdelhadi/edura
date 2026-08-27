@@ -3,9 +3,6 @@ import { normalizeLocale, type Locale } from "../locale";
 import type { WelcomeData } from "../types";
 import { Cta, EmailLayout, FallbackLink, Note, P, CodeBox } from "./layout";
 
-// Copy carried over verbatim from apps/www/src/lib/services/onboarding/
-// welcome-email.ts, which this replaces. The wording was already reviewed and
-// shipped; the only thing that changed is the shell it renders into.
 const COPY = {
   ar: {
     subject: "أهلاً بك في إدورا — أكمل ملفك الشخصي",
@@ -33,7 +30,6 @@ const COPY = {
   },
 } as const;
 
-/** XXXX-XXXX-XXXX — the same code, just readable over a phone call. */
 export function groupFamilyCode(code: string): string {
   return code.replace(/(.{4})(?=.)/g, "$1-");
 }
@@ -54,8 +50,6 @@ export function WelcomeEmail({ locale: raw, data }: { locale: Locale; data: Welc
       <FallbackLink href={data.link} locale={locale} />
       {code ? (
         <>
-          {/* The fallback URL above ends flush; without this the Student ID
-              heading reads as part of it. */}
           <div style={{ height: "20px" }} />
           <P>
             <strong>{t.codeLabel}</strong>

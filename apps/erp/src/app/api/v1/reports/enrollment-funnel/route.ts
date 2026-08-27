@@ -11,7 +11,6 @@ const querySchema = z.object({
   to: z.string().optional(),
 });
 
-// Operational report — MANAGER (and owner).
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

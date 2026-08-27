@@ -1,8 +1,5 @@
 "use client";
 
-// Teacher team management: create/remove assistant accounts. Assistants are
-// the primary chat contact for the teacher's students & parents (the teacher
-// handles escalations only — see the conversation policy).
 import React, { useCallback, useEffect, useState } from "react";
 import { Lock, Plus, Trash2, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -36,23 +33,6 @@ type AssistantRow = {
   user: { id: string; name: string; email: string | null; status: string } | null;
 };
 
-/**
- * What handing your practice to an assistant actually grants.
- *
- * A teacher creates an assistant from THIS screen and was told nothing about
- * what that gives away. The centre's staff screen has had the answer for its
- * own tiers all along — capabilities listed plainly, the hard exclusions in
- * red, and the audit note underneath — and a teacher delegating attendance,
- * grades and the power to CLOSE A LESSON deserves the same sheet.
- *
- * STATIC WORDS, no endpoint. Every line is the Step 8 boundary as
- * `lib/authz/teacher-actor.ts` enforces it: full delegation EXCEPT wallet,
- * payouts, financial settings and managing other assistants. Closing a lesson
- * IS included and is called out, because it moves money and surprises people.
- *
- * If that boundary ever moves, this sheet moves with it — it is a promise
- * about behaviour, not decoration.
- */
 const ASSISTANT_CAN = [
   "attendance",
   "door",
@@ -85,8 +65,6 @@ function DelegationBoundary() {
         ))}
       </ul>
 
-      {/* Red, not amber: these are not "not yet", they are permanently out of
-          an assistant's reach — the money exclusions Step 8 is built on. */}
       <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3">
         <Lock className="mt-px size-3.5 shrink-0 text-destructive" />
         <span className="text-xs leading-relaxed text-destructive">
@@ -232,8 +210,6 @@ function AddAssistantDialog({ onCreated }: { onCreated: () => Promise<void> }) {
           data?: { invite?: { claimLink: string; delivery: InviteDelivery } | null };
         }>();
       await onCreated();
-      // Deliberately NOT closing the dialog: the copyable link is the fallback
-      // when the invite email does not arrive, and closing would throw it away.
       if (res?.data?.invite) {
         setInvite({
           claimLink: res.data.invite.claimLink,
@@ -246,11 +222,6 @@ function AddAssistantDialog({ onCreated }: { onCreated: () => Promise<void> }) {
       }
     } catch (err) {
       if (err instanceof HTTPError) {
-        // `err.data`, NOT `err.response.json()`: ky 2.x pre-parses the error
-        // body and CONSUMES the response doing it, so reading the response
-        // again always threw and this always fell through to the generic
-        // message below — the server's actual reason never reached the screen.
-        // Same defect, same fix as ledger/money-write.ts.
         const body = (err.data ?? null) as {
           error?: { message?: string };
         } | null;

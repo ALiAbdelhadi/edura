@@ -21,9 +21,7 @@ export type WireConversation = Iso<
 export type WireContact = ContactView;
 
 export type UiMessage = WireMessage & {
-  /** Optimistic: sent locally, no server ack yet. */
   pending?: boolean;
-  /** Both socket and REST fallback failed — offer retry. */
   failed?: boolean;
 };
 

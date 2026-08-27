@@ -1,31 +1,4 @@
 #!/usr/bin/env bash
-# =============================================================================
-# Repoint apps/*/.env.test and packages/database/.env.test at the test branch.
-#
-# RUN THIS YOURSELF. It prompts for the connection strings (hidden — they carry
-# passwords), VALIDATES each one by connecting, and only then writes them.
-#
-#   bash packages/database/scripts/fix-test-db-credentials.sh
-#
-# ---------------------------------------------------------------------------
-# THE POINT OF THIS SCRIPT IS THE LABEL CHECK.
-#
-# The DB suites TRUNCATE TABLES. If a production connection string ever lands in
-# .env.test — one wrong paste out of a Neon console listing every branch — the
-# next `bun run test:db` destroys production.
-#
-# `db-guard.ts` already refuses to run the suites against a database that is not
-# labelled `edura-env:test`. That is the backstop. This is the earlier gate:
-# refuse to WRITE the wrong URL in the first place, so the mistake is caught
-# while you are looking at it rather than by a guard someone might one day pass
-# `--force` to.
-# ---------------------------------------------------------------------------
-#
-# Where to get the values: Neon Console -> the TEST branch -> Connection Details.
-#   DATABASE_URL  pooled,   role edura_app     (host contains "-pooler")
-#   DIRECT_URL    unpooled, role neondb_owner  (no "-pooler")
-#   ADMIN_URL     pooled,   role neondb_owner
-# =============================================================================
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -47,8 +20,7 @@ dim "Neon Console -> TEST branch -> Connection Details."
 dim "Leave a prompt blank to keep the current value for that variable."
 echo
 
-# Connect and report the role + the edura-env label. Same query db-guard.ts uses.
-probe() { # $1=url ; echos "role|label" or "ERR:<msg>"
+probe() {
   local url="$1" out
   out=$("$PSQL" "$url" -tAX -c \
     "SELECT current_user || '|' || COALESCE(shobj_description(d.oid,'pg_database'),'<unlabelled>')

@@ -51,7 +51,6 @@ type MessageRow = {
 
 const ANY = "__any__";
 
-/** Step 7: WhatsApp delivery log (every attempt, mock included). */
 export function WhatsAppMessagesScreen() {
   const t = useTranslations();
   const locale = useLocale() as Locale;

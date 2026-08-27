@@ -12,24 +12,10 @@ import {
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import type { M2RateInput } from "@repo/server-core/services/rooms/room-rate";
 
-// Hall photos are held to the SAME ceiling as every other image surface — the
-// number belongs to the platform's request-body cap, not to this feature, so a
-// second literal here could only ever drift under it.
 const MAX_PHOTO_SIZE = MAX_IMAGE_BYTES;
 const MAX_PHOTOS_PER_ROOM = 12;
 
-/**
- * Where a room's photos live. One definition, so the folder an upload writes
- * to and the prefix a delete is confined to cannot drift apart.
- */
 const roomPhotoFolder = (roomId: string) => `edura/rooms/${roomId}`;
-
-// ---------------------------------------------------------------------------
-// Room pricing methods — the center sets WHICH methods a hall offers, and (as
-// the hall's owner) its own per-student rate, BOUNDED by the platform's
-// published rate. The whole-room split % stays superadmin-only: that one is
-// the platform's cut, not the hall's.
-// ---------------------------------------------------------------------------
 
 export const pricingMethodsSchema = z
   .array(z.enum(["whole_room_percent", "per_attending_student"]))
@@ -37,12 +23,6 @@ export const pricingMethodsSchema = z
   .max(2)
   .refine((m) => new Set(m).size === m.length, "Duplicate pricing method");
 
-/**
- * The hall's own per-student rate.
- *  - omitted  → leave whatever the hall has (inherit, or keep its override)
- *  - null     → drop the override, go back to inheriting the platform's rate
- *  - object   → set it (server re-checks shape + ceiling; the UI is a hint)
- */
 export const perStudentRateSchema = z
   .object({
     fee: z.number().int().nonnegative().max(99_999_900).nullable(),
@@ -72,18 +52,11 @@ export const roomPatchSchema = z.object({
   perStudentRate: perStudentRateSchema.optional(),
 });
 
-/**
- * `perStudentRate` is NOT a Room column — it is a commission_settings scope row
- * written alongside. Split it out so the rest can still be spread straight into
- * the Prisma call and a new field can never leak into `room.create` by accident.
- */
 export function splitRoomPayload<T extends { perStudentRate?: M2RateInput | null }>(body: T) {
   const { perStudentRate, ...roomFields } = body;
   return { roomFields, perStudentRate };
 }
 
-// Lives in the shared kernel (the collaboration service moved there and needs
-// it); re-exported here so every existing www import path keeps working.
 export { assertMethod2Enablable } from "@repo/server-core/services/rooms/method2";
 export {
   setRoomM2RateAsCenter,
@@ -91,16 +64,6 @@ export {
   resolveRoomRateCeiling,
 } from "@repo/server-core/services/rooms/room-rate";
 
-/**
- * Upload a room photo to Cloudinary and append its URL to room.photos.
- * center_admin only, own center (ownership re-checked here). Reuses the exact
- * signed server-side upload the materials flow uses.
- *
- * Validation (size + M6 magic-byte sniffing — `file.type` is attacker-
- * controlled, so an HTML/SVG/script payload spoofed as image/jpeg must not be
- * served from the Cloudinary domain) lives in @repo/server-core/media/images
- * so every image surface enforces it identically.
- */
 export async function uploadRoomPhoto(roomId: string, file: File, user: SessionUser) {
   if (!isCloudinaryConfigured()) {
     throw new BusinessRuleError(
@@ -120,8 +83,6 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
   }
   const { buffer, mime: contentType, extension: ext } = validated;
 
-  // Authorize and check the cap first, so a rejected upload never reaches
-  // Cloudinary.
   const room = await scopedDb(user, (tx) =>
     tx.room.findUnique({
       where: { id: roomId },
@@ -142,15 +103,10 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
     resource_type: "image",
     contentType,
     filename: `room.${ext}`,
-    // Cap what we store: a 12 MP phone photo is pointless as a hall picture,
-    // and every cold-cache fetch pays for the extra pixels. Delivery-time
-    // resizing still happens per-surface via @repo/ui/lib/cloudinary.
     transformation: "c_limit,w_2048,h_2048,q_auto:good",
     tags: ["edura", "room"],
   });
 
-  // The checks above ran before a multi-second network round-trip, so re-run
-  // the ones that could have changed while it was in flight.
   let updated;
   try {
     updated = await scopedDb(user, async (tx) => {
@@ -173,31 +129,12 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
       });
     });
   } catch (err) {
-    // Nothing points at the asset now, and its public_id is random, so it would
-    // be unreachable forever. Drop it rather than leak it into the account.
     await deleteImageByUrl(secure_url, { owned: roomPhotoFolder(roomId) + "/" });
     throw err;
   }
   return { url: secure_url, photos: updated.photos };
 }
 
-/**
- * Drop the Cloudinary assets a photo-list edit removed.
- *
- * Room photos get a RANDOM public_id (unlike avatars/logos, a room holds many),
- * so a URL dropped from `room.photos` is the last reference that existed — the
- * asset would otherwise sit in the account forever, unreachable.
- *
- * Runs AFTER the row is committed and never throws: deleting first would leave
- * the room pointing at a dead URL if the write then failed, and a Cloudinary
- * hiccup must not fail an edit the user already saw succeed. Non-Cloudinary
- * entries (externally hosted URLs) are ignored by `deleteImageByUrl`.
- *
- * `roomPatchSchema.photos` is a caller-supplied list of free-text URLs, so the
- * removed set is ATTACKER-CHOSEN: a center could drop another entity's URL into
- * the list and then remove it to have us destroy an asset it never owned. The
- * `owned` prefix confines every delete to this room's own folder.
- */
 export async function pruneRemovedRoomPhotos(
   roomId: string,
   previous: string[],

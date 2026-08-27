@@ -22,7 +22,6 @@ export function ChartTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    // --lift-2: a tooltip is an overlay, the only thing the second elevation level is for.
     <div className="min-w-36 rounded-md border border-rule bg-sheet px-3 py-2 text-xs shadow-[var(--lift-2)]">
       {label ? (
         <div className="mb-1.5 font-medium text-ink">
@@ -42,7 +41,6 @@ export function ChartTooltip({
               />
               {entry.name}
             </span>
-            {/* A tooltip value is a figure the system computed — same rule as everywhere. */}
             <span className="num font-medium text-ink">
               {valueFormatter && typeof entry.value === "number"
                 ? valueFormatter(entry.value)

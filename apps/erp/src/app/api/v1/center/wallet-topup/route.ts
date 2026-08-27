@@ -6,11 +6,6 @@ import { topUpWalletCash } from "@/lib/services/wallet/wallet";
 
 export const dynamic = "force-dynamic";
 
-// Center staff record a CASH top-up into a roster student's wallet. Credit-only
-// — there is no center-facing wallet debit/withdraw path. The credit is a
-// traceable ledger entry (recordedBy = staff, centerId = crediting center).
-// When a RECEPTIONIST records it, `acting.id` is the staff's own id, so the
-// ledger's recordedBy traces to the staff member on-behalf-of the center.
 const bodySchema = z
   .object({
     studentId: z.string().uuid(),

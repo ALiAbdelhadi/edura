@@ -1,27 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-/**
- * The app's root, `/{locale}`, after the landing page moved to apps/showcase.
- *
- * Every branch of this file is a redirect, so there is no rendered output to
- * assert on — which is exactly why it is worth a test: the ordering is the
- * behaviour, and the expensive mistake (bouncing a SIGNED-IN user out to a
- * marketing site) is invisible until a real user hits it.
- */
-
 const getSessionUser = vi.fn<() => Promise<SessionUser | null>>();
 vi.mock("@/lib/auth/session", () => ({
   getSessionUser: () => getSessionUser(),
   requireSession: vi.fn(),
 }));
 
-/**
- * `redirect()` works by THROWING, and the real one throws a framework-internal
- * signal. The mock throws too — not for fidelity, but because a mock that
- * merely records the call would let execution fall through to the next
- * redirect, and the test would assert the last branch instead of the taken one.
- */
 class RedirectSignal extends Error {
   constructor(readonly target: string) {
     super(`NEXT_REDIRECT:${target}`);
@@ -36,7 +21,6 @@ vi.mock("next/navigation", () => ({
 const { default: RootPage } = await import("@/app/[locale]/page");
 const { marketingSiteUrl } = await import("@/lib/marketing-site");
 
-/** Runs the page and returns where it sent the visitor. */
 async function landsOn(locale: string): Promise<string> {
   try {
     await RootPage({ params: Promise.resolve({ locale }) });
@@ -64,8 +48,6 @@ describe("root redirect", () => {
     process.env.MARKETING_SITE_URL = "https://edura.eg";
     getSessionUser.mockResolvedValue(student);
 
-    // The session check runs FIRST and wins even when marketing is configured:
-    // a user who has already converted must never be bounced to the sales site.
     expect(await landsOn("ar")).toBe("/ar/dashboard");
   });
 
@@ -84,7 +66,6 @@ describe("root redirect", () => {
 
   it("falls back to the app's own login when marketing is unconfigured", async () => {
     getSessionUser.mockResolvedValue(null);
-    // Never a dead link: an unconfigured deployment still lands somewhere real.
     expect(await landsOn("ar")).toBe("/ar/login");
   });
 
@@ -103,7 +84,6 @@ describe("marketingSiteUrl", () => {
   });
 
   it("refuses a non-http(s) scheme", () => {
-    // This value becomes a Location header; `javascript:` must never reach it.
     for (const bad of ["javascript:alert(1)", "data:text/html,x", "file:///etc"]) {
       process.env.MARKETING_SITE_URL = bad;
       expect(marketingSiteUrl(), bad).toBeNull();

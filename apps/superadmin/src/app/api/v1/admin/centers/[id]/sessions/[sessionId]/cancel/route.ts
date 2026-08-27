@@ -5,7 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminCancelSession } from "@/lib/services/admin/center-operations";
 
-// Refused once the session has settled — its revenue is already distributed.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ reason: z.string().trim().min(1).max(500) }).strict();

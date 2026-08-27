@@ -41,16 +41,6 @@ import {
   type Column,
 } from "./ledger";
 
-/**
- * OFF-SYSTEM TEACHERS — the center's list of teachers who will never log in.
- *
- * The list is deliberately narrowed to `external` while the MAIN teachers
- * screen keeps showing everyone together. That is the right way round: the
- * combined view is the center's picture of its own business, and this screen is
- * the workbench for the extra work off-system teachers create — registering
- * their students by hand, settling their cash, and checking nothing was missed.
- */
-
 type TeacherRow = {
   id: string;
   teacherId: string;
@@ -125,8 +115,6 @@ export function ExternalTeachersScreen() {
             subjects: values.subjects
               ? values.subjects.split(",").map((s) => s.trim()).filter(Boolean)
               : [],
-            // Typed in EGP, stored in piasters — the whole codebase keeps money
-            // in minor units and this form is not the place to break that.
             centerShare: values.centerShare
               ? Math.round(Number(values.centerShare) * 100)
               : null,
@@ -178,8 +166,6 @@ export function ExternalTeachersScreen() {
         r.removed ? (
           <Badge tone="neutral">{t("externalTeachers.removed")}</Badge>
         ) : (
-          // "Off-system" is a working arrangement, not a problem — a neutral
-          // tone, never a warning colour. The center chose this.
           <Badge tone="neutral">{t("externalTeachers.badge")}</Badge>
         ),
     },
@@ -215,9 +201,6 @@ export function ExternalTeachersScreen() {
         {t("externalTeachers.subtitle")}
       </p>
 
-      {/* The completeness report is surfaced HERE rather than buried on a
-          reports page: manual entry fails silently, so the warning has to sit
-          where the manual entry happens. */}
       {gaps && gaps.blocking > 0 ? (
         <Sheet blocking>
           <SheetHead
@@ -307,8 +290,6 @@ export function ExternalTeachersScreen() {
                     <FormControl>
                       <Input dir="ltr" className="num" {...field} />
                     </FormControl>
-                    {/* Optional now, required only at the moment they join —
-                        said here so nobody thinks it was forgotten. */}
                     <p className="text-xs text-[var(--ink-3)]">
                       {t("externalTeachers.form_emailHint")}
                     </p>

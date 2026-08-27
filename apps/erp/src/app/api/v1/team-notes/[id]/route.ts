@@ -11,8 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Mutations on one note. center_accountant never reaches these handlers —
-// the center-actor gate rejects any mutating method for that sub-role.
 const STAFF_ALL = [...RECEPTION, ...ACCOUNTANT];
 
 const patchSchema = z

@@ -11,8 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// The same editable set the center has. Money fields are absent because the
-// kernel service has no path to them — not merely because this schema omits them.
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
@@ -38,8 +36,6 @@ export const PATCH = withErrors(async (req, ctx) => {
   return ok(await adminUpdateStudent(user, id, studentId, body));
 });
 
-// Soft removal from the roster (leftAt). This does NOT withdraw enrollments —
-// that is the separate H-04-journalled operation on …/students/[id]/membership.
 export const DELETE = withErrors(async (_req, ctx) => {
   const user = await requireRole("super_admin");
   const { id, studentId } = await ctx.params;

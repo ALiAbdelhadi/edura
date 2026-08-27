@@ -1,24 +1,5 @@
 "use client";
 
-/* سجل التدقيق / Audit log — the most literal ledger in the product.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   `audit_logs` is REVOKEd UPDATE and DELETE for the application role, so this record
-   cannot be edited or erased — not by a center admin, not by a super admin, not by
-   this app. Everything about the screen's form follows from that one guarantee:
-
-   - THE ACTOR IS NEVER BLANK. An unattributed action in an audited system is a gap
-     the interface should not create, so an automated write reads «النظام» rather than
-     an empty cell (constitution §1). It previously fell through to a raw actorId, or
-     the untranslated literal "system".
-   - STICKY DAY HEADERS. The log is read as a sequence of days, so the day a row
-     belongs to must stay visible while scrolling through it.
-   - EVERY REF IS MONO AND ISOLATED. Action names, target ids and timestamps are all
-     Latin codes sitting beside Arabic prose — the single most common source of a bidi
-     break in the product.
-   - BEFORE AND AFTER, SIDE BY SIDE. What makes an oversight operation checkable is
-     not that it was logged but that the change itself is legible. */
-
 import { Fragment, useState } from "react";
 import { todayKey } from "@repo/server-core/lib/date-key";
 import { useCustom } from "@refinedev/core";
@@ -65,8 +46,6 @@ const dayKey = (iso: string) => iso.slice(0, 10);
 
 export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   const t = useTranslations("auditLog");
-  // Roles live in the shared top-level namespace, not under auditLog — reusing it
-  // keeps one wording for a role across every screen.
   const tRole = useTranslations("roles");
   const locale = useLocale() as Locale;
   const [action, setAction] = useState("");
@@ -84,7 +63,6 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   const rows = result?.data ?? [];
   const total = result?.total ?? 0;
 
-  // Group into days so each day can carry a sticky header.
   const days: { day: string; rows: Row[] }[] = [];
   for (const r of rows) {
     const k = dayKey(r.createdAt);
@@ -94,7 +72,6 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
   }
 
   const dayLabel = (day: string) => {
-    // Cairo wall-clock — see @repo/server-core/lib/date-key.
     const today = todayKey();
     const yesterday = todayKey(new Date(Date.now() - 86_400_000));
     if (day === today) return t("today");
@@ -222,7 +199,6 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
                             </TableCell>
 
                             <TableCell className="px-3 py-[7px]">
-                              {/* The actor is never absent. */}
                               <span className="text-[13px] font-medium text-ink">
                                 {r.actorName ?? (r.actorId ? null : t("system"))}
                                 {!r.actorName && r.actorId ? <Num.Code>{r.actorId.slice(0, 8)}</Num.Code> : null}

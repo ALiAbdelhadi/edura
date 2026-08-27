@@ -21,24 +21,6 @@ import {
 } from "@repo/ui/components/dialog";
 import { SettleLessonCard } from "../attendance/settle-lesson-card";
 
-/**
- * The week a center actually runs — every session, in its hall, with clashes
- * marked.
- *
- * NO NEW ENDPOINT AND NO NEW QUERY. `/api/v1/sessions?from&to` already returns
- * the week enriched (course, teacher, hall) and scoped to the caller's center,
- * so this screen is a VIEW over data the platform already serves. A calendar
- * with its own reader would be a second answer to "what is scheduled", free to
- * disagree with the attendance and money paths that run off these same rows.
- *
- * Clashes come from `findScheduleClashes`, which applies the SAME rule as the
- * booking gate (`checkConflicts`) — same day, half-open overlap, live statuses
- * only, shared hall or shared teacher. So a cell marked red here is a booking
- * the system would also have refused, and back-to-back lessons in one hall —
- * the normal way a center runs — are correctly left alone.
- */
-
-/** Sunday-first: the Egyptian working week. */
 const WEEK_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 type SessionRow = SchedulableSession & {
@@ -51,7 +33,6 @@ type SessionRow = SchedulableSession & {
 function startOfWeek(d: Date): Date {
   const out = new Date(d);
   out.setHours(0, 0, 0, 0);
-  // getDay(): 0 = Sunday, which is already the first column.
   out.setDate(out.getDate() - out.getDay());
   return out;
 }
@@ -68,13 +49,6 @@ export function AdminScheduleScreen() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   const weekEnd = addDays(weekStart, 6);
-  // THE THREE DATE KEYS ARE NOT INTERCHANGEABLE (see lib/date-key.ts, which
-  // exists because they were confused before). `weekStart` is built with local
-  // setHours(0,0,0,0), so it is a LOCAL-MIDNIGHT date — exactly the
-  // `pickedDateKey` case. Running it through `toDateKey` reads the UTC day,
-  // which east of UTC is YESTERDAY: every column would carry a key one day
-  // behind its own label, and each session would render in the wrong column.
-  // Session dates below are stored day values and stay on `toDateKey`.
   const from = pickedDateKey(weekStart);
   const to = pickedDateKey(weekEnd);
 
@@ -89,19 +63,12 @@ export function AdminScheduleScreen() {
     [result],
   );
 
-  // THE CENTER CAN CLOSE A LESSON TOO. The teacher's own button lives at the
-  // end of taking attendance; a center needs the same power for the lessons its
-  // teachers did not close, and the week grid is where it already looks at
-  // them. Same component, same preview, same guards — the center is not given a
-  // second, looser way to move money.
   const [settling, setSettling] = useState<SessionRow | null>(null);
   const clashIds = useMemo(() => clashingSessionIds(sessions), [sessions]);
   const clashes = useMemo(() => findScheduleClashes(sessions), [sessions]);
   const clashKind = useMemo(() => {
     const kind = new Map<string, "room" | "teacher">();
     for (const c of clashes) {
-      // A hall clash outranks a teacher clash in the label: it is the one the
-      // center has to solve today, by moving a group.
       for (const id of [c.sessionId, c.otherSessionId]) {
         if (c.on === "room" || !kind.has(id)) kind.set(id, c.on);
       }
@@ -109,7 +76,6 @@ export function AdminScheduleScreen() {
     return kind;
   }, [clashes]);
 
-  /** day index (0=Sun) -> sessions, each day ordered by start time. */
   const byDay = useMemo(() => {
     const map = new Map<string, SessionRow[]>();
     for (const s of sessions) {
@@ -124,10 +90,6 @@ export function AdminScheduleScreen() {
     return map;
   }, [sessions]);
 
-  // `-u-nu-latn` forces Latin digits inside the Arabic locale: the Ledger
-  // keeps every FIGURE Latin and bidi-isolated, so a column header reading
-  // "١٠ أغسطس" beside a range reading "2026-08-10" is two numbering systems on
-  // one screen. Month and weekday names stay Arabic.
   const dayLabel = (d: Date) =>
     d.toLocaleDateString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
       weekday: "short",
@@ -177,9 +139,6 @@ export function AdminScheduleScreen() {
         }
       />
 
-      {/* The week's two facts, before the grid: how much is on, and how much of
-          it is broken. A clash count of zero is worth stating — it is the
-          reassurance the screen exists to give. */}
       <div className="flex flex-wrap items-center gap-3 text-[13px]">
         <span className="text-[var(--ink-2)]">
           {t("adminManage.schedule.sessionsCount", { n: sessions.length })}
@@ -202,17 +161,11 @@ export function AdminScheduleScreen() {
         <EmptyState title={t("adminManage.schedule.empty")} />
       ) : (
         <div className="overflow-x-auto">
-          {/* Seven columns that never collapse below a readable width: a week
-              is only legible as a week, so it scrolls sideways on a phone
-              rather than reflowing into a list that hides the shape. */}
           <div className="grid min-w-[900px] grid-cols-7 gap-2">
             {WEEK_DAYS.map((offset) => {
               const day = addDays(weekStart, offset);
               const key = pickedDateKey(day);
               const items = byDay.get(key) ?? [];
-              // `todayKey()` — "what day is it for the user", resolved on Cairo
-              // wall-clock. `toDateKey(new Date())` is the other bug in the
-              // same family: before 02:00 local it still says yesterday.
               const isToday = key === todayKey();
               return (
                 <div key={key} className="flex flex-col gap-2">
@@ -243,11 +196,6 @@ export function AdminScheduleScreen() {
                               : "border-[var(--rule)]"
                           } ${dimmed ? "opacity-55" : ""}`}
                         >
-                          {/* <Num.ClockRange> is ONE island around the whole
-                              range, never one per time — two separately
-                              isolated spans in an RTL row lay out
-                              right-to-left, so 4:00–6:00 renders as 6:00–4:00,
-                              a lesson that appears to end before it starts. */}
                           <div className="mb-1 font-semibold text-[var(--ink)]">
                             <Num.ClockRange
                               start={s.startTime}

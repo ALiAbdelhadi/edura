@@ -2,11 +2,6 @@ import type { SendTemplateInput, SendTemplateResult, WhatsAppDriver } from "./ty
 import { renderTemplate, type TemplateKey, WHATSAPP_TEMPLATES } from "./templates";
 import { randomBytes } from "node:crypto";
 
-/**
- * Default driver — zero credentials, fully local. Renders the template body
- * and logs it; the whatsapp_messages row (written by send.ts) is the durable
- * record either way.
- */
 export const mockWhatsAppDriver: WhatsAppDriver = {
   name: "mock",
   async sendTemplate(input: SendTemplateInput): Promise<SendTemplateResult> {

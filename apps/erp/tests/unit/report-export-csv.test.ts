@@ -5,11 +5,6 @@ import {
   type ExportTable,
 } from "@repo/server-core/services/reports/report-export";
 
-// The CSV writer. Every case here is something that silently corrupts an
-// accountant's file if it is wrong — mojibake Arabic, a formula that runs on
-// open, a total that Excel cannot SUM because it was written with a currency
-// symbol in it.
-
 const table: ExportTable = {
   columns: [
     { key: "month", header: { ar: "الشهر", en: "Month" }, type: "text" },
@@ -59,9 +54,6 @@ describe("toCsv — money", () => {
 });
 
 describe("toCsv — formula injection", () => {
-  // Course titles and expense categories are typed by users. A cell starting
-  // with = + - @ executes when the file is opened; the accountant's machine is
-  // exactly where that pays off.
   it.each(["=1+1", "+1", "@SUM(A1)", "-2+3", "\tx"])(
     "neutralises a text cell starting with %j",
     (evil) => {
@@ -69,7 +61,6 @@ describe("toCsv — formula injection", () => {
         columns: [{ key: "a", header: { ar: "أ", en: "A" }, type: "text" }],
         rows: [{ a: evil }],
       });
-      // The value survives, prefixed so the spreadsheet treats it as text.
       expect(out).toContain(`'${evil}`.replace(/^'\t/, "'\t"));
       expect(out).not.toMatch(new RegExp(`(^|\\r\\n)${evil.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"));
     },
@@ -91,7 +82,6 @@ describe("toCsv — RFC 4180 quoting", () => {
       columns: [{ key: "a", header: { ar: "أ", en: "A" }, type: "text" }],
       rows: [{ a: 'عبد الله، محمد' }, { a: 'قال "أهلاً"' }],
     });
-    // Arabic comma is not a delimiter; the ASCII one is.
     expect(out).toContain('"قال ""أهلاً"""');
   });
 

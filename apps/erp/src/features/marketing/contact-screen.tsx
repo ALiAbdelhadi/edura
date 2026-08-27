@@ -14,8 +14,6 @@ export async function ContactScreen({ locale }: { locale: Locale }) {
   const t = await getTranslations("marketing");
   const demoUrl = demoBookingUrl();
 
-  // Resolved on the server and handed over as one object — see the note in
-  // contact-form.tsx on why the namespace never crosses the wire.
   const labels: ContactLabels = {
     name: t("contact.form.name"),
     namePlaceholder: t("contact.form.namePlaceholder"),

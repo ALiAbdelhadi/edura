@@ -4,38 +4,6 @@ import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
-// ---------------------------------------------------------------------------
-// REPORT EXPORT demo — three groups, six weeks of attendance, and the two
-// staff tiers standing next to each other.
-//
-// WHAT THIS SEED CAN AND CANNOT SHOW, stated up front because the gap is
-// deliberate. Per the Conventions rule it writes ZERO money rows — no Payment,
-// no Transaction, no Expense — so the FIVE accountant-tier reports (profit and
-// loss, revenue by group, the two timeseries, expenses by category) export
-// correctly formed files with no rows in them. That is not the seed being
-// lazy: a demo center carrying invented revenue would put fictional money in
-// the same ledger every real report reads. Take one cash payment at the
-// counter in the preview and the same export fills in — which also proves the
-// export reads the ledger rather than a fixture.
-//
-// The THREE manager-tier reports are fully populated here (fill rates,
-// attendance by group, the enrolment funnel), and they are the ones that
-// demonstrate the interesting half anyway:
-//
-//   * FILL RATES vary on purpose — one group nearly full, one half, one almost
-//     empty — because a fill-rate column where every row reads 100% shows
-//     nothing about whether the report works.
-//   * ATTENDANCE carries present / absent / excused across six weeks, so the
-//     rate is a real number and the date range visibly narrows it.
-//   * THE FUNNEL has all four statuses, including the two nobody seeds by
-//     accident (declined and expired).
-//
-// AND ONE SPECIMEN: a group deliberately titled with a leading `=`. Open the
-// CSV in Excel afterwards — the title is preserved and displayed as text,
-// prefixed with an apostrophe, instead of being executed as a formula. That is
-// the injection defence, and this is the only way to see it working.
-// ---------------------------------------------------------------------------
-
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 
@@ -75,10 +43,6 @@ const EMAILS = ALL.map(email);
 const CENTER = did("center");
 const CENTER_SHORT_ID = "REPEXPDEMO1";
 
-/**
- * A group whose title is a spreadsheet FORMULA. Every other name here is
- * ordinary; this one exists so the neutralisation is visible in a real file.
- */
 const FORMULA_TITLE = "=SUM(A1:A9) — مجموعة مراجعة نهائية";
 
 type Group = {
@@ -86,10 +50,8 @@ type Group = {
   teacher: Person;
   title: string;
   subject: string;
-  /** Capacity — with `enrolled` below, this is what makes fill rates differ. */
   maxStudents: number;
   enrolled: number;
-  /** Per-lesson attendance shape: [present, absent, excused] out of `enrolled`. */
   shape: [number, number, number];
 };
 
@@ -126,7 +88,6 @@ const GROUPS: Group[] = [
 const WEEKS = 6;
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 const daysAhead = (n: number) => new Date(Date.now() + n * 86_400_000);
-/** Lesson `date` is a day, anchored at midnight UTC like every other one. */
 const lessonDate = (weeksBack: number) => {
   const d = daysAgo(weeksBack * 7);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -150,10 +111,6 @@ async function purge() {
     });
     const courseIds = courses.map((c) => c.id);
 
-    // Money rows FIRST, and they are here for one reason: the seed writes none,
-    // but taking a payment in the preview is exactly what this demo asks you to
-    // do, and a purge that left the receipts behind would strand them against a
-    // deleted center.
     await tx.payment.deleteMany({ where: { centerId: { in: centerIds } } });
     await tx.expense.deleteMany({ where: { centerId: { in: centerIds } } });
 
@@ -170,14 +127,8 @@ async function purge() {
     await tx.studentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    /* `user_prefs` holds the guided tour's "seen it" flag, and its FK to users
-       is RESTRICT — so once ANY seeded account has signed in and been offered a
-       tour, deleting that user is refused and the whole purge aborts. The table
-       postdates this seed, which is why it was not in the list. */
     await tx.$executeRaw`DELETE FROM user_prefs WHERE user_id = ANY(${ids}::uuid[])`;
 
-    // Raw hard delete: user.deleteMany is soft-delete-intercepted and would
-    // leave the UNIQUE emails behind (P2002 on the next run).
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -199,10 +150,6 @@ async function main() {
   const hash = await bcrypt.hash(PASSWORD, 10);
   console.log("Seeding report-export demo…");
 
-  // SEVERAL SMALL TRANSACTIONS, not one big one: each write is a round trip to
-  // a remote Neon and the whole seed exceeds the 20s interactive transaction
-  // limit from a laptop. Every write is an upsert or a skipDuplicates
-  // createMany, so a failed run is fixed by running it again.
   await withPlatformContext(async (tx) => {
     for (const p of ALL) {
       await tx.user.upsert({
@@ -243,10 +190,6 @@ async function main() {
       create: { userId: NADIA.id, centerId: CENTER },
     });
 
-    // THE TWO TIERS. The asymmetry is the thing to look at: the accountant tier
-    // is `center_accountant` ALONE, so the manager below can read attendance
-    // and fill rates but is REFUSED revenue — by the server, from the registry
-    // that defines the reports.
     for (const [staff, role, title] of [
       [SAMEH, "manager", "مدير الفرع"],
       [AZZA, "center_accountant", "الحسابات"],
@@ -333,9 +276,6 @@ async function main() {
           endTime: "17:30",
           startDate: daysAgo(WEEKS * 7 + 7),
           endDate: daysAhead(60),
-          // Priced so the group is a real group, but NOTHING has been paid —
-          // a price is a configuration, not a receipt, and the revenue reports
-          // read `payments`, never this.
           price: 60000,
           pricePerMonth: 60000,
           pricePerSession: 7500,
@@ -347,8 +287,6 @@ async function main() {
     }
   });
 
-  // Enrolments, lessons and attendance in bulk: one round trip each rather
-  // than one per row.
   await withPlatformContext(async (tx) => {
     await tx.enrollment.createMany({
       data: GROUPS.flatMap((g) =>
@@ -386,8 +324,6 @@ async function main() {
       Array.from({ length: WEEKS }, (_, w) => {
         const [present, absent, excused] = g.shape;
         const roster = STUDENTS.slice(0, g.enrolled);
-        // Rotate who is absent week to week, so no student's own record is a
-        // flat line and the per-group rate is not an artefact of one child.
         const rotated = [...roster.slice(w % roster.length), ...roster.slice(0, w % roster.length)];
         return rotated.slice(0, present + absent + excused).map((s, i) => ({
           sessionId: did(`ses:${g.id}:${w}`),
@@ -406,8 +342,6 @@ async function main() {
   });
 
   await withPlatformContext(async (tx) => {
-    // The funnel, with all four statuses — `declined` and `expired` are the two
-    // a hand-made fixture never has, and they are the interesting rows.
     const plan: { status: "pending" | "approved" | "declined" | "expired"; n: number }[] = [
       { status: "pending", n: 4 },
       { status: "approved", n: 6 },

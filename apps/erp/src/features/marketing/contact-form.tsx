@@ -7,20 +7,6 @@ import { CheckCircle2 } from "lucide-react";
 import { useId, useState } from "react";
 import styles from "./marketing.module.css";
 
-/**
- * The contact form.
- *
- * All copy arrives as ONE resolved `labels` object rather than through
- * `useTranslations`, because the `marketing` namespace is deliberately not in
- * the client dictionary (lib/i18n/scope.ts ships only en.json's own
- * namespaces). This keeps the marketing copy off the wire for every other page
- * while still letting this one island be fully bilingual.
- *
- * Deliberately plain state + fetch rather than react-hook-form: a public page
- * should not pull a form library across the wire for six fields, and the
- * server is the authority on validity regardless of what the client checks.
- */
-
 export type ContactLabels = {
   name: string;
   namePlaceholder: string;
@@ -89,14 +75,10 @@ export function ContactForm({ labels, locale }: { labels: ContactLabels; locale:
 
       if (res.ok) {
         setStatus("sent");
-        // Only the subject crosses into analytics — never the message, the
-        // name, the email or the phone number.
         track(ANALYTICS_EVENTS.CONTACT_SUBMITTED, { subject });
         return;
       }
 
-      // 429 and 400 are the two a visitor can actually act on, so they get
-      // their own sentences instead of a generic failure.
       setError(
         res.status === 429
           ? labels.errorRateLimited

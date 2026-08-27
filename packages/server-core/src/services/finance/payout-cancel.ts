@@ -2,32 +2,6 @@ import type { SessionUser } from "../../auth/types";
 import { platformDb } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 
-/**
- * T-4 — the owner's undo for a payout request (approved decision 2026-08-21).
- *
- * The rule, exactly as approved: the request's OWNER — the teacher, or the
- * center whose admin is calling — may cancel their own request while it is
- * still `pending`. Nothing else: an `approved` request is already in the
- * accountant's hands and only they may release it (reject), and `paid` /
- * `rejected` / `cancelled` are terminal.
- *
- * WHY THE LOCK. "Available" is derived: wallet balance minus the sum of open
- * (pending + approved) payouts — the H1 reserve. Requesting locks the
- * beneficiary row FOR UPDATE before aggregating, so cancelling must serialize
- * on the SAME row: a cancel flipping a row to `cancelled` while a concurrent
- * request is mid-aggregate would otherwise let the request read a reserve that
- * a committed cancel had already released — or vice versa. One lock, both
- * writers, no interleaving.
- *
- * The status flip is CONDITIONAL (`updateMany where status='pending'`) even
- * under the lock — the same belt-and-braces the H2 decrement uses. If the
- * accountant approved the request between our read and our write (they do not
- * take the beneficiary lock), the flip touches zero rows and the caller gets
- * the truthful refusal instead of a silently un-reserved approved payout.
- *
- * Audited: one audit_logs row per successful cancel, actor = the caller.
- * NotFound (never Forbidden) for a payout the caller does not own.
- */
 export function cancelOwnPayoutRequest(user: SessionUser, payoutId: string) {
   let beneficiaryId: string;
   let beneficiaryType: "teacher" | "center";
@@ -43,7 +17,6 @@ export function cancelOwnPayoutRequest(user: SessionUser, payoutId: string) {
 
   return platformDb(
     async (tx) => {
-      // Same FOR UPDATE discipline as requestTeacherPayout / requestCenterPayout.
       const locked =
         beneficiaryType === "teacher"
           ? await tx.$queryRaw<{ user_id: string }[]>`
@@ -88,8 +61,6 @@ export function cancelOwnPayoutRequest(user: SessionUser, payoutId: string) {
         },
       });
 
-      // The reserve is derived from open payouts, so the flip above IS the
-      // release — `available` recovers by netPayable with no second write.
       return { ...payout, status: "cancelled" as const, cancelledAt };
     },
     { actorId: user.id },

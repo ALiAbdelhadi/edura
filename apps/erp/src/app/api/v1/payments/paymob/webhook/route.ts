@@ -7,12 +7,6 @@ import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Gateway callback (Paymob "transaction processed"). Unauthenticated by
- * nature — authenticity comes from the HMAC signature, verified by the
- * active driver. Fully idempotent: replays return 200 without re-settling.
- * The charged amount is NEVER read from this payload.
- */
 export const POST = withRateLimit(
   withErrors(async (req) => {
     const rawBody = await req.text();
@@ -32,7 +26,6 @@ export const POST = withRateLimit(
 
     const outcome = await processWebhookEvent(verification.event, payload);
     if (!outcome.handled) {
-      // Unknown order id: 200 so the gateway stops retrying, but say so.
       return NextResponse.json({ data: { ignored: true, reason: outcome.reason } });
     }
     return ok({ intentId: outcome.intentId, result: outcome.result });

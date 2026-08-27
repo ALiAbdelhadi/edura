@@ -33,31 +33,6 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 
-/**
- * The family code — how a parent comes to be able to read this student's record.
- *
- * REBUILT ONTO THE LEDGER KIT, for the same reason as the reviews screen: it was
- * three stacked shadcn `Card`s and a `DataTable` in a portal built from `Sheet`
- * and `LedgerTable`.
- *
- * FOUR THINGS WERE WRONG BEYOND THE KIT:
- *
- * 1. The page title was printed twice — `<PageTitle>` read "رمز العائلة" and the
- *    first card's heading read "رمز العائلة" directly beneath it. A section
- *    heading that restates the page title is furniture, so the code sheet now
- *    labels the FIGURE ("your code") rather than re-announcing the page.
- * 2. The code was drawn in a raw `font-mono tracking-widest` span. It is an
- *    identifier, which is exactly what `<Num>` exists for — and `<Num>` is also
- *    what isolates it from the surrounding Arabic, so a bare span is a latent
- *    bidi break as well as a drifted style. `tracking-widest` also went: the
- *    code is read aloud across a room and spacing it out helps, but the Ledger
- *    already sets mono figures with tabular numerals.
- * 3. `activeTab` was declared, set nowhere, read nowhere.
- * 4. Approve and reject were two equal-weight ghost buttons side by side.
- *    Approving grants an adult permanent read access to a minor's record; the
- *    two are not peers, so approve is the primary and reject is the quiet one.
- */
-
 const STATUS_TONES: Record<string, "amber" | "teal" | "red" | "neutral"> = {
   pending: "amber",
   approved: "teal",
@@ -99,12 +74,6 @@ export function StudentFamilyCodeScreen() {
   const code = (codeResult?.data as any)?.code ?? "—";
   const links = (linksResult?.data ?? []) as ParentLink[];
 
-  /* The field is labelled "email OR phone" and `POST /parent-links` accepts
-     either — but the client schema was `.email()`, so every phone number the
-     label invited was refused before it left the browser. Constitution §3:
-     never imply an action that will be refused. The permissive phone shape is
-     deliberate (the server is the authority on what it accepts); this only has
-     to stop an obvious typo from being posted. */
   const schema = useMemo(
     () =>
       z.object({
@@ -198,7 +167,6 @@ export function StudentFamilyCodeScreen() {
     <div className="space-y-6">
       <PageTitle title={t("nav.family")} subtitle={t("studentFamilyCode.subtitle")} />
 
-      {/* ── The code itself ────────────────────────────────────────────────── */}
       <Sheet className="p-5">
         <Eyebrow>{t("studentFamilyCode.yourCode")}</Eyebrow>
         {codeQuery.isLoading ? (
@@ -229,8 +197,6 @@ export function StudentFamilyCodeScreen() {
                 {rotateMutation.isPending ? <Spinner /> : <RefreshCw className="size-4" aria-hidden />}
                 {t("studentFamilyCode.rotateCode")}
               </LedgerButton>
-              {/* Rotating is not destructive to an APPROVED link, and a student
-                  who thinks it might be will never rotate a leaked code. */}
               <p className="text-xs" style={{ color: "var(--ink-3)" }}>
                 {t("studentFamilyCode.rotateHint")}
               </p>
@@ -239,7 +205,6 @@ export function StudentFamilyCodeScreen() {
         )}
       </Sheet>
 
-      {/* ── Invite a parent yourself ───────────────────────────────────────── */}
       <Sheet className="p-5">
         <SectionHeading title={t("studentFamilyCode.linkParent")} />
         <Form {...form}>
@@ -276,7 +241,6 @@ export function StudentFamilyCodeScreen() {
         </Form>
       </Sheet>
 
-      {/* ── Who has asked, and who can read ────────────────────────────────── */}
       <Sheet className="p-5">
         <SectionHeading title={t("studentFamilyCode.linkRequests")} />
         <div className="mt-3">
@@ -288,10 +252,6 @@ export function StudentFamilyCodeScreen() {
               hint={t("studentFamilyCode.noLinkRequestsHint")}
             />
           ) : (
-            /* ROWS, NOT A TABLE. Five columns for a list that is usually
-               empty and never more than two or three entries long, on a 375px
-               screen. The decision this list exists for — approve or reject —
-               was the column being squeezed. */
             <ul>
               {links.map((link, i) => {
                 const id = link.id || link._id || "";
@@ -314,8 +274,6 @@ export function StudentFamilyCodeScreen() {
                             {link.createdAt ? (
                               <>
                                 {" · "}
-                                {/* Not in <Num>: an Arabic month is a word, and
-                                    that isolate is for figures. */}
                                 {formatDate(link.createdAt)}
                               </>
                             ) : null}
@@ -328,10 +286,6 @@ export function StudentFamilyCodeScreen() {
 
                       {decidable ? (
                         <div className="flex shrink-0 items-center gap-2">
-                          {/* Approving hands an adult standing read access to a
-                              minor's record. It is the consequential one, so it
-                              is the primary and reject is the quiet neighbour —
-                              not two identical ghost buttons. */}
                           <LedgerButton
                             variant="primary"
                             onClick={() => handleApprove(id)}

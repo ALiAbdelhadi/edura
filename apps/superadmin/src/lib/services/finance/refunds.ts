@@ -13,12 +13,6 @@ import type { SessionUser } from "@/lib/auth/session";
 
 const ALREADY_REFUNDED = "This lesson charge has already been refunded";
 
-// H3: the concurrent racer that slips past the findFirst pre-check hits the
-// partial unique (transactions_one_refund_per_payment). Within the refund
-// transaction the ONLY data-dependent unique is that index — the ref numbers
-// are sequential and never collide — so a P2002 here always means a concurrent
-// refund already landed. (Prisma reports a partial index's meta.target as
-// "(not available)", so we can't match on the constraint name.)
 function isDuplicateRefund(err: unknown): boolean {
   return (
     err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002"
@@ -43,9 +37,6 @@ export async function refundLessonForStudent(
         });
         if (!payment) throw new NotFoundError("No completed charge found for this student and lesson");
 
-        // Fast path (clean message for a sequential re-refund). The partial
-        // unique is the concurrency backstop for two requests that both pass
-        // this check.
         const already = await tx.transaction.findFirst({
           where: { reversalOfId: payment.id, type: "refund" },
           select: { id: true },
@@ -68,25 +59,12 @@ export async function refundLessonForStudent(
         });
         if (!course) throw new NotFoundError("Course not found");
         if (!course.centerId) {
-          // Lesson-revenue refunds reverse distributeSessionRevenue, which never
-          // runs for teacher-direct courses (revenue settles at subscription
-          // payment). Refunding teacher-direct subscriptions is a Step 4.5+
-          // flow of its own.
           throw new BusinessRuleError("Teacher-direct sessions have no lesson charge to refund");
         }
         const centerId = course.centerId;
         const teacherId = course.teacherId;
 
         const perSessionPrice = payment.amount;
-        // Mirror distribution's per-course rule so the reversal is exact:
-        //  • Method 2 (per_attending_student) → the center's share is the rate
-        //    frozen on the course (flat piasters, or bp of the charged price),
-        //    same formula the settlement used.
-        //  • Method 1 / ROOM-BASED → derived from the course's frozen split
-        //    snapshot (immutable → never drifts).
-        //  • NO-ROOM course → the flat affiliation.centerShare (legacy).
-        // The platform fees are reversed from the ACTUAL charged commission rows
-        // below (already the case), so all pricing models reverse correctly.
         let centerShare: number;
         if (course.pricingMethod === "per_attending_student") {
           centerShare =
@@ -95,21 +73,10 @@ export async function refundLessonForStudent(
         } else if (course.splitPlatformBp != null && course.splitCenterBp != null) {
           centerShare = Math.round((perSessionPrice * course.splitCenterBp) / 10_000);
         } else {
-          // Phase 5 (D1): if a teacher agreement was live ON THE LESSON'S
-          // DATE, the settlement derived centerShare from it — the reversal
-          // must use the SAME derivation (computeAgreementSplit, fed the
-          // ACTUALLY-CHARGED fees below) or the wallets drift. The affiliation
-          // figure is only the pre-agreement fallback, exactly as at
-          // settlement time.
           const affiliation = await tx.centerTeacherAffiliation.findFirst({
             where: { centerId, teacherId, status: "active" },
             select: { centerShare: true },
           });
-          // C-01: distribution settles the no-room branch through
-          // computeNoRoomLessonSplit (which clamps the share so neither net can
-          // go negative). The reversal MUST use the same derivation — reversing
-          // the RAW affiliation share against a clamped charge would drift the
-          // wallets and could itself drive a balance under the H2 floor.
           centerShare = computeNoRoomLessonSplit(
             perSessionPrice,
             affiliation?.centerShare ?? 0,
@@ -117,11 +84,6 @@ export async function refundLessonForStudent(
           ).centerShare;
         }
 
-        // Step 4.5 correctness: reverse the fees that were ACTUALLY CHARGED for
-        // this lesson (the commission Transactions written at distribution
-        // time), not whatever the setting says today — commission is mutable
-        // now. The resolved setting is only a fallback for ledger rows that
-        // somehow predate the fee transactions.
         const chargedFees = await tx.transaction.findMany({
           where: { type: "commission", lessonId: sessionId, fromEntityId: { in: [teacherId, centerId] } },
           select: { fromEntityId: true, amount: true },
@@ -135,8 +97,6 @@ export async function refundLessonForStudent(
         const teacherFee = chargedTeacherFee ?? fallback!.platformTeacherFee;
         const centerFee = chargedCenterFee ?? fallback!.platformCenterFee;
 
-        // Phase 5: agreement-settled lessons reverse under the agreement live
-        // on the lesson's date, with the fees that were actually charged.
         if (course.pricingMethod == null && course.splitPlatformBp == null) {
           const agreement = await resolveTeacherAgreement(tx, {
             centerId,
@@ -198,19 +158,6 @@ export async function refundLessonForStudent(
             data: { walletBalance: { decrement: teacherNet } },
           });
         }
-        // D5 (Phase 4): the reversal follows the FUNDING stamped on the
-        // original charge row at settlement time.
-        //  • platform_held (or NULL — a row predating funding legs, whose
-        //    settlement DID credit the wallet): decrement wallet_balance,
-        //    byte-identical to the pre-Phase-4 reversal.
-        //  • center_held: wallet_balance was never credited, so there is
-        //    nothing there to reverse. Instead the center's POSITION moves by
-        //    −centerNet: settlement already debited (teacherNet + fees), the
-        //    platform is now refunding the student the full price from its own
-        //    pocket while the gross still sits in the center's drawer — so the
-        //    center owes the platform exactly the whole price, and
-        //    −(teacherNet+fees) − centerNet = −price. Same clearing model,
-        //    no special case.
         if (payment.funding === "center_held") {
           if (centerNet !== 0) {
             await creditMove(tx, {
@@ -230,13 +177,6 @@ export async function refundLessonForStudent(
           });
         }
 
-        // Return the originally-charged amount to the STUDENT'S WALLET. This
-        // credit rides the SAME tx as the refund insert above, which bears
-        // reversalOfId = payment.id under the transactions_one_refund_per_payment
-        // partial unique — so a concurrent/second refund's insert fails (P2002)
-        // and the whole tx (including this credit) rolls back. The wallet is
-        // therefore credited EXACTLY ONCE, at the originally-charged amount, with
-        // no extra guard.
         const { balanceAfter: walletBalanceAfter } = await walletCredit(
           tx,
           studentId,
@@ -249,10 +189,6 @@ export async function refundLessonForStudent(
           },
         );
 
-        // Audited in the SAME tx as the reversal. The ledger already records
-        // WHAT moved; this records WHO reversed it and WHY — and because it
-        // rides the tx guarded by transactions_one_refund_per_payment, a losing
-        // concurrent refund leaves no audit row either.
         await tx.auditLog.create({
           data: {
             actorId: user.id,

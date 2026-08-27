@@ -7,8 +7,6 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// Suspend / reinstate. This is the platform's ONE suspension mechanism
-// (users.status); better-auth's ban columns are deliberately unused.
 const bodySchema = z.object({
   suspended: z.boolean(),
   reason: z.string().trim().min(1).max(500),

@@ -1,19 +1,3 @@
-// =============================================================================
-// Second-foreign-language scoping — the student's OWN subjects list must contain
-// ONLY the language they picked at onboarding, never the whole language menu.
-// Runs against the live Neon DB like the other tests/db scripts:
-//   bun run --filter edura test:db                  # all suites, guarded
-//   bun run --filter edura test:db:only second-language-scoping
-//   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
-//
-// Covers:
-//   * the grade genuinely offers all 4 languages (otherwise the test proves nothing)
-//   * a student who picked French sees French and NO other language
-//   * switching the pick to German swaps the language, nothing else moves
-//   * a student who skipped the step sees NO second language at all
-//   * the non-language subjects are identical in all three cases (nothing else lost)
-//   * completeStudentOnboarding rejects a language that is not offered for the grade
-// =============================================================================
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import { getSubjectsForSelection, getStudentOwnSubjects } from "@/lib/services/catalog/catalog-read";
@@ -62,7 +46,6 @@ async function main() {
       const g3Id = await byCode("gradeLevel", "general-secondary-3");
       const sciMathId = await byCode("track", "general-sci-math");
 
-      // Picked French.
       await tx.studentProfile.create({
         data: {
           userId: student.id,
@@ -73,7 +56,6 @@ async function main() {
           secondLanguageSubjectId: langIds.get("lang2-french")!,
         },
       });
-      // Skipped the step (same grade + track).
       await tx.studentProfile.create({
         data: {
           userId: skipper.id,
@@ -92,7 +74,6 @@ async function main() {
     const french = fx.langIds.get("lang2-french")!;
     const german = fx.langIds.get("lang2-german")!;
 
-    // ---- 0. the fixture is meaningful --------------------------------------
     console.log("\n0) The grade really does offer the whole language menu");
     const allTrackSubjects = await getSubjectsForSelection(fx.g3Id, fx.sciMathId);
     const offeredLangs = allTrackSubjects.filter((s) => s.isSecondLanguage);
@@ -102,7 +83,6 @@ async function main() {
     );
     const nonLangIds = allTrackSubjects.filter((s) => !s.isSecondLanguage).map((s) => s.id).sort();
 
-    // ---- 1. picked French → French only -------------------------------------
     console.log("\n1) A student who picked French");
     const mine = await getStudentOwnSubjects(fx.student.id);
     const mineLangs = mine.filter((s) => s.isSecondLanguage);
@@ -118,7 +98,6 @@ async function main() {
       "every NON-language track subject is still there (nothing else filtered)",
     );
 
-    // ---- 2. switching the pick swaps the language ---------------------------
     console.log("\n2) Switching the pick to German");
     await withPlatformContext((tx) =>
       tx.studentProfile.update({
@@ -136,7 +115,6 @@ async function main() {
       "non-language subjects unchanged by the switch",
     );
 
-    // ---- 3. skipped the step → no language at all ---------------------------
     console.log("\n3) A student who skipped the second-language step");
     const skipped = await getStudentOwnSubjects(fx.skipper.id);
     assert(
@@ -148,7 +126,6 @@ async function main() {
       "the skipper still gets the full non-language subject list",
     );
 
-    // ---- 4. the shared helper is the same rule the wizard preview uses -------
     console.log("\n4) Onboarding preview and the API share ONE rule");
     const previewed = filterStudentSecondLanguage(allTrackSubjects, german);
     assert(
@@ -173,15 +150,12 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite second-language-scoping.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);
   try {
     await adminPool.end();
   } catch {
-    /* already ended */
   }
   process.exit(1);
 });

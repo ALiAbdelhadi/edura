@@ -1,20 +1,3 @@
-/**
- * Student-wallet policy (superadmin) — the top-up bounds are now MANAGED, not
- * hand-written SQL. Proves:
- *  VP1  the screen reads the live singleton row.
- *  VP2  a superadmin save takes effect immediately in the money engine
- *       (assertTopupAllowed accepts what was just allowed, rejects what was
- *       just forbidden) — the same guard the online intent + center cash use.
- *  VP3  the write is audited to the acting superadmin.
- *  VP4  invalid bounds are rejected (max < min, zero/negative, absurd max).
- *  VP5  the removed balance cap stays removed — no cap is written or read back.
- *
- * Restores the original bounds at the end (this touches the GLOBAL policy row).
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only wallet-settings-admin
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { assertTopupAllowed, getWalletSettings } from "@repo/server-core/services/wallet/wallet";
 import { getWalletPolicy, updateWalletPolicy } from "@/lib/services/settings/wallet-settings-admin";
@@ -23,13 +6,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "wallet-settings-admin.test.ts";
 
@@ -91,7 +67,6 @@ async function main() {
 
   const original = await getWalletPolicy();
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — the screen reads the live policy row");
   const engine = await withPlatformContext((tx) => getWalletSettings(tx));
   assert(
@@ -99,7 +74,6 @@ async function main() {
     `screen and money engine read the SAME bounds (${original.minTopup}/${original.maxTopup})`,
   );
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — a save takes effect immediately in the money engine");
   const before = await allowed(fx.student, 9000_00); // 9000 EGP — above the 5000 default
   await updateWalletPolicy({ minTopup: 5000, maxTopup: 10000_00 }, suUser);
@@ -111,7 +85,6 @@ async function main() {
   assert(!belowNewMin, "20 EGP now rejected — the raised 50 EGP minimum applies");
   assert(!aboveNewMax, "10001 EGP still rejected — the new maximum is enforced");
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — the write is audited");
   const audit = await withPlatformContext((tx) =>
     tx.auditLog.findFirst({
@@ -126,7 +99,6 @@ async function main() {
     `audit records the saved bounds (${JSON.stringify(afterState)})`,
   );
 
-  // ---------------------------------------------------------------- VP4
   console.log("\nVP4 — invalid bounds rejected");
   await expectThrows(
     () => updateWalletPolicy({ minTopup: 20000, maxTopup: 10000 }, suUser),
@@ -154,7 +126,6 @@ async function main() {
     "a rejected save changed nothing",
   );
 
-  // ---------------------------------------------------------------- VP5
   console.log("\nVP5 — the removed balance cap stays removed");
   const raw = await withPlatformContext((tx) =>
     tx.walletSettings.findFirst({ select: { maxBalance: true } }),
@@ -165,7 +136,6 @@ async function main() {
     "the admin surface exposes no balance cap to set",
   );
 
-  // ------------------------------------------------------------- restore
   await updateWalletPolicy(
     { minTopup: original.minTopup, maxTopup: original.maxTopup },
     suUser,

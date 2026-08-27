@@ -1,17 +1,5 @@
 "use client";
 
-/* الاشتراكات / Subscriptions — coverage, as a record.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   A subscription WRAPS enrollment: enrollment is the roster link, the subscription is
-   the payment coverage that access and attendance checks consult. So the honest form
-   for this screen is lineage — each row's detail shows the receipt, the payment intent
-   and the enrollment it produced, because those are the three records that prove the
-   coverage is real.
-
-   Read-only: coverage is created by a payment, never by an operator here. No action,
-   no ceremony. */
-
 import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -312,7 +300,6 @@ export function SubscriptionsScreen({ apiBase }: { apiBase: "admin" | "finance" 
                   "—"
                 )}
               </Row>
-              {/* Lineage — the three records that prove the coverage is real. */}
               <Row label={t("subscriptions.receipt")}>
                 {d.payment?.receiptNumber ? <Num.Code>{d.payment.receiptNumber}</Num.Code> : "—"}
               </Row>

@@ -1,29 +1,3 @@
-// GUARDIAN EMAIL VERIFICATION proof — the address on file reaches a real adult.
-//
-// `tests/unit/guardian-verification.test.ts` already proves the pure parts:
-// `isGuardianEmailVerified`'s address binding, `maskEmail`, and that the purpose
-// is absent from the CLAIMABLE map. What only a live database can prove is the
-// thing the feature is FOR, and every one of these is a claim about rows:
-//
-//   1. THE TOKEN MINTS NO SESSION. The map says so; this drives the real
-//      better-auth claim door with a real guardian token and asserts it is
-//      REFUSED. A guardian is not a user of this platform, and the invite
-//      machinery next door turns a token of the wrong purpose into a LOGIN —
-//      so this is the assertion standing between "prove an address" and
-//      "anyone holding a child's guardian address receives a session".
-//   2. THE RAW TOKEN IS NEVER PERSISTED. Only its SHA-256. A dump of
-//      invite_tokens must not be a set of working links.
-//   3. SINGLE USE, IN THE SAME TRANSACTION AS THE STAMP. A double click cannot
-//      produce two confirmations.
-//   4. NO ORACLE. Unknown, expired, used, and mailed-to-a-since-changed-address
-//      all return the IDENTICAL message. A prober must not learn which.
-//   5. EDITING THE ADDRESS UN-VERIFIES IT, and the link that proved the old
-//      inbox stops working — asserted by SCANNING the old token, not by
-//      reading the column.
-//   6. A RESEND LEAVES ONE LIVE LINK. Two live links for two addresses is how
-//      a stale one confirms an address nobody re-checked.
-//   7. IT GRANTS NOTHING ELSE. No money, no session row, no status change —
-//      counted, not assumed.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { createHash } from "node:crypto";
@@ -48,7 +22,6 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 const tag = "gver-" + Math.floor(Math.random() * 1e9).toString(36);
 const guardianOf = (n: number) => `${tag}-guardian${n}@example.com`;
 
-/** The one message EVERY failure mode must return. */
 const GENERIC = "This link is not valid or has expired";
 
 async function q<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -60,7 +33,6 @@ async function q<T = Record<string, unknown>>(sql: string, params: unknown[] = [
   }
 }
 
-/** Returns the rejection message, or a marker when the call unexpectedly won. */
 async function refusalMessage(fn: () => Promise<unknown>): Promise<string> {
   try {
     await fn();
@@ -94,9 +66,6 @@ const asProfile = (r: Awaited<ReturnType<typeof profileOf>>) => ({
 async function main() {
   console.log("Guardian email verification —", tag);
 
-  // Taken BEFORE the fixtures exist: the stats are a whole-database count, so a
-  // baseline read afterwards would already include them and every delta would
-  // be zero.
   const statsBefore = await guardianVerificationStats();
 
   const fx = await withPlatformContext(async (tx) => {
@@ -117,24 +86,17 @@ async function main() {
       return user.id;
     };
     return {
-      // The ordinary case: a minor with a guardian address on file.
       main: await mk(1, guardianOf(1)),
-      // The one whose guardian address changes between send and click.
       moved: await mk(2, guardianOf(2)),
-      // Verified once, then edited — the un-verification case.
       edited: await mk(3, guardianOf(3)),
-      // Expiry.
       expired: await mk(4, guardianOf(4)),
-      // Nothing to verify.
       none: await mk(5, null),
     };
   });
   const allUsers = Object.values(fx);
 
   try {
-    // =====================================================================
     console.log("\n[1] Issue — a link, and a row that is not the link");
-    // =====================================================================
     const issued = await issueGuardianVerification({ studentUserId: fx.main, actorId: fx.main });
     ok(issued.email === guardianOf(1), "the link is minted for the address ON FILE, not one the caller names");
     ok(issued.token.length >= 32, `the token is opaque and long (${issued.token.length} chars)`);
@@ -162,9 +124,7 @@ async function main() {
     ok(link.includes("/ar/guardian/verify?token=") && link.includes(encodeURIComponent(issued.token)),
       "the link is the public confirm page carrying the token");
 
-    // =====================================================================
     console.log("\n[2] THE TOKEN MINTS NO SESSION — driven against the real claim door");
-    // =====================================================================
     ok(
       !Object.prototype.hasOwnProperty.call(CLAIMABLE, GUARDIAN_VERIFICATION_PURPOSE),
       "the purpose is absent from CLAIMABLE",
@@ -181,9 +141,7 @@ async function main() {
     );
     ok(stillUnused[0]!.used_at === null, "the refused claim did not burn the token — the guardian's link still works");
 
-    // =====================================================================
     console.log("\n[3] Confirm — the stamp, the burn, the audit row");
-    // =====================================================================
     const before = await profileOf(fx.main);
     ok(!isGuardianEmailVerified(asProfile(before)), "before the click the address is UNVERIFIED");
 
@@ -220,9 +178,7 @@ async function main() {
       "…and it names the address that was proven, which is the fact worth keeping",
     );
 
-    // =====================================================================
     console.log("\n[4] Single use, and NO ORACLE — every failure says the same thing");
-    // =====================================================================
     const reuse = await refusalMessage(() => confirmGuardianEmail(issued.token));
     ok(reuse === GENERIC, `a second click is refused: "${reuse}"`);
 
@@ -232,7 +188,6 @@ async function main() {
     const empty = await refusalMessage(() => confirmGuardianEmail(""));
     ok(empty === GENERIC, "an empty token too");
 
-    // Expiry, made real by ageing the row rather than waiting a week.
     const exp = await issueGuardianVerification({ studentUserId: fx.expired, actorId: fx.expired });
     await q(`UPDATE invite_tokens SET expires_at = now() - interval '1 hour' WHERE user_id = $1`, [fx.expired]);
     const expiredMsg = await refusalMessage(() => confirmGuardianEmail(exp.token));
@@ -243,8 +198,6 @@ async function main() {
       "…and it stamped nothing — a refusal is a refusal all the way down",
     );
 
-    // The address moved between the send and the click. The click proves the
-    // OLD inbox, which says nothing about the new one.
     const moved = await issueGuardianVerification({ studentUserId: fx.moved, actorId: fx.moved });
     await q(`UPDATE student_profiles SET guardian_email = $2 WHERE user_id = $1`, [fx.moved, guardianOf(99)]);
     const movedMsg = await refusalMessage(() => confirmGuardianEmail(moved.token));
@@ -260,9 +213,7 @@ async function main() {
       "all five failure modes are indistinguishable to a prober — one message, no oracle",
     );
 
-    // =====================================================================
     console.log("\n[5] Editing the address UN-VERIFIES it");
-    // =====================================================================
     const e1 = await issueGuardianVerification({ studentUserId: fx.edited, actorId: fx.edited });
     await confirmGuardianEmail(e1.token);
     const verified = await profileOf(fx.edited);
@@ -278,9 +229,6 @@ async function main() {
       !isGuardianEmailVerified(asProfile(edited)),
       "…yet every reader sees UNVERIFIED, because the stamp names an address that is no longer the one on file",
     );
-    // Asserted by scanning the old link, not by reading the column: an operator
-    // holding the previously-mailed link must not be able to re-prove the new
-    // address with it.
     const reissued = await issueGuardianVerification({ studentUserId: fx.edited, actorId: fx.edited });
     const oldLink = await refusalMessage(() => confirmGuardianEmail(e1.token));
     ok(oldLink === GENERIC, "the previously-clicked link cannot confirm the new address");
@@ -291,9 +239,7 @@ async function main() {
       "a fresh link to the NEW address re-verifies, and the stamp moves to it",
     );
 
-    // =====================================================================
     console.log("\n[6] A resend leaves ONE live link");
-    // =====================================================================
     const r1 = await issueGuardianVerification({ studentUserId: fx.moved, actorId: fx.moved });
     const r2 = await issueGuardianVerification({ studentUserId: fx.moved, actorId: fx.moved });
     const live = await q<{ n: number }>(
@@ -304,9 +250,7 @@ async function main() {
     ok((await refusalMessage(() => confirmGuardianEmail(r1.token))) === GENERIC, "the superseded link no longer confirms");
     ok((await confirmGuardianEmail(r2.token)).verified === true, "and the newest one does");
 
-    // =====================================================================
     console.log("\n[7] Nothing to verify, and nothing else granted");
-    // =====================================================================
     const noEmail = await refusalMessage(() =>
       issueGuardianVerification({ studentUserId: fx.none, actorId: fx.none }),
     );
@@ -331,9 +275,7 @@ async function main() {
     );
     ok(statuses[0]!.n === 0, "and no account's status changed — verification is not a gate on the account");
 
-    // =====================================================================
     console.log("\n[8] The number to watch before the messaging gate is flipped");
-    // =====================================================================
     const statsAfter = await guardianVerificationStats();
     ok(
       statsAfter.withGuardianEmail - statsBefore.withGuardianEmail === 4,

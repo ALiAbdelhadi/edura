@@ -3,21 +3,8 @@ import type { TenantTx } from "../../db/scope";
 import { BusinessRuleError, NotFoundError } from "../../errors/classes";
 import { resolveMethod2Rate } from "../finance/commission";
 
-/**
- * Method-2 (per-attending-student) rate primitives, shared by BOTH writers:
- * the superadmin (unrestricted, any scope) and the CENTER (its own halls only,
- * bounded by the platform's published rate — see `assertWithinCeiling`).
- *
- * They live here rather than in either app so the shape rules, the row layout
- * and the "is this row still carrying something?" question have exactly one
- * implementation. apps/superadmin re-exports these; a second copy would drift.
- */
-
-/** EXACTLY one of the two forms — never both (DB CHECK commission_m2_rate_shape). */
 export type M2RateInput = {
-  /** Flat piasters per attending student. */
   fee: number | null;
-  /** Basis points of the per-session price per attending student. */
   bp: number | null;
 };
 
@@ -50,7 +37,6 @@ export function pickM2(row: CommissionSetting | null): M2RateInput | null {
   return { fee: row.centerPerStudentFee, bp: row.centerPerStudentBp };
 }
 
-/** A commission_settings row is deletable only when NOTHING else lives on it. */
 export function m2RowIsEmpty(row: CommissionSetting): boolean {
   return (
     row.platformTeacherFee == null &&
@@ -60,19 +46,6 @@ export function m2RowIsEmpty(row: CommissionSetting): boolean {
   );
 }
 
-/**
- * The CENTER-ONLY bound. A center owns its hall and prices it, but the teacher
- * accepting the booking CANNOT SEE this number — a per-student-only hall shows
- * no price to the teacher on purpose, because the cost depends on attendance
- * (see apps/www .../centers/[id]/rooms). An unbounded center-set rate would
- * therefore let the hall take a share the other party never agreed to and only
- * discovers at settlement. So the platform's published rate (center > global)
- * is the CEILING: the center prices anywhere from 0 up to it, never above.
- *
- * The two forms are not comparable without a lesson price (piasters vs basis
- * points), so the center must quote in the SAME form the platform published.
- * The superadmin is not bound by any of this — it sets the ceiling.
- */
 export function assertWithinCeiling(input: M2RateInput, ceiling: M2RateInput | null): void {
   if (!ceiling) {
     throw new BusinessRuleError(
@@ -113,21 +86,10 @@ async function assertOwnRoom(tx: TenantTx, roomId: string, centerId: string) {
   }
 }
 
-/**
- * Resolve the ceiling for a center's hall: the platform's rate WITHOUT the
- * room's own row, so a hall that already overrides is still measured against
- * the platform's number and not against itself.
- */
 export function resolveRoomRateCeiling(tx: TenantTx, centerId: string) {
   return resolveMethod2Rate(tx, { centerId });
 }
 
-/**
- * A CENTER setting its own hall's per-student rate. Runs INSIDE the caller's
- * transaction so it can be written in the same commit as the room itself.
- * Ownership, shape and ceiling are all re-checked here — this function is the
- * gate, not the UI.
- */
 export async function setRoomM2RateAsCenter(
   tx: TenantTx,
   { roomId, centerId, actorId }: RoomScope,
@@ -161,7 +123,6 @@ export async function setRoomM2RateAsCenter(
   return pickM2(row);
 }
 
-/** Drop a hall's own rate so it inherits the platform's again. */
 export async function clearRoomM2RateAsCenter(
   tx: TenantTx,
   { roomId, centerId, actorId }: RoomScope,
@@ -173,7 +134,6 @@ export async function clearRoomM2RateAsCenter(
   if (m2RowIsEmpty({ ...existing, centerPerStudentFee: null, centerPerStudentBp: null })) {
     await tx.commissionSetting.delete({ where: { id: existing.id } });
   } else {
-    // The row also carries a split — keep it, drop only the rate columns.
     await tx.commissionSetting.update({
       where: { id: existing.id },
       data: { centerPerStudentFee: null, centerPerStudentBp: null, updatedBy: actorId },

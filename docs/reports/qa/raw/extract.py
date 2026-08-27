@@ -21,7 +21,6 @@ for app in ("erp","superadmin","www"):
         url=re.sub(r'/\([^)]*\)','',p) or '/'
         src=open(f,encoding='utf-8',errors='replace').read()
         lines=src.split('\n')
-        # find each exported method and scan its following block for a gate
         for i,line in enumerate(lines):
             mm=METH.search(line)
             if not mm: continue

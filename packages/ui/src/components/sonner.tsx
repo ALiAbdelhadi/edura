@@ -7,11 +7,6 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { SuccessIcon } from "@repo/ui/components/icons/success-icon"
 import { Spinner } from "@repo/ui/components/spinner"
 
-/* Dark mode is driven by the `data-theme` attribute the app's ThemeModeProvider
-   stamps on <html> (same hook the `dark:` variant is bridged to in globals.css)
-   — NOT by next-themes, which this repo does not mount. Reading the attribute
-   directly is what keeps a manual light/dark toggle in sync; `useTheme()` used to
-   fall back to "system" here and left toasts on the OS preference. */
 function subscribeToTheme(onChange: () => void) {
   const observer = new MutationObserver(onChange)
   observer.observe(document.documentElement, {
@@ -39,9 +34,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme}
       className="toaster group"
-      /* Base surface + radius come from the token layer. Sonner reads these on
-         every sub-part, so the per-status `toast-*` utilities below only have to
-         re-point the same two variables. */
       style={
         {
           "--normal-bg": "var(--popover)",
@@ -59,9 +51,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       toastOptions={{
         classNames: {
-          /* `!` is a SUFFIX in Tailwind v4 (v3 wrote `!bg-x`). It is needed only
-             where sonner ships a competing declaration whose attribute-selector
-             specificity a plain utility cannot beat — not as a blanket habit. */
           toast: "font-sans gap-3! shadow-[var(--shadow-lg)]!",
           title: "text-sm font-medium tracking-tight",
           description: "text-xs leading-5 text-muted-foreground!",
@@ -74,7 +63,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
           closeButton:
             "border-border! text-muted-foreground! hover:border-input! hover:bg-muted! hover:text-foreground!",
 
-          /* Status surfaces — defined as @utility in styles/globals.css. */
           success: "toast-success",
           error: "toast-error",
           warning: "toast-warning",

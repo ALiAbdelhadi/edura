@@ -8,16 +8,6 @@ import { MarketingMobileNav } from "./marketing-mobile-nav";
 import { HEADER_LINKS, demoBookingUrl } from "./nav";
 import { TrackedCta } from "./tracked-cta";
 
-/**
- * The public site header — a SERVER component.
- *
- * It replaces the landing-only header and is now shared by every signed-out
- * page, so the navigation can never say one thing on the landing page and
- * another on /pricing. Labels are resolved here and handed to the one client
- * island (the mobile sheet) as plain strings.
- *
- * `active` marks the current page in the nav; pages pass their own path.
- */
 export async function MarketingHeader({ active }: { active?: string }) {
   const t = await getTranslations("marketing");
   const demoUrl = demoBookingUrl();
@@ -35,11 +25,6 @@ export async function MarketingHeader({ active }: { active?: string }) {
       <div className="mx-auto flex w-full max-w-352 items-center justify-between gap-3 px-4 py-3 sm:px-8 md:px-12 lg:px-16">
         <div className="flex min-w-0 items-center gap-6">
           <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            {/* A bare <img>: next/image REFUSES SVG unless the optimizer is
-                opened to it, so this rendered as a broken image on every
-                marketing page. `priority` becomes eager loading plus a high
-                fetch priority — the same intent without the optimizer.
-                `alt=""` is correct: the wordmark sits beside it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/edura-mark.svg"
@@ -73,9 +58,6 @@ export async function MarketingHeader({ active }: { active?: string }) {
           </nav>
         </div>
 
-        {/* The desktop cluster and the sheet swap at the SAME breakpoint the nav
-            links appear at — otherwise the 640–1024px band shows neither the
-            links nor a way to reach them. */}
         <div className="hidden items-center gap-2 lg:flex">
           <Suspense fallback={null}>
             <LanguageSwitcher />

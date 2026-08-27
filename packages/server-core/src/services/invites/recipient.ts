@@ -1,14 +1,3 @@
-// =============================================================================
-// WHERE does a student's claim link go?
-//
-// Almost every student on this platform is a MINOR (isMinor() is default-minor:
-// adult requires a DOB *and* a verification stamp *and* age >= 18, and a
-// walk-in has none of those). So "email the student" is the wrong default —
-// it opens an unmonitored adult channel to a child. The invite goes to the
-// GUARDIAN, and if there is no guardian email it goes nowhere: the counter
-// hands the link over in person instead.
-// =============================================================================
-
 import type { TenantTx } from "../../db/scope";
 import { isMinorFromProfile } from "@repo/database/chat-minors";
 
@@ -18,18 +7,6 @@ export type InviteRecipient =
   | { kind: "student_adult"; email: string }
   | { kind: "none"; reason: "minor_without_guardian_email" };
 
-/**
- * Resolution order, strictest-trust first:
- *   1. an APPROVED parent link whose parent account has an email;
- *   2. student_profiles.guardian_email, captured at the counter;
- *   3. the student's own email — ONLY for a verified adult student;
- *   4. nothing.
- *
- * Case 4 is not a failure to paper over. We deliberately do NOT fall back to
- * the minor's own email or phone: that is exactly the unmonitored channel the
- * rule exists to prevent. Registration still succeeds; the caller surfaces the
- * copyable link for physical handover and flags that a guardian email is owed.
- */
 export async function resolveStudentInviteRecipient(
   tx: TenantTx,
   studentUserId: string,
@@ -75,11 +52,6 @@ export async function resolveStudentInviteRecipient(
   return { kind: "none", reason: "minor_without_guardian_email" };
 }
 
-/**
- * Grace period for supplying a guardian email. Passing it NEVER suspends the
- * account (the student paid) and NEVER unlocks messaging — it only escalates
- * the reminder from periodic to persistent and pulls the center in.
- */
 export function guardianContactDueAt(from: Date = new Date()): Date {
   const days = Number(process.env.GUARDIAN_EMAIL_GRACE_DAYS) || 14;
   return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);

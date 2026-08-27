@@ -32,21 +32,6 @@ import {
   type CollaborationInput,
 } from "@repo/server-core/services/collaboration/collaboration";
 
-// ---------------------------------------------------------------------------
-// PHASE 1 — PEOPLE. Superadmin parity with a center over students, teachers,
-// staff and co-owner admins.
-//
-// Every function here is a thin wrapper: resolve the target center → shape the
-// acting user → call the SAME kernel service www calls → write ONE audit row.
-// There is no second implementation of any capability, which is the whole point
-// of the extraction: www and the back office cannot drift.
-//
-// MONEY: nothing in this file touches a ledger, a wallet or a balance. The
-// kernel services it calls write only to users, center_student_rosters,
-// center_teacher_affiliations, center_staff, center_admin_profiles and
-// invite_tokens.
-// ---------------------------------------------------------------------------
-
 type AuditSpec = {
   action: string;
   targetType: string;
@@ -67,9 +52,6 @@ async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
           centerId,
           beforeState: (spec.before ?? undefined) as never,
           afterState: (spec.after ?? undefined) as never,
-          // A super admin acts as THEMSELVES with the center's scope — there is
-          // no principal being impersonated, so this stays null (see the note
-          // in center-control.ts).
           onBehalfOf: null,
         },
       }),
@@ -77,7 +59,6 @@ async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
   );
 }
 
-/** Snapshot of the fields a people-operation can change, for the audit BEFORE. */
 async function snapshotUser(userId: string) {
   return platformDb((tx) =>
     tx.user.findUnique({
@@ -102,10 +83,6 @@ async function snapshotRoster(centerId: string, studentId: string) {
     }),
   );
 }
-
-// ===========================================================================
-// Students
-// ===========================================================================
 
 export async function adminListStudents(
   actor: SessionUser,
@@ -165,8 +142,6 @@ export async function adminRemoveStudent(actor: SessionUser, centerId: string, s
     targetType: "user",
     targetId: studentId,
     before: { onRoster: true, roster: before },
-    // Soft removal (leftAt). Enrollments are NOT withdrawn by this path — that
-    // is the separate, H-04-journalled `center.student_removed` operation.
     after: { onRoster: false, enrollmentsTouched: false },
   });
   return result;
@@ -193,16 +168,10 @@ export async function adminInviteStudent(
     targetType: "user",
     targetId: result.user.id,
     before: null,
-    // The raw token is deliberately NOT audited — an audit reader must not be
-    // able to claim an account from the log.
     after: { email: body.email, userId: result.user.id, status: result.user.status },
   });
   return result;
 }
-
-// ===========================================================================
-// Teachers
-// ===========================================================================
 
 export async function adminListTeachers(
   actor: SessionUser,
@@ -257,33 +226,12 @@ export async function adminInviteTeacher(
       email: body.email,
       userId: result.user.id,
       affiliationId: result.affiliation.id,
-      // The affiliation's money knob is superadmin config and is NOT set here.
       centerShareWritten: false,
     },
   });
   return result;
 }
 
-/**
- * Send a collaboration request TO a teacher, on behalf of the center.
- *
- * This is the counterpart to `adminInviteTeacher`, which is shell-account
- * onboarding only and refuses a teacher who already has an account. Step 5 made
- * the collaboration request the ONE way an already-registered teacher joins a
- * center, and this wrapper gives the back office that same door rather than a
- * private one: `superadminAsCenter` shapes the actor into a `center_admin`
- * carrying this center's id, so the kernel's `initiator = "center"` branch,
- * its `input.centerId !== user.centerId` guard, the catalog-offering check, the
- * hall/pricing-method rules and the duplicate guard all run UNCHANGED.
- *
- * Consent is preserved, which is the point of routing through here instead of
- * `linkTeacherCenter`: the request lands `pending`, the teacher is notified,
- * and only THEIR acceptance creates the affiliation, course, schedule and the
- * frozen pricing snapshot. No money value crosses this boundary — the kernel
- * forces `proposedCenterShare: 0`, and a center-initiated request may not
- * pre-pick a pricing method on a both-methods hall (the teacher picks at
- * accept time).
- */
 export async function adminCreateCollaborationRequest(
   actor: SessionUser,
   centerId: string,
@@ -306,17 +254,11 @@ export async function adminCreateCollaborationRequest(
       status: request.status,
       startDate: request.startDate,
       proposedPricingMethod: request.proposedPricingMethod,
-      // The kernel owns this and forces 0 — recorded so the trail shows no rate
-      // was smuggled in from the back office.
       proposedCenterShare: request.proposedCenterShare,
     },
   });
   return request;
 }
-
-// ===========================================================================
-// Center staff
-// ===========================================================================
 
 export async function adminListStaff(actor: SessionUser, centerId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
@@ -413,10 +355,6 @@ export async function adminResendStaffInvite(
   return result;
 }
 
-// ===========================================================================
-// Co-owner admins
-// ===========================================================================
-
 export async function adminListCenterAdmins(actor: SessionUser, centerId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
   return listCenterAdmins(acting);
@@ -446,10 +384,6 @@ export async function adminRemoveCenterAdmin(
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
   const before = await snapshotUser(userId);
-  // `selfId` is null: a super admin is never one of the center's owners, so the
-  // "cannot remove yourself" rule does not apply to them. The "cannot remove
-  // the last admin" rule DOES, and still runs inside the kernel service — a
-  // center can never be left ownerless from either app.
   const result = await removeCenterAdmin(acting, userId, null);
   await audit(actor, centerId, {
     action: "center.admin_removed",

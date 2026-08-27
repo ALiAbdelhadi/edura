@@ -1,23 +1,4 @@
 /* eslint-disable no-console */
-/**
- * Two dev-only back-office accounts, used to VERIFY the guided tours there.
- *
- * WHY A FIXTURE AND NOT A REAL ACCOUNT. The back office requires 2FA on every
- * screen, so walking its tours means enrolling a second factor. Enrolling one
- * on a real operator's login would bind a secret THIS PROCESS holds to THEIR
- * account — so these are separate, disposable, and obviously named.
- *
- * WHY 2FA IS LEFT OFF HERE. better-auth ENCRYPTS the TOTP secret at rest (the
- * stored value is not base32 and cannot be read back), so the plaintext exists
- * for exactly one moment: the response to `two-factor/enable`. The test
- * therefore enrols each run and captures the secret then — which is why this
- * script clears any previous enrolment rather than leaving one behind.
- *
- *   bun run tsx --env-file=.env prisma/backoffice-tour-fixture.ts
- *   bun run tsx --env-file=.env prisma/backoffice-tour-fixture.ts --purge
- *
- * REFUSES to run against production, like every other seed here.
- */
 
 import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
@@ -62,13 +43,9 @@ async function seed() {
               role = EXCLUDED.role,
               updated_at = now()`;
 
-      /* Start every run UNENROLLED. The secret is encrypted at rest, so the
-         test can only learn it by enrolling — and it can only enrol from a
-         clean state. */
       await tx.$executeRaw`DELETE FROM two_factors WHERE user_id = ${id}::uuid`;
       await tx.$executeRaw`UPDATE users SET two_factor_enabled = false WHERE id = ${id}::uuid`;
 
-      /* And unseen, so the first-run tour actually offers itself. */
       await tx.$executeRaw`
         INSERT INTO user_prefs (user_id, tour_completed, created_at, updated_at)
         VALUES (${id}::uuid, false, now(), now())

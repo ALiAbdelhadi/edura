@@ -1,13 +1,5 @@
 "use client";
 
-// Super-admin messaging oversight: the message log, the safety-report queue,
-// and the block list.
-//
-// Two things the screen makes visible on purpose:
-//   - conversations involving a MINOR are badged, and can be filtered to, so
-//     the child-safety surface is one click away rather than buried;
-//   - opening a thread here writes an audit row, and the UI says so. The
-//     oversight power is itself observed.
 import { useCallback, useEffect, useState } from "react";
 import { useList } from "@refinedev/core";
 import { Eye, ShieldAlert, Ban } from "lucide-react";
@@ -125,7 +117,6 @@ export function MessagingScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
 function LogTab() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -324,7 +315,6 @@ function ThreadDialog({
         <DialogHeader>
           <DialogTitle>{t("adminMessaging.threadTitle")}</DialogTitle>
         </DialogHeader>
-        {/* The watchers get watched — say so where the reading happens. */}
         <p className="rounded-md bg-field px-3 py-2 text-xs text-ink-2">
           {t("adminMessaging.auditNotice")}
         </p>
@@ -365,7 +355,6 @@ function ThreadDialog({
   );
 }
 
-// ---------------------------------------------------------------------------
 function ReportsTab() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -507,7 +496,6 @@ function ReportsTab() {
   );
 }
 
-// ---------------------------------------------------------------------------
 function BlocksTab() {
   const t = useTranslations();
   const locale = useLocale() as Locale;

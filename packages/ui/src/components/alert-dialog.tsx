@@ -36,9 +36,6 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        // Surface, scrim and motion come from `chrome-2026.css`, keyed on the
-        // `data-slot` above — the same block the Dialog uses, so the two
-        // cannot drift apart. See the note there.
         "fixed inset-0 z-50",
         className
       )}
@@ -62,9 +59,6 @@ function AlertDialogContent({
         data-size={size}
         className={cn(
           "group/alert-dialog-content z-50 grid gap-4 p-6 outline-none",
-          // The same two forms the Dialog has, and for the same reason: this is
-          // the surface a receptionist confirms cash on, one-handed, standing.
-          // See the layout note in `dialog.tsx`.
           "fixed inset-x-0 bottom-0 max-h-[92svh] w-full overflow-y-auto",
           "rounded-t-(--chrome-radius-lg) border-t",
           "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
@@ -103,10 +97,6 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        // `flex-col`, not `flex-col-reverse` — the convention here is Cancel
-        // first in the DOM and the action last, so on the phone sheet a plain
-        // column puts the action LOWEST, nearest the thumb. Desktop is
-        // unchanged: an end-justified row in DOM order.
         "flex flex-col gap-2 [&>*]:w-full group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end sm:[&>*]:w-auto",
         className
       )}
@@ -123,10 +113,6 @@ function AlertDialogTitle({
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
       className={cn(
-        // 16px and `leading-6`: the same title size the Dialog uses, so a
-        // confirm box and a form modal do not announce themselves at two
-        // different ranks. `leading-6` also stops the Arabic descenders in ي
-        // and ج clipping, which `leading-none` did.
         "text-base leading-6 font-semibold text-(--chrome-fg) sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
         className
       )}

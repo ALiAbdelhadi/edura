@@ -5,10 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { moveStudentBetweenCenters } from "@/lib/services/admin/center-platform";
 
-// PLATFORM-ONLY — no center can do this. ROSTER ONLY: enrollments,
-// subscriptions, payments and wallet history stay at the old center, because
-// they are facts about what happened there and some have already settled.
-// The response reports what was left behind.
 export const dynamic = "force-dynamic";
 
 const bodySchema = z

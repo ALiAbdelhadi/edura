@@ -25,28 +25,6 @@ import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { useAdminGet } from "./use-oversight";
 
-// ---------------------------------------------------------------------------
-// Send a collaboration request AS this center, from the back office.
-//
-// `roster/teachers/invite` next to this button is shell-account onboarding and
-// refuses a teacher who already has an account (409) — Step 5 made the
-// collaboration request the one way a REGISTERED teacher joins a center, and
-// this is that door. It posts to the center-scoped route, which takes the
-// center from the URL, so this dialog cannot aim at another center.
-//
-// Two things the form deliberately does NOT have:
-//   • any money input — every rate is superadmin-only config applied by the
-//     kernel (the request carries a forced 0);
-//   • a pricing-method picker — on a hall that offers both, the TEACHER picks
-//     when accepting. A center-initiated request that pre-picks is refused
-//     server-side, so offering the control here would only manufacture errors.
-//
-// The subject → grade/track pickers are driven by `catalog/offerings`, i.e. the
-// catalog's own record of which combinations exist. The kernel re-checks the
-// offering anyway; sourcing the options from it means the operator cannot pick
-// a pair that check would reject.
-// ---------------------------------------------------------------------------
-
 type TeacherRow = { id: string; name: string | null; email: string | null; status: string };
 type SubjectRow = { id: string; nameAr: string; nameEn?: string | null };
 type OfferingRow = {
@@ -59,7 +37,6 @@ type OfferingRow = {
 };
 type RoomRow = { id: string; name: string };
 
-/** "HH:mm" slots, 06:00–22:00 in half hours — same range the center portal uses. */
 function useTimeOptions() {
   return useMemo(() => {
     const out: string[] = [];
@@ -102,8 +79,6 @@ export function CollabRequestDialog({
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Only ACTIVE teachers: the kernel refuses anything else, and a shell account
-  // belongs in the invite dialog next door.
   const teachersReq = useAdminGet<TeacherRow[]>("admin/teachers", {
     enabled: open,
     query: { status: "active", limit: "50", ...(teacherQuery.trim() ? { q: teacherQuery.trim() } : {}) },
@@ -124,7 +99,6 @@ export function CollabRequestDialog({
   });
   const rooms = roomsReq.data?.rooms ?? [];
 
-  // Changing the subject invalidates the grade/track pair chosen under the old one.
   useEffect(() => {
     setOfferingKey("");
   }, [subjectId]);
@@ -390,13 +364,11 @@ export function CollabRequestDialog({
   );
 }
 
-/** Button + dialog in one, for the tabs that offer this action. */
 export function CollabRequestButton({
   centerId,
   onDone,
 }: {
   centerId: string;
-  /** Named to match `ControlAction` on the sibling tabs. */
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");

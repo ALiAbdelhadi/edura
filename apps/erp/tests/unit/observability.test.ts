@@ -16,19 +16,9 @@ import {
   sharedSentryOptions,
 } from "@repo/observability";
 
-// =============================================================================
-// The observability PRIVACY boundary.
-//
-// These are not "does the SDK work" tests — they are the proofs that a minor's
-// name, a guardian's email, and a live claim token cannot reach a third-party
-// vendor. Everything under test is pure, so none of this touches the network.
-// =============================================================================
-
 describe("identity: who may be identified", () => {
   it("a student is ALWAYS a minor for analytics — no DOB lookup, no exceptions", () => {
     expect(isMinorRole("student")).toBe(true);
-    // Deliberately stricter than the chat gate, which does read the verified
-    // DOB columns. Analytics never gets to identify a student.
     expect(observabilityIdentity({ id: "u1", role: "student" })).toBeNull();
     expect(observabilityIdentity({ id: "u1", role: "student", centerId: "c1" })).toBeNull();
   });
@@ -36,7 +26,6 @@ describe("identity: who may be identified", () => {
   it("adult roles are identified by ID, role and centerId — and nothing else", () => {
     const identity = observabilityIdentity({ id: "u2", role: "center_admin", centerId: "c1" });
     expect(identity).toEqual({ id: "u2", role: "center_admin", centerId: "c1" });
-    // The shape is closed: no name/email key can appear even by accident.
     expect(Object.keys(identity ?? {}).sort()).toEqual(["centerId", "id", "role"]);
   });
 
@@ -63,9 +52,6 @@ describe("identity: who may be identified", () => {
   });
 
   it("an UNKNOWN role is identified, which is why isMinorRole must stay a denylist of one", () => {
-    // Documenting the sharp edge honestly: a future role is treated as an adult.
-    // That is correct for staff-shaped roles (every role added so far), and the
-    // day a second minor-facing role appears it MUST be added to isMinorRole.
     expect(observabilityIdentity({ id: "u", role: "future_role" })).not.toBeNull();
   });
 });
@@ -75,11 +61,8 @@ describe("redaction: tokens never leave the process", () => {
     const url = "https://edura.test/ar/onboarding?token=LIVE-SINGLE-USE-TOKEN&ref=x";
     const out = redactUrl(url);
     expect(out).not.toContain("LIVE-SINGLE-USE-TOKEN");
-    // Bracket-free in a query string: URLSearchParams would percent-encode
-    // `[redacted]` into `%5Bredacted%5D`, which reads like broken redaction.
     expect(out).toContain(REDACTED_PARAM);
     expect(out).not.toContain("%5B");
-    // The path is the useful part and survives.
     expect(out).toContain("/ar/onboarding");
     expect(out).toContain("ref=x");
   });
@@ -120,7 +103,6 @@ describe("redaction: tokens never leave the process", () => {
   });
 
   it("is depth-bounded, so a pathological payload cannot hang beforeSend", () => {
-    // 40 levels deep — well past the bound. Must return, not recurse forever.
     let deep: Record<string, unknown> = { token: "SECRET" };
     for (let i = 0; i < 40; i++) deep = { child: deep };
     expect(() => redactDeep(deep)).not.toThrow();
@@ -144,8 +126,6 @@ describe("sentry: beforeSend is the last gate", () => {
   });
 
   it("strips a user object down to the id, whatever put it there", () => {
-    // Simulates an SDK integration or a stray setUser that bypassed
-    // observabilityIdentity — the name and email do not survive.
     const event = scrubEvent({
       user: { id: "u1", email: "parent@example.com", username: "أحمد", ip_address: "1.2.3.4" },
     });
@@ -157,16 +137,6 @@ describe("sentry: beforeSend is the last gate", () => {
     expect(event?.user).toBeNull();
   });
 
-  // ===========================================================================
-  // REGRESSION, 2026-08-02. These six existed and all passed while the actual
-  // wire format leaked, because every one of them set `event.message` — and the
-  // SDK does not. `captureException(new Error(msg))` puts the text in
-  // `exception.values[].value`. Proven by sending a real event to a mock ingest
-  // server and grepping the envelope; fixed in scrubEvent.
-  //
-  // Build events the way the SDK builds them, not the way the assertion is
-  // convenient to write.
-  // ===========================================================================
   it("redacts the EXCEPTION VALUE — where captureException actually puts the text", () => {
     const out = scrubEvent({
       exception: {
@@ -181,12 +151,10 @@ describe("sentry: beforeSend is the last gate", () => {
     const v = out?.exception?.values?.[0]?.value ?? "";
     expect(v).not.toContain("SECRET123");
     expect(v).toContain("[redacted]");
-    // The useful part survives — a scrubbed report still has to be debuggable.
     expect(v).toContain("/ar/onboarding");
   });
 
   it("redacts an email in an exception value — the sendMail failure shape", () => {
-    // `sendMail` really does return "delivery to <address> failed: ...".
     const out = scrubEvent({
       exception: {
         values: [{ type: "Error", value: "delivery to parent@example.com failed: 550" }],
@@ -246,7 +214,6 @@ describe("sentry: beforeSend is the last gate", () => {
   });
 
   it("filters Next's control-flow throws, which would otherwise drown the alerts", () => {
-    // redirect() and notFound() throw these on every auth bounce.
     expect(IGNORED_ERRORS).toContain("NEXT_REDIRECT");
     expect(IGNORED_ERRORS).toContain("NEXT_NOT_FOUND");
   });
@@ -303,7 +270,6 @@ describe("analytics: the funnel is a closed set", () => {
     const out = sanitizeProperties({
       role: "center_admin",
       amount_piasters: 45000,
-      // None of these are on the list.
       name: "أحمد محمود",
       email: "parent@example.com",
       phone: "01012345678",

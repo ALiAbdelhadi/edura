@@ -72,11 +72,6 @@ export const POST = withRateLimit(
       }),
     );
 
-    // Funnel step 2. After the account exists — a registration that succeeded
-    // but was never counted is the one number you cannot reconstruct later.
-    // `captureServerEvent` never throws. Runs in after(): the runtime still
-    // guarantees execution (waitUntil-backed), so the count survives while the
-    // response stops waiting on the PostHog hop.
     runAfter(() =>
       captureServerEvent(
         { id: userId, role: "center_admin", centerId },

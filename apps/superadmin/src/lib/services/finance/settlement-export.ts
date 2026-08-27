@@ -2,39 +2,8 @@ import ExcelJS from "exceljs";
 import { toDateKey, todayKey } from "@repo/server-core/lib/date-key";
 import { listSessionSettlements, type SettlementFilters } from "@/lib/services/admin/session-settlements";
 
-// ===========================================================================
-// SETTLEMENT EXPORT — an .xlsx an accountant can actually work in.
-//
-// FOUR THINGS THAT MAKE IT AN ACCOUNTANT'S FILE RATHER THAN A DATA DUMP:
-//
-// 1. MONEY IS A NUMBER, NOT A STRING. The database stores integer piasters;
-//    the sheet stores pounds as a real numeric cell with an EGP number format.
-//    A column of "450.00 EGP" text cannot be summed, and the first thing
-//    anybody does to this file is select the column and look at the status bar.
-//
-// 2. THE ARITHMETIC IS A FORMULA, NOT A CONSTANT. The total row uses SUBTOTAL,
-//    not SUM: SUBTOTAL ignores rows hidden by a filter, so when the accountant
-//    filters to one center the totals follow. A pre-computed constant would
-//    quietly contradict the visible rows.
-//
-// 3. THE SHEET IS RIGHT-TO-LEFT AND THE HEADER IS FROZEN. The reader is
-//    working in Arabic; the pane opens at the start edge they expect, and the
-//    header stays put through a thousand rows.
-//
-// 4. THE ATTENDANCE MISMATCH IS A COLUMN, NOT A FOOTNOTE. `present_count` is
-//    FROZEN at settlement while attendance can be edited afterwards (money is
-//    never re-rated). An export that showed only the frozen number would hide
-//    the single discrepancy an auditor is looking for, so both counts ship and
-//    a third column names the difference.
-//
-// The export deliberately reuses `listSessionSettlements` rather than issuing
-// its own query: an export that can disagree with the screen it was exported
-// from is worse than no export.
-// ===========================================================================
-
 const EGP_FORMAT = '#,##0.00\\ "EGP"';
 
-/** Piasters → pounds, as a NUMBER. Never a formatted string. */
 const toPounds = (piasters: number | null | undefined) => (piasters ?? 0) / 100;
 
 type Column = {
@@ -83,8 +52,6 @@ const METHOD_LABEL: Record<"ar" | "en", Record<string, string>> = {
   ar: {
     whole_room_percent: "نسبة القاعة كاملة",
     per_attending_student: "لكل طالب حاضر",
-    // Phase 3: pricing_method is NULL for the legacy no-room fee model —
-    // every settled lesson files a record now, not only room-based ones.
     no_room: "بدون قاعة (النموذج الافتراضي)",
   },
   en: {
@@ -101,10 +68,6 @@ const NOTE = {
   en: "Amounts in EGP. “Present at settlement” is frozen and never re-rated; any delta means attendance was edited after settlement.",
 };
 
-/**
- * The export is capped at 5000 rows and SAYS SO in the sheet when it bites.
- * A silently truncated accounting export is a wrong export.
- */
 const MAX_ROWS = 5000;
 
 export async function buildSettlementWorkbook(
@@ -119,9 +82,7 @@ export async function buildSettlementWorkbook(
   const ws = wb.addWorksheet(SHEET_TITLE[locale], {
     views: [
       {
-        // The reader works in Arabic; the sheet opens the way they read.
         rightToLeft: locale === "ar",
-        // Header row stays visible through the whole file.
         state: "frozen",
         ySplit: 1,
       },
@@ -148,7 +109,6 @@ export async function buildSettlementWorkbook(
       perSessionPrice: toPounds(s.perSessionPrice),
       presentCount: s.presentCount,
       livePresentCount: s.livePresentCount,
-      // Signed, so a filter on "not zero" finds every edited session at once.
       countDelta: s.livePresentCount - s.presentCount,
       platformTotal: toPounds(s.platformTotal),
       centerTotal: toPounds(s.centerTotal),
@@ -162,8 +122,6 @@ export async function buildSettlementWorkbook(
     ws.getColumn(index + 1).numFmt = EGP_FORMAT;
   }
 
-  // The conclusion. SUBTOTAL(109, …) = SUM that respects the autofilter, so
-  // filtering to one center re-totals to that center rather than lying.
   if (settlements.length > 0) {
     const firstDataRow = 2;
     const lastDataRow = settlements.length + 1;

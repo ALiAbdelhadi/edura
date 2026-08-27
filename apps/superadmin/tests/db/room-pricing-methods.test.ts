@@ -1,47 +1,3 @@
-/**
- * Room pricing methods — Method 2 (per-attending-student) money-path
- * verification (live DB). Extends room-revenue-split.test.ts (Method 1, kept
- * intact — rerun it alongside this file).
- *
- * Proves:
- *  VP1  M2 rate resolution room → center → global, BOTH rate forms (flat
- *       piasters / bp), and the DB CHECK rejecting a row with both forms set.
- *  VP2  method policy at snapshot time: forced rooms impose their method,
- *       mismatches throw, both-methods rooms honor the request and default to
- *       percent, M2 with NO configured rate THROWS (never falls back to a flat
- *       share), and platform% + rate% > 100% is rejected.
- *  VP3  M2 settlement: per PRESENT student only (absent + counter_only
- *       excluded), through the SAME append-only ledger, exact conservation,
- *       method-stamped notes, and a session_settlements record matching the
- *       ledger.
- *  VP4  exactly-once: re-completing moves no money, writes no rows; a
- *       zero-present completion does NOT claim and a later re-complete settles
- *       exactly once.
- *  VP5  attendance edited AFTER settlement never re-rates money, and the
- *       oversight listing flags the mismatch.
- *  VP6  cancelled sessions cannot settle; a negative teacher net (M2 flat fee
- *       > lesson price) aborts completion BEFORE anything persists.
- *  VP7  an M2 refund reverses the settlement exactly (wallets restored,
- *       student credited, double-refund rejected).
- *  VP8  M2 with a PERCENT rate settles bp-exact; the course-snapshot DB CHECK
- *       holds; clearing a split preserves a co-located rate and vice versa.
- *  VP9  the is_demo seed wrote method configs + an M2 demo course but NO
- *       ledger rows.
- *  VP10 the CENTER setting its OWN hall's rate: refused with no published
- *       platform rate, refused above it, refused in the other rate form,
- *       refused on another center's hall; allowed at/under the ceiling, lands
- *       in the same room > center > global chain the money engine reads,
- *       audited to the center actor, clears back to the platform's rate — and
- *       the superadmin stays unbounded.
- *  VP11 the batch resolver behind the TEACHER's hall picker answers exactly
- *       what the per-room resolver (the money engine) answers, at every
- *       precedence state, including two halls of one center on different
- *       rates — and shows nothing at all when nothing is configured.
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only room-pricing-methods
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import {
@@ -75,13 +31,6 @@ import {
   ROOM_SEED_CENTER_SHORT_IDS,
 } from "../../../../packages/database/scripts/seed-money-scan";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "room-pricing-methods.test.ts";
 
@@ -153,7 +102,6 @@ async function mkStudent(tag: string) {
   });
 }
 
-/** Course frozen via the REAL snapshot resolver + one session + attendance. */
 async function mkCourse(opts: {
   tag: string;
   centerId: string;
@@ -231,9 +179,6 @@ const wallets = (teacherId: string, centerId: string) =>
         select: { walletBalance: true },
       }))!.walletBalance,
       center: c.walletBalance,
-      // D5 (Phase 4): every fixture in this file settles CENTER-HELD (no
-      // subscription), so the center's take never touches wallet_balance —
-      // its position moves on credit_balance instead.
       credit: c.creditBalance,
     };
   });
@@ -258,11 +203,9 @@ async function main() {
   );
   const su = { id: suId, role: "super_admin" } as never;
 
-  // Deterministic baseline: known global split, NO global M2 rate.
   await updateGlobalSplit({ platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 }, su);
   await clearGlobalM2Rate(su);
 
-  // ---------------------------------------------------------------- VP1
   console.log("\nVP1 — M2 rate resolution room → center → global, both forms + DB CHECK");
   const { centerId, roomId } = await mkCenterRoom(tag, [
     "whole_room_percent",
@@ -279,10 +222,6 @@ async function main() {
     "DB CHECK rejects a rate row with BOTH flat fee and bp set",
   );
 
-  // The room form disables its per-student checkbox from
-  // resolveMethod2Availability while the write path gates on
-  // resolveMethod2Rate. A UI that offers what the gate refuses (or hides what
-  // it would allow) is the drift this asserts away at EVERY state below.
   const availabilityAgrees = async (label: string) => {
     const [live, avail] = await withPlatformContext(async (tx) => [
       await resolveMethod2Rate(tx, { roomId, centerId }),
@@ -333,9 +272,6 @@ async function main() {
   assert(rate === null, "clearing the global rate → M2 unavailable again");
   await availabilityAgrees("everything cleared");
 
-  // A ROOM-scope rate is the one case where the two answers differ: that room
-  // may keep the method, but a BRAND-NEW room (no room row yet) may not — which
-  // is exactly why the endpoint answers `center` and `rooms[id]` separately.
   await upsertRoomM2Rate(centerId, roomId, { fee: 500, bp: null }, su);
   const scoped = await withPlatformContext((tx) =>
     resolveMethod2Availability(tx, { centerId, roomIds: [roomId] }),
@@ -346,7 +282,6 @@ async function main() {
   );
   await clearRoomM2Rate(centerId, roomId, su);
 
-  // ---------------------------------------------------------------- VP2
   console.log("\nVP2 — method policy + no-rate guard at snapshot time");
   const forcedPct = await mkCenterRoom(tag + "-fp", ["whole_room_percent"]);
   const forcedM2 = await mkCenterRoom(tag + "-fm", ["per_attending_student"]);
@@ -412,7 +347,6 @@ async function main() {
     "platform% + per-student% > 100% is rejected at snapshot time",
   );
 
-  // ---------------------------------------------------------------- VP3
   console.log("\nVP3 — M2 settlement: present-only, exact ledger, settlement record");
   const t1 = await mkTeacher(tag + "1");
   const sA = await mkStudent(tag + "1a");
@@ -453,8 +387,6 @@ async function main() {
     a1.teacher - b1.teacher === teacherCut * N,
     `teacher got the remainder × PRESENT only (+${teacherCut * N}, absent + counter_only excluded)`,
   );
-  // D5: center-held lesson — the rate × attendees stays in the center's
-  // drawer (wallet untouched); its credit is debited teacher net + fees.
   assert(a1.center - b1.center === 0, "center wallet NOT credited (center-held: rate × attendees already in its drawer)");
   assert(
     a1.credit - b1.credit === -(teacherCut + platformCut) * N,
@@ -490,7 +422,6 @@ async function main() {
   );
   assert(!!rec && rec.settledBy === t1, "settlement record attributes the settling actor");
 
-  // ---------------------------------------------------------------- VP4
   console.log("\nVP4 — exactly-once (re-complete + zero-present claim ordering)");
   await completeSession(m2.sessionId, { id: t1, role: "teacher" } as never);
   const a2 = await wallets(t1, centerId);
@@ -544,7 +475,6 @@ async function main() {
     "late attendance + re-complete settles EXACTLY once (one credit debit, center-held)",
   );
 
-  // ---------------------------------------------------------------- VP5
   console.log("\nVP5 — attendance edited after settlement: money frozen, mismatch visible");
   const preEdit = await wallets(t1, centerId); // baseline NOW (VP4 settled another course on this center)
   await withPlatformContext((tx) =>
@@ -574,7 +504,6 @@ async function main() {
     }),
   );
 
-  // ---------------------------------------------------------------- VP6
   console.log("\nVP6 — cancelled sessions + negative-net guard");
   const t3 = await mkTeacher(tag + "3");
   const s3 = await mkStudent(tag + "3");
@@ -621,7 +550,6 @@ async function main() {
   );
   assert((await ledgerFor(zero.sessionId)).length === 0, "…zero ledger rows written");
 
-  // ---------------------------------------------------------------- VP7
   console.log("\nVP7 — M2 refund reverses exactly, double-refund rejected");
   const preRefund = await wallets(t1, centerId);
   await refundLessonForStudent(m2.sessionId, sA, "verification", su);
@@ -629,10 +557,6 @@ async function main() {
   assert(
     preRefund.teacher - postRefund.teacher === teacherCut &&
       preRefund.center === postRefund.center &&
-      // D5: settlement debited −(teacher+fees); the refund's reversal debits
-      // the remaining −centerNet, landing the position at −price for this
-      // student — the platform refunded from its own pocket while the gross
-      // sits in the center's drawer.
       postRefund.credit - preRefund.credit === -centerCut,
     "refunding ONE student reverses one per-student split (teacher −16500, credit −500 to −price)",
   );
@@ -646,7 +570,6 @@ async function main() {
     "a second refund for the same student+lesson is rejected (H3)",
   );
 
-  // ---------------------------------------------------------------- VP8
   console.log("\nVP8 — percent-form rate settles bp-exact; CHECK + clear interplay");
   const pctRateRoom = await mkCenterRoom(tag + "-pr", ["per_attending_student"]);
   await upsertRoomM2Rate(pctRateRoom.centerId, pctRateRoom.roomId, { fee: null, bp: 1000 }, su);
@@ -667,7 +590,6 @@ async function main() {
   assert(
     a4.center - b4.center === 0 &&
       a4.teacher - b4.teacher === price - platformCut - pctCenterCut &&
-      // D5 center-held: credit debit = teacher net + fees = price − centerCut.
       a4.credit - b4.credit === -(price - pctCenterCut),
     `percent-form rate settles bp-exact (center keeps +${pctCenterCut} in the drawer, teacher remainder, credit −${price - pctCenterCut})`,
   );
@@ -682,8 +604,6 @@ async function main() {
     "DB CHECK rejects a malformed M2 course snapshot",
   );
 
-  // A room row holding BOTH a split override and an M2 rate: clearing one
-  // must preserve the other (regression for the shared scope row).
   await upsertRoomSplit(centerId, roomId, { platformShareBp: 2000, teacherShareBp: 6000, centerShareBp: 2000 }, su);
   await clearRoomSplit(centerId, roomId, su);
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
@@ -692,12 +612,6 @@ async function main() {
   rate = await withPlatformContext((tx) => resolveMethod2Rate(tx, { roomId, centerId }));
   assert(rate === null, "clearing the room M2 rate then resolves to nothing (no global)");
 
-  // ---------------------------------------------------------------- VP9
-  // The "NO ledger rows" half used to be a zero-count over EVERY is_demo
-  // center — unsound on shared dev now that the showcase seeds settle demo
-  // lessons through the real engine (see seed-money-scan.ts for the full
-  // story). It is asserted at the seed source instead, and the config checks
-  // are scoped to the centers the room seeds actually own.
   console.log("\nVP9 — room demo seeds: method configs + M2 course, never the ledger");
   const ledgerWrites = scanSeedsForDirectLedgerWrites();
   assert(
@@ -733,10 +647,6 @@ async function main() {
     "an M2 demo course exists with a fully-frozen snapshot",
   );
 
-  // --------------------------------------------------------------- VP10
-  // The CENTER writing its own hall's rate. Same rate columns, same resolver,
-  // but bounded: the platform's published rate is the maximum, because the
-  // teacher accepting the booking never sees this number.
   console.log("\nVP10 — center-set hall rate: bounded by the platform, own halls only");
   const cs = await mkCenterRoom(tag + "-cs", ["whole_room_percent", "per_attending_student"]);
   const other = await mkCenterRoom(tag + "-ot", ["per_attending_student"]);
@@ -803,8 +713,6 @@ async function main() {
     "the money engine resolves the CENTER-set rate through the same room > center > global chain",
   );
 
-  // The ceiling is measured against the PLATFORM's rate, never against the
-  // hall's own — otherwise a hall that lowered itself could never go back up.
   const backUp = await withPlatformContext((tx) =>
     setRoomM2RateAsCenter(tx, asCenter, { fee: null, bp: 1200 }),
   );
@@ -833,15 +741,10 @@ async function main() {
     "clearing the hall's own rate falls back to the platform's",
   );
 
-  // The superadmin is NOT bound by the ceiling — it IS the ceiling.
   const suOver = await upsertRoomM2Rate(cs.centerId, cs.roomId, { fee: null, bp: 9000 }, su);
   assert(suOver?.bp === 9000, "the superadmin can still set a rate above its own published one");
   await clearRoomM2Rate(cs.centerId, cs.roomId, su);
 
-  // --------------------------------------------------------------- VP11
-  // The batch resolver behind the TEACHER's hall picker. It must answer
-  // exactly what the per-room resolver answers — a picker that disagrees with
-  // the settlement engine would quote the teacher a price they do not get.
   console.log("\nVP11 — batch rate resolution for the teacher's hall picker == the money engine");
   const second = await withPlatformContext((tx) =>
     tx.room

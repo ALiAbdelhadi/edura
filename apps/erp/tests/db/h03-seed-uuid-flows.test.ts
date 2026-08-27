@@ -1,54 +1,3 @@
-/**
- * H-03 BEHAVIOURAL PROOF — the four flows the report says "400 on the demo
- * data" now run END TO END on the SEEDED `is_demo` fixtures themselves.
- *
- * BEFORE: `prisma/preview-seed.ts` and `prisma/messaging-demo-seed.ts` built
- * their deterministic ids by slicing a raw SHA-1 digest into the 8-4-4-4-12
- * shape. That is UUID-shaped but not a UUID (RFC 9562 fixes the version and
- * variant nibbles), so ~7 of every 8 seeded ids were rejected by `z.uuid()`:
- *
- *     POST /api/v1/center/checkin {"sessionId":"8a0f946b-50c3-2304-1d26-…"}
- *     -> 400 {"code":"validation_error","fields":{"sessionId":["Invalid UUID"]}}
- *
- * AFTER: the seeds mint genuine UUIDv5 through the one shared generator
- * (`packages/database/prisma/seed-ids.ts`). NO route guard was changed — the
- * structural half of the proof (tests/unit/h03-seed-uuid.test.ts) asserts every
- * one of these fields still declares `z.uuid()`.
- *
- * What this file asserts, driving the REAL route handlers IN-PROCESS with REAL
- * sessions (only the session-read edge is stubbed, via the
- * `__setSessionOverrideForTests` seam in @/lib/auth/session — parseJson/zod, the
- * authz wrappers, the services and the DB writes all run for real):
- *   F0  every id in the seeded demo dataset passes the routes' own predicate
- *   F1  counter check-in       — seeded student + seeded session, no 400
- *   F2  walk-in cash           — per-session cash + check-in in ONE step (201),
- *                                ledger written, and the check-in that was 402
- *                                now returns 200 for the SAME seeded ids
- *   F3  checkout               — student checkout on a seeded course -> intent
- *   F4  messaging demo         — conversation with a seeded demo user, and a
- *                                report against a SEEDED conversation id
- *   F5  a legacy-shaped id is still rejected (the guard is intact, not bypassed)
- *   F6  money reconciles back to the pre-run baseline; nothing is left behind
- *
- * MONEY DISCLOSURE: F2/F3 write to the ledger, deliberately and only through
- * `is_demo` seed entities (NILE preview center, demo student Lina Hassan).
- * Everything written is deleted at the end and the money table counts and the
- * touched wallets are asserted back to the pre-run snapshot.
- *
- * F6 compares GLOBAL money-table counts, so it needs the database to itself:
- * another money suite (or a dev server sharing this DB) writing concurrently
- * will shift a count and show up here as a spurious failure. Run it alone.
- *
- * Run — NO server required, and no WWW_BASE_URL: this suite used to drive
- * http://localhost:3002, which is whatever server holds that port. Its writes
- * then travelled on THAT server's connection, where db-guard could not see them
- * (proven 2026-08-01: it created rows in DEV while the guard read `test`).
- * In-process, the only connection is this process's own — the one db-guard
- * validates.
- *   bun run --filter edura test:db                  # all suites, guarded
- *   bun run --filter edura test:db:only h03-seed-uuid-flows
- *   NEVER --env-file=.env.local — that is the DEV database, and it skips the guard.
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth/session";
@@ -81,18 +30,9 @@ function section(s: string) {
   console.log("\n" + s);
 }
 
-// ------------------------------------------------------------------- session
-// IN-PROCESS. The ONLY thing stubbed is the cookie -> session read at the very
-// edge (`__setSessionOverrideForTests` in @/lib/auth/session — the explicit
-// test seam that replaced the old getServerSession monkey-patch). Everything
-// inside each route — the centerStaff/authz wrappers, parseJson + zod (which is
-// the entire point of this suite), the services and the DB writes — is the real
-// code path. Nothing depends on a server being up, so the suite can no longer
-// write to whatever database happens to be listening on port 3002.
 let currentSession: { user: SessionUser } | null = null;
 __setSessionOverrideForTests(() => currentSession?.user ?? null);
 
-/** The session a given seeded user would carry, resolved from the DB row. */
 async function sessionFor(userId: string): Promise<{ user: SessionUser }> {
   const u = (
     await q(
@@ -117,7 +57,6 @@ async function sessionFor(userId: string): Promise<{ user: SessionUser }> {
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 
-/** path -> the REAL route handler. A path with no entry is a typo, not a 404. */
 const ROUTES: Record<string, Handler> = {
   "/api/v1/center/checkin": checkinRoute as Handler,
   "/api/v1/center/subscriptions": centerSubscriptionsRoute as Handler,
@@ -127,7 +66,6 @@ const ROUTES: Record<string, Handler> = {
   "/api/v1/messages/reports": messageReportsRoute as Handler,
 };
 
-/** A distinct IP per call so the shared rate-limit buckets never starve the run. */
 const nextIp = () => `198.51.100.${1 + Math.floor(Math.random() * 250)}`;
 
 async function call(
@@ -155,7 +93,6 @@ async function call(
     try {
       json = JSON.parse(text);
     } catch {
-      /* */
     }
     return { status: res.status, json: json as never, text: text.slice(0, 300) };
   } finally {
@@ -163,7 +100,6 @@ async function call(
   }
 }
 const D = (r: { json: never }) => (r.json as { data?: never } | null)?.data as never;
-/** Was THIS response the H-03 failure (a UUID-shaped field rejected as invalid)? */
 const isUuidValidationError = (r: { status: number; text: string }) =>
   r.status === 400 && /invalid uuid/i.test(r.text);
 
@@ -180,9 +116,6 @@ const userId = async (email: string) =>
     ?.id;
 
 async function main() {
-  // ---------------------------------------------------------------------
-  // Fixtures: SEEDED is_demo rows only. Nothing here is created by the test.
-  // ---------------------------------------------------------------------
   const lina = await userId("lina.hassan@student.nile-academy.eg");
   const reception = await userId("reception@nile-academy.eg");
   const msgYoussef = await userId("msgdemo-youssef@edura.test");
@@ -197,9 +130,6 @@ async function main() {
     process.exit(1);
   }
 
-  // The NILE demo course Lina is enrolled on, and its scheduled seeded sessions.
-  // Two are needed: F2 buys a per-session pass for the first, so F3 must check
-  // out a DIFFERENT session or it (correctly) hits "an active pass exists".
   const sessions = (await q(
     `select s.id session_id, c.id course_id, c.center_id, c.teacher_id, c.price_per_session
        from sessions s
@@ -218,7 +148,6 @@ async function main() {
     );
     process.exit(1);
   }
-  // A SEEDED conversation id (messaging demo) for the report flow.
   const seededConv = (
     await q(
       `select c.id, c.user_a_id, c.user_b_id from conversations c
@@ -237,8 +166,6 @@ async function main() {
     )
   )[0] as Record<string, number>;
 
-  // Notifications the flows fan out (parents/staff) are not money, but the run
-  // should still leave nothing behind: remember what existed, delete the rest.
   const actors = [lina, reception, msgYoussef, msgKamal, seeded.teacher_id];
   const notifBefore = new Set(
     ((await q(`select id from notifications where user_id = any($1::uuid[])`, [actors])) as {
@@ -250,9 +177,7 @@ async function main() {
   const linaSession = await sessionFor(lina);
   const youssefSession = await sessionFor(msgYoussef);
 
-  // =====================================================================
   section("F0 — every id in the seeded demo dataset passes the routes' predicate");
-  // =====================================================================
   const idSets: [string, string][] = [
     ["users(is_demo)", `select id from users where is_demo = true`],
     ["centers(is_demo)", `select id from centers where is_demo = true`],
@@ -281,9 +206,7 @@ async function main() {
   }
   assert(scanned > 0, `scanned ${scanned} seeded ids in total`);
 
-  // =====================================================================
   section("F1 — counter check-in accepts the SEEDED student + session ids");
-  // =====================================================================
   const checkin1 = await call("POST", "/api/v1/center/checkin", receptionSession, {
     studentId: lina,
     sessionId: seeded.session_id,
@@ -295,9 +218,7 @@ async function main() {
   );
   const startedUncovered = checkin1.status === 402;
 
-  // =====================================================================
   section("F2 — walk-in cash: per-session cash + check-in in ONE step");
-  // =====================================================================
   const walkin = await call("POST", "/api/v1/center/subscriptions", receptionSession, {
     studentId: lina,
     courseId: seeded.course_id,
@@ -332,9 +253,7 @@ async function main() {
   )) as { id: string; status: string }[];
   assert(att.length === 1, `exactly one attendance record written for the seeded session (${att[0]?.status})`);
 
-  // =====================================================================
   section("F3 — checkout on a seeded course");
-  // =====================================================================
   const idem = "h03-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   const checkout = await call("POST", "/api/v1/subscriptions/checkout", linaSession, {
     courseId: seededOther.course_id,
@@ -360,9 +279,7 @@ async function main() {
     `payments/initiate accepts the seeded courseId — got ${initiate.status}`,
   );
 
-  // =====================================================================
   section("F4 — messaging on the seeded demo users");
-  // =====================================================================
   const conv = await call("POST", "/api/v1/messages/conversations", youssefSession, {
     recipientId: msgKamal,
   });
@@ -393,10 +310,7 @@ async function main() {
     assert(false, "expected a seeded conversation for the messaging demo student");
   }
 
-  // =====================================================================
   section("F5 — the guard is intact: a legacy-shaped id is still REJECTED");
-  // =====================================================================
-  // The exact id the verification report quoted for the NILE completed session.
   const legacy = "8a0f946b-50c3-2304-1d26-fecd09ce863d";
   assert(!uuid.safeParse(legacy).success, "the legacy seed id still fails z.uuid() (nothing was relaxed)");
   const rejected = await call("POST", "/api/v1/center/checkin", receptionSession, {
@@ -415,9 +329,7 @@ async function main() {
     `messages/conversations still rejects a non-RFC id: ${rejectedMsg.status}`,
   );
 
-  // =====================================================================
   section("F6 — cleanup: the ledger returns to its pre-run baseline");
-  // =====================================================================
   await cleanup(subId, seeded, seededOther, lina, iid, convId);
   const notifNew = (
     (await q(`select id from notifications where user_id = any($1::uuid[])`, [actors])) as {
@@ -466,9 +378,6 @@ async function cleanup(
   intentId: string | null,
   convId: string | null,
 ) {
-  // Raw SQL through the admin pool: the ledger tables are append-only behind
-  // the Prisma immutability extension, and this is a test fixture teardown on a
-  // dev database — same escape hatch the C-01 suite uses.
   const del = async (sql: string, p: unknown[]) => {
     try {
       await pool.query(sql, p);
@@ -490,9 +399,6 @@ async function cleanup(
     "%",
   ]);
   if (subId) await del(`delete from subscriptions where id=$1`, [subId]);
-  // The gateway checkout in F3 creates the coverage row up front in
-  // `pending_payment` alongside the intent — it is only activated when the
-  // gateway settles, so it has to be cleaned up explicitly too.
   await del(
     `delete from subscriptions where student_id=$1 and course_id=$2 and session_id=$3 and status='pending_payment'`,
     [studentId, seededOther.course_id, seededOther.session_id],
@@ -506,7 +412,6 @@ async function cleanup(
     studentId,
   ]);
   for (const rid of createdReports) await del(`delete from conversation_reports where id=$1`, [rid]);
-  // The conversation the test opened (only if it was NOT a pre-seeded thread).
   if (convId) {
     const seededIds = (await q(`select id from conversations where is_demo = true`)) as { id: string }[];
     if (!seededIds.some((r) => r.id === convId)) {
@@ -516,15 +421,12 @@ async function cleanup(
   }
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite h03-seed-uuid-flows.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);
   try {
     await pool.end();
   } catch {
-    /* */
   }
   process.exit(1);
 });

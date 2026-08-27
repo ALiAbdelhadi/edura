@@ -1,26 +1,3 @@
-/**
- * MC-3 — `payments.payment_method` (API session 2, item B.1#3).
- *
- * The gap: the receipt never said how the money arrived — the method was
- * written to the sibling Transaction and to Subscription but never to
- * `payments` — so the centre could not reconcile the cash drawer at all
- * (CENTER_IA_AUDIT §7.2 #8; the takings card ships deliberately unsplit with
- * the guard in apps/erp/src/features/admin/takings.ts pointing at this fix).
- *
- * What is proven here, against the REAL writers (not copies):
- *   1. The cash desk (`recordPayment`) writes `cash`.
- *   2. The counter's cash wallet top-up (`topUpWalletCash`) writes `cash`.
- *   3. The one-step walk-in subscription writes `cash`.
- *   4. The online wallet top-up settler writes `online_paymob`.
- *   5. A row created WITHOUT a method — any future forgotten writer — reads
- *      `unknown`, never a guessed `cash`. (This is also the backfill shape:
- *      migration 20260821120100 defaulted every pre-existing row to it.)
- *   6. `listPayments` hands the method to the fees screen (full-row spread).
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only mc3-payment-method
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { recordPayment, listPayments } from "@repo/server-core/services/payments/payments";
 import { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
@@ -67,8 +44,6 @@ async function main() {
     const admin = await tx.user.create({
       data: { name: `${tag}-admin`, role: "center_admin", email: `${tag}-a@x.io`, status: "active" },
     });
-    // The user row carries no center link — ownership lives on the center, and
-    // `centerId` reaches services via the SESSION user (below).
     await tx.center.update({ where: { id: center.id }, data: { ownerUserId: admin.id } });
     const teacher = await tx.user.create({
       data: { name: `${tag}-teacher`, role: "teacher", email: `${tag}-t@x.io`, status: "active" },
@@ -76,7 +51,6 @@ async function main() {
     const student = await tx.user.create({
       data: { name: `${tag}-student`, role: "student", email: `${tag}-s@x.io`, status: "active" },
     });
-    // walletCredit updates the student's profile row, so the fixture needs one.
     await tx.studentProfile.create({
       data: {
         userId: student.id, fullName: `${tag}-student`, phone: `+2010${tag.replace(/\D/g, "").padEnd(8, "7").slice(0, 8)}`,

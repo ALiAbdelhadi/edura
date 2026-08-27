@@ -28,7 +28,6 @@ export const GET = withErrors(async (_req, ctx) => {
   return ok(await getCenterSplit(id));
 });
 
-/** super_admin ONLY — the split is money config; the center never sets it. */
 export const PUT = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id } = await ctx.params;

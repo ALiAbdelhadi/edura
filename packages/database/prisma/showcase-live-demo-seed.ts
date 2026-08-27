@@ -1,41 +1,4 @@
 /* eslint-disable no-console */
-// ---------------------------------------------------------------------------
-// SHOWCASE LIVE demo — the three non-money gaps that stopped a screen being
-// worth photographing. Nothing here touches the money ledger.
-//
-//  1. A LESSON RUNNING RIGHT NOW for the door-mode teacher. `/dashboard/
-//     assistant/door` and `/dashboard/teacher/door` list TODAY's lessons and
-//     nothing else, so on a fixture whose next lesson is two days away they
-//     render "لا توجد حصص اليوم" — an empty screen that says nothing about a
-//     feature that works. Times are computed from the CAIRO clock AT SEED TIME
-//     and straddle this minute, exactly like counter-demo-seed, so this must be
-//     re-run on the day of any capture.
-//
-//  2. COUNTER-PASSED STUDENTS on that lesson (`counter_only` attendance). The
-//     door screen's whole job is confirming students who already passed the
-//     counter; with nobody in that state the roster is empty and the second
-//     check-in has nothing to act on. `counter_only` deliberately does NOT
-//     count as present, so this adds no revenue and settles nothing.
-//
-//  3. A PENDING COLLABORATION REQUEST. `/dashboard/teacher/centers` is the
-//     `teacher-manage` shot — "a request with subject, year, hall, schedule and
-//     share on it" — and no collaboration request existed anywhere in the
-//     database.
-//
-//  4. CENTER EXPENSES, through the app's own owner-only `POST /api/v1/expenses`.
-//     The net-profit report read 11,700.00 ج.م revenue against 0.00 expenses
-//     and therefore a 100% margin, which reads as a demo rather than as a
-//     center. Expenses are the center's own bookkeeping table, NOT the
-//     double-entry ledger.
-//
-// Idempotent: every step checks for its own row first, so re-running only
-// refreshes the lesson times.
-//
-// Usage:
-//   bun run --cwd apps/erp dev                # in another terminal, :3002
-//   bun --env-file=.env prisma/showcase-live-demo-seed.ts
-//   bun --env-file=.env prisma/showcase-live-demo-seed.ts --purge
-// ---------------------------------------------------------------------------
 import { assertNotProduction } from "../scripts/db-guard";
 import {
   assertHttpTargetSharesDatabase,
@@ -44,8 +7,6 @@ import {
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
-// Resolved lazily: --dry-run never reaches the network, so it must not
-// demand a target. Everything that DOES write calls baseUrl().
 let _baseUrl: string | null = null;
 const baseUrl = () => (_baseUrl ??= requireErpBaseUrl("showcase-live-demo-seed"));
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -54,7 +15,6 @@ const PURGE = process.argv.includes("--purge");
 const did = seedId("edura-showcaselive:");
 const CENTER_SHORT_ID = "SHOWCASE01";
 const OWNER_EMAIL = "showcasedemo-marwan@edura.test";
-/** The `counter_and_door` teacher — the only mode with a door screen at all. */
 const DOOR_TEACHER_EMAIL = "showcasedemo-hossam@edura.test";
 
 const LIVE_SESSION = did("session:live");
@@ -63,7 +23,6 @@ const EXPENSE_TAG = "[showcase-live demo]";
 
 const CAIRO = "Africa/Cairo";
 
-/** "HH:MM" in Cairo, `minutes` from now — the clock the schedule is written in. */
 function cairoClock(offsetMinutes: number): string {
   const t = new Date(Date.now() + offsetMinutes * 60_000);
   return new Intl.DateTimeFormat("en-GB", {
@@ -74,28 +33,11 @@ function cairoClock(offsetMinutes: number): string {
   }).format(t);
 }
 
-/**
- * Today in Cairo, at MIDNIGHT UTC — and the midnight matters.
- *
- * `GET /api/v1/sessions?from=…&to=…` builds `date: { gte: new Date(from),
- * lte: new Date(to) }`, and `new Date("2026-08-16")` is midnight. A session
- * stored at NOON on the `to` day is therefore greater than `lte` and is
- * dropped from its own day's results. The showcase seed stores sessions at
- * `T12:00:00Z`, which is why none of them appear on the door screen; counter-
- * demo-seed stores `T00:00:00Z`, which is why that one works. Midnight is the
- * convention the API filter is written against, so this follows it.
- */
 function cairoToday(): Date {
   const key = new Intl.DateTimeFormat("en-CA", { timeZone: CAIRO }).format(new Date());
   return new Date(`${key}T00:00:00.000Z`);
 }
 
-/**
- * L-8: `assertNotProduction()` above guards the DATABASE this process is
- * connected to. Everything below writes MONEY through an app over HTTP, and
- * that app reads whatever database IT was started with. Prove they are the
- * same before writing a single row.
- */
 async function assertSameDatabase(cookie: string): Promise<void> {
   const owner = await withPlatformContext((tx) =>
     tx.user.findUnique({ where: { email: OWNER_EMAIL }, select: { id: true } }),
@@ -163,7 +105,6 @@ async function main() {
   console.log(`Center:  ${ctx.center.name} (${CENTER_SHORT_ID})`);
   console.log(`Teacher: ${ctx.teacher.name} — ${ctx.course.title}\n`);
 
-  // ── 1 + 2 · the lesson running now, with counter-passed students ─────────
   const startTime = cairoClock(-35);
   const endTime = cairoClock(+55);
   const date = cairoToday();
@@ -192,11 +133,6 @@ async function main() {
       take: 8,
     });
 
-    // Counter-passed but NOT yet at the door — the exact state the door screen
-    // exists to resolve. `counter_only` is not `present`, so this stays clear
-    // of the distribution engine entirely. `counterAt`/`counterBy` are set and
-    // `doorAt`/`doorBy` are left NULL, which is what makes the record show as
-    // awaiting the second check-in rather than as a bare status string.
     const reception = await tx.user.findFirst({
       where: { email: "showcasedemo-laila@edura.test" },
       select: { id: true },
@@ -235,7 +171,6 @@ async function main() {
     console.log(`counter-passed students awaiting the door: ${passed}`);
   });
 
-  // ── 3 · a pending collaboration request ─────────────────────────────────
   await withPlatformContext(async (tx) => {
     const existing = await tx.collaborationRequest.findUnique({
       where: { id: COLLAB_REQUEST },
@@ -246,15 +181,6 @@ async function main() {
       return;
     }
 
-    // CENTER-INITIATED, and aimed at the door teacher on purpose.
-    //
-    // `/dashboard/teacher/centers` is the `teacher-manage` shot, so the request
-    // has to be visible to a teacher we are ALREADY photographing — otherwise
-    // that one plate shows a different person's portal than `role-teacher` and
-    // `teacher-wallet`, and the role page stops being one coherent desk. A
-    // teacher-initiated request would have to come from an unaffiliated
-    // teacher, and the only ones available were either English-named
-    // placeholders or accounts that redirect to /onboarding.
     const suitor = await tx.center.findFirst({
       where: { shortId: "COUNTERDEMO1" },
       select: { id: true, name: true },
@@ -310,7 +236,6 @@ async function main() {
     );
   });
 
-  // ── 4 · expenses, through the app's own owner-only route ────────────────
   const already = await withPlatformContext((tx) =>
     tx.expense.count({ where: { description: { contains: EXPENSE_TAG } } }),
   );
@@ -340,17 +265,6 @@ async function main() {
     console.log(`expenses: ${n} recorded, ${(total / 100).toFixed(2)} ج.م total`);
   }
 
-  // ── 5 · phone numbers, so the student ID card can actually be issued ─────
-  //
-  // `cardAvailable` is `items.every(done)` — ALL FOUR of name, phone, guardian
-  // email and academic, not just the two marked blocking. The showcase students
-  // carry a guardian email and a grade but no phone, so `/dashboard/student/id`
-  // renders "بياناتك لسه مش مكتملة، فالبطاقة لسه ما اتصدرتش" and the card is
-  // never built. A fixture built to show a screen should be able to show it.
-  //
-  // The numbers are deliberately in the 0100-000-xxxx block: valid in shape,
-  // obviously not anybody's line, and no real person's number can ever end up
-  // photographed on a marketing page.
   await withPlatformContext(async (tx) => {
     const students = await tx.user.findMany({
       where: { email: { startsWith: "showcasedemo-student-" }, phone: null },

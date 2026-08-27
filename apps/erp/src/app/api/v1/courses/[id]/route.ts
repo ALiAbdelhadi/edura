@@ -77,11 +77,6 @@ const schedulePatternSchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
   })
-  // No "startDate cannot be in the past" refine here, deliberately: this is
-  // the EDIT schema, and a course that already started legitimately carries a
-  // past startDate — the blanket refine made every historical course
-  // uneditable. updateCourse enforces the real rule instead: keeping the
-  // existing startDate is fine, MOVING it into the past is refused.
   .refine((p) => p.endDate >= p.startDate, {
     message: "endDate must be on or after startDate",
     path: ["endDate"],
@@ -92,27 +87,14 @@ const patchSchema = z.object({
   description: z.string().optional(),
   gradeTag: z.string().optional(),
   price: moneySchema.optional(),
-  // Step 4/5 plan pricing: null clears (disables) a plan. Courses created from
-  // accepted collaboration requests start UNPRICED — the owner sets these so
-  // students can subscribe.
   pricePerMonth: moneySchema.positive().nullish(),
   pricePerSession: moneySchema.positive().nullish(),
-  // What one lesson is worth for this group. Owner-only, like the prices it
-  // chooses between — it decides what the settlement distributes.
   settlementBasis: z.enum(["course_price", "session_price", "subscription"]).optional(),
   maxStudents: z.number().int().positive().max(10000).optional(),
   defaultRoomId: z.string().optional(),
   schedulePattern: schedulePatternSchema.optional(),
 });
 
-/**
- * T-1: the teacher branch takes PRICING ONLY, on the caller's own
- * teacher-direct (`centerId IS NULL`) groups. `.strict()` so a non-pricing
- * field is refused loudly rather than silently dropped — a teacher must not
- * learn "title edits work" from a request that quietly ignored the title.
- * Deliberately NOT `delegated()`: plan prices are financial settings, which
- * Step 8 excludes from assistant delegation.
- */
 const teacherPatchSchema = z
   .object({
     price: moneySchema.optional(),
@@ -130,8 +112,5 @@ export const PATCH = withErrors(async (req, ctx) => {
     return ok(await updateTeacherDirectPricing(user, id, body));
   }
   const body = await parseJson(req, patchSchema);
-  // Moved to the shared kernel — including the two money guards it carries:
-  // the hall cannot be swapped (the pricing snapshot was frozen from it), and a
-  // price edit must still cover a Method-2 per-student fee.
   return ok(await updateCourse(user, id, body));
 });

@@ -10,15 +10,6 @@ import { notify } from "../notifications/notify";
 import { sendMail } from "../../mail/send";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
 
-// ---------------------------------------------------------------------------
-// CENTER CO-OWNER ADMINS (`center_admin` profiles on one center).
-//
-// Extracted verbatim from apps/www `centers/me/admins/**` so apps/superadmin
-// can manage any center's owners. Same contract as roster.ts: `acting` is
-// center_admin-shaped and carries the TARGET centerId; authorization stays at
-// each app's route layer.
-// ---------------------------------------------------------------------------
-
 const INVITE_EXPIRY_HOURS = 7 * 24;
 
 function centerOf(acting: SessionUser): string {
@@ -41,12 +32,6 @@ export async function listCenterAdmins(acting: SessionUser) {
   });
 }
 
-/**
- * `selfId` is the identity that may NOT remove itself. In www that is the
- * calling owner. A super admin is never a center owner, so it passes `null`
- * and the guard simply does not apply — but the "last admin" rule below still
- * does, so a center can never be left ownerless from either app.
- */
 export async function removeCenterAdmin(
   acting: SessionUser,
   userId: string,

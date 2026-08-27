@@ -1,90 +1,50 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# Dependencies
 node_modules
 .pnp
 .pnp.js
 
-# Local env files
-# NOTE: .env.test and .env.production hold real database credentials and MUST
-# stay ignored. .env.example files are the committed, secret-free copies.
-#
-# DENY EVERY VARIANT, THEN RE-ADMIT ONLY THE EXAMPLES. This used to be an
-# enumerated list of suffixes, and an enumerated list is wrong by construction:
-# it only ever covers the variants someone thought of. It missed the *.local
-# family once, then `.env.production.ready` was appended after a second miss —
-# and a timestamped backup still slipped through and WAS COMMITTED
-# (`packages/database/.env.test.bak-1785802267`, carrying Neon role passwords
-# that are shared across every branch of the project, production included).
-#
-# A backup is exactly when this matters: it is written by a tool, named after an
-# epoch nobody predicted, and created at the moment someone is editing secrets.
-# So the default is deny.
 .env*
 !.env.example
 !.env.*.example
 
-# Testing
 /coverage
 apps/*/coverage/
 packages/*/coverage/
 test-results
 playwright-report
-# playwright-cli scratch artifacts (console/page dumps) — 10 of these were
-# accidentally committed on 2026-08-05 and removed in the 2026-08-26 cleanup
 .playwright-cli/
 
-# Turbo
 .turbo
 
-# Vercel
 .vercel
 
-# Build Outputs
 .next/
 out/
 build
 dist
 
 
-# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Misc
 .DS_Store
 *.pem
 
-# Local claude config
 .claude/settings.local.json
 
 *.tsbuildinfo
 
-# generated knowledge-graph artifacts (graphify tool output)
 graphify-out/
 
-# Showcase capture intermediates — the 2x PNGs Playwright writes (~20 MB).
-# They are losslessly-captured ORIGINALS kept on disk so a re-encode never
-# compounds artefacts from a lossy source, but the site ships only the
-# optimised AVIF/WebP under opt/, which ARE committed.
 apps/showcase/public/shots/**/*.png
 apps/showcase/test-results/
 apps/showcase/playwright-report/
 apps/showcase/verify-out/
 apps/showcase/.flows-raw/
 
-# Showcase captures — the 2x PNG INTERMEDIATES only.
-#
-# `bun run capture` writes these, and `bun run optimize:shots` turns them into
-# the AVIF/WebP the site actually serves. Only the optimised output is
-# committed: it is what the pages reference, so it has to exist in a fresh
-# clone, while the ~25 MB of source PNGs can always be regenerated.
 apps/showcase/public/shots/**/*.png
 apps/showcase/.auth/
 
-# QA audit local env (contains only throwaway local creds)
 QA/.env.qa
 
-# Local-only run logs (never committed)
 .local-logs/

@@ -1,13 +1,5 @@
-/**
- * WhatsApp template registry — the single source of truth for template names
- * and bodies. These exact definitions go to Meta for approval (see
- * docs/whatsapp-templates.md); until then the mock driver renders them
- * locally so the full flow is testable without credentials.
- */
-
 export type TemplateDef = {
   name: string;
-  /** Positional param meanings, for docs and log readability. */
   params: string[];
   body: { ar: string; en: string };
 };
@@ -33,7 +25,6 @@ export const WHATSAPP_TEMPLATES = {
 
 export type TemplateKey = keyof typeof WHATSAPP_TEMPLATES;
 
-/** Render a template body locally (mock driver + log readability). */
 export function renderTemplate(key: TemplateKey, locale: "ar" | "en", params: string[]): string {
   let body: string = WHATSAPP_TEMPLATES[key].body[locale];
   params.forEach((p, i) => {

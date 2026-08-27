@@ -9,32 +9,8 @@ import { LedgerButton, Sheet } from "@/features/student/ledger";
 import { mostUrgent, type SubscriptionRow } from "@/features/subscriptions/subscription-state";
 import { useCoverageWords } from "@/features/subscriptions/subscription-state-chip";
 
-/**
- * "اشتراكك في الكيميا بيخلص بعد ٣ أيام" — on the home screen, and nowhere else.
- *
- * ── WHY A BANNER, WHEN THERE IS A WHOLE PAGE FOR THIS ─────────────────────
- *
- * Because the student does not go looking. A monthly plan is manual-renewal by
- * design, the expiry sweep flips it without telling anyone, and there is no
- * pre-expiry notification job — so the first signal today is being turned away
- * at a counter. A page answers the question when it is asked; this asks it for
- * them, once, on the screen they already open.
- *
- * ── WHAT KEEPS IT FROM BECOMING WALLPAPER ─────────────────────────────────
- *
- * `mostUrgent` returns at most ONE subscription, only inside the seven-day
- * window or within a fortnight of lapsing. So it appears when something is
- * actually about to break, and clears itself the moment the student renews or
- * stops caring — which is why it carries no dismiss button. Compare
- * `PracticeInvite`, which uses the same self-clearing rule.
- *
- * Nothing here writes: "جدّد" links into the Subjects checkout that already
- * exists, and the alert reads `GET /me/subscriptions` only.
- */
 export function SubscriptionAlert() {
   const t = useTranslations("studentSubscriptions");
-  // "جدّد" says nothing about who; it lives with the rest of the neutral
-  // subscription vocabulary under `shared.subscriptions`.
   const tShared = useTranslations("shared.subscriptions");
   const words = useCoverageWords();
   const { result } = useCustom({ url: "me/subscriptions", method: "get" });

@@ -24,12 +24,6 @@ export async function listCollaborationRequests(filters: {
     }
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      // ONE STAGE NOW, not two. These were narrow-in-SQL then decide-in-JS,
-      // because `contains` is ILIKE and a request could not be found by the
-      // name of the teacher or the centre on it whenever that name carried a
-      // hamza the operator did not type. `search_text` is exact in SQL, so the
-      // JS pass has nothing left to decide — and the 500-row cap now bounds a
-      // set that is already correct rather than one that still needs filtering.
       const [teachers, centers] = await Promise.all([
         tx.user.findMany({
           where: {

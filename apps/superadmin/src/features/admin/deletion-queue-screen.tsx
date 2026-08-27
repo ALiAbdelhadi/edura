@@ -1,24 +1,5 @@
 "use client";
 
-/* طلبات حذف الحسابات / Account deletion queue.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The most irreversible action in the back office, so it gets the full commit
-   treatment — and the treatment is EARNED here, unlike on a feature flag:
-
-   - TWO STEPS, because the erasure cannot be undone. The confirm dialog restates
-     what will be destroyed and what will survive, in that order.
-   - THE NOTE IS REQUIRED for both approve and reject. An erasure request refused
-     without a reason is one the person cannot appeal, and under Law 151/2020 it
-     is appealable.
-   - THE SURVIVING RECORD IS NAMED UP FRONT, not in a footnote. An operator
-     approving this must know before they press that the money ledger stays —
-     otherwise the first angry phone call teaches them.
-   - A HALF-FINISHED ERASURE CANNOT HIDE. A request approved by the older center
-     flow soft-deleted the account without scrubbing it; those rows show
-     «الحساب مُعطَّل لكن البيانات الشخصية لم تُمحَ بعد» with a repair action,
-     rather than sitting in the list looking finished. */
-
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -109,7 +90,6 @@ export function DeletionQueueScreen() {
     <div className="flex w-full flex-col gap-4">
       <PageHeader title={t("title")} description={t("subtitle")} rule />
 
-      {/* What survives, said BEFORE anyone presses anything. */}
       <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
         <TriangleAlert className="mt-px size-4 shrink-0 text-amber" aria-hidden="true" />
         <span>{t("ledgerNotice")}</span>
@@ -177,7 +157,6 @@ export function DeletionQueueScreen() {
                     </p>
                   ) : null}
 
-                  {/* The state that must not look finished. */}
                   {row.status === "approved" ? (
                     row.anonymizedAt ? (
                       <p className="mt-1.5 text-xs text-teal">
@@ -241,7 +220,6 @@ export function DeletionQueueScreen() {
         </ul>
       )}
 
-      {/* Step two. Restates the destruction and the survival, then commits. */}
       <Dialog open={!!confirming} onOpenChange={(o) => !busy && !o && setConfirming(null)}>
         <DialogContent>
           <DialogHeader>

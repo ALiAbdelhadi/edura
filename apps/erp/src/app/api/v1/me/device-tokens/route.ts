@@ -16,8 +16,6 @@ export const POST = withErrors(async (req) => {
   const user = await requireSession();
   const data = await parseJson(req, registerSchema);
 
-  // Ownership rule lives in the service (M-2) so this channel and web-push
-  // cannot drift apart, and so the proof suite binds to the real code path.
   await registerDeviceToken(user, data);
 
   return ok({ registered: true }, { status: 201 });

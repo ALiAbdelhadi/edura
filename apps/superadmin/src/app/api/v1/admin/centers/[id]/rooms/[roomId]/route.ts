@@ -7,8 +7,6 @@ import { updateCenterRoom } from "@/lib/services/admin/rooms-split";
 
 export const dynamic = "force-dynamic";
 
-// Superadmin room edit incl. PRICE override. The revenue split is a separate
-// endpoint (…/split). price is piasters.
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
@@ -17,7 +15,6 @@ const patchSchema = z
     facilities: z.array(z.string().trim().min(1)).max(30).optional(),
     photos: z.array(z.string().url()).max(12).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
-    // Full-control oversight of the center-set method availability.
     allowedPricingMethods: z
       .array(z.enum(["whole_room_percent", "per_attending_student"]))
       .min(1)

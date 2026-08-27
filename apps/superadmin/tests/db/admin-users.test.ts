@@ -1,29 +1,3 @@
-/**
- * ===========================================================================
- * PLATFORM USER DIRECTORY — the cross-role user surface + its limits.
- * ===========================================================================
- * Drives the REAL shipped service against the live DB:
- *   apps/superadmin/src/lib/services/admin/admin-users.ts
- *
- * Each proof is about the BOUNDARY as much as the action:
- *
- *   • ONE suspension mechanism — suspending writes users.status and the
- *     better-auth ban columns stay untouched, so the two can never disagree;
- *     and because C-03 wires status to revocation, the live session rows are
- *     gone in the same breath;
- *   • a session revoke is NOT a deactivation — status is unchanged and the
- *     account signs straight back in;
- *   • a 2FA reset ends the sessions too, so it cannot be used to keep a live
- *     session alive without a second factor, and a back-office account is
- *     flagged as having to re-enroll;
- *   • impersonation is refused for every www role, for another super_admin,
- *     for yourself and for an inactive account — the only thing it permits is
- *     a back-office accountant;
- *   • every write lands an audit row naming actor, target and reason.
- *
- *   bunx tsx --env-file=<env> tests/db/admin-users.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -76,13 +50,6 @@ const PW = "Passw0rd!";
 const tag = "auwtest-" + Math.floor(Math.random() * 1e9).toString(36);
 const ids: string[] = [];
 
-/**
- * www roles cannot pass THIS app's sign-in door — that is C-04, and proving it
- * is another suite's job. All apps share ONE auth_sessions table, so a planted
- * row is how a www user's live session is represented here; the revocation
- * paths under test operate on that table, not on how the row was born.
- * Back-office fixtures still use the real door (signInDoor) below.
- */
 async function plantSession(userId: string): Promise<string> {
   const row = (
     await admin.query(
@@ -122,9 +89,6 @@ async function main() {
 
   const superAdmin = await mkUser("super_admin", "active", "root");
   const accountant = await mkUser("accountant", "active", "acct");
-  // A second back-office fixture: the superadmin door's C2 bucket is capacity 5
-  // refilling at 1/min per email, so the sign-in proofs are split across two
-  // accounts rather than exhausting one.
   const accountant2 = await mkUser("accountant", "active", "acct2");
   const teacher = await mkUser("teacher", "active", "teacher");
   const student = await mkUser("student", "active", "student");
@@ -139,7 +103,6 @@ async function main() {
   };
 
   try {
-    // ─────────────────────────────────────────────────────────────────────
     section("1. Directory — search, filter, paginate");
 
     const byQuery = await listUsers({ q: tag });
@@ -167,7 +130,6 @@ async function main() {
     const overlap = page2.users.filter((u) => page1.users.some((p) => p.id === u.id));
     assert(overlap.length === 0, "page 2 does not repeat page 1");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("2. Detail — identity + live sessions");
 
     const login = await signInDoor(accountant.email, PW);
@@ -183,7 +145,6 @@ async function main() {
     const missing = await rejects(() => getUserDetail(superAdmin.id.replace(/.$/, "0")), /not found|invalid/i);
     assert(missing.threw, "an unknown id is a clean not-found, not a crash");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("3. Suspend — ONE mechanism, and it revokes");
 
     const before = await q(`SELECT status, banned, ban_reason FROM users WHERE id=$1::uuid`, [
@@ -212,8 +173,6 @@ async function main() {
     ]);
     assert(liveAfter[0].n === 0, "C-03: suspending deleted the live session rows");
 
-    // The sign-in half of the proof runs on a BACK-OFFICE account, because the
-    // www roles above cannot reach this app's door at all (C-04).
     await setUserSuspended(actor, accountant2.id, true, "compromised account");
     const blocked = await signInDoor(accountant2.email, PW);
     assert(!blocked.ok, "a suspended account cannot sign in");
@@ -254,7 +213,6 @@ async function main() {
     await setUserSuspended(actor, accountant2.id, false, "cleared");
     assert((await signInDoor(accountant2.email, PW)).ok, "and the account can sign in again");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("4. Revoke sessions — NOT a deactivation");
 
     await plantSession(student.id);
@@ -270,9 +228,6 @@ async function main() {
     const afterStatus = (await q(`SELECT status FROM users WHERE id=$1::uuid`, [student.id]))[0]
       .status;
     assert(afterStatus === beforeStatus, "status is unchanged — this is not a punishment");
-    // "Can sign back in" is proven on a back-office account, the only role this
-    // app's door accepts; for the www user the equivalent is that nothing about
-    // the account was disabled, asserted immediately above.
     assert(
       (await signInDoor(accountant2.email, PW)).ok,
       "a revoked account signs straight back in",
@@ -285,7 +240,6 @@ async function main() {
       "the audit row says plainly that this was not a deactivation",
     );
 
-    // one device only
     await plantSession(student.id);
     await plantSession(student.id);
     const twoRows = await q(
@@ -308,7 +262,6 @@ async function main() {
       "a session id belonging to another user cannot be revoked through them",
     );
 
-    // ─────────────────────────────────────────────────────────────────────
     section("5. 2FA reset — recovery, not a downgrade");
 
     await admin.query(
@@ -341,7 +294,6 @@ async function main() {
     );
     assert(notEnabled.threw && notEnabled.matched, "resetting 2FA that is not on is refused");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("6. Password reset — the admin never sets a password");
 
     const hashBefore = (await q(`SELECT password_hash FROM users WHERE id=$1::uuid`, [student.id]))[0]
@@ -382,7 +334,6 @@ async function main() {
     );
     await setUserSuspended(actor, student.id, false, "back on");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("7. Impersonation — the boundary is the feature");
 
     const ok = await assertImpersonatable(actor, accountant.id);
@@ -426,13 +377,8 @@ async function main() {
     assert(inactiveImp.threw && inactiveImp.matched, "an inactive account cannot be impersonated");
     await setUserSuspended(actor, accountant.id, false, "back");
 
-    // ─────────────────────────────────────────────────────────────────────
     section("7b. View as — the OTHER app's door, minted from here");
 
-    // The mirror image of section 7. In-app impersonation takes back-office
-    // targets and refuses ERP roles; this takes ERP roles and refuses
-    // back-office ones — so between the two there is exactly one mechanism per
-    // target, never a choice and never an overlap.
     const viewable = await assertViewAsTarget(actor, teacher.id);
     assert(viewable.id === teacher.id, "a teacher (an ERP role) MAY be viewed as");
     const viewableStudent = await assertViewAsTarget(actor, student.id);
@@ -473,8 +419,6 @@ async function main() {
     assert(inactiveView.threw && inactiveView.matched, "a suspended target is refused");
     await setUserSuspended(actor, student.id, false, "back");
 
-    // Minting: a token that names both parties, plus the audit row that must
-    // exist before the token does.
     const minted = await startViewAs(actor, {
       id: teacher.id,
       role: "teacher",
@@ -499,11 +443,8 @@ async function main() {
       "…and the token's own nonce, so the request can be tied to the claim the ERP records",
     );
 
-    // ─────────────────────────────────────────────────────────────────────
     section("8. Money stays out of reach");
 
-    // Same posture as center-oversight: "superadmin sees all money but moves
-    // none" is checkable by reading one import list.
     const src = readFileSync(
       fileURLToPath(new URL("../../src/lib/services/admin/admin-users.ts", import.meta.url)),
       "utf8",

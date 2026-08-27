@@ -6,7 +6,6 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { ChartFrame, seriesColor, type ChartState } from "./chart-frame";
 import { ChartTooltip } from "./chart-tooltip";
 
-/** `color` optional — omit for the semantic palette slot. */
 export type DonutSlice = { id: string; label: string; value: number; color?: string };
 
 export function DonutChart({
@@ -70,8 +69,6 @@ export function DonutChart({
         </div>
       </ChartFrame>
       {total > 0 && !error && !loading ? (
-        // The slice list sits OUTSIDE the LTR island so it follows the page direction —
-        // only the plot geometry needs to be physical.
         <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
           {resolved.map((slice) => (
             <div key={slice.id} className="flex items-center justify-between gap-2 text-xs">

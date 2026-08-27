@@ -77,7 +77,6 @@ async function main() {
     const room = await tx.room.create({
       data: { centerId: centerA.id, name: tag + "-room", facilities: [], photos: [], isActive: true },
     });
-    // Step 5 replacement fixture: a pending collaboration request at center A.
     const catalogSubject = await tx.subject.findFirst({ where: { isActive: true }, select: { id: true } });
     const catalogOffering = await tx.subjectOffering.findFirst({
       where: { subjectId: catalogSubject!.id, isActive: true, trackId: null },
@@ -191,8 +190,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite rbac-isolation.test.ts" })
   .then(() => main()).catch(async (e) => {
   console.error(e);

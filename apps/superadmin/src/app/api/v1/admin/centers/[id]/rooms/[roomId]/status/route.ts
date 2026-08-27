@@ -5,8 +5,6 @@ import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { setCenterRoomActive } from "@/lib/services/admin/center-control";
 
-// Soft activate/deactivate of a hall — never a hard delete, so its sessions
-// and settlement records keep resolving.
 export const dynamic = "force-dynamic";
 
 const schema = z.object({ isActive: z.boolean() }).strict();

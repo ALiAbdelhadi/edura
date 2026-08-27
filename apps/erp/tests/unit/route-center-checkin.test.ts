@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// The counter check-in route: the classic Egyptian center workflow's front
-// door. The one piece of contract that lives in the ROUTE (not the service)
-// is the 402 needs_payment translation — the UI depends on that exact status
-// + code to trigger the walk-in cash path and retry. The service itself is
-// proven by the live-DB attendance suites.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...a: unknown[]) => requireSession(...(a as [])),

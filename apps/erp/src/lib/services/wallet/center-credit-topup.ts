@@ -7,19 +7,6 @@ import { nextTxnRef } from "@repo/server-core/services/finance/ref-numbers";
 import type { SettleNotification } from "@repo/server-core/services/payments/notification-types";
 import type { Prisma } from "@repo/database";
 
-// ===========================================================================
-// CENTER CREDIT TOP-UP (Phase 4, D4) — a center funds its credit_balance so
-// the settlement debits (teacher shares + platform fees on center-collected
-// money) land on a prepaid balance instead of accumulating as arrears.
-//
-// ONLINE ONLY, through the existing intent/webhook machinery — the same
-// claim-in-one-transaction path every other purpose uses (M1), so a webhook
-// replay can never credit twice. No second money engine, and deliberately NO
-// back-office write path: money stays read-only in apps/superadmin.
-// ===========================================================================
-
-// The same local projection the sibling wallet services carry (deliberately
-// duplicated there too — the shape is the client contract, not shared state).
 function toClientIntent(
   intent: Prisma.PaymentIntentGetPayload<Record<string, never>>,
   checkout: { kind: string; url: string } | null,
@@ -57,9 +44,6 @@ export async function initiateCenterCreditTopUp(
     );
   }
   const driver = resolveDriver();
-  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
-  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
-  // mint a charge that is a dead end in production-with-mock.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
@@ -111,7 +95,6 @@ export async function initiateCenterCreditTopUp(
   return toClientIntent(updated, checkout);
 }
 
-/** Settle a PAID center-credit top-up, within the webhook claim tx (M1). */
 export async function settleCenterCreditTopUpFromIntentTx(
   tx: TenantTx,
   intentId: string,
@@ -124,9 +107,6 @@ export async function settleCenterCreditTopUpFromIntentTx(
     throw new BusinessRuleError("Not a center credit top-up intent");
   }
 
-  // Money-in: center -> platform. No Payment row — a receipt names a person,
-  // and this is a B2B position move; the Transaction and the ledger row are
-  // its books (same posture as the parent wallet's float deposit).
   const refNumber = await nextTxnRef(tx);
   const transaction = await tx.transaction.create({
     data: {
@@ -171,7 +151,6 @@ export async function settleCenterCreditTopUpFromIntentTx(
   };
 }
 
-/** The center's credit position + its ledger — one read for the screen. */
 export async function getCenterCredit(user: SessionUser, opts?: { take?: number }) {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
   const centerId = user.centerId;

@@ -9,24 +9,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Reading the logo lives HERE, beside the writes, rather than on
- * `GET /centers/me` — that route is `requireRole("center_admin")`, so a manager
- * allowed to REPLACE the logo could not read the one they were replacing, and
- * the settings card 403'd for them. The alternative was widening the whole
- * center profile to staff to expose one nullable column; this mirrors
- * `GET /teachers/me/photo` instead, and keeps every verb on this resource
- * behind exactly the same gate.
- */
 export const GET = centerStaff(
   async (_req, _ctx, { acting: user }) => ok(await getCenterLogo(user)),
   { allow: MANAGER },
 );
 
-/**
- * Center logo upload — the ONLY way the column is written. `PATCH /centers/me`
- * deliberately no longer accepts a `logoUrl` string.
- */
 export const POST = centerStaff(
   async (req, _ctx, { acting: user }) => {
     let form: FormData;

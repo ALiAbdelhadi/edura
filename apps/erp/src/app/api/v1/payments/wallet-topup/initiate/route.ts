@@ -8,9 +8,6 @@ import { initiateWalletTopUpIntent } from "@/lib/services/wallet/wallet";
 
 export const dynamic = "force-dynamic";
 
-// The student chooses how much to add; the amount is SERVER-VALIDATED against
-// min/max (assertTopupAllowed) and snapshotted onto the intent. The webhook
-// settles from the intent row, never from the gateway payload.
 const bodySchema = z
   .object({
     amount: z.number().int().positive(),

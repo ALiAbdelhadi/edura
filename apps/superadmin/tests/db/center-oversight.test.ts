@@ -1,24 +1,3 @@
-/**
- * ===========================================================================
- * SUPERADMIN CENTER OVERSIGHT — proof against the live database
- * ===========================================================================
- * Drives the REAL shipped services (not re-implementations):
- *
- *   PART 1  center-oversight.ts        — full read visibility, any center
- *   PART 2  center-control.ts          — the six audited control operations
- *   C-03    the DB session gate        — deactivation cuts the NEXT request
- *   H-04    blacklist cascade journal  — enrollment removal is reversible
- *   MONEY   the append-only guarantees — a super admin cannot edit the ledger
- *
- * The money section is the important one. It attempts, AS THE SUPER ADMIN
- * PRINCIPAL and through the app's own database connection, to update and
- * delete ledger rows and to move a balance — and asserts every attempt fails,
- * at BOTH layers (the Prisma immutability extension and the Postgres REVOKE).
- *
- * Fixtures are `is_demo`, created and torn down by this file.
- *   bunx tsx --env-file=<env> tests/db/center-oversight.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma, withPlatformContext } from "@repo/database";
@@ -71,7 +50,6 @@ function section(title: string) {
   console.log(`\n── ${title} ${"─".repeat(Math.max(0, 66 - title.length))}`);
 }
 
-/** Did `fn` reject, and does the message look like `expect`? */
 async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
   try {
     await fn();
@@ -82,34 +60,18 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// The REAL per-request session gate. Sessions are DB rows now (better-auth):
-// signInDoor drives the full /sign-in/email pipeline (C2 limits, C-04
-// partition, full H5) and sessionFor is a real getSession with the real
-// cookie. C-03 revocation is the users_revoke_sessions trigger deleting the
-// auth_sessions row atomically with the deactivating write — so "the next
-// request is unauthenticated" is literally a missing row.
-// ---------------------------------------------------------------------------
 const sessionRowsOf = async (userId: string) =>
   Number(
     (await admin.query(`SELECT count(*)::int AS n FROM auth_sessions WHERE user_id=$1`, [userId]))
       .rows[0].n,
   );
 
-/**
- * www roles cannot sign in through THIS app's door (C-04), but every app's
- * sessions live in the SAME auth_sessions table — plant a row the way a www
- * login would, so the trigger's hard revocation can be observed on it.
- * (Rows are removed with the fixture users: user_id is ON DELETE CASCADE.)
- */
 const plantSession = (userId: string) =>
   admin.query(
     `INSERT INTO auth_sessions (token, user_id, expires_at, updated_at)
      VALUES (gen_random_uuid()::text, $1, now() + interval '7 days', now())`,
     [userId],
   );
-
-// ---------------------------------------------------------------------------
 
 const MONEY_TABLES = [
   "transactions",
@@ -168,8 +130,6 @@ async function moneySnapshot(centerIds: string[], studentIds: string[]) {
 }
 
 async function main() {
-  // Guarded by the `pretest:db` db-guard step in package.json — this file is
-  // never meant to run against the production database.
   const tag = "ovs-" + Math.floor(Math.random() * 1e9).toString(36);
   const hash = await bcrypt.hash(PW, 10);
   const created: { users: string[]; centers: string[] } = { users: [], centers: [] };
@@ -200,7 +160,6 @@ async function main() {
   try {
     console.log(`SUPERADMIN CENTER OVERSIGHT — ${tag}`);
 
-    // ---------------- fixtures ----------------
     const superAdminId = await mkUser("super", "super_admin");
     const centerA = await mkCenter("centerA");
     const centerB = await mkCenter("centerB");
@@ -325,9 +284,6 @@ async function main() {
       [sessionA, studentA, courseA1, centerA, staffA],
     );
 
-    // --- MONEY fixtures. Written here with the admin (owner) connection so the
-    //     read side has something real to show; the app role must not be able to
-    //     modify any of them afterwards.
     const txnA = (
       await admin.query(
         `INSERT INTO transactions (ref_number, type, amount, center_id, status, payment_method)
@@ -402,9 +358,7 @@ async function main() {
 
     const before = await moneySnapshot([centerA, centerB], [studentA, studentA2, studentB]);
 
-    // =====================================================================
     section("PART 1 — full read visibility, any center");
-    // =====================================================================
     const ovA = await centerOverview(centerA);
     assert(ovA.center.id === centerA, "superadmin can open center A's full picture");
     assert(ovA.counts.teachers === 1 && ovA.counts.students === 2, "A: teacher + roster counts");
@@ -482,9 +436,7 @@ async function main() {
     const walRoster = await centerWalletMovements(centerA, { scope: "roster" });
     assert(walRoster.scope === "roster" && walRoster.total >= 1, "wallet movements: roster scope works");
 
-    // =====================================================================
     section("PART 2 — control ops, each writing exactly one audit row");
-    // =====================================================================
     const auditCount = async (action: string, targetId: string) =>
       (
         await admin.query(
@@ -500,7 +452,6 @@ async function main() {
         )
       ).rows[0];
 
-    // --- op 6: profile edit (run first so the later status ops are clean) ---
     const upd = await updateCenterProfile(
       centerA,
       { name: `${tag}-centerA-renamed`, phone: "0111222333", area: "Maadi" },
@@ -519,7 +470,6 @@ async function main() {
     assert(!!profAudit.created_at, "audit: WHEN — a timestamp");
     assert(profAudit.on_behalf_of === null, "audit: on_behalf_of NULL — a super admin acts as themselves");
 
-    // The allowlist is a real boundary, not a UI convention.
     const illegal = await rejects(
       () =>
         updateCenterProfile(
@@ -542,7 +492,6 @@ async function main() {
     ).rows[0].wallet_balance;
     assert(Number(walletAfterEdit) === 0, "profile edit left the center wallet balance untouched");
 
-    // --- op 7: room profile ---
     await updateCenterRoomProfile(centerA, roomA, { name: "Hall One (renamed)", price: 27_500 }, actor);
     const roomAudit = await lastAudit("center.room_updated", roomA);
     assert(
@@ -550,7 +499,6 @@ async function main() {
       "room edit: audited with before/after",
     );
 
-    // --- op 2/3: member deactivate + C-03 ---
     section("C-03 — deactivation cuts access on the NEXT request");
     const authTeacher = await signInDoor(`${tag}-teacherA@edura.test`, PW);
     assert(
@@ -558,8 +506,6 @@ async function main() {
       "www teacher is refused by the BACK-OFFICE login door — one generic H5 failure (unchanged)",
     );
 
-    // Sign the super admin in ONCE through the full door and hold the cookie
-    // for the whole run — the per-email C2 bucket (capacity 5) is real here.
     const superAuth = await signInDoor(`${tag}-super@edura.test`, PW);
     assert(superAuth.ok, "the super admin signs in through the full better-auth door");
     if (!superAuth.ok) throw new Error("cannot continue without a super admin session");
@@ -587,16 +533,12 @@ async function main() {
     );
     assert(deactAudit.center_id === centerA, "audit: the deactivation is attributed to this center");
 
-    // Enrollments untouched — the whole point of separating this from removal.
     const enrStillActive = Number(
       (await admin.query(`SELECT count(*)::int AS n FROM enrollments WHERE course_id=$1 AND status='active'`, [courseA1]))
         .rows[0].n,
     );
     assert(enrStillActive === 2, "C-03: deactivating a teacher removed NO enrollments");
 
-    // A live student session dies on its next request. A www student cannot
-    // sign in through THIS app's door (C-04), but sessions share ONE table —
-    // plant a row the way a www login would and watch the trigger revoke it.
     await admin.query(`UPDATE users SET status='active' WHERE id=$1`, [studentA]);
     await plantSession(studentA);
     assert((await sessionRowsOf(studentA)) === 1, "baseline: the student holds a live session row");
@@ -619,14 +561,12 @@ async function main() {
       "control: the acting super admin's own session is never disturbed",
     );
 
-    // Scoping: the endpoint can only reach members of THIS center.
     const wrongCenter = await rejects(
       () => setCenterMemberStatus(centerB, studentA, "student", "deactivate", "x", actor),
       /not on this center's roster/i,
     );
     assert(wrongCenter.threw && wrongCenter.matched, "member ops are scoped: A's student is unreachable via center B");
 
-    // --- op 1: center deactivate/activate + C-03 for its admins ---
     await plantSession(adminA); // center_admin is a www role too — same table
     await setCenterStatus(centerA, "deactivate", "Proof run", actor);
     assert(
@@ -648,7 +588,6 @@ async function main() {
     );
     assert(await auditCount("center.activated", centerA) === 1, "audit: one center.activated row");
 
-    // --- op 4: reversible removal (H-04) ---
     section("H-04 — enrollment removal is journalled and reversible");
     await removeStudentFromCenter(centerA, studentA, "Proof run", actor);
     const removedRows = (
@@ -695,7 +634,6 @@ async function main() {
     );
     assert(!!(await lastAudit("center.student_restored", studentA)), "audit: the restore is recorded too");
 
-    // --- op 5: approve a pending collaboration request ---
     section("Approve / reject a pending item");
     const decided = await decideCollaborationRequest(collabId, "approve", {}, actor);
     assert(decided.status === "accepted", "collaboration request approved on behalf of the platform");
@@ -731,7 +669,6 @@ async function main() {
       "audit: the approval records before/after and that it was a platform override",
     );
 
-    // A non-super_admin cannot use the override, even calling the service directly.
     const notSuper = await rejects(
       () =>
         decideCollaborationRequest(
@@ -744,11 +681,7 @@ async function main() {
     );
     assert(notSuper.threw && notSuper.matched, "the platform override is default-closed to non-super_admins");
 
-    // =====================================================================
     section("MONEY — the super admin is NOT exempt from the ledger guarantees");
-    // =====================================================================
-    // Layer 1: the Prisma immutability extension, through the app's own client
-    // running inside the SAME platform context every oversight request uses.
     const viaApp = (fn: (tx: never) => Promise<unknown>) => () => withPlatformContext(fn as never);
 
     const l1 = [
@@ -792,9 +725,6 @@ async function main() {
       assert(r.threw && r.matched, `runtime layer: ${label} is refused`);
     }
 
-    // Layer 2: THE DATABASE. Same connection string the app uses (edura_app,
-    // NOBYPASSRLS) — platformDb only sets the app.bypass_rls GUC, which RLS
-    // policies read and table GRANTs do not. So the REVOKEs bite here too.
     const appRole = (
       await admin.query<{ role: string }>(
         `SELECT rolname AS role FROM pg_roles WHERE rolname = 'edura_app'`,
@@ -804,21 +734,6 @@ async function main() {
 
     const appPool = testPool(process.env.DATABASE_URL);
 
-    /**
-     * Run one statement exactly as an oversight request would: as `edura_app`,
-     * with the `app.bypass_rls` GUC that platformDb sets, then throw the whole
-     * thing away.
-     *
-     * Every part of that is deliberate:
-     *  • each attempt gets its OWN transaction, because a permission error
-     *    aborts the transaction and would poison every later statement;
-     *  • `set_config(..., true)` is TRANSACTION-LOCAL, and the ROLLBACK undoes
-     *    it. A session-level `set_config(..., false)` on this POOLED connection
-     *    leaks the RLS bypass onto whichever pooler backend serves the next
-     *    caller — which is exactly how an earlier version of this file made an
-     *    unrelated RLS isolation test fail intermittently. Session state must
-     *    never escape a pooled connection.
-     */
     const rawAsApp = async (sql: string, params: unknown[] = []) => {
       const client = await appPool.connect();
       try {
@@ -829,8 +744,6 @@ async function main() {
       } catch (e) {
         return { threw: true, message: (e as { message?: string })?.message ?? String(e) };
       } finally {
-        // Never COMMIT: this probe must not persist even when a statement
-        // unexpectedly succeeds.
         await client.query("ROLLBACK").catch(() => {});
         client.release();
       }
@@ -862,23 +775,17 @@ async function main() {
       );
     }
 
-    // The wallet-balance floor is still a DB constraint, not app logic.
     const neg = await rawAsApp(`UPDATE centers SET wallet_balance = -1 WHERE id = $1`, [centerA]);
     assert(
       neg.threw && /wallet_balance|check constraint/i.test(neg.message),
       `DB layer: a negative center wallet balance is rejected → ${neg.message.split("\n")[0]}`,
     );
-    // wallet_ledger has no DB REVOKE yet (deliberate — see the comment in
-    // migration 20260722000100_student_wallet). Record the true state rather
-    // than claim a guarantee that is not there: it is the runtime layer above
-    // that holds this one today.
     const wlRaw = await rawAsApp(`UPDATE wallet_ledger SET delta = delta WHERE id = $1`, [walletA]);
     console.log(
       `  ℹ wallet_ledger DB-level UPDATE ${wlRaw.threw ? "is revoked" : "is NOT revoked (runtime extension only — known, deliberate)"}`,
     );
     await appPool.end();
 
-    // Nothing this whole run did moved a single money row.
     const after = await moneySnapshot([centerA, centerB], [studentA, studentA2, studentB]);
     for (const key of Object.keys(before) as (keyof typeof before)[]) {
       assert(
@@ -888,9 +795,7 @@ async function main() {
     }
     console.log(`  (witness covers ${MONEY_TABLES.join(", ")})`);
 
-    // =====================================================================
     section("Audit log viewer");
-    // =====================================================================
     const log = await listAuditLogs({ centerId: centerA, limit: "100" });
     const actions = new Set(log.data.map((r) => r.action));
     for (const a of [
@@ -915,7 +820,6 @@ async function main() {
       "audit viewer: actors are resolved to names",
     );
   } finally {
-    // ---- teardown ----
     const u = created.users;
     const c = created.centers;
     const courses = (
@@ -955,8 +859,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-oversight.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

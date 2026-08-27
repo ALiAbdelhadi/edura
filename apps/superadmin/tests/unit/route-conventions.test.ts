@@ -2,22 +2,6 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-/**
- * Convention enforcement over EVERY route handler in apps/superadmin.
- *
- * Twin of apps/www/tests/unit/route-conventions.test.ts (kept per-app on
- * purpose — the two apps have different wrapper sets and different public
- * surfaces, and this suite IS the record of each app's surface).
- *
- * Invariants held:
- *  1. AUTH — every route resolves an authenticated back-office actor
- *     (requireRole / requireSession / getSessionUser) or is on the explicit
- *     PUBLIC allowlist. The back office has exactly TWO public routes.
- *  2. DYNAMIC — every route exports `dynamic = "force-dynamic"`.
- *  3. BODY PARSING — no raw req.json()/req.text()/formData() anywhere;
- *     all bodies go through parseJson (zod).
- */
-
 const API_ROOT = path.resolve(__dirname, "../../src/app/api");
 
 function collectRouteFiles(dir: string): string[] {
@@ -122,9 +106,6 @@ describe("route conventions (all api routes)", () => {
   });
 
   it("no raw body reads — all bodies go through parseJson", () => {
-    // Exceptions must record WHY, the same discipline PUBLIC_ROUTES uses. The
-    // rule's strength is that an exemption is written down and reviewable, not
-    // that one can never exist.
     const RAW_BODY_ALLOWED: Record<string, string> = {
       "v1/security/csp-report":
         "CSP reports arrive in two wire formats (application/csp-report and " +
@@ -146,7 +127,6 @@ describe("route conventions (all api routes)", () => {
       .map(([key]) => key);
     expect(offenders).toEqual([]);
 
-    // An exemption that stops being needed must be removed, not left to rot.
     for (const key of Object.keys(RAW_BODY_ALLOWED)) {
       const src = sources.get(key);
       expect(src, `${key} is allow-listed but no longer exists`).toBeDefined();

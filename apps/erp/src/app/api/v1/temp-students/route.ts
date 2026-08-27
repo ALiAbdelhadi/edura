@@ -17,7 +17,6 @@ const bodySchema = z
   })
   .strict();
 
-/** Walk-in temp student (PRD §5.4) — shell account + roster + invite code. */
 export const POST = delegatedWithCenter(async (req, _ctx, { acting: user }) => {
   const body = await parseJson(req, bodySchema);
   return ok(await createTempStudent(body, user), { status: 201 });

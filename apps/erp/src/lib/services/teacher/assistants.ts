@@ -1,13 +1,3 @@
-// Teacher team management: assistants are real user accounts (role=assistant)
-// created/linked by their teacher. Assistants are the primary chat contact
-// point for the teacher's students and parents (see chat-policy.ts).
-//
-// INVITE-BASED SINCE 2026-07-25. The teacher no longer types a password for
-// their assistant. The account is created as a SHELL (passwordHash NULL), an
-// `assistant_invite` token is emailed, and the assistant sets their own
-// password through the claim flow — so the creator never learns the
-// credential. The invite link also comes back to the teacher, because an email
-// that lands in spam should not strand a hire.
 import { platformDb, scopedDb } from "@/lib/db/scope";
 import {
   BusinessRuleError,
@@ -25,7 +15,6 @@ import {
 
 export type InviteOutcome = {
   email: DeliveryResult;
-  /** Copyable fallback for the creator — hand it over directly if mail fails. */
   claimLink: string;
   expiresAt: Date;
 };
@@ -49,8 +38,6 @@ export async function listAssistants(teacher: SessionUser) {
         assistantId: l.assistantId,
         title: l.title,
         createdAt: l.createdAt,
-        // Surfaced so the UI can show "invite pending" and offer a re-send
-        // instead of leaving a half-created account looking finished.
         pendingClaim: !!u && u.passwordHash === null,
         user: u
           ? { id: u.id, name: u.name, email: u.email, status: u.status }
@@ -60,14 +47,6 @@ export async function listAssistants(teacher: SessionUser) {
   });
 }
 
-/**
- * Create an assistant and email them a single-use claim link.
- *
- * No password is accepted from the teacher — see the module header. An account
- * created here is UNUSABLE until claimed (shell + NULL hash, refused by both
- * password doors), and it always leaves this function with a live invite, so it
- * can never sit in a permanently-can't-log-in state.
- */
 export async function createAssistant(
   teacher: SessionUser,
   input: { name: string; email: string; title?: string; locale?: "ar" | "en" },
@@ -91,8 +70,6 @@ export async function createAssistant(
             "This email belongs to an existing account with a different role",
           );
         }
-        // `shell` is now a legitimate state: an invited assistant who has not
-        // claimed yet. Only deleted/suspended accounts are refused.
         if (assistantUser.deletedAt || !["active", "shell"].includes(assistantUser.status)) {
           throw new BusinessRuleError("This assistant account is not active");
         }
@@ -108,7 +85,6 @@ export async function createAssistant(
           throw new ConflictError("This assistant is already on your team");
         }
         if (existing) {
-          // Re-activate a previously removed membership.
           const relink = await tx.teacherAssistant.update({
             where: { id: existing.id },
             data: { removedAt: null, title: input.title ?? existing.title },
@@ -126,8 +102,6 @@ export async function createAssistant(
             email,
             name: input.name.trim(),
             role: "assistant",
-            // SHELL + no hash: the account cannot be signed into until the
-            // invitee claims it and chooses their own password.
             status: "shell",
             passwordHash: null,
           },
@@ -200,7 +174,6 @@ async function sendAssistantInvite(
           action: "assistant.invited",
           targetType: "user",
           targetId: assistant.id,
-          // The token is NEVER written here — only the fact that one was issued.
           afterState: { email: assistant.email, delivery: email.status },
         },
       }),
@@ -210,7 +183,6 @@ async function sendAssistantInvite(
   return { email, claimLink: link, expiresAt };
 }
 
-/** Re-issue and re-send an assistant's invite. Kills the previous link. */
 export async function resendAssistantInvite(
   teacher: SessionUser,
   linkId: string,
@@ -226,9 +198,6 @@ export async function resendAssistantInvite(
       select: { id: true, name: true, email: true, passwordHash: true },
     });
     if (!user) throw new NotFoundError("Assistant account not found");
-    // A claimed account has a password of its own. Re-inviting it would be a
-    // password-reset door that the teacher controls — refuse; that is what the
-    // real reset flow is for.
     if (user.passwordHash !== null) {
       throw new BusinessRuleError(
         "This assistant has already set a password — ask them to use 'forgot password'",

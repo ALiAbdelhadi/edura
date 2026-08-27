@@ -5,9 +5,6 @@ import { searchConversations } from "@/lib/services/admin/messaging";
 
 export const dynamic = "force-dynamic";
 
-// Read-only message log. Super admin only — `accountant` is a finance-restricted
-// portal and gets no messaging surface (requireRole is a positive allow-list, so
-// omitting it here is the whole enforcement).
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const p = new URL(req.url).searchParams;

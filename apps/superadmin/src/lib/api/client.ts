@@ -7,13 +7,6 @@ const handle401: AfterResponseHook = ({ response }) => {
   }
 };
 
-// The API answers a refusal with `{ error: { code, message } }`, but ky's own
-// HTTPError message is only "Request failed with status code 409: POST <url>",
-// and callers were reading `error.response.data` — an axios shape ky never
-// produces (ky puts the pre-parsed body on `error.data`). So every business
-// rule ("this teacher is already registered", "email exists with a different
-// role") reached the user as a bare status code. Lift the envelope's message
-// onto the error here, once, so every consumer of `api` gets the real reason.
 const surfaceApiError: BeforeErrorHook = ({ error }) => {
   if (isHTTPError(error) && typeof error.data === 'object' && error.data !== null) {
     const body = error.data as { error?: { message?: string }; message?: string };

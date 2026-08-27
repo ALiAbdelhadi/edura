@@ -3,20 +3,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
-/**
- * The LAST-RESORT boundary: it catches errors thrown by the root layout itself,
- * which the per-route `[locale]/error.tsx` cannot — by the time that boundary
- * would render, the layout it lives inside has already failed.
- *
- * It replaces the whole document, so it must render its own <html>/<body> and
- * may NOT use anything the layout provides: no next-intl (no provider), no
- * theme variables (globals.css is imported by the layout), no @repo/ui. Hence
- * the inline styles and the hardcoded bilingual copy — this file has to work
- * when everything else did not.
- *
- * Without it, a root-layout crash is invisible to Sentry. That is what the
- * build-time "you don't have a global error handler" warning was about.
- */
 export default function GlobalError({
   error,
 }: {
@@ -54,9 +40,6 @@ export default function GlobalError({
         >
           Something went wrong. Try reloading the page.
         </p>
-        {/* The digest is the ONLY identifier shown: it correlates with the
-            server log and the Sentry issue without exposing the message, which
-            can carry internals (M4 discipline). */}
         {error.digest ? (
           <code dir="ltr" style={{ fontSize: "12px", color: "#9aa1af" }}>{error.digest}</code>
         ) : null}

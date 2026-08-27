@@ -1,25 +1,5 @@
 "use client";
 
-/* سجل المستخدم / User record — the one place a platform account is acted upon.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   EVERY ACT HERE CARRIES A REASON, AND THE REASON IS THE GATE. Suspend, revoke, reset
-   2FA — the submit button stays disabled until the textarea has something in it. That
-   is not politeness: the service refuses a blank reason, and the audit row is the only
-   durable explanation anyone will ever have for why an account stopped working. A
-   dialog that let you press "confirm" and then reported a validation failure would be
-   teaching that the reason is paperwork.
-
-   THE REFUSALS ARE SHOWN VERBATIM. "Lift the blacklist first", "You cannot suspend
-   your own account", "Only back-office accounts can be impersonated" — these are
-   decisions the service made, each naming a boundary. Replacing them with a generic
-   "action failed" throws away the only part that tells the operator what to do next.
-
-   TWO ACTIONS NEED NO REASON, AND SAY SO BY ASKING ONLY FOR CONFIRMATION: sending a
-   password-reset link (the user chooses their own password; the admin never sees it)
-   and impersonation (which writes its own audit row on start AND on stop, and is
-   bounded to back-office accounts by the service). */
-
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -102,28 +82,11 @@ export type ReasonAction =
   | "revokeAll"
   | "reset2fa"
   | "passwordReset"
-  // The student ID card (2026-08-09). Both carry a reason for the same reason
-  // everything else on this screen does: a card refused at a counter with no
-  // recorded explanation is one nobody can safely un-refuse.
   | "reissueCard"
   | "revokeCard";
 
-/**
- * The acts that GIVE something back rather than take it away. They take the
- * default button, not the destructive one — a red "confirm" on reissuing a
- * child's lost card tells the operator they are about to break something.
- */
 const RESTORATIVE: ReadonlySet<ReasonAction> = new Set(["reinstate", "reissueCard"]);
 
-/**
- * The roles apps/erp hosts — the ones "view as" can reach.
- *
- * A LOCAL COPY on purpose: this file is a client component and
- * `WWW_LOGIN_ROLES` lives in a server package that pulls in Prisma. It decides
- * only whether to OFFER the button; `assertViewAsTarget` on the server is the
- * authority, and the ERP re-checks the role a third time at claim. Drift here
- * costs a button that fails, never a door that opens.
- */
 const ERP_ROLES: ReadonlySet<string> = new Set([
   "center_admin",
   "center_staff",
@@ -133,8 +96,6 @@ const ERP_ROLES: ReadonlySet<string> = new Set([
   "student",
 ]);
 
-/** The body of the reason dialog. Mounted only while open, so it carries no
-    reset logic — closing it discards the draft reason by construction. */
 function ReasonForm({
   action,
   onClose,
@@ -178,8 +139,6 @@ function ReasonForm({
         <Button
           type="button"
           variant={RESTORATIVE.has(action) ? "default" : "destructive"}
-          // The gate: no reason, no submit. The service refuses a blank one, so
-          // an enabled button here would only produce a validation error.
           disabled={!ready || busy}
           onClick={async () => {
             if (!ready) return;
@@ -188,8 +147,6 @@ function ReasonForm({
               await onConfirm(action, reason.trim());
               onClose();
             } catch {
-              // The screen already surfaced the API's own message; leave the
-              // dialog open with the reason intact so it can be retried.
               setBusy(false);
             }
           }}
@@ -202,7 +159,6 @@ function ReasonForm({
   );
 }
 
-/** A confirmation that cannot be given without saying why. */
 export function ReasonDialog({
   action,
   onClose,
@@ -251,7 +207,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
   const sessions = data?.sessions ?? [];
   const center = data?.center ?? null;
 
-  /** The API's message IS the explanation — never replace it with a generic one. */
   const fail = (e: unknown) => {
     toast.error((e as { message?: string })?.message || t("actionFailed"));
   };
@@ -315,8 +270,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
     setBusy(true);
     try {
       await mutate({ url: `admin/users/${userId}/impersonate`, method: "post", values: {} });
-      // The session cookie has swapped — reload rather than navigate, so every
-      // client cache is rebuilt as the impersonated account.
       window.location.href = "/dashboard";
     } catch (e) {
       fail(e);
@@ -324,22 +277,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
     }
   };
 
-  /**
-   * VIEW AS — hand off to the ERP.
-   *
-   * Two steps, and the second one is a FORM SUBMIT rather than a fetch, which
-   * is the only non-obvious part of this file. The claim endpoint lives on the
-   * other origin and has to both set a cookie there and land the browser on a
-   * page there; a `fetch` would need CORS plus credentialed cross-origin
-   * cookies and would still leave the browser sitting on this page. A
-   * self-submitting form is a top-level navigation, so the cookie is set for
-   * the origin the user is now on, in one hop.
-   *
-   * `_blank` so the back office stays open behind it: ending the view-as closes
-   * a tab rather than costing a 2FA sign-in.
-   *
-   * The token is a form FIELD, never a query parameter — see the mint route.
-   */
   const viewAs = async () => {
     setBusy(true);
     try {
@@ -371,15 +308,11 @@ export function UserDetailScreen({ userId }: { userId: string }) {
     }
   };
 
-  // Mirrors `assertViewAsTarget`: an ERP role, active. The service stays the
-  // authority; this only decides whether to OFFER it.
   const canViewAs =
     !!user &&
     user.status === "active" &&
     ERP_ROLES.has(user.role);
 
-  // Mirrors `IMPERSONATABLE` + the active check in admin-users.ts. The service
-  // stays the authority; this only decides whether to OFFER the action.
   const canImpersonate = user?.role === "accountant" && user?.status === "active";
 
   if (req.query.isLoading) return <PageSpinner label={tg("common.loading")} />;
@@ -423,7 +356,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         rule
       />
 
-      {/* Identity */}
       <section className="rounded-xl border border-rule bg-sheet p-4">
         <h2 className="text-[15px] font-bold text-ink">{t("identityTitle")}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -490,7 +422,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         </div>
       </section>
 
-      {/* Center */}
       {center ? (
         <section className="rounded-xl border border-rule bg-sheet p-4">
           <h2 className="text-[15px] font-bold text-ink">{t("centerTitle")}</h2>
@@ -513,13 +444,8 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         </section>
       ) : null}
 
-      {/* The ID card — students only, and only fetched once expanded. Mounted
-          on the role rather than shown-and-empty for everyone: a teacher has no
-          card, and a collapsed panel promising one is a promise the app breaks
-          when it is opened. */}
       {user.role === "student" ? <StudentCardPanel userId={userId} /> : null}
 
-      {/* Actions */}
       <section className="rounded-xl border border-rule bg-sheet p-4">
         <h2 className="text-[15px] font-bold text-ink">{t("actionsTitle")}</h2>
         <p className="mt-1 text-[13px] text-ink-2">{t("actionsDesc")}</p>
@@ -568,9 +494,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             {t("actionPasswordReset")}
           </Button>
 
-          {/* Impersonation only ever succeeds for a back-office account — the
-              service refuses every www role. Offering the button to a student
-              and failing after the confirm is a promise the app cannot keep. */}
           {canImpersonate ? (
             <ConfirmDialog
               trigger={
@@ -585,9 +508,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             />
           ) : null}
 
-          {/* VIEW AS — the ERP door. Offered only for a role the ERP hosts;
-              the back-office case above is a different mechanism entirely
-              (same app, same cookie) and the two are never both shown. */}
           {canViewAs ? (
             <ConfirmDialog
               trigger={
@@ -604,7 +524,6 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         </div>
       </section>
 
-      {/* Live sessions — same row shape as the operator's own security screen. */}
       <section className="rounded-xl border border-rule bg-sheet p-4">
         <h2 className="text-[15px] font-bold text-ink">{t("sessionsTitle")}</h2>
         <p className="mt-1 text-[13px] text-ink-2">{t("sessionsDesc")}</p>

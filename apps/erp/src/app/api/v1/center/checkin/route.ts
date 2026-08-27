@@ -11,11 +11,6 @@ const bodySchema = z
   .object({ studentId: z.string().uuid(), sessionId: z.string().uuid() })
   .strict();
 
-/**
- * Counter check-in (front desk). Uncovered students return 402 needs_payment —
- * the UI then runs the EXISTING Step 4 walk-in per-session cash path
- * (center/subscriptions) and retries; no money code lives in check-in.
- */
 export const POST = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const body = await parseJson(req, bodySchema);

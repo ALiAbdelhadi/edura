@@ -1,26 +1,3 @@
-/**
- * T-4 — payout-request cancel (API session 2, item B.1#5).
- *
- * The gap: requesting a payout reserves money against the beneficiary (H1 —
- * `available` drops by the requested sum) and the only release was asking an
- * accountant to reject it. On the only money WRITE a teacher has, the mistake
- * was one press away and the undo did not exist (the TwoStepCommit ceremony
- * shipped as mitigation; a ceremony is not an undo).
- *
- * What is proven here, against the REAL request/cancel/wallet services:
- *   1. Cancel flips a pending request to `cancelled` (+ cancelledAt) and the
- *      H1 reserve is released — `available` recovers to its pre-request value.
- *   2. Only the OWNER: a rival teacher's cancel 404s (never 403).
- *   3. Only `pending`: an approved request refuses with the accountant
- *      sentence; a cancelled one refuses again (terminal).
- *   4. The cancel is audited — one audit_logs row, action `payout.cancel`,
- *      actor = the caller.
- *   5. The center face works identically through the same kernel function.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only payout-cancel
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { cancelOwnPayoutRequest } from "@repo/server-core/services/finance/payout-cancel";
 import { requestCenterPayout, getCenterWallet } from "@repo/server-core/services/finance/center-wallet";

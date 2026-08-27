@@ -45,9 +45,6 @@ const OPENING_BALANCE = 75000;
 async function purge() {
   console.log("Purging parent-pay demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve by NATURAL keys (email / shortId), never by the id formula — a
-    // purge keyed on the formula silently misses whatever a previous formula
-    // wrote (H-03).
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -76,17 +73,11 @@ async function purge() {
       where: { OR: [{ parentId: { in: ids } }, { studentId: { in: ids } }] },
     });
 
-    // The wallet subledger is append-only at RUNTIME (the Prisma immutability
-    // extension refuses deleteMany on ParentWalletLedger) but was deliberately
-    // left without a DB-level REVOKE so preview rows stay purgeable — see
-    // migration 20260727110100_parent_wallet. Raw delete, narrowed to these
-    // demo parents, on a non-production database.
     const ledgerRows =
       ids.length === 0
         ? 0
         : await tx.$executeRaw`
             DELETE FROM parent_wallet_ledger WHERE parent_id = ANY(${ids}::uuid[])`;
-    // Any payment intents the preview created by clicking through checkout.
     if (ids.length) {
       await tx.$executeRaw`
         DELETE FROM payment_intents
@@ -97,9 +88,6 @@ async function purge() {
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.notification.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // `user.deleteMany` is intercepted by the soft-delete extension (the row
-    // and its UNIQUE email would survive and P2002 the next run). Raw hard
-    // delete, narrowed to these ids AND is_demo, on a non-production DB.
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -119,8 +107,6 @@ async function purge() {
   });
 }
 
-// ---------------------------------------------------------------------------
-
 async function main() {
   await assertNotProduction("parent-pay-demo-seed");
 
@@ -133,10 +119,6 @@ async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await withPlatformContext(async (tx) => {
-    // ---- catalog (READ ONLY — permanent reference data) -------------------
-    // The child's grade + track are what make the pay screen's default
-    // "child's subjects" tab non-empty; without them it falls back to an
-    // empty-state and the preview proves nothing.
     const grade = await tx.gradeLevel.findFirst({ orderBy: { sortOrder: "asc" } });
     const offering = grade
       ? await tx.subjectOffering.findFirst({
@@ -149,7 +131,6 @@ async function main() {
       );
     }
 
-    // ---- users -----------------------------------------------------------
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
@@ -169,9 +150,6 @@ async function main() {
     await tx.parentProfile.upsert({
       where: { userId: SAMI.id },
       update: {},
-      // walletBalance is NOT set here: the balance is established below through
-      // the real credit primitive, so the cache and the ledger agree and
-      // reconcileParentWallet passes on demo data like it does on real data.
       create: { userId: SAMI.id },
     });
 
@@ -188,7 +166,6 @@ async function main() {
           onboardingCompleted: true,
         },
       });
-      // The APPROVED link is the gate every parent money path checks.
       const existing = await tx.parentStudentLink.findFirst({
         where: { parentId: SAMI.id, studentId: s.id },
       });
@@ -215,7 +192,6 @@ async function main() {
       create: { userId: MONA.id, bio: `${MONA.name} — بيانات تجريبية`, subjects: [] },
     });
 
-    // ---- center ----------------------------------------------------------
     await tx.center.upsert({
       where: { id: CENTER },
       update: { name: "مركز صدى العلم", status: "active", isDemo: true },
@@ -248,7 +224,6 @@ async function main() {
       }
     }
 
-    // ---- courses: BOTH plans priced, so both buttons appear ---------------
     const mkCourse = async (
       id: string,
       title: string,
@@ -282,7 +257,6 @@ async function main() {
           isDemo: true,
         },
       });
-      // Four upcoming sessions so the "choose a lesson" picker is populated.
       for (let i = 0; i < 4; i++) {
         const when = daysAhead(3 + i * 7);
         const sid = did(`session:${id}:${i}`);
@@ -306,19 +280,6 @@ async function main() {
     await mkCourse(COURSE_A, "الجبر والهندسة", 30000, 8000, [1, 3], "16:00", "17:30");
     await mkCourse(COURSE_B, "الفيزياء", 35000, 10000, [2, 4], "18:00", "19:30");
 
-    // ---- the parent's opening wallet balance ------------------------------
-    // Written the way parentWalletCredit writes it — cache update + ONE ledger
-    // row carrying the running balanceAfter, in this transaction — so the demo
-    // balance reconciles (cached == SUM(delta) == last balanceAfter) exactly
-    // like real money does.
-    //
-    // Inlined rather than imported: @repo/database is the BOTTOM of the stack
-    // and @repo/server-core (where the primitive lives) sits above it, so
-    // importing it here would invert the dependency direction and break this
-    // package's rootDir. Four lines of duplication is the cheaper price.
-    //
-    // Idempotent: only credited when the parent has no ledger history yet, so
-    // re-running the seed does not keep topping the wallet up.
     const existingLedger = await tx.parentWalletLedger.count({
       where: { parentId: SAMI.id },
     });

@@ -11,7 +11,6 @@ import {
 } from "../src/index.js";
 import { assertDbEnv } from "./db-guard";
 
-// Normalize a dropped socket into a real Error — see src/neon-ws.ts.
 hardenNeonWebSockets();
 neonConfig.webSocketConstructor = ws as never;
 const adminPool = new Pool({ connectionString: process.env.ADMIN_URL ?? process.env.DIRECT_URL });
@@ -22,11 +21,6 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
-  // This script CREATES real rows — users, centers, a course, and an immutable
-  // `transactions` row that cannot be deleted afterwards. It has no production
-  // use whatsoever, so the target database must prove it is dev or test. The
-  // label is read from INSIDE the database (see db-guard.ts), so a copied or
-  // stale connection string cannot talk its way past this.
   await assertDbEnv(["dev", "test"], { intent: "smoke-test" });
 
   const tag = "smoke-" + Math.floor(Math.random() * 1e9);

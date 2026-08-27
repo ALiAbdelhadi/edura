@@ -1,28 +1,3 @@
-// WEEKLY CENTER DIGEST proof — the owner's Monday email, and the row that stops
-// it being sent twice.
-//
-// `tests/unit/weekly-digest.test.ts` proves the template: its subject, its
-// plain-text part, its quiet-week variant, that no figure leaks into the
-// subject line and no token into the link. What it cannot touch is the JOB,
-// and the job is where the two risks live:
-//
-//   1. IDEMPOTENCY WAS NEVER EXERCISED LIVE. There is no `notification_type`
-//      for a digest, so the "we already sent this" record is an append-only
-//      `audit_logs` row keyed on the period. A cron that fires twice — a retry,
-//      an overlapping schedule, a manual run after a failed one — must not mail
-//      the same owner the same week twice. Nothing proved that until here,
-//      because in console mail mode NOTHING IS EVER SENT and the audit row is
-//      therefore never written: the idempotency path was unreachable in every
-//      environment anyone had run it in.
-//   2. `skipped` IS NOT `failed`, AND ONLY A REAL SEND IS RECORDED. A week that
-//      was deliberately not mailed must remain owed, so it goes out once mail
-//      is configured — recording it as delivered would silently lose it.
-//
-// HOW A REAL SEND IS OBTAINED WITHOUT SENDING MAIL: `registerChannel` is the
-// package's own extension seam (the same one the pluggability unit test uses).
-// A stub channel is registered that reports `sent` — but ONLY for this suite's
-// own centers, and `skipped` for every other center in the database, so a run
-// of this job cannot write an audit row against a center it does not own.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
@@ -47,11 +22,6 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 const tag = "wdig-" + Math.floor(Math.random() * 1e9).toString(36);
 const DIGEST_ACTION = "center.weekly_digest_sent";
 
-/**
- * The job's own window, restated so the test can place fixture rows inside it
- * — and then asserted against what the job reports, which turns the
- * duplication into a check rather than a second source of truth.
- */
 function lastWeekRange(now: Date): { start: Date; end: Date } {
   const end = new Date(now);
   end.setUTCHours(23, 59, 59, 999);
@@ -62,27 +32,18 @@ function lastWeekRange(now: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
-// Derived from the real clock, never a frozen literal: the audit row this job
-// writes carries `created_at = now()`, and the idempotency lookup filters on
-// `created_at >= start`. A hard-coded date would quietly stop covering the
-// second-run case the day it drifted out of that window.
 const NOW = new Date();
 const WEEK = lastWeekRange(NOW);
 const PERIOD_START = toDateKey(WEEK.start);
 const PERIOD_END = toDateKey(WEEK.end);
-/** Mid-week, so a fixture row is unambiguously inside the reported period. */
 const midWeek = () => new Date(WEEK.start.getTime() + 3 * 24 * 60 * 60 * 1000);
-/** A `now` four weeks earlier — a DIFFERENT period, which must not be blocked. */
 const EARLIER_NOW = new Date(NOW.getTime() - 28 * 24 * 60 * 60 * 1000);
 
 type Call = { centerId: string | undefined; data: TemplateData<"weekly_digest">; to: Recipient };
 const calls: Call[] = [];
-/** centerId -> what the stub should report for it. */
 const behaviour = new Map<string, "sent" | "skipped" | "failed">();
 
 const stubChannel: NotificationChannel = {
-  // The union has two members and email is the real one; the synthetic driver
-  // takes the other, exactly as the pluggability unit test does.
   id: "whatsapp",
   isEnabled: () => true,
   supports: (t: TemplateId) => t === "weekly_digest",
@@ -92,8 +53,6 @@ const stubChannel: NotificationChannel = {
     data: TemplateData<T>,
   ): Promise<ChannelResult> {
     const verdict = behaviour.get(to.centerId ?? "") ?? "skipped";
-    // Only this suite's own centers are recorded, so a stray center in the
-    // database cannot pollute the call log the assertions read.
     if (behaviour.has(to.centerId ?? "")) {
       calls.push({ centerId: to.centerId, data: data as TemplateData<"weekly_digest">, to });
     }
@@ -126,8 +85,6 @@ async function main() {
   console.log(`  window: ${PERIOD_START} → ${PERIOD_END}`);
 
   const fx = await withPlatformContext(async (tx) => {
-    // `centers.short_id` is UNIQUE and only 12 characters wide — long enough
-    // for the run tag plus a counter, not for the descriptive key.
     let n = 0;
     const mkCenter = async (
       key: string,
@@ -160,8 +117,6 @@ async function main() {
     const noEmail = await mkCenter("noml", { email: null });
     const ownerless = await mkCenter("none", null);
 
-    // A real week of business for the `live` center, so the digest's figures
-    // have something to be right or wrong about.
     const teacher = await tx.user.create({
       data: { name: tag + "-teacher", role: "teacher", email: tag + "-t@x.io", status: "active", isDemo: true },
     });
@@ -224,25 +179,19 @@ async function main() {
   const unregister = registerChannel(stubChannel);
 
   try {
-    // =====================================================================
     console.log("\n[1] The week reported is one that has FINISHED");
-    // =====================================================================
     const run1 = await runWeeklyCenterDigest(NOW);
     ok(run1.periodStart === PERIOD_START && run1.periodEnd === PERIOD_END,
       `the job reports ${run1.periodStart} → ${run1.periodEnd}`);
     ok(WEEK.end.getTime() < NOW.getTime(), "the window ends before now — never the week the owner is living in");
     ok(WEEK.end.getUTCDay() === 6, "it ends on a Saturday…");
     ok(WEEK.start.getUTCDay() === 0, "…and starts on the Sunday seven days earlier");
-    // Inclusive: start is 00:00:00.000 and end is 23:59:59.999, so the span is
-    // one millisecond short of seven whole days and covers seven calendar ones.
     ok(
       (WEEK.end.getTime() - WEEK.start.getTime() + 1) / 86_400_000 === 7,
       "which is exactly seven calendar days, end inclusive",
     );
 
-    // =====================================================================
     console.log("\n[2] A real send — the figures are the reports screen's own");
-    // =====================================================================
     const liveCalls = callsFor(fx.live.center);
     ok(liveCalls.length === 1, `the live center's owner was written to exactly once (${liveCalls.length})`);
     const payload = liveCalls[0]!.data;
@@ -268,9 +217,7 @@ async function main() {
     );
     ok(liveCalls[0]!.to.email === `${tag}-live@x.io`, "it went to the owner's address on file");
 
-    // =====================================================================
     console.log("\n[3] IDEMPOTENCY — the second run does not mail the same week again");
-    // =====================================================================
     const after1 = await digestRows(fx.live.center);
     ok(after1.length === 1, "one audit row records the send");
     ok(after1[0]!.after_state.periodStart === PERIOD_START,
@@ -285,9 +232,7 @@ async function main() {
     ok(after2[0]!.id === after1[0]!.id, "the original row is untouched — append-only, never rewritten");
     ok(run2.skipped >= 1, `the run reports the center as skipped, not sent (skipped=${run2.skipped})`);
 
-    // =====================================================================
     console.log("\n[4] A DIFFERENT week is not blocked by last week's row");
-    // =====================================================================
     const run3 = await runWeeklyCenterDigest(EARLIER_NOW);
     ok(run3.periodStart !== PERIOD_START, `an earlier run covers a different period (${run3.periodStart})`);
     const earlierCalls = callsFor(fx.live.center).filter((c) => c.data.periodStart === run3.periodStart);
@@ -299,11 +244,7 @@ async function main() {
       "the two rows name two different periods — the key is the period, not the center",
     );
 
-    // =====================================================================
     console.log("\n[5] `skipped` is not `failed`, and a non-send stays OWED");
-    // =====================================================================
-    // This is what console mail does in every environment nobody has configured
-    // SMTP in — the state the job spends most of its life in.
     ok(callsFor(fx.quiet.center).length >= 1, "the quiet center's digest was attempted");
     ok((await digestRows(fx.quiet.center)).length === 0,
       "…and NO audit row was written, so the week is still owed once mail is configured");
@@ -314,9 +255,7 @@ async function main() {
     ok(run1.sent >= 1 && run1.skipped >= 1,
       `the three outcomes are reported separately (sent=${run1.sent}, skipped=${run1.skipped}, failed=${run1.failed})`);
 
-    // =====================================================================
     console.log("\n[6] Nobody to write to is a STATE, not a fault");
-    // =====================================================================
     ok(callsFor(fx.suspended.center).length === 0,
       "a suspended owner is never written to — the digest is not a way around a closed account");
     ok(callsFor(fx.noEmail.center).length === 0, "an owner with no address is not written to");
@@ -325,9 +264,7 @@ async function main() {
       ok((await digestRows(c.center)).length === 0, `…and the ${label} center gets no audit row`);
     }
 
-    // =====================================================================
     console.log("\n[7] A digest is a READ of the books, never a write to them");
-    // =====================================================================
     const money = await q<{ n: number }>(
       `SELECT (SELECT count(*) FROM payments WHERE center_id = ANY($1::uuid[]))
             + (SELECT count(*) FROM expenses WHERE center_id = ANY($1::uuid[]))

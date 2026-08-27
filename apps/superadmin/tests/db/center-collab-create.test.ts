@@ -1,41 +1,3 @@
-/**
- * ===========================================================================
- * BACK-OFFICE COLLABORATION REQUEST — the door a REGISTERED teacher comes
- * through, sent as the center from the superadmin center page.
- * ===========================================================================
- * Drives the REAL shipped service:
- *
- *   apps/superadmin/src/lib/services/admin/center-people.ts
- *     → adminCreateCollaborationRequest
- *       → @repo/server-core/services/collaboration/collaboration.ts
- *
- * The premise: `adminInviteTeacher` is shell-account onboarding and refuses a
- * teacher who already has an account with a 409 (Step 5 moved that case to
- * collaboration requests). Proof 1 reproduces that refusal and proof 2 shows
- * the new button clears it, so the pair documents WHY this route exists.
- *
- * What is proven here:
- *   1. the invite path still refuses a registered teacher (unchanged);
- *   2. the request is created `pending` with `initiator = "center"`;
- *   3. `createdBy` is the SUPER ADMIN's own id — attribution, not
- *      impersonation (the same rule center-actor.ts states);
- *   4. NO rate crosses the boundary: `proposedCenterShare` is 0;
- *   5. a center-initiated request may NOT pre-pick the pricing method on a
- *      both-methods hall — the teacher picks at accept time. This is why the
- *      dialog has no method control and the route schema omits the field;
- *   6. exactly ONE `collaboration_request.created` audit row, carrying actor,
- *      center and target;
- *   7. the center is taken from the caller, never the teacher's other centers:
- *      acting on A creates on A;
- *   8. the kernel's own guards still bite from the back office — duplicate
- *      open request, subject not offered for the grade, inactive teacher;
- *   9. the teacher is NOTIFIED (a request nobody sees is not consent);
- *  10. no affiliation and no money row is created — acceptance does that, and
- *      acceptance is the teacher's.
- *
- *   bunx tsx --env-file=<env> tests/db/center-collab-create.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -104,7 +66,6 @@ async function main() {
   try {
     console.log(`BACK-OFFICE COLLABORATION REQUEST — ${tag}`);
 
-    // ---------------- fixtures ----------------
     const superAdminId = await mkUser("super", "super_admin");
     const actor = {
       id: superAdminId,
@@ -115,14 +76,10 @@ async function main() {
 
     const centerA = await mkCenter("A");
     const centerB = await mkCenter("B");
-    // The teacher this is all about: a REAL, registered, active account — the
-    // exact shape `adminInviteTeacher` refuses.
     const registered = await mkUser("registered", "teacher");
     const registeredEmail = `${tag}-registered@edura.test`;
     const shellTeacher = await mkUser("shell", "teacher", "shell");
 
-    // Real catalog rows: a grade with an ACTIVE offering, and a subject that is
-    // NOT offered for it (for the catalog-sanity proof).
     const grade = (await admin.query(`SELECT id FROM grade_levels ORDER BY sort_order LIMIT 1`))
       .rows[0];
     const offered = (
@@ -141,8 +98,6 @@ async function main() {
       )
     ).rows[0];
 
-    // A hall offering BOTH pricing methods — the case where the center may not
-    // pre-pick for the teacher.
     const bothMethodsRoom = (
       await admin.query(
         `INSERT INTO rooms (center_id, name, capacity, price, allowed_pricing_methods, updated_at)
@@ -164,9 +119,7 @@ async function main() {
       startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     };
 
-    // =====================================================================
     section("1 — the invite path still refuses a registered teacher");
-    // =====================================================================
     const refused = await rejects(
       () => adminInviteTeacher(actor, centerA, { email: registeredEmail }),
       /already registered|collaboration request/i,
@@ -176,18 +129,14 @@ async function main() {
       `invite refuses a registered teacher and names the alternative — "${refused.message}"`,
     );
 
-    // =====================================================================
     section("2 — the collaboration request clears it");
-    // =====================================================================
     const request = await adminCreateCollaborationRequest(actor, centerA, base);
     assert(request.status === "pending", "created with status=pending (nothing is active yet)");
     assert(request.initiator === "center", 'initiator="center" — sent AS the center');
     assert(request.centerId === centerA, "bound to the center the back office was acting on");
     assert(request.teacherId === registered, "aimed at the registered teacher");
 
-    // =====================================================================
     section("3 — attribution, not impersonation");
-    // =====================================================================
     const createdByRow = (
       await admin.query(`SELECT created_by FROM collaboration_requests WHERE id=$1`, [request.id])
     ).rows[0];
@@ -196,9 +145,7 @@ async function main() {
       "created_by is the SUPER ADMIN's own id, not a center admin's",
     );
 
-    // =====================================================================
     section("4 — no rate crosses the boundary");
-    // =====================================================================
     const moneyCols = (
       await admin.query(
         `SELECT proposed_center_share, proposed_pricing_method
@@ -215,9 +162,7 @@ async function main() {
       "no pricing method on a hall-less request",
     );
 
-    // =====================================================================
     section("5 — the center may not pre-pick the method on a both-methods hall");
-    // =====================================================================
     const prePick = await rejects(
       () =>
         adminCreateCollaborationRequest(actor, centerA, {
@@ -237,8 +182,6 @@ async function main() {
       ...base,
       roomId: bothMethodsRoom,
       daysOfWeek: [1],
-      // Same subject+grade would hit the duplicate guard, so this one differs by
-      // teacher — a second registered teacher at the same center.
       teacherId: await (async () => {
         const t2 = await mkUser("registered2", "teacher");
         return t2;
@@ -255,9 +198,7 @@ async function main() {
       "a both-methods hall stores NULL — the teacher picks at accept time",
     );
 
-    // =====================================================================
     section("6 — exactly one audit row");
-    // =====================================================================
     const auditRows = (
       await admin.query(
         `SELECT * FROM audit_logs
@@ -277,9 +218,7 @@ async function main() {
       "the trail records the zero share, so 'no rate was smuggled' is checkable after the fact",
     );
 
-    // =====================================================================
     section("7 — the center comes from the caller, not the body");
-    // =====================================================================
     const onB = await adminCreateCollaborationRequest(actor, centerB, {
       ...base,
       daysOfWeek: [2],
@@ -293,9 +232,7 @@ async function main() {
     ).rows[0].n;
     assert(strayOnA === 0, "…and nothing of it landed on A");
 
-    // =====================================================================
     section("8 — the kernel's guards still bite from the back office");
-    // =====================================================================
     const dup = await rejects(
       () => adminCreateCollaborationRequest(actor, centerA, base),
       /already exists/i,
@@ -334,9 +271,7 @@ async function main() {
       `a shell (unclaimed) teacher is refused — "${inactive.message}"`,
     );
 
-    // =====================================================================
     section("9 — the teacher is notified");
-    // =====================================================================
     const notif = (
       await admin.query(
         `SELECT count(*)::int AS n FROM notifications
@@ -346,9 +281,7 @@ async function main() {
     ).rows[0].n;
     assert(notif >= 1, `the target teacher received a classroom_request notification (${notif})`);
 
-    // =====================================================================
     section("10 — nothing is active, and no money moved");
-    // =====================================================================
     const affs = (
       await admin.query(
         `SELECT count(*)::int AS n FROM center_teacher_affiliations WHERE center_id = ANY($1::uuid[])`,
@@ -405,8 +338,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-collab-create.test.ts" })
   .then(() => main())
   .catch((e) => {

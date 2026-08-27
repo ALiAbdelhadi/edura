@@ -1,25 +1,5 @@
 "use client";
 
-/**
- * «جرّب بنفسك» — the assistant emulator.
- *
- * A working copy of the assistant portal, populated with a fake shift beside one
- * teacher, that walks a new assistant through the five things the job actually
- * is: understand WHOSE account this is, take attendance, work the classroom
- * door (including the student it must refuse), close the lesson for your
- * teacher, and speak in your own name.
- *
- * It is the fifth caller of the same engine pattern (student → teacher → centre
- * → parent → assistant). The shared pieces — `EmuTarget` and the highlight
- * stylesheet — live in `features/emulator/` and are imported, never copied.
- *
- * THE PROPERTY THAT IS SPECIFIC TO THIS ROLE: the assistant's actions produce
- * SOMEBODY ELSE'S money. `settle` therefore credits nothing to the learner and
- * the card names the teacher's wallet, because an assistant who finishes this
- * tour expecting a payout of their own has been taught a falsehood by the
- * practice copy — the one thing a practice copy must never do.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -55,7 +35,6 @@ import {
   type EmuPupil,
 } from "./world";
 
-/** Its own key: a teacher and their assistant may share a browser at a desk. */
 const PROGRESS_KEY = "edura.assistantEmulator.step";
 
 const ICON = {
@@ -73,7 +52,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
   const [index, setIndex] = useState(0);
   const [missed, setMissed] = useState(false);
 
-  /* Simulated world — everything the assistant's own actions change. */
   const [lessonOpen, setLessonOpen] = useState(false);
   const [roster, setRoster] = useState<EmuPupil[]>(EMU_ROSTER);
   const [saved, setSaved] = useState(false);
@@ -88,13 +66,11 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
   const step = FLAT_STEPS[Math.min(index, FLAT_STEPS.length - 1)]!;
   const screen: EmuScreen = screenOverride ?? step.screen;
 
-  /* Resume where they stopped, clamped against a longer earlier script. */
   useEffect(() => {
     try {
       const n = Number(window.localStorage.getItem(PROGRESS_KEY) ?? 0);
       if (Number.isFinite(n) && n > 0) setIndex(Math.min(n, FLAT_STEPS.length));
     } catch {
-      /* storage disabled — starting from the beginning is the right fallback */
     }
   }, []);
 
@@ -102,11 +78,9 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(index));
     } catch {
-      /* progress simply is not remembered */
     }
   }, [index]);
 
-  /* The spotlight — an effect over the rendered stage, as in every emulator. */
   useEffect(() => {
     const root = stageRef.current;
     if (!root) return;
@@ -129,15 +103,9 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
     setIndex((i) => Math.max(0, i - 1));
   }, []);
 
-  /* ── The world's own actions ──────────────────────────────────────────── */
-
   const setStatus = (id: string, status: EmuAttendance) =>
     setRoster((rows) => rows.map((p) => (p.id === id ? { ...p, status } : p)));
 
-  /**
-   * The door. A student who never passed the counter is REFUSED — the whole
-   * point of the mission, so the refusal is modelled rather than described.
-   */
   const confirmDoor = (id: string) => {
     const pupil = roster.find((p) => p.id === id);
     if (!pupil) return;
@@ -151,7 +119,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
     );
   };
 
-  /** Credits the TEACHER. The assistant's own account gains nothing, ever. */
   const settle = () => {
     setSettled(true);
     setArmed(false);
@@ -203,7 +170,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
 
   return (
     <div className="space-y-4">
-      {/* ── Progress ─────────────────────────────────────────────────────── */}
       <Sheet className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -250,7 +216,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
         </div>
       </Sheet>
 
-      {/* ── The instruction ──────────────────────────────────────────────── */}
       {finished ? (
         <Sheet className="p-6 text-center">
           <h2 className="text-xl font-semibold" style={{ color: "var(--ink)" }}>
@@ -295,7 +260,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
         </Sheet>
       )}
 
-      {/* ── The simulation ───────────────────────────────────────────────── */}
       <div
         ref={stageRef}
         className="overflow-hidden rounded-(--radius-step-lg)"
@@ -338,8 +302,6 @@ export function AssistantEmulator({ onDone }: { onDone?: () => void } = {}) {
     </div>
   );
 }
-
-/* ── The simulation's own sidebar ───────────────────────────────────────── */
 
 function EmuNav({
   screen,
@@ -393,8 +355,6 @@ function EmuNav({
         );
       })}
 
-      {/* The wallet is ABSENT, not disabled — the same way the real portal omits
-          it. The note says so, because an absence teaches nothing on its own. */}
       <p className="mt-2 px-3 text-[11px]" style={{ color: "var(--ink-3)" }}>
         {t("nav.noWalletNote")}
       </p>

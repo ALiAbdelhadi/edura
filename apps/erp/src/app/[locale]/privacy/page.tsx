@@ -25,12 +25,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-/**
- * DRAFT privacy policy — every claim here reflects how the system actually
- * works today (default-minor, guardian oversight, Paymob, audit logs,
- * soft-delete). Needs review by qualified Egyptian counsel before the official
- * launch.
- */
 export default async function PrivacyPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale as Locale);

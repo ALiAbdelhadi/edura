@@ -56,7 +56,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
       const n = Number(window.localStorage.getItem(PROGRESS_KEY) ?? 0);
       if (Number.isFinite(n) && n > 0) setIndex(Math.min(n, FLAT_STEPS.length));
     } catch {
-      /* storage disabled — starting from the beginning is the right fallback */
     }
   }, []);
 
@@ -64,7 +63,6 @@ export function CenterEmulator({ onDone }: { onDone?: () => void } = {}) {
     try {
       window.localStorage.setItem(PROGRESS_KEY, String(index));
     } catch {
-      /* progress simply is not remembered */
     }
   }, [index]);
 

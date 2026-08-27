@@ -1,18 +1,5 @@
 "use client";
 
-/* المدرّسون / Teachers — a record screen with one in-place control.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The attendance-mode select is a genuine setting, not a money write: it is a global
-   per-teacher preference that can be changed again at any time, so it saves on ONE
-   interaction (D-022). It stays in the row rather than moving to a panel because it is
-   the only action here and it is reversible — the "no per-row buttons" rule (D-038)
-   exists to stop DESTRUCTIVE twins competing in a decision queue, which this is not.
-
-   A teacher with no profile row gets a plain statement, NOT a disabled select: the
-   capability does not exist for that record, and a greyed control would teach that it
-   does and is being withheld (D-027). */
-
 import { useState } from "react";
 import { useCustomMutation, useList } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -206,7 +193,6 @@ export function TeachersScreen() {
                   </TableCell>
                   <TableCell className="px-3 py-[7px]">
                     {r.attendanceMode === null ? (
-                      // Absence, not a disabled control (D-027).
                       <span className="text-[11px] text-ink-3">{t("teachers.noProfile")}</span>
                     ) : (
                       <select

@@ -229,11 +229,6 @@ export function TeacherMaterialsScreen() {
     }
   };
 
-  /* ROWS, NOT SIX COLUMNS.
-     Title / course / type / size / uploaded / actions is a desktop table, and
-     this screen is opened on a phone between lessons. The title leads, the
-     facts about the file sit under it as one quiet line, and the two actions
-     stay at the end where the thumb is. */
   const materialRow = (m: any) => {
     const id = m.id || m._id;
     const type = m.type as string | undefined;

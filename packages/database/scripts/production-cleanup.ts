@@ -1,44 +1,4 @@
-/**
- * PRODUCTION PRE-LAUNCH CLEANUP — MVP blocker #7 (docs/reports/
- * mvp-launch-plan.md). Census first, then a targeted wipe of walkthrough
- * residue, leaving exactly what the production seed created:
- *
- *   KEPT — the Egyptian education catalog (education_systems … subject_
- *   offerings), config singletons (wallet_settings, points_rules,
- *   feature_flags, the GLOBAL commission_settings row), the inert chatbot_*
- *   tables, _prisma_migrations, and THE TWO REAL STAFF ACCOUNTS (role
- *   super_admin / accountant) with their auth rows and prefs.
- *
- *   DELETED — every other row in every other table: the manual-walkthrough
- *   centers, courses, students, and anything attached to them. Sequences
- *   (receipt counters etc.) restart at 1 so the first real receipt is 00001.
- *
- * HOW IT DELETES without a hand-maintained FK order: victims = all public
- * tables minus the preserve set; repeated passes of `DELETE FROM t` (special
- * WHERE-clauses for users/auth/prefs/commission) until a full pass deletes
- * nothing — FK-violating deletes simply succeed on a later pass once their
- * children are gone. One transaction: it lands whole or not at all.
- *
- * SAFETY RAILS, in order:
- *   1. db-guard: the reached database must label itself `edura-env:production`
- *      (census mode also accepts dev, for rehearsing the report read-only).
- *   2. Census is READ-ONLY and prints every user/center/course by name.
- *   3. cleanup REFUSES to run unless --confirm=wipe-<N>-users names the exact
- *      count of non-staff users the census showed — a two-man rule between
- *      the read and the write.
- *   4. Staff assertions: exactly the expected staff count, and staff own
- *      NOTHING operational (no center, no teacher/student profile) — any
- *      surprise aborts before a single DELETE.
- *   5. Catalog counts are captured before and asserted identical after,
- *      inside the same transaction — a drifted count rolls everything back.
- *
- * Runs (workflow, where the credential lives):
- *   mode=census   → bunx tsx scripts/production-cleanup.ts census
- *   mode=cleanup  → bunx tsx scripts/production-cleanup.ts cleanup --confirm=wipe-7-users
- */
 import pg from "pg";
-// Side-effect import: resolves .env.${EDURA_ENV} exactly like the sibling
-// scripts (harmless in the workflow, where the URL arrives via env directly).
 import "./load-env";
 
 const MODE = process.argv[2];
@@ -51,7 +11,6 @@ if (MODE !== "census" && MODE !== "cleanup") {
 
 const PRESERVE = new Set([
   "_prisma_migrations",
-  // the permanent Egyptian education catalog
   "education_systems",
   "stages",
   "grade_levels",
@@ -59,17 +18,14 @@ const PRESERVE = new Set([
   "grade_level_tracks",
   "subjects",
   "subject_offerings",
-  // config
   "wallet_settings",
   "points_rules",
   "feature_flags",
-  // schema-only, inert by decision (Descoped §1) — empty, never touched
   "chatbot_config",
   "chatbot_faq",
   "chatbot_conversations",
 ]);
 
-// Tables cleaned with a WHERE instead of wholesale.
 const STAFF_ROLES = ["super_admin", "accountant"];
 
 async function main() {
@@ -78,7 +34,6 @@ async function main() {
   const pool = new pg.Pool({ connectionString: url, max: 1 });
   const c = await pool.connect();
   try {
-    // ---- rail 1: the label -------------------------------------------------
     const label = (
       await c.query<{ description: string | null }>(
         `SELECT shobj_description(oid, 'pg_database') AS description
@@ -94,7 +49,6 @@ async function main() {
       throw new Error(`census expects production (or dev for rehearsal) — reached '${env}'`);
     }
 
-    // ---- census (always; it is also cleanup's own pre-read) ---------------
     const users = (
       await c.query<{ id: string; email: string | null; name: string | null; role: string; created_at: Date }>(
         `SELECT id, email, name, role, created_at FROM users ORDER BY created_at`,
@@ -151,7 +105,6 @@ async function main() {
       return;
     }
 
-    // ---- rails 3 + 4 ------------------------------------------------------
     const expected = `wipe-${residueUsers.length}-users`;
     if (CONFIRM !== expected) {
       throw new Error(
@@ -173,7 +126,6 @@ async function main() {
       if (Number(row.n) > 0) throw new Error(`refusing: staff own ${row.n} ${row.what} — that is not residue`);
     }
 
-    // ---- the wipe, one transaction ---------------------------------------
     await c.query("BEGIN");
     try {
       const whereClauses: Record<string, { sql: string; params: unknown[] }> = {
@@ -188,15 +140,7 @@ async function main() {
           params: [],
         },
       };
-      // commission_settings is in PRESERVE? No — keep it OUT of PRESERVE so
-      // override rows die; the WHERE above protects the global row.
 
-      // Parents-last hint: RESTRICT FKs (rooms→centers, courses→centers…)
-      // fail their pass until the children are gone; ordering the known
-      // parents last makes most runs converge in one pass. The savepoint
-      // pattern below is what makes a failed DELETE recoverable at all: in
-      // Postgres an error ABORTS the transaction unless you roll back to a
-      // savepoint taken BEFORE the failing statement.
       const PARENTS_LAST = ["sessions", "courses", "rooms", "centers", "users"];
       const ordered = [
         ...victims.filter((t) => !PARENTS_LAST.includes(t)),
@@ -222,12 +166,6 @@ async function main() {
             }
             await c.query("RELEASE SAVEPOINT del_one");
           } catch (err) {
-            // FK violation this pass — restore the tx, children go first on
-            // a later pass. TWO codes, both needed: 23503 is the generic
-            // foreign_key_violation, 23001 is restrict_violation — an ON
-            // DELETE RESTRICT edge reports the LATTER, which is exactly what
-            // the first production run failed on (teacher_subjects →
-            // teacher_profiles).
             if (["23503", "23001"].includes((err as { code?: string }).code ?? "")) {
               await c.query("ROLLBACK TO SAVEPOINT del_one");
               continue;
@@ -238,7 +176,6 @@ async function main() {
         if (!any) break;
       }
 
-      // rail 5: catalog byte-count identical, inside the same tx
       for (const [t, n] of Object.entries(catalogBefore)) {
         const now = Number(
           (await c.query(`SELECT count(*)::int AS n FROM ${pg.escapeIdentifier(t)}`)).rows[0].n,
@@ -252,7 +189,6 @@ async function main() {
 
       await c.query("COMMIT");
 
-      // sequences AFTER commit (not transactional state worth guarding)
       const seqs = (
         await c.query<{ sequencename: string }>(
           `SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'`,

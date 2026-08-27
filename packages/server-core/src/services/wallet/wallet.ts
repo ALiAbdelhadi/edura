@@ -1,16 +1,6 @@
 import { type TenantTx } from "../../db/scope";
 import { BusinessRuleError } from "../../errors/classes";
 
-// ---------------------------------------------------------------------------
-// Student Wallet — money-movement primitives.
-//
-// The append-only WalletLedger is the source of truth; StudentProfile.
-// walletBalance is the reconciled cache. Every movement writes ONE ledger row
-// (signed delta + running balanceAfter) AND updates the cache in the caller's
-// SAME transaction — the awardPoints pattern. Debits are all-or-nothing via the
-// H2 conditional decrement + the DB CHECK (wallet_balance >= 0) floor.
-// ---------------------------------------------------------------------------
-
 export type WalletEntryType = "topup" | "payment" | "refund" | "adjustment";
 export type WalletMethod = "cash" | "online_paymob" | "online_fawry" | "wallet";
 
@@ -45,12 +35,6 @@ function ledgerLinks(o: WalletMovementOpts) {
   };
 }
 
-/**
- * Credit the wallet: increment the cached balance (returns the running
- * balanceAfter) + append ONE ledger row, in the caller's tx. A pure primitive —
- * balance-cap enforcement lives at the top-up entry points, so money that was
- * already paid/refunded always lands.
- */
 export async function walletCredit(
   tx: TenantTx,
   studentId: string,
@@ -72,15 +56,6 @@ export async function walletCredit(
   return { balanceAfter };
 }
 
-/**
- * Debit the wallet ALL-OR-NOTHING. The H2 conditional decrement
- * (updateMany WHERE wallet_balance >= amount) either takes the FULL amount or
- * matches zero rows — never a partial debit. count===0 => insufficient => throw
- * (the caller's tx rolls back, so nothing is charged). Then append ONE ledger
- * row with the post-decrement running balance. The DB CHECK (>= 0) is the
- * backstop. Two concurrent debits: the first locks + decrements; the second
- * re-evaluates the predicate after commit and fails cleanly.
- */
 export async function walletDebit(
   tx: TenantTx,
   studentId: string,
@@ -121,12 +96,6 @@ export async function getWalletSettings(tx: TenantTx): Promise<WalletSettings> {
   };
 }
 
-/**
- * Validate a requested top-up amount against policy. Throws a clear
- * BusinessRuleError; used BEFORE any money is taken. There is NO wallet balance
- * cap — a student may hold any balance (removed 2026-07-23); only the
- * per-transaction min/max bounds apply.
- */
 export async function assertTopupAllowed(
   tx: TenantTx,
   _studentId: string,
@@ -148,10 +117,6 @@ export async function assertTopupAllowed(
   }
 }
 
-/**
- * Reconcile the cached balance against the ledger — the drift check the money
- * safety story depends on: cached == SUM(delta) == last balanceAfter.
- */
 export async function reconcileWallet(tx: TenantTx, studentId: string) {
   const profile = await tx.studentProfile.findUnique({
     where: { userId: studentId },

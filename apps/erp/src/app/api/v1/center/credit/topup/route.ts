@@ -15,7 +15,6 @@ const bodySchema = z
   })
   .strict();
 
-/** Initiate an ONLINE center-credit top-up (Phase 4, D4). Owner only. */
 export const POST = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const body = await parseJson(req, bodySchema);

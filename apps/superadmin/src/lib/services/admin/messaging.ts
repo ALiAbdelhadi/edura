@@ -1,15 +1,3 @@
-// =============================================================================
-// Super-admin messaging oversight — READ-ONLY over the message log, plus the
-// safety review queue (reports) and the blocks list.
-//
-// Retention requirement: no adult↔minor channel is private and unlogged. This
-// is where that promise is kept — every conversation is searchable here, and
-// soft-deleted messages still show their original body (soft-delete hides a
-// message from participants, it does not erase the platform record).
-//
-// Opening a thread is itself AUDITED (`messaging.thread_viewed`), so the
-// oversight power is not itself unobserved.
-// =============================================================================
 import * as oversight from "@repo/database/chat-oversight";
 import * as safety from "@repo/database/chat-safety";
 import type { ReportStatus, Role } from "@repo/database";
@@ -42,10 +30,6 @@ export function searchConversations(filters: {
   });
 }
 
-/**
- * Full thread, including bodies of soft-deleted messages. Writes the audit row
- * in the same call so a read can never happen without leaving a trace.
- */
 export function getThread(
   actorId: string,
   conversationId: string,
@@ -126,7 +110,6 @@ export function listBlocks(filters: { page?: string; limit?: string; all?: strin
   });
 }
 
-/** Moderation: hide a message from participants; the log keeps the body. */
 export function removeMessage(
   actorId: string,
   messageId: string,

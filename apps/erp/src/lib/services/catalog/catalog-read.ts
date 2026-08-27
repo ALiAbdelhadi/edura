@@ -4,7 +4,6 @@ import { NotFoundError } from "@/lib/errors/classes";
 import { CATALOG_CACHE_LIFE, CATALOG_CACHE_TAG } from "./catalog-cache";
 import { filterStudentSecondLanguage } from "./second-language";
 
-// CACHED: no arguments, permanent catalog reference tables only.
 export async function getCatalogTree() {
   "use cache";
   cacheTag(CATALOG_CACHE_TAG);
@@ -68,7 +67,6 @@ export async function getCatalogTree() {
   });
 }
 
-// NOT CACHED: shared inner call of the two per-user paths below (Batch 1b).
 export function getSubjectsForSelection(gradeLevelId: string, trackId?: string | null) {
   return platformDb(async (tx) => {
     const offerings = await tx.subjectOffering.findMany({
@@ -103,7 +101,6 @@ export function getSubjectsForSelection(gradeLevelId: string, trackId?: string |
   });
 }
 
-// CACHED: no arguments, permanent catalog reference tables only.
 export async function getAllActiveSubjects() {
   "use cache";
   cacheTag(CATALOG_CACHE_TAG);
@@ -126,7 +123,6 @@ export async function getAllActiveSubjects() {
   });
 }
 
-// NEVER CACHE: takes a userId and reads the student profile (per-user data).
 export async function getStudentOwnSubjects(userId: string) {
   const profile = await platformDb((tx) =>
     tx.studentProfile.findUnique({
@@ -145,8 +141,6 @@ export async function getSecondLanguageOptions(gradeLevelId: string) {
   return subjects.filter((s) => s.isSecondLanguage);
 }
 
-// CACHED: argument is a list of grade-level UUIDs (catalog reference ids),
-// never a user/student/center/teacher id.
 export async function getSubjectsForGradeLevels(gradeLevelIds: string[]) {
   "use cache";
   cacheTag(CATALOG_CACHE_TAG);

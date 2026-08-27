@@ -5,9 +5,6 @@ import { listBlocks } from "@/lib/services/admin/messaging";
 
 export const dynamic = "force-dynamic";
 
-// Platform-wide block list. Adult-blocks-minor events also raise a
-// system-generated safety_concern report, so they surface in the reports queue
-// as well as here.
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const p = new URL(req.url).searchParams;

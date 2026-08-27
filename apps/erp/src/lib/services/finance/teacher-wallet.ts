@@ -25,12 +25,6 @@ export function getTeacherWallet(teacher: SessionUser) {
   });
 }
 
-/**
- * `from`/`to` (Cairo day strings via `dayRange`) bound the list to a period —
- * the "كسبت الفترة دي" read (TEACHER_IA_AUDIT §7.2 #3). Omitted, the list is
- * the full cursor-paginated history, unchanged. The bounds compose with the
- * cursor: a bounded page still pages within its period.
- */
 export function getTeacherWalletTransactions(
   teacher: SessionUser,
   opts?: { take?: number; cursor?: string; from?: string; to?: string },
@@ -49,11 +43,6 @@ export function getTeacherWalletTransactions(
     });
     const nextCursor = rows.length > take ? rows[take].id : null;
 
-    // The period figure is computed SERVER-SIDE over the whole bounded range,
-    // never by summing the visible page — a page sum wearing the period's name
-    // is the same defect the reviews average had (a sample labelled as the
-    // whole). `null` when no period was asked for: a lifetime sum here would
-    // just be the wallet balance's noisy twin.
     let totals: { earned: number; deducted: number; net: number } | null = null;
     if (createdAt) {
       const [credit, debit] = await Promise.all([
@@ -77,10 +66,6 @@ export function getTeacherWalletTransactions(
 
 export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
   return platformDb(async (tx) => {
-    // H1: lock the beneficiary row FIRST. Under Read Committed a second
-    // concurrent request blocks here until the first commits, then the
-    // aggregate below reads the now-committed open payout and correctly sees
-    // the reduced available balance — two full-balance requests can't both win.
     const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
       SELECT wallet_balance FROM teacher_profiles WHERE user_id = ${teacher.id}::uuid FOR UPDATE`;
     if (locked.length === 0) throw new NotFoundError("Teacher profile not found");
@@ -90,7 +75,6 @@ export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
       where: { beneficiaryId: teacher.id, status: { in: ["pending", "approved"] } },
       _sum: { netPayable: true },
     });
-    // Available = wallet minus funds already reserved by open requests.
     const available = walletBalance - (open._sum.netPayable ?? 0);
     if (available <= 0) throw new BusinessRuleError("No available balance to pay out");
     const requested = amount ?? available; // default: withdraw everything available

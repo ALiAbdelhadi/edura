@@ -3,10 +3,6 @@ import { normalizeLocale, type Locale } from "../locale";
 import type { PasswordResetData } from "../types";
 import { Cta, EmailLayout, FallbackLink, Note, P } from "./layout";
 
-// Copy carried over verbatim from @repo/server-core/mail/templates.ts, which
-// now re-exports this renderer. The one substantive change: the validity window
-// is a parameter instead of a hardcoded "1 hour", so the email can never claim
-// a TTL the token service disagrees with.
 const COPY = {
   ar: {
     subject: "إعادة تعيين كلمة المرور - Edura",
@@ -45,9 +41,6 @@ export function PasswordResetEmail({
   const locale = normalizeLocale(raw);
   const t = COPY[locale];
 
-  // Order matters: instruction → BUTTON → fallback link → ignore note. The
-  // primary action has to sit directly under the sentence that asks for it,
-  // not below the small print.
   return (
     <EmailLayout locale={locale} title={t.title} preview={t.preview}>
       <P>{t.intro}</P>

@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// MVP blocker #2 (docs/reports/mvp-launch-plan.md): in production with the
-// MOCK gateway an online checkout can never settle (C1 removed mock-complete
-// from production), so the capability must answer NO — and every gateway
-// initiator must refuse rather than mint a dead charge. Internal-wallet
-// payments never consult this gate.
-
 const platformDb = vi.fn(async () => {
   throw new Error("platformDb must not be reached when the gate refuses");
 });

@@ -1,36 +1,3 @@
-/**
- * ===========================================================================
- * BACK-OFFICE GLOBAL SEARCH — one box over the whole platform, and its limits.
- * ===========================================================================
- * Drives the REAL shipped service against the live DB:
- *   apps/superadmin/src/lib/services/admin/global-search.ts
- *
- * The palette here searched twenty-one destinations; it now searches records
- * too, which makes it the widest read surface in the back office. So the proofs
- * are about the boundary as much as the feature:
- *
- *   • THE ROLE SPLIT. A super_admin reaches people, centers and payment
- *     attempts; an accountant reaches PAYMENT ATTEMPTS AND NOTHING ELSE. That
- *     asymmetry is the one a widening would erase, and it is asserted as a set,
- *     not by spot-checking one absence.
- *   • PEOPLE ARE GROUPED BY ROLE, so the heading a reader sees is the role, and
- *     a teacher never lands under "Students".
- *   • THE STUDENT CODE RESOLVES. It is the one key the users LIST cannot use
- *     (it lives on student_profiles), and it is what a receptionist reads down
- *     the phone. It is not a widening: it lands on a user this role can already
- *     list.
- *   • NO WIDER THAN THE LIST SCREEN. A soft-deleted user is absent, because the
- *     provider calls `listUsers` as-is and the client extension excludes them.
- *   • EVERY href IS A DESTINATION OF THE PORTAL THAT ASKED — the accountant's
- *     hits land in /dashboard/finance, never in /dashboard/superadmin.
- *   • A PREFIX IS NOT A SEARCH. One character runs no provider at all.
- *   • IT WRITES NOTHING — no row, and in particular no audit row. This matters
- *     more here than in the ERP: `buildStudentCard` audits `student.card_viewed`
- *     precisely so a card read leaves a trace, and a search that reached an
- *     audited surface would be a second, quieter door onto it.
- *
- * Nothing is mocked: the real `backOfficeSearch` runs against the live DB.
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -67,9 +34,6 @@ const allHits = (r: Result) => r.groups.flatMap((g) => g.hits);
 async function main() {
   const tag = "bogs-" + Math.floor(Math.random() * 1e9).toString(36);
   const WORD = `${tag}zebra`;
-  /* §7 — written as a register writes it. Every query against it below is the
-   * SAME name typed the way people type it: no hamza (it needs Shift), ه for
-   * ة, and the family name first as often as last. */
   const AR_NAME = `فاطمة إبراهيم ${tag}`;
   const AR_CENTER = `مركز النيلة ${tag}`;
   const ids: string[] = [];
@@ -84,8 +48,6 @@ async function main() {
   const owner = crypto.randomUUID();
   const staff = crypto.randomUUID();
   const deleted = crypto.randomUUID();
-  // Stored the way a register holds an Egyptian name — with the hamza and the
-  // ta marbuta — so §7 can type it the way a counter keyboard produces them.
   const arabic = crypto.randomUUID();
   ids.push(
     superAdmin, accountant, student, teacher, parent, assistant, owner, staff,
@@ -113,7 +75,6 @@ async function main() {
   try {
     console.log("Back-office global search —", tag);
 
-    /* ── fixtures ─────────────────────────────────────────────────────── */
     const mkUser = async (id: string, role: string, name: string, status = "active") => {
       await admin.query(
         `INSERT INTO users (id, email, role, name, status, is_demo, created_at, updated_at)
@@ -131,9 +92,6 @@ async function main() {
     await mkUser(staff, "center_staff", `${WORD} Desk`);
     await mkUser(deleted, "student", `${WORD} Gone`);
     await mkUser(arabic, "teacher", AR_NAME);
-    // Soft-deleted, exactly as the app soft-deletes: the client extension is
-    // what hides it, and this proves the provider inherits that and does not
-    // re-implement a `where`.
     await admin.query(`UPDATE users SET deleted_at = now() WHERE id = $1`, [deleted]);
 
     await admin.query(
@@ -171,7 +129,6 @@ async function main() {
 
     const before = await census();
 
-    /* ── 1) the super admin's reach ───────────────────────────────────── */
     section("1. A super admin reaches people, centers and payments");
     const root = (await backOfficeSearch(asUser(superAdmin, "super_admin"), {
       q: WORD,
@@ -201,14 +158,11 @@ async function main() {
       "a SOFT-DELETED user is absent — the provider inherits the list's own exclusion",
     );
 
-    // Grouping is the point: a role must never land under another role's
-    // heading, which one flat "user" kind would have made unnoticeable.
     const misfiled = root.groups.filter(
       (g) => g.kind === "student" && g.hits.some((h) => h.title.includes("Tutor")),
     );
     assert(misfiled.length === 0, "a teacher never appears under Students");
 
-    /* ── 2) the identifier the list cannot use ────────────────────────── */
     section("2. The student code");
     const byCode = (await backOfficeSearch(asUser(superAdmin, "super_admin"), {
       q: studentCode,
@@ -233,7 +187,6 @@ async function main() {
       "the code is case-insensitive — nobody types a card in caps",
     );
 
-    /* ── 3) centers by every key a human uses ─────────────────────────── */
     section("3. Centers");
     const byShortId = (await backOfficeSearch(asUser(superAdmin, "super_admin"), {
       q: tag.slice(0, 8).toUpperCase(),
@@ -247,16 +200,10 @@ async function main() {
       "a center hit opens its record page",
     );
 
-    /* ── 4) THE ROLE SPLIT ────────────────────────────────────────────── */
     section("4. The accountant reaches money and nothing else");
     const books = (await backOfficeSearch(asUser(accountant, "accountant"), {
       q: WORD,
     })) as Result;
-    // EXACT, not "contains no people". The intent's payer IS the student named
-    // in this query — `listPaymentIntents` matches on the payer's name — so the
-    // accountant legitimately gets ONE group back. Asserting the exact set is
-    // what distinguishes "money only" from "nothing at all", and only the first
-    // of those is the behaviour being claimed.
     assert(
       kinds(books).join(",") === "payment_intent",
       `an accountant searching a NAME reaches the payment and NO people, centers or staff (got: ${kinds(books).join(",") || "nothing"})`,
@@ -290,7 +237,6 @@ async function main() {
       "…at their OWN portal's copy of that screen",
     );
 
-    /* ── 5) a prefix is not a search ──────────────────────────────────── */
     section("5. The floor");
     const short = (await backOfficeSearch(asUser(superAdmin, "super_admin"), {
       q: "z",
@@ -301,13 +247,7 @@ async function main() {
     })) as Result;
     assert(blank.groups.length === 0, "whitespace is not a query either");
 
-    /* ── 7) THE NAME AS IT IS ACTUALLY TYPED ──────────────────────────── */
     section("7. Arabic as an Egyptian types it");
-    // CONTROL FIRST. `contains` with `mode: "insensitive"` is ILIKE, which folds
-    // ASCII case and NOTHING else — so this palette answered "nobody" about the
-    // platform's own directory whenever the reader left out a hamza. The
-    // assertion below proves the DATABASE still cannot do it unaided, which is
-    // what makes the ones after it measure the fix and not the data.
     const rawIlike = await admin.query(
       `SELECT count(*)::int AS n FROM users WHERE id = $1 AND name ILIKE '%' || $2 || '%'`,
       [arabic, `فاطمه ${tag}`],
@@ -345,7 +285,6 @@ async function main() {
       "…and matches on the AREA, which is how a back office is told where a centre is",
     );
 
-    /* ── 6) it writes nothing, and reaches nothing audited ────────────── */
     section("6. Read-only, and no quiet door");
     assert(
       (await census()) === before,

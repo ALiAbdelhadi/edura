@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseProvenance } from "@/lib/http/provenance";
 
-// ONE parser feeds every off-system-teacher report filter. The load-bearing
-// behaviours: absent/unknown values mean "combined" (never a 400 — a stale
-// bookmark must show the whole center), and an all-null filter collapses to
-// undefined so the report layer takes its unfiltered fast path.
-
 const url = (qs: string) => new URL(`http://t.local/api/v1/reports/x${qs}`);
 
 describe("parseProvenance", () => {

@@ -19,8 +19,6 @@ export function notifyOffline(input: OfflineNotifyInput): void {
     signal: AbortSignal.timeout(5000),
   })
     .then((res) => {
-      // fetch resolves on 4xx/5xx, so a secret mismatch or app-side failure
-      // would otherwise drop the notification with no trace in the logs.
       if (!res.ok) {
         console.error("[notify-offline]", input.recipientId, `app responded ${res.status}`);
       }

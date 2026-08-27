@@ -1,25 +1,5 @@
 "use client";
 
-// Parent fees — the money surface.
-//
-// Two rules govern this screen and they pull in the same direction.
-//
-// 1. FULL LEDGER TREATMENT, NO WARMTH. Parents are the users holding the
-//    money. Softening the figures they are asked to act on would be the exact
-//    dishonesty this system exists to prevent. Every amount is mono, tabular,
-//    bidi-isolated and end-aligned; the total closes with a double rule.
-//
-// 2. THIS SCREEN IS THE RECORD; PAYING HAPPENS ON ITS OWN SCREEN. The
-//    payer-vs-beneficiary model landed (2026-07-27): `subscriptions/checkout`
-//    accepts a parent for an approved child, and `/dashboard/parent/pay` is
-//    where they pick a course, a plan and a payment source. So the note below
-//    says where to pay rather than who is allowed to — the previous copy said a
-//    parent "cannot pay directly yet" and had been contradicting a shipped
-//    screen (corrected 2026-08-09).
-//
-//    A pay button was deliberately NOT added here: paying requires choosing a
-//    course, a plan and — for a single lesson — a specific session, which is a
-//    whole screen's worth of choices, not a per-row action on a ledger.
 import React, { useState } from "react";
 import { DateRangeField } from "@/components/kit/date-range-field";
 import { useList } from "@refinedev/core";
@@ -73,9 +53,6 @@ export function ParentFeesScreen() {
   const all = (result?.data ?? []) as PaymentRow[];
   const isLoading = childrenLoading || query.isLoading;
 
-  // Filtering happens here rather than server-side because the range is a
-  // read-only lens on an already-fetched ledger; nothing is recomputed on the
-  // server and no figure below can drift from the rows shown.
   const rows = React.useMemo(() => {
     if (!range.start && !range.end) return all;
     return all.filter((p) => {
@@ -161,8 +138,6 @@ export function ParentFeesScreen() {
             <Figure className="text-[12px] text-ink-2">
               {row.original.receiptNumber}
             </Figure>
-            {/* The document itself, not just its number. Printing it is what a
-                parent actually needs at a counter or for a reimbursement. */}
             {paymentId ? <ReceiptLink paymentId={paymentId} /> : null}
           </div>
         );
@@ -188,7 +163,6 @@ export function ParentFeesScreen() {
     },
     {
       id: "amount",
-      // Numeric columns are end-aligned. Always.
       header: () => (
         <span className="block text-end">{t("parentFees.amount")}</span>
       ),
@@ -205,10 +179,6 @@ export function ParentFeesScreen() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* WHOSE money. This is the page a parent screenshots to argue with a
-          center, and it named no child anywhere except a 13px chip in the
-          header — which rendered as nothing at all for a parent with one
-          child. A ledger with no name on it is not evidence. */}
       <PageHeader
         eyebrow={t("roles.parent")}
         title={
@@ -222,7 +192,6 @@ export function ParentFeesScreen() {
         <EmptyState icon={Users} title={t("parentFees.noChildren")} />
       ) : (
         <>
-          {/* Where to pay. Not a button: see rule 2 in the header comment. */}
           <div className="rounded-xl border border-rule bg-field p-4">
             <span className="eyebrow">{t("parentFees.payingEyebrow")}</span>
             <LimitNote className="mt-1.5">
@@ -275,9 +244,6 @@ export function ParentFeesScreen() {
               />
             </div>
 
-            {/* Cumulative timeline. Kept from the previous screen — the
-                redesign is additive; series colours now come from the token
-                layer instead of --success/--info. */}
             <div className="rounded-xl border border-rule bg-sheet p-4">
               <span className="eyebrow">
                 {t("parentFees.paymentTimeline")}

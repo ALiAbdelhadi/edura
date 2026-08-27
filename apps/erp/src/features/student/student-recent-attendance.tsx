@@ -15,30 +15,6 @@ import { PageSpinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 
-/**
- * آخر الحصص — the attendance record with the lessons NAMED.
- *
- * ── WHAT WAS MISSING ──────────────────────────────────────────────────────
- *
- * The attendance page was three counters and a 28-day heatmap. Both answer
- * "how many", and neither answers the question a student actually argues
- * about: "الحصة اللي فاتت دي أنا كنت فيها، ليه مكتوب غايب؟". A grid of coloured
- * squares cannot be disputed, because it names nothing.
- *
- * ── NO NEW ENDPOINT ───────────────────────────────────────────────────────
- *
- * `me/attendance` returns `{ date, status, courseId }` per record, and the
- * portal already reads `enrollments`, which carries `courseName` for every
- * course the student is in. The join is the same one `student-materials-screen`
- * does. `useCustom` on the same URL shares React Query's cache with
- * `AttendanceScreen` above it, so this costs no extra request.
- *
- * A record whose course is not in the student's CURRENT enrollments — they left
- * the group, or it ended — keeps its date and its status and loses only its
- * name. Dropping the row would quietly shrink a record the counters above still
- * count.
- */
-
 const SHOWN = 10;
 
 type AttendanceRecord = {
@@ -53,12 +29,6 @@ export function StudentRecentAttendance() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
 
-  // No `studentId` prop, deliberately. One was added speculatively for a parent
-  // reading a child's record, and nothing ever passed it — but worse than
-  // unused, it would have been a lie: the course names come from the CALLER's
-  // own `enrollments`, and a parent's enrollments are not their child's. The
-  // prop would have offered a parent view returning the right dates against the
-  // wrong subjects.
   const { query, result } = useCustom({ url: "me/attendance", method: "get" });
   const { result: enrollmentsResult } = useList({ resource: "enrollments" });
 
@@ -76,9 +46,6 @@ export function StudentRecentAttendance() {
   }, [enrollmentsResult?.data]);
 
   const summary = result?.data as { records?: AttendanceRecord[] } | undefined;
-  // The endpoint orders by `created_at` descending, which is the order the
-  // register was TAKEN. That is what "آخر الحصص" means — the newest entries —
-  // so it is kept rather than re-sorted by lesson date.
   const records = (summary?.records ?? []).filter((r) => Boolean(r.date)).slice(0, SHOWN);
 
   if (query.isLoading) return <PageSpinner />;
@@ -107,9 +74,6 @@ export function StudentRecentAttendance() {
                         {name ?? t("attendanceView.pastCourse")}
                       </p>
                       <p className="mt-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
-                        {/* The weekday is how anyone recalls a lesson. Not
-                            wrapped in <Num>: the month and the weekday are
-                            words, and that isolate is for figures. */}
                         {formatDate(r.date, { weekday: "long", day: "numeric", month: "long" })}
                       </p>
                     </div>

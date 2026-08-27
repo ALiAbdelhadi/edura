@@ -29,29 +29,6 @@ export function sessionDayKey(value: string | Date | null | undefined): string {
 
 const RUNNING = new Set(["scheduled", "ongoing"]);
 
-/**
- * The lessons occupying a hall at this moment.
- *
- * ── WHY `todayKey` IS REQUIRED AND HAS NO DEFAULT ─────────────────────────
- *
- * It was optional until 2026-08-27, falling back to
- * `sessionDayKey(now.toISOString())` — the UTC day of an INSTANT. That is the
- * exact mistake `@repo/server-core/lib/date-key` was written to eliminate:
- * between Cairo midnight and 02:00 (03:00 on DST) the UTC date is still
- * YESTERDAY, so the board would have gone blank at the hour a late class is
- * still running.
- *
- * The fallback was never reached — the only caller has always passed the Cairo
- * day — so this is not a bug being fixed, it is a loaded gun being unloaded.
- * The next caller to omit the argument would have inherited a wrong-day board
- * with nothing to warn them, and a hall wrongly shown empty sends an operator
- * to the wrong room.
- *
- * Required, therefore, rather than defaulted to the right thing: a default
- * would still let a call site stay silent about which day it means, and the
- * whole point of `date-key` is that every caller says which question it is
- * asking. Pass `todayKey()` from `@repo/server-core/lib/date-key`.
- */
 export function liveNow(
   sessions: readonly CenterSession[],
   now: Date,

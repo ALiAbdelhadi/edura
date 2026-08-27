@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// M6 — materials upload must verify the REAL file bytes (%PDF- magic), not the
-// client-declared file.type. A spoofed application/pdf carrying HTML/SVG/EXE
-// must be rejected on BOTH the create and update paths, and must never reach
-// storage. A genuine PDF still uploads.
-//
-// Only the external boundaries are mocked (Cloudinary, the db scope, notify);
-// the magic-byte gate under test runs for real.
-
 const h = vi.hoisted(() => ({
   uploadBuffer: vi.fn(async () => ({ public_id: "pub-1", secure_url: "https://cdn/x.pdf", bytes: 123 })),
   deleteResource: vi.fn(async () => {}),
@@ -24,8 +16,6 @@ vi.mock("@/lib/cloudinary/cloudinary", () => ({
 
 vi.mock("@/lib/services/notifications/notify", () => ({ notify: h.notify }));
 
-// A fake tenant tx that serves every method the two paths touch. The owning
-// teacher is always TEACHER_ID so ownership passes and we reach the file gate.
 const TEACHER_ID = "teacher-1";
 const fakeTx = {
   course: { findUnique: vi.fn(async () => ({ id: "course-1", centerId: "center-1", teacherId: TEACHER_ID })) },
@@ -38,7 +28,6 @@ const fakeTx = {
 };
 
 vi.mock("@/lib/db/scope", () => ({
-  // scopedDb(user, fn) just runs fn with the fake tx.
   scopedDb: (_user: unknown, fn: (tx: unknown) => unknown) => fn(fakeTx),
 }));
 
@@ -46,7 +35,6 @@ import { uploadMaterial, updateMaterial } from "@/lib/services/materials/materia
 
 const user = { id: TEACHER_ID, role: "teacher", centerId: "center-1" } as never;
 
-// Real PDF header + a spoofed "PDF" that is actually HTML.
 const REAL_PDF = new Uint8Array([...Buffer.from("%PDF-1.4\n", "latin1"), ...Buffer.from("body", "latin1")]);
 const SPOOFED_HTML = Buffer.from("<html><script>alert(1)</script></html>", "latin1");
 

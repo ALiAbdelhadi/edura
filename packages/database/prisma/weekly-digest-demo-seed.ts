@@ -4,35 +4,6 @@ import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
 
-// ---------------------------------------------------------------------------
-// WEEKLY CENTER DIGEST demo — a week that has already happened.
-//
-// THE WHOLE DIFFICULTY OF SEEDING THIS ONE IS THE WINDOW. The job reports the
-// week BEFORE the run — Sunday 00:00 to Saturday 23:59:59 UTC — so fixtures
-// placed "recently" land in the current week and the digest reports a quiet
-// week over an empty range. `lastWeekRange` below is the job's own function,
-// restated here, and every lesson is placed inside the window it returns. The
-// seed prints the dates so you can check them against what the job says.
-//
-// THREE CENTERS, because the digest's interesting behaviour is who does NOT
-// get one:
-//   • the LIVE center      — a real week: lessons, attendance, a gap to fix
-//   • the SUSPENDED owner  — skipped, never failed. The digest is not a way
-//                            around a closed account.
-//   • the OWNERLESS center — nobody to write to, which is a state, not a fault
-//
-// ZERO money rows (per the Conventions rule). The digest's revenue, expenses
-// and net therefore read 0.00 and the template renders its "sessions ran but
-// nothing was collected" variant — which is a REAL state for a center that
-// bills monthly and had a quiet week, not a broken fixture. Take a cash
-// payment in the preview and run the job again; the same email fills in.
-//
-// AND IT WRITES NO `center.weekly_digest_sent` AUDIT ROW. That row is the
-// idempotency key, and a seed that planted one would silently suppress the
-// first digest — the exact bug the row exists to prevent, introduced by the
-// fixture meant to demonstrate it.
-// ---------------------------------------------------------------------------
-
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const PURGE = process.argv.includes("--purge");
 
@@ -71,11 +42,6 @@ const ORPHAN_SHORT_ID = "WDIGDEMO3";
 const COURSE_MAIN = did("course:main");
 const COURSE_EXTERNAL = did("course:external");
 
-/**
- * The job's own window, restated. Duplicated deliberately and printed, so a
- * drift between this and `runWeeklyCenterDigest` shows up as dates that do not
- * match rather than as a demo that quietly reports an empty week.
- */
 function lastWeekRange(now: Date): { start: Date; end: Date } {
   const end = new Date(now);
   end.setUTCHours(23, 59, 59, 999);
@@ -88,21 +54,15 @@ function lastWeekRange(now: Date): { start: Date; end: Date } {
 
 const WEEK = lastWeekRange(new Date());
 const dateKey = (d: Date) => d.toISOString().slice(0, 10);
-/** Day N of last week (0 = Sunday), at midnight UTC like every other lesson. */
 const dayOfWeek = (n: number) => new Date(WEEK.start.getTime() + n * 86_400_000);
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 const daysAhead = (n: number) => new Date(Date.now() + n * 86_400_000);
 
-/** Lessons inside the reported window: 3 taught, 1 left open by the off-system teacher. */
 const LESSONS = [
   { key: "mon", course: COURSE_MAIN, teacher: YOUSSEF, day: 1, status: "completed" as const },
   { key: "wed", course: COURSE_MAIN, teacher: YOUSSEF, day: 3, status: "completed" as const },
   { key: "sat", course: COURSE_MAIN, teacher: YOUSSEF, day: 6, status: "completed" as const },
-  // Never closed. `buildGapReport` calls this BLOCKING and it is the finding
-  // operators most often miss: an uncompleted lesson never runs distribution,
-  // so the teacher is silently never credited. The digest's `gapsCount` is
-  // what surfaces it, which is the reason this row exists.
   { key: "ext", course: COURSE_EXTERNAL, teacher: NAGWA, day: 2, status: "scheduled" as const },
 ];
 
@@ -169,17 +129,12 @@ async function main() {
   console.log("Seeding weekly-digest demo…");
   console.log(`  the reported week will be ${dateKey(WEEK.start)} → ${dateKey(WEEK.end)}`);
 
-  // Several small transactions rather than one: each write is a round trip to a
-  // remote Neon and the whole seed exceeds the 20s interactive limit from a
-  // laptop. Every write is an upsert or a skipDuplicates createMany.
   await withPlatformContext(async (tx) => {
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
         update: {
           name: p.name,
-          // WALID is suspended on purpose: his center is active and has an
-          // owner, and the digest still must not reach him.
           status: p.key === "walid" ? "suspended" : "active",
           isDemo: true,
           deletedAt: null,
@@ -189,9 +144,6 @@ async function main() {
           name: p.name,
           role: p.role,
           email: email(p),
-          // The off-system teacher never signs in: no password, status `shell`.
-          // That is the door the external-teacher feature already uses, not a
-          // second one.
           ...(p.key === "nagwa" ? { status: "shell" as const } : { passwordHash: hash, status: p.key === "walid" ? ("suspended" as const) : ("active" as const) }),
           locale: "ar",
           isDemo: true,
@@ -213,9 +165,6 @@ async function main() {
           id,
           name,
           shortId,
-          // All three centers are ACTIVE — the job iterates active centers, so
-          // an inactive one would be excluded before the interesting checks and
-          // would demonstrate nothing.
           status: "active",
           ...(owner ? { ownerUserId: owner } : {}),
           governorate: "القاهرة",
@@ -241,10 +190,6 @@ async function main() {
       update: { systemStatus: "enrolled" },
       create: { userId: YOUSSEF.id, walletBalance: 0, subjects: ["فيزياء"], systemStatus: "enrolled" },
     });
-    // OFF-SYSTEM: `managedByCenterId` is NOT NULL whenever systemStatus is
-    // external (DB CHECK teacher_external_needs_center), and it is also what
-    // scopes buildGapReport — no external teacher, no gaps, and the digest's
-    // gapsCount would be a permanent zero.
     await tx.teacherProfile.upsert({
       where: { userId: NAGWA.id },
       update: { systemStatus: "external", managedByCenterId: CENTER },
@@ -373,8 +318,6 @@ async function main() {
       skipDuplicates: true,
     });
 
-    // Attendance only for the three lessons that were actually taught. Roughly
-    // 7 of 8 present, so the digest's rate is a real figure and not 100%.
     const rows = LESSONS.filter((l) => l.status === "completed").flatMap((l, w) =>
       STUDENTS.map((s, i) => ({
         sessionId: did(`ses:${l.key}`),

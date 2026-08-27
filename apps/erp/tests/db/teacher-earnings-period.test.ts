@@ -1,25 +1,3 @@
-/**
- * Teacher earnings-by-period (API session 2, item B.1#2) — «كسبت الفترة دي؟».
- *
- * TEACHER_IA_AUDIT.md §7.2 #3 (second half) and #7: the wallet's transaction
- * list was cursor-paginated with no date filter, and `dashboards/teacher`
- * counted attendance with no date bound — so "what did I earn this period" and
- * a periodic attendance rate were both unanswerable server-side.
- *
- * What is proven here:
- *   1. `getTeacherWalletTransactions` bounds rows by Cairo-day `from`/`to`,
- *      and returns period `totals` computed over the WHOLE range — never a sum
- *      of the visible page (the reviews-average defect, not repeated).
- *   2. No period → full history, `totals: null` (a lifetime sum would just be
- *      a noisy twin of the wallet balance).
- *   3. `getTeacherDashboard` bounds `avgAttendanceRate` by `from`/`to`, dating
- *      records by THEIR SESSION (records carry no date of their own), and
- *      echoes the `period` it answered for. Omitted = lifetime, said out loud.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only teacher-earnings-period
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { getTeacherWalletTransactions } from "@/lib/services/finance/teacher-wallet";
 import { getTeacherDashboard } from "@repo/server-core/services/reports/reports";
@@ -46,7 +24,6 @@ function assert(cond: boolean, msg: string) {
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 const su = (id: string): SessionUser => ({ id, role: "teacher" }) as SessionUser;
 
-// Fixed Cairo day keys well in the past, so "today" can never drift into them.
 const OLD_DAY = "2026-07-01";
 const OLD_INSTANT = new Date("2026-07-01T12:00:00Z"); // midday, inside the Cairo day
 const NEWER_DAY = "2026-07-15";
@@ -65,8 +42,6 @@ async function main() {
       data: { name: `${tag}-student`, role: "student", email: `${tag}-s@x.io`, status: "active" },
     });
 
-    // Ledger rows on two known Cairo days. `createdAt` is settable at INSERT
-    // (append-only bites on UPDATE/DELETE, not on dating an insert).
     await tx.transaction.create({
       data: { refNumber: `TXN-${tag}-1`, type: "payment", amount: 10000, toEntityId: teacher.id,
         status: "completed", notes: `${tag} old credit`, createdAt: OLD_INSTANT },
@@ -80,8 +55,6 @@ async function main() {
         status: "completed", notes: `${tag} newer credit`, createdAt: NEWER_INSTANT },
     });
 
-    // A course with one session on each day; present on the old day, absent on
-    // the newer one → lifetime rate 50%, old-day rate 100%.
     const course = await tx.course.create({
       data: {
         centerId: null, teacherId: teacher.id, title: `${tag}-c`, subject: "Math",

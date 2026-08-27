@@ -13,17 +13,6 @@ import {
   studentCodeCheckChar,
 } from "@repo/database/student-code";
 
-// ===========================================================================
-// THE STUDENT CODE — the properties the counter depends on.
-//
-// The one that matters is the check character, and it is asserted
-// EXHAUSTIVELY rather than by sampling: for a set of real codes, EVERY single
-// character replaced by EVERY other letter of the alphabet, and every swap of
-// two neighbours. If any of those produced a valid code, the counter could
-// resolve a mistyped code to a different child — which is exactly the defect
-// this format exists to close.
-// ===========================================================================
-
 const SAMPLE_CODES = [
   buildStudentCode("G", "7K3M2Q"),
   buildStudentCode("A", "000000"),
@@ -71,7 +60,6 @@ describe("the check character", () => {
         }
       }
     }
-    // 5 codes x 8 positions x 30 wrong characters.
     expect(checked).toBe(1200);
   });
 

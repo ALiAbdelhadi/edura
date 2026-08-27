@@ -1,27 +1,5 @@
 "use client";
 
-/**
- * The simulated assistant screens.
- *
- * Built from the REAL Ledger primitives, exactly as the other emulators are.
- * Every interactive control carries a `data-emu` id via `EmuTarget`; screens
- * know nothing about steps, missions or progress.
- *
- * THREE THINGS COPIED FROM THE REAL PRODUCT ON PURPOSE:
- *
- *  1. THE DOOR REFUSES. A student who never passed the counter cannot be
- *     confirmed at the door, and the screen says why in the counter's own
- *     words. This is the single behaviour a new assistant is most likely to
- *     "helpfully" work around, and working around it is what puts an unpaid
- *     child into a settled lesson.
- *  2. THE SETTLEMENT NAMES WHOSE MONEY IT IS. The card credits the TEACHER's
- *     wallet and records the action as the assistant acting on their behalf —
- *     so nobody finishes this tour expecting a payout of their own.
- *  3. THE MESSAGE CARRIES THE ASSISTANT'S OWN NAME. Not the teacher's. An adult
- *     must never speak to a minor from behind someone else's identity, and the
- *     practice copy shows the sender label rather than asserting it in prose.
- */
-
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Clock, X } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
@@ -50,8 +28,6 @@ import {
   type EmuNote,
   type EmuPupil,
 } from "./world";
-
-/* ── Home: whose account is this ───────────────────────────────────────── */
 
 export function EmuAssistantHome() {
   const t = useTranslations("assistant.emulator");
@@ -114,8 +90,6 @@ export function EmuAssistantHome() {
   );
 }
 
-/* ── Attendance + the settlement (the teacher's money) ─────────────────── */
-
 const STATUS_TONE: Record<EmuAttendance, "teal" | "red" | "amber" | "neutral"> = {
   present: "teal",
   absent: "red",
@@ -169,11 +143,6 @@ export function EmuAssistantAttendance({
 
       {lessonOpen ? (
         <>
-          {/* Pinned above the roster, mirroring the real register — see the
-              teacher emulator's copy of this block for the reasoning. The
-              assistant meets this state more than anyone: in counter+door mode
-              the hall door is THEIR job, so an unresolved row is theirs to
-              clear. */}
           {roster.some((p) => p.status === "counter_only") ? (
             <div data-emu-region="counterOnly">
               <Sheet className="p-4" style={{ borderColor: "var(--amber)", borderWidth: 2 }}>
@@ -417,8 +386,6 @@ export function EmuAssistantAttendance({
   );
 }
 
-/* ── The door ──────────────────────────────────────────────────────────── */
-
 export function EmuAssistantDoor({
   roster,
   refusedId,
@@ -514,8 +481,6 @@ export function EmuAssistantDoor({
   );
 }
 
-/* ── Messages: your own name ───────────────────────────────────────────── */
-
 export function EmuAssistantMessages({
   messages,
   onSend,
@@ -565,8 +530,6 @@ export function EmuAssistantMessages({
     </div>
   );
 }
-
-/* ── Team notes ────────────────────────────────────────────────────────── */
 
 export function EmuAssistantNotes({
   notes,

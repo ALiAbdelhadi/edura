@@ -7,8 +7,6 @@ import { setGroupMuted } from "@/lib/services/messages/messages";
 
 export const dynamic = "force-dynamic";
 
-// Announcement channels are not blockable (a class channel is not a personal
-// thread) — muting is the audience-side control instead.
 export const POST = withErrors(
   async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     const user = await requireSession();

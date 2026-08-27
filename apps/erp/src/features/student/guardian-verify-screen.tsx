@@ -5,26 +5,6 @@ import { Button } from "@repo/ui/components/button";
 import { CircleAlert, CircleCheck, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
-/**
- * The guardian's confirmation screen.
- *
- * IT DOES NOT CONFIRM ON LOAD, and that is the whole design. The token is
- * single-use, and a link in an email is opened by more than the person it was
- * sent to: corporate mail scanners, link-safety rewriters and prefetchers all
- * fetch URLs before a human sees them. A page that confirmed during its own
- * render would let a scanner burn the token, and the guardian who actually
- * clicked would be told their link was invalid — the failure would look like a
- * bug in verification rather than what it is. So the render is inert and the
- * POST happens only on a real press.
- *
- * No session is created by any of this. The endpoint behind the button can do
- * exactly one thing: mark the address confirmed.
- *
- * Self-contained copy rather than next-intl: this page is reached from an email
- * by someone who has never logged in, so it must render correctly before any
- * of the app's locale plumbing has an opinion about who they are.
- */
-
 const COPY = {
   ar: {
     title: "تأكيد بريد ولي الأمر",
@@ -78,9 +58,6 @@ export function GuardianVerifyScreen({
       const json = (await res.json()) as
         | { data: { verified: true; emailHint: string } }
         | { error: { message: string } };
-      // One failure shape for every cause — the endpoint deliberately does not
-      // distinguish expired from unknown, and this page must not invent the
-      // difference either.
       if (!res.ok || "error" in json) {
         setPhase({ k: "bad" });
         return;

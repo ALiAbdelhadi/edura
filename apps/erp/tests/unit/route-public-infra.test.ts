@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The three deliberately-public GET surfaces that carry no auth wrapper:
-// the legacy liveness ping and the two discovery reads. Public reads must
-// stay read-only (the convention suite pins that) and 404 cleanly.
-
 const platformDb = vi.fn();
 vi.mock("@/lib/db/scope", () => ({
   platformDb: (cb: (tx: unknown) => unknown) => platformDb(cb),
@@ -12,11 +8,6 @@ vi.mock("@/lib/db/scope", () => ({
 const ping = await import("@/app/api/v1/%5Fping/route");
 const centerById = await import("@/app/api/v1/centers/[id]/route");
 const subjects = await import("@/app/api/v1/subjects/route");
-
-// No beforeEach mockReset, deliberately: each test installs its own
-// implementation, and vitest 4's mockReset-in-beforeEach corrupts later
-// implementations installed through a vi.mock factory wrapper (second
-// sighting in this repo — see authz-require-role.test.ts for the first).
 
 describe("GET /api/v1/_ping", () => {
   it("returns 200 without touching anything", async () => {

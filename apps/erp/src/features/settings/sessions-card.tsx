@@ -42,7 +42,6 @@ export function formatIp(ip: string | null | undefined): string {
   return `${head}::${tail}`;
 }
 
-/** Tiny UA heuristic — a label, not analytics. */
 export function deviceLabel(ua: string | null | undefined, fallback: string): {
   label: string;
   mobile: boolean;
@@ -184,9 +183,6 @@ export function SessionsCard() {
                       ) : null}
                     </p>
                     <p className="truncate text-[12px] text-ink-3" dir="ltr">
-                      {/* "::" / "—" is what localhost and missing IPs compress
-                          to — a meaningless glyph on the card, so drop the IP
-                          segment entirely rather than print noise. */}
                       {(() => {
                         const ip = formatIp(s.ipAddress);
                         return ip !== "—" && ip !== "::" && ip !== "::1" && ip !== "127.0.0.1"

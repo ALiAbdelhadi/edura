@@ -25,10 +25,7 @@ export function InviteLink({
       await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard can be blocked (insecure origin, permissions). The input is
-      // right there and selectable, so this is not worth an error toast.
-    }
+    } catch {}
   };
 
   return (

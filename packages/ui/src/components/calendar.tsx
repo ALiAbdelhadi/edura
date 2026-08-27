@@ -219,12 +219,4 @@ function CalendarDayButton({
 
 export { Calendar, CalendarDayButton }
 
-/* The selection type travels with the component that produces it.
-   `react-day-picker` is a dependency of THIS package, not of the apps, and Bun's
-   isolated node_modules means an app cannot import it even though the type is
-   part of the Calendar's public surface. Re-exporting it here is what lets a
-   screen type its own range state without either duplicating the shape by hand
-   (apps/www/src/features/admin/admin-reports-screen.tsx used to declare its own
-   `type DateRange = { from: Date | undefined; to?: Date | undefined }`) or
-   adding the library to every app's package.json. */
 export type { DateRange } from "react-day-picker"

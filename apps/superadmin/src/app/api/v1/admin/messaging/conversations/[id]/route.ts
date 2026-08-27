@@ -5,9 +5,6 @@ import { getThread } from "@/lib/services/admin/messaging";
 
 export const dynamic = "force-dynamic";
 
-// Full thread INCLUDING soft-deleted bodies. The service writes a
-// `messaging.thread_viewed` audit row in the same call — reading a private
-// conversation is itself an audited act.
 export const GET = withErrors(
   async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     const admin = await requireRole("super_admin");

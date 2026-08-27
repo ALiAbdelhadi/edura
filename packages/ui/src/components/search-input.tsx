@@ -14,14 +14,10 @@ export function SearchInput({
   value,
   onValueChange,
   placeholder,
-  /** Enter, and the action button if there is one. */
   onSubmit,
-  /** Renders a clear affordance while the field is non-empty. */
   onClear,
   clearLabel,
-  /** Trailing action inside the group, e.g. an explicit Search button. */
   action,
-  /** `touch` is the counter: 48px group, 16px type. See CONSTITUTION §4. */
   density = "default",
   autoFocus,
   inputMode,

@@ -1,41 +1,4 @@
 /* eslint-disable no-console */
-// ---------------------------------------------------------------------------
-// SETTLED LESSONS demo — makes the money screens show money.
-//
-// The showcase center already has 35 completed lessons and 274 present
-// attendance records, and ZERO transactions: the showcase seed sets
-// `sessions.status = 'completed'` directly, which marks a lesson finished
-// without ever running the settlement. So the center's revenue reads 75.00
-// ج.م, the teacher wallet is empty, and /dashboard/admin/reports renders its
-// empty state — none of which is a fair picture of the product.
-//
-// THIS SCRIPT WRITES NO MONEY OF ITS OWN. It POSTs each undistributed lesson
-// to the app's own `POST /api/v1/sessions/:id/complete`, which is the route a
-// center owner presses, and lets `completeSession` → `distributeSessionRevenue`
-// do the work: the ONE derivation of what a lesson is worth
-// (`resolveLessonPrice`), the same split expression the confirm dialog quotes,
-// the H2 conditional decrement, and the `distributed_at` exactly-once claim.
-// That is the binding NO SECOND MONEY ENGINE invariant, honoured by not having
-// a second engine here at all — there is not one INSERT into transactions,
-// wallets or payments in this file.
-//
-// It therefore REQUIRES THE DEV SERVER TO BE RUNNING. That is a deliberate
-// trade: a seed that talked to the tables directly would be exactly the second
-// money engine the invariant forbids.
-//
-// ── PURGE ─────────────────────────────────────────────────────────────────
-// There is no `--purge`, and that is not an oversight. The ledger is
-// append-only by DB grant (`edura_app` has no UPDATE or DELETE on
-// `transactions`), so nothing here can unwrite itself. The removal path is the
-// same one every other demo row uses: `bun run db:wipe dev --yes`, which is
-// label-guarded to dev/test and refuses production. Do not run this against a
-// database whose settlements you would not want to keep.
-//
-// Usage:
-//   bun run --cwd apps/erp dev                 # in another terminal, :3002
-//   bun --env-file=.env prisma/settled-lessons-demo-seed.ts
-//   bun --env-file=.env prisma/settled-lessons-demo-seed.ts --dry-run
-// ---------------------------------------------------------------------------
 import { assertNotProduction } from "../scripts/db-guard";
 import {
   assertHttpTargetSharesDatabase,
@@ -43,30 +6,16 @@ import {
 } from "./http-target-guard";
 import { prisma, withPlatformContext } from "../src/index";
 
-// Resolved lazily: --dry-run never reaches the network, so it must not
-// demand a target. Everything that DOES write calls baseUrl().
 let _baseUrl: string | null = null;
 const baseUrl = () => (_baseUrl ??= requireErpBaseUrl("settled-lessons-demo-seed"));
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
 const DRY_RUN = process.argv.includes("--dry-run");
 
-/**
- * The showcase center and its owner. Pinned by short id rather than by "the
- * first center that comes back", because this database also holds 30-odd
- * machine-generated fixture centers and settling one of those would be money
- * written somewhere nobody is looking.
- */
 const CENTER_SHORT_ID = "SHOWCASE01";
 const OWNER_EMAIL = "showcasedemo-marwan@edura.test";
 
 type Money = { transactions: number; centerWallet: number; teacherWallets: number };
 
-/**
- * Every read here runs inside `withPlatformContext`. The bare client is
- * RLS-scoped and returns NOTHING without one — which first showed up as this
- * script reporting "center SHOWCASE01 not found" about a center that plainly
- * exists.
- */
 async function census(centerId: string): Promise<Money> {
   return withPlatformContext(async (tx) => {
     const [txns, center, teachers] = await Promise.all([
@@ -89,12 +38,6 @@ async function census(centerId: string): Promise<Money> {
 
 const egp = (piastres: number) => `${(piastres / 100).toFixed(2)} ج.م`;
 
-/**
- * L-8: `assertNotProduction()` above guards the DATABASE this process is
- * connected to. Everything below writes MONEY through an app over HTTP, and
- * that app reads whatever database IT was started with. Prove they are the
- * same before writing a single row.
- */
 async function assertSameDatabase(cookie: string): Promise<void> {
   const owner = await withPlatformContext((tx) =>
     tx.user.findUnique({ where: { email: OWNER_EMAIL }, select: { id: true } }),
@@ -137,9 +80,6 @@ async function main() {
     throw new Error(`center ${CENTER_SHORT_ID} not found — run \`bun run seed:showcase-demo\` first`);
   }
 
-  // Completed, never distributed, and with someone actually present: the
-  // engine refuses a lesson with no present students, so sending those would
-  // be 35 requests and a misleading "nothing happened".
   const candidates = await withPlatformContext((tx) =>
     tx.session.findMany({
       where: {

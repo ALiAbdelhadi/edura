@@ -26,10 +26,6 @@ const reportSchema = z
     message: "conversationId, groupId or reportedUserId is required",
   });
 
-// The reporter must be a participant in whatever they report — the service
-// verifies that, so this cannot be used as a read oracle on other people's
-// threads. Reports involving a minor are flagged and sort to the top of the
-// super-admin queue.
 export const POST = withErrors(async (req) => {
   const user = await requireSession();
   const data = await parseJson(req, reportSchema);

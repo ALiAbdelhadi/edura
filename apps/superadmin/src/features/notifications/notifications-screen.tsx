@@ -27,7 +27,6 @@ interface Notification {
   createdAt: string;
 }
 
-/** Staff portals this screen serves. Each maps to its own route namespace. */
 export type StaffPortal = "superadmin" | "finance";
 
 const TYPE_TONE: Record<string, StatusTone> = {
@@ -49,12 +48,6 @@ const TYPE_TONE: Record<string, StatusTone> = {
   default: "neutral",
 };
 
-/**
- * Notification type -> route segment under the portal's base path. A segment is
- * only linked when the portal actually has that screen (see PORTAL_ROUTES) —
- * the accountant portal is finance-only, so anything outside it stays inert
- * rather than sending them to a 404 or a screen the API would reject.
- */
 const TYPE_ROUTE: Record<string, string> = {
   chat_report_filed: "messaging",
   new_chat_message: "messaging",
@@ -89,10 +82,6 @@ const PORTAL_ROUTES: Record<StaffPortal, ReadonlySet<string>> = {
   finance: new Set(["payments", "subscriptions", "payouts", "commission"]),
 };
 
-/* Relative time is PROSE, not data: Arabic-Indic digits, body face, and correct
-   agreement — `منذ يومين`, never `منذ ٢ يوم`. The previous helper interpolated
-   `formatNumber` (Latin digits) into a single fixed noun, which is the most visible
-   possible tell that a product was translated rather than written in Arabic (D-005). */
 function TimeAgo({ dateStr, locale }: { dateStr: string; locale: Locale }) {
   const t = useTranslations("shared");
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -140,8 +129,6 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
   const { mutateAsync: markReadMut } = useCustomMutation();
   const { mutateAsync: markAllReadMut } = useCustomMutation();
 
-  // Refresh this list AND the header/sidebar unread badge, which is a separate
-  // query in DashboardShell — refetching only the local list left it stale.
   const refreshAll = () =>
     invalidate({ resource: "notifications", invalidates: ["list"] });
 
@@ -187,9 +174,6 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
     return <PageSpinner label={t("common.loading")} />;
   }
 
-  // A failed list query used to fall through to the empty state, so a broken
-  // API was indistinguishable from "you have no notifications" — the reason a
-  // hard 404 on this resource looked like a blank page instead of an error.
   if (query.isError && notifications.length === 0) {
     return (
       <div className="flex w-full max-w-[640px] flex-col gap-6">

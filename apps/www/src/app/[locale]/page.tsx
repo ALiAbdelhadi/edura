@@ -45,9 +45,6 @@ export default async function LandingPage({
 
       <SiteFooter t={t} locale={locale} />
 
-      {/* Renders nothing. Every section above stays a server component and is
-          animated through the `data-*` attributes it already carries, so the
-          page's motion costs one client component and no extra hydration. */}
       <MotionRoot />
     </>
   );

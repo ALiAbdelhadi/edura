@@ -7,9 +7,6 @@ import { adminListStaff, adminCreateStaff } from "@/lib/services/admin/center-pe
 
 export const dynamic = "force-dynamic";
 
-// No `password` field, deliberately — same as the center's own route. The staff
-// member sets their own credential through the emailed single-use claim link,
-// so nobody (owner or super admin) ever knows it.
 const createSchema = z
   .object({
     name: z.string().trim().min(2).max(120),

@@ -1,19 +1,3 @@
-// MC-1 — `listPayments` excluded the whole `to` day.
-//
-// `/dashboard/admin/fees` renders a P&L and, directly beneath it, the payment
-// log that is supposed to itemise the same money. ONE `DateRangeField` drives
-// both. The P&L bounded its range through `reports.ts` (`endOfUtcDay(to)`); the
-// log built its own filter as `lte = new Date(filters.to)` — midnight, the
-// instant the day BEGINS. So every payment taken on the last day of the range
-// fell outside it.
-//
-// The visible symptom is the one an owner hits first: pick `from = to = today`
-// to answer "how much did we take today", and the log comes back empty while
-// the P&L above it shows the day's revenue.
-//
-// Proven without a database by capturing the `where` clause `listPayments`
-// hands to Prisma — the bug lives entirely in that object, and asserting on it
-// pins the boundary to the millisecond in a way a fixture row could not.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { todayKey } from "@repo/server-core/lib/date-key";
 
@@ -56,17 +40,12 @@ describe("listPayments — the `to` day is included", () => {
   it("THE BUG: a single-day range covers the whole day, not just its first instant", async () => {
     const where = await whereFor({ from: "2026-08-20", to: "2026-08-20" });
 
-    // Cairo day bounds — see docs/decisions/money-day-boundary.md. Before the
-    // fix `lte` was the instant the day STARTS, a window of zero width, which
-    // is why the log looked empty.
     expect(where.paidAt.gte.toISOString()).toBe("2026-08-19T21:00:00.000Z");
     expect(where.paidAt.lte.toISOString()).toBe("2026-08-20T20:59:59.999Z");
   });
 
   it("a payment taken at 23:00 on the `to` date is inside the range", async () => {
     const where = await whereFor({ from: "2026-08-20", to: "2026-08-20" });
-    // 23:00 on the center's wall clock, which is what "23:00" means to the
-    // owner reading the log — 20:00Z while Cairo is on UTC+3.
     const paidAt = new Date("2026-08-20T20:00:00.000Z");
 
     expect(paidAt >= where.paidAt.gte).toBe(true);
@@ -81,19 +60,9 @@ describe("listPayments — the `to` day is included", () => {
   });
 
   it("`from = to = today` returns the day's payments", async () => {
-    // The operator's actual question, expressed the way the screen expresses it.
-    //
-    // `todayKey()`, NOT `new Date().toISOString().slice(0, 10)`. The UTC slice
-    // is the very anti-pattern `date-key.ts` exists to forbid — it answers
-    // "what day is it?" on the WRONG clock, and Cairo runs UTC+2/+3, so
-    // between local midnight and 02:00/03:00 it names YESTERDAY. This test
-    // then built a range over yesterday and asserted that `now` fell inside
-    // it, which it does not. Red every night for three hours; green again by
-    // breakfast, which is the worst kind of failing test.
     const today = todayKey();
     const where = await whereFor({ from: today, to: today });
 
-    // Every instant of today, including the one we are living in right now.
     const now = new Date();
     expect(now >= where.paidAt.gte).toBe(true);
     expect(now <= where.paidAt.lte).toBe(true);
@@ -115,9 +84,6 @@ describe("listPayments — the `to` day is included", () => {
 
 describe("listPayments and the Fees P&L agree", () => {
   it("both halves of the screen bound the range identically", async () => {
-    // The regression this file exists to prevent: two derivations of what `to`
-    // means. `reports.ts` no longer has its own — it imports the same helper —
-    // so this compares the log's bounds against the shared source directly.
     const { dayRange } = await import("@repo/server-core/lib/day-range");
     const where = await whereFor({ from: "2026-08-01", to: "2026-08-20" });
 

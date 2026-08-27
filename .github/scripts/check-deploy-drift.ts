@@ -1,48 +1,12 @@
 /* eslint-disable no-console */
-/**
- * ============================================================================
- * DEPLOY-DRIFT GATE — is main carrying code that production is not serving?
- * ============================================================================
- * On 2026-08-03 main sat EIGHT AND A HALF HOURS ahead of production and nothing
- * said so. CI was red on the DB suites, deploy.yml is gated on CI success, so it
- * correctly refused to ship — and then everyone got on with their day. The gate
- * worked; the silence is what failed. A refusal nobody hears is indistinguishable
- * from a deploy that happened.
- *
- * This is the sibling of check-pending-migrations.ts. That one asks "would this
- * code outrun the database?"; this one asks "did the code ever leave the
- * building?". Both exist because a thing that has to be REMEMBERED eventually
- * is not.
- *
- * WHY NOT PUT THE COMMIT SHA ON /api/health. Because that endpoint is
- * unauthenticated and internet-facing, and rule 4 of packages/server-core/src/
- * http/health.ts is that it leaks nothing — no version, no commit, no
- * environment. Publishing the deployed SHA to the world to save an API call
- * here would trade a real property for a convenience.
- *
- * WHY THE SHA IS NOT THE ONLY SIGNAL. Vercel's list-deployments documents
- * `meta` only as "Metadata information from the Git provider" — its sub-fields
- * are not part of the documented contract, and these deploys come from
- * `vercel deploy` in CI rather than a git integration, so a commit SHA may or
- * may not be attached. `createdAt` and `readyState` ARE documented required
- * fields. So the SHA is used when present (it is exact) and timestamps are the
- * fallback (they are always there). Building the alarm solely on an undocumented
- * key is how you get a monitor that silently stops monitoring.
- *
- * READ-ONLY. One GET per project.
- * ============================================================================
- */
 
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-/** Minutes main may legitimately be ahead: a deploy in flight is not drift. */
 const GRACE_MINUTES = Number(process.env.DRIFT_GRACE_MINUTES ?? 90);
 
 export type Deployment = {
-  /** Commit SHA if the provider attached one. Undocumented — may be absent. */
   sha?: string;
-  /** ms epoch. Documented + required on every deployment. */
   createdAt: number;
 } | null;
 
@@ -50,10 +14,6 @@ export type DriftVerdict =
   | { drifted: false; reason: string }
   | { drifted: true; reason: string };
 
-/**
- * The whole decision, isolated from the network so it can be proven. Every
- * branch below is exercised by `--self-test`.
- */
 export function assessDrift(args: {
   mainSha: string;
   mainCommittedAt: number;
@@ -64,14 +24,12 @@ export function assessDrift(args: {
   const { mainSha, mainCommittedAt, latest, now, graceMinutes } = args;
   const aheadMin = Math.floor((now - mainCommittedAt) / 60_000);
 
-  // Nothing has ever reached production for this project.
   if (!latest) {
     return aheadMin <= graceMinutes
       ? { drifted: false, reason: `no production deployment yet, but main's HEAD is only ${aheadMin}m old` }
       : { drifted: true, reason: `no READY production deployment exists at all` };
   }
 
-  // Exact answer when the provider gave us one.
   if (latest.sha) {
     if (latest.sha === mainSha) {
       return { drifted: false, reason: `production is serving main (${mainSha.slice(0, 7)})` };
@@ -84,7 +42,6 @@ export function assessDrift(args: {
         };
   }
 
-  // No SHA: fall back to "was the last deploy created after main's HEAD commit".
   if (latest.createdAt >= mainCommittedAt) {
     return { drifted: false, reason: `last production deploy is newer than main's HEAD commit` };
   }
@@ -95,10 +52,6 @@ export function assessDrift(args: {
         reason: `last production deploy predates main's HEAD commit by ${Math.floor((mainCommittedAt - latest.createdAt) / 60_000)}m (main ${aheadMin}m old)`,
       };
 }
-
-// ---------------------------------------------------------------------------
-// Self-test — the reason this file can be trusted without Vercel credentials.
-// ---------------------------------------------------------------------------
 
 function selfTest(): void {
   const MIN = 60_000;
@@ -163,8 +116,6 @@ function selfTest(): void {
   process.exit(failed === 0 ? 0 : 1);
 }
 
-// ---------------------------------------------------------------------------
-
 async function latestProductionDeployment(projectId: string): Promise<Deployment> {
   const params = new URLSearchParams({
     projectId,
@@ -186,8 +137,6 @@ async function latestProductionDeployment(projectId: string): Promise<Deployment
   if (!d) return null;
 
   const meta = (d.meta ?? {}) as Record<string, unknown>;
-  // Try the keys a GitHub-sourced deploy is known to use, in order. Absence is
-  // expected and handled — see the header.
   const sha = [meta.githubCommitSha, meta.gitCommitSha, meta.commitSha].find(
     (v): v is string => typeof v === "string" && v.length > 0,
   );
@@ -216,11 +165,6 @@ async function main(): Promise<void> {
     Number(execFileSync("git", ["log", "-1", "--format=%ct", "origin/main"], { encoding: "utf8" }).trim()) * 1000;
   const now = Date.now();
 
-  // `erp` was absent from this list until 2026-08-27, so the drift alarm
-  // watched the marketing site and the back office and never the application
-  // itself — the same www -> erp rename fallout that left it out of
-  // deploy.yml's matrix. Neither was noticed because neither workflow has ever
-  // run: the Vercel secrets have never been set.
   const apps = [
     { name: "erp", projectId: process.env.VERCEL_PROJECT_ID_ERP! },
     { name: "www", projectId: process.env.VERCEL_PROJECT_ID_WWW! },
@@ -250,9 +194,6 @@ async function main(): Promise<void> {
   console.log("No deploy drift.");
 }
 
-// Only run as a CLI. Importing this module — to exercise `assessDrift` from a
-// test, which is the point of keeping the decision pure — must not fire the
-// network path or exit the process.
 const invokedDirectly =
   !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 

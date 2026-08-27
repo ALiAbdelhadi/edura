@@ -15,6 +15,5 @@ export const POST = withErrors(async (req) => {
   const adminUser = await requireRole("center_admin");
   const body = await parseJson(req, bodySchema);
   const { token: _token, existingUser, invited } = await inviteCenterAdmin(adminUser, body);
-  // Response shape is unchanged: 200 for an existing user, 201 for a new shell.
   return ok({ invited, existingUser }, existingUser ? undefined : { status: 201 });
 });

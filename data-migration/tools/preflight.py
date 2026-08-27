@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 preflight.py — آخر بوابة قبل الرفع: هل المستورد سيفهم هذا الملف، وهل كل عمود
 يحوي فعلًا ما يقوله اسمه؟
@@ -40,9 +39,7 @@ EGYPT_PHONE_RE = re.compile(r"^(?:\+20|0)1[0125]\d{8}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
 
-# أقل عدد قيم غير فارغة يُبنى عليه حكم. ثلاث قيم لا تكفي لوصف عمود.
 MIN_SAMPLE = 5
-# نسبة تجعل «العمود يشبه شيئًا آخر» شبهةً لا صدفة.
 SUSPICION = 0.6
 
 
@@ -62,7 +59,6 @@ def shape_of(values: list[str]) -> dict[str, float]:
     }
 
 
-# ما يُتوقَّع في كل حقل، وما يعنيه أن يبدو العمود كشيء آخر.
 EXPECTED = {
     "name": ("letters", "أسماء"),
     "guardianName": ("letters", "أسماء"),
@@ -92,7 +88,6 @@ def main() -> int:
     notes: list[str] = []
     report: list[dict[str, str]] = []
 
-    # ---------------------------------------------------------------- الشكل
     if "name" not in cols:
         fatal.append("لا عمود اسم يتعرّف عليه المستورد — سيرفض الملف كله. "
                      "أضف رأسًا مثل «الاسم» أو «name».")
@@ -102,8 +97,6 @@ def main() -> int:
     known = set(cols.values())
     unknown = [h for i, h in enumerate(header) if i not in known and h.strip()]
     if unknown:
-        # ليست مشكلة: المستورد يتجاهلها، وعمود الكود القديم يُبقى عمدًا ليُبنى
-        # منه جدول الربط. لكن سكوتنا عنها يجعل عمودًا مُساء تسميته يبدو مقروءًا.
         notes.append(f"{len(unknown)} عمودًا لا يقرؤه المستورد ويتجاهله: "
                      + "، ".join(f"«{h}»" for h in unknown[:8])
                      + ("…" if len(unknown) > 8 else ""))
@@ -125,7 +118,6 @@ def main() -> int:
         suspicious.append(f"{ragged} صفًا فيه خانات أكثر من عناوين الرأس — "
                           "غالبًا فاصلة داخل خانة غير مقتبسة، والأعمدة تنزلق بعدها.")
 
-    # -------------------------------------------------------------- المحتوى
     for field, idx in sorted(cols.items()):
         values = [r[idx].strip() for r in rows if idx < len(r) and r[idx].strip()]
         filled = len(values)
@@ -148,7 +140,6 @@ def main() -> int:
             continue
 
         if got < SUSPICION:
-            # ما الذي يشبهه العمود بدل ما يقوله اسمه؟
             other = max(((k, v) for k, v in shape.items()
                          if k != want and k != "numeric"), key=lambda kv: kv[1], default=None)
             label = {"phone": "هواتف مصرية", "nid14": "أرقام من 14 خانة",
@@ -169,7 +160,6 @@ def main() -> int:
     dump_dicts(args.report,
                ["column", "field", "filled", "matches_expected", "expected"], report)
 
-    # ---------------------------------------------------------------- الخرج
     print(f"\n{args.src.name}: {len(rows)} صفًا × {len(header)} عمودًا "
           f"(فاصل: {'TAB' if delim == chr(9) else 'فاصلة'})")
     found = "، ".join(sorted(cols)) or "لا شيء"

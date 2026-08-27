@@ -1,14 +1,5 @@
 "use client";
 
-/* Phase 2 (revenue-operations spec §2.4) — the drawer session card on the
-   counter board.
-
-   The card is the whole shift lifecycle for the person standing at the desk:
-   open with a float, watch the live expected-cash figure, close against a
-   physical count. It renders figures the server derived from the payments
-   stamped with this shift's id — it computes nothing of its own, exactly as
-   the shift service computes nothing the ledger does not hold. */
-
 import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { postMoney, readApiError, Eyebrow, Computation, Amount, TwoStepCommit } from "../ledger";
@@ -105,7 +96,6 @@ export function ShiftCard() {
 
   if (shift === undefined) return null; // first load — no flicker
 
-  // ---- No open shift: the open strip (+ the last close's variance, if any).
   if (shift === null) {
     return (
       <div className="rounded-xl border border-(--rule) bg-(--sheet) p-3.5">
@@ -149,7 +139,6 @@ export function ShiftCard() {
     );
   }
 
-  // ---- Open shift.
   return (
     <div className="rounded-xl border border-(--rule) bg-(--sheet) p-3.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

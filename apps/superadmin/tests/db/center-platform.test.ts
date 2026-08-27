@@ -1,27 +1,3 @@
-/**
- * ===========================================================================
- * PHASE 5 — REPORTS + the PLATFORM-ONLY operations no center has.
- * ===========================================================================
- * Drives the REAL shipped services:
- *
- *   apps/superadmin/src/lib/services/admin/center-platform.ts
- *     → @repo/server-core/services/reports/reports.ts (read-only)
- *
- * The platform half is new capability rather than parity, so each proof is
- * about the LIMIT as much as the action:
- *
- *   • moving a student moves the ROSTER and nothing else — enrollments,
- *     subscriptions, payments and wallet history stay at the old center, and
- *     the operation reports what it left behind;
- *   • a force-logout bumps the session epoch and changes NO status, so the
- *     account can sign back in;
- *   • verifying a date of birth is a CHILD-SAFETY decision: the audit row
- *     records whether it turned parent oversight off;
- *   • moving a course between centers is refused outright.
- *
- *   bunx tsx --env-file=<env> tests/db/center-platform.test.ts
- * ===========================================================================
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
@@ -63,12 +39,6 @@ async function rejects(fn: () => Promise<unknown>, expect: RegExp) {
   }
 }
 const q = async (sql: string, p: unknown[] = []) => (await admin.query(sql, p)).rows;
-
-// The real per-request session gate is a DB row now (better-auth): signInDoor
-// drives the full /sign-in/email pipeline and sessionFor is a real getSession
-// with the real cookie — no hand-shaped token claims to get wrong, and a
-// force-logout revokes by ROW DELETION (users_revoke_sessions trigger on the
-// token_version bump), not by a per-request epoch re-read.
 
 async function main() {
   const tag = "plat-" + Math.floor(Math.random() * 1e9).toString(36);
@@ -113,10 +83,6 @@ async function main() {
     const centerB = await mkCenter("B");
     const teacher = await mkUser("teacher", "teacher");
     const student = await mkUser("student", "student");
-    // An ACCOUNTANT, not a www role: the round trip below signs in through
-    // THIS app's better-auth door, and that door refuses every www role
-    // outright (C-04) regardless of the session epoch. Using a back-office
-    // role keeps the test measuring the revocation, not the login boundary.
     const staff = await mkUser("staff", "accountant");
 
     await q(
@@ -140,7 +106,6 @@ async function main() {
       )
     )[0].id as string;
 
-    // History AT centre A that must not travel with the student.
     await q(
       `INSERT INTO enrollments (student_id, course_id, center_id, status, enrolled_by, updated_at)
        VALUES ($1,$2,$3,'active',$4,now())`,
@@ -152,9 +117,7 @@ async function main() {
       [centerA, student, `RCP-${tag}-1`, superAdminId],
     );
 
-    // =====================================================================
     section("Reports — read the center's own reporting");
-    // =====================================================================
     const dash = await adminCenterDashboard(actor, centerA);
     assert(!!dash, "the center dashboard is readable for any center");
 
@@ -175,9 +138,7 @@ async function main() {
     );
     assert(unknown.threw && unknown.matched, "an unknown report name is a 404, not a fall-through");
 
-    // =====================================================================
     section("Move a student between centers — ROSTER ONLY");
-    // =====================================================================
     const noReason = await rejects(
       () =>
         moveStudentBetweenCenters(actor, {
@@ -270,14 +231,9 @@ async function main() {
     );
     assert(twice.threw && twice.matched, "moving again is refused — the source roster is gone");
 
-    // =====================================================================
     section("Force logout — epoch only, NOT a deactivation");
-    // =====================================================================
     const verBefore = Number((await q(`SELECT token_version FROM users WHERE id=$1`, [staff]))[0].token_version);
 
-    // Sign in ONCE and hold the cookie — "a later request" below is a real
-    // getSession against it. Sanity-check the harness FIRST: a valid current
-    // session must be accepted, or a later "rejected" result proves nothing.
     const staffAuth = await signInDoor(`${tag}-staff@edura.test`, "Passw0rd!PLAT");
     assert(staffAuth.ok, "harness check: the accountant signs in through the full door");
     if (!staffAuth.ok) throw new Error("cannot continue without the accountant session");
@@ -314,9 +270,7 @@ async function main() {
       "audit: one row, stating this changed no status and they can return",
     );
 
-    // =====================================================================
     section("§3.4 — verifying a date of birth is a CHILD-SAFETY decision");
-    // =====================================================================
     const dobBefore = (
       await q(`SELECT date_of_birth, date_of_birth_verified_at FROM student_profiles WHERE user_id=$1`, [student])
     )[0];
@@ -353,7 +307,6 @@ async function main() {
     );
     assert(notSuper.threw && notSuper.matched, "only a super admin can verify a date of birth");
 
-    // A MINOR date first — oversight must stay on.
     const minorDob = new Date(Date.now() - 12 * 365.2425 * 864e5).toISOString().slice(0, 10);
     const asMinor = await verifyStudentDateOfBirth(
       actor,
@@ -372,7 +325,6 @@ async function main() {
       "audit: records that oversight was not disabled",
     );
 
-    // Now an ADULT date — the consequence must be recorded.
     const adultDob = new Date(Date.now() - 22 * 365.2425 * 864e5).toISOString().slice(0, 10);
     const asAdult = await verifyStudentDateOfBirth(
       actor,
@@ -405,9 +357,7 @@ async function main() {
       "SAFETY audit: the row records the consequence AND the evidence seen",
     );
 
-    // =====================================================================
     section("Moving a course between centers — REFUSED");
-    // =====================================================================
     const courseMove = await rejects(
       () => moveCourseBetweenCenters(),
       /cannot be moved between centers/i,
@@ -445,8 +395,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite center-platform.test.ts" })
   .then(() => main()).catch((e) => {
   console.error(e);

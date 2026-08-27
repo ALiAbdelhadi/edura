@@ -49,7 +49,6 @@ type EnrollmentRow = {
   studentId: string;
   studentName?: string;
   studentEmail?: string;
-  /** Null for a student whose profile predates student-code v2 issuance. */
   studentCode?: string | null;
 };
 type SessionRow = {
@@ -61,13 +60,6 @@ type SessionRow = {
   startTime?: string;
   endTime?: string;
   status: string;
-  /* WHICH GROUP, AND WHERE. Both come from `GET /api/v1/sessions`, which has
-     always enriched every row with `courseName`, `subject`, `teacherName` and
-     `roomName` — this screen simply never rendered them, and listed lessons by
-     date and time alone. A teacher with four groups was picking a register by
-     the clock, and two groups an hour apart looked identical. Optional in the
-     type because a session whose course row is gone still has a date and a
-     status, and losing its name must not lose the row. */
   courseName?: string;
   roomName?: string;
 };
@@ -75,25 +67,14 @@ type AttendanceRecord = {
   studentId: string;
   status: "present" | "absent" | "excused" | "counter_only";
 };
-// counter_only (Step 6): passed the center counter but never door-checked in
-// counter_and_door mode — visible to the teacher, NOT counted as present.
 type AttendanceStatus = "present" | "absent" | "excused" | "counter_only";
 
-/**
- * How far back this screen will show a lesson.
- *
- * EXPORTED because another screen links INTO here. The group list marks a past
- * lesson "لسه متقفلتش" and offers `?sessionId=`, and a link to a lesson older
- * than this window would land the teacher on a list that cannot contain it —
- * a door that opens onto nothing. One definition, both readers.
- */
 export const ATTENDANCE_WINDOW_DAYS = 14;
 
 export function TeacherAttendanceScreen() {
   const t = useTranslations();
   const { formatDate, formatClockRange } = useFormatters();
   const { data: identity } = useGetIdentity<Identity>();
-  // Step 8: an assistant operates on their teacher's data.
   const teacherId = (identity as any)?.actingTeacherId ?? identity?.id;
   const { queueCount, isSyncing, flush, refreshCount } =
     useAttendanceSync(teacherId);
@@ -123,25 +104,6 @@ export function TeacherAttendanceScreen() {
       .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
   }, [allSessions]);
 
-  /* TODAY IS A CAIRO DAY, not the browser's, and a session's day is the CAIRO
-     day its instant falls in — not the UTC date printed on the front of it.
-     ════════════════════════════════════════════════════════════════════════
-     `todayKey()` is the platform-clock helper the door screen already uses to
-     ask the server for today's sessions, and the boundary the money screens
-     settled on (docs/decisions/money-day-boundary.md).
-
-     The second half is the trap, and it was measured on dev rather than
-     assumed: `Session.date` is `@db.Timestamptz(6)`, NOT `@db.Date`, and rows
-     do not sit at midnight UTC — one demo teacher's lessons are stored at
-     12:00Z and another's at 21:00Z. `toDateKey`, whose doc comment names "a
-     session's date" as its case, slices the UTC prefix; on the 21:00Z row that
-     reads 2026-08-19 while Cairo has already turned over to the 20th, so a
-     lesson happening TODAY would have filed itself under "earlier". Every
-     Cairo-evening lesson is stored that way.
-
-     `platformDayKey` resolves the instant to the Cairo day it falls in, which
-     is right for all three shapes: a midnight-UTC date-only value, a midday
-     timestamp, and a Cairo-midnight-stored-as-21:00Z one. */
   const today = todayKey();
   const dayKeyOf = (s: SessionRow) => platformDayKey(String(s.date));
   const todaySessions = useMemo(
@@ -158,17 +120,6 @@ export function TeacherAttendanceScreen() {
   );
   const sessionId = selectedSession?.id || selectedSession?._id;
 
-  /* ARRIVING ON ONE LESSON'S REGISTER.
-     The dashboard hero and the "لسه متقفلتش" chip on a group's session list
-     both point at A LESSON, not at the list of them. This screen selects by
-     object rather than by id, and the list is not loaded when the parameter
-     arrives, so the seed is LATCHED into state and resolved once the sessions
-     land. Same `useParamSeed` hand-off the gradebook and the group list
-     already take for `?courseId=`.
-
-     A seed that matches nothing — a lesson older than the 14-day window, or
-     another teacher's — simply leaves the reader on the list, which is the
-     honest outcome. */
   const [seedSessionId, setSeedSessionId] = useState<string | null>(null);
   useParamSeed("sessionId", setSeedSessionId);
   React.useEffect(() => {
@@ -217,25 +168,7 @@ export function TeacherAttendanceScreen() {
     setStatuses(next);
   }, [selectedSession, enrollments.length, existingRecords.length]);
 
-  /* مسح البطاقة هنا / Why the scan on THIS screen only moves a toggle.
-     ════════════════════════════════════════════════════════════════════════
-     This screen has exactly one commit — the Save button below — and a scan
-     that wrote on its own would be a second one, racing the roster the teacher
-     is still editing. So a card sets that student's toggle to `present` and
-     nothing else; the teacher saves when the lesson is taken, as they already
-     do. That also makes it work in `counter_only` mode, which the hall-door
-     screen deliberately does not: this path never touches the counter/door
-     stage machine, it fills in the same roster a tap fills in.
-
-     A forged card therefore buys nothing — resolution is confined to students
-     ALREADY enrolled in this course, every one of whom the teacher can mark
-     present with a tap. See `codeFromScan` for why no signature is checked. */
   const markScanned = (raw: string) => {
-    // `locked` is checked FIRST because it is true of the LESSON, not of the
-    // card: once editing is closed nothing can be marked, so telling someone
-    // their student "is not in this group" would send them looking for the
-    // wrong problem. The button stays visible for the same reason the toggles
-    // stay visible-but-disabled — the alert above says why.
     if (locked) {
       toast.error(t("teacher.editClosed"));
       return;
@@ -246,8 +179,6 @@ export function TeacherAttendanceScreen() {
           (e) => e.studentCode && resolveStudentCode(e.studentCode) === code,
         )
       : null;
-    // Refusing by name is the honest outcome: the card may well be genuine and
-    // simply belong to a student who is not in this group.
     if (!hit) {
       toast.error(t("teacher.scanNotEnrolled"));
       return;
@@ -264,8 +195,6 @@ export function TeacherAttendanceScreen() {
 
   const handleSave = async () => {
     if (!sessionId) return;
-    // counter_only rows are stage-derived at the counter/door — the bulk save
-    // must not overwrite them unless the teacher explicitly resolved them.
     const records = enrollments
       .map((e) => ({
         studentId: e.studentId,
@@ -278,9 +207,6 @@ export function TeacherAttendanceScreen() {
 
     if (teacherId && typeof navigator !== "undefined" && !navigator.onLine) {
       await enqueueAttendance(teacherId, sessionId, records);
-      // The pending-sync banner counts what is queued; without a refresh here
-      // it stayed hidden until the next mount, so a teacher who saved a roster
-      // offline saw a toast and then no sign the work was still held.
       await refreshCount();
       toast.info(t("teacher.savedOffline"));
       return;
@@ -313,9 +239,6 @@ export function TeacherAttendanceScreen() {
     else if (result.status === "offline")
       toast.warning(t("teacher.syncOffline"));
     else if (result.status === "failed") {
-      // The server answered and refused. Saying "you are offline" here — which
-      // is what this did before — sends the teacher to check their signal for a
-      // problem that is not on their end.
       toast.error(result.message || t("teacher.syncFailed"));
     } else {
       toast.success(t("teacher.syncedCount", { n: result.synced }));
@@ -329,19 +252,6 @@ export function TeacherAttendanceScreen() {
   const sessionStatusTone = (status: string): StatusTone =>
     status === "completed" ? "success" : status === "scheduled" ? "info" : "neutral";
 
-  /* A LESSON ROW, not a table row.
-     The list was a three-column DataTable — date, status, a button — read on a
-     375px phone between lessons. A row now leads with the GROUP, carries the
-     hall beside the clock, and is itself the control: the whole row opens the
-     register, so the tap target is the row rather than a button at the end of
-     it.
-
-     RENDER FUNCTIONS, NOT INNER COMPONENTS. Declaring these as components
-     inside the screen gives React a NEW component type on every render, so it
-     unmounts and remounts the subtree each time — which on the roster means
-     every `ToggleGroup` is rebuilt on every status change, losing focus and
-     any in-flight interaction. Returning elements from a plain function keeps
-     one identity and still lets them close over `statuses` and `locked`. */
   const sessionRow = (s: SessionRow) => (
     <button
       type="button"
@@ -352,12 +262,6 @@ export function TeacherAttendanceScreen() {
         <span className="block truncate font-semibold text-foreground">
           {groupNameOf(s)}
         </span>
-        {/* WRAPS, never truncates. Measured at 375px: with the day, the date
-            and a 12-hour range already on this line, the hall was the part
-            that fell off the end — "قاعة الأمل" rendering as "قاع…" — and the
-            hall is the half of "where am I going?" that a teacher working
-            three buildings actually needs. Two short lines beat one clipped
-            one. */}
         <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
           {formatDate(s.date, { weekday: "short", month: "short", day: "numeric" })}
           {" · "}
@@ -387,10 +291,6 @@ export function TeacherAttendanceScreen() {
     );
   };
 
-  /* THE ROSTER ROW. Name, then the student CODE — not the email.
-     The code is what a teacher reads off a card at the door and what a family
-     quotes at a counter; the email is a login credential nobody says out loud,
-     and it was taking the one subordinate line a phone row has. */
   const rosterRow = (e: EnrollmentRow, options: AttendanceStatus[]) => {
     const v = statuses[e.studentId] ?? "present";
     return (
@@ -411,9 +311,6 @@ export function TeacherAttendanceScreen() {
             </span>
           ) : null}
         </span>
-        {/* No status badge beside the toggle. The toggle already SHOWS which
-            value is selected; the badge that used to sit in a "الوسم" column
-            40px away was the page saying the same thing twice. */}
         <ToggleGroup
           type="single"
           value={options.includes(v) ? v : ""}
@@ -451,16 +348,6 @@ export function TeacherAttendanceScreen() {
   let content: React.ReactNode;
 
   if (selectedSession) {
-    /* THE STATE THIS SCREEN EXISTS TO CATCH GETS ITS OWN SECTION.
-       `counter_only` means a student paid at the counter, walked into the
-       building, and never reached the classroom. It does NOT count as present
-       and it is the teacher's money. It used to render as a `warning` badge
-       — the identical amber as "excused" — sitting wherever the roster happened
-       to sort it, so the one row that means "a child is lost in this building"
-       was tonally indistinguishable from an authorised absence and had to be
-       hunted for. Colour alone was never a signal; position and a count are.
-       Resolving a row moves it out of this section and into the roster below,
-       so the section is a queue that empties. */
     const pending = enrollments.filter(
       (e) => (statuses[e.studentId] ?? "present") === "counter_only",
     );
@@ -495,9 +382,6 @@ export function TeacherAttendanceScreen() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Present on any device with a camera, iPhones included. Only a
-                machine with no camera hides it, and there the roster's
-                toggles are untouched, so nobody loses a capability. */}
             <QrScannerButton
               onScan={markScanned}
               label={t("teacher.scanCard")}
@@ -556,10 +440,6 @@ export function TeacherAttendanceScreen() {
                 </section>
               )}
 
-              {/* The three counts, in one line of text.
-                  This replaces a stacked bar chart that plotted exactly ONE
-                  bar — three numbers rendered as a graph, directly above the
-                  roster those same three numbers were being counted from. */}
               {enrollments.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {t("teacher.rosterCounts", counts)}
@@ -578,8 +458,6 @@ export function TeacherAttendanceScreen() {
             </>
           )}
 
-          {/* Attendance is what the settlement reads, so closing the lesson
-              belongs at the END of taking it — not on another screen. */}
           {sessionId ? <SettleLessonCard sessionId={sessionId} /> : null}
         </CardContent>
       </Card>

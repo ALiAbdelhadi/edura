@@ -1,11 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../../../../../packages/ui/src/styles/globals.css";
-/* The portal chrome's own layer — the 2026 direction, scoped to the shell.
-   Imported UNLAYERED and after the shared sheet on purpose: unlayered rules
-   outrank every layer, which is what lets `.chrome [data-slot="sidebar-menu-
-   button"]` beat the utility classes the sidebar primitive ships with. It
-   declares no token globals.css owns, so nothing outside the shell moves. */
 @import "../../../../../packages/ui/src/styles/chrome-2026.css";
 
 @layer base {
@@ -22,7 +17,6 @@
     color: var(--indigo);
   }
 
-  /* Scrollbar Styling */
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;

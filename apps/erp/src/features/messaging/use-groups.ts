@@ -116,7 +116,6 @@ export function useGroups() {
         );
         void refresh();
       } catch (e) {
-        // 429 from the group-send bucket is the common case worth surfacing.
         const status = (e as { response?: { status?: number } })?.response?.status;
         setError(status === 429 ? "rate_limited" : "send_failed");
       }

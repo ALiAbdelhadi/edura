@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Post-processes the raw Playwright captures into what the help pages actually serve.
-#
-# Playwright writes 2x PNGs (2560px wide); the articles display them at ~736px.
-# Shipping the raw output cost 5.2 MB across 30 files on a PUBLIC marketing page.
-# Downscaling to 1440 (still ~2x the display width, so it stays sharp on retina)
-# and encoding to WebP brings that to under 1 MB.
-#
-# Requires: sips (macOS built-in) and cwebp (`brew install webp`).
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")/../../public/help" && pwd)"

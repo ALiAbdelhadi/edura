@@ -15,8 +15,6 @@ const bodySchema = z
   })
   .refine((d) => d.email || d.phone, { message: "Provide email or phone" });
 
-// L4: existence-only response, and rate-limited exactly like the www twin so
-// the back office is not a softer door onto the same probe.
 export const POST = withRateLimit(
   withErrors(async (req, ctx) => {
     const user = await requireRole("super_admin");

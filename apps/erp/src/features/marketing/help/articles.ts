@@ -1,14 +1,3 @@
-/**
- * The help-centre index.
- *
- * Slugs and categories only — every word a reader sees lives in the article's
- * own `.mdx` file (title and summary in its frontmatter). `app/sitemap.ts`
- * reads this list, so adding a row here plus the two `.mdx` files is the whole
- * act of publishing an article; there is no third place to remember.
- *
- * `category` keys resolve against `marketing.help.categories.*`.
- */
-
 export const HELP_CATEGORIES = [
   "start",
   "student",
@@ -25,32 +14,21 @@ export type HelpArticle = {
 };
 
 export const HELP_ARTICLES: readonly HelpArticle[] = [
-  // البداية
   { slug: "create-center-account", category: "start" },
   { slug: "invite-teacher", category: "start" },
   { slug: "create-group", category: "start" },
-  // الحضور
   { slug: "teacher-attendance-close", category: "attendance" },
   { slug: "counter-checkin", category: "attendance" },
   { slug: "door-checkin", category: "attendance" },
   { slug: "offline-attendance", category: "attendance" },
-  // الفلوس
   { slug: "record-cash-payment", category: "money" },
   { slug: "close-session-settlement", category: "money" },
   { slug: "request-payout", category: "money" },
   { slug: "teacher-wallet-payouts", category: "money" },
-  // الناس والصلاحيات
   { slug: "assistant-accounts", category: "people" },
-  // The assistant's own guide. Filed under `people` rather than a new category:
-  // it is one article, and the category list is a top-level menu, not a tag.
   { slug: "assistant-first-steps", category: "people" },
-  // الأمان
   { slug: "guardian-email-messaging", category: "safety" },
 
-  // ── دليل الطالب ────────────────────────────────────────────────────────────
-  // Ordered to read as one continuous guide: the three entry paths first, then
-  // the thirteen portal screens in the order a student meets them, then the
-  // two reference articles. `student-troubleshooting` links back into all of it.
   { slug: "student-first-steps", category: "student" },
   { slug: "student-onboarding-track", category: "student" },
   { slug: "student-claim-invite", category: "student" },

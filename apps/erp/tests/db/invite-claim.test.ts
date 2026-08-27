@@ -1,24 +1,3 @@
-// =============================================================================
-// PROOF — email invite -> single-use claim -> own password -> scoped login,
-// for a walk-in STUDENT, an ASSISTANT, and each CENTER STAFF sub-role;
-// plus the child-safety guardian gate.
-//
-// Nothing here is mocked except the SMTP socket. This drives:
-//   - the real services (registerWalkIn, createAssistant, createStaff,
-//     setGuardianContact, runGuardianContactReminders),
-//   - the real better-auth doors via tests/db/helpers/auth-door: the
-//     invite-token plugin's POST /invite-token/claim endpoint AND the
-//     /sign-in/email password pipeline (before-hooks, credential verify,
-//     real DB session row + cookie),
-//   - the real POST handler exported by /api/v1/me/credentials,
-//   - the real chat gate (assertCanReach / listContacts) from @repo/database,
-// against the LIVE database under the real edura_app role.
-//
-// Mail runs in `console` mode — the project's own mock. `sent:false` is the
-// EXPECTED result there; what we assert is WHO the mail was addressed to, which
-// is the actual child-safety decision, and we capture it by reading the same
-// console line the driver prints.
-// =============================================================================
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
@@ -41,9 +20,6 @@ import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door"
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
 
-// `console` is the project's own mail mock: it delivers nothing and returns
-// sent:false. What we assert is the RECIPIENT, which is the child-safety
-// decision under test.
 process.env.MAIL_PROVIDER = "console";
 process.env.INVITE_CHANNELS = "email";
 process.env.NEXTAUTH_URL = "http://localhost:3002";
@@ -62,10 +38,6 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-// --------------------------------------------------------------- mail capture
-// The console driver prints `[mail] { from, to, subject, body }`. Reading that
-// is how we observe the ONE decision that matters here: which address a claim
-// link was addressed to (or that none was).
 type SentMail = { to: string; subject: string; body: string };
 const mailbox: SentMail[] = [];
 const realLog = console.log;
@@ -82,31 +54,13 @@ function drainMail() {
   mailbox.length = 0;
 }
 
-// ---------------------------------------------------------------------- doors
-// Both doors run the REAL better-auth pipeline (helpers/auth-door): the claim
-// door is the invite-token plugin's POST /invite-token/claim; the password
-// door is /sign-in/email. Each returns {ok:true, cookie, user} or a typed
-// refusal {ok:false, status, message}. The old NextAuth providers returned
-// null for EVERY refusal, so wherever the old proof asserted `=== null` we
-// assert `!r.ok` and deliberately do not start distinguishing messages the
-// old proof never distinguished. Session claims (role / centerId) are read
-// the way a real later request reads them: sessionFor(cookie).
 const login = (email: string, password: string) => signInDoor(email, password);
 const claim = (token: string) => claimDoor(token);
 
-/** The token embedded in a claim link, as the invitee would copy it. */
 function tokenFromLink(link: string): string {
   return new URL(link).searchParams.get("token") as string;
 }
 
-// ------------------------------------------------------------------- session
-// The ONLY thing stubbed in this file: the cookie -> session read at the very
-// edge — the __setSessionOverrideForTests seam in @/lib/auth/session (the
-// same edge the old suite patched by overriding next-auth's getServerSession;
-// better-auth is ESM, so module-patching is no longer possible). Everything
-// inside the route — requireSession, the rate-limit wrapper, the error
-// wrapper, zod, bcrypt, the set-once check and the DB write — is the real
-// code path.
 async function setOwnPassword(
   userId: string,
   body: Record<string, unknown>,
@@ -155,13 +109,9 @@ async function main() {
   const cleanupUsers: string[] = [];
   const cleanupCenters: string[] = [];
 
-  // Phones must be unique per RUN: registerWalkIn is duplicate-by-phone, so a
-  // reused number would silently take the "existing account" branch and quietly
-  // stop testing the thing under test.
   const phoneBase = 10_000_000 + Math.floor(Math.random() * 89_000_000);
   const phone = (n: number) => `+2010${(phoneBase + n).toString().slice(0, 8)}`;
 
-  // ------------------------------------------------------------------ fixtures
   const fx = await withPlatformContext(async (tx) => {
     const center = await tx.center.create({
       data: {
@@ -234,9 +184,7 @@ async function main() {
   } as SessionUser;
 
   try {
-    // =====================================================================
     realLog("\n1. PART A — walk-in student, guardian EMAIL on file");
-    // =====================================================================
     drainMail();
     const guardianEmail = `${tag}-guardian@x.io`;
     const wiA = await registerWalkIn(
@@ -261,7 +209,6 @@ async function main() {
     const linkA = wiA.invite.claimLink as string;
     assert(!!linkA && linkA.includes("/claim?token="), "a claim link was minted");
 
-    // The guardian opens the link -> passwordless session, no password door.
     const claimedA = await claim(tokenFromLink(linkA));
     assert(
       claimedA.ok && (claimedA.user.id as string) === wiA.studentId,
@@ -272,7 +219,6 @@ async function main() {
       "claiming flips the shell account to active",
     );
 
-    // The guardian sets the login for the child's account.
     const studentLoginEmail = `${tag}-studentlogin@x.io`;
     const credA = await setOwnPassword(wiA.studentId, {
       email: studentLoginEmail,
@@ -285,15 +231,11 @@ async function main() {
       "student can now log in with the password the GUARDIAN chose",
     );
 
-    // Single-use.
     assert(!(await claim(tokenFromLink(linkA))).ok, "the claim token is single-use (replay refused)");
-    // And set-once.
     const credAgain = await setOwnPassword(wiA.studentId, { password: "Another!Pass9" });
     assert(credAgain.status >= 400, "me/credentials is set-once (second call refused)");
 
-    // =====================================================================
     realLog("\n2. PART A — MINOR with PHONE ONLY (the child-safety path)");
-    // =====================================================================
     drainMail();
     const wiB = await registerWalkIn(
       {
@@ -323,7 +265,6 @@ async function main() {
       "the guardian PHONE is stored for the record; no email on file",
     );
 
-    // Registration was NOT blocked — the account is real and claimable.
     const claimedB = await claim(tokenFromLink(wiB.invite.claimLink as string));
     assert(
       claimedB.ok && (claimedB.user.id as string) === wiB.studentId,
@@ -339,7 +280,6 @@ async function main() {
       "phone-only student logs in normally — the account is NOT suspended",
     );
 
-    // ---- the gate itself -------------------------------------------------
     await withPlatformContext((tx) =>
       tx.enrollment.create({
         data: {
@@ -387,10 +327,6 @@ async function main() {
       "the teacher's directory hides the locked student",
     );
 
-    // ---- but the rest of the account is untouched ------------------------
-    // A parent with NO email does not satisfy the channel (nothing to deliver
-    // oversight to) — which is exactly the state that lets us prove the child
-    // is STILL reachable to their own guardian while locked out of adults.
     const parentNoEmail = await withPlatformContext(async (tx) => {
       const p = await tx.user.create({
         data: {
@@ -418,13 +354,6 @@ async function main() {
       (await withPlatformContext((tx) => guardianChannelState(tx, wiB.studentId))).locked,
       "an approved parent WITHOUT an email does NOT satisfy the guardian channel",
     );
-    // NOTE: student<->parent chat does not exist in this platform's matrix at
-    // all (it never has — parents get READ-ONLY oversight, not a chat edge), so
-    // "can the child still message their guardian" is not a question this
-    // codebase can answer. The property that IS meaningful, and that this gate
-    // must not break: the FAMILY is not cut off. The parent is an adult with
-    // their own account, and their channel to the teacher stays fully open
-    // while the child's is locked.
     const actorParent = { id: parentNoEmail.id, role: "parent" as const };
     assert(
       await withPlatformContext((tx) => canReach(tx, actorParent, fx.teacher.id)),
@@ -434,9 +363,6 @@ async function main() {
       !(await withPlatformContext((tx) => canReach(tx, actorStudentB, fx.teacher.id))),
       "…while the child's adult channel stays shut",
     );
-    // The denial is `guardian_required`, NOT `no_relationship`: the enrollment
-    // is intact and only the channel is gated, which is why adding the email
-    // restores it instantly rather than needing anything re-established.
     let whyDenied: string | null = null;
     await withPlatformContext(async (tx) => {
       try {
@@ -450,8 +376,6 @@ async function main() {
       "the denial names the guardian gate, not a missing relationship",
     );
 
-    // Rule (a): give that parent an email and the channel is satisfied — no
-    // guardian_email column needed when a real linked guardian is reachable.
     await admin.query(`UPDATE users SET email=$2 WHERE id=$1`, [
       parentNoEmail.id,
       `${tag}-parentb@x.io`,
@@ -476,7 +400,6 @@ async function main() {
       "…and an approved link whose parent has no email leaves it locked again",
     );
 
-    // ---- the remedy ------------------------------------------------------
     const stB = await setGuardianContact(ownerU, wiB.studentId, {
       guardianEmail: `${tag}-guardianb@x.io`,
     });
@@ -497,7 +420,6 @@ async function main() {
     );
     assert(auditB.rows[0].c >= 1, "setting a guardian email writes an audit row");
 
-    // A student may not launder their own login email into the guardian slot.
     let selfErr: unknown = null;
     try {
       await setGuardianContact(ownerU, wiA.studentId, { guardianEmail: studentLoginEmail });
@@ -506,9 +428,7 @@ async function main() {
     }
     assert(!!selfErr, "the guardian email may not equal the student's own login email");
 
-    // =====================================================================
     realLog("\n3. PART A — deadline ESCALATES, never suspends or unlocks");
-    // =====================================================================
     const wiC = await registerWalkIn(
       { fullName: tag + " Student C", phone: phone(3), locale: "en" },
       ownerU,
@@ -547,9 +467,7 @@ async function main() {
     const sweep2 = await runGuardianContactReminders(new Date());
     assert(sweep2.reminded === 0, "the sweep is idempotent inside its reminder window");
 
-    // =====================================================================
     realLog("\n4. PART A — existing student flow is UNCHANGED");
-    // =====================================================================
     drainMail();
     const dup = await registerWalkIn(
       { fullName: tag + " Student A again", phone: phone(1), locale: "en" },
@@ -561,11 +479,6 @@ async function main() {
     assert("whatsapp" in dup, "the legacy `whatsapp` result key still exists for the counter screen");
     assert(dup.whatsapp.status === "skipped", "the WhatsApp leg is skipped (not failed) while the channel is off");
 
-    // The `walkin-token` provider-id ALIAS is retired along with NextAuth: the
-    // plugin exposes ONE endpoint (/invite-token/claim) and www's only caller
-    // (the claim page) posts there. What the alias existed to guarantee — a
-    // Step 7 walk-in student token still claims — is asserted on that single
-    // door instead of fabricating a second endpoint.
     const wiD = await registerWalkIn(
       { fullName: tag + " Student D", phone: phone(4), guardianEmail: `${tag}-gd@x.io`, locale: "en" },
       ownerU,
@@ -577,9 +490,7 @@ async function main() {
       "a walk-in student token claims through the single invite-token door (Step 7 unbroken)",
     );
 
-    // =====================================================================
     realLog("\n5. PART B — ASSISTANT invite -> claim -> login");
-    // =====================================================================
     drainMail();
     const asstEmail = `${tag}-asst@x.io`;
     const asst = await createAssistant(teacherU, { name: tag + " Assistant", email: asstEmail, locale: "en" });
@@ -632,7 +543,6 @@ async function main() {
     );
     assert(asstAudit.rows[0].c === 1, "the invite is audited");
 
-    // Re-inviting a CLAIMED account would be a creator-controlled reset door.
     let resendErr: unknown = null;
     try {
       await resendAssistantInvite(teacherU, asst.link.id, "en");
@@ -641,9 +551,7 @@ async function main() {
     }
     assert(!!resendErr, "re-inviting an already-claimed assistant is refused");
 
-    // =====================================================================
     realLog("\n6. PART B — CENTER STAFF, each sub-role");
-    // =====================================================================
     const staffRoles = ["receptionist", "manager", "center_accountant"] as const;
     for (const role of staffRoles) {
       drainMail();
@@ -701,10 +609,7 @@ async function main() {
       );
     }
 
-    // =====================================================================
     realLog("\n7. SECURITY — the gates the purpose map buys us");
-    // =====================================================================
-    // Cross-role: a token minted for one purpose cannot open another role.
     const crossEmail = `${tag}-cross@x.io`;
     const cross = await createStaff(ownerU, {
       name: tag + " Cross",
@@ -725,7 +630,6 @@ async function main() {
       createHash("sha256").update(crossToken).digest("hex"),
     ]);
 
-    // Revoking the membership kills the outstanding invite.
     await admin.query(`UPDATE center_staff SET removed_at=now() WHERE staff_user_id=$1`, [
       cross.user.id,
     ]);
@@ -737,14 +641,12 @@ async function main() {
       cross.user.id,
     ]);
 
-    // Expiry.
     await admin.query(
       `UPDATE invite_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash=$1`,
       [createHash("sha256").update(crossToken).digest("hex")],
     );
     assert(!(await claim(crossToken)).ok, "an EXPIRED token is refused");
 
-    // A token pointed at a CREDENTIALED account can never take it over.
     const takeover = await resendStaffInvite(ownerU, cross.link.id, "en");
     const takeoverToken = tokenFromLink(takeover.claimLink);
     await admin.query(`UPDATE users SET password_hash=$2 WHERE id=$1`, [
@@ -756,7 +658,6 @@ async function main() {
       "a token pointing at an account that HAS a password is refused (no takeover)",
     );
 
-    // Re-issuing invalidates the previous link.
     await admin.query(`UPDATE users SET password_hash=NULL WHERE id=$1`, [cross.user.id]);
     const first = await resendStaffInvite(ownerU, cross.link.id, "en");
     const second = await resendStaffInvite(ownerU, cross.link.id, "en");
@@ -770,7 +671,6 @@ async function main() {
       "…and the newest link works",
     );
 
-    // Token never persisted in the clear.
     const leaked = await admin.query(
       `SELECT count(*)::int c FROM invite_tokens WHERE token_hash = $1`,
       [tokenFromLink(second.claimLink)],
@@ -787,11 +687,6 @@ async function main() {
     );
     assert(waLeak.rows[0].c === 0, "no WhatsApp log row contains an unredacted token");
 
-    // Rate limit on the claim door. The plugin's per-IP bucket is capacity 10,
-    // refill 10/min (in-memory here). Every other claim in this suite used a
-    // fresh IP (the helper's default), so only THIS fixed IP's bucket fills:
-    // by call 11+ the door must return the typed RATE_LIMITED refusal, not
-    // just INVALID_TOKEN.
     let limited = false;
     for (let i = 0; i < 12; i++) {
       const r = await claimDoor("f".repeat(64), { ip: "203.0.113.254" });
@@ -799,13 +694,7 @@ async function main() {
     }
     assert(limited, "the claim door is rate-limited per IP");
 
-    // =====================================================================
     realLog("\n8. INVARIANT — no account can be stranded");
-    // =====================================================================
-    // Every account created through the REAL service path. The `cross` user is
-    // excluded because section 7 deliberately mangled it with raw SQL (expired
-    // its token, consumed another, and nulled its password_hash) to probe the
-    // gates — it is an artifact of the probe, not a state the product can reach.
     const stranded = await admin.query(
       `SELECT u.id, u.role
          FROM users u
@@ -850,8 +739,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite invite-claim.test.ts" })
   .then(() => main()).catch((e) => {
   console.log = realLog;

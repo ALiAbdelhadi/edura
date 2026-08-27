@@ -53,8 +53,6 @@ function ClaimInner() {
         const user = me?.data ?? null;
         setRole(user?.role ?? null);
         setFixedEmail(user?.email ?? null);
-        // The provider refuses a credentialed account, so this should not
-        // happen — check anyway rather than showing a dead password form.
         if (user?.hasPassword) router.replace(LANDING[user.role] ?? "/dashboard");
         else setPhase("credentials");
       } else {
@@ -64,8 +62,6 @@ function ClaimInner() {
   }, [token, router]);
 
   const saveCredentials = async () => {
-    // Mirror the server's rules (valid email, passwordSchema's letter + digit)
-    // so a walk-in student gets a translated message, not a raw API error.
     if (!fixedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       toast.error(t("auth.emailInvalid"));
       return;
@@ -103,8 +99,6 @@ function ClaimInner() {
         </div>
       ) : phase === "invalid" ? (
         <div className="space-y-2">
-          {/* An invalid or spent token is a blocking state, so it carries the
-              red — bordered, never a filled panel. */}
           <div
             className="flex size-11 items-center justify-center rounded-lg"
             style={{ background: "var(--red-soft)", color: "var(--red)" }}
@@ -133,8 +127,6 @@ function ClaimInner() {
           </div>
 
           <div className="space-y-3">
-            {/* An invitee keeps the address they were invited at; only a
-                phone-only student chooses one. */}
             <div className="flex flex-col gap-2">
               <Label htmlFor="claim-email" style={{ color: "var(--ink-2)" }}>
                 {t("auth.email")}

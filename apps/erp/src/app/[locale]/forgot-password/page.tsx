@@ -94,9 +94,6 @@ export default function ForgotPasswordPage() {
         ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{t("auth.email")}</Label>
-          {/* `dir="ltr"` on the WRAPPER, matching login/register: the icon and
-              its padding cut are logical, so an LTR field inside an RTL wrapper
-              would put them on opposite sides. */}
           <div className="relative" dir="ltr">
             <Mail className="pointer-events-none absolute inset-y-0 inset-s-0 my-auto ms-3 size-4 text-muted-foreground" />
             <Input

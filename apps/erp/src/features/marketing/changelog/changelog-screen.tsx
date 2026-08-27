@@ -7,7 +7,6 @@ import { MarketingShell } from "../marketing-shell";
 import styles from "../marketing.module.css";
 import { CHANGELOG, type ChangelogTag } from "./entries";
 
-/** Ledger chip tones, mapped once. Colour carries meaning here, not decoration. */
 const TAG_TONE: Record<ChangelogTag, "indigo" | "teal" | "amber" | "red"> = {
   feature: "indigo",
   improvement: "teal",
@@ -45,8 +44,6 @@ export async function ChangelogScreen({ locale }: { locale: Locale }) {
               {CHANGELOG.map((entry, i) => (
                 <li key={`${entry.date}-${i}`} className={styles.card}>
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* A date is data: mono face, Latin digits, isolated from
-                        the surrounding Arabic by <Num>. */}
                     <DateText className="text-xs" style={{ color: "var(--ink-3)" }}>
                       {formatDate(entry.date, locale, {
                         year: "numeric",

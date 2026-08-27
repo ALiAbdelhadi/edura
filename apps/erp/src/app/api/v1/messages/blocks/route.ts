@@ -22,10 +22,6 @@ const blockSchema = z.object({
   conversationId: z.uuid().optional(),
 });
 
-// Blocking halts new messages in BOTH directions and is enforced in the same
-// single place as every other messaging rule (chat-scope assertNotBlocked), so
-// it cannot be bypassed by a transport. History is never deleted, and the
-// thread stays visible to parent oversight and to platform staff.
 export const POST = withErrors(async (req) => {
   const user = await requireSession();
   const data = await parseJson(req, blockSchema);

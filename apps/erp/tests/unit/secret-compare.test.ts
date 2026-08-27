@@ -3,17 +3,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { secretEquals, bearerEquals } from "@repo/server-core/auth/secret-compare";
 
-/**
- * L-4 — the three server-to-server doors (cron, internal chat-notify, and the
- * realtime server's end of that bridge) authenticated with `===`/`!==` against
- * an env secret. String equality short-circuits at the first differing byte, so
- * failure time leaked how much of the secret a caller had guessed.
- *
- * These assert the helper's SEMANTICS, which is what a future edit is likely to
- * break. Timing itself is not asserted: a wall-clock comparison in a unit test
- * is noise on a shared runner, and the guarantee comes from `timingSafeEqual`
- * over two equal-length SHA-256 digests, which is structural.
- */
 describe("secretEquals", () => {
   const SECRET = "s3cr3t-value-with-some-length";
 
@@ -34,9 +23,6 @@ describe("secretEquals", () => {
     expect(secretEquals(SECRET + "x", SECRET)).toBe(false);
   });
 
-  // An absent header must never authenticate, and an unset secret must never
-  // make every caller valid — the failure mode that would turn a fail-closed
-  // door into an open one.
   it("rejects null, undefined and empty on either side", () => {
     expect(secretEquals(null, SECRET)).toBe(false);
     expect(secretEquals(undefined, SECRET)).toBe(false);
@@ -72,13 +58,6 @@ describe("bearerEquals", () => {
   });
 });
 
-/**
- * The STRUCTURAL half. The tests above assert semantics, and plain `===` would
- * satisfy most of them — which is exactly the regression this finding is about.
- * Constant-timeness cannot be measured reliably on a shared runner, so it is
- * asserted where it actually lives: in the source. Same technique the C-04
- * login-door test uses (tests/unit/c04-login-allowlist.test.ts).
- */
 describe("L-4 — the doors compare secrets in constant time", () => {
   const read = (rel: string) =>
     readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
@@ -100,7 +79,6 @@ describe("L-4 — the doors compare secrets in constant time", () => {
   ] as const) {
     it(`${name} routes its secret through the shared helper, not raw equality`, () => {
       expect(src, `${name} must import the shared helper`).toMatch(/secret-compare/);
-      // No raw comparison of a secret-bearing value.
       expect(src, `${name} must not compare a secret with === / !==`).not.toMatch(
         /(x-(cron|internal)-secret[^\n]*|internalSecret|CRON_SECRET)\s*[!=]==/,
       );

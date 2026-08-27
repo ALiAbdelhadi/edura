@@ -1,7 +1,3 @@
-// H2 proof — payout settlement can never push a wallet negative.
-//  (1) a settlement exceeding the balance is REJECTED (conditional decrement),
-//  (2) the DB CHECK (wallet_balance >= 0) rejects a direct negative write,
-//  (3) a normal valid settlement still works.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { approvePayout } from "@/lib/services/finance/payouts";
 import type { SessionUser } from "@/lib/auth/session";
@@ -9,9 +5,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
 
-// H-03: the original hardcoded seed UUID was removed by the Step 9 pre-launch
-// wipe. Prefer it when it still exists, otherwise bind to any teacher profile —
-// the proof is about the settlement floor, not about a particular teacher.
 const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
 let HOSSAM = SEED_TEACHER;
 
@@ -53,7 +46,6 @@ async function main() {
   const orig = await bal();
   await admin.query(`UPDATE teacher_profiles SET wallet_balance=5000 WHERE user_id=$1`, [HOSSAM]);
 
-  // (1) OVER-BALANCE settlement is rejected; balance untouched, payout not paid.
   console.log("\n(1) settlement exceeding balance:");
   const bigId = await createPending(8000); // > 5000
   let threw = "";
@@ -62,7 +54,6 @@ async function main() {
   ok((await bal()) === 5000, `balance unchanged at 5000 (never negative)`);
   ok((await payoutStatus(bigId)) === "pending", `payout stayed 'pending' (settlement rolled back)`);
 
-  // (2) DB-level CHECK rejects a direct negative write.
   console.log("\n(2) DB CHECK on a direct negative write:");
   let dbThrewTeacher = false;
   try {
@@ -79,14 +70,12 @@ async function main() {
   } catch (e) { dbThrewCenter = String((e as Error).message).includes("wallet_balance_nonneg"); }
   ok(dbThrewCenter, "centers CHECK (NOT VALID) rejected a new negative write");
 
-  // (3) NORMAL valid settlement still works.
   console.log("\n(3) normal valid settlement:");
   const okId = await createPending(3000); // <= 5000
   const paid = await approvePayout(okId, superUser);
   ok(paid.status === "paid", "payout settled -> 'paid'");
   ok((await bal()) === 2000, "balance decremented 5000 -> 2000");
 
-  // Cleanup.
   await admin.query(`DELETE FROM payouts WHERE id = ANY($1::uuid[])`, [[bigId, okId]]);
   await admin.query(`DELETE FROM notifications WHERE user_id=$1 AND created_at >= now() - interval '5 minutes'`, [HOSSAM]);
   await admin.query(`UPDATE teacher_profiles SET wallet_balance=$2 WHERE user_id=$1`, [HOSSAM, orig]);
@@ -96,7 +85,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite h2-payout-floor.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

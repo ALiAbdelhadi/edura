@@ -14,25 +14,6 @@ import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { ReasonDialog, type ReasonAction } from "./user-detail-screen";
 
-/* بطاقة الطالب في الباك أوفيس / The student's card, from the back office.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   IT LOADS ONLY WHEN OPENED, and that is a decision rather than a nicety. The
-   user record screen opens for every role on the platform; folding the card
-   into its payload would sign a QR — and, because a super admin reading a
-   child's identity document is AUDITED, write an `audit_logs` row — every time
-   an operator so much as glanced at a teacher, a parent or a center owner. The
-   audit trail would fill with views nobody performed, which is the specific way
-   an audit log stops being evidence.
-
-   So: collapsed by default, one request when expanded, and the audit row means
-   exactly what it says.
-
-   THE CARD DRAWN HERE IS THE STUDENT'S OWN CARD — literally the same component
-   from @repo/ui, not a back-office rendering of the same data. An operator
-   telling a parent on the phone what their card looks like has to be looking at
-   what the parent is holding. */
-
 type CardPayload = {
   studentId: string;
   name: string;
@@ -61,14 +42,9 @@ export function StudentCardPanel({ userId }: { userId: string }) {
   const req = useCustom({
     url: `admin/users/${userId}/card`,
     method: "get",
-    // The whole point of the panel: nothing is fetched, and nothing is
-    // audited, until an operator actually asks to see the card.
     queryOptions: { enabled: open },
   });
 
-  // refine hands back a frozen placeholder object while a query is idle or in
-  // flight, so this narrows on the VALUE rather than trusting the generic —
-  // the trap that had DataRightsCard throwing on first paint.
   const card = (req.result?.data ?? null) as CardPayload | null;
 
   const run = async (which: ReasonAction, reason: string) => {
@@ -81,8 +57,6 @@ export function StudentCardPanel({ userId }: { userId: string }) {
       toast.success(t(which === "reissueCard" ? "reissuedToast" : "revokedToast"));
       await req.query.refetch();
     } catch (e) {
-      // The service's refusal names the boundary it hit ("already revoked");
-      // a generic message would throw away the only actionable part.
       toast.error((e as { message?: string })?.message || t("failed"));
     }
   };
@@ -113,9 +87,6 @@ export function StudentCardPanel({ userId }: { userId: string }) {
       ) : !card ? (
         <p className="py-4 text-sm text-ink-2">{t("unavailable")}</p>
       ) : card.isPending ? (
-        // A pending code (`X…`) is a real code, but it is replaced the moment
-        // the student finishes onboarding. Printing a card now hands out one
-        // that stops matching, so the student's own screen withholds it too.
         <p className="py-4 text-sm text-ink-2">{t("pendingCode")}</p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -149,9 +120,6 @@ export function StudentCardPanel({ userId }: { userId: string }) {
               <RefreshCcw className="size-4" aria-hidden="true" />
               {t("reissue")}
             </Button>
-            {/* Absent, not disabled, once the card is already stopped — there is
-                nothing left for it to do, and the reissue beside it is the
-                action that actually moves the student forward. */}
             {card.qr.revokedAt ? null : (
               <Button variant="outline" size="sm" onClick={() => setAction("revokeCard")}>
                 <ShieldOff className="size-4" aria-hidden="true" />

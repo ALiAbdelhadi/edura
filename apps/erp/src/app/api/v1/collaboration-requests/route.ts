@@ -12,8 +12,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z
   .object({
-    // Each side sends only the TARGET id; the caller's own side is derived
-    // from the session (teacher -> centerId required; center -> teacherId).
     teacherId: z.string().uuid().optional(),
     centerId: z.string().uuid().optional(),
     subjectId: z.string().uuid(),
@@ -26,12 +24,7 @@ const bodySchema = z
     startDate: z.coerce.date(),
     endDate: z.coerce.date().nullish(),
     expectedStudents: z.number().int().positive().max(10000).nullish(),
-    // Accepted for backward compatibility with older clients, then IGNORED:
-    // the flat center share is superadmin-only config (the service forces 0).
-    // Kept optional rather than rejected so a stale PWA bundle still submits.
     proposedCenterShare: z.number().int().min(0).max(99_999_900).nullish(),
-    // Room-based only. Validated against the room's center-set availability in
-    // the service; never carries a number — superadmin owns all rates.
     proposedPricingMethod: z
       .enum(["whole_room_percent", "per_attending_student"])
       .nullish(),

@@ -19,15 +19,6 @@ import {
 } from "@repo/database/search-text";
 import { maskName, maskPhone } from "../students/disclosure";
 
-// ---------------------------------------------------------------------------
-// Step 6 — counter + door check-in.
-// Stages (counterAt/doorAt) are FACTS; `status` is the single derived truth:
-//   mode counter_only:      counter            -> present
-//   mode counter_and_door:  counter, no door   -> counter_only (NOT present)
-//                           counter + door     -> present
-// Door STRICTLY requires counter first (approved decision).
-// ---------------------------------------------------------------------------
-
 function dayBounds(date = new Date()): { start: Date; end: Date } {
   const start = new Date(date);
   start.setUTCHours(0, 0, 0, 0);
@@ -36,99 +27,23 @@ function dayBounds(date = new Date()): { start: Date; end: Date } {
   return { start, end };
 }
 
-// Step 8: the assistant->teacher resolution moved to the single delegation
-// helper; kept as an alias so Step 6 call sites stay unchanged.
 import { resolveActingTeacher } from "../../authz/acting-teacher";
 export const resolveAssistantTeacher = resolveActingTeacher;
 
-// ---------------------------------------------------------------------------
-// Counter: lookup + suggest + check-in (center front desk)
-// ---------------------------------------------------------------------------
-
-/**
- * Is what was typed a PHONE NUMBER, rather than a fragment that happens to
- * contain digits? Any letter disqualifies it, and it must carry enough digits
- * to be the number itself — a person reads their whole number out at a counter,
- * they do not read out three digits of it.
- *
- * The threshold is 8 rather than Egypt's full 11 so that a number typed without
- * its leading zero, or a landline, still resolves. Below that it is not an
- * identifier, it is a prefix, and a prefix is how you enumerate.
- */
 const PHONE_IDENTIFIER_MIN_DIGITS = 8;
 
 function asPhoneIdentifier(query: string): string | null {
-  // NORMALIZED FIRST, and that is not cosmetic. A number typed on an Arabic
-  // keypad arrives as ٠١١١١٣٦٧١٥٠; the letter test below saw non-ASCII digits
-  // as letters and rejected the whole thing, so the card in the reader's hand
-  // resolved to nobody. `normalizeSearchText` folds ٠-٩ onto 0-9 first.
   const normalized = normalizeSearchText(query);
   if (/[^\d\s+()\-]/.test(normalized)) return null;
   const digits = normalized.replace(/\D/g, "");
   return digits.length >= PHONE_IDENTIFIER_MIN_DIGITS ? digits : null;
 }
 
-/**
- * The counter search — "who is standing in front of me?"
- *
- * ── REACHING A STUDENT AND READING ONE ARE DIFFERENT PERMISSIONS ────────────
- *
- * This lookup runs under `platformDb`, deliberately: a walk-in carrying another
- * center's card must resolve, which is the whole reason the result carries
- * `onOurRoster` and `otherCenters` for the UI to warn about. But the query used
- * to OR the student code together with `contains` matches on name and phone,
- * all of them platform-wide, and return every hit's phone number. Two typed
- * characters therefore listed children from every center on the platform with
- * their numbers attached — to `RECEPTION`, the least privileged center role.
- *
- * So the reach is split by what the query actually proves:
- *
- *   IDENTIFIER  — a student code whose check character agrees, or a phone
- *                 number given in full. Both are things the person at the desk
- *                 supplied; supplying one is evidence you are dealing with that
- *                 child. These reach the whole platform.
- *
- *   FREE TEXT   — a name, or a short run of digits. Evidence of nothing:
- *                 "محمد" matches thousands. This searches THIS CENTER'S ROSTER
- *                 and nothing else.
- *
- * ── AND THE DISCLOSURE IS THEN TIERED ──────────────────────────────────────
- *
- * The same tiering `lookupStudentForManualEntry` already applies, from the same
- * `maskName`/`maskPhone`: our own student comes back in full, because the center
- * holds that data already; a student reached by identifier but not held by this
- * center comes back with a masked name and a last-4 phone. The receptionist
- * scanning a card can already read the full name off the card in their hand, so
- * masking costs them nothing and stops the response being a directory entry.
- *
- * `studentId` IS still returned for that student — unlike the manual-entry
- * lookup, this one has to be able to check them in.
- */
 export async function lookupStudents(q: string, admin: SessionUser) {
   const centerId = admin.centerId as string;
   const query = q.trim();
   if (query.length < 2) return [];
 
-  // A code only becomes a search term once its check character agrees. So a
-  // card scanned with one character misread contributes NOTHING to the OR
-  // instead of matching a different student outright — the receptionist gets
-  // "not found" and looks again, which is the honest answer.
-  //
-  // `readStudentScan` widens that by exactly one shape: the SIGNED URL the
-  // card's QR now carries. A keyboard-wedge barcode scanner — the cheap kind
-  // most centers own, which types what it reads into whatever field has focus
-  // — lands the whole `https://…/c/G7K3M2QF-1-<sig>` in this box, and the
-  // receptionist should not have to know that. A bad signature still yields
-  // the code (`forged`), because at a counter the receptionist is looking at
-  // the human, not at the square; refusing here would only send them to type
-  // the same eight characters by hand. Card AUTHENTICITY is answered on the
-  // scan route, where there is somewhere to show the answer.
-  // RAW FIRST, and that ordering is the whole of it. A keyboard-wedge scanner
-  // types the card's entire signed URL into this box, and normalization turns
-  // every `:` `/` `-` in it into a space — so normalizing before this call fed
-  // `readStudentScan` a sentence and it resolved a real card to nobody.
-  // The normalized retry exists for the OTHER hand: a code typed by a human on
-  // an Arabic keypad («A1Y٠٠HDG») or read aloud and typed back with a dash.
   let scan = readStudentScan(query);
   if (scan.kind === "unreadable") {
     const retyped = normalizeIdentifier(query);
@@ -138,20 +53,12 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   const phone = asPhoneIdentifier(query);
 
   return platformDb(async (tx) => {
-    // Read once: it bounds the free-text search AND decides, below, how much of
-    // each row may be disclosed.
     const ourRoster = await tx.centerStudentRoster.findMany({
       where: { centerId, leftAt: null },
       select: { studentId: true },
     });
     const ourStudentIds = ourRoster.map((r) => r.studentId);
 
-    // The free-text reach NARROWS in SQL and DECIDES in JS — see the two-stage
-    // note in `services/search/global-search.ts`. `%احمد%` matched none of the
-    // three rows stored «أحمد», so the counter answered "not registered here"
-    // about a child standing at the desk. The fragments below are the pieces of
-    // the query that survive normalization unchanged and can therefore be
-    // compared byte-wise; `matchesSearchTerms` then makes the real decision.
     const terms = searchTerms(query);
 
     const reach: Prisma.StudentProfileWhereInput[] = [
@@ -162,17 +69,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
             { user: { phone: { contains: phone } } },
           ]
         : []),
-      // The free-text branch narrows on the `search_text` columns — the
-      // profile's own (full_name + phone) and the user row's (name + email +
-      // phone) — either of which may carry the match, hence the OR.
-      //
-      // AND THE JS PASS BELOW STILL DECIDES, which is not belt-and-braces: the
-      // haystack this lookup matches on spans TWO TABLES, and a generated
-      // column cannot reference another one. A query naming the student by
-      // their user-row name and their profile phone satisfies the joined
-      // haystack `matchesSearchTerms` builds, and satisfies NEITHER column
-      // alone. So this OR is a pre-filter that cannot miss such a row — every
-      // term appears somewhere — and JS makes the actual decision.
       ...(ourStudentIds.length
         ? [
             {
@@ -188,8 +84,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
         : []),
     ];
 
-    // No identifier and an empty roster: there is nothing this center may
-    // legitimately match on, and an empty `OR` in Prisma matches EVERY row.
     if (reach.length === 0) return [];
 
     const candidates = await tx.studentProfile.findMany({
@@ -207,10 +101,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
       take: SEARCH_SCAN_LIMIT,
     });
 
-    // An IDENTIFIER row is kept whatever the text matcher thinks of it: it was
-    // reached because the reader supplied a code whose check character agrees
-    // or a phone number in full, and neither of those has to look like the
-    // child's name. Only the free-text rows are re-decided here.
     const profiles = candidates
       .filter((r) => {
         const byIdentifier =
@@ -252,10 +142,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
         return {
           studentId: p.userId as string,
           name: onOurRoster ? name : maskName(name),
-          // Echoed back only when it is the code they searched with — that
-          // discloses nothing they did not already hold in their hand. Reached
-          // by phone instead, the code would be new information about a child
-          // this center does not have.
           studentCode:
             onOurRoster || (code !== null && code === p.studentCode)
               ? p.studentCode
@@ -271,11 +157,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
   });
 }
 
-/**
- * Both selection paths (approved decision B): `suggested` = today's sessions
- * at this center the student holds coverage for; `today` = every session at
- * this center today for manual pick.
- */
 export async function suggestSessions(studentId: string, admin: SessionUser) {
   const centerId = admin.centerId as string;
   const { start, end } = dayBounds();
@@ -305,10 +186,6 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
     });
     const courseMap = new Map(courses.map((c) => [c.id, c]));
 
-    // What already happened today for THIS student — so the counter can show
-    // "already checked in" instead of offering the same commit again. The
-    // second press was always idempotent server-side; this makes the screen
-    // say so instead of leaving the operator guessing.
     const attendance = await tx.attendanceRecord.findMany({
       where: { studentId, sessionId: { in: sessions.map((s) => s.id) } },
       select: { sessionId: true, status: true },
@@ -363,8 +240,6 @@ export async function counterCheckin(
 
   const { result, crossCenterNotify } = await platformDb(
     async (tx) => {
-      // Phase 0: serialize against settlement, then act on committed truth —
-      // see lesson-lock.ts for the interleaving this closes.
       await lockSessionRow(tx, input.sessionId);
       const session = await tx.session.findUnique({
         where: { id: input.sessionId },
@@ -381,9 +256,6 @@ export async function counterCheckin(
       if (session.status === "cancelled") {
         throw new BusinessRuleError("Session is cancelled");
       }
-      // Phase 0: "إنهاء الحصة" closes the counter register immediately. Before
-      // this, a counter check-in landed on a SETTLED lesson — a student the
-      // money was never computed for.
       if (lessonClosed(session)) {
         throw new BusinessRuleError(
           "This lesson has ended — the counter register is closed",
@@ -398,8 +270,6 @@ export async function counterCheckin(
         throw new ForbiddenError("Session is not at your center");
       }
 
-      // Coverage gate — the ONLY payment integration point. Payment itself is
-      // the Step 4 walk-in per-session path; no money code lives here.
       const covered = await coveredStudentIds(
         tx,
         { id: session.id, courseId: session.courseId, date: session.date },
@@ -426,8 +296,6 @@ export async function counterCheckin(
         },
       });
 
-      // Derived status: door already done (out-of-order but possible after a
-      // mode flip) keeps present; otherwise per the mode table.
       const derived =
         mode === "counter_only" || existing?.doorAt ? "present" : "counter_only";
 
@@ -453,15 +321,11 @@ export async function counterCheckin(
             markedBy: admin.id,
             counterAt: now,
             counterBy: admin.id,
-            // Inherited from the group (see bulkMarkAttendance) — the counter
-            // works identically for an off-system teacher's lesson.
             dataSource: course.dataSource,
           },
         });
       }
 
-      // Cross-center recognition: active roster rows at OTHER centers → let
-      // the student choose (keep or switch) via me/roster/choice.
       const rosters = await tx.centerStudentRoster.findMany({
         where: { studentId: input.studentId, leftAt: null },
         select: { centerId: true },
@@ -512,18 +376,12 @@ export async function counterCheckin(
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Door: assistant (teacher fallback) — strictly after counter
-// ---------------------------------------------------------------------------
-
 export type DoorOutcome = "present" | "already_present" | "no_counter" | "settled" | "error";
 
-/** Shared transition, used by the door route AND the offline sync path. */
 export async function doorTransitionTx(
   tx: TenantTx,
   input: { studentId: string; sessionId: string; actorId: string; teacherId: string; at?: Date },
 ): Promise<{ outcome: DoorOutcome; reason?: string }> {
-  // Phase 0: serialize against settlement — see lesson-lock.ts.
   await lockSessionRow(tx, input.sessionId);
   const session = await tx.session.findUnique({
     where: { id: input.sessionId },
@@ -533,9 +391,6 @@ export async function doorTransitionTx(
   if (session.teacherId !== input.teacherId) {
     return { outcome: "error", reason: "not_your_session" };
   }
-  // Phase 0: the worst of the five doors this closes — the door flip promotes
-  // `counter_only` (deliberately excluded from distribution) to `present`, so
-  // doing it AFTER settlement rewrites the fact the money already ignored.
   if (lessonClosed(session)) {
     return { outcome: "settled", reason: "session_closed" };
   }
@@ -546,11 +401,9 @@ export async function doorTransitionTx(
     },
   });
   if (!record || !record.counterAt) {
-    // STRICT: the door confirms a student the counter already admitted.
     return { outcome: "no_counter", reason: "no_counter_checkin" };
   }
   if (record.doorAt) {
-    // Idempotent replay: nothing to change, nothing overwritten.
     return { outcome: "already_present" };
   }
 
@@ -577,13 +430,6 @@ export async function doorCheckin(
 
       let studentId = input.studentId;
       if (!studentId && input.studentCode) {
-        // The check character earns its keep here: a code typed one character
-        // wrong at the hall door must FAIL, not resolve to another child and
-        // mark them present. `readStudentScan` returns `unreadable` for
-        // anything that is not a genuine code, so the lookup never runs on a
-        // guess — and it accepts the card's scanned QR URL as well as the
-        // eight characters, because the assistant at the hall door is holding
-        // a phone, not a keyboard.
         const scan = readStudentScan(input.studentCode);
         if (scan.kind === "unreadable") throw new NotFoundError("Student code not found");
         const code = scan.code;
@@ -621,7 +467,6 @@ export async function doorCheckin(
   );
 }
 
-/** Door roster view: who passed the counter and who is door-confirmed. */
 export async function doorSessionState(sessionId: string, user: SessionUser) {
   return platformDb(async (tx) => {
     const teacherId = await resolveAssistantTeacher(tx, user);

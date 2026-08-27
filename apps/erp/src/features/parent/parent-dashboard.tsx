@@ -1,28 +1,5 @@
 "use client";
 
-// Parent home — the landing.
-//
-// AN INDEX, NOT A COPY. Everything here either answers a question outright or
-// opens the page that owns it. Nothing is a truncated duplicate of a section
-// that exists in full one tap away — that rule was won in an earlier pass and
-// is kept.
-//
-// WHAT CHANGED IN THE IA PASS (PARENT_IA_AUDIT.md §3, §6.2):
-//
-//   · «الرسوم المستحقة» is GONE. It was `max(Σ enrollments.coursePrice −
-//     Σ payments, 0)`, computed on the client, and there is no outstanding
-//     balance in this domain to compute — see child-subscription-alert.tsx for
-//     the full argument and CLEANUP_NOTES.md for the record. It was the
-//     second-largest number on this screen and no server could recognise it.
-//   · The three questions a parent actually opens the app with are answered
-//     ABOVE the figures rather than under them: did they go today, when is the
-//     next lesson, is the subscription about to lapse.
-//   · The four full-width metric cards became a three-across strip. On a phone
-//     `grid-cols-1` meant roughly 480px of scroll for four numbers, and
-//     everything below them began off-screen.
-//
-// Colour is meaning: teal = money confirmed or a lesson attended, amber =
-// waiting, red = blocked. Never decoration.
 import React from "react";
 import type { ReactNode } from "react";
 import { useList, useCustom } from "@refinedev/core";
@@ -45,23 +22,6 @@ import { ChildTodayLine } from "@/features/parent/child-today-line";
 import { ChildSubscriptionAlert } from "@/features/parent/child-subscription-alert";
 import { Figure, Money, SkeletonRows } from "./ledger-kit";
 
-/**
- * One figure from the record, opening the page that owns it.
- *
- * ── WHY A STRIP AND NOT FULL-WIDTH CARDS ──────────────────────────────────
- *
- * Four `Metric` cards at `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` are one
- * column on a 375px phone: four stacked cards for four numbers, with the
- * quick action and everything else below the fold. Three across at every width
- * costs each figure some size and buys back the rest of the page. The `reason`
- * line survives only from `sm` up — it is lineage, and lineage is worth a line
- * on a laptop and worth the fold on a phone.
- *
- * The name is on the LINK, not left to be inferred from a nested span: an
- * anchor whose content is three spans reports no accessible name at all, which
- * is what these cards did before. The chevron is a `DirectionalIcon` because
- * "onward" points along the reading axis.
- */
 function RecordCard({
   href,
   label,
@@ -121,16 +81,12 @@ export function ParentDashboard() {
     queryOptions: { enabled: !!childId },
   });
 
-  // `me/attendance` on the same URL the today-line reads, so React Query serves
-  // both from one request.
   const { query: attendanceQuery, result: attendanceResult } = useCustom({
     url: childId ? `me/attendance?studentId=${childId}` : "me/attendance",
     method: "get",
     queryOptions: { enabled: !!childId },
   });
 
-  // Declared with the other hooks: the gate cannot sit behind the loading
-  // branch below, or the tour would never mount while data is in flight.
   const tour = useTourGate();
 
   const grades = (gradesResult?.data ?? []) as any[];
@@ -143,10 +99,6 @@ export function ParentDashboard() {
     paymentsQuery.isLoading ||
     attendanceQuery.isLoading;
 
-  // The headline averages the SUBJECT percentages rather than pooling every
-  // mark, so a subject that happens to run more assessments cannot dominate the
-  // figure a parent reads as "how is my child doing". Same rule as
-  // /progress and the student dashboard, so the three agree.
   const courseMap = new Map<string, { scores: { score: number; max: number }[] }>();
   for (const g of grades) {
     if (!courseMap.has(g.courseId)) courseMap.set(g.courseId, { scores: [] });
@@ -166,10 +118,6 @@ export function ParentDashboard() {
     overallAvg = Math.round(totalPct / courseMap.size);
   }
 
-  // Money actually paid FOR this child, by anyone — the parent's card, the
-  // other parent's cash at the counter, the student's own wallet. `payments`
-  // is scoped by beneficiary, which is what makes this a record rather than a
-  // statement about one payer.
   const paid = payments
     .filter((p: any) => p.amount > 0)
     .reduce((a: number, b: any) => a + b.amount, 0);
@@ -178,10 +126,6 @@ export function ParentDashboard() {
     <div className="flex flex-col gap-4">
       <PageHeader eyebrow={t("roles.parent")} title={t("parentDashboard.title")} />
 
-      {/* First entry only: the guided tour of the REAL portal offers itself
-          once, then never again (user_prefs.tour_completed). The emulator keeps
-          its permanent entry in the menu and this tour's last card points at
-          it; both read the same flag, so they cannot open together. */}
       <GuidedTour
         steps={PARENT_TOUR_STEPS}
         namespace="parentTour"
@@ -192,9 +136,6 @@ export function ParentDashboard() {
       {isLoading ? (
         <SkeletonRows rows={4} />
       ) : !childId ? (
-        // Names the fact AND the next step. Nothing in this portal works until
-        // a link is approved, so "no children" is the start of a task, not a
-        // dead end.
         <EmptyState
           icon={Users}
           title={t("parentDashboard.noChildren")}
@@ -208,10 +149,6 @@ export function ParentDashboard() {
         />
       ) : (
         <>
-          {/* ORDER IS THE ARGUMENT. Today's register outranks everything when
-              it exists — a parent opening the app in the evening is asking
-              about the lesson that already happened. It renders nothing on a
-              day with no record, so the hero leads the rest of the time. */}
           <ChildTodayLine
             childId={childId}
             childName={childName}
@@ -220,7 +157,6 @@ export function ParentDashboard() {
 
           <ChildNextLesson childId={childId} />
 
-          {/* Conditional, self-clearing, at most one. */}
           <ChildSubscriptionAlert childId={childId} childName={childName} />
 
           <LatestGradeCard
@@ -232,7 +168,6 @@ export function ParentDashboard() {
             })}
           />
 
-          {/* THREE figures, not four. The fourth was «الرسوم المستحقة». */}
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <RecordCard
               href="/dashboard/parent/attendance"
@@ -244,8 +179,6 @@ export function ParentDashboard() {
                 record: t("parentDashboard.attendanceRate"),
               })}
             >
-              {/* Was a literal `%`. The Arabic UI writes ٪, and /progress —
-                  one tap away, showing the same figure — already did. */}
               <Figure className="text-[22px] font-semibold sm:text-[28px]">
                 {formatPercent(attendance?.rate ?? 0)}
               </Figure>
@@ -276,7 +209,6 @@ export function ParentDashboard() {
             </RecordCard>
           </div>
 
-          {/* The act, one tap from the alert that prompts it. */}
           <LedgerButton variant="primary" asChild>
             <Link href="/dashboard/parent/pay">
               {t("parentDashboard.payFor", { name: childName })}

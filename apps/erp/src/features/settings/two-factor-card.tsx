@@ -14,11 +14,6 @@ import { authClient } from "@/lib/auth/client";
 
 type Phase = "idle" | "password" | "verify" | "disabling";
 
-/**
- * Guided TOTP enrollment (QR + backup codes). On www this is offered to
- * center owners (center_admin) — optional but encouraged. The same component
- * drives the REQUIRED enrollment in apps/superadmin.
- */
 export function TwoFactorCard() {
   const t = useTranslations();
   const [enabled, setEnabled] = useState<boolean | null>(null);

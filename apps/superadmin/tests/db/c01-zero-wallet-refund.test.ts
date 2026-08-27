@@ -1,35 +1,3 @@
-/**
- * C-01 P7 — refund reversal against a ZERO-wallet center.
- *
- * This was the tail of apps/www/tests/db/c01-lesson-settlement.test.ts, where it
- * ran by POSTing to a superadmin server over HTTP. That is the exact shape that
- * made those writes invisible to db-guard (proven 2026-08-01: the suite created
- * rows in DEV while the guard read `test`), so c01 moved in-process — and
- * `refundLessonForStudent` could not come with it: it exists ONLY in
- * apps/superadmin. It is not a `@repo/server-core` shim like commission /
- * distribution / fees, and importing it from apps/www would resolve its own
- * `@/lib/...` imports against apps/www/src, where files of the SAME NAME exist.
- * The proof would then run www's platformDb and notify while claiming to
- * exercise superadmin's. So the assertions moved to the app that owns the
- * service instead — nothing here is weakened, only relocated.
- *
- * WHY THIS IS NOT refund.test.ts: that suite refunds a center configured with
- * centerShare = 5000 and pre-loaded wallets. C-01's case is the opposite and is
- * the one the H2 floor actually bites on — a BRAND-NEW center, wallet 0, NO
- * centerShare (the default) — where the reversal must debit wallets back to
- * exactly zero without ever crossing below it.
- *
- *   1. a zero-wallet center settles its first lesson (the C-01 precondition)
- *   2. the refund reverses BOTH wallets by exactly the settled nets
- *   3. neither wallet goes negative — `centers_wallet_balance_nonneg` holds
- *   4. H3: the second refund of the same charge is REFUSED
- *   5. exactly one refund row exists for the charge
- *
- * Everything it creates is deleted at the end.
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
@@ -52,9 +20,6 @@ async function main() {
   const tag = "c01p7-" + Math.floor(Math.random() * 1e9).toString(36);
   console.log("C-01 P7 — zero-wallet refund reversal —", tag);
 
-  // The C-01 preconditions, built explicitly: both wallets 0, and the
-  // affiliation carries NO centerShare (leave it at the column default, exactly
-  // as a fresh superadmin link or an accepted collaboration request would).
   const fx = await withPlatformContext(async (tx) => {
     const teacher = await tx.user.create({ data: { name: tag + "-t", role: "teacher", email: tag + "-t@x.io", status: "active" } });
     await tx.teacherProfile.create({ data: { userId: teacher.id, walletBalance: 0 } });
@@ -82,7 +47,6 @@ async function main() {
     const before = await walletsNow();
     assert(before.t === 0 && before.c === 0, `both wallets start at zero (teacher ${before.t}, center ${before.c})`);
 
-    // ---- settle ----
     await completeSession(fx.s1, { id: fx.teacher, role: "teacher" } as never);
     const settled = await walletsNow();
 
@@ -92,14 +56,12 @@ async function main() {
     assert(settled.t === teacherNet, `the zero-wallet lesson settled the teacher by exactly teacherNet (${settled.t} == ${teacherNet})`);
     assert(settled.c === centerNet, `... and the center by exactly centerNet (${settled.c} == ${centerNet})`);
 
-    // ---- refund ----
     await refundLessonForStudent(fx.s1, fx.student, `${tag} proof`, { id: fx.teacher, role: "accountant" } as never);
     const reversed = await walletsNow();
     assert(reversed.t === settled.t - teacherNet, `the teacher wallet reversed by exactly teacherNet (${settled.t} -> ${reversed.t})`);
     assert(reversed.c === settled.c - centerNet, `the center wallet reversed by exactly centerNet (${settled.c} -> ${reversed.c})`);
     assert(reversed.t >= 0 && reversed.c >= 0, "both wallets are still >= 0 after the reversal — the H2 floor held");
 
-    // ---- H3: no double refund ----
     let refusedWith = "";
     try {
       await refundLessonForStudent(fx.s1, fx.student, `${tag} double`, { id: fx.teacher, role: "accountant" } as never);
@@ -113,7 +75,6 @@ async function main() {
     )).rows[0].c as number;
     assert(refundRows === 1, `exactly one refund row exists for this charge (${refundRows})`);
 
-    // The constraint this whole scenario exists for must still be enforced.
     let floorHeld = false;
     try {
       await adminPool.query(`update centers set wallet_balance = -1 where id=$1`, [fx.center]);
@@ -149,7 +110,5 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite c01-zero-wallet-refund.test.ts" })
   .then(() => main()).catch((e) => { console.error(e); process.exit(1); });

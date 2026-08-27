@@ -5,15 +5,6 @@ import {
   type ImportRow,
 } from "@/features/admin/student-import-result";
 
-// The downloadable import result is the ONLY record that maps a row in the
-// center's own spreadsheet to the student code this platform minted for it —
-// nothing stores the center's old id, and the dialog's table is capped and
-// never shows the code. So the two properties asserted here are what make a
-// migration reconcilable at all:
-//
-//   1. a MERGED summary carries every row from every chunk, with its code;
-//   2. a preview and a committed run cannot be confused for one another.
-
 type Row = ImportRow;
 
 function summary(rows: Row[], dryRun = false) {
@@ -30,9 +21,6 @@ function summary(rows: Row[], dryRun = false) {
 
 describe("merging chunk results", () => {
   it("keeps every row from every chunk, in order", () => {
-    // A 400-row file is uploaded in 20 requests; the saved document must be one
-    // file with all 400 rows, or the crosswalk has holes exactly where the
-    // chunk boundaries fell.
     const parts = [0, 20, 40].map((offset) =>
       summary(
         Array.from({ length: 20 }, (_, i) => ({
@@ -76,8 +64,6 @@ describe("merging chunk results", () => {
   });
 
   it("carries a failed row rather than dropping it", () => {
-    // A dropped failure would make the saved totals disagree with the rows, and
-    // the reconcile tool balances one against the other.
     const merged = mergeSummaries(
       [
         summary([{ line: 2, name: "", status: "error", errorCode: "name_required" }]),
@@ -93,8 +79,6 @@ describe("merging chunk results", () => {
 
 describe("naming the saved file", () => {
   it("marks a dry run as a preview and a real run as a result", () => {
-    // Reconciling a migration against a dry run would report success for writes
-    // that never happened.
     const rows: Row[] = [{ line: 2, name: "أحمد", status: "would_create" }];
     expect(resultFileName(summary(rows, true), "students.csv")).toBe(
       "students.preview.json",
@@ -108,7 +92,6 @@ describe("naming the saved file", () => {
     const s = summary([], false);
     expect(resultFileName(s, "كشف الطلاب.csv")).toBe("كشف الطلاب.import-result.json");
     expect(resultFileName(s, "roster.tsv")).toBe("roster.import-result.json");
-    // Only the LAST extension goes: a center's file is often "roster.2026.csv".
     expect(resultFileName(s, "roster.2026.csv")).toBe("roster.2026.import-result.json");
   });
 

@@ -23,17 +23,6 @@ export async function apiSend<T>(url: string, method: "POST" | "PATCH", body: un
   return json.data;
 }
 
-/**
- * The wizard's data, either handed to it or fetched.
- *
- * `initial` is the server-rendered path: the page that renders a wizard has
- * already resolved the session to decide whether the wizard should be shown at
- * all, so it loads the catalog tree and the saved state in that same server
- * pass and passes them down. The wizard then paints filled on first render
- * instead of mounting a skeleton and waiting for two more round trips.
- *
- * The fetching path stays for any caller with no server data to give.
- */
 export type OnboardingInitial<TState> = { tree: CatalogSystem[]; state: TState };
 
 export function useOnboarding<TState>(initial?: OnboardingInitial<TState>) {

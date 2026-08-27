@@ -1,27 +1,11 @@
 import { cn } from "@repo/ui/lib/utils";
 import * as React from "react";
 
-/* <IdentityCell> — the first column of every table in the product.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   One person or one center, rendered the same way everywhere, because a reader
-   scanning a payouts table and a roster table should not have to re-learn where the
-   name is.
-
-   The second line is the reason this is a component and not three divs: it holds an
-   email, a code, or a role — Latin runs inside Arabic rows — and it is the single most
-   common site of a bidi break in the product. It is isolated here, once. Real data
-   from the seed (`ovsdemo-3@edura.test` beside `أ. شريف الجندي`) is the worst case and
-   it is the default case. */
-
 export function IdentityCell({
   name,
-  /** Email, code, or `TRX-` ref. Always mono, always direction-isolated. */
   meta,
-  /** Free text after the meta, e.g. a role. Follows the page direction. */
   metaSuffix,
   initials,
-  /** `person` = indigo tile, `center` = teal. Two entity kinds, two fills. */
   kind = "person",
   href,
   className,
@@ -70,8 +54,6 @@ export function IdentityCell({
   );
 }
 
-/** Initials from a name, script-agnostic: takes the first letter of the first two
-    words, which works for `أ. شريف الجندي` and `Sherif El-Gindy` alike. */
 export function initialsOf(name: string, max = 2): string {
   return name
     .trim()

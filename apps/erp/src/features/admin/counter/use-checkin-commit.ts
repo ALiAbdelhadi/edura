@@ -15,8 +15,6 @@ export type CheckinTarget = {
   covered: boolean;
 };
 
-/** Phase 1: the counter's collection channels. Mirrors the route's z.enum —
- *  the gateway (`online_paymob`) and internal `wallet` are NOT offered here. */
 export const COUNTER_METHODS = ["cash", "instapay", "pos_card", "mobile_wallet"] as const;
 export type CounterMethod = (typeof COUNTER_METHODS)[number];
 

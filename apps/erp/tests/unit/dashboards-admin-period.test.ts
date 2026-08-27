@@ -1,15 +1,3 @@
-// CENTER_IA_AUDIT.md §7.1 finding 3 — `dashboards/admin` had no period
-// parameter, so `revenue` and `attendanceRate` were LIFETIME BY CONSTRUCTION
-// under names that read as current figures.
-//
-// An owner sees "الإيرادات" sitting beside "حصص النهاردة" and reads them as the
-// same timeframe. They never were: one is today, the other is every payment the
-// center has ever taken.
-//
-// Renaming to `lifetimeRevenue` would have been honest and useless — the
-// question the screen is asked is "how much did we take this month". So the
-// range became a parameter, the payload says which range it used, and omitting
-// it still means lifetime so no existing caller moves.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { captured } = vi.hoisted(() => ({
@@ -93,8 +81,6 @@ describe("getAdminDashboard — a period narrows the money", () => {
   });
 
   it("the external breakdown uses the SAME window as the headline it splits", async () => {
-    // A lifetime split under a monthly headline would read as that month's
-    // off-system share and be wrong by years.
     await getAdminDashboard(OWNER, undefined, { from: "2026-08-01", to: "2026-08-31" });
 
     for (const where of captured.payment) {
@@ -147,8 +133,6 @@ describe("getAdminDashboard — omitting the period changes nothing", () => {
   });
 
   it("current-STATE counters stay outside the period entirely", async () => {
-    // students / teachers / activeCourses / pendingEnrollmentRequests /
-    // feeDefaulters answer "right now" and must not move when a month is picked.
     const lifetime = await getAdminDashboard(OWNER);
     const august = await getAdminDashboard(OWNER, undefined, {
       from: "2026-08-01",

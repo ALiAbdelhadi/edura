@@ -7,15 +7,6 @@ import {
   listAgreementProposals,
 } from "@repo/server-core/services/finance/agreements";
 
-// ===========================================================================
-// TEACHER AGREEMENTS — the superadmin side of D2 (Phase 5).
-//
-// The platform is the RATE AUTHORITY: only these calls put an agreement in
-// force, end one, or refuse one. Each writes its audit row in the same
-// posture as every other superadmin control op. Approving is NOT a money
-// write — it is rate configuration, exactly like commission_settings.
-// ===========================================================================
-
 async function audit(
   actor: SessionUser,
   centerId: string,

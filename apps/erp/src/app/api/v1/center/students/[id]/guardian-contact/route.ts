@@ -19,7 +19,6 @@ const bodySchema = z
   })
   .strict();
 
-/** The student must be on THIS center's roster — no cross-center writes. */
 async function assertOnRoster(centerId: string, studentId: string) {
   const row = await platformDb((tx) =>
     tx.centerStudentRoster.findFirst({
@@ -30,11 +29,6 @@ async function assertOnRoster(centerId: string, studentId: string) {
   if (!row) throw new NotFoundError("Student is not on this center's roster");
 }
 
-/**
- * Counter route: front-desk staff add the guardian email a family gave them in
- * person. This is the intended remedy for the phone-only walk-in — the family
- * comes back for the next class and reception fills it in.
- */
 export const GET = centerStaff(
   async (_req, ctx, { acting }) => {
     const { id } = await ctx.params;

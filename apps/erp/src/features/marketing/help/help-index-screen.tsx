@@ -16,8 +16,6 @@ export async function HelpIndexScreen({ locale }: { locale: Locale }) {
   const rtl = locale === "ar";
   const Arrow = rtl ? ArrowLeft : ArrowRight;
 
-  // One read per article, resolved concurrently. This runs at BUILD time (the
-  // route is statically generated), so it costs nothing at request time.
   const sections = await Promise.all(
     HELP_CATEGORIES.map(async (category) => ({
       category,

@@ -48,10 +48,6 @@ export async function listPaymentIntents(filters: IntentListFilters) {
 
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      // The PAYER lookup is exact in SQL now (`users.search_text`); the
-      // gateway-reference arm still narrows, because `payment_intents` has no
-      // such column — its reference columns are ASCII, so ILIKE already served
-      // them and a generated column there would be storage for nothing.
       const students = await tx.user.findMany({
         where: {
           role: "student",
@@ -63,12 +59,6 @@ export async function listPaymentIntents(filters: IntentListFilters) {
 
       where.OR = [
         { studentId: { in: students.map((s) => s.id) } },
-        // ONE clause, not spread — the fragments must stay ANDed WITHIN the
-        // reference branch so a second typed word narrows it. Spreading them
-        // into the outer OR would have made «احمد محمد» match a reference
-        // containing either. `narrowQuery` (not `narrowFragments`) because an
-        // empty `AND` is Prisma's "no constraint", which here would have listed
-        // EVERY intent on the platform for an unnarrowable query.
         {
           AND: narrowQuery(q, (f) => [
             { gatewayOrderId: { contains: f, mode: "insensitive" as const } },
@@ -89,9 +79,6 @@ export async function listPaymentIntents(filters: IntentListFilters) {
       tx.paymentIntent.count({ where }),
     ]);
 
-    // studentId is nullable (a parent wallet top-up has no beneficiary student)
-    // and payerUserId is set whenever someone other than the student paid, so
-    // both are resolved and both can legitimately be absent on a given row.
     const studentIds = [...new Set(rows.map((r) => r.studentId).filter(Boolean) as string[])];
     const payerIds = [...new Set(rows.map((r) => r.payerUserId).filter(Boolean) as string[])];
     const courseIds = [...new Set(rows.map((r) => r.courseId).filter(Boolean) as string[])];
@@ -136,14 +123,12 @@ export async function getPaymentIntent(id: string) {
     if (!intent) throw new NotFoundError("Payment intent not found");
 
     const [student, payer, course, center, payment, transaction] = await Promise.all([
-      // Absent on a parent wallet top-up, which has no beneficiary student.
       intent.studentId
         ? tx.user.findUnique({
             where: { id: intent.studentId },
             select: { id: true, name: true, email: true, phone: true },
           })
         : null,
-      // Set whenever someone other than the student paid (a parent).
       intent.payerUserId
         ? tx.user.findUnique({
             where: { id: intent.payerUserId },

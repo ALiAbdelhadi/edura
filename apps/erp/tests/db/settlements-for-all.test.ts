@@ -1,22 +1,3 @@
-/**
- * Phase 3 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 3) — a settlement record for EVERY
- * settled lesson.
- *
- * What is proven, against the real engine:
- *   [1] A NO-ROOM course (the legacy fee model, pricing_method NULL) now files
- *       a session_settlements row whose totals EQUAL the ledger rows written
- *       in the same transaction — gross = Σ payment rows, platform_total =
- *       Σ commission rows, teacher/center totals = the wallet deltas. One
- *       lesson, one queryable answer to "what did it produce".
- *   [2] THE PREVIEW NAMES THE EXCLUDED: counterOnlyCount counts the
- *       counter-passed-never-doored students, and the settlement's money and
- *       frozen present_count exclude them exactly as before.
- *   [3] EXACTLY-ONCE HOLDS: replaying completeSession distributes nothing and
- *       files no second row (UNIQUE(session_id) + the distributedAt claim).
- *
- * Run (this one only): bun run --filter edura test:db:only settlements-for-all
- */
 import { withPlatformContext } from "@repo/database";
 import {
   completeSession,
@@ -72,7 +53,6 @@ async function main() {
         expiresAt: new Date(Date.now() + 30 * DAY),
       },
     });
-    // NO room, NO pricingMethod — the legacy fee model.
     const course = await tx.course.create({
       data: {
         centerId: center.id, teacherId: teacher.id, title: `${tag}-c`, subject: "Math",
@@ -99,9 +79,6 @@ async function main() {
         startTime: "10:00", endTime: "11:00", status: "scheduled",
       },
     });
-    // Phase 4 (D5): platform-held coverage for the two present students, so
-    // this suite's wallet-delta assertions keep proving what they were written
-    // to prove (the center-held path has its own suites).
     for (const stu of [students[0], students[1]]) {
       await tx.subscription.create({
         data: {
@@ -111,7 +88,6 @@ async function main() {
         },
       });
     }
-    // The excluded student: counter-passed, never doored.
     await tx.attendanceRecord.create({
       data: {
         sessionId: session.id, studentId: students[2], courseId: course.id, centerId: center.id,
@@ -123,7 +99,6 @@ async function main() {
 
   const owner = { id: fx.owner, role: "center_admin", centerId: fx.center } as unknown as SessionUser;
 
-  // Two students actually present.
   await bulkMarkAttendance(
     fx.session,
     [

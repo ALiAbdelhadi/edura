@@ -1,30 +1,5 @@
 "use client";
 
-/**
- * The simulated teacher screens.
- *
- * Built from the REAL Ledger primitives (`@/components/ledger`) rather than
- * look-alike markup, so what the teacher practises on is the product's own
- * visual language down to the hairlines and the figure treatment. When the
- * design changes, these change with it.
- *
- * Every interactive control carries a `data-emu` id via `EmuTarget`. That is the
- * only contract between a screen and the engine: the engine highlights
- * `data-emu={target}` and advances when it is clicked. Screens know nothing
- * about steps, missions or progress.
- *
- * TWO THINGS THESE SCREENS COPY FROM THE REAL PRODUCT ON PURPOSE, because they
- * are what the tour exists to teach:
- *
- *  1. The settle button CARRIES ITS OWN AMOUNT and commits in two steps
- *     (`design/CONSTITUTION.md` §2) — the teacher reads the figure they are
- *     about to write, then confirms.
- *  2. When the lesson cannot be closed, the card states the REASON in prose
- *     instead of showing a dead button — the real card's behaviour, and the
- *     difference between a teacher who fixes their pricing and one who thinks
- *     the app is broken.
- */
-
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Clock, X } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
@@ -60,8 +35,6 @@ import {
   type EmuPupil,
   type EmuWalletRow,
 } from "./world";
-
-/* ── Dashboard ─────────────────────────────────────────────────────────── */
 
 export function EmuTeacherDashboard() {
   const t = useTranslations("teacher.teacherEmulator");
@@ -116,8 +89,6 @@ export function EmuTeacherDashboard() {
     </div>
   );
 }
-
-/* ── Classes + pricing ─────────────────────────────────────────────────── */
 
 export function EmuTeacherClasses({
   open,
@@ -205,8 +176,6 @@ export function EmuTeacherClasses({
   );
 }
 
-/* ── Attendance + the settlement ───────────────────────────────────────── */
-
 const STATUS_TONE: Record<EmuAttendance, "teal" | "red" | "amber" | "neutral"> = {
   present: "teal",
   absent: "red",
@@ -249,7 +218,6 @@ export function EmuTeacherAttendance({
     <div className="space-y-4">
       <SectionHeading eyebrow={t("nav.attendance")} title={t("screens.attendanceTitle")} />
 
-      {/* The lessons of the last fortnight, exactly the real screen's framing. */}
       <div className="space-y-2">
         <Eyebrow>{t("screens.last14")}</Eyebrow>
         {EMU_LESSONS.map((l) =>
@@ -277,13 +245,6 @@ export function EmuTeacherAttendance({
 
       {lessonOpen ? (
         <>
-          {/* THE PINNED QUEUE, mirroring the real register.
-              `counter_only` used to sit inline in the roster wearing an amber
-              chip — which is exactly what the real screen did, and exactly what
-              the audit found wrong: the same amber as "excused", wherever the
-              list happened to sort it. The real register now pins these rows
-              ABOVE the roster with a count, so the rehearsal does too, or it
-              teaches a place that no longer exists. */}
           {roster.some((p) => p.status === "counter_only") ? (
             <div data-emu-region="counterOnly">
               <Sheet
@@ -381,8 +342,6 @@ export function EmuTeacherAttendance({
                       </Chip>
                     )}
 
-                    {/* Fixed-width action column: every control in the queue must
-                        land in the same place, or the operator hunts for it. */}
                     <span className="flex shrink-0 gap-1.5">
                       {(["present", "absent", "excused"] as const).map((s) => {
                         const Icon = s === "present" ? Check : s === "absent" ? X : Clock;
@@ -427,7 +386,6 @@ export function EmuTeacherAttendance({
             </Sheet>
           </div>
 
-          {/* ── The settlement card ───────────────────────────────────────── */}
           <div data-emu-region="settle">
             <Sheet className="p-4" style={{ borderColor: settled ? "var(--rule)" : "var(--indigo)" }}>
               <SectionHeading eyebrow={t("screens.settleEyebrow")} title={t("screens.settleTitle")} />
@@ -492,7 +450,6 @@ export function EmuTeacherAttendance({
                     <Money piasters={teacherTotal} tone="ink" weight={600} />
                   </DoubleTotal>
 
-                  {/* Two-step commit, amount on the button (CONSTITUTION §2). */}
                   <div className="mt-3">
                     {armed ? (
                       <EmuTarget id="settle-confirm" onClick={onSettle}>
@@ -538,8 +495,6 @@ export function EmuTeacherAttendance({
   );
 }
 
-/* ── Wallet ────────────────────────────────────────────────────────────── */
-
 export function EmuTeacherWallet({
   balance,
   reserved,
@@ -584,8 +539,6 @@ export function EmuTeacherWallet({
       <div className="space-y-1.5">
         {available > 0 ? (
           armed ? (
-            /* ARMED — the real button turns red and says it cannot be undone.
-               Two presses, exactly as the wallet now asks for. */
             <>
               <EmuTarget id="withdraw-confirm" onClick={onWithdraw}>
                 <span

@@ -1,16 +1,5 @@
 "use client";
 
-/* طلبات التعاون / Collaboration requests — a record of a two-sided agreement.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   Accepting a request creates the course, the schedule and the affiliation in ONE
-   transaction, and it carries `proposedCenterShare` so the money engine keeps
-   working. The super admin does not act here — the two parties do — so this screen is
-   read-only oversight, and the honest form is to show WHAT AN ACCEPTANCE PRODUCED:
-   the course and the affiliation with its share, both linked from the detail.
-
-   The share is a money figure, so it is mono and end-aligned like every other. */
-
 import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -223,9 +212,6 @@ export function CollaborationRequestsScreen() {
                   <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
                   <TableCell className="px-3 py-[7px] text-[13px]">{r.subjectName ?? "—"}</TableCell>
                   <TableCell className="px-3 py-[7px]">
-                    {/* Times are data: ONE isolated run around the whole range,
-                        so neither the en-dash nor the two times can migrate to
-                        the wrong side inside an RTL row. */}
                     <Num.ClockRange
                       start={r.startTime}
                       end={r.endTime}
@@ -315,7 +301,6 @@ export function CollaborationRequestsScreen() {
                   {t(asKey(`status.${d.status}`))}
                 </StatusBadge>
               </Row>
-              {/* What the acceptance actually produced. */}
               <Row label={t("collabRequests.createdCourse")}>
                 {d.course ? (
                   <span className="inline-flex items-baseline gap-1.5">

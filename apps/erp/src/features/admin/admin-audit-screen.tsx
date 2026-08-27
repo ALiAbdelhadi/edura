@@ -56,8 +56,6 @@ export function AdminAuditScreen() {
     const stamp = () => {
       const now = Date.now();
       setTodayKeys({
-        // Cairo wall-clock, so "Today" flips at local midnight rather than at
-        // 02:00/03:00 when the UTC day happens to roll over.
         today: todayKey(new Date(now)),
         yesterday: todayKey(new Date(now - 86_400_000)),
       });
@@ -74,11 +72,6 @@ export function AdminAuditScreen() {
   if (to) query.to = to;
 
   const req = useCustom({ url: "center/audit-logs", method: "get", config: { query } });
-  // The actor filter's option list — every staff member who has ever acted in
-  // this center. It is only ever read by someone who opens the dropdown, and
-  // most visits to this screen just read the log, so it is not fetched until
-  // the select is actually touched (focus or pointer-down, whichever comes
-  // first — keyboard and mouse both count as asking).
   const optionsReq = useOnDemand<Options>("center/audit-logs/actors");
 
   const result = req.result?.data as { data: Row[]; total: number } | undefined;
@@ -95,7 +88,6 @@ export function AdminAuditScreen() {
     setPage(1);
   };
 
-  // Grouped into days so each day carries a sticky header.
   const days: { day: string; rows: Row[] }[] = [];
   for (const r of rows) {
     const k = dayKey(r.createdAt);
@@ -214,7 +206,6 @@ export function AdminAuditScreen() {
                           {actionLabel(r.action, t)}
                         </span>
                         <p className="mt-0.5 text-[12px] text-ink-2">
-                          {/* NEVER blank. */}
                           {r.actorName ?? t("system")}
                           {r.onBehalfOf ? (
                             <span className="text-ink-3">

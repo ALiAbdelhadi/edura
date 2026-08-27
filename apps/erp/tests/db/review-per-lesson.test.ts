@@ -1,33 +1,3 @@
-/**
- * Per-lesson ratings — the constraint fix (migration
- * 20260818120000_review_per_lesson_unique).
- *
- * WHAT WAS BROKEN. `reviews.lesson_id` is documented on the column as "for
- * per-lesson ratings (PRD)", but the table carried UNIQUE (student_id,
- * teacher_id). A student could therefore hold exactly ONE review row per
- * teacher for all time, so the second lesson they rated collided with the
- * first. The column was unreachable by construction and nothing ever wrote it.
- *
- * Proves:
- *  - a student can rate TWO different lessons of the SAME teacher (the case
- *    the old constraint made impossible);
- *  - rating the SAME lesson twice is refused by the service (409) AND by the
- *    database when the service is bypassed (reviews_one_per_lesson);
- *  - the standing one-review-per-teacher rule SURVIVES — a second overall
- *    review is still refused, by the service and by the index
- *    (reviews_one_overall_per_teacher), which is the rule the old constraint
- *    got right and a naive 3-column unique would have silently dropped;
- *  - the teacher's headline rating stays ONE VOTE PER STUDENT: per-lesson
- *    ratings do not move ratingCount;
- *  - you may only rate a lesson you were PRESENT at, and only under the
- *    teacher who actually taught it;
- *  - points are awarded for the standing review only, so the new path is not
- *    a points farm (teacher_rating is worth 15).
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only review-per-lesson
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { createReview } from "@/lib/services/reviews/reviews";
 import type { SessionUser } from "@/lib/auth/session";
@@ -112,8 +82,6 @@ async function main() {
       },
     });
 
-    // Three lessons: two the student attended, one they did not. Plus a lesson
-    // belonging to a DIFFERENT teacher, for the wrong-teacher check.
     const mkSession = async (day: number, ownerId: string, courseId: string) =>
       (
         await tx.session.create({
@@ -150,7 +118,6 @@ async function main() {
     });
     const lessonOtherTeacher = await mkSession(6, otherTeacherId, otherCourse.id);
 
-    // Present at A, B and the other teacher's lesson; absent from the third.
     for (const [sid, cid] of [
       [lessonA, course.id],
       [lessonB, course.id],
@@ -187,7 +154,6 @@ async function main() {
       tx.pointsLedger.count({ where: { studentId: fx.studentId, eventName: "teacher_rating" } }),
     );
 
-  // --- THE CASE THE OLD CONSTRAINT MADE IMPOSSIBLE ---------------------------
   const rA = await createReview(
     { teacherId: fx.teacherId, rating: 5, text: "great lesson", lessonId: fx.lessonA },
     student,
@@ -206,7 +172,6 @@ async function main() {
   const afterLessonRatings = await pointsRows();
   assert(afterLessonRatings === 0, "per-lesson ratings award NO points (not a points farm)");
 
-  // --- same lesson twice: service, then the database directly ---------------
   await expectThrows(
     () => createReview({ teacherId: fx.teacherId, rating: 1, lessonId: fx.lessonA }, student),
     "rating the SAME lesson twice is refused by the service",
@@ -227,7 +192,6 @@ async function main() {
     "rating the SAME lesson twice is refused by the DATABASE (reviews_one_per_lesson)",
   );
 
-  // --- eligibility ----------------------------------------------------------
   await expectThrows(
     () =>
       createReview({ teacherId: fx.teacherId, rating: 5, lessonId: fx.lessonUnattended }, student),
@@ -242,7 +206,6 @@ async function main() {
     "cannot rate a lesson under a teacher who did not teach it",
   );
 
-  // --- the standing review still works, and is still one-per-teacher --------
   const overall = await createReview({ teacherId: fx.teacherId, rating: 4, text: "good" }, student);
   assert(overall.lessonId === null, "overall review created with lessonId NULL");
 
@@ -265,7 +228,6 @@ async function main() {
     "a SECOND overall review is refused by the DATABASE (reviews_one_overall_per_teacher)",
   );
 
-  // --- headline rating counts overall reviews only --------------------------
   const profile = await withPlatformContext((tx) =>
     tx.teacherProfile.findUnique({
       where: { userId: fx.teacherId },
@@ -284,7 +246,6 @@ async function main() {
   const afterOverall = await pointsRows();
   assert(afterOverall === 1, `the standing review awarded points exactly once (got ${afterOverall})`);
 
-  // --- all three rows coexist ----------------------------------------------
   const total = await withPlatformContext((tx) =>
     tx.review.count({ where: { studentId: fx.studentId, teacherId: fx.teacherId } }),
   );

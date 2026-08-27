@@ -59,35 +59,8 @@ type CourseHit = {
   upcomingSessions: UpcomingSession[];
 };
 
-/** Sentinel understood by /api/v1/search/courses: subjectId=none ⇒ uncatalogued (subjectId IS NULL). */
 const UNCATEGORIZED_ID = "none";
 
-/**
- * Subjects — the one screen in this portal where a student SPENDS.
- *
- * REBUILT ONTO THE LEDGER KIT (shadcn `Card` rows → `Sheet`, `Button` →
- * `LedgerButton`), and three things beyond the kit were wrong:
- *
- * 1. EVERY PRICE WAS PLAIN PROSE. `formatEGP(...)` was interpolated straight
- *    into an Arabic button label, so a Latin amount and its currency sat
- *    unisolated inside an RTL run — the exact bidi break §6.2 exists to stop,
- *    on the figure the student is being asked to authorise. Prices now go
- *    through `<Num>`, which isolates and sets them in mono like every other
- *    figure in the product.
- * 2. THE SESSION PICKER HAD NO LOCALE. `new Date(s.date).toLocaleDateString()`
- *    formats in the BROWSER's locale, so an Arabic page offered "8/6/2026" or
- *    worse depending on whose phone it was. It now uses the app's formatter,
- *    and it shows the weekday — which is how anyone actually picks a lesson.
- * 3. A SUCCESSFUL PAYMENT DID NOT REFRESH THE LIST. `refreshKey` was
- *    incremented and then discarded through `void refreshKey`, so after paying
- *    the student was left looking at the same "book this" button they had just
- *    used. The list refetches now.
- *
- * The shadcn `Tabs`/`Select`/`SearchInput` stay: they are @repo/ui form
- * primitives drawing from the same tokens, the Ledger kit offers no substitute,
- * and hand-rolling a tablist would trade working keyboard semantics for a
- * cosmetic match.
- */
 function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll: boolean }) {
   const t = useTranslations();
   const { formatEGP, formatDate, formatClock, locale } = useFormatters();
@@ -105,7 +78,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   const [sessionChoice, setSessionChoice] = useState<Record<string, string>>({});
   const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
 
-  // Legacy flow for courses WITHOUT subscription plans configured.
   const handleRequest = async (courseId: string) => {
     setLoadingId(courseId);
     try {
@@ -122,12 +94,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
     }
   };
 
-  // Subscription checkout (Step 4): plan price is a server-side snapshot; the
-  // client only names the plan. In mock mode the returned checkout URL points
-  // at the local mock gateway, so we confirm via the mock-complete endpoint.
-  // MVP blocker #2: when online checkout cannot settle, the subscribe
-  // buttons are ABSENT and an honest note points at the center's counter —
-  // which is where an MVP subscription actually happens.
   const onlineCheckout = useOnlineCheckout();
 
   const handleSubscribe = async (course: CourseHit, plan: "monthly" | "per_session") => {
@@ -153,10 +119,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
-        // Was `window.open(url, "_blank")`. Called after the await above it
-        // sits outside the click's gesture stack and mobile Safari blocks it —
-        // the student pressed subscribe and nothing happened, with no error.
-        // See lib/payments/checkout-redirect.ts.
         goToCheckout(intent.checkout.url);
       }
     } catch (err: any) {
@@ -180,9 +142,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
       toast.error(err?.message || t("studentSubjects.checkoutFailed"));
     } finally {
       setMockIntent(null);
-      // Was `setRefreshKey(k => k + 1)` followed by `void refreshKey`: the list
-      // never reloaded, so a student who had just paid was still looking at the
-      // button that took their money.
       query.refetch();
     }
   };
@@ -250,8 +209,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
                   {course.center?.name ?? t("studentSubjects.noCenter")}
                 </span>
                 {course.maxStudents > 0 ? (
-                  // A bare "8/30" names nothing. The label is what makes it a
-                  // seat count rather than two numbers.
                   <span className="inline-flex items-center gap-1">
                     <Users className="size-3" aria-hidden />
                     {t("studentSubjects.seats")}{" "}
@@ -271,8 +228,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
             {(course.pricePerMonth || course.pricePerSession) && onlineCheckout ? (
               <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
                 {course.pricePerMonth ? (
-                  /* The button carries its own amount (§1). The amount is a
-                     figure, so it is isolated and mono like every other. */
                   <LedgerButton
                     variant="primary"
                     disabled={loadingId === course.id}
@@ -345,9 +300,6 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
           <Hairline />
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              {/* Driven by the gateway's own response, so this cannot appear
-                  against a real gateway. Labelled so it can never be mistaken
-                  for a real payment step. */}
               <Chip tone="amber">{t("studentSubjects.mockCheckoutTitle")}</Chip>
               <Num style={{ color: "var(--ink)", fontWeight: 600 }}>
                 {formatEGP(mockIntent.amount)}
@@ -390,15 +342,6 @@ export function StudentSubjectsScreen() {
     pagination: { mode: "off" },
   });
 
-  /* WHICH OF THESE AM I ALREADY PAYING FOR?
-     Until now a subject the student subscribes to and a subject they have
-     never touched rendered identically, so the "موادي" tab could not be told
-     apart from a catalogue. `me/subscriptions` answers it — the same endpoint
-     the home alert and the subscriptions page read, through the same
-     derivation, so the three can never disagree about what "قرب يخلص" means.
-
-     `subjectId` on a subscription is a nullable snapshot: a row without one
-     attaches to nothing rather than being guessed onto a subject. */
   const { result: subsResult } = useCustom({ url: "me/subscriptions", method: "get" });
   const subjectStates = stateBySubject(asArray<SubscriptionRow>(subsResult?.data));
 
@@ -439,9 +382,6 @@ export function StudentSubjectsScreen() {
           type="button"
           onClick={() => toggle(id)}
           aria-expanded={expanded}
-          /* The visible label is composed of nested spans beside a decorative
-             tile, and the accessibility tree was reporting the control with NO
-             name at all — a row of unnamed expanders. Named explicitly. */
           aria-label={title}
           className="flex w-full items-center gap-3 px-5 py-4 text-start transition-colors hover:bg-[var(--field)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--indigo)]"
         >
@@ -460,12 +400,7 @@ export function StudentSubjectsScreen() {
               </span>
             ) : null}
           </span>
-          {/* The state rides on the row, not inside it: the whole point is to
-              be readable WITHOUT expanding, so the student can scan the list
-              and see which subjects are covered. */}
           {state ? <SubscriptionStateChip state={state} /> : null}
-          {/* Vertical rotation only — a chevron that points DOWN does not lie in
-              RTL, so this one is not a directional icon. */}
           <ChevronDown
             aria-hidden
             className={cn("size-4 shrink-0 transition-transform", expanded && "rotate-180")}

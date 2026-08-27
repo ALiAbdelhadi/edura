@@ -39,30 +39,6 @@ import {
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
 
-/**
- * Reviews — one of the very few surfaces where a student WRITES rather than is
- * written into, so §3's "be explicit about agency" is the whole brief: the
- * action is present and direct, and the thing they wrote is theirs to correct.
- *
- * REBUILT ONTO THE LEDGER KIT. This was the last student screen still drawn in
- * shadcn `Card` + `DataTable` + `Button` while every neighbouring screen used
- * `Sheet` / `SectionHeading` / `LedgerTable` — two design languages one nav
- * click apart, which is what made this page read as a different product.
- *
- * TWO THINGS WENT, AND NEITHER WAS A CAPABILITY:
- *
- * 1. The two counter cards. They sat directly above the two lists they counted,
- *    so the page stated the same two numbers twice within one screen — the
- *    duplication rule the parent and student portals were already swept for.
- *    The count now rides in each section's own heading, where the list it
- *    describes begins.
- * 2. The eligible-teachers EMAIL column. A student picks their teacher by name;
- *    they have never needed the address, and printing every teacher's email
- *    into a minor's screen is a disclosure with no reader. That also freed the
- *    list from being a table at all — it is three fields and a button, so it is
- *    a list.
- */
-
 function StarRating({
   value,
   onChange,
@@ -79,8 +55,6 @@ function StarRating({
   const [hover, setHover] = useState(0);
   const active = interactive ? hover || value : value;
 
-  // Read-only: ONE accessible statement ("4 out of 5"), not five unlabelled
-  // glyphs a screen reader has to count.
   if (!interactive) {
     return (
       <span className="inline-flex items-center gap-1" aria-label={label}>
@@ -102,8 +76,6 @@ function StarRating({
         <button
           type="button"
           key={star}
-          // `radiogroup` with plain buttons inside was a lie about what the
-          // control is; each star is the radio it always looked like.
           role="radio"
           aria-checked={value === star}
           aria-label={String(star)}
@@ -223,7 +195,6 @@ export function StudentReviewsScreen() {
     <div className="space-y-6">
       <PageTitle title={t("nav.reviews")} subtitle={t("studentReviews.subtitle")} />
 
-      {/* ── Waiting on you ─────────────────────────────────────────────────── */}
       <Sheet className="p-5">
         <SectionHeading
           title={t("studentReviews.teachersToReview")}
@@ -239,9 +210,6 @@ export function StudentReviewsScreen() {
           {eligibleQuery.isLoading ? (
             <PageSpinner />
           ) : eligibleTeachers.length === 0 ? (
-            /* Not "no results" — a REQUIREMENT, and it names the one thing that
-               satisfies it, so the empty state is a next step rather than a
-               dead end. */
             <LedgerEmpty
               title={t("studentReviews.noEligibleTeachers")}
               hint={t("studentReviews.eligibilityHint")}
@@ -275,7 +243,6 @@ export function StudentReviewsScreen() {
         </div>
       </Sheet>
 
-      {/* ── What you said — yours, and yours to correct ─────────────────────── */}
       <Sheet className="p-5">
         <SectionHeading
           title={t("studentReviews.myReviews")}
@@ -291,10 +258,6 @@ export function StudentReviewsScreen() {
           ) : reviews.length === 0 ? (
             <LedgerEmpty title={t("studentReviews.noReviewsYet")} />
           ) : (
-            /* ROWS, NOT A TABLE. Five columns — teacher, stars, the comment,
-               the date and an edit button — is a sideways scroll at 375px, and
-               one of those columns is prose. The list is usually two or three
-               entries long, which is a list. */
             <ul>
               {reviews.map((review, i) => {
                 const teacher = review.teacherId;
@@ -313,9 +276,6 @@ export function StudentReviewsScreen() {
                               value={review.rating}
                               label={t("studentReviews.ratingOutOf", { rating: review.rating })}
                             />
-                            {/* Not in <Num>: `formatDate` resolves an Arabic
-                                month to a WORD, and that isolate is for
-                                figures — it laid the day out after the month. */}
                             <span className="text-xs" style={{ color: "var(--ink-3)" }}>
                               {review.createdAt ? formatDate(review.createdAt) : "—"}
                             </span>
@@ -330,9 +290,6 @@ export function StudentReviewsScreen() {
                         </LedgerButton>
                       </div>
 
-                      {/* The comment gets its own line and is never truncated:
-                          it is the one piece of text on this page the student
-                          wrote themself and cannot re-read anywhere else. */}
                       <p
                         className="ps-[38px] text-sm leading-snug"
                         style={{ color: review.text ? "var(--ink-2)" : "var(--ink-3)" }}

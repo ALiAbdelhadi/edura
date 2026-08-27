@@ -16,23 +16,6 @@ type State = {
   verifiedAt: string | null;
 };
 
-/**
- * The COMPLEMENT of GuardianContactNotice, never a second copy of it.
- *
- * That one fires when there is no guardian email at all and says a capability
- * is switched off. This one fires when an address IS on file but nobody has
- * proven it reaches them. The two states are mutually exclusive, so a student
- * never sees both banners arguing about the same subject.
- *
- * IT DOES NOT CLAIM A LOCK, because there isn't one. The messaging gate still
- * opens on the address being present (that flip is a separate, deliberate
- * decision), and a banner that threatened a consequence which does not exist
- * would be the kind of lie that teaches people to ignore banners. It says what
- * is true: this is a safety step, and today it changes nothing about the
- * account.
- *
- * Dismissable, and quiet once confirmed — a permanent green tick is clutter.
- */
 export function GuardianVerificationNotice({ studentId }: { studentId?: string }) {
   const t = useTranslations();
   const [state, setState] = useState<State | null>(null);
@@ -44,8 +27,6 @@ export function GuardianVerificationNotice({ studentId }: { studentId?: string }
       const res = await api.get("me/guardian-verification").json<{ data: State }>();
       setState(res.data);
     } catch {
-      // A role with no guardian concept, or no profile yet: show nothing. This
-      // banner must never break the page it sits on.
       setState(null);
     }
   }, []);
@@ -70,11 +51,7 @@ export function GuardianVerificationNotice({ studentId }: { studentId?: string }
     }
   };
 
-  // Only the pending state has anything to say. No email → the other banner
-  // owns that case. Verified → nothing to ask for.
   if (!state?.hasGuardianEmail || state.verified) return null;
-  // Someone else's child: a parent viewing a linked student cannot resend on
-  // their behalf from here, so the banner would be a dead end.
   if (studentId) return null;
   if (dismissed) return null;
 

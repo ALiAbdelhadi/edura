@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The realtime→www internal bridge (M2): a dedicated shared secret, verified
-// on every call, and the message's existence is re-checked server-side before
-// anyone is notified — the socket process is trusted with delivery, not with
-// truth.
-
 const platformDb = vi.fn();
 vi.mock("@/lib/db/scope", () => ({
   platformDb: (cb: (tx: unknown) => unknown) => platformDb(cb),

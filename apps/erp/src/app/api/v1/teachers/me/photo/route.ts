@@ -16,14 +16,6 @@ export const GET = withErrors(async () => {
   return ok({ photoUrl: profile.photoUrl });
 });
 
-/**
- * Teacher profile photo.
- *
- * `requireRole("teacher")` — NOT the delegated teacher-actor: a profile photo
- * is personal identity, so it stays outside the assistant delegation surface
- * (Step 8's default-closed rule — a route opens to assistants only by
- * explicitly switching helpers).
- */
 export const POST = withErrors(async (req) => {
   const user = await requireRole("teacher");
 

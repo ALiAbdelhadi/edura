@@ -23,27 +23,6 @@ type PaymentRow = {
   courseName?: string | null;
 };
 
-/**
- * The accountant's read-only view of the center's books.
- *
- * Full money treatment: mono figures, end-aligned, the P&L closing on the
- * double rule. Nothing here mutates — this tier is REVOKEd at the DB layer, and
- * the UI must not imply otherwise, so there is no editable-looking amount and
- * no action anywhere on the screen.
- *
- * ── WHAT THIS TIER COULD ALREADY READ AND WAS NEVER SHOWN ──────────────────
- *
- * `center-actor.ts` opens `payments`, `payments/[id]/receipt` and the five
- * money reports to `center_accountant`, and the export route admits the tier
- * explicitly. The screen read none of them: no period control on the ONE screen
- * in the product whose whole job is closing a month, no list of the receipts
- * the P&L is made of, and no export — while the accountant's own guided tour
- * already had an `exports` step pointing here. Three capabilities the tier held
- * and could not reach.
- *
- * Everything added is a READ the allow-list already grants. No route, no
- * service and no permission changed.
- */
 export function CenterStaffFinanceScreen() {
   const t = useTranslations();
   const { locale, formatDate } = useFormatters();
@@ -53,15 +32,6 @@ export function CenterStaffFinanceScreen() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [ready, setReady] = useState(false);
 
-  /*
-    THE PERIOD. An accountant closes a month; this screen used to show one
-    lifetime figure and no way to bound it.
-
-    Day keys go to the server as-is and are resolved there by `dayRange` —
-    Cairo day, `to` inclusive (docs/decisions/money-day-boundary.md). The P&L
-    and the receipt list below it therefore bound the period in ONE place,
-    which is the defect that module was written to end.
-  */
   const [range, setRange] = useState<DateKeyRange>(EMPTY_RANGE);
   const rangeQuery = useMemo(() => {
     const p = new URLSearchParams();
@@ -71,11 +41,6 @@ export function CenterStaffFinanceScreen() {
     return s ? `?${s}` : "";
   }, [range]);
 
-  // The wallet and its ledger are BALANCES, not period figures — the wallet
-  // holds what it holds today whatever range is picked, and
-  // `center/wallet/transactions` takes no date filter at all. So they load once
-  // and are deliberately left out of the range effect below; re-fetching them
-  // on every date change would imply a narrowing that does not happen.
   useEffect(() => {
     Promise.all([
       api.get("center/wallet").json<{ data: WalletInfo }>().then((r) => setWallet(r.data)).catch(() => {}),
@@ -87,8 +52,6 @@ export function CenterStaffFinanceScreen() {
     ]).finally(() => setReady(true));
   }, []);
 
-  // The two reads the period DOES bound, re-run together so the statement and
-  // the receipts under it can never describe different windows.
   useEffect(() => {
     void Promise.all([
       api
@@ -128,8 +91,6 @@ export function CenterStaffFinanceScreen() {
               placeholder={t("adminManage.reports.pickDateRange")}
               clearLabel={t("adminManage.fees.reset")}
             />
-            {/* Money reports only. The other three in the registry are the
-                manager's tier and would 403 for every reader of this page. */}
             <ReportExportMenu from={range.from} to={range.to} only="money" />
             <Badge tone="info" icon={<ShieldCheck className="size-3.5" />}>
               {t("centerStaff.roleName.center_accountant")}
@@ -139,7 +100,6 @@ export function CenterStaffFinanceScreen() {
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
-        {/* The P&L, as an accountant reads one: each line, then the rule. */}
         <Sheet>
           <SheetHead title={t("common.netProfit")} />
           <div className="flex flex-col p-[18px]">
@@ -158,16 +118,6 @@ export function CenterStaffFinanceScreen() {
               <span className="text-[13px] font-semibold text-[var(--ink)]">
                 {t("common.netProfit")}
               </span>
-              {/*
-                A LOSS IS NOT TEAL. The closing figure was `--money`
-                unconditionally, so a month that lost money announced it in the
-                colour this design system reserves for value arriving — the
-                screenshot that caught it read «صافي الربح −18,000.01» in teal.
-                Harmless while the screen showed one lifetime total that
-                happened to be positive; not harmless now that a period can be
-                picked, which is what this step added. The expenses line above
-                has always been red for exactly this reason.
-              */}
               <Amount
                 piasters={pnl?.netProfit ?? 0}
                 locale={locale}
@@ -201,21 +151,6 @@ export function CenterStaffFinanceScreen() {
         </Sheet>
       </div>
 
-      {/*
-        THE RECEIPTS THE STATEMENT IS MADE OF — between the P&L and the wallet
-        ledger, because that is the order an accountant checks in: the totals,
-        then the rows behind them, then the balance that resulted.
-
-        `payments` GET has always been in this tier's allow-list and this screen
-        never called it, so the person whose job is reconciling could see a net
-        figure and none of its parts.
-
-        NO ACTION ANYWHERE. The owner's copy of this log carries a refund
-        control and two record-money buttons; this tier is REVOKEd at the DB
-        layer and the screen must not imply otherwise. Opening a receipt is a
-        READ (`payments/[id]/receipt`, also allow-listed) and is the one thing
-        offered.
-      */}
       <Sheet>
         <SheetHead title={t("adminManage.fees.paymentLog")} />
 
@@ -277,9 +212,6 @@ export function CenterStaffFinanceScreen() {
                         {formatDate(p.paidAt, { day: "numeric", month: "short", year: "numeric" })}
                       </DateText>
                     </td>
-                    {/* Plain text, not a link to the student record: the roster
-                        routes are the receptionist's tier, so a link here would
-                        walk this reader into a 403. */}
                     <td>
                       <span className="text-[13px] text-[var(--ink)]">{p.studentName || "—"}</span>
                     </td>
@@ -308,10 +240,6 @@ export function CenterStaffFinanceScreen() {
           </div>
         )}
 
-        {/* Same disclosure the owner's home carries. The method is stored on
-            the ledger and the subscription but NOT on the receipt, so no screen
-            can break this down by cash / online / wallet — see takings.ts and
-            EDURA_IMPROVEMENT_REPORT MC-3. Delete this line when MC-3 lands. */}
         <p className="m-0 border-t border-[var(--rule-2)] px-[18px] py-2 text-[11px] text-[var(--ink-3)]">
           {t("adminHome.takings_methodNote")}
         </p>

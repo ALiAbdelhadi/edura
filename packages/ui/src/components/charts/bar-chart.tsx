@@ -15,7 +15,6 @@ import { AXIS_TICK, ChartFrame, GRID, seriesColor, type ChartState } from "./cha
 import { ChartLegend } from "./chart-legend";
 import { ChartTooltip } from "./chart-tooltip";
 
-/** `color` optional — omit for the semantic palette slot. */
 export type BarSeries = { key: string; label: string; color?: string };
 export type BarDatum = { label: string; [key: string]: string | number };
 

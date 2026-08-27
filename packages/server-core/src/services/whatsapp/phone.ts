@@ -1,10 +1,5 @@
 import { BusinessRuleError } from "../../errors/classes";
 
-/**
- * Normalize an Egyptian mobile number to E.164 (+201XXXXXXXXX).
- * Accepts: 01XXXXXXXXX, 1XXXXXXXXX, 201XXXXXXXXX, +201XXXXXXXXX,
- * 00201XXXXXXXXX — with spaces/dashes tolerated.
- */
 export function normalizeEgyptPhone(input: string): string {
   const digits = input.replace(/[\s\-()]/g, "").replace(/^\+/, "").replace(/^00/, "");
   let national: string;

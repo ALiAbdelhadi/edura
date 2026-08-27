@@ -7,15 +7,7 @@ import { resolveMethod2RatesForRooms } from "@/lib/services/finance/commission";
 
 export const dynamic = "force-dynamic";
 
-// Teacher-facing view of a center's rooms for the collaboration booking flow.
-// Deliberately NOT the center-admin /api/v1/rooms route (that one is tenant-
-// scoped to the caller's OWN center). This exposes presentation fields, busy
-// times, and — for a hall offering per-attending-student pricing — WHAT THAT
-// HALL TAKES per attending student, so the teacher can see the cost of the
-// deal before agreeing to it. It still never exposes the whole-room revenue
-// split (platform/teacher/center %), which is superadmin-only config.
 export const GET = withErrors(async (_req, ctx) => {
-  // Teachers (and their assistants) browse rooms when proposing a class.
   await requireRole("teacher", "assistant");
   const { id } = await ctx.params;
 
@@ -41,9 +33,6 @@ export const GET = withErrors(async (_req, ctx) => {
       orderBy: { createdAt: "asc" },
     });
 
-    // What each hall takes per attending student (room > center > global) —
-    // resolved for every hall in one query, then attached only to the halls
-    // that actually offer the method.
     const perStudentRates = await resolveMethod2RatesForRooms(tx, {
       centerId: id,
       roomIds: roomRows.map((r) => r.id),
@@ -54,20 +43,12 @@ export const GET = withErrors(async (_req, ctx) => {
       const rate = offersPerStudent ? perStudentRates[r.id] : null;
       return {
         ...r,
-        // Price visibility rule: a per-student-only hall shows NO whole-room
-        // price — that number is meaningless for it, since the cost depends on
-        // attendance. Server-side hiding (not presentation): nulled here. The
-        // per-student rate below is what such a hall costs, and it is now
-        // shown rather than left for the teacher to discover at settlement.
         price:
           r.allowedPricingMethods.length === 1 && offersPerStudent ? null : r.price,
-        // `source` (room/center/global) is deliberately NOT exposed — the
-        // teacher needs the number, not where the center got it from.
         perStudentRate: rate ? { fee: rate.fee, bp: rate.bp } : null,
       };
     });
 
-    // Upcoming committed sessions per room → "busy times" the teacher can avoid.
     const roomIds = rooms.map((r) => r.id);
     const now = new Date();
     const horizon = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);

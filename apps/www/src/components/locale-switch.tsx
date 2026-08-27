@@ -5,13 +5,6 @@ import { usePathname } from "next/navigation";
 
 import { otherLocale, type Locale } from "@/i18n/config";
 
-/**
- * The language toggle keeps the reader ON THE PAGE they are reading — from
- * `/ar/pricing` it goes to `/en/pricing`, never back to the other locale's
- * landing. That needs the current pathname, which only the client knows for a
- * shared header rendered by every route; the rest of the nav stays a server
- * component and only this one control hydrates.
- */
 export function LocaleSwitch({ locale, label }: { locale: Locale; label: string }) {
   const target = otherLocale(locale);
   const pathname = usePathname() ?? `/${locale}`;

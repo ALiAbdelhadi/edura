@@ -17,7 +17,6 @@ import {
   assertTopupAllowed,
 } from "@repo/server-core/services/wallet/wallet";
 
-// Re-export the money primitives so callers can `@/lib/services/wallet/wallet`.
 export {
   walletCredit,
   walletDebit,
@@ -55,25 +54,12 @@ function toClientIntent(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Online top-up (Paymob / mock) — reuses the Step 3 intent + webhook engine
-// ---------------------------------------------------------------------------
-
-/**
- * Create a wallet-top-up PaymentIntent. The requested amount is CLIENT-chosen
- * but SERVER-VALIDATED (min/max via assertTopupAllowed) and snapshotted onto
- * the intent — the webhook settles from the intent row, never from the gateway
- * payload. purpose=wallet_topup makes the webhook credit the wallet.
- */
 export async function initiateWalletTopUpIntent(
   input: { amount: number; method: "card" | "wallet"; idempotencyKey: string },
   user: SessionUser,
 ) {
   if (user.role !== "student") throw new ForbiddenError("Students only");
   const driver = resolveDriver();
-  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
-  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
-  // mint a charge that is a dead end in production-with-mock.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
@@ -90,7 +76,6 @@ export async function initiateWalletTopUpIntent(
         return { intent: existing, student: null };
       }
 
-      // Reject out-of-range amounts BEFORE creating the intent (no money taken).
       await assertTopupAllowed(tx, user.id, input.amount);
 
       const student = await tx.user.findUnique({
@@ -127,13 +112,6 @@ export async function initiateWalletTopUpIntent(
   return toClientIntent(updated, checkout);
 }
 
-/**
- * Settle a paid wallet-top-up intent, WITHIN the webhook claim transaction (M1)
- * so credit is atomic with the pending->paid claim: Payment (platform receipt) +
- * Transaction (money-in, toEntityId NULL = platform float, not center revenue) +
- * wallet credit + ledger row. Idempotent via the intent claim — a replayed
- * webhook never reaches here (claim.count===0), so the wallet is credited ONCE.
- */
 export async function settleWalletTopUpFromIntentTx(
   tx: TenantTx,
   intentId: string,
@@ -141,10 +119,6 @@ export async function settleWalletTopUpFromIntentTx(
 ): Promise<SettleNotification> {
   const intent = await tx.paymentIntent.findUnique({ where: { id: intentId } });
   if (!intent) throw new NotFoundError("Intent vanished during settlement");
-  // studentId is nullable ONLY for purpose=parent_wallet_topup, which routes to
-  // its own settler and never arrives here. Asserted rather than `!`-silenced,
-  // so a future purpose that forgets its own settler fails loudly instead of
-  // crediting nobody.
   const studentId = intent.studentId;
   if (!studentId) {
     throw new NotFoundError("Student top-up intent has no student to credit");
@@ -157,7 +131,6 @@ export async function settleWalletTopUpFromIntentTx(
       studentId,
       courseId: null,
       amount: intent.amount,
-      // MC-3: mirrors the sibling Transaction's method.
       paymentMethod: "online_paymob",
       note: `Wallet top-up (${intent.gateway}/${intent.method})`,
       receiptNumber,
@@ -212,19 +185,7 @@ export async function settleWalletTopUpFromIntentTx(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Cash top-up at a center (recorded by center staff) — reuses the cash path.
-// Center staff can only CREDIT; there is no center-facing wallet debit path.
-// Runs under platformDb (the student_profiles wallet write is not reachable
-// under a center RLS tenant); the center scope is enforced in-code (roster).
-// ---------------------------------------------------------------------------
-
-// The CASH top-up lives in the shared kernel (the back office runs it too);
-// the online path above stays here because it needs the Paymob gateway.
 export { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
-// ---------------------------------------------------------------------------
-// Reads (student's own wallet + history)
-// ---------------------------------------------------------------------------
 
 export async function getWalletForStudent(user: SessionUser) {
   if (user.role !== "student") throw new ForbiddenError("Students only");

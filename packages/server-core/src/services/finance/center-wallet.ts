@@ -47,9 +47,6 @@ export function getCenterWalletTransactions(user: SessionUser, opts?: { take?: n
 export function requestCenterPayout(user: SessionUser, amount?: number) {
   const centerId = centerIdOf(user);
   return platformDb(async (tx) => {
-    // H1: lock the beneficiary row FIRST so concurrent requests serialize;
-    // the second waits, then re-reads the now-committed open payouts and
-    // correctly sees the reduced available balance.
     const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
       SELECT wallet_balance FROM centers WHERE id = ${centerId}::uuid FOR UPDATE`;
     if (locked.length === 0) throw new NotFoundError("Center not found");

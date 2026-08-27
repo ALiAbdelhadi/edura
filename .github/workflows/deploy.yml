@@ -1,63 +1,13 @@
 name: Deploy
 
-# ============================================================================
-# PRODUCTION DEPLOY — erp + www + superadmin to Vercel.
-#
-# WHY THIS FILE EXISTS. Until 2026-08-02 nothing deployed this repo. The
-# 2026-07-31 launch was a `vercel deploy` typed by hand on one laptop, and the
-# `.vercel/` directories in apps/www and apps/superadmin are the residue of it.
-# The consequence showed up the day a merge landed on main and simply sat
-# there: main carried code nobody had shipped, production served an older
-# build, and no red tick anywhere said so. A deploy that depends on somebody
-# remembering is a deploy that eventually does not happen.
-#
-# THE GATE IS THE POINT, not the deploy step.
-#
-# On 2026-08-01 a migration merged to main and deployed without ever being
-# applied to production. Prisma names every column explicitly in its SELECTs,
-# so code that knows about a column the database lacks does not degrade — it
-# throws on every query touching that table. Every sign-in returned 500 and the
-# build had been green the whole time.
-#
-# So `guard` runs first and REFUSES to deploy when production is missing any
-# migration this commit contains. The reverse (database ahead of the code) is
-# only a warning: that is the safe ordering a careful deploy deliberately
-# creates — apply, confirm, then ship.
-#
-# WHY `workflow_run` AND NOT `push`. Deploying in parallel with the tests that
-# decide whether the commit is good is theatre. This starts only after CI has
-# finished on main, and stops unless CI actually passed.
-#
-# FAIL LOUDLY, NEVER SKIP QUIETLY. Same rule as backup.yml: if the secrets are
-# missing the run goes RED with an explanation, it does not go green having done
-# nothing. A green tick on a deploy that never ran is how you end up debugging
-# production code that is not deployed.
-#
-# THREE APPS, NOT TWO (fixed 2026-08-27). This file shipped `apps/www` and
-# `apps/superadmin` and never mentioned `apps/erp` — so the actual application
-# was not deployed by it at all. Fallout from the www -> erp rename: `apps/www`
-# used to BE the app and is now the marketing site. It is the identical defect
-# ci.yml's E2E steps carried until 2026-08-20, and it survived here for the same
-# reason — this workflow has never run past its first step, because the five
-# deploy secrets have never been set, so nothing downstream was ever exercised.
-#
-# The second half of that defect: the smoke test asks every app for
-# /api/health, and `apps/www` does not have one (its only route is
-# /api/contact). Even with every secret present, the www leg could not have gone
-# green. Each matrix entry now names its own liveness path.
-# ============================================================================
-
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
-  # Manual re-run, e.g. after applying migrations that the guard blocked on.
   workflow_dispatch:
 
 concurrency:
-  # NOT cancel-in-progress. Cancelling a half-finished deploy is how you get a
-  # production serving two different builds. Queue instead.
   group: deploy-production
   cancel-in-progress: false
 
@@ -67,21 +17,14 @@ env:
   VERCEL_TELEMETRY_DISABLED: 1
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # 1. Would this code outrun the database it is about to run against?
-  # ---------------------------------------------------------------------------
   guard:
     name: production is migrated
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # A CI run that failed, was cancelled, or timed out must not reach here.
-    # workflow_dispatch has no workflow_run payload, hence the first clause.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
-      # `secrets` cannot be used in a job-level `if`, so the presence check is a
-      # step that FAILS rather than a condition that skips (see the header).
       - name: Require the deploy secrets
         env:
           HAS_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
@@ -108,17 +51,12 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          # workflow_run checks out the DEFAULT branch by default, not the
-          # commit that triggered CI. Without this the guard would inspect one
-          # tree and the deploy would ship another.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
 
-      # packages/database tooling is explicitly allowed to keep Node/tsx
-      # (Ali's decision, 2026-07-31) — the runtime surface stays Bun-only.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -128,32 +66,21 @@ jobs:
 
       - name: Refuse to deploy ahead of the database
         env:
-          # Read-only: the script runs two SELECTs. It takes the DIRECT (unpooled)
-          # string rather than the owner ADMIN_URL because it needs no writes.
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
         run: bunx tsx packages/database/scripts/check-pending-migrations.ts
 
-  # ---------------------------------------------------------------------------
-  # 2. Ship. Both apps build from the same commit, in parallel.
-  # ---------------------------------------------------------------------------
   deploy:
     name: deploy ${{ matrix.app }}
     needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
-      # NOT fail-fast. If www succeeds and superadmin fails, cancelling www
-      # mid-flight would leave the outcome ambiguous; let both finish and report.
       fail-fast: false
       matrix:
         include:
-          # The application itself. Absent from this list until 2026-08-27 —
-          # see the header.
           - app: erp
             project_id_secret: VERCEL_PROJECT_ID_ERP
             health_path: /api/health
-          # The marketing site. It has no /api/health (only /api/contact), so
-          # its liveness check is the root document instead.
           - app: www
             project_id_secret: VERCEL_PROJECT_ID_WWW
             health_path: /
@@ -168,9 +95,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      # The build itself runs on Vercel (`vercel build` here would need the
-      # whole env set locally). This pulls the project's production env + config
-      # so the CLI knows what it is deploying.
       - name: Pull the project's production settings
         run: |
           bunx vercel@latest pull --yes --environment=production \
@@ -187,10 +111,6 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Deployed ${{ matrix.app }} -> $url"
 
-      # A deploy that returned a URL is not the same as a deploy that works.
-      # /api/health returns 503 when the database is unreachable, and its status
-      # CODE is the signal — so a broken deploy fails the run instead of quietly
-      # sitting in production behind a green tick.
       - name: Smoke-test the deployment
         run: |
           set -euo pipefail

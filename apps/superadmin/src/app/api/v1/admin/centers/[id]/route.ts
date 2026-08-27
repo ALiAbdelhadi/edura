@@ -14,16 +14,6 @@ export const GET = withErrors(async (_req, ctx) => {
   return ok(await getCenter(id));
 });
 
-// Control op #6 — edit the center's PROFILE. `.strict()` is load-bearing: an
-// unknown key is a 400, not a silently-dropped field.
-//
-// Deliberately NOT editable here, and each for its own reason:
-//   walletBalance / receiptSeq   money — moved only by settlement/refund/payout
-//   status                       has its own audited endpoint (…/status)
-//   shortId / entityType / isDemo / ownerUserId    identity & provenance
-//   revenue split / commission %  stays in the dedicated pricing flow, with its
-//     snapshot-on-create + new-courses-only semantics. Two edit paths to one
-//     money-sensitive number is the failure mode this omission prevents.
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),

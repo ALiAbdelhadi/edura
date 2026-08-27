@@ -1,14 +1,3 @@
-// =============================================================================
-// Render every template, in every language, to HTML files you can open.
-//
-//   bun run --filter @repo/notifications preview
-//   open .notifications-preview/index.html
-//
-// Nothing is sent and no env is read beyond the output directory: this renders
-// the same pure functions the email channel does. It is the fastest way to
-// check an Arabic RTL layout in a real browser, and the only way to eyeball a
-// template without triggering the flow that owns it.
-// =============================================================================
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { renderEmail } from "../src/render";

@@ -67,22 +67,6 @@ export function TeacherClassesScreen() {
   const courseLabel = (c: any) =>
     c.title || [c.subject, c.gradeTag].filter(Boolean).join(" — ");
 
-  /* CREATING A GROUP IS THE TEACHER'S, NOT THE ASSISTANT'S.
-     ════════════════════════════════════════════════════════════════════════
-     This screen is mounted by BOTH portals, and it rendered the create dialog
-     unconditionally — so an assistant saw a real button, filled a real form,
-     and was refused at submit. `POST /api/v1/courses` has no assistant branch
-     and that is deliberate: the assistant tour's own header records it, since
-     plan prices are financial settings and Step 8 excludes those from
-     delegation.
-
-     The API is unchanged. This only stops the UI OFFERING what the API has
-     always refused — the standard the centre pass set: an excluded capability
-     is ABSENT, never a button that 403s.
-
-     Keyed on the POSITIVE `role === "teacher"`, so an identity still loading
-     hides the button rather than flashing it at an assistant and taking it
-     away. Default-closed, the same posture as the delegation gate itself. */
   const { data: identity } = useGetIdentity<{ role?: string }>();
   const canCreateGroup = identity?.role === "teacher";
   const { query: coursesQuery, result: coursesResult } = useList({
@@ -90,33 +74,22 @@ export function TeacherClassesScreen() {
     filters: [{ field: "teacherId", operator: "eq", value: "me" }],
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // A group opened from the global palette. The auto-select below only fires
-  // when nothing is selected, so a seeded id survives it.
   useParamSeed("courseId", setSelectedId);
 
   const classes = (coursesResult?.data ?? []) as any[];
 
-  /* WHOSE GROUP IS THIS. A teacher's list mixes their OWN groups with every
-     centre's, and nothing on the row said which — the teacher's version of the
-     child-context problem the parent portal had. `courses` carries `centerId`
-     (NULL = teacher-direct, decision #2) and the free-text `location`;
-     `me/affiliations` carries each centre's name. Both are reads this portal
-     already makes. */
   const { result: affiliationsResult } = useCustom<any[]>({
     url: "me/affiliations",
     method: "get",
   });
   const centerNames = useMemo(() => {
     const map = new Map<string, string>();
-    // asArray, not `?? []`: refine returns a frozen `{}` placeholder while a
-    // useCustom query is idle, and iterating that throws.
     for (const a of asArray<any>(affiliationsResult?.data)) {
       if (a?.center?.id && a?.center?.name) map.set(a.center.id, a.center.name);
     }
     return map;
   }, [affiliationsResult?.data]);
 
-  /** The centre's name, the teacher's own venue, or "your own group". */
   const placeOf = (c: any): string =>
     c?.centerId
       ? (centerNames.get(c.centerId) ?? "")
@@ -137,11 +110,6 @@ export function TeacherClassesScreen() {
   const { mutate: cancelSessionMut, mutation: cancelMutation } = useCustomMutation();
   const { mutate: postponeSessionMut, mutation: postponeMutation } = useCustomMutation();
 
-  /* CANCEL AND POSTPONE MOVED OUT OF THE TABLE CELL.
-     Postponing asked for a date, two times and a reason — six controls — and
-     rendered them INSIDE a table cell, which at 375px wrapped into an
-     unusable pile. Same endpoints, same required reason; a dialog is simply
-     where a four-field form belongs. */
   const [editing, setEditing] = useState<
     { mode: "cancel" | "postpone"; session: Session } | null
   >(null);
@@ -174,19 +142,10 @@ export function TeacherClassesScreen() {
   const courseSessions = (sessionsResult?.data ?? []) as any[];
 
   const today = todayKey();
-  /** Taught, but never closed — so the teacher's share was never credited. */
   const isUnsettled = (s: Session) =>
     platformDayKey(String(s.date)) < today &&
     (s.status === "scheduled" || s.status === "postponed");
 
-  /* THE CHIP ALWAYS TELLS THE TRUTH; IT ONLY LINKS WHERE THE DOOR OPENS.
-     The register shows the last ATTENDANCE_WINDOW_DAYS days, so a link to an
-     older lesson lands the teacher on a list that cannot contain it. Measured
-     on dev: a group's session list runs back to June, and the first unsettled
-     chip on it was a June lesson — the link went nowhere and said nothing
-     about why. An unsettled lesson older than the window still shows its chip,
-     because the fact is true and the teacher should know it; it just is not
-     dressed as a destination. */
   const isReachable = (s: Session) =>
     dayjs(s.date).isAfter(dayjs().subtract(ATTENDANCE_WINDOW_DAYS, "day"));
 
@@ -294,8 +253,6 @@ export function TeacherClassesScreen() {
                   <BookOpen className="mt-0.5 size-4 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <div className="font-semibold">{courseLabel(c)}</div>
-                    {/* The attribution chip. A teacher at three centres could
-                        not tell one group's row from another's. */}
                     {place ? (
                       <div className="mt-1">
                         <StatusBadge tone={c.centerId ? "info" : "neutral"}>
@@ -328,9 +285,6 @@ export function TeacherClassesScreen() {
                 </StatusBadge>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                {/* WHERE, in full: the centre (or the teacher's own venue)
-                    AND the hall. The screen used to print only the hall, which
-                    is meaningless across three buildings. */}
                 {selectedPlace ? (
                   <span className="font-medium text-foreground">{selectedPlace}</span>
                 ) : null}
@@ -361,8 +315,6 @@ export function TeacherClassesScreen() {
                 )}
               />
 
-              {/* The group named a problem and offered nothing to do about it.
-                  These two go where the work is. */}
               <div className="flex flex-wrap gap-2">
                 <Button asChild variant="outline" size="sm">
                   <Link href="/dashboard/teacher/attendance">
@@ -380,12 +332,6 @@ export function TeacherClassesScreen() {
                 </Button>
               </div>
 
-              {/* HONEST PER CONTEXT. The old copy said "until the CENTRE sets a
-                  price" for every group — including a teacher-direct one, which
-                  has no centre by design, so it named a party that does not
-                  exist and left the teacher with nowhere to go. A teacher
-                  cannot edit any course today (courses/[id] PATCH is
-                  center_admin only), so neither branch may promise a screen. */}
               {unpriced ? (
                 <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
                   {selectedCourse.centerId
@@ -430,7 +376,6 @@ export function TeacherClassesScreen() {
                             <StatusBadge tone={statusTones[s.status] ?? "neutral"}>
                               {t(asKey("status." + s.status))}
                             </StatusBadge>
-                            {/* Money already earned and not yet credited. */}
                             {isUnsettled(s) ? (
                               isReachable(s) ? (
                                 <Link href={`/dashboard/teacher/attendance?sessionId=${sid}`}>
@@ -541,8 +486,6 @@ export function TeacherClassesScreen() {
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={t("teacher.reason")}
                 />
-                {/* The reason stays REQUIRED — it is what a student and a
-                    parent are told when a lesson moves or disappears. */}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("teacher.reasonRequired")}
                 </p>

@@ -8,19 +8,10 @@ import { resendStaffInvite } from "@/lib/services/center/staff";
 
 export const dynamic = "force-dynamic";
 
-// Owner-only, exactly like POST /center/staff. Staff-management is HARD
-// EXCLUSION #4 — a center_staff caller 403s here by default-closed design, so
-// a receptionist can never re-issue a colleague's claim link.
-
 const bodySchema = z
   .object({ locale: z.enum(["ar", "en"]).optional() })
   .strict();
 
-/**
- * Re-send a staff member's claim link. A re-send mints a fresh token that
- * invalidates the previous one. Refused once the staff member has set a
- * password — the owner does not get a reset door over their own staff.
- */
 export const POST = withRateLimit(
   withErrors(async (req, ctx) => {
     const owner = await requireRole("center_admin");

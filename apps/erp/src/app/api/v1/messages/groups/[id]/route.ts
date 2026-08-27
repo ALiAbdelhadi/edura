@@ -28,8 +28,6 @@ const postSchema = z.object({
   clientId: z.string().max(64).optional(),
 });
 
-// Posting re-derives membership live and enforces postPolicy (announcement
-// channels are owner-only by default), then consumes the group-send bucket.
 export const POST = withErrors(async (req: Request, ctx: Ctx) => {
   const user = await requireSession();
   const { id } = await ctx.params;

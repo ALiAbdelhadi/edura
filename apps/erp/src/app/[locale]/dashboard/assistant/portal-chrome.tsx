@@ -3,20 +3,6 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import { AssistantDelegationStrip } from "@/features/assistant/assistant-delegation-strip";
 
-/**
- * Assistant portal: assistants are the front line of teacher↔student
- * communication, so Messages IS their main workspace — it is this portal's
- * index route, not a section of it.
- *
- * That is why the comms pair sits in the UNLABELLED head group rather than
- * under a "@comms" heading further down: on every other portal the head holds
- * the home, and here the home is the inbox. A heading over the top two entries
- * would file this portal's front door away as one topic among several.
- *
- * The rest mirrors the TEACHER's grouping exactly, in the same order, because
- * an assistant acts on the teacher's behalf on those same screens — two people
- * doing one job should not learn two menus.
- */
 const navGroups = [
   {
     label: "",
@@ -41,10 +27,6 @@ const navGroups = [
     ],
   },
   {
-    // No @money group, and that is the delegation boundary showing through:
-    // Step 8 withholds wallet, payouts and financial settings from an
-    // assistant, so this portal has no money screen to group. Absent, not
-    // disabled — constitution #9.
     label: "@manage",
     items: [
       { href: "/dashboard/assistant/collaborations", icon: "users", label: "My Centers", tour: "nav-centers" },
@@ -54,39 +36,18 @@ const navGroups = [
   {
     label: "@account",
     items: [
-      // The practice emulator keeps a permanent entry. It is no longer what opens
-      // on first run — the guided tour is — so it is labelled for what it is.
       { href: "/dashboard/assistant/tour", icon: "sparkles", label: "Practice", tour: "nav-practice" },
       { href: "/dashboard/assistant/settings", icon: "settings", label: "Settings", tour: "nav-settings" },
     ],
   },
 ];
 
-/**
- * Phone bar order — the one portal where it barely reorders the sidebar,
- * because the sidebar is already ordered by what an assistant does.
- *
- * Messages keeps the first slot: it is both this portal's index route and its
- * main workspace. Door Check-in is promoted into the four, though — in
- * `counter_and_door` mode the hall-door check-in is the ASSISTANT'S job (it is
- * the teacher's account only as a fallback), and it is done standing at a door
- * holding a phone, which is precisely what this bar is for.
- *
- * The tail is the sidebar's order, so the "more" sheet and the sidebar never
- * disagree. EVERY href is listed — the bar is the phone's only navigation.
- */
 const BAR_ORDER = [
   "/dashboard/assistant",
   "/dashboard/assistant/attendance",
   "/dashboard/assistant/door",
   "/dashboard/assistant/classes",
-  // The fifth slot is the GRADEBOOK, and this is where the assistant's bar
-  // stops mirroring the teacher's. Their job is speed on attendance, grades
-  // and materials, and they mark beside the teacher during and after a lesson
-  // — so the book is a standing-up reach for them in a way it is not for the
-  // teacher, whose fifth slot is the wallet they do not have.
   "/dashboard/assistant/grades",
-  // — the "more" sheet, in sidebar order —
   "/dashboard/assistant/notifications",
   "/dashboard/assistant/materials",
   "/dashboard/assistant/collaborations",
@@ -107,9 +68,6 @@ export default function PortalChrome({
       bottomNav={BAR_ORDER}
       bottomNavMaxVisible={6}
     >
-      {/* In the layout, not on each screen: the delegation is true of every
-          route in this portal, and a strip that appeared on some screens and
-          not others would read as a state that comes and goes. */}
       <AssistantDelegationStrip />
       {children}
     </DashboardShell>

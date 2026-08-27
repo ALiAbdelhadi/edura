@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * The simulated screens.
- *
- * Built from the REAL Ledger primitives (`@/components/ledger`) rather than
- * look-alike markup, so what the learner practises on is the product's own
- * visual language down to the hairlines and the figure treatment. When the
- * design changes, these change with it.
- *
- * Every interactive control carries a `data-emu` id. That is the only contract
- * between a screen and the engine: the engine highlights `data-emu={target}`
- * and advances when it is clicked. Screens know nothing about steps.
- */
-
 import { useLocale, useTranslations } from "next-intl";
 import type { Locale } from "@/lib/i18n";
 import { formatPercent } from "@/lib/i18n/format";
@@ -38,8 +25,6 @@ import {
   type EmuLedgerRow,
 } from "./world";
 import { EmuTarget } from "./target";
-
-/* ── Dashboard ─────────────────────────────────────────────────────────── */
 
 export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
   const t = useTranslations("studentEmulator");
@@ -68,9 +53,6 @@ export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
               <p className="text-sm" style={{ color: "var(--ink-2)" }}>
                 <Num.ClockText value={EMU_TODAY[0]!.time} locale={locale} /> · {t("screens.today")}
               </p>
-              {/* WHERE and WITH WHOM. The real hero carries both; a rehearsal
-                  that answers only "when" teaches a screen that no longer
-                  exists. */}
               <p className="mt-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
                 {pick(EMU_PLACE.room, locale)} · {pick(EMU_PLACE.teacher, locale)}
               </p>
@@ -79,9 +61,6 @@ export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
         </Sheet>
       </div>
 
-      {/* The cover line, and only once there is something to cover. It mirrors
-          the real home's subscription notice, which is the one place a student
-          learns that a monthly plan ends by itself. */}
       {subscribed ? (
         <div data-emu-region="cover">
           <Sheet className="p-4" style={{ borderColor: "var(--teal)" }}>
@@ -120,10 +99,6 @@ export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
           <p className="mt-1 text-sm" style={{ color: "var(--ink-2)" }}>
             {t("screens.attendanceRate")}
           </p>
-          {/* The practice portal is a rehearsal of the real dashboard, so it
-              renders its figures the same way — a literal `%` here would put
-              a Latin sign on the Arabic tour beside an Arabic `٪` on the real
-              screen it is teaching. */}
           <Num style={{ fontSize: 26, fontWeight: 600, color: "var(--ink)" }}>
             {formatPercent(EMU_RECORD.attendanceRate, locale)}
           </Num>
@@ -141,8 +116,6 @@ export function EmuDashboard({ subscribed }: { subscribed: boolean }) {
     </div>
   );
 }
-
-/* ── Subjects ──────────────────────────────────────────────────────────── */
 
 export function EmuSubjects({
   openSubject,
@@ -244,8 +217,6 @@ export function EmuSubjects({
   );
 }
 
-/* ── Wallet ────────────────────────────────────────────────────────────── */
-
 export function EmuWallet({
   balance,
   ledger,
@@ -318,8 +289,6 @@ export function EmuWallet({
   );
 }
 
-/* ── Card ──────────────────────────────────────────────────────────────── */
-
 export function EmuCard({ shown, onShow }: { shown: boolean; onShow: () => void }) {
   const t = useTranslations("studentEmulator");
   const locale = useLocale() as Locale;
@@ -365,8 +334,6 @@ export function EmuCard({ shown, onShow }: { shown: boolean; onShow: () => void 
                 </Num>
               </div>
             </div>
-            {/* A drawn stand-in for the QR: the emulator must not mint a real
-                signed payload, and a photographable fake would be worse. */}
             <div
               aria-hidden
               className="grid size-20 shrink-0 grid-cols-4 gap-0.5 rounded p-1"

@@ -1,26 +1,3 @@
-// Proof — the counter board's three reads, against a live database.
-//
-// The board is the center's first screen: pick the teacher, get the lesson that
-// is running, get who is in it. It writes nothing — every commit still goes
-// through `counterCheckin` and the per-session subscription — so what has to be
-// proven here is what a READ can still get wrong:
-//
-//   1. TENANCY. `sessions` carries no `center_id`; it reaches the center only
-//      through its course, and these queries run under `platformDb` (RLS
-//      bypassed) exactly like their neighbours in checkin.ts. So the center
-//      filter is hand-written, and a hand-written filter is one someone can
-//      delete. Every read is asked to serve a foreign center's lesson.
-//
-//   2. THE CLOCK. "Which teacher is on now" is decided against CAIRO
-//      wall-clock, not the server's. On a UTC host (Vercel) a naive
-//      implementation lights up the wrong teacher by two or three hours — and
-//      it does so silently, because the screen looks perfectly plausible.
-//
-//   3. THE PARTITION. The two tabs must be a partition of ONE list: "checked
-//      in" is exactly the rows whose attendance is present/counter_only, and
-//      "all students" is the union of the roster, whoever holds a pass, and
-//      whoever already has an attendance row. A child who paid but is not
-//      enrolled must not vanish from the screen they were marked on.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
@@ -42,8 +19,6 @@ const ok = (c: boolean, m: string) => {
 const centerActor = (centerId: string): SessionUser =>
   ({ id: "counter-actor-" + centerId, role: "center_admin", centerId, locale: "en" }) as SessionUser;
 
-/** Cairo wall-clock now, in minutes past midnight — the same clock the service
- *  resolves against, recomputed here independently rather than imported. */
 function cairoNowMinutes(): number {
   const [h, m] = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Africa/Cairo",
@@ -75,9 +50,6 @@ async function main() {
   console.log("Counter board —", tag);
 
   const now = cairoNowMinutes();
-  // The seeded lesson must straddle "now" for the live/default assertions to
-  // mean anything. Near midnight the clamp would flatten the window, so the
-  // suite says so rather than reporting a false green.
   const clockUsable = now > 90 && now < 24 * 60 - 90;
   const today = cairoToday();
 
@@ -165,7 +137,6 @@ async function main() {
       clock(now - 30),
       clock(now + 60),
     );
-    // Same teacher, already finished — it must NOT be the default.
     const sessionDone = await mkSession(
       courseLive.id,
       live.id,
@@ -178,14 +149,12 @@ async function main() {
       clock(now + 120),
       clock(now + 200),
     );
-    // Another center's lesson, at the same minute. Every read must refuse it.
     const sessionForeign = await mkSession(
       courseForeign.id,
       foreign.id,
       clock(now - 30),
       clock(now + 60),
     );
-    // Yesterday, so "today" is a real filter rather than "every session ever".
     const yesterday = new Date(today);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const sessionYesterday = await tx.session.create({
@@ -221,7 +190,6 @@ async function main() {
         },
       });
     }
-    // Dropped: an unenrolled row must not put anyone back on the list.
     await tx.enrollment.create({
       data: {
         studentId: stranger,
@@ -248,8 +216,6 @@ async function main() {
         activatedAt: new Date(),
       },
     });
-    // A monthly window that does NOT contain today — coverage is not a boolean
-    // on the student, it is a question about this lesson.
     const staleSub = await tx.subscription.create({
       data: {
         studentId: enrolled2,
@@ -463,8 +429,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite counter-board.test.ts" })
   .then(() => main())
   .catch((e) => {

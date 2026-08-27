@@ -6,10 +6,6 @@ import { listRosterStudents, addRosterStudent } from "@repo/server-core/services
 
 export const dynamic = "force-dynamic";
 
-// The roster logic moved to the shared kernel so apps/superadmin can run the
-// SAME code against any center. This route keeps its exact guard, schema and
-// response shape — only the body moved.
-
 const addSchema = z.object({
   studentId: z.string().min(1),
 });

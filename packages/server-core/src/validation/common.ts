@@ -36,10 +36,6 @@ export const signedMoneySchema = z
   .max(MAX_MONEY_PIASTERS, "Amount exceeds the maximum (999,999 EGP)");
 
 export function isNotPastDate(yyyymmdd: string): boolean {
-  // `todayKey()`, not the UTC calendar day. The caller is a human in Egypt
-  // picking a start date; from midnight until 02:00/03:00 Cairo the UTC day is
-  // still yesterday, so the old comparison accepted a date that had already
-  // passed locally — and rejected today's date for nobody's benefit.
   return yyyymmdd >= todayKey();
 }
 export const futureDateStringSchema = z

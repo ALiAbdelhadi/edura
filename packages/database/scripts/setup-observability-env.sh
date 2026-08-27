@@ -1,21 +1,4 @@
 #!/usr/bin/env bash
-# =============================================================================
-# Configure Sentry + PostHog.
-#
-# RUN THIS YOURSELF. Only ONE value here is actually secret — SENTRY_AUTH_TOKEN,
-# which uploads source maps from CI. It is prompted hidden and piped to `gh` on
-# stdin, never placed in argv where `ps` could read it.
-#
-# Everything else is PUBLIC BY DESIGN: a Sentry DSN and a PostHog project key
-# are compiled into the browser bundle and visible to anyone who opens devtools.
-# They are write-only ingest identifiers, not credentials. Treating them as
-# secrets is cargo-culting, and it makes people hesitate to paste them into a
-# dashboard where they belong.
-#
-#   bash packages/database/scripts/setup-observability-env.sh
-#
-# Re-running is safe: blank answers are skipped and change nothing.
-# =============================================================================
 set -euo pipefail
 
 REPO="${BACKUP_SECRETS_REPO:-ALiAbdelhadi/edura}"
@@ -35,7 +18,6 @@ bold "Sentry + PostHog"
 dim "ENTER skips a value and leaves it unchanged."
 echo
 
-# --- 1. Sentry: source-map upload (CI) ---------------------------------------
 bold "1. Sentry — source maps in CI"
 dim "Without these, production stack traces are minified and near-useless."
 dim "Org and project slugs are in your Sentry URL:"
@@ -61,7 +43,6 @@ set_gh_secret SENTRY_PROJECT_SUPERADMIN "SENTRY_PROJECT_SUPERADMIN (slug for the
 set_gh_secret SENTRY_AUTH_TOKEN         "SENTRY_AUTH_TOKEN (hidden)" yes
 echo
 
-# --- 2. runtime env ----------------------------------------------------------
 bold "2. Runtime variables (Vercel)"
 dim "These go on the DEPLOYMENT, not in GitHub — the running app reads them."
 echo
@@ -73,10 +54,6 @@ PH_HOST="${PH_HOST:-https://eu.i.posthog.com}"
 [ -z "$SA_DSN" ] && SA_DSN="$WWW_DSN"
 echo
 
-# PostHog is www-ONLY and that is deliberate: the back office is eight staff
-# accounts, so product analytics there measures nothing and would put internal
-# admin behaviour into a third party for no benefit. Sentry runs in both,
-# because a crash in the back office still needs a stack trace.
 emit_www() {
   echo "  NEXT_PUBLIC_SENTRY_DSN           = ${WWW_DSN:-<skip>}"
   echo "  NEXT_PUBLIC_SENTRY_ENVIRONMENT   = production"
@@ -109,7 +86,6 @@ warn "Redeploy after setting them — NEXT_PUBLIC_* are inlined AT BUILD TIME."
 warn "Setting them without a rebuild changes nothing."
 echo
 
-# --- 3. what to check ---------------------------------------------------------
 bold "Configured GitHub secrets"
 gh secret list --repo "$REPO" | grep -E '^SENTRY_' || warn "none found"
 echo

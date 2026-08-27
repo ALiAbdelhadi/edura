@@ -1,14 +1,3 @@
-// STUDENT_IA_AUDIT.md §5.1 finding 3 / PARENT_IA_AUDIT.md §7.1 finding 2 —
-// `me/attendance` returned `courseId` and no course name.
-//
-// Every consumer therefore fetched `enrollments` separately and joined the two
-// client-side just to print a subject. Three portals doing the same join is
-// three chances to do it differently — and the join has a hole the server does
-// not: an attendance record OUTLIVES the enrolment, so a student who left a
-// group still has history for it and the client-side join renders those rows
-// blank.
-//
-// Resolving the name server-side closes both. These pin the shape and the hole.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { requireSession, state } = vi.hoisted(() => ({
@@ -95,9 +84,6 @@ describe("me/attendance — the course name comes from the server", () => {
   });
 
   it("THE HOLE THE CLIENT JOIN HAD: history for a course the student has left", async () => {
-    // The record survives the enrolment. A client-side join against
-    // `enrollments` finds nothing and renders a blank row; the server reads the
-    // course itself and still knows its name.
     state.records = [rec("old-course", "present", "2026-05-01T00:00:00.000Z")];
     state.courses = [{ id: "old-course", title: "لغة عربية" }];
 

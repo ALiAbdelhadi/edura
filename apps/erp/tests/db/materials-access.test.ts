@@ -1,33 +1,3 @@
-/**
- * Materials access control — the default-deny branch (H-1).
- *
- * The bug this locks down: `listMaterials` and `getMaterialDownloadUrl` were
- * `if/else if` chains over student → parent → center_admin → teacher with NO
- * final `else`. Only `center_admin` runs under `withTenant()` in `scopedDb`;
- * every other role runs in PLATFORM context with RLS bypassed. So an unlisted
- * role fell past every branch and reached the query unscoped:
- *
- *   - listMaterials  -> `where` stayed {} -> EVERY material on the platform.
- *     Measured 2026-08-18: a center_staff member saw 4 materials across 3
- *     centers.
- *   - getMaterialDownloadUrl -> a findUnique BY ID with no ownership check ->
- *     a signed download URL for ANY material, including other centers'.
- *     Measured: center_staff (all three sub-tiers) and assistant got 200.
- *
- * Proves:
- *  1. center_staff is REFUSED on both the list and the download, for its own
- *     centre's material and for another centre's alike (materials are not a
- *     staff capability — the center-actor CAPABILITY MAP does not list them,
- *     and no staff-facing materials screen exists).
- *  2. An assistant still reaches its OWN teacher's material (delegation intact
- *     via `toActingUser`) and is refused another teacher's.
- *  3. The roles that always worked still work: teacher owns / cannot cross,
- *     center_admin same-centre only, enrolled student yes, unenrolled no.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only materials-access
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { listMaterials, getMaterialDownloadUrl } from "@/lib/services/materials/materials";
 import type { SessionUser } from "@/lib/auth/session";
@@ -66,9 +36,6 @@ async function main() {
   __sweepTag = tag;
   console.log("Materials access-control DB tests —", tag);
 
-  // Two independent centres, each with its own admin, teacher, course and
-  // material. Centre A also gets an assistant (bound to A's teacher), a
-  // center_staff member, an enrolled student and an unenrolled one.
   const fx = await withPlatformContext(async (tx) => {
     const mkCentre = async (k: string) => {
       const centre = await tx.center.create({
@@ -120,13 +87,11 @@ async function main() {
     const A = await mkCentre("A");
     const B = await mkCentre("B");
 
-    // Centre A's staff member (receptionist tier — the gate is the same for all).
     const staff = await tx.user.create({
       data: { name: `${tag}-staff`, role: "center_staff", email: `${tag}-staff@x.io`, status: "active" },
     });
     await tx.centerStaff.create({ data: { staffUserId: staff.id, centerId: A.centerId, role: "receptionist" } });
 
-    // Assistant serving centre A's teacher.
     const assistant = await tx.user.create({
       data: { name: `${tag}-asst`, role: "assistant", email: `${tag}-asst@x.io`, status: "active" },
     });
@@ -172,8 +137,6 @@ async function main() {
   const adminA = su({ id: fx.A.adminId, role: "center_admin", centerId: fx.A.centerId });
   const teacherA = su({ id: fx.A.teacherId, role: "teacher" });
   const teacherB = su({ id: fx.B.teacherId, role: "teacher" });
-  // The assistant AFTER `toActingUser` — the route-level resolution that makes
-  // an assistant act as the teacher it serves. Asserted separately below.
   const assistantActing = su({ id: fx.A.teacherId, role: "teacher" });
   const assistantRaw = su({ id: fx.assistantId, role: "assistant" });
 

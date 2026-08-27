@@ -19,13 +19,11 @@ const daysAhead = (d: number) => new Date(Date.now() + d * DAY);
 type Person = { id: string; key: string; name: string; role: Role };
 const P = (key: string, name: string, role: Role): Person => ({ id: did(key), key, name, role });
 
-// ---- centers -------------------------------------------------------------
 const HORIZON_SHORT = "OVSDEMOHRZN";
 const NILE_SHORT = "OVSDEMONILE";
 const HORIZON = did("center:horizon");
 const NILE = did("center:nile");
 
-// ---- cast ----------------------------------------------------------------
 const HALA = P("hala", "هالة عبد الرحمن", "center_admin");
 const RECEPTION_A = P("reception-a", "نورا سامي", "center_staff");
 const MANAGER_A = P("manager-a", "أحمد فتحي", "center_staff");
@@ -50,7 +48,6 @@ const STUDENTS_B = [
   P("st-b3", "عمرو صلاح", "student"),
 ];
 
-// A teacher with no affiliation yet — the pending collaboration request.
 const APPLICANT = P("applicant", "أ. منى الشاذلي", "teacher");
 
 const ALL: Person[] = [
@@ -69,14 +66,9 @@ const COURSE_CHEM = did("course:chem");
 const COURSE_BIO = did("course:bio");
 const COLLAB_PENDING = did("collab:pending");
 
-// ---------------------------------------------------------------------------
-
 async function purge() {
   console.log("Purging center-oversight demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve by NATURAL keys (email / shortId), never by the id formula — a
-    // purge keyed on the formula silently misses whatever a previous formula
-    // wrote (H-03).
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -113,13 +105,9 @@ async function purge() {
     await tx.blacklistCascadeAction.deleteMany({ where: { targetId: { in: ids } } });
     await tx.blacklistEntry.deleteMany({ where: { targetId: { in: ids } } });
     await tx.notification.deleteMany({ where: { userId: { in: ids } } });
-    // Audit rows created by exercising the control ops on the demo world.
     await tx.$executeRaw`
       DELETE FROM audit_logs WHERE center_id = ANY(${centerIds}::uuid[])`;
     await tx.center.deleteMany({ where: { id: { in: centerIds } } });
-    // `user.deleteMany` is intercepted by the soft-delete extension (the row
-    // and its UNIQUE email would survive and P2002 the next run). Raw hard
-    // delete, narrowed to these ids AND is_demo, on a non-production DB.
     const hardDeleted =
       ids.length === 0
         ? 0
@@ -144,7 +132,6 @@ async function main() {
   console.log("Seeding center-oversight demo…");
 
   await withPlatformContext(async (tx) => {
-    // ---- catalog (READ ONLY) -------------------------------------------
     const grade = await tx.gradeLevel.findFirst({ orderBy: { sortOrder: "asc" } });
     const offering = grade
       ? await tx.subjectOffering.findFirst({
@@ -158,7 +145,6 @@ async function main() {
       );
     }
 
-    // ---- users ----------------------------------------------------------
     for (const p of ALL) {
       await tx.user.upsert({
         where: { id: p.id },
@@ -197,7 +183,6 @@ async function main() {
     }
     console.log(`  ${ALL.length} users`);
 
-    // ---- centers --------------------------------------------------------
     const mkCenter = async (
       id: string,
       shortId: string,
@@ -242,7 +227,6 @@ async function main() {
       classroomCount: 1,
     });
 
-    // ---- staff ----------------------------------------------------------
     const mkStaff = async (p: Person, centerId: string, role: "receptionist" | "manager" | "center_accountant", title: string) => {
       await tx.centerStaff.upsert({
         where: { id: did(`staff:${p.key}`) },
@@ -255,7 +239,6 @@ async function main() {
     await mkStaff(ACCOUNTANT_A, HORIZON, "center_accountant", "محاسبة المركز");
     await mkStaff(RECEPTION_B, NILE, "receptionist", "موظفة الاستقبال");
 
-    // ---- rooms ----------------------------------------------------------
     const mkRoom = async (id: string, centerId: string, name: string, capacity: number, price: number) => {
       await tx.room.upsert({
         where: { id },
@@ -267,7 +250,6 @@ async function main() {
     await mkRoom(ROOM_FAJR, HORIZON, "قاعة الفجر", 25, 20_000);
     await mkRoom(ROOM_SALAM, NILE, "قاعة السلام", 30, 25_000);
 
-    // ---- affiliations ---------------------------------------------------
     const mkAff = async (teacher: Person, centerId: string) => {
       await tx.centerTeacherAffiliation.upsert({
         where: { id: did(`aff:${teacher.key}`) },
@@ -287,7 +269,6 @@ async function main() {
     await mkAff(DALIA, HORIZON);
     await mkAff(ADEL, NILE);
 
-    // ---- roster ---------------------------------------------------------
     const mkRoster = async (student: Person, centerId: string) => {
       await tx.centerStudentRoster.upsert({
         where: { centerId_studentId: { centerId, studentId: student.id } },
@@ -298,7 +279,6 @@ async function main() {
     for (const s of STUDENTS_A) await mkRoster(s, HORIZON);
     for (const s of STUDENTS_B) await mkRoster(s, NILE);
 
-    // ---- courses + sessions + enrollments -------------------------------
     const mkCourse = async (
       id: string,
       centerId: string,
@@ -356,8 +336,6 @@ async function main() {
             date,
             startTime: "16:00",
             endTime: "18:00",
-            // Past sessions read as completed, but NOTHING was distributed:
-            // distributedAt stays NULL so no settlement is implied.
             status: i < 4 ? "completed" : "scheduled",
           },
         });
@@ -391,14 +369,8 @@ async function main() {
     for (const s of STUDENTS_A.slice(2)) await mkEnrollment(s, COURSE_CHEM, HORIZON);
     for (const s of STUDENTS_B) await mkEnrollment(s, COURSE_BIO, NILE);
 
-    // ---- subscriptions --------------------------------------------------
-    // pending_payment ONLY. An `active` subscription asserts money arrived, and
-    // this seed writes no Payment and no Transaction — see the money note in
-    // the header. Coverage awaiting payment is the honest, ledger-free state.
     for (const [i, s] of STUDENTS_A.slice(0, 5).entries()) {
       const id = did(`sub:${s.key}`);
-      // DB CHECK subs_plan_session: per_session MUST name its covered session,
-      // monthly MUST NOT. Both plan shapes are seeded so the tab shows both.
       const monthly = i % 2 === 0;
       await tx.subscription.upsert({
         where: { id },
@@ -422,7 +394,6 @@ async function main() {
       });
     }
 
-    // ---- attendance -----------------------------------------------------
     const statuses = ["present", "present", "late", "absent", "counter_only"] as const;
     for (const [si, s] of STUDENTS_A.slice(0, 5).entries()) {
       for (const [ci, sessionId] of mathSessions.slice(0, 4).entries()) {
@@ -442,8 +413,6 @@ async function main() {
         });
       }
     }
-    // Non-null asserted once, above the loop, rather than at each use: the
-    // chemistry sessions were created immediately above, so index 0 exists.
     const chemSession0 = chemSessions[0]!;
     for (const s of STUDENTS_A.slice(2, 5)) {
       await tx.attendanceRecord.upsert({
@@ -460,7 +429,6 @@ async function main() {
       });
     }
 
-    // ---- one PENDING collaboration request (the approve/reject control op)
     await tx.collaborationRequest.upsert({
       where: { id: COLLAB_PENDING },
       update: { status: "pending", expiresAt: daysAhead(20) },
@@ -478,7 +446,6 @@ async function main() {
         endTime: "20:00",
         startDate: daysAhead(7),
         expectedStudents: 18,
-        // Neither party proposes a money number — superadmin config only.
         proposedCenterShare: 0,
         proposedPricingMethod: "whole_room_percent",
         message: "أرغب في تدريس مجموعة مسائية بالمركز.",

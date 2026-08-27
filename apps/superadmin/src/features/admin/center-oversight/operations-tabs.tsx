@@ -40,14 +40,6 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useAdminGet, useOversight, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
-// ---------------------------------------------------------------------------
-// PHASE 3 — Operations tabs.
-//
-// The one screen here that moves money is "Complete session": it runs the same
-// settlement a teacher's own complete runs. So it never fires from a bare row
-// button — it opens a PREVIEW of exactly what will be distributed first.
-// ---------------------------------------------------------------------------
-
 type SessionRow = {
   id: string;
   courseId: string;
@@ -191,7 +183,6 @@ type Preview = {
   } | null;
 };
 
-/** §3.1 — never a bare button. Shows what will be distributed, then confirms. */
 function CompleteSessionDialog({
   session,
   centerId,
@@ -383,10 +374,6 @@ function PostponeDialog({
   );
 }
 
-// ===========================================================================
-// Attendance — correction
-// ===========================================================================
-
 type AttendanceRow = {
   id: string;
   studentName: string | null;
@@ -494,10 +481,6 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
   );
 }
 
-// ===========================================================================
-// Deletion requests — the 13th tab
-// ===========================================================================
-
 type DeletionRow = {
   id: string;
   reason: string;
@@ -597,10 +580,6 @@ export function DeletionRequestsTab({
     </div>
   );
 }
-
-// ===========================================================================
-// Broadcast (Overview) + center blacklist (Students)
-// ===========================================================================
 
 export function BroadcastCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");

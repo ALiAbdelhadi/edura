@@ -1,12 +1,3 @@
-/**
- * Student Wallet — Proof 5: a refund returns the originally-charged amount to
- * the student's WALLET, exactly once (piggybacks the one-refund-per-payment
- * uniqueness; a concurrent double-refund credits the wallet only once).
- *
- * Run (all suites, guarded):  bun run --filter superadmin test:db
- * Run (this one only):        bun run --filter superadmin test:db:only wallet-refund
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@/lib/services/finance/distribution";
 import { refundLessonForStudent } from "@/lib/services/finance/refunds";
@@ -15,13 +6,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
-// Fixture teardown + the environment guard, wired at the module edge so
-// neither depends on remembering to do it inside a proof.
-//  * __sweepTag is set where the suite builds its tag; runGuarded() sweeps it
-//    in a finally, so an assertion that THROWS still cleans up.
-//  * assertDbEnv runs before the first fixture: running this file directly
-//    with --env-file=.env.local (which skips pretest:db) is now refused here,
-//    not just by the npm script.
 let __sweepTag = "";
 const SUITE_NAME = "wallet-refund.test.ts";
 
@@ -82,13 +66,11 @@ async function main() {
   __sweepTag = tag;
   console.log("Wallet refund proof —", tag);
   const su = { id: tag + "-su", role: "super_admin" } as SessionUser;
-  // A real super_admin actor row (refund writes audit_logs with actorId).
   const suId = await withPlatformContext((tx) =>
     tx.user.create({ data: { name: tag + "-su", role: "super_admin", email: tag + "-su@x.io", status: "active" } }).then((u) => u.id),
   );
   (su as { id: string }).id = suId;
 
-  // ---- Single refund returns the originally-charged amount to the wallet ----
   const a = await buildDistributedLesson(tag + "a");
   const before = await walletOf(a.student);
   const out = await refundLessonForStudent(a.session, a.student, "duplicate charge", su);
@@ -98,7 +80,6 @@ async function main() {
   assert(after === 20000, `wallet credited the originally-charged amount (0 -> ${after})`);
   assert((await walletRefundRows(a.student)) === 1, "exactly ONE wallet refund ledger row");
 
-  // ---- Concurrent double-refund credits the wallet exactly once ----
   const b = await buildDistributedLesson(tag + "b");
   const results = await Promise.allSettled([
     refundLessonForStudent(b.session, b.student, "double", su),

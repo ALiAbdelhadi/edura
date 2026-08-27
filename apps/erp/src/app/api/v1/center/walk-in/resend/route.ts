@@ -14,7 +14,6 @@ const bodySchema = z
   })
   .strict();
 
-/** Re-send the walk-in WhatsApp (fresh one-time link while unclaimed; code reminder after). */
 export const POST = withRateLimit(
   centerStaff(
     async (req, _ctx, { acting: user }) => {

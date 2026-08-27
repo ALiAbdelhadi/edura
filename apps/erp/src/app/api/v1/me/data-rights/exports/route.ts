@@ -7,13 +7,6 @@ import { listDataExports, requestDataExport } from "@repo/server-core/services/d
 
 export const dynamic = "force-dynamic";
 
-/**
- * `studentId` narrows to a CHILD, and is authorized inside the service by
- * `assertDataRightsSubject` — the same approved-link gate the parent money
- * paths use. Omitted, it means "me". There is no role check here on purpose:
- * every signed-in person has these rights over their own data, whatever their
- * role, and the only question is whose data they are asking for.
- */
 export const GET = withErrors(async (req) => {
   const user = await requireSession();
   const studentId = new URL(req.url).searchParams.get("studentId") ?? undefined;

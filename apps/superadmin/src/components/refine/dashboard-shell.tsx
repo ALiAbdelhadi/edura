@@ -16,17 +16,6 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import React from "react";
 
-/* ════════════════════════════════════════════════════════════════════════════
- * This file used to BE the shell — 505 lines of it, beside a 489-line twin in
- * apps/erp. They had already drifted where nobody diffs: this one drew its nav
- * badge white-on-destructive and the other amber-on-amber-soft, and this one
- * never remapped the guided tour's ids onto the phone bar.
- *
- * The chrome now lives once, in @repo/ui/components/app-shell. This is the seam
- * that hands it what @repo/ui cannot import. The public shape is UNCHANGED, so
- * both back-office layouts render as before with no edit.
- * ════════════════════════════════════════════════════════════════════════════ */
-
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
   Registrations: "nav.registrations",
@@ -78,9 +67,6 @@ const NAV_KEY: Record<string, string> = {
   "Feature flags": "nav.featureFlags",
   "Contact inbox": "nav.contactInbox",
   "Deletion requests": "nav.deletionQueue",
-  // Group headings. The `@` prefix is not decoration — it keeps a heading from
-  // ever colliding with a destination label, so a screen called "Money" could
-  // not silently resolve to the money group's translation.
   "@oversight": "navGroup.oversight",
   "@money": "navGroup.money",
   "@comms": "navGroup.comms",
@@ -92,15 +78,6 @@ const roleLabels: Record<string, string> = {
   finance: "Accountant",
 };
 
-/**
- * Search result kind → its heading key. Mirrors `SearchKind` in
- * `@repo/server-core/services/search/global-search`; a kind missing here
- * renders its raw key, which is deliberately ugly rather than invisible.
- *
- * Only the kinds THIS app's providers can emit are listed. The ERP's own kinds
- * (rooms, groups, off-system teachers) are absent because no provider here
- * returns one — a heading for a row that cannot arrive is dead config.
- */
 const SEARCH_KIND_KEY: Record<string, string> = {
   student: "shared.searchKind_student",
   teacher: "shared.searchKind_teacher",
@@ -115,18 +92,6 @@ const SEARCH_KIND_KEY: Record<string, string> = {
 
 export type NavGroup = ShellNavGroup;
 
-/**
- * Counts for the nav entries that own them.
- *
- * Only ONE is wired, and only for the portal that holds it: the pending
- * registrations queue. It is exact — `/admin/registrations` returns its whole
- * set unpaginated, so the length IS the count — and it is the queue this
- * portal exists to work through, which is why it earns the first badge.
- *
- * The query is skipped entirely when the role's nav does not carry that
- * destination, so the accountant's portal does not spend a request per page
- * load asking about a screen it will never show.
- */
 function useNavBadges(hrefs: Set<string>): Record<string, number> {
   const registrationsHref = [...hrefs].find((h) =>
     h.endsWith("/registrations"),
@@ -154,19 +119,8 @@ export default function DashboardShell({
   children,
 }: {
   role: string;
-  /** Flat list. Pass this OR `navGroups`, never both. */
   navItems?: NavItem[];
-  /**
-   * Grouped list. Preferred once a portal outgrows ~8 destinations: an
-   * unbroken column of twenty is scanned linearly every single time, while
-   * four labelled runs are scanned by heading first.
-   */
   navGroups?: NavGroup[];
-  /**
-   * Phone chrome. Hrefs in BAR ORDER. LIST EVERY href IN `navItems`: passing
-   * this hides the sidebar toggle on phones, so an href left out is a
-   * destination a phone user cannot reach.
-   */
   bottomNav?: string[];
   children: React.ReactNode;
 }) {
@@ -199,13 +153,6 @@ export default function DashboardShell({
 
   const displayName = identity?.name || roleLabels[role] || "User";
 
-  /* ── record search ──────────────────────────────────────────────────────
-   * The query lives here rather than in the shell because THIS is the layer
-   * that can fetch, and the kind → heading catalogue is the app's because
-   * @repo/ui has no message catalogue. Which records actually come back is the
-   * SERVER's decision, per role (`PROVIDERS[].roles` in admin/global-search.ts)
-   * — an accountant gets payment attempts and nothing else, and that is not
-   * expressed anywhere on this side. */
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchResults = useGlobalSearch(searchQuery);
   const remote = React.useMemo(
@@ -235,22 +182,12 @@ export default function DashboardShell({
       notificationsHref={`/dashboard/${role === "center_admin" ? "admin" : role}/notifications`}
       dir={dir === "rtl" ? "rtl" : "ltr"}
       locale={locale}
-      // `usePathname` from @/i18n/navigation already strips the locale prefix.
       pathname={pathname || "/"}
       linkAs={Link}
       translateNav={tNav}
       onLogout={() => logout()}
       onNavigate={(href) => router.push(href)}
       logo={
-        // A bare <img> and not next/image: the optimizer REFUSES SVG unless
-        // `dangerouslyAllowSVG` is set, and there is nothing to optimise in
-        // 1.8 KB of vector rendered at a fixed 36px either way.
-        //
-        // `alt="Edura"`, because the shell no longer renders a wordmark beside
-        // it (Ali, 2026-08-14) — this mark is the only thing naming the product
-        // in the sidebar header. It was briefly `alt=""` while the wordmark was
-        // there, which was right then and wrong now: the alt describes what the
-        // reader is missing, so it follows what else is on screen.
         // eslint-disable-next-line @next/next/no-img-element
         <img src="/edura-mark.svg" alt="Edura" className="size-9 shrink-0" />
       }

@@ -1,24 +1,3 @@
-/**
- * T-9 — the lock becomes real, and yields through a door (API session 2,
- * item B.1#7; docs/decisions/attendance-reopen-settlement.md).
- *
- * What is proven here, against the real services:
- *   1. THE BYPASS IS CLOSED: `bulkMarkAttendance` now refuses a session past
- *      the 7-day window — the same lock the GET reports. (Before this change
- *      the GET said `locked: true` while this exact call went through.)
- *   2. THE DOOR WORKS: `reopenAttendanceForSettlement` unlocks the stranded
- *      case (past window, never settled), the GET agrees, bulk marking then
- *      succeeds, and the reopen writes its audit row.
- *   3. THE REFUSALS HOLD: in-window sessions ("no reopen needed"), a rival
- *      teacher (NotFound), a second reopen, and a settled lesson all refuse.
- *   4. SETTLEMENT RE-ARMS THE LOCK PERMANENTLY: with `distributedAt` set, the
- *      session reads locked again even though the reopen fact is still there,
- *      and the bulk write refuses again.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only t9-attendance-reopen
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   bulkMarkAttendance,
@@ -99,11 +78,6 @@ async function main() {
       });
     const stranded = await mkSession(daysAgo(12)); // the T-9 case
 
-    // The CENTER case — an EXTERNAL teacher's lesson. External teachers have
-    // no account (docs/decisions/external-teachers.md), so the center is the
-    // actor of record and past-lesson catch-up is a designed flow that
-    // buildGapReport prompts. Without a center door the lock would delete that
-    // capability instead of guarding it; this fixture is the proof it did not.
     const center = await tx.center.create({
       data: { name: `${tag}-center`, shortId: tag.toUpperCase().slice(0, 18) },
     });

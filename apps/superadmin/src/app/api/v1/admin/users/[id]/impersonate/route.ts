@@ -9,16 +9,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Start impersonating a BACK-OFFICE account (see boundary 2 in
- * services/admin/admin-users.ts). Two independent gates have to agree:
- * `assertImpersonatable` here, and better-auth's own `user:impersonate`
- * permission check — which additionally refuses admin-role targets because
- * the `impersonate-admins` statement was never granted.
- *
- * The audit row is written BEFORE the session swaps, while the actor is still
- * themselves; otherwise the actorId would be the impersonated user.
- */
 export const POST = withErrors(async (req, ctx) => {
   const actor = await requireRole("super_admin");
   const { id } = await ctx.params;

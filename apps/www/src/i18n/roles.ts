@@ -1,28 +1,6 @@
 import type { Locale } from "./config";
 import type { MediaKey } from "@/media/manifest";
 
-/**
- * THE ROLE PAGES — one per audience, and every capability on them is REAL.
- *
- * The feature list is not invented copy. It is the actual route inventory of
- * `apps/erp`, read off the five portal layouts: 19 destinations for the
- * center, 15 for the teacher, 14 for the student, 12 for the parent, 12 for
- * the assistant. The
- * groups are the portal sidebars' own taxonomy (`@teach`, `@counter`,
- * `@money`, `@children`, …) and the capability names are the sidebar's own
- * words in each language.
- *
- * That is the point: a center owner reads this page, signs up, and finds the
- * same nouns in the same groups. A marketing page that renames the product's
- * own screens teaches a vocabulary the product then contradicts.
- *
- * WHAT IS DELIBERATELY NOT HERE: prices, customer names, counts of centers or
- * students, and any claim about performance. None of those are facts I have.
- */
-
-/* `staff` is sixth and last on purpose: the nav, the footer and the homepage's
-   role list all derive their ORDER from this array, and a center's own staff
-   are the role a visitor reaches for after the four they already know. */
 export const ROLE_SLUGS = ["center", "teacher", "parent", "student", "assistant", "staff"] as const;
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
 
@@ -31,30 +9,23 @@ export function isRoleSlug(value: string): value is RoleSlug {
 }
 
 type Capability = {
-  /** The sidebar's own label for this destination, in this language. */
   name: string;
-  /** What it does, in one line, from the reader's side of the screen. */
   detail: string;
 };
 
 type Group = {
-  /** The portal sidebar's group heading. */
   label: string;
-  /** Reserved imagery for this group. `null` where a still adds nothing. */
   shot: MediaKey | null;
   capabilities: Capability[];
 };
 
 type RolePage = {
-  /** The eyebrow: who this page is for. */
   label: string;
   headline: string;
-  /** The question this role opens the product to answer. */
   question: string;
   lede: string;
   hero: MediaKey;
   groups: Group[];
-  /** Three guarantees that matter to THIS role specifically. */
   guarantees: { title: string; detail: string }[];
   ctaTitle: string;
   ctaBody: string;
@@ -340,14 +311,6 @@ const ar: Record<RoleSlug, RolePage> = {
     ctaPrimary: "سجّل كطالب",
   },
 
-  /* THE ASSISTANT HAS A PAGE, and the reason is a reader I first missed.
-     Nobody CHOOSES to be an assistant — a teacher appoints one — so my first
-     instinct was that the role belonged inside the teacher's page. That is
-     true for one of its two readers and wrong for the other: somebody who has
-     just been invited lands on this site to find out what they are allowed to
-     do, and a teacher deciding whether to delegate needs to see the BOUNDARY
-     before they trust it. Both readers are looking for the same thing — the
-     line — so both get the page that draws it. */
   assistant: {
     label: "للمساعدين",
     headline: "كل شغل المدرّس، ما عدا الفلوس.",

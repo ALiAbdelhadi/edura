@@ -1,26 +1,3 @@
-/**
- * Phase 4 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 4, D4+D5) — funding legs + the
- * center credit wallet: THE clearing model.
- *
- * What is proven, against the real engine:
- *   [1] ALL-ONLINE lesson: byte-identical to pre-Phase-4 — wallet_balance
- *       (platform-held payable) += centerNet, credit_balance untouched,
- *       per-student payment rows stamped funding=platform_held, settlement
- *       grosses (platform=gross, center=0).
- *   [2] ALL-CASH lesson — THE F2 FIX: the teacher is still credited their
- *       full net, but wallet_balance moves NOTHING (the center's own net sits
- *       in its own drawer), and credit_balance is debited (teacherNet + fees)
- *       through two lesson-referenced ledger rows. §4.8's fix: the platform's
- *       take on cash money is now a visible, chaseable position.
- *   [3] MIXED lesson: split exactly by each student's coverage method.
- *   [4] CASH WALLET TOP-UP debits the collecting center's credit at top-up
- *       time — which is what makes wallet-funded coverage platform-held.
- *   [5] CREDIT TOP-UP settler: +amount, a `topup` ledger row with the running
- *       balance, and a platform-held Transaction.
- *
- * Run (this one only): bun run --filter edura test:db:only center-credit-clearing
- */
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";
@@ -112,7 +89,6 @@ async function main() {
     const sMixed = await mkSession();
     const sWalletCov = await mkSession();
 
-    // Coverage rows with explicit funding methods (activation shape).
     const cover = (studentId: string, sessionId: string, paymentMethod: "cash" | "online_paymob" | "wallet") =>
       tx.subscription.create({
         data: {
@@ -240,7 +216,6 @@ async function main() {
   );
   assert(collectRow?.delta === -5000 && collectRow?.method === "cash", "wallet_cash_collection ledger row");
 
-  // …which is exactly what makes wallet coverage platform-held:
   await bulkMarkAttendance(fx.sWalletCov, [{ studentId: fx.students[3], status: "present" }], fx.owner, fx.center);
   before = await snapshot();
   await completeSession(fx.sWalletCov, teacherUser);

@@ -1,15 +1,11 @@
 #!/bin/bash
-# API smoke test against a running dev server (http://localhost:3002).
-# Replaces the old Mongo-based newman harness: logs in as each role and
-# exercises the key read paths, one write path, and RBAC isolation.
-# Usage: bun run smoke:api   (server must be running: bun run dev)
 set -u
 ROOT="${SMOKE_BASE:-http://localhost:3002}"
 BASE="$ROOT/api/v1"
 PW="${SMOKE_PASSWORD:-Passw0rd!}"
 FAILURES=0
 
-expect() { # $1 actual, $2 expected, $3 label
+expect() {
   if [ "$1" = "$2" ]; then
     printf "  ok   [%s] %s\n" "$1" "$3"
   else
@@ -18,7 +14,7 @@ expect() { # $1 actual, $2 expected, $3 label
   fi
 }
 
-login() { # $1 email → prints cookie jar path
+login() {
   jar="/tmp/edura-smoke-$(echo "$1" | tr '@.' '__').jar"
   code=$(curl -s -m 20 -c "$jar" -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
     -d "{\"email\":\"$1\",\"password\":\"$PW\"}" "$ROOT/api/auth/sign-in/email")
@@ -26,15 +22,11 @@ login() { # $1 email → prints cookie jar path
   echo "$jar"
 }
 
-get() { # $1 jar, $2 path, $3 expected, $4 label
+get() {
   code=$(curl -s -m 30 -b "$1" -o /dev/null -w '%{http_code}' "$BASE/$2")
   expect "$code" "$3" "$4"
 }
 
-# /api/health (not the deprecated _ping): a 200 here asserts the DATABASE is
-# reachable too — _ping answered 200 even with the DB down, which is exactly
-# why it is being retired (api-modernization-audit §3). Bounded at 8s server-
-# side for a Neon cold start, hence the generous curl timeout.
 echo "== health =="
 expect "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$ROOT/api/health")" 200 "health"
 

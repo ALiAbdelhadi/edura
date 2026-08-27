@@ -195,7 +195,6 @@ const ATTENDANCE_CYCLE: AttendanceStatus[] = [
 async function purge() {
   console.log("Purging showcase demo data…");
   await withPlatformContext(async (tx) => {
-    // Resolve by NATURAL keys, not derived ids.
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`;
@@ -610,8 +609,6 @@ async function main() {
           startTime: c.startTime,
           endTime: c.endTime,
           status: s.past ? ("completed" as const) : ("scheduled" as const),
-          // NULL on purpose: distribution is what writes money, and money is
-          // not this seed's to write. See the file header.
           distributedAt: null,
         })),
         skipDuplicates: true,

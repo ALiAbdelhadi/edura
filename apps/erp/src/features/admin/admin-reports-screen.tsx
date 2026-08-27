@@ -25,19 +25,6 @@ import {
 } from "./ledger";
 import { asRecord } from "@/lib/refine/as-record";
 
-/**
- * التقارير — eight endpoints over a 977-line service with no test coverage.
- *
- * SCOPE: restyle the surface, do NOT restructure the logic. Every query, every
- * field read and every derivation below is unchanged from the version this
- * replaces; what changed is the token layer, the figure treatment and the chart
- * colours.
- *
- * Charts previously reached for seven decorative hues (`--chart-1..5`,
- * `--info`, `--warning`, `--success`) from the superseded palette. They now come
- * from one place — see chart-palette.ts — where the colour encodes meaning:
- * teal is money, grey is what it is measured against, red is money leaving.
- */
 export function AdminReportsScreen() {
   const t = useTranslations();
   const { formatShortEGP, formatDate, formatPercent, locale } = useFormatters();
@@ -56,21 +43,12 @@ export function AdminReportsScreen() {
     [dateRange, granularity],
   );
 
-  // ---- THE HEADLINE LOADS WITH THE PAGE. Someone who opened "Reports" has
-  // asked for the net-profit figures; putting those behind an interaction
-  // would be answering a question nobody raised.
   const { query, result } = useCustom({
     url: "reports/net-profit",
     method: "get",
     config: { query: queryValues },
   });
 
-  // ---- THE FOUR CHARTS DO NOT. They were five concurrent aggregate queries
-  // on one page load, and four of them draw sections a reader may never scroll
-  // to. Each now fires when its own section approaches the viewport (see
-  // useVisibilityTrigger) — a button would be wrong here, because arriving at
-  // Reports IS the request for the reports; what has not been asked for is the
-  // chart three scrolls down.
   const trendReq = useOnDemand<any>("reports/revenue-timeseries", { query: queryValues });
   const expensesReq = useOnDemand<any>("reports/expenses-timeseries", { query: queryValues });
   const fillRateReq = useOnDemand<any>("reports/course-fill-rates", { query: queryValues });
@@ -87,19 +65,6 @@ export function AdminReportsScreen() {
   const fillRates = (fillRateReq.data?.items ?? []) as any[];
   const funnel = (funnelReq.data?.items ?? []) as any[];
 
-  // GUARD ON THE PAYLOAD, NOT ON isLoading/isError — neither is reliable here.
-  // React Query PAUSES a retry when its online-heuristic says the network is
-  // down (`fetchStatus: "paused"`, observed live). Paused means `isFetching`
-  // false, so `isLoading` (= isPending && isFetching) is false; and the query
-  // never settles, so `isError` never becomes true either. Both guards were
-  // therefore unreachable on a first load that fails, and this screen rendered
-  // its success layout over a payload that does not exist — "0.00 EGP" revenue
-  // on a money screen, indistinguishable from a real zero.
-  //
-  // `data` is null unless a real object arrived (see asRecord), so keying on it
-  // covers pending, paused, backoff and error alike. This endpoint always
-  // answers with a shaped object, never `{}`, so `!data` cannot mean "loaded
-  // but empty".
   if (query.isError && !data) {
     return (
       <Sheet>
@@ -120,19 +85,10 @@ export function AdminReportsScreen() {
   const revenue = data?.revenue ?? 0;
   const expenses = data?.expenses ?? 0;
   const netProfit = data?.netProfit ?? 0;
-  // A NUMBER, not a pre-formatted string. It was `.toFixed(1)`, which fixes the
-  // decimal separator to a dot and the digits to Latin before the locale is
-  // ever consulted — so the margin was the one figure on this screen the
-  // formatter could not reach. The precision it was buying is preserved by
-  // asking `formatPercent` for one decimal.
   const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
   const byCourse = data?.byCourse ?? [];
   const enrollmentRates = fillRates.length > 0 ? fillRates : (data?.enrollmentRates ?? []);
   const sessionStatusMix = data?.sessionStatusMix ?? [];
-  // MOVED FROM THE OWNER'S HOME, where three charts were pushing the decision
-  // queue off a phone screen. It needs no new request: `reports/net-profit`
-  // has always carried `attendanceByCourse`, and this screen has always read
-  // that payload — it simply never drew this one.
   const attendanceByCourse = (data?.attendanceByCourse ?? []) as Array<{
     title: string;
     attendanceRatePct: number;
@@ -159,9 +115,6 @@ export function AdminReportsScreen() {
               placeholder={t("adminManage.reports.pickDateRange")}
             />
 
-            {/* Status-pill filter row: each pill is its own control, the active
-                one carries indigo. Replaces the toggle-group, which read as a
-                form widget rather than a filter. */}
             <div className="flex items-center gap-1 rounded-lg border border-[var(--rule)] bg-[var(--field)] p-1">
               {(["month", "week"] as const).map((g) => (
                 <button
@@ -188,15 +141,11 @@ export function AdminReportsScreen() {
             >
               {t("adminManage.reports.reset")}
             </Button>
-            {/* Exports carry the range above, so a download is always "what I
-                am looking at" rather than a second, silently different query. */}
             <ReportExportMenu from={dateRange.from} to={dateRange.to} />
           </div>
         }
       />
 
-      {/* The P&L reads as one statement closing on the accountant's rule, not as
-          four disconnected stat cards. Attendance sits apart — it is not money. */}
       <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
         <Sheet>
           <SheetHead title={t("adminManage.reports.netProfit")} />

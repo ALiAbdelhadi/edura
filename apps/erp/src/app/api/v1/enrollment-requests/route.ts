@@ -105,8 +105,6 @@ export const POST = withErrors(async (req) => {
     }
     if (!course) throw new ForbiddenError("Course not found");
     if (!course.centerId) {
-      // Teacher-direct courses have no center to approve a request — they are
-      // joined by subscribing (Step 4), never via the enrollment-request flow.
       throw new BusinessRuleError("This course is joined by subscription, not enrollment request");
     }
     const centerId = course.centerId;

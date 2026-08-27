@@ -1,27 +1,3 @@
-/**
- * Course creation is ATOMIC — a schedule conflict leaves no orphan behind.
- *
- * WHAT WAS BROKEN. `createCourse` committed the course row in one transaction
- * and then called `generateSessions`, which opened a SECOND one. Session
- * generation refuses on a schedule conflict (checkConflicts — teacher OR room
- * double-booked), so a conflicting create threw 409 at the caller while
- * leaving a committed course with ZERO sessions in the center's Classes list:
- * a group nobody can attend, nothing can settle, and nobody asked for. The
- * EDIT path had already been fixed this way (regenerateFutureSessionsTx runs
- * inside updateCourse's transaction); create was never brought along.
- *
- * Proves, for BOTH create paths (center-owned and teacher-direct):
- *  - a TEACHER double-booking is refused, and no course row survives;
- *  - a ROOM double-booking is refused, and no course row survives;
- *  - the happy path still creates the course AND its sessions;
- *  - back-to-back lessons (one ends exactly when the next starts) are NOT a
- *    conflict — the half-open rule in timesOverlap, which is how a center
- *    actually runs its day.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only course-create-atomicity
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import {
   createCourse,
@@ -49,7 +25,6 @@ function assert(cond: boolean, msg: string) {
 
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
-/** Monday well in the future — schedulePattern refuses a past startDate. */
 const MONDAY = new Date("2027-03-01T00:00:00Z");
 const MONDAY_END = new Date("2027-03-29T00:00:00Z");
 
@@ -69,7 +44,6 @@ async function countCourses(titlePrefix: string) {
   );
 }
 
-/** Run a create that is expected to be refused, and report whether it threw. */
 async function refused(fn: () => Promise<unknown>) {
   try {
     await fn();
@@ -142,7 +116,6 @@ async function main() {
     maxStudents: 30,
   });
 
-  // --- happy path: course AND sessions both land ----------------------------
   const first = await createCourse(admin, base(`${tag}-first`, fx.teacherA, fx.room, ["16:00", "18:00"]));
   assert(first.sessionsGenerated > 0, `happy path generated ${first.sessionsGenerated} sessions`);
   const firstSessions = await withPlatformContext((tx) =>
@@ -150,10 +123,8 @@ async function main() {
   );
   assert(firstSessions === first.sessionsGenerated, "sessions are actually persisted");
 
-  // --- TEACHER double-booking ----------------------------------------------
   const beforeTeacher = await countCourses(`${tag}-clash-teacher`);
   const rTeacher = await refused(() =>
-    // Same teacher, DIFFERENT hall, overlapping time.
     createCourse(admin, base(`${tag}-clash-teacher`, fx.teacherA, fx.room2, ["17:00", "19:00"])),
   );
   const afterTeacher = await countCourses(`${tag}-clash-teacher`);
@@ -163,10 +134,8 @@ async function main() {
     `NO orphan course row survives the teacher clash (before ${beforeTeacher}, after ${afterTeacher})`,
   );
 
-  // --- ROOM double-booking --------------------------------------------------
   const beforeRoom = await countCourses(`${tag}-clash-room`);
   const rRoom = await refused(() =>
-    // DIFFERENT teacher, SAME hall, overlapping time.
     createCourse(admin, base(`${tag}-clash-room`, fx.teacherB, fx.room, ["17:00", "19:00"])),
   );
   const afterRoom = await countCourses(`${tag}-clash-room`);
@@ -176,7 +145,6 @@ async function main() {
     `NO orphan course row survives the room clash (before ${beforeRoom}, after ${afterRoom})`,
   );
 
-  // --- back-to-back is NOT a clash (half-open overlap) ----------------------
   const backToBack = await refused(() =>
     createCourse(admin, base(`${tag}-b2b`, fx.teacherA, fx.room, ["18:00", "20:00"])),
   );
@@ -185,7 +153,6 @@ async function main() {
     "a lesson starting exactly when the previous ends is ALLOWED (half-open overlap)",
   );
 
-  // --- teacher-direct path: same guarantee ----------------------------------
   const teacherUser: SessionUser = { id: fx.teacherB, role: "teacher" } as SessionUser;
   const direct = await createTeacherDirectCourse(teacherUser, {
     title: `${tag}-direct`,

@@ -1,26 +1,6 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { toDateKey } from "@repo/server-core/lib/date-key";
 
-/* ── The decision queue (اليوم) ────────────────────────────────────────────────
-
-   READ-ONLY aggregation. Nothing here mutates; the super admin sees all money and
-   moves none (see center-oversight.ts for the same boundary stated as an import
-   list).
-
-   Every figure below is derived from a table that already exists. That constraint
-   is not incidental — the design brief's third metric card was «فروق في مطابقة
-   الكاش» (cash-reconciliation differences), and NO such concept exists in the
-   schema: 70 models, none for reconciliation discrepancies. Rendering it would
-   have failed the one test the constitution exists to enforce — "no screen implies
-   a capability the system does not have".
-
-   What replaced it is a real blocking condition with the same meaning. settlePayout
-   settles with an H2 CONDITIONAL DECREMENT (`updateMany where balance >= net`), so a
-   payout whose beneficiary wallet does not cover the net DOES NOT SILENTLY PASS — it
-   throws and rolls the whole settlement back. That is a payout which genuinely
-   cannot be disbursed, it is knowable before the operator arms the button, and it
-   carries the same «يوقف الصرف» semantics the card was drawn to carry. */
-
 export type DecisionQueue = Awaited<ReturnType<typeof decisionQueue>>;
 
 const LEDGER_WINDOW_DAYS = 15;
@@ -48,8 +28,6 @@ export function decisionQueue() {
         _sum: { netPayable: true },
       }),
 
-      // The oldest waiting request — "12 pending" is a number, "the oldest is 3
-      // days old, and it belongs to this person" is a decision (D-026).
       tx.payout.findFirst({
         where: { status: "pending" },
         orderBy: { createdAt: "asc" },
@@ -59,7 +37,6 @@ export function decisionQueue() {
       tx.center.count({ where: { status: "pending" } }),
       tx.user.count({ where: { role: "teacher", status: "pending" } }),
 
-      // Held funds — money on the platform's books that is already spoken for.
       tx.payout.aggregate({
         where: { status: { in: ["pending", "approved"] } },
         _sum: { netPayable: true },
@@ -70,9 +47,6 @@ export function decisionQueue() {
         _sum: { amount: true },
       }),
 
-      /* Payouts the wallet cannot cover. This is the H2 floor read forward: the
-         same comparison settlePayout makes conditionally, made visible before the
-         commit instead of surfacing as a failed write afterwards. */
       db.$queryRaw<{ count: bigint; shortfall: bigint }[]>`
         SELECT COUNT(*)                                            AS count,
                COALESCE(SUM(p.net_payable - w.wallet_balance), 0)  AS shortfall
@@ -90,9 +64,6 @@ export function decisionQueue() {
            AND w.wallet_balance IS NOT NULL
            AND w.wallet_balance < p.net_payable`,
 
-      /* The 15-day platform ledger: gross lesson revenue and the commission taken
-         from it, per day, as ONE row per day so the overlay chart never has to
-         reconcile two differently-shaped series. */
       db.$queryRaw<{ day: Date; gross: bigint; commission: bigint }[]>`
         SELECT d.day::date                                                        AS day,
                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'payment'), 0)       AS gross,
@@ -110,9 +81,6 @@ export function decisionQueue() {
          GROUP BY d.day
          ORDER BY d.day ASC`,
 
-      /* آخر ما كُتب في الدفتر. The actor is resolved from the audit row that
-         accompanies the write; where there is none the write was automated, and
-         the honest value is «النظام» — never a blank (constitution §1). */
       db.$queryRaw<
         {
           id: string;
@@ -140,8 +108,6 @@ export function decisionQueue() {
          LIMIT ${LAST_WRITES}`,
     ]);
 
-    // Name the oldest request's beneficiary — the card's row-3 fact is useless
-    // without it ("أقدم طلب: ٣ أيام — أ. شريف الجندي").
     let oldestBeneficiary: string | null = null;
     if (oldestPending) {
       oldestBeneficiary =
@@ -173,8 +139,6 @@ export function decisionQueue() {
         oldestBeneficiary,
       },
       registrations: {
-        // Kept SEPARATE, not pre-summed: the card's fact line reads «سنتران
-        // ومدرّسة», which needs the composition and Arabic dual agreement.
         centers: centersPending,
         teachers: teachersPending,
         count: centersPending + teachersPending,

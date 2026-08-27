@@ -1,17 +1,5 @@
 "use client";
 
-// Children / linking.
-//
-// This is the ONE parent screen with real write authority, and it is worth
-// being precise about why: `parent-links/:id/approve|reject` and the DELETE are
-// all `requireRole("parent")`. So the affordances here are honest — a parent
-// really can approve a link request and really can revoke one.
-//
-// Approve and Reject are NOT equal-weight twins. The audit called that out on
-// the registrations queue (ten rows, twenty saturated buttons); the same
-// mistake on a parent's screen is worse, because rejecting a link is the
-// destructive branch and it should never be the easy mis-click. Approve
-// carries the weight; Reject is quiet text. Revoke keeps the two-step commit.
 import { useMemo, useState } from "react";
 import {
   useList,
@@ -51,7 +39,6 @@ import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, SectionHead, SkeletonRows } from "./ledger-kit";
 
-/** Colour is meaning: amber waits, teal is confirmed, red is final. */
 const STATUS_CHIP: Record<string, string> = {
   pending: "bg-amber-soft text-amber",
   approved: "bg-teal-soft text-teal",
@@ -253,8 +240,6 @@ export function ParentLinkingScreen() {
                 {approveMutation.isPending ? <Spinner /> : null}
                 {t("actions.approve")}
               </Button>
-              {/* Deliberately quiet: the destructive branch is not a twin of
-                  the safe one. */}
               <button
                 type="button"
                 onClick={() => handleReject(id)}
@@ -340,8 +325,6 @@ export function ParentLinkingScreen() {
                         <div className="flex items-start gap-2">
                           <div className="flex-1">
                             <FormControl>
-                              {/* A code is a figure: mono, wide-tracked, LTR
-                                  even in Arabic. */}
                               <Input
                                 dir="ltr"
                                 placeholder={t("parentLinking.enterCode")}

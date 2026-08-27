@@ -7,20 +7,6 @@ import {
   usingLegacyAuthEnvNames,
 } from "@repo/server-core/auth/auth-env";
 
-/**
- * next-auth the package is gone; its VOCABULARY outlived it. These names are
- * being retired, but they cannot simply be renamed: the values live in two
- * Vercel projects, in Railway, in CI and in local .env files, none of which are
- * in this repo. Code reading only the new name, shipped to a deployment holding
- * only the old one, hands better-auth `secret: undefined` — no existing session
- * verifies and no new sign-in works. A cosmetic change becomes a total auth
- * outage, in the same shape as the 2026-08-01 incident.
- *
- * So both names resolve, and that has to stay true until the cutover is done.
- * These tests are what makes deleting the fallback later a deliberate act
- * rather than an accident.
- */
-
 afterEach(() => vi.unstubAllEnvs());
 
 const clear = () => {
@@ -52,8 +38,6 @@ describe("auth env names — new preferred, legacy still honoured", () => {
 
   it("is undefined when neither is set, rather than an empty string", () => {
     clear();
-    // better-auth must receive undefined, not "", or it would sign with an
-    // empty key instead of refusing.
     expect(authSecret()).toBeUndefined();
   });
 
@@ -87,7 +71,6 @@ describe("auth env names — new preferred, legacy still honoured", () => {
     expect(superadminAuthSecret()).toBe("legacy-back-office");
   });
 
-  /** A fallback nobody can see is a fallback nobody removes. */
   it("reports when a deployment is still on the legacy names", () => {
     clear();
     vi.stubEnv("NEXTAUTH_SECRET", "legacy");

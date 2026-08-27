@@ -16,17 +16,6 @@ const lookupSchema = z
     message: "Provide a phone, a national ID or a student code",
   });
 
-/**
- * "Do we already know this child?" — run before every manual registration.
- *
- * POST rather than GET because the identifiers are personal data and must not
- * end up in a URL, a server log or a browser history.
- *
- * The disclosure is tiered inside the service: a student already on this
- * center's roster comes back in full (the center holds that data already), and
- * one who exists elsewhere comes back MASKED with no id — enough for a human to
- * say "yes, that's him", not enough to build a directory out of.
- */
 export const POST = centerStaff(
   async (req, _ctx, { acting }) => {
     const body = await parseJson(req, lookupSchema);

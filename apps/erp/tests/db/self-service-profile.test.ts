@@ -1,28 +1,3 @@
-// SELF-SERVICE PROFILE CORRECTION — proof that a person can fix their own data,
-// and that the fix does not open anything the product had closed.
-//
-// The feature is one sentence: the login email, the guardian's contact details
-// and the wizard's academic answers stop being write-once. Everything below is
-// about the second half of that sentence — the four rules that make widening a
-// write surface safe, each asserted against real rows through the real routes:
-//
-//   1. A CREDENTIALED ACCOUNT RE-PROVES ITS PASSWORD. The login email is the
-//      recovery address; a borrowed unlocked phone must not redirect it. A
-//      wrong password is a 400, not a 401 — a typo must not read as a dead
-//      session and sign the user out.
-//   2. AN ACCOUNT WITH NO PASSWORD IS EXEMPT, and is still able to correct the
-//      address. That is the walk-in student this feature exists for.
-//   3. THE GUARDIAN ADDRESS STAYS A DIFFERENT ADULT'S. `setGuardianContact`
-//      already refused a guardian email equal to the student's own. The email
-//      route now refuses the mirror image, so a minor cannot satisfy the
-//      child-safety gate by editing the OTHER side of the comparison.
-//   4. THE NEW ADDRESS IS UNPROVEN AND THE CHANGE IS ON THE RECORD —
-//      `email_verified` false, one audit row naming the actor.
-//
-// Plus the two corrections that came with it: a name edit reaches the column
-// global search actually filters on, and saving a guardian PHONE beside an
-// email already on file does not start an escalation clock for a requirement
-// the family has already met.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import bcrypt from "bcryptjs";
@@ -49,7 +24,6 @@ function assert(cond: boolean, msg: string) {
 
 const PW = "CorrectHorse!7";
 
-/** A fresh IP per call: the routes are rate-limited per path+IP. */
 let ipN = 0;
 const freshIp = () => `203.0.113.${(ipN++ % 250) + 1}`;
 
@@ -62,9 +36,6 @@ async function callRoute(
   actor: { id: string; role: string; email: string | null },
   body: Record<string, unknown>,
 ): Promise<Reply> {
-  // The ONLY thing stubbed is the cookie -> session read at the very edge.
-  // requireSession, the rate-limit wrapper, the error wrapper, zod, bcrypt and
-  // every DB write below it are the real code path.
   __setSessionOverrideForTests(
     () => ({ id: actor.id, role: actor.role, email: actor.email, name: "T", locale: "ar" }) as SessionUser,
   );
@@ -125,7 +96,6 @@ async function main() {
     callRoute(meRoute as never, "/api/v1/me", "PATCH", actor(u, role), body);
 
   try {
-    // ---------------------------------------------------------------- 1 + 4
     console.log("\n1. A credentialed account re-proves its password");
     const alice = await mkStudent("SspAlice");
 
@@ -171,7 +141,6 @@ async function main() {
     );
     assert(auditAgain.rows.length === 1, "…and the audit trail still holds exactly one row");
 
-    // -------------------------------------------------------------------- 2
     console.log("\n2. An account with no password can still correct its address");
     const walkin = await mkStudent("SspWalkin", { password: false });
     const claimed = await changeEmail(walkin, { email: `${tag}-walkin-fixed@example.com` });
@@ -180,7 +149,6 @@ async function main() {
       "a walk-in with no credentials is not asked to prove one it does not have",
     );
 
-    // -------------------------------------------------------------------- 3
     console.log("\n3. The guardian address stays a different adult's");
     const bob = await mkStudent("SspBob");
     const guardian = `${tag}-guardian@example.com`;
@@ -197,8 +165,6 @@ async function main() {
     );
     assert((await dbUser(bob.id))?.email === bob.email, "…and the row is unchanged");
 
-    // The other direction was already closed; asserted here so the pair is
-    // visibly one rule rather than two that could drift apart.
     let reverseRefused = false;
     try {
       await setGuardianContact(
@@ -212,9 +178,6 @@ async function main() {
     assert(reverseRefused, "and the guardian email cannot be moved onto the student's own");
 
     console.log("\n4. An address in use elsewhere is refused with a sentence, not a constraint");
-    // Alice's CURRENT address, not the one she vacated — a freed address is
-    // legitimately available again, and asserting against the old one would
-    // have proved nothing while looking like it did.
     const taken = await changeEmail(bob, { email: newEmail, currentPassword: PW });
     assert(taken.status === 409, `a duplicate address is a 409 conflict (got ${taken.status})`);
     assert(
@@ -222,7 +185,6 @@ async function main() {
       "…and the message names the field rather than the unique index",
     );
 
-    // -------------------------------------------------------------------- 5
     console.log("\n5. A corrected name reaches the column the counter searches");
     const renamed = "Ssp Corrected Name";
     const patched = await patchMe(alice, { name: renamed });
@@ -247,7 +209,6 @@ async function main() {
       "…and the message names the field, instead of the raw unique-constraint sentence",
     );
 
-    // -------------------------------------------------------------------- 7
     console.log("\n7. Correcting a guardian PHONE does not start a deadline already met");
     const carol = await mkStudent("SspCarol");
     await setGuardianContact(
@@ -288,8 +249,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// (which bypasses the `pretest:db` step) cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite self-service-profile.test.ts" })
   .then(() => main())
   .catch((e) => {

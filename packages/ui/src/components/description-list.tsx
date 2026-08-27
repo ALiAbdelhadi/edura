@@ -16,9 +16,6 @@ export function DescriptionList({
     <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-4", cols, className)}>
       {items.map((it, i) => (
         <div key={i} className="flex flex-col gap-1">
-          {/* The label is a field name, not prose. It takes the eyebrow's colour and
-              weight but NOT its uppercase/tracking — those are Latin-only, and a `dt`
-              here is as often Arabic as English. See <Eyebrow>. */}
           <dt className="text-xs font-semibold text-ink-3">{it.label}</dt>
           <dd className="text-sm text-ink">{it.value}</dd>
         </div>

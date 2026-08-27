@@ -41,9 +41,6 @@ export async function listSubscriptions(filters: SubscriptionListFilters) {
 
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      // One stage — see the same block in `collaboration-admin.ts`. A
-      // subscription reached by the student's name is the common way this
-      // screen is used, and «احمد» found none of the children stored «أحمد».
       const [students, courses] = await Promise.all([
         tx.user.findMany({
           where: {

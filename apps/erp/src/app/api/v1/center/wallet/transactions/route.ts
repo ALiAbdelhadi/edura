@@ -4,7 +4,6 @@ import { getCenterWalletTransactions } from "@/lib/services/finance/center-walle
 
 export const dynamic = "force-dynamic";
 
-// READ the center wallet ledger — owner + center_accountant (read-only).
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

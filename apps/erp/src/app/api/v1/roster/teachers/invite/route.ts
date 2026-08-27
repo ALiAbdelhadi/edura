@@ -13,7 +13,6 @@ const bodySchema = z.object({
   createShell: z.boolean().optional(),
 });
 
-// Dev/E2E only — the echo decision stays at the edge, not in the service.
 const LEAK_TOKEN = process.env.NODE_ENV !== "production" || process.env.E2E === "1";
 
 export const POST = withErrors(async (req) => {

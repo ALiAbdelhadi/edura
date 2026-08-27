@@ -93,7 +93,6 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [busy, setBusy] = useState(false);
 
-  // add-student dialog
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
@@ -105,12 +104,10 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
   const [match, setMatch] = useState<Match | null>(null);
   const [checking, setChecking] = useState(false);
 
-  // settle dialog
   const [isSettleOpen, setIsSettleOpen] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
   const [settleNote, setSettleNote] = useState("");
 
-  // convert dialog
   const [isConvertOpen, setIsConvertOpen] = useState(false);
   const [convertEmail, setConvertEmail] = useState("");
   const [convertReason, setConvertReason] = useState("");

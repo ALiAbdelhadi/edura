@@ -36,7 +36,6 @@ const PAYOUT_TONE: Record<string, StatusTone> = {
   approved: "neutral",
 };
 
-/** How many transactions the page shows before "شوف الكل". */
 const PAGE = 20;
 
 type Payout = {
@@ -84,15 +83,12 @@ export function TeacherWalletScreen() {
     | { balance: number; available: number; pendingPayouts: { count: number; amount: number } }
     | undefined;
   const payouts = asArray<Payout>(payoutsRes?.data);
-  // The transactions endpoint answers `{ data: [...] }`; asArray unwraps that
-  // envelope as well, so both reads go through the same guard.
   const transactions = asArray<Transaction>(txRes?.data);
 
   const available = w?.available ?? 0;
   const requestedEgp = amountEgp.trim() === "" ? null : Number(amountEgp);
   const requestedValid =
     requestedEgp === null || (Number.isFinite(requestedEgp) && requestedEgp > 0);
-  /** What the button is about to move — the whole available balance by default. */
   const committing = requestedEgp === null ? available : Math.round(requestedEgp * 100);
 
   const submitWithdraw = async () => {
@@ -125,14 +121,6 @@ export function TeacherWalletScreen() {
         description={t("teacher.teacherWallet.description")}
       />
 
-      {/* ── THE BALANCE, AND WHAT IT IS ACTUALLY MADE OF ────────────────────
-          Three StatCards said "balance", "available" and "reserved" side by
-          side as if they were three facts. They are one fact and its
-          arithmetic: available = balance − what open requests already hold.
-          A teacher who reads a balance they cannot withdraw, with no line
-          saying why, opens a support ticket. Every other wallet in the product
-          shows its balance as a ledger sheet with that derivation on screen;
-          this one — the only wallet holding a teacher's earnings — did not. */}
       <Sheet className="p-5">
         <Eyebrow>{t("teacher.teacherWallet.balance")}</Eyebrow>
         <div className="mt-1" style={{ fontSize: 34 }}>
@@ -175,11 +163,6 @@ export function TeacherWalletScreen() {
         </div>
       </Sheet>
 
-      {/* ── PAYOUT REQUESTS ─────────────────────────────────────────────────
-          Rows, not a five-column table on a 375px phone. The status was
-          rendering the RAW enum — "pending", "approved", "paid" — English
-          words inside an Arabic sentence, on the screen a teacher reads to
-          find out where their money is. `status.*` already had all four. */}
       <Sheet className="p-5">
         <SectionHeading title={t("teacher.teacherWallet.payoutRequests")} />
         <div className="mt-2">
@@ -221,11 +204,6 @@ export function TeacherWalletScreen() {
         </div>
       </Sheet>
 
-      {/* ── WHERE THE BALANCE CAME FROM ─────────────────────────────────────
-          `type` was also rendering raw ("payment", "payout", "commission"),
-          and the amounts carried no sign, so a payout and a lesson's earnings
-          looked identical. `Money signed` is what every other ledger in the
-          product uses. */}
       <Sheet className="p-5">
         <SectionHeading title={t("teacher.teacherWallet.recentTransactions")} />
         <div className="mt-2">
@@ -260,9 +238,6 @@ export function TeacherWalletScreen() {
                 ))}
               </ul>
 
-              {/* The endpoint is cursor-paginated and the screen asked for
-                  twenty with no way to ask for more — a dead end on the record
-                  that explains the balance above it. */}
               {transactions.length >= take ? (
                 <div className="mt-3">
                   <Button
@@ -319,26 +294,12 @@ export function TeacherWalletScreen() {
               ) : null}
             </div>
 
-            {/* THE CEREMONY THIS SCREEN WAS MISSING.
-                Requesting a payout is the only money WRITE a teacher has, and
-                it was one press of an ordinary dialog button — while the
-                counter's cash, the centre's withdrawal and the lesson
-                settlement all arm before they commit. The repo's own rule is
-                that a money commit takes two presses and the button names its
-                amount. It is not friction to optimise away: there is no
-                cancel endpoint for a payout request (flagged as T-4), so the
-                mistake this prevents has no undo. */}
             <TwoStepCommit
               resetKey={`${committing}`}
               busy={mutation.isPending}
               onCommit={submitWithdraw}
               disabled={!requestedValid || available <= 0}
               labels={{
-                /* ONE FORMATTER FOR THE FIGURE AND FOR THE BUTTON.
-                   `.toFixed(2)` produced "2365.50" beside a balance rendered
-                   "2,366 ج.م" — two spellings of one number on a money
-                   surface, which is the exact lie the settlement decision was
-                   written to end. Both now go through `formatEGP`. */
                 action: t("teacher.teacherWallet.withdrawAction", {
                   amount: formatEGP(committing, { decimals: true }),
                 }),

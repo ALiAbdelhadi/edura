@@ -30,8 +30,6 @@ export const GET = withErrors(async () => {
   );
   if (!user) throw new NotFoundError("User not found");
 
-  // Step 8: assistants get their live acting-teacher (UI hint only; every
-  // request re-resolves server-side, so revocation is immediate regardless).
   let actingTeacher: { id: string; name: string | null } | null = null;
   if (session.role === "assistant") {
     try {
@@ -45,11 +43,6 @@ export const GET = withErrors(async () => {
     }
   }
 
-  // Center staff get their live preset sub-role, for the same reason and with
-  // the same caveat as the assistant's acting teacher above: a UI HINT ONLY.
-  // Every route re-resolves it server-side through the same helper, so a
-  // soft-removed or re-graded staff member is gated correctly on the next
-  // request no matter what the client last cached.
   let staffRole: string | null = null;
   if (session.role === "center_staff") {
     try {
@@ -69,7 +62,6 @@ export const GET = withErrors(async () => {
     locale: user.locale,
     phone: user.phone ?? null,
     emailVerified: !!user.emailVerified,
-    // Step 7: lets the claim flow know credentials still need to be set.
     hasPassword: !!user.passwordHash,
     actingTeacherId: actingTeacher?.id ?? null,
     actingTeacherName: actingTeacher?.name ?? null,
@@ -96,11 +88,6 @@ export const PATCH = withErrors(async (req) => {
     return ok({ updated: false });
   }
 
-  // `users.phone` is globally UNIQUE (it is a dedup key for manually entered
-  // students). Without this, correcting a phone to one already on file threw a
-  // raw P2002 that surfaced as "A record with these unique values already
-  // exists" — true, unactionable, and it names no field. The index is still the
-  // authority; this only buys the ordinary collision a sentence.
   if (typeof updates.phone === "string") {
     const taken = await platformDb((tx) =>
       tx.user.findFirst({
@@ -128,12 +115,6 @@ export const PATCH = withErrors(async (req) => {
 
   if (!user) throw new NotFoundError("User not found");
 
-  // A student carries their name TWICE: `users.name` (what this form edits) and
-  // `student_profiles.full_name` (what a walk-in counter wrote). Every reader
-  // prefers `users.name` and falls back to the profile — except global search,
-  // which FILTERS on `full_name` in SQL. So a student who corrected a misspelled
-  // name stopped being findable by the corrected spelling at the very counter
-  // that has to find them. One edit, both columns, no second source of truth.
   if (session.role === "student" && typeof updates.name === "string") {
     await platformDb(
       (tx) =>

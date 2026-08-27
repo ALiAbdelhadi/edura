@@ -110,12 +110,26 @@ empty, UNLABELLED database. CLAUDE.md had recorded the credential failure since
 pass as green. So a long-silent breakage became a deploy blocker, and Ali chose
 to point the suites at **dev** rather than rebuild the test branch.
 
-- **The default is still test-only.** All 52 suites, `run-db-suites.ts` and
-  `pretest:db` name `["test"]` explicitly and were NOT edited — a repo-wide
-  loosening in git to express one local setup would have been the wrong trade.
+- **The default is still test-only.** Every suite, `run-db-suites.ts` and
+  `pretest:db` name `["test"]` explicitly and were NOT edited (this bullet said
+  "all 52 suites" until 2026-08-28; measured that day it is **89 suite files**,
+  91 sources naming `["test"]` — treat the number as a snapshot, the rule as the
+  point). A repo-wide loosening in git to express one local setup would have
+  been the wrong trade.
   The widening is a single opt-in read in `db-guard.ts`:
-  `EDURA_ALLOW_DB_ENVS=dev`, set in the three (ungitted) `.env.test` files and
-  appended by CI's materialise step.
+  `EDURA_ALLOW_DB_ENVS=dev`.
+  **[local, corrected 2026-08-28] IT LIVES IN `.env.local`, NOT `.env.test`.**
+  There is no `.env.test` anywhere any more — commits `1c28f86` and `67fdf90`
+  left each package with exactly two env files, `.env.local` and
+  `.env.production`, both gitignored — and `test:db` launches the suites with
+  `tsx --env-file=.env.local`. Verified: all three of `apps/erp`,
+  `apps/superadmin` and `packages/database` carry `EDURA_ALLOW_DB_ENVS=dev` in
+  their `.env.local`, and all three point at `ep-patient-scene-…` (dev).
+  **CI DOES NOT SET THE VARIABLE AT ALL**, and does not need to: it provisions a
+  throwaway Postgres per run and stamps it `COMMENT ON DATABASE … IS
+  'edura-env:test'`, so the guard is satisfied by the label rather than
+  bypassed by a widening. `.github/scripts/write-env-local.sh` is the single
+  place CI's key list lives and `EDURA_ALLOW_DB_ENVS` is not in it.
 - **PRODUCTION IS NEVER WIDENABLE.** Naming `production` in that variable is a
   hard error, not a wider permission — it fails loudly rather than being quietly
   dropped, because a silently ignored value leaves someone believing they hold a
@@ -571,10 +585,14 @@ governs. Violating one of these is never a local change.
   restore-proof step still fails on the known B2 key gap — blocker #5).
   Diagnosis note for future FK work: ON DELETE RESTRICT reports SQLSTATE
   23001, NOT 23503 — the first cleanup run failed exactly there.
-- **[test] THERE IS NO TEST DATABASE.** Both `.env.test` files point at DEV, and
-  `db-guard` reports them as `labelled 'dev'` — the 2026-08-03 decision still
-  holding, not a gap. Do NOT read any `[test]` line in a decision doc as work
-  pending.
+- **[test] THERE IS NO TEST DATABASE, LOCALLY.** The three `.env.local` files
+  point at DEV and `db-guard` reports them as `labelled 'dev'` — the 2026-08-03
+  decision still holding, not a gap. Do NOT read any `[test]` line in a decision
+  doc as work pending. (This sentence named `.env.test` until 2026-08-28; those
+  files no longer exist — see the widening note in the DB-suites section above.)
+  CI is the exception and always has been: it creates its own throwaway
+  Postgres per run, labelled `edura-env:test`, so a genuinely test-labelled
+  database does exist there.
   **[dev, 2026-08-18] A CONSEQUENCE, MEASURED:** `hall-booking.test.ts` A4
   ("a per-student hall with NO configured rate is refused at REQUEST time")
   FAILS on dev, and it is the DATA, not the code — `commission_settings` on dev

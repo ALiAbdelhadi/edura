@@ -1,7 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import { narrowQuery } from "@repo/database/search-text";
 
-/** Step 7: back-office view over the WhatsApp delivery log. */
 export function listWhatsAppMessages(filters: {
   q?: string;
   status?: string;
@@ -17,10 +16,6 @@ export function listWhatsAppMessages(filters: {
     if (filters.template) where.template = filters.template;
     if (filters.q?.trim()) {
       const q = filters.q.trim();
-      // Every column here is ASCII, so the fold that matters is the NUMERALS: a
-      // phone number typed on an Arabic keypad («٠١٠…») matched nothing at all.
-      // `literalFragments` normalizes it to ASCII and `fragmentVariants` sends
-      // both renderings. Narrow-only, for the pagination reason in `platform.ts`.
       where.AND = narrowQuery(q, (f) => [
         { recipientPhone: { contains: f } },
         { template: { contains: f, mode: "insensitive" as const } },

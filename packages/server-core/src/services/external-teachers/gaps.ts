@@ -1,33 +1,3 @@
-// =============================================================================
-// COMPLETENESS REPORT — "what have we missed?"
-//
-// Manual entry fails SILENTLY. When the platform runs a lesson it writes the
-// attendance, the coverage and the money by itself; when a receptionist runs it
-// on behalf of an off-system teacher, anything they forget simply does not
-// exist, and nothing anywhere complains. A center cannot be confident in a
-// picture it keys in by hand unless something tells it what is missing.
-//
-// So this module looks for ABSENCES, not for errors:
-//
-//   lesson_without_attendance   a lesson happened, nobody was marked
-//   partial_attendance          fewer marks than the group's active roster
-//   session_not_completed       a past lesson never completed -> never settled,
-//                               so nobody was paid for it
-//   enrolled_unpaid             a student in a group with no active coverage
-//   group_without_schedule      a group with no sessions at all
-//   group_without_price         a group nobody can be charged for
-//   group_without_students      a group with an empty roster
-//
-// EVERY FINDING IS ACTIONABLE AND POINTS AT A ROW. A report that says "12
-// problems" and cannot say which twelve trains people to ignore it, so each
-// finding carries the id of the thing to open, and its own severity: `blocking`
-// means money is stuck or a lesson is unrecorded, `warning` means it will
-// become that if nobody acts.
-//
-// READ-ONLY, structurally: every call is a findMany / count / groupBy, and this
-// module imports nothing that mutates.
-// =============================================================================
-
 import { scopedDb } from "../../db/scope";
 import { ForbiddenError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
@@ -46,13 +16,11 @@ export type Gap = {
   severity: "blocking" | "warning";
   teacherId: string;
   teacherName: string;
-  /** The row to open. */
   targetType: "session" | "course" | "enrollment";
   targetId: string;
   courseId: string;
   courseTitle: string;
   date: Date | null;
-  /** Human-readable specifics — counts, names — for the UI line. */
   detail: Record<string, string | number | null>;
 };
 
@@ -74,13 +42,6 @@ const EMPTY_COUNTS: Record<GapKind, number> = {
   group_without_students: 0,
 };
 
-/**
- * Gaps across this center's off-system teachers, or one of them.
- *
- * The window bounds the LESSON findings (a lesson from last term is not news);
- * the GROUP findings are unbounded, because a group with no price is wrong
- * today regardless of when it was created.
- */
 export async function buildGapReport(
   acting: SessionUser,
   opts: { teacherId?: string | null; from?: Date; to?: Date } = {},
@@ -140,7 +101,6 @@ export async function buildGapReport(
       return { generatedAt: now, scope: { teacherId: opts.teacherId ?? null, from, to }, gaps, counts: { ...EMPTY_COUNTS }, blocking: 0 };
     }
 
-    // ---- Group-level findings (unbounded by date) -------------------------
     const [sessionCounts, enrollmentCounts] = await Promise.all([
       tx.session.groupBy({
         by: ["courseId"],
@@ -160,8 +120,6 @@ export async function buildGapReport(
       if (!sessionsPerCourse.get(c.id)) {
         push({
           kind: "group_without_schedule",
-          // Blocking: with no lessons there is nothing to attend, nothing to
-          // settle, and no money will ever reach the teacher for this group.
           severity: "blocking",
           ...base(c.id),
           targetType: "course",
@@ -194,7 +152,6 @@ export async function buildGapReport(
       }
     }
 
-    // ---- Lesson-level findings (inside the window) ------------------------
     const sessions = await tx.session.findMany({
       where: {
         courseId: { in: courseIds },
@@ -218,7 +175,6 @@ export async function buildGapReport(
       );
 
       for (const s of sessions) {
-        // A lesson still to come has nothing missing yet.
         if (s.date > now) continue;
         const marked = markedPerSession.get(s.id) ?? 0;
         const roster = studentsPerCourse.get(s.courseId) ?? 0;
@@ -236,8 +192,6 @@ export async function buildGapReport(
         } else if (roster > 0 && marked < roster) {
           push({
             kind: "partial_attendance",
-            // A warning, not blocking: a genuinely absent student may simply not
-            // have been marked, which is untidy rather than wrong.
             severity: "warning",
             ...base(s.courseId),
             targetType: "session",
@@ -250,9 +204,6 @@ export async function buildGapReport(
         if (s.status !== "completed") {
           push({
             kind: "session_not_completed",
-            // Blocking, and this is the one operators most often miss: an
-            // uncompleted lesson never runs distribution, so the teacher is
-            // never credited for it and the statement silently under-reports.
             severity: "blocking",
             ...base(s.courseId),
             targetType: "session",
@@ -264,7 +215,6 @@ export async function buildGapReport(
       }
     }
 
-    // ---- Enrolled but not covered ----------------------------------------
     const enrollments = await tx.enrollment.findMany({
       where: { courseId: { in: courseIds }, status: "active" },
       select: { id: true, studentId: true, courseId: true },
@@ -274,8 +224,6 @@ export async function buildGapReport(
         where: {
           courseId: { in: courseIds },
           status: "active",
-          // Coverage is either a monthly window containing today, or a
-          // single-session pass. Both count as "this student has paid".
           OR: [{ periodEnd: null }, { periodEnd: { gte: now } }],
         },
         select: { studentId: true, courseId: true },
@@ -305,7 +253,6 @@ export async function buildGapReport(
     const counts = { ...EMPTY_COUNTS };
     for (const g of gaps) counts[g.kind] += 1;
 
-    // Blocking first, then newest — the order someone should work through them.
     gaps.sort((a, b) => {
       if (a.severity !== b.severity) return a.severity === "blocking" ? -1 : 1;
       return (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0);

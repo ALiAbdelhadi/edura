@@ -9,9 +9,6 @@ import { EXPENSE_CATEGORIES, createExpense, listExpenses } from "@/lib/services/
 
 export const dynamic = "force-dynamic";
 
-// Reading expenses is a financial view (owner + center_accountant). RECORDING
-// an expense (POST below) stays OWNER-ONLY — center_accountant is read-only and
-// receptionists/managers are out of financial data-entry scope.
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

@@ -27,14 +27,6 @@ import {
   type SubjectGrades,
 } from "@/features/grades/grade-record";
 
-/**
- * The band's semantic tone, spelled in this portal's chip vocabulary. The
- * mapping lives here rather than in the scale module because "teal/indigo/
- * amber" are the Ledger's paint names and mean nothing to the domain — but
- * it is ONE mapping, so the thresholds cannot drift from the ladder again
- * (they had: this chip used to switch at 85/60, which matched none of the
- * bands it sat next to).
- */
 const CHIP_TONE = {
   success: "teal",
   info: "indigo",
@@ -43,38 +35,6 @@ const CHIP_TONE = {
   danger: "red",
 } as const;
 
-/**
- * درجاتي — the record, with the entries behind each figure.
- *
- * THE SCALE IS `@repo/database/grading-scale`. This screen used to carry its
- * own copy of a US A–F ladder, duplicated from the dashboard route and the
- * parent screen — three copies that had already drifted. Egyptian K-12 reports
- * a percentage and a تقدير, so that is what the one shared table returns, and
- * the percentage keeps the weight: it is the figure the entries actually
- * support. There is no GPA, and there is no letter.
- *
- * ── WHAT CHANGED IN THE IA PASS, AND WHY ──────────────────────────────────
- *
- * 1. THE INDIVIDUAL EXAM IS NOW REACHABLE. The page showed per-subject totals
- *    and nothing else, so the question it exists to answer — "جبت كام في
- *    امتحان الكيميا؟" — had no answer anywhere in the product. Every field
- *    needed was already in the `grades` payload; a subject now expands to the
- *    entries that produced its figure.
- * 2. THE THREE COUNTER CARDS WENT DOWN TO TWO. "المواد" counted the rows
- *    printed directly beneath it — the page counting itself. "الدرجات
- *    المرصودة" is lineage, and lineage belongs against the figure it supports,
- *    so it moved into each row. What replaced them is آخر درجة, which is the
- *    thing a student opens this page for.
- * 3. THE SECOND REQUEST WENT. The screen fetched `courses` (pageSize 100) to
- *    build a name map, but `GET /grades` already enriches every row with
- *    `courseName` and `subject` for exactly this reader.
- *
- * ── ROWS, NOT A TABLE ─────────────────────────────────────────────────────
- *
- * Four columns of figures at 375px is either a sideways scroll or four
- * unreadable ones. Each subject is a row that stacks, and the entries live
- * inside it.
- */
 export function GradesScreen() {
   const t = useTranslations();
   const { formatPercent, formatDate } = useFormatters();
@@ -95,9 +55,6 @@ export function GradesScreen() {
     <div className="space-y-6">
       <PageTitle title={t("nav.grades")} subtitle={t("studentClass.gradesSubtitle")} />
 
-      {/* ── The two figures worth a card ────────────────────────────────────
-          آخر درجة first: a student comes to this page after a specific exam,
-          not to contemplate an average. */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Sheet className="p-5" data-tour="student-latest-grade">
           <Eyebrow>{t("studentClass.latestGrade")}</Eyebrow>
@@ -128,16 +85,9 @@ export function GradesScreen() {
           )}
         </Sheet>
 
-        {/* The best subject is a footnote next to the newest mark, so on a
-            phone it is ONE line — label, figure, subject — instead of a second
-            290px card. From `sm` it becomes the card beside its neighbour and
-            the figure gets its full size. */}
         <Sheet className="flex items-baseline justify-between gap-3 p-4 sm:block sm:p-5">
           <Eyebrow>{t("studentClass.highestGrade")}</Eyebrow>
           <div className="flex items-baseline gap-2 sm:mt-1 sm:block">
-            {/* Was a literal `${pct}%` directly above a table whose every row
-                formats through `formatPercent`, so in Arabic this card said
-                `92%` while the rows beneath it said `85٪`. */}
             <Num
               className="text-[19px] font-semibold sm:text-[30px]"
               style={{ color: "var(--ink)" }}
@@ -205,9 +155,6 @@ function SubjectRow({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        /* The visible label is composed of nested spans beside a decorative
-           tile, so the control is named explicitly — otherwise the
-           accessibility tree reports a row of unnamed expanders. */
         aria-label={subject.label}
         className="flex w-full items-center gap-3 py-3.5 text-start transition-colors hover:bg-[var(--field)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--indigo)]"
       >
@@ -216,9 +163,6 @@ function SubjectRow({
           <span className="block truncate font-medium" style={{ color: "var(--ink)" }}>
             {subject.label}
           </span>
-          {/* The entry count IS the lineage for the percentage beside it — a
-              score with no entry count behind it is a figure the student has to
-              take on trust. */}
           <span className="block text-xs" style={{ color: "var(--ink-3)" }}>
             {t("studentClass.entriesCount", { count: subject.entries.length })}
           </span>
@@ -233,8 +177,6 @@ function SubjectRow({
             </Num>
           </span>
           <Chip tone={CHIP_TONE[subject.band.tone]}>{t(`gradeBands.${subject.band.id}`)}</Chip>
-          {/* Vertical rotation only — a chevron that points DOWN does not lie
-              in RTL, so this one is not a directional icon. */}
           <ChevronDown
             aria-hidden
             className={cn("size-4 shrink-0 transition-transform", expanded && "rotate-180")}
@@ -262,9 +204,6 @@ function SubjectRow({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {/* The raw mark leads here, not the percentage: an exam is
-                    handed back as "٤٢ من ٥٠", and that is the figure the
-                    student is holding on paper. */}
                 <Num className="font-semibold" style={{ color: "var(--ink)" }}>
                   {entry.score}/{entry.maxScore}
                 </Num>

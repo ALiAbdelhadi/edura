@@ -1,27 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/* Gates 3 and 4 for the Phase 3 rendering work (cleanup-plan-phase3.md §5).
-   ══════════════════════════════════════════════════════════════════════════════
-
-   I-3.0 moved 15 routes from per-request rendering to prerendered-at-build. A
-   prerendered page is written ONCE and served to everybody, so the question is
-   narrow and absolute: can one person's data reach another person through one?
-
-   GATE 3 answers it by serving each flipped route to three different callers —
-   nobody, student A, student B — and requiring the HTML to be IDENTICAL. Not
-   "free of the strings I thought to look for": identical. If a byte of it
-   depended on who asked, these three would diverge.
-
-   GATE 4 then checks the portals still work, because I-3.0 also moved PostHog
-   identification out of the root layout and into the six portal layouts.
-
-   WHY NOT THE EXISTING SUITE: `helpers.ts` waits for `.ant-layout-content`, and
-   AntD has been gone from this app since the shadcn migration. Seven of the nine
-   spec files call it, so they time out before asserting anything. That is
-   recorded in docs/follow-ups.md; this file deliberately depends on nothing but
-   the response and the console. */
-
-/** The 15 routes I-3.0 moved to prerendered. */
 const FLIPPED = [
   "/en/changelog",
   "/en/claim",
@@ -40,7 +18,6 @@ const FLIPPED = [
   "/en/ui-preview",
 ];
 
-/** Two students — same role, same center, different people. */
 const A = { email: "lina.hassan@student.nile-academy.eg", password: "Passw0rd!", name: "Lina" };
 const B = { email: "salma.tarek@student.nile-academy.eg", password: "Passw0rd!", name: "Salma" };
 
@@ -52,30 +29,15 @@ async function signIn(page: Page, who: { email: string; password: string }) {
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
 }
 
-/**
- * The bytes the SERVER SENT for `path`, as this caller.
- *
- * `page.goto()` + `page.content()` would be wrong here and was wrong twice
- * before this comment existed: content() serialises the LIVE DOM, after
- * hydration has run and after the marketing header has swapped its call to
- * action for a signed-in visitor. That is a legitimate client-side difference
- * and it made five routes look like they served different HTML when they had
- * served exactly the same bytes.
- *
- * The request goes through the page's own context, so it carries that caller's
- * cookies — which is the whole point: same URL, three sessions, one document.
- */
 async function bodyOf(page: Page, path: string): Promise<string> {
   const res = await page.request.get(path);
   expect(res.status(), `${path} should not error`).toBeLessThan(400);
   const html = await res.text();
   return (
     html
-      // Next's build/deploy ids and script nonces are per-response by design.
       .replace(/"buildId":"[^"]*"/g, '"buildId":"X"')
       .replace(/nonce="[^"]*"/g, 'nonce="X"')
       .replace(/\?dpl=[\w]+/g, "?dpl=X")
-      // React streaming chunk boundaries carry incrementing ids.
       .replace(/self\.__next_f\.push\(\[1,"[0-9a-f]+:/g, 'push([1,"X:')
   );
 }
@@ -104,8 +66,6 @@ test.describe("Gate 3 — a prerendered route serves the same bytes to everybody
 
       if (hAnon !== hA || hAnon !== hB) divergent.push(route);
 
-      // Belt and braces: even if the documents matched, neither student's own
-      // identifiers may appear on a page that is built once for everyone.
       for (const [who, needle] of [
         ["A", A.email],
         ["A", A.name],
@@ -141,9 +101,6 @@ test.describe("Gate 4 — the portals still render after identity moved out of t
         if (m.type() === "error") errors.push(m.text());
       });
       page.on("pageerror", (e) => errors.push(String(e)));
-      // A bare "401 (Unauthorized)" console line names no URL, so record the
-      // request that produced it — otherwise the gate reports a symptom nobody
-      // can act on.
       page.on("response", (r) => {
         if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).pathname}`);
       });
@@ -152,17 +109,13 @@ test.describe("Gate 4 — the portals still render after identity moved out of t
       for (const path of [home, ...also]) {
         const res = await page.goto(path, { waitUntil: "domcontentloaded" });
         expect(res?.status(), `${path}`).toBeLessThan(400);
-        // The portal chrome is the thing the layout renders around the page.
         await expect(page.locator("main, [data-portal]").first()).toBeVisible({ timeout: 20_000 });
       }
 
-      // Hydration and identity failures surface here; 404s for optional assets do not.
       const real = errors.filter(
         (e) => !/favicon|manifest|sw\.js|status of 40[14]/i.test(e),
       );
       expect(real, `${role} console errors`).toEqual([]);
-      // Reported, not asserted: a 401 from an optional probe is normal here.
-      // What matters is that it is the SAME set before and after the change.
       console.log(`[gate4] ${role} non-2xx responses: ${JSON.stringify([...new Set(failed)])}`);
     });
   }

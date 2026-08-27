@@ -1,8 +1,3 @@
-// AUTO-GENERATED reference data — do not hand-edit.
-// Egyptian governorates + cities/districts (Arabic + English), 27 governorates / 396 areas.
-// Sourced from the open Tech-Labs/egypt-governorates-and-cities-db dataset and transformed to bundled
-// reference data (factual place-name data). Regenerate from the same source rather than editing inline.
-
 export type EgyptCity = { ar: string; en: string };
 export type EgyptGovernorate = { id: string; ar: string; en: string; cities: EgyptCity[] };
 
@@ -600,12 +595,10 @@ const pick = (locale: string, ar: string, en: string): string =>
 type Option = { value: string; label: string };
 const byLabel = (a: Option, b: Option) => a.label.localeCompare(b.label, "ar");
 
-/** Governorate combobox options. `value` is the canonical Arabic name (stable, matches stored data); `label` is localized. */
 export function governorateOptions(locale: string): Option[] {
   return EGYPT_GOVERNORATES.map((g) => ({ value: g.ar, label: pick(locale, g.ar, g.en) })).sort(byLabel);
 }
 
-/** City/area options for the selected governorate (by its Arabic name). Empty when no governorate is chosen. */
 export function cityOptions(governorateAr: string | null | undefined, locale: string): Option[] {
   if (!governorateAr) return [];
   const g = EGYPT_GOVERNORATES.find((x) => x.ar === governorateAr);
@@ -613,13 +606,11 @@ export function cityOptions(governorateAr: string | null | undefined, locale: st
   return g.cities.map((c) => ({ value: c.ar, label: pick(locale, c.ar, c.en) })).sort(byLabel);
 }
 
-/** Localized label for a stored governorate value (falls back to the raw value for legacy free-text). */
 export function governorateLabel(value: string, locale: string): string {
   const g = EGYPT_GOVERNORATES.find((x) => x.ar === value);
   return g ? pick(locale, g.ar, g.en) : value;
 }
 
-/** Localized label for a stored city value within a governorate (falls back to the raw value). */
 export function cityLabel(governorateAr: string, value: string, locale: string): string {
   const g = EGYPT_GOVERNORATES.find((x) => x.ar === governorateAr);
   const c = g?.cities.find((x) => x.ar === value);

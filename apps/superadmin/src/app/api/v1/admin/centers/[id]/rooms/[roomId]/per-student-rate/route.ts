@@ -7,8 +7,6 @@ import { upsertRoomM2Rate, clearRoomM2Rate } from "@/lib/services/admin/rooms-sp
 
 export const dynamic = "force-dynamic";
 
-// Method-2 (per-attending-student) PER-ROOM rate override — super_admin ONLY,
-// the most specific scope in the room > center > global chain.
 const rateSchema = z
   .object({
     fee: z.number().int().min(0).max(99_999_900).nullable(),

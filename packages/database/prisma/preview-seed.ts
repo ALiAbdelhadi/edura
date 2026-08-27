@@ -179,16 +179,9 @@ async function seed() {
       ) => {
         const u = await tx.user.upsert({
           where: { email },
-          // `deletedAt: null` revives a row the purge soft-deleted — see the
-          // same note in seed.ts and the raw hard-delete in purge() below.
           update: { isDemo: true, name, role, status, deletedAt: null },
           create: { email, name, role, status, passwordHash, isDemo: true },
         });
-        // Demo accounts present as RETURNING users: with tour_completed unset
-        // the first-run tour offers itself on every fresh seed, dims the
-        // portal nav, and (measured in CI) opens late enough to slip past any
-        // timing-based dismissal in the E2E smoke. A demo that ambushes its
-        // viewer is also a worse demo.
         await tx.userPrefs.upsert({
           where: { userId: u.id },
           update: { tourCompleted: true },
@@ -207,9 +200,6 @@ async function seed() {
       for (const c of centerDefs) {
         const row = await tx.center.upsert({
           where: { shortId: c.shortId },
-          // onboardingCompleted on update too: NILE pre-exists from seed.ts,
-          // so this upsert takes the update path — leaving the flag false sent
-          // the quick-login admin to the onboarding wizard (portal gate).
           update: { isDemo: true, status: c.status, onboardingCompleted: true },
           create: {
             name: c.name,
@@ -252,12 +242,6 @@ async function seed() {
       }
       const nile = centers["NILE"]!;
 
-      // ---- Revenue-split OVERRIDES (config rows, NOT ledger) so the superadmin
-      //      screen shows per-center + per-room precedence live. ----
-      // ANDL: per-CENTER override — its rooms inherit this (platform 12 / teacher
-      // 68 / center 20). NILE: per-ROOM override on قاعة 1 — wins over center &
-      // global for that room (platform 20 / teacher 60 / center 20). FUTR/BRGT:
-      // no override → inherit the editable global default (15/70/15).
       await upsertSplit(
         tx,
         { scope: "center", centerId: centers["ANDL"]!.id },
@@ -269,10 +253,6 @@ async function seed() {
         { platformShareBp: 2000, teacherShareBp: 6000, centerShareBp: 2000 },
       );
 
-      // ---- Method-2 per-student RATES (config rows, NOT ledger) so per-student
-      //      halls are bookable and the rate editors show precedence live. ----
-      // ANDL (per-student-only hall): per-CENTER flat rate 7 EGP/attending student.
-      // NILE (both-methods hall): per-ROOM rate 10% of the lesson price/student.
       await upsertM2Rate(
         tx,
         { scope: "center", centerId: centers["ANDL"]!.id },
@@ -284,7 +264,6 @@ async function seed() {
         { centerPerStudentFee: null, centerPerStudentBp: 1000 },
       );
 
-      // ---- LOGIN GROUP (reused quick-login demo accounts) ----
       const admin = await mkUser("admin@nile-academy.eg", "Demo Admin", "center_admin");
       await tx.centerAdminProfile.upsert({
         where: { userId: admin.id },
@@ -292,10 +271,6 @@ async function seed() {
         create: { userId: admin.id, centerId: nile.id },
       });
 
-      // ---- CENTER STAFF (demo, isDemo via mkUser). One per preset role on NILE.
-      //      Purely users + center_staff link rows — NO money/ledger/wallet
-      //      writes (staff have no wallet), so the "flag roots only / zero money
-      //      writes" contract holds. Re-runs re-activate rather than duplicate.
       const staffDefs = [
         { email: "reception@nile-academy.eg", name: "Yasmin Adel", role: "receptionist" as const, title: "Front desk" },
         { email: "manager@nile-academy.eg", name: "Karim Fouad", role: "manager" as const, title: "Operations manager" },
@@ -320,16 +295,8 @@ async function seed() {
         update: {},
         create: { userId: student.id, fullName: student.name, familyLinkCode: flc(student.id) },
       });
-      // Lina's onboarding: azhari-secondary-3 / علمي. This used to be READ and
-      // asserted, on the assumption she had been onboarded through the app —
-      // which meant that once a purge removed her profile, the preview seed
-      // could never run again ("Lina is not onboarded"). The seed now ESTABLISHES
-      // the onboarding it depends on, from the permanent catalog (read-only), so
-      // purge -> re-seed is a closed loop. An existing onboarding is respected.
       let lina = await tx.studentProfile.findUnique({ where: { userId: student.id } });
       if (!lina?.gradeLevelId) {
-        // The whole chain, so the API's system -> stage -> grade -> track
-        // consistency check sees the same shape the onboarding wizard writes.
         const linaGrade = await tx.gradeLevel.findUniqueOrThrow({
           where: { code: "azhari-secondary-3" },
           include: { stage: true },
@@ -361,7 +328,6 @@ async function seed() {
         });
       }
 
-      // ---- EXTRA TEACHERS (for a populated superadmin teachers list) ----
       const teacherDefs = [
         { email: "hossam.aziz@nile-academy.eg", name: "Hossam Aziz", mode: "counter_and_door", status: "active", rating: 4.7, exp: 8 },
         { email: "mariam.adel@nile-academy.eg", name: "Mariam Adel", mode: "counter_only", status: "active", rating: 4.9, exp: 12 },
@@ -394,7 +360,6 @@ async function seed() {
         teachers.push({ id: u.id });
       }
 
-      // ---- EXTRA STUDENTS (pad the superadmin students count) ----
       const extraStudentDefs = [
         { email: "omar.khaled@student.nile-academy.eg", name: "Omar Khaled" },
         { email: "salma.tarek@student.nile-academy.eg", name: "Salma Tarek" },
@@ -412,9 +377,6 @@ async function seed() {
         extraStudents.push({ id: u.id });
       }
 
-      // ---- DEMO WALLETS (is_demo by student ancestry) — balances + running
-      //      history for preview. Writes ONLY the wallet subledger + the cached
-      //      balance; NO Transaction rows, so the real money ledger stays clean.
       const seedWallet = async (
         studentId: string,
         moves: {
@@ -425,7 +387,6 @@ async function seed() {
           daysAgo: number;
         }[],
       ) => {
-        // Idempotent re-seed: clear prior rows (raw — immutability blocks delete).
         await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${studentId}::uuid`;
         let bal = 0;
         for (const m of moves) {
@@ -461,16 +422,12 @@ async function seed() {
         { type: "topup", delta: 20000, method: "online_paymob", reason: "Online top-up", daysAgo: 7 },
       ]); // final 20000
 
-      // ---- SUBJECTS from Lina's real track offerings (read-only catalog) ----
       const offerings = await tx.subjectOffering.findMany({
         where: {
           gradeLevelId: lina.gradeLevelId,
           isActive: true,
           OR: [{ trackId: lina.trackId }, { trackId: null }],
         },
-        // Deterministic pick + round-robin: without an orderBy the teacher ↔
-        // subject pairing (courses AND TeacherSubject below) shuffles between
-        // seed runs.
         orderBy: { subjectId: "asc" },
         take: 4,
       });
@@ -482,7 +439,6 @@ async function seed() {
         return (s?.nameAr as string) || (s?.nameEn as string) || (s?.name as string) || (s?.code as string) || "مادة";
       };
 
-      // ---- COURSES (root, isDemo) matched to Lina's grade + track ----
       const courseTeachers = [teachers[0]!, teachers[1]!, teachers[2]!, teachers[3]!];
       const courseCenters = [nile, centers["ANDL"]!, centers["FUTR"]!, nile];
       const courses: { id: string; centerId: string; teacherId: string }[] = [];
@@ -492,9 +448,6 @@ async function seed() {
         const ctr = courseCenters[i % courseCenters.length]!;
         const id = did("course:" + off.subjectId + ":" + lina.gradeLevelId);
         const name = subjName(off.subjectId);
-        // NILE demo courses are ROOM-BASED (book قاعة 1) → they carry the frozen
-        // Method-1 snapshot = the NILE room override (20/60/20). Config only,
-        // no ledger. Other centers' demo courses stay no-room (legacy).
         const roomBased =
           ctr.id === nile.id
             ? {
@@ -513,11 +466,6 @@ async function seed() {
             subjectId: off.subjectId,
             gradeLevelId: lina.gradeLevelId,
             trackId: lina.trackId,
-            // Both plans enabled (approved decision #2 requires at least one).
-            // Without pricePerSession the seeded course cannot demonstrate the
-            // classic counter workflow at all — walk-in cash answers 422
-            // "Per-session plan is not enabled" and check-in stays 402 forever.
-            // CONFIG on a demo course; not a ledger row.
             pricePerMonth: 40000,
             pricePerSession: 5000,
             ...roomBased,
@@ -545,7 +493,6 @@ async function seed() {
           },
         });
         courses.push({ id, centerId: ctr.id, teacherId: t.id });
-        // Teacher subject/grade links (so teachers have subjects; optional but tidy)
         await tx.teacherSubject.upsert({
           where: { teacherId_subjectId: { teacherId: t.id, subjectId: off.subjectId } },
           update: {},
@@ -556,7 +503,6 @@ async function seed() {
           update: {},
           create: { teacherId: t.id, gradeLevelId: lina.gradeLevelId },
         });
-        // Active affiliation of the teacher to the course's center
         const aff = await tx.centerTeacherAffiliation.findFirst({ where: { centerId: ctr.id, teacherId: t.id } });
         if (!aff) {
           await tx.centerTeacherAffiliation.create({
@@ -572,10 +518,6 @@ async function seed() {
       }
       if (courses.length === 0) throw new Error("No subject offerings found for Lina's grade/track.");
 
-      // ---- METHOD-2 DEMO COURSE (per-attending-student) on ANDL's forced hall.
-      //      Frozen snapshot: platform 12% (ANDL center split) + 7 EGP/attending
-      //      student (ANDL center rate). CONFIG + roster only — NO ledger rows;
-      //      sessions settle only if Ali completes one from the UI. ----
       {
         const off0 = offerings[0]!;
         const m2Teacher = teachers[1]!;
@@ -617,10 +559,6 @@ async function seed() {
             m2CenterBp: null,
           },
         });
-        // Mirror the course subject into the teacher's specialization — the
-        // main loop only does this for the round-robin teacher, so without it
-        // the M2 teacher gets a class whose subject the specialization-scoped
-        // pickers (collaboration dialog) never show.
         await tx.teacherSubject.upsert({
           where: { teacherId_subjectId: { teacherId: m2Teacher.id, subjectId: off0.subjectId } },
           update: {},
@@ -629,7 +567,6 @@ async function seed() {
         courses.push({ id: m2Id, centerId: centers["ANDL"]!.id, teacherId: m2Teacher.id });
       }
 
-      // ---- ENROLLMENTS (roster links — NO money) ----
       const enroll = async (studentId: string, courseId: string, centerId: string) => {
         const ex = await tx.enrollment.findFirst({ where: { studentId, courseId } });
         if (!ex) {
@@ -641,11 +578,9 @@ async function seed() {
         }
       };
       for (const c of courses) await enroll(student.id, c.id, c.centerId);
-      // a couple extra students on the first course (enrollment counts)
       await enroll(extraStudents[0]!.id, courses[0]!.id, courses[0]!.centerId);
       await enroll(extraStudents[1]!.id, courses[0]!.id, courses[0]!.centerId);
 
-      // ---- SESSIONS (schedule) — courses[0] gets a full week, others lighter ----
       const c0 = courses[0]!;
       const sessionPlan: { key: string; days: number; status: "scheduled" | "completed" }[] = [
         { key: "s-today", days: 0, status: "scheduled" },
@@ -675,7 +610,6 @@ async function seed() {
         });
         c0Sessions.push({ id, days: sp.days, status: sp.status });
       }
-      // one upcoming session on courses[1] so "today/upcoming" spans subjects
       if (courses[1]) {
         const id = did("sess:" + courses[1].id + ":s+1");
         await tx.session.upsert({
@@ -694,7 +628,6 @@ async function seed() {
         });
       }
 
-      // ---- ATTENDANCE (Lina: 4 present + 1 absent over past sessions) ----
       const past = c0Sessions.filter((s) => s.days < 0).sort((a, b) => a.days - b.days); // oldest..newest
       const attStatuses = ["present", "present", "present", "absent"] as const; // -21,-14,-7,-3
       for (let i = 0; i < past.length; i++) {
@@ -713,15 +646,9 @@ async function seed() {
         });
       }
 
-      // ---- GRADES — grade EVERY enrolled course (good scores) so the
-      // dashboard's subject-performance + average-grade read realistically,
-      // plus one PENDING assignment on c0 (drives "assignments due" / dueSoon).
-      // centerId is REQUIRED on grades. NO money is written.
       const gradeName = ["اختبار الوحدة الأولى", "امتحان منتصف الفصل", "اختبار قصير", "الامتحان الشهري", "تقييم مستمر"];
       const gradeMax = [20, 50, 30, 25, 40];
       const gradeGot = [17, 44, 27, 23, 35]; // ~85–92%
-      // Grade EVERY course Lina is actively enrolled in (incl. any pre-existing
-      // course from the base seed) so no subject shows 0% / F.
       const linaEnrollments = await tx.enrollment.findMany({
         where: { studentId: student.id, status: "active" },
         select: { courseId: true },
@@ -772,7 +699,6 @@ async function seed() {
         },
       });
 
-      // ---- MATERIALS (centerId REQUIRED) ----
       const materialDefs = [
         { c: c0, key: "m1", title: "مذكرة الوحدة الأولى", type: "lecture" },
         { c: c0, key: "m2", title: "ورقة عمل — تمارين محلولة", type: "homework" },
@@ -797,7 +723,6 @@ async function seed() {
         });
       }
 
-      // ---- NOTIFICATIONS (display only; non-money types) ----
       const notify = async (
         userId: string,
         key: string,
@@ -825,19 +750,6 @@ async function seed() {
       await notify(parent.id, "n1", "grade_entered", "درجة جديدة لابنتك", "لينا حصلت على 17 / 20 في اختبار الوحدة الأولى", false);
       await notify(parent.id, "n2", "admin_broadcast", "إعلان", "موعد اجتماع أولياء الأمور الأسبوع القادم", true);
 
-      // ---- REVIEW (rating 1..5) ----
-      // NOT an upsert: `Review` deliberately has no `@@unique([studentId,
-      // teacherId])` any more. Uniqueness moved into two PARTIAL indexes
-      // (migration 20260818120000_review_per_lesson_unique) because a plain
-      // compound unique made `lessonId` unusable — the second lesson a student
-      // rated collided with the first. Prisma cannot express a `WHERE` on a
-      // unique index, so `studentId_teacherId` no longer exists as a key and
-      // the old upsert threw `Unknown argument studentId_teacherId`, taking the
-      // whole preview seed down with it.
-      //
-      // Idempotency is therefore application-level, matching exactly what
-      // services/reviews/reviews.ts does: an OVERALL review is the row with
-      // `lessonId: null`.
       const existingReview = await tx.review.findFirst({
         where: { studentId: student.id, teacherId: hossam.id, lessonId: null },
         select: { id: true },
@@ -871,9 +783,6 @@ async function seed() {
 }
 
 async function main() {
-  // Demo data must never reach production — in either direction. The purge path
-  // is guarded too: it deletes every is_demo row it finds, which is correct on a
-  // dev database and unacceptable as a stray command against production.
   await assertNotProduction("preview-seed");
 
   if (PURGE) {

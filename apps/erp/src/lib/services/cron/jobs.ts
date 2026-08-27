@@ -134,42 +134,9 @@ export async function runLessonReminders(now: Date) {
   return { sessions: sessions.length, recipientsNotified: notified };
 }
 
-// =============================================================================
-// WEEKLY CENTER DIGEST
-//
-// The one email a center owner receives unprompted. It answers three questions
-// they would otherwise have to log in to ask: what came in last week, did the
-// lessons actually run, and is anything left unfinished.
-//
-// EVERY FIGURE COMES FROM THE SERVICE THE DASHBOARD USES. `getNetProfitReport`
-// returns revenue, expenses, net AND the attendance rate in one call, so the
-// digest cannot disagree with the screen the owner opens after reading it. The
-// job computes nothing of its own beyond counting the week's sessions.
-//
-// IDEMPOTENT WITHOUT A MIGRATION. A double-fired schedule must cost a no-op,
-// not a second email. There is no `notification_type` value for a digest and
-// adding one is a schema change that needs its own approved plan, so the marker
-// is an append-only `audit_logs` row keyed on the center and the week. That is
-// not a workaround dressed up: mailing a center's finances to an address IS a
-// disclosure, and a permanent record of when it happened belongs in the audit
-// trail whether or not it is also used to deduplicate.
-//
-// PER-CENTER ISOLATION. One center's failure — a missing owner, a report that
-// throws — must not stop the other 300 from being told. Each center runs in its
-// own try/catch and the run reports how many were skipped.
-// =============================================================================
-
-/**
- * The week that just ENDED: Sunday..Saturday, matching the Egyptian working
- * week the calendar screen already lays out. Never the week in progress — a
- * summary of a week still running is a number that changes after you read it.
- */
 function lastWeekRange(now: Date): { start: Date; end: Date } {
   const end = new Date(now);
   end.setUTCHours(23, 59, 59, 999);
-  // getUTCDay(): 0 = Sunday. Step back to the most recent Sunday, then take the
-  // seven days before it — the week the owner is reading about is one that has
-  // finished, never the one they are living in.
   end.setUTCDate(end.getUTCDate() - end.getUTCDay() - 1);
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 6);
@@ -220,8 +187,6 @@ export async function runWeeklyCenterDigest(now: Date) {
             }),
           )
         : null;
-      // No owner, no address, or a closed account: nothing to send to. Counted
-      // as skipped, never as a failure — it is a state, not a fault.
       if (!owner?.email || owner.status !== "active") {
         skipped++;
         continue;
@@ -243,9 +208,6 @@ export async function runWeeklyCenterDigest(now: Date) {
           },
         }),
       );
-      // The completeness report is a nice-to-have inside a digest: a center
-      // with no off-system teachers has none, and a failure here must not cost
-      // the owner their revenue figures.
       let gapsCount = 0;
       try {
         const gaps = await buildGapReport(acting, { from: start, to: end });
@@ -273,13 +235,6 @@ export async function runWeeklyCenterDigest(now: Date) {
         },
       );
 
-      // THREE OUTCOMES, NOT TWO. `send` never throws — it reports — and the
-      // notifications package draws a line this job must not erase: `skipped`
-      // is a DELIBERATE non-send (console mail in dev, a preview run, a
-      // channel switched off), `failed` is a fault. Collapsing them made every
-      // dev run report failures for centers whose digest was correctly not
-      // sent. Only a real send is marked, so a skipped week is retried once
-      // mail is actually configured rather than being recorded as delivered.
       const delivered = result.results.some((r) => r.status === "sent");
       if (!delivered) {
         if (result.results.some((r) => r.status === "failed")) failed++;
@@ -307,22 +262,6 @@ export async function runWeeklyCenterDigest(now: Date) {
   return { job: "weekly-center-digest", periodStart, periodEnd, sent, skipped, failed };
 }
 
-/**
- * B.1#12 — renewal reminders. Monthly coverage is manual-renewal by design
- * (decision #2, no auto-charge), and until this job the only pre-expiry signal
- * was an in-app alert that fires while the reader is already inside the app.
- * This sweep runs on the `[status, periodEnd]` index — created for exactly
- * this in Step 4 — and tells the student AND their linked parents at
- * T-5 / T-2 / T-0 Cairo days before the window closes.
- *
- * IDEMPOTENT PER (subscription, bucket): each send carries `subscriptionId` +
- * `daysLeft` in its data, and the sweep skips a pair that already has its
- * notification row — so a double-fired schedule (or an hourly tick, if this
- * job is ever moved off the daily one) costs a no-op, never a duplicate.
- * Days are CAIRO days via `todayKey`/`shiftDayKey` — the same clock the money
- * screens bound days with; a UTC day here would remind Egyptian families a day
- * early or late for three hours around midnight.
- */
 export async function runSubscriptionRenewalReminders(now: Date) {
   const buckets = [5, 2, 0];
   let notified = 0;

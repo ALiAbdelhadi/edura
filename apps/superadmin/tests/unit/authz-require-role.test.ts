@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-// The back-office requireRole differs from www's in exactly one way: a
-// super_admin passes EVERY gate (full platform control, decision #1), while
-// the accountant only passes routes that name it. That asymmetry is the
-// finance-portal restriction, so it gets its own pin here.
-
 const requireSession = vi.fn<() => Promise<SessionUser>>();
 vi.mock("@/lib/auth/session", () => ({
   requireSession: (...args: unknown[]) => requireSession(...(args as [])),
@@ -19,11 +14,6 @@ const user = (role: SessionUser["role"]): SessionUser => ({
   role,
   locale: "ar",
 });
-
-// No beforeEach mock-clearing here, deliberately: every test installs its own
-// implementation, and vitest 4 mis-attributes a later mock rejection as an
-// unhandled test error when the mock was cleared in a beforeEach (verified in
-// this repo, 2026-08-08 — see the www twin of this file).
 
 describe("requireRole (superadmin)", () => {
   it("super_admin passes even when not named (full-control bypass)", async () => {

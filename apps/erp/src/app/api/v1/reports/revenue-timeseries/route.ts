@@ -12,7 +12,6 @@ const querySchema = z.object({
   granularity: z.enum(["week", "month"]).optional(),
 });
 
-// Financial report — read-only: owner + center_accountant. NOT a manager.
 export const GET = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const url = new URL(req.url);

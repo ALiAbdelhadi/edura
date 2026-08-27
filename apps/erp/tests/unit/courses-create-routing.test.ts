@@ -1,18 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// POST /api/v1/courses gained a TEACHER branch (teacher-direct groups,
-// roadmap decision #2). The risk that branch introduces is not in what it
-// adds — it is in whether the CENTER path still reaches the code it always
-// reached. These assertions pin that boundary without a database:
-//
-//   • a teacher is routed to createTeacherDirectCourse, never to createCourse;
-//   • every other role falls through to requireRole("center_admin") and then
-//     to createCourse, exactly as before the branch existed;
-//   • the owner of a teacher-direct group is the CALLER — the schema is
-//     .strict() and carries no teacherId, so a teacher cannot mint a group
-//     under someone else's name;
-//   • an anonymous request never reaches either service.
-
 const { getSessionUser, requireRole, createCourse, createTeacherDirectCourse, trackFirstGroup } =
   vi.hoisted(() => ({
     getSessionUser: vi.fn(),
@@ -77,10 +64,8 @@ describe("POST /api/v1/courses — role routing", () => {
     expect(res.status).toBe(201);
     expect(createTeacherDirectCourse).toHaveBeenCalledTimes(1);
     expect(createCourse).not.toHaveBeenCalled();
-    // requireRole("center_admin") must not even be consulted for a teacher.
     expect(requireRole).not.toHaveBeenCalled();
 
-    // The owner is the session, and the body could not have carried one.
     const [acting, body] = createTeacherDirectCourse.mock.calls[0] as unknown as [
       { id: string },
       Record<string, unknown>,
@@ -93,8 +78,6 @@ describe("POST /api/v1/courses — role routing", () => {
     getSessionUser.mockResolvedValue({ id: "teacher-me", role: "teacher" });
     const { POST } = await import("@/app/api/v1/courses/route");
 
-    // `withErrors` turns the schema rejection into a 4xx response rather than
-    // throwing, so the assertion is on the status, not on a rejection.
     const res = await POST(
       post({
         teacherId: "someone-else",

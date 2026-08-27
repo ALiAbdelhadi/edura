@@ -19,14 +19,12 @@ const bodySchema = z
     message: "studentId or studentCode is required",
   });
 
-/** Door check-in — assistant (their teacher's sessions) or the teacher. */
 export const POST = withErrors(async (req) => {
   const user = await requireRole("assistant", "teacher");
   const body = await parseJson(req, bodySchema);
   return ok(await doorCheckin(body, user));
 });
 
-/** Door roster view for a session (counter-passed vs door-confirmed). */
 export const GET = withErrors(async (req) => {
   const user = await requireRole("assistant", "teacher");
   const sessionId = new URL(req.url).searchParams.get("sessionId");

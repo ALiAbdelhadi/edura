@@ -69,8 +69,6 @@ export function SessionIntegrityGuard() {
       try {
         await authClient.signOut();
       } catch {
-        // A sign-out that cannot reach the server must not strand the reader on
-        // a screen wearing someone else's name — the redirect happens either way.
       }
       const locale = window.location.pathname.split("/")[1] || "ar";
       const notice =

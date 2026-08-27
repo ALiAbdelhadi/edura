@@ -1,24 +1,3 @@
-// Proof that every utility-looking class written in the source ACTUALLY
-// produces CSS.
-//
-// Why this exists: a Tailwind class that does not exist is not an error
-// anywhere. It is not a type error, it is not a lint error, and the build stays
-// green — Tailwind simply emits nothing and the element renders unstyled. The
-// symptom reaches you as "the padding isn't applied and I don't know why".
-//
-// Two real ones this test was written from:
-//
-//   • `inset-inline-start-3` on the walk-in check-in search icon. That is a CSS
-//     *property* name, not a Tailwind utility (the utility is `start-3`), so the
-//     absolutely-positioned icon had no inset at all and sat flush against the
-//     field's edge while the input's `ps-9` held the text 36px away.
-//   • `text-red-foreground` on the group unread badge. The theme defines
-//     `--color-red` but never `--color-red-foreground`, so the badge's text
-//     colour was whatever it inherited.
-//
-// The check is empirical, not a hand-maintained list of legal names: it runs the
-// real Tailwind compiler over the real stylesheet and asserts that every
-// candidate it found in the source turns into a selector.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,17 +8,10 @@ const APP = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const REPO = resolve(APP, "../..");
 const UI_GLOBALS = join(REPO, "packages/ui/src/styles/globals.css");
 
-// Both portals are covered from here. apps/superadmin has no unit-test harness
-// of its own (only live-DB suites), and the same precedent already exists in
-// this directory — bottom-nav-slots.test.ts asserts packages/ui from here. The
-// two apps share one theme (both `@import` the packages/ui globals), so a token
-// that is dead in one is dead in the other; what differs is which source tree
-// each stylesheet scans, which is exactly what this table encodes.
 const PORTALS = [
   {
     name: "apps/www",
     app: APP,
-    // packages/ui rides along here: www's stylesheet is what compiles it.
     sources: [join(APP, "src"), join(REPO, "packages/ui/src")],
     css: [
       UI_GLOBALS,
@@ -68,12 +40,6 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/**
- * First segment of every Tailwind utility/variant family this codebase uses. A
- * token whose first segment is one of these was *meant* to be a utility, so if
- * the compiler emits nothing for it that is a genuine dead class. Anything else
- * (a `data-slot` value, an API path, an i18n key) is not our business.
- */
 const UTILITY_PREFIXES = new Set(
   `p px py pt pb pl pr ps pe m mx my mt mb ml mr ms me space gap
    w h size min max basis grow shrink flex grid col row order place items justify
@@ -92,7 +58,6 @@ const UTILITY_PREFIXES = new Set(
     .split(/\s+/),
 );
 
-/** Does this token look like somebody intended a Tailwind utility? */
 function looksLikeUtility(token: string): boolean {
   if (!/^[!-]?[a-z]/.test(token)) return false;
   if (/[A-Z\s"'`{}=]/.test(token)) return false;
@@ -101,15 +66,7 @@ function looksLikeUtility(token: string): boolean {
   return UTILITY_PREFIXES.has(bare.split(/[-[/]/)[0]);
 }
 
-/**
- * Pull class tokens out of the one place a class name is unambiguously a class:
- * a `className=` / `class=` attribute. Scanning every string literal instead
- * sweeps up API paths ("me/wallet"), `data-slot` values ("select-trigger") and
- * cva variant keys ("lg") — none of which are classes, all of which would then
- * look "dead". Combined with `looksLikeUtility` this yields no false positives.
- */
 function candidatesFrom(source: string): Set<string> {
-  // Comments hold prose that would otherwise be read as class text.
   const src = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
   const found = new Set<string>();
 
@@ -130,8 +87,6 @@ function candidatesFrom(source: string): Set<string> {
     }
     if (opener !== "{") continue;
 
-    // Balanced `{ … }`, skipping over string bodies so a brace inside a literal
-    // does not unbalance the scan. Every literal found inside is class text.
     let depth = 0;
     for (; i < src.length; i++) {
       const ch = src[i];
@@ -153,13 +108,11 @@ function candidatesFrom(source: string): Set<string> {
   return found;
 }
 
-/** Class names defined by the project's own CSS (`.led`, `.lg-card`, …). */
 function projectClassNames(files: string[]): Set<string> {
   const names = new Set<string>();
   for (const file of files) {
     const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     for (const m of css.matchAll(/\.(-?[A-Za-z_][\w-]*)/g)) names.add(m[1]);
-    // `@utility num { … }` declares a utility whose name is not a selector.
     for (const m of css.matchAll(/@utility\s+([\w-]+)/g)) names.add(m[1]);
   }
   return names;
@@ -167,15 +120,12 @@ function projectClassNames(files: string[]): Set<string> {
 
 const cssEscape = (t: string) => t.replace(/[^A-Za-z0-9_-]/g, (c) => "\\" + c);
 
-/** True when `token` appears in `css` as a complete class selector. */
 function isEmitted(css: string, token: string): boolean {
   const sel = "." + cssEscape(token);
   for (let from = 0; ; ) {
     const i = css.indexOf(sel, from);
     if (i === -1) return false;
     const next = css[i + sel.length];
-    // A class name continues only through [A-Za-z0-9_-] or a "\" escape; any
-    // other char (`{`, `[`, `:`, `,`, whitespace, …) terminates it.
     if (next === undefined || !/[A-Za-z0-9_\\-]/.test(next)) return true;
     from = i + 1;
   }
@@ -208,8 +158,6 @@ describe.each(PORTALS)("Tailwind classes in $name all produce CSS", (portal) => 
       }
     }
 
-    // Anything the project's own CSS defines is a real class even though
-    // Tailwind will not emit it. Everything else must compile.
     const mustCompile = [...candidates].filter((t) => !known.has(t));
     const css = compiler.build(mustCompile);
     const dead = mustCompile.filter((t) => !isEmitted(css, t)).sort();

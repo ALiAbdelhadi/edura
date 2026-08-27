@@ -2,25 +2,13 @@ import { platformDb } from "@/lib/db/scope";
 import { BusinessRuleError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
 
-// The `wallet_settings` singleton — the ONLY managed student-wallet policy.
-//
-// There is NO wallet balance cap: the old `max_balance` ceiling was removed
-// (2026-07-23) and its column is inert. What remains is per-TRANSACTION: the
-// smallest and largest single top-up, enforced server-side by
-// assertTopupAllowed() BEFORE any money is taken (online intent + center cash
-// alike). Editing them here is the only way to change them — this screen
-// replaces hand-written SQL.
-
 const DEFAULTS = { minTopup: 1000, maxTopup: 500000 }; // mirrors getWalletSettings()
 
-// 1,000,000 EGP — a typo guard on the guard itself, not a business rule.
 const ABSOLUTE_MAX = 100_000_000;
 
 export function getWalletPolicy() {
   return platformDb(async (tx) => {
     const row = await tx.walletSettings.findFirst();
-    // The migration inserts the row; treat absence as a config problem but
-    // still render the code fallback so the screen never breaks.
     return {
       id: row?.id ?? null,
       minTopup: row?.minTopup ?? DEFAULTS.minTopup,

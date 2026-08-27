@@ -1,9 +1,5 @@
 import { platformDb } from "../../db/scope";
 
-// Moved here from apps/www so both apps resolve notification recipients
-// identically. apps/www/src/lib/services/notifications/fanout.ts is a
-// re-export shim.
-
 export async function resolveCourseStudentsAndParents(
   courseId: string,
 ): Promise<string[]> {
@@ -34,11 +30,6 @@ export async function resolveCenterAdmins(centerId: string): Promise<string[]> {
   return admins.map((a) => a.userId);
 }
 
-/**
- * A CENTER's internal team: every co-owner (center_admin profile) plus every
- * ACTIVE center_staff member. Used by team notes — pass `excludeUserId` to
- * leave out the acting user (an author is never notified about their own note).
- */
 export async function resolveCenterTeamPeers(
   centerId: string,
   excludeUserId?: string,
@@ -57,10 +48,6 @@ export async function resolveCenterTeamPeers(
   return [...ids];
 }
 
-/**
- * A TEACHER's internal team: the teacher plus every ACTIVE assistant
- * (revocation-aware — a soft-removed assistant is out immediately).
- */
 export async function resolveTeacherTeamPeers(
   teacherId: string,
   excludeUserId?: string,

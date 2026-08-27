@@ -22,9 +22,6 @@ export const POST = withRateLimit(
   withErrors(async (req) => {
     const input = await parseJson(req, bodySchema);
     const result = await registerStudent(input);
-    // Welcome email AFTER the commit, fire-and-forget: sendStudentWelcomeEmail
-    // never throws and stamps onboarding_email_sent_at atomically, so a mail
-    // outage cannot fail sign-up and a duplicate submission cannot mail twice.
     void sendStudentWelcomeEmail(result.userId);
     return ok(result, { status: 201 });
   }),

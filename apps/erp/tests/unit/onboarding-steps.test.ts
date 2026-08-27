@@ -6,9 +6,6 @@ import {
   stepAfterTrack,
 } from "@/features/onboarding/steps";
 
-// The wizard's skipping rules are pure functions of catalog DATA (grade has
-// track links? stage asks for a 2nd language?) — no system/track names appear
-// anywhere here, which is exactly the PRD §1 config-driven requirement.
 describe("student wizard step flow — PRD §4/§10", () => {
   it("primary-like selection (no tracks, no 2nd language): 4 steps, no track/lang", () => {
     expect(studentSteps({ needsTrack: false, needsLang: false })).toEqual([

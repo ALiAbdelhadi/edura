@@ -16,17 +16,6 @@ import { ROLE_SLUGS, getRolePage, isRoleSlug, type RoleSlug } from "@/i18n/roles
 import { appUrl } from "@/lib/app-origin";
 import { MEDIA } from "@/media/manifest";
 
-/**
- * ONE ROUTE FOR FOUR PAGES.
- *
- * The center, teacher, parent and student pages differ only in content, so
- * they are one component reading one content file. Four hand-written pages
- * would drift — the third would get a heading size the others did not, and
- * nobody would notice until they were compared side by side.
- *
- * Every one is statically generated: eight pages, two locales, no runtime.
- */
-
 export function generateStaticParams() {
   return LOCALES.flatMap((locale) => ROLE_SLUGS.map((role) => ({ locale, role })));
 }
@@ -49,22 +38,12 @@ export async function generateMetadata({
   };
 }
 
-/**
- * Where each role's "start" CTA lands in the product app. The register form
- * preselects the role it is handed; the assistant cannot self-register at all
- * (invite-only, Step 8), so their "open your invitation" lands on sign-in —
- * the emailed claim link is the actual door.
- */
 const APP_CTA: Record<RoleSlug, string> = {
   center: "/register?role=center_admin",
   teacher: "/register?role=teacher",
   parent: "/register?role=parent",
   student: "/register?role=student",
   assistant: "/login",
-  // Staff cannot self-register either — a center owner creates them with a
-  // preset. So this page's CTA is addressed to the OWNER, which is what its
-  // copy says ("Running a center and staffing a desk?"), and it lands on
-  // center registration rather than on a sign-in the reader has no account for.
   staff: "/register?role=center_admin",
 };
 
@@ -92,12 +71,6 @@ export default async function RolePage({
       <SiteNav locale={locale} t={t} activeRole={role} />
 
       <main id="main">
-        {/* ── The hero ────────────────────────────────────────────────────
-            The QUESTION leads, set as the largest thing on the page, and the
-            headline answers it. On the landing these five questions are what
-            distinguished the roles from one another; here the reader has
-            already self-selected, so the question is the confirmation that
-            they are in the right place. */}
         <section className="mx-auto w-full max-w-[87.5rem] px-6 pt-14 pb-14 md:px-10 lg:pt-20 lg:pb-20">
           <div className="grid items-center gap-12 lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-16">
             <div>
@@ -119,10 +92,6 @@ export default async function RolePage({
                 <Button asChild variant="ledger" size="ledger" className="tap">
                   <a href="#start">{page.ctaPrimary}</a>
                 </Button>
-                {/* Back to the landing's settlement section, not to the
-                    landing's top: this button's job is "show me the money
-                    argument", and `t.nav.money` alone ("الحساب") reads as a
-                    destination rather than an offer. */}
                 <Button asChild variant="gold" size="ledger" className="tap">
                   <Link href={`/${locale}#money`}>{t.hero.secondary}</Link>
                 </Button>
@@ -138,7 +107,6 @@ export default async function RolePage({
           </div>
         </section>
 
-        {/* ── Every section of the portal, in the portal's own groups ───── */}
         <section id="capabilities" className="border-t border-rule">
           <div className="mx-auto w-full max-w-[87.5rem] px-6 pb-8 md:px-10">
             {page.groups.map((group, index) => (
@@ -153,7 +121,6 @@ export default async function RolePage({
           </div>
         </section>
 
-        {/* ── Three guarantees, chosen for THIS role ─────────────────────── */}
         <section id="guarantees" className="border-t border-rule">
           <div className="mx-auto w-full max-w-[87.5rem] px-6 py-10 md:px-10 md:py-16 lg:py-20">
             <Eyebrow locale={locale} tone="gold">
@@ -174,7 +141,6 @@ export default async function RolePage({
           </div>
         </section>
 
-        {/* ── Close, and the way across to the other three ───────────────── */}
         <section id="start" className="border-t border-rule">
           <div className="mx-auto w-full max-w-[72rem] px-6 py-12 md:px-10 md:py-20 lg:py-28">
             <Ink
@@ -191,9 +157,6 @@ export default async function RolePage({
               </Button>
             </div>
 
-            {/* The other three roles. A center owner is often also a teacher,
-                and a parent is often the one who registers the student — so
-                the way across matters more here than on the landing. */}
             <nav className="mt-14 border-t border-rule pt-8">
               <Eyebrow locale={locale} tone="gold">
                 {t.roles.label}
@@ -214,9 +177,6 @@ export default async function RolePage({
 
       <SiteFooter t={t} locale={locale} />
 
-      {/* Renders nothing. The role pages have no register to settle, so the
-          hero timeline no-ops; what still applies is the headline inking in,
-          the nav's active marker, and the fonts-ready refresh. */}
       <MotionRoot />
     </>
   );

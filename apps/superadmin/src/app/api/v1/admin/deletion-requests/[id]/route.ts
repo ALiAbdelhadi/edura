@@ -14,18 +14,11 @@ export const dynamic = "force-dynamic";
 const schema = z
   .object({
     decision: z.enum(["approve", "reject", "anonymize"]),
-    // Required for approve and reject. `anonymize` is a repair on an ALREADY
-    // approved request, so the reason lives on the original decision.
     note: z.string().max(1000).optional(),
     locale: z.enum(["ar", "en"]).optional(),
   })
   .strict();
 
-/**
- * The decision endpoint. Each branch is audited inside its service, in the
- * same transaction as the write — so a deletion cannot commit without a row
- * naming who ordered it.
- */
 export const POST = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id } = await ctx.params;

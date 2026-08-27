@@ -23,17 +23,10 @@ import {
 
 export type WalkInInvite = {
   email: DeliveryResult;
-  /** Optional channel — `skipped` unless INVITE_CHANNELS includes whatsapp. */
   whatsapp: DeliveryResult;
-  /** Who the email went to, and why. `none` ⇒ hand the link over in person. */
   recipient: InviteRecipient["kind"];
   reason?: string;
-  /**
-   * The one-time claim link, returned so the counter can hand it to the
-   * guardian directly. Present only when a live token was minted.
-   */
   claimLink?: string;
-  /** A guardian email is still owed for this MINOR (adult messaging is locked). */
   guardianEmailRequired: boolean;
   guardianContactDueAt?: Date;
 };
@@ -44,21 +37,9 @@ export type WalkInResult = {
   studentCode: string | null;
   fullName: string | null;
   invite: WalkInInvite;
-  /**
-   * Kept for the existing counter screen, which reads this key. The invite is
-   * email-first now; this reports the OPTIONAL WhatsApp leg only.
-   */
   whatsapp: DeliveryResult;
 };
 
-/**
- * Mint the token and deliver the claim link for a claimable student.
- *
- * The recipient decision is the child-safety one and lives in
- * resolveStudentInviteRecipient: guardian first, and NEVER a minor's own
- * inbox. When it returns `none` we still mint the token — the link is real and
- * the counter hands it over — we simply do not email a child.
- */
 async function sendStudentClaim(
   student: { id: string; fullName: string | null; studentCode: string | null },
   creator: SessionUser,
@@ -75,9 +56,6 @@ async function sendStudentClaim(
           })
         : null;
 
-      // Start (or keep) the escalation clock the moment we learn a minor has no
-      // guardian email. Never reset it on a re-send — the deadline is the
-      // ORIGINAL one, not one that slides every time someone clicks resend.
       let dueAt: Date | null = null;
       if (recipient.kind === "none") {
         const profile = await tx.studentProfile.findFirst({
@@ -145,20 +123,6 @@ async function sendStudentClaim(
   };
 }
 
-/**
- * Walk-in registration (Step 7, email-first since 2026-07-25).
- *
- * Creates (or links to) the student account and delivers the claim link:
- *  - no account with this phone      -> shell student (Step 6 machinery) +
- *    one-time tokenized onboarding link, EMAILED TO THE GUARDIAN;
- *  - active account with this phone  -> NO duplicate; roster link + a
- *    studentCode reminder, never a login link.
- *
- * Guardian contact is captured here because the guardian is standing at the
- * counter. Email if they have one; otherwise the phone, which we keep for the
- * record and for a future SMS/WhatsApp channel. Neither is required —
- * registration must never be blocked on it.
- */
 export async function registerWalkIn(
   input: {
     fullName: string;
@@ -177,7 +141,6 @@ export async function registerWalkIn(
     ? normalizeEgyptPhone(input.guardianPhone)
     : null;
 
-  // Duplicate-by-phone: an ACTIVE (non-shell) user already owns this number.
   const existing = await platformDb(async (tx) => {
     const user = await tx.user.findFirst({
       where: { phone, status: { notIn: ["deleted", "shell"] } },
@@ -217,7 +180,6 @@ export async function registerWalkIn(
       studentId: existing.user.id,
       studentCode: existing.profile?.studentCode ?? null,
       fullName: name,
-      // An already-credentialed account gets NO claim link, on any channel.
       invite: {
         email: { status: "skipped" },
         whatsapp,
@@ -228,7 +190,6 @@ export async function registerWalkIn(
     };
   }
 
-  // New (or still-shell) walk-in — Step 6 shell machinery, unchanged.
   const shell = await createTempStudent(
     { fullName: input.fullName, phone, grade: input.grade },
     creator,
@@ -255,7 +216,6 @@ export async function registerWalkIn(
   };
 }
 
-/** Write the guardian contact captured at the counter. */
 async function setGuardianContactRow(
   studentUserId: string,
   data: { guardianEmail: string | null; guardianPhone: string | null },
@@ -286,7 +246,6 @@ async function setGuardianContactRow(
   );
 }
 
-/** Re-send the claim link for a walk-in student (fresh token if still claimable). */
 export async function resendWalkIn(
   studentId: string,
   creator: SessionUser,
@@ -312,7 +271,6 @@ export async function resendWalkIn(
   const name = found.profile?.fullName ?? found.user.name ?? "";
   const code = found.profile?.studentCode ?? "—";
 
-  // Already credentialed -> only the code reminder; never a login link.
   if (found.user.passwordHash !== null) {
     const whatsapp = await deliverInviteWhatsApp({
       to: phone,

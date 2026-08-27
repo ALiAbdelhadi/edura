@@ -1,36 +1,3 @@
-/**
- * Phase 0 of the revenue-operations spec (docs/reports/
- * revenue-operations-spec-audit.md §Phase 0) — "إنهاء الحصة" closes the
- * register IMMEDIATELY, through every door.
- *
- * Before this phase the settled-lesson freeze had FIVE writers and only the
- * bulk/edit pair looked at any lock at all — and that lock ignored both
- * `status` and `distributedAt` inside the 7-day window:
- *   - counterCheckin refused only `cancelled`,
- *   - doorTransitionTx checked nothing (it could promote a `counter_only`
- *     student — deliberately EXCLUDED from distribution — to `present` after
- *     the money settled without them),
- *   - syncOfflineAttendance's raw branch checked enrollment only.
- *
- * What is proven here, against the real services and the real engine:
- *   [1] BASELINES: every door is open on a live lesson (and counterCheckin
- *       reaches its coverage gate, which is how we later prove WHICH gate
- *       refuses).
- *   [2] SETTLEMENT CLOSES ALL FIVE DOORS: after a real completeSession →
- *       distributeSessionRevenue run, bulk / edit / counter / door / sync all
- *       refuse — each with its own signal (message naming settlement, error
- *       code `session_closed`, door outcome `settled`, sync per-record
- *       `conflict: session_settled`). The sync batch degrades PER RECORD: the
- *       settled record conflicts while an unsettled sibling in the same batch
- *       still syncs.
- *   [3] THE EXCLUDED STUDENT STAYS EXCLUDED: the `counter_only` attendee the
- *       settlement did not count cannot be door-promoted afterwards.
- *   [4] COMPLETED-WITH-NOBODY IS LOCKED AT THE BUTTON, IN-WINDOW — and the
- *       audited reopen door (T-9) is its sanctioned repair path: reopen →
- *       correct → complete again → settles → locked forever, reopen refuses.
- *
- * Run (this one only): bun run --filter edura test:db:only settled-lesson-lock
- */
 import { withPlatformContext } from "@repo/database";
 import {
   bulkMarkAttendance,
@@ -66,7 +33,6 @@ const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
 
-/** Run fn, return the error it threw (null if it did not throw). */
 async function caught(fn: () => Promise<unknown>): Promise<unknown | null> {
   try {
     await fn();
@@ -134,15 +100,12 @@ async function main() {
     const empty = await mkSession(); // completed with nobody, then repaired
     const fresh = await mkSession(); // stays open — the sync sibling
 
-    // The excluded student: passed the counter, never the door — settlement
-    // deliberately does not count `counter_only`.
     await tx.attendanceRecord.create({
       data: {
         sessionId: main.id, studentId: s2.id, courseId: course.id, centerId: center.id,
         status: "counter_only", markedBy: owner.id, counterAt: new Date(), counterBy: owner.id,
       },
     });
-    // A counter-passed student on the open session, for the door baseline.
     await tx.attendanceRecord.create({
       data: {
         sessionId: fresh.id, studentId: s1.id, courseId: course.id, centerId: center.id,

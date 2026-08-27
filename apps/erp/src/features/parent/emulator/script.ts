@@ -1,44 +1,9 @@
-/**
- * The parent emulator's script: what the parent is asked to do, in order.
- *
- * DATA, NOT CODE — exactly as the student and teacher scripts are. Adding a
- * mission must be adding an entry here, never editing the engine; otherwise the
- * second person to extend this writes a second engine. The engine in
- * `parent-emulator.tsx` knows only about `screen`, `target` and `spotlight`.
- *
- * Copy lives in `messages/<locale>/parent.json` under `parentEmulator.steps.*`,
- * so the script holds STRUCTURE and the translators hold WORDS.
- *
- * WHY THIS ORDER. It is the order in which a parent is blocked:
- *
- *   1. read the child       — orients them, no consequence
- *   2. LINK the child       — nothing else in the portal works until a link is
- *                             APPROVED; every other screen is empty without it
- *   3. the wallet           — met BEFORE paying, because the opening balance is
- *                             deliberately short of the lesson price, and
- *                             "top up, then pay" is the order the product forces
- *   4. pay for a lesson     — the act they came for
- *   5. child safety         — last on purpose: it is the one screen whose LIMITS
- *                             matter more than its features, and it lands better
- *                             once they have seen how much else they can do
- */
-
-/** The simulated screens the engine can show. */
 export type EmuScreen = "dashboard" | "children" | "wallet" | "pay" | "oversight";
 
 export type EmuStep = {
-  /** i18n key suffix under `parentEmulator.steps`. */
   id: string;
   screen: EmuScreen;
-  /**
-   * The control the parent must press to move on. Undefined = nothing to press:
-   * the step is explaining something, and a "got it" button advances.
-   *
-   * A step with a target is the whole point of this being an emulator rather
-   * than a slideshow — the parent performs the action, they do not watch it.
-   */
   target?: string;
-  /** Points at a region to look at while the step is read (no click needed). */
   spotlight?: string;
 };
 
@@ -103,7 +68,6 @@ export const MISSIONS: EmuMission[] = [
   },
 ];
 
-/** Flat walk order, so the engine advances without knowing about missions. */
 export type FlatStep = EmuStep & { mission: string; missionIndex: number; indexInMission: number };
 
 export const FLAT_STEPS: FlatStep[] = MISSIONS.flatMap((m, mi) =>

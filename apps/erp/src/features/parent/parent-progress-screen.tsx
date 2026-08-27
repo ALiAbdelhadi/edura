@@ -1,23 +1,5 @@
 "use client";
 
-// Child progress — read-only.
-//
-// A parent reads this record; they do not write it. Nothing here is editable
-// and nothing pretends to be.
-//
-// Grades are rendered as plain mono ink, NOT as coloured status badges. In this
-// system colour carries a fixed meaning — teal money confirmed, amber waiting,
-// red irreversible — and a child's تقدير is none of those. Tinting it would
-// spend a semantic on decoration, and would quietly editorialise about the
-// child on their parent's screen. The percentage bar carries the at-a-glance
-// signal, which is why `GradeBand.tone` is deliberately not read here.
-//
-// THE SCALE IS `@repo/database/grading-scale`, NOT A COPY. This screen used to
-// hold its own A–F ladder plus a 4.0 GPA; the ladder had already drifted from
-// the two other copies (it floored at "D", so a child at 12% and one at 61%
-// read the same), and the GPA averaged letters that were themselves derived
-// from percentages — two lossy conversions to reach a number that means
-// nothing to an Egyptian family. Percentage + تقدير now, from the one table.
 import { useList } from "@refinedev/core";
 import { Users } from "lucide-react";
 import { Progress } from "@repo/ui/components/progress";
@@ -31,12 +13,6 @@ import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
 
-// Chart series read `--chart-*`, NOT `--series-*`.
-// Both names existed while the design system was being assembled; the token
-// layer that landed on main defines `--chart-1..5` only. A `var()` that
-// resolves to nothing makes SVG `fill` fall back to BLACK, so the bars were
-// drawn at the right geometry and were simply invisible — the failure is
-// silent, which is why it survived a build, a typecheck and a screenshot.
 const SERIES = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -102,12 +78,6 @@ export function ParentProgressScreen() {
     };
   });
 
-  // Each subject row is المجموع ÷ المجموع الكلي (see `percentOf` above), so a
-  // 50-mark final already outweighs a 10-mark quiz WITHIN a subject. The
-  // headline then averages the SUBJECT percentages rather than pooling every
-  // mark in the child's record — otherwise a subject that happens to run more
-  // assessments would quietly dominate the figure a parent reads as "how is my
-  // child doing". Same rule in the student dashboard route, so the two agree.
   const overallPct =
     rows.length > 0
       ? Math.round(rows.reduce((a, b) => a + b.pct, 0) / rows.length)
@@ -164,8 +134,6 @@ export function ParentProgressScreen() {
         <span className="block text-end">{t("parentProgress.grade")}</span>
       ),
       cell: ({ row }) => (
-        // Not a <Figure>: التقدير is a word, and Figure is the mono numeral
-        // face this design system reserves for figures.
         <span className="block text-end text-[13px] font-semibold text-ink">
           {t(`gradeBands.${row.original.band.id}`)}
         </span>
@@ -175,11 +143,6 @@ export function ParentProgressScreen() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* The title names the child. A page of percentages headed "التقدم"
-          is a record about nobody — and for a single-child parent the old chip
-          bar rendered nothing at all, so the name appeared on no screen in the
-          portal. The child context bar above states it too; this states it in
-          the sentence a screenshot captures. */}
       <PageHeader
         eyebrow={t("roles.parent")}
         title={

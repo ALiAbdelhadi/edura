@@ -87,8 +87,6 @@ function ResetPasswordContent() {
       setError(t("auth.passwordMinLength"));
       return;
     }
-    // Mirror the server's passwordSchema (letter + digit): without these the
-    // server refuses with an untranslated zod message.
     if (!/[A-Za-z]/.test(password)) {
       setError(t("auth.passwordNeedsLetter"));
       return;

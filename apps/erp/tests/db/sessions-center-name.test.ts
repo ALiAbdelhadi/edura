@@ -1,19 +1,3 @@
-/**
- * T-8 — the sessions payload names its center (API session 2, item B.1#8).
- *
- * `Session` has no center column, so "which building?" reaches a session only
- * through `Course.centerId`. The teacher hero used to re-join that through
- * `me/affiliations` on the client; `enrichSessions` now serves it, so the
- * student, parent and teacher heroes share one shape.
- *
- * Proven: a centered course's session carries its center's id + name; a
- * teacher-direct session carries `centerId: null, centerName: ""` — honest,
- * because its venue is the course's own free-text location, not a center.
- *
- * Run (all suites, guarded):  bun run --filter edura test:db
- * Run (this one only):        bun run --filter edura test:db:only sessions-center-name
- * NEVER --env-file=.env.local: that is the DEV database and it skips the guard.
- */
 import { withPlatformContext } from "@repo/database";
 import { enrichSessions } from "@/lib/services/sessions/enrich";
 
@@ -82,8 +66,6 @@ async function main() {
     !!centered && centered.courseName.endsWith("centered") && centered.teacherName.includes(tag),
     "the existing joins (courseName, teacherName) are unchanged around the new field",
   );
-  // B.1#9 rides on the same function: dashboards/student's todaySchedule now
-  // fills `room`/`teacher` from these joins instead of `""` by construction.
   assert(centered?.roomName.endsWith("hall") === true, "roomName joins through the session's room");
   assert(direct?.roomName === "", "a session with no hall answers '' — honest, not fabricated");
 

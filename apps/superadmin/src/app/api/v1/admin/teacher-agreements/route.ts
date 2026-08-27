@@ -5,7 +5,6 @@ import { listProposals } from "@/lib/services/admin/teacher-agreements-admin";
 
 export const dynamic = "force-dynamic";
 
-/** The platform-wide agreement queue (default: pending proposals). */
 export const GET = withErrors(async (req) => {
   await requireRole("super_admin");
   const status = new URL(req.url).searchParams.get("status") ?? undefined;

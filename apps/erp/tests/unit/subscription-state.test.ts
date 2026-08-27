@@ -1,12 +1,3 @@
-// Proof for the reading of "is my subscription still good".
-//
-// Three surfaces ask it — the home alert, the subscriptions page, and the chip
-// on a Subjects row — and they all go through `stateOf`, so a drift here is a
-// drift in all three at once. The cases that matter are the ones where the
-// STATUS COLUMN and the COVERAGE WINDOW disagree: the expiry sweep is a cron
-// job, so between `periodEnd` passing and the sweep running, a row says
-// `active` about a window that has closed. Reading the column would tell a
-// student they are covered on the morning they get turned away at a counter.
 import { describe, expect, it } from "vitest";
 import {
   EXPIRING_WITHIN_DAYS,
@@ -21,7 +12,6 @@ import {
 const NOW = new Date("2026-08-20T09:00:00.000Z");
 const DAY = 24 * 60 * 60 * 1000;
 
-/** `days` from NOW, as the ISO string the endpoint returns. */
 const at = (days: number) => new Date(NOW.getTime() + days * DAY).toISOString();
 
 function row(over: Partial<SubscriptionRow> = {}): SubscriptionRow {
@@ -56,7 +46,6 @@ describe("stateOf — the window is the fact, the status column is only as fresh
   });
 
   it("LAPSES a row still marked active whose window has closed", () => {
-    // The whole point. `status` says active because the sweep has not run.
     expect(stateOf(row({ status: "active", periodEnd: at(-2) }), NOW)).toEqual({
       kind: "lapsed",
       daysAgo: 2,
@@ -71,8 +60,6 @@ describe("stateOf — the window is the fact, the status column is only as fresh
   });
 
   it("gives a per-session pass NO countdown, because the row carries no date", () => {
-    // `sessionId` names the covered session; its DATE is not on this payload,
-    // so any countdown here would be invented.
     const state = stateOf(
       row({ plan: "per_session", periodEnd: null, sessionId: "sess-1" }),
       NOW,
@@ -117,8 +104,6 @@ describe("mostUrgent — what may interrupt the home screen", () => {
   });
 
   it("stops nagging about a lapse that is no longer news", () => {
-    // Without this the banner is permanent for anyone who ever let one run
-    // out, and a banner that never clears is a banner nobody reads.
     const old = row({ periodEnd: at(-(LAPSED_STAYS_NEWS_DAYS + 1)) });
     expect(mostUrgent([old], NOW)).toBeNull();
   });
@@ -131,8 +116,6 @@ describe("mostUrgent — what may interrupt the home screen", () => {
 
 describe("stateBySubject — the chip on a Subjects row", () => {
   it("shows the LIVE subscription when a lapsed one sits behind it", () => {
-    // A renewed subject must not be labelled خلص. This is why the chip has its
-    // own ordering and does not reuse the home alert's urgency ranking.
     const lapsed = row({ id: "old", periodEnd: at(-3) });
     const live = row({ id: "new", periodEnd: at(25) });
     expect(stateBySubject([lapsed, live], NOW).get("subj-1")).toEqual({

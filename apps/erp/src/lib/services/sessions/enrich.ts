@@ -1,18 +1,6 @@
 import type { Session } from "@repo/database";
 import type { TenantTx } from "@/lib/db/scope";
 
-/**
- * The display joins for a session list — course, teacher, room, and (T-8) the
- * CENTER. `Session` has no center column: "which building?" reaches a session
- * only through its course, so this join is served once here instead of every
- * portal re-deriving it from `me/affiliations` client-side.
- *
- * A teacher-direct course (NULL centerId) answers `centerName: ""` honestly —
- * its venue is the course's own free-text location, not a center.
- *
- * Extracted from the sessions route so a DB test can hold the shape against
- * real rows; the route stays the only caller besides the tests.
- */
 export async function enrichSessions(tx: TenantTx, sessions: Session[]) {
   const courseIds = [...new Set(sessions.map((s) => s.courseId))];
   const teacherIds = [...new Set(sessions.map((s) => s.teacherId).filter(Boolean))];

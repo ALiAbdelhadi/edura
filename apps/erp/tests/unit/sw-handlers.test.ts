@@ -37,8 +37,6 @@ describe("parsePushPayload", () => {
   });
 
   it("never throws on a hostile or empty body", () => {
-    // A worker that throws inside `push` makes the browser show its own
-    // "site updated in the background" notice instead of the message.
     expect(parsePushPayload(null)).toEqual({});
     expect(parsePushPayload(undefined)).toEqual({});
     expect(parsePushPayload(data(Symbol("boom") as unknown, ""))).toEqual({});
@@ -52,7 +50,6 @@ describe("parsePushPayload", () => {
         },
       }),
     ).toEqual({});
-    // An array is valid JSON but not a payload.
     expect(parsePushPayload(data([1, 2, 3]))).toEqual({ body: "1,2,3" });
   });
 });
@@ -87,10 +84,6 @@ describe("resolveClickTarget", () => {
   });
 
   it("NAVIGATES an open tab instead of merely focusing it", () => {
-    // The regression this whole module exists for: the old handler focused any
-    // open tab and dropped the URL, so with the app open every notification
-    // brought the app forward and landed the reader nowhere near the thing the
-    // notification was about.
     const clients = [{ url: `${ORIGIN}/ar/dashboard/student/wallet` }];
     expect(resolveClickTarget(url, clients, ORIGIN)).toEqual({
       action: "navigate",

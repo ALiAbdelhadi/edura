@@ -61,17 +61,10 @@ type Room = {
 
 type PricingMethod = "whole_room_percent" | "per_attending_student";
 
-/** EXACTLY one of the two forms is ever set — a flat amount OR a percentage. */
 type M2Rate = { fee: number | null; bp: number | null };
 
-/**
- * `ceiling` = what the platform published: the MAXIMUM this center may charge
- * per attending student, and the fallback for a hall that sets nothing.
- * `rooms[id]` = that hall's own override (absent when it just inherits).
- */
 type M2Availability = { ceiling: M2Rate | null; rooms: Record<string, M2Rate> };
 
-/** The rate is quoted in the platform's form — piasters/EGP or bp/percent. */
 const rateToInput = (r: M2Rate | null | undefined): string =>
   r == null ? "" : String((r.bp != null ? r.bp : r.fee!) / 100);
 
@@ -99,11 +92,6 @@ export function AdminRoomsScreen() {
 
   const rooms = (result?.data ?? []) as Room[];
 
-  // The hall's per-student pricing: what the platform published (the ceiling
-  // and the fallback) plus each hall's own override. Drives BOTH the checkbox's
-  // disabled state and the rate field, so the operator learns the rule BEFORE
-  // filling the dialog instead of being rejected on submit by the same checks
-  // in the write path. A hint — the server re-resolves the ceiling on write.
   const availabilityReq = useCustom({
     url: "rooms/per-student-availability",
     method: "get",
@@ -111,17 +99,9 @@ export function AdminRoomsScreen() {
   const availability = availabilityReq.result?.data as M2Availability | undefined;
   const ceiling = availability?.ceiling ?? null;
   const ownRate = editingId ? (availability?.rooms?.[editingId] ?? null) : null;
-  // The platform publishes ONE form; a hall must quote in the same one,
-  // because piasters and basis points are not comparable without a lesson price.
   const ceilingIsPercent = ceiling?.bp != null;
-  // Editable only when the platform has published something to be bounded by.
-  // A hall may still CARRY a rate with no ceiling (the superadmin set it
-  // directly) — then it is shown read-only rather than hidden.
   const perStudentAvailable = ceiling != null || ownRate != null;
   const perStudentChecked = methods.includes("per_attending_student");
-  // An already-enabled method whose rate was later cleared must stay
-  // UNCHECKABLE-off, never uncheckable-on: locking the box would trap the room
-  // in a state the server refuses to save.
   const perStudentDisabled =
     !perStudentAvailable && !perStudentChecked && !availabilityReq.query.isLoading;
 
@@ -156,8 +136,6 @@ export function AdminRoomsScreen() {
     setFeatureDraft("");
     setPhotos([]);
     setMethods(["whole_room_percent"]);
-    // A new hall starts at the platform's rate — the common case is "same as
-    // everyone", and the operator edits down from there.
     setRateInput(rateToInput(ceiling));
   };
 
@@ -184,7 +162,6 @@ export function AdminRoomsScreen() {
     setPhotos(room.photos ?? []);
     setMethods(room.allowedPricingMethods ?? ["whole_room_percent"]);
     setFeatureDraft("");
-    // The hall's own rate if it has one, otherwise what it inherits.
     setRateInput(rateToInput(availability?.rooms?.[roomId(room)] ?? ceiling));
     setIsModalOpen(true);
   };
@@ -213,12 +190,6 @@ export function AdminRoomsScreen() {
     });
   };
 
-  /**
-   * The server's `message` is English on purpose — it is written for logs.
-   * `details.reason` is the stable code a localized surface maps instead, so an
-   * unrecognized failure (or a network error) falls back to the translated
-   * generic rather than leaking raw English into an Arabic screen.
-   */
   const photoErrorMessage = (payload: unknown): string => {
     const details = (
       payload as { error?: { details?: { reason?: string; max?: number; maxMb?: number } } } | null
@@ -241,9 +212,6 @@ export function AdminRoomsScreen() {
     if (!editingId) return;
     setUploading(true);
     try {
-      // Downscale first: a phone photo is several MB, which on the mobile
-      // networks this app targets is a minute-long upload that also trips the
-      // 5 MB server limit. Falls back to the original file on any failure.
       const compressed = await compressImage(file, { maxEdge: 2048 });
       const fd = new FormData();
       fd.append("file", compressed);
@@ -269,15 +237,8 @@ export function AdminRoomsScreen() {
 
   const removePhoto = (url: string) => setPhotos(photos.filter((p) => p !== url));
 
-  /**
-   * The hall's own rate, in the wire shape the API expects:
-   *   null      → drop any override (the method is off, or was never priced)
-   *   undefined → leave it exactly as it is (nothing here may edit it)
-   *   {fee,bp}  → this hall's price, quoted in the platform's form
-   */
   const ratePayload = (): M2Rate | null | undefined => {
     if (!perStudentChecked) return null;
-    // No ceiling to be bounded by → the rate is the superadmin's, not ours.
     if (!ceiling) return undefined;
     const units = Math.round(rateNumber * 100);
     return ceilingIsPercent ? { fee: null, bp: units } : { fee: units, bp: null };
@@ -316,8 +277,6 @@ export function AdminRoomsScreen() {
         {
           onSuccess: () => {
             toast.success(t("adminManage.rooms.roomUpdated"));
-            // The hall's rate lives outside the rooms list — refetch it too,
-            // or reopening the dialog shows the pre-edit number.
             availabilityReq.query.refetch();
             handleOpenChange(false);
           },
@@ -431,8 +390,6 @@ export function AdminRoomsScreen() {
                     </span>
                   ) : null}
                   {room.price != null ? (
-                    // A price is money, so it is teal and mono — not the indigo
-                    // brand fill, which would read as a primary action.
                     <span className="absolute bottom-2 inset-s-2 rounded-[5px] bg-[var(--teal-soft)] px-2 py-0.5 text-[var(--teal)]">
                       <Amount
                         piasters={room.price}
@@ -496,8 +453,6 @@ export function AdminRoomsScreen() {
                       <Pencil className="size-4" />
                       {t("actions.edit")}
                     </Button>
-                    {/* Never a bare icon for a destructive action — an operator
-                        should not have to hover a glyph to learn it deletes. */}
                     <ConfirmDialog
                       trigger={
                         <Button variant="ghost" size="sm" className="text-destructive">
@@ -533,8 +488,6 @@ export function AdminRoomsScreen() {
             <DialogTitle>{modalTitle}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            {/* `noValidate` — zod states these rules in Arabic under the
-                field; the browser states them in English and stops the submit. */}
             <form noValidate onSubmit={form.handleSubmit(handleSubmit)} autoComplete="off" className="space-y-4">
               <FormField
                 control={form.control}
@@ -635,9 +588,6 @@ export function AdminRoomsScreen() {
                       return <div key={key}>{row}</div>;
                     }
                     return (
-                      // A disabled control swallows pointer events, so the
-                      // trigger is the wrapper — otherwise the tooltip explaining
-                      // WHY it is disabled would never open.
                       <TooltipProvider key={key}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -656,8 +606,6 @@ export function AdminRoomsScreen() {
                 <p className="text-xs text-muted-foreground">
                   {t("adminManage.rooms.methodsHint")}
                 </p>
-                {/* Also stated inline: a tooltip is hover-only, and this screen
-                    is used on phones at the front desk. */}
                 {!perStudentAvailable && !availabilityReq.query.isLoading ? (
                   <p className="text-xs text-[var(--amber)]">
                     {perStudentChecked
@@ -665,11 +613,6 @@ export function AdminRoomsScreen() {
                       : t("adminManage.rooms.methodPerStudentUnavailable")}
                   </p>
                 ) : null}
-                {/* The hall's own price per attending student. Shown only once
-                    the method is on — an input for a method you are not
-                    offering is noise. Editable up to the platform's ceiling;
-                    read-only when the platform published none (that rate is the
-                    superadmin's and this screen must not overwrite it). */}
                 {perStudentChecked && perStudentAvailable ? (
                   <div className="space-y-1 rounded-md border p-3">
                     <label className="text-sm font-medium" htmlFor="per-student-rate">
@@ -683,10 +626,6 @@ export function AdminRoomsScreen() {
                             type="number"
                             min={0}
                             max={ceilingValue ?? undefined}
-                            /* Both shapes carry two decimals: the flat one is
-                               "ج.م لكل طالب", so `step="1"` refused 12.50 —
-                               and refused it by blocking the whole hall form,
-                               not by saying anything. */
                             step="0.01"
                             inputMode="decimal"
                             value={rateInput}

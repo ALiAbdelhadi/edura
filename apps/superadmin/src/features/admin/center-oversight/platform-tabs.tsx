@@ -37,11 +37,6 @@ import { formatPercent, type Locale } from "@repo/ui/lib/format";
 import { asKey } from "@/lib/i18n/keys";
 import { useAdminGet } from "./use-oversight";
 
-// ---------------------------------------------------------------------------
-// PHASE 5 — the Reports tab (the center's own reporting, for any center) and
-// the platform-only actions no center has.
-// ---------------------------------------------------------------------------
-
 const REPORTS = [
   { key: "revenue", label: "Revenue" },
   { key: "net-profit", label: "Net profit" },
@@ -122,10 +117,6 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
     </div>
   );
 }
-
-// ===========================================================================
-// Platform-only actions
-// ===========================================================================
 
 export function PlatformActionsCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
@@ -410,8 +401,6 @@ function VerifyDobDialog({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Age is derived when the date CHANGES, not during render: reading the clock
-  // mid-render is impure and the compiler rejects it.
   const [age, setAge] = useState<number | null>(null);
   const onDobChange = (v: string) => {
     setDateOfBirth(v);

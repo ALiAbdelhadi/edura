@@ -1,7 +1,6 @@
 export class PresenceRegistry {
   private readonly sockets = new Map<string, Set<string>>();
 
-  /** @returns true when this is the user's FIRST live socket (came online). */
   add(userId: string, socketId: string): boolean {
     let set = this.sockets.get(userId);
     if (!set) {
@@ -12,7 +11,6 @@ export class PresenceRegistry {
     return set.size === 1;
   }
 
-  /** @returns true when the user's LAST socket closed (went offline). */
   remove(userId: string, socketId: string): boolean {
     const set = this.sockets.get(userId);
     if (!set) return false;

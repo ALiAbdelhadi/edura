@@ -1,27 +1,3 @@
-/**
- * H-03 STRUCTURAL PROOF — the demo seeds can only mint ids that the routes'
- * `z.uuid()` accepts, and the routes' validation was NOT weakened to get there.
- *
- * The defect: both demo seeds built their deterministic ids by slicing a raw
- * SHA-1 digest into the 8-4-4-4-12 shape. That is UUID-*shaped* but not a UUID —
- * RFC 9562 fixes the first nibble of group 3 (version, 1-8) and of group 4
- * (variant, 8|9|a|b), and a raw digest leaves both random, so only ~1 id in 8
- * happened to be valid. zod 4 validates RFC 9562, so most seeded ids were
- * rejected with 400 and the preview could not demonstrate counter check-in,
- * walk-in cash, checkout or messaging on its own fixtures.
- *
- * The fix is on the DATA side: one shared generator emitting genuine UUIDv5.
- * This file asserts both halves of "fix the data, not the guard":
- *   P1  the generator is a real RFC 9562 §5.5 UUIDv5 (known-answer vector)
- *   P2  every id it can produce passes the SAME predicate zod applies
- *   P3  the OLD formula fails that predicate — i.e. this test would have caught it
- *   P4  ids stay deterministic and namespace-separated (seeds stay idempotent)
- *   P5  no seed hand-rolls its own hash->uuid formatter any more (drift guard)
- *   P6  the affected routes still validate those fields as UUIDs — nothing relaxed
- *
- * The behavioural half (the four flows over real HTTP against the seeded demo
- * data) is tests/db/h03-seed-uuid-flows.test.ts.
- */
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { createHash } from "node:crypto";
@@ -42,10 +18,8 @@ const MESSAGING_SEED = read("../../../../packages/database/prisma/messaging-demo
 const MAIN_SEED = read("../../../../packages/database/prisma/seed.ts");
 const SEED_IDS = read("../../../../packages/database/prisma/seed-ids.ts");
 
-/** The exact predicate the routes apply. */
 const zodUuid = z.uuid();
 
-/** The formula the seeds used BEFORE the fix — kept only to prove it was broken. */
 function legacyDid(namespace: string, key: string): string {
   const h = createHash("sha1").update(namespace + key).digest("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
@@ -53,8 +27,6 @@ function legacyDid(namespace: string, key: string): string {
 
 describe("H-03 · P1 — the generator emits a genuine RFC 9562 UUIDv5", () => {
   it("matches the published name-based test vector", () => {
-    // RFC 9562 §5.5 / the canonical uuid-library vector:
-    // uuidv5("www.example.com", NAMESPACE_DNS)
     expect(uuidV5("www.example.com", NAMESPACE_DNS)).toBe("2ed6657d-e927-568b-95e1-2665a8aea6a2");
   });
 
@@ -74,10 +46,6 @@ describe("H-03 · P1 — the generator emits a genuine RFC 9562 UUIDv5", () => {
 
 describe("H-03 · P2 — seed ids and route validation agree, by construction", () => {
   it("the seed-side predicate agrees with z.uuid() on every uuid-shaped string", () => {
-    // Equivalence, not a copied string: if zod ever changes its definition the
-    // seed and the routes would drift apart silently, and this fails loudly.
-    // Sweep BOTH discriminating nibbles exhaustively (version x variant) over a
-    // set of otherwise-random bodies — that is exactly where the old ids failed.
     const hex = "0123456789abcdef";
     let checked = 0;
     for (const version of hex) {
@@ -92,7 +60,6 @@ describe("H-03 · P2 — seed ids and route validation agree, by construction", 
       }
     }
     expect(checked).toBe(16 * 16 * 8);
-    // And the two RFC special cases zod carves out explicitly.
     for (const special of [
       "00000000-0000-0000-0000-000000000000",
       "ffffffff-ffff-ffff-ffff-ffffffffffff",
@@ -153,7 +120,6 @@ describe("H-03 · P3 — the old formula really was invalid (regression witness)
     for (let i = 0; i < 4000; i++) {
       if (!zodUuid.safeParse(legacyDid("edura-preview:", `k:${i}`)).success) invalid++;
     }
-    // 8/16 version nibbles x 4/16 variant nibbles are valid -> ~87.5% invalid.
     expect(invalid).toBeGreaterThan(3200);
   });
 });
@@ -206,7 +172,6 @@ describe("H-03 · P5 — one implementation; no seed hand-rolls its own", () => 
 
   it("the main seed mints no ids of its own at all (the DB generates them)", () => {
     expect(MAIN_SEED).not.toMatch(/seedId\(/);
-    // Its only createHash use is the family link code, not an id.
     const hashes = MAIN_SEED.match(/createHash\(/g) ?? [];
     expect(hashes.length).toBe(1);
   });
@@ -246,8 +211,6 @@ describe("H-03 · P6 — the routes were NOT weakened", () => {
 
   it("no route pins a version or otherwise loosens the check", () => {
     for (const [name, src] of Object.entries(routes)) {
-      // A `version:` option or a bare `z.string()` where a uuid used to be
-      // would both be a weakening of the guard rather than a fix to the data.
       expect(src, name).not.toMatch(/uuid\(\s*\{/);
       expect(src, name).not.toMatch(/uuid\(\s*["']/);
     }

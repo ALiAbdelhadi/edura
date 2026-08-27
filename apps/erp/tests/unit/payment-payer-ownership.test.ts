@@ -1,15 +1,3 @@
-// WHOEVER PAID OWNS THE RECEIPT.
-//
-// A parent wallet top-up writes a Payment row with a NULL `student_id`. Every
-// read on that table authorized through the student — so without this rule a
-// parent could fund a top-up and then be refused the receipt for their own
-// money, which is the exact failure the feature exists to fix.
-//
-// The rule is the one `getIntentForStudent` already applies to intents
-// ("ownership = who is PAYING it"), extended to the row the settlement writes.
-// The danger in extending it is that `payer_user_id` is ALSO set when a parent
-// funds a child's lesson — so these pin that it grants a payer their own
-// receipt and NOT a wider view of the child.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { state } = vi.hoisted(() => ({
@@ -43,7 +31,6 @@ const OTHER_PARENT = { id: "parent-2", role: "parent" } as any;
 const STUDENT = { id: "student-1", role: "student" } as any;
 const OWNER = { id: "owner-1", role: "center_admin", centerId: "center-1" } as any;
 
-/** The row a parent top-up settlement writes. */
 const TOPUP = {
   id: "payment-1",
   centerId: null,
@@ -54,7 +41,6 @@ const TOPUP = {
   receiptNumber: "RCP-EDURA-2026-00042",
 };
 
-/** An ordinary center receipt for a child. */
 const CHILD_FEE = {
   id: "payment-2",
   centerId: "center-1",
@@ -86,9 +72,6 @@ describe("getPayment — the payer can read the receipt they funded", () => {
   });
 
   it("a studentless receipt is refused to a parent even WITH an approved link", async () => {
-    // The link is to some child; it says nothing about this row, which belongs
-    // to another parent. Refused deliberately, not by the accident of querying
-    // `studentId: null` and matching nothing.
     state.payment = TOPUP;
     state.link = { id: "link-1" };
     await expect(getPayment("payment-1", OTHER_PARENT)).rejects.toThrow();
@@ -100,7 +83,6 @@ describe("getPayment — the payer can read the receipt they funded", () => {
   });
 
   it("a center owner is refused it — it is not their center's money", async () => {
-    // centerId is NULL and never equals a real center id.
     state.payment = TOPUP;
     await expect(getPayment("payment-1", OWNER)).rejects.toThrow();
   });
@@ -148,8 +130,6 @@ describe("listPayments — a parent with no studentId reads their OWN receipts",
   });
 
   it("NO WIDENING: it grants nothing about a child", async () => {
-    // A child's own payments carry a NULL payer (or someone else's id), so this
-    // filter cannot reach them. Reading a child still requires the link check.
     await listPayments({}, PARENT);
     const where = state.paymentWhere;
     expect(Object.keys(where).sort()).toEqual(["payerUserId"]);

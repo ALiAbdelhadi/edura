@@ -13,7 +13,6 @@ import { loadArticle, loadArticleMeta } from "./load";
 import { helpMdxComponents } from "./mdx-components";
 import { HelpArticleView } from "./help-article-view";
 
-/** How many siblings the "related" footer shows. See `related` below. */
 const RELATED_LIMIT = 4;
 
 export async function HelpArticleScreen({
@@ -31,18 +30,6 @@ export async function HelpArticleScreen({
   const rtl = locale === "ar";
   const BackArrow = rtl ? ArrowRight : ArrowLeft;
 
-  /**
-   * The siblings that FOLLOW this one in its category, wrapping around, capped.
-   *
-   * It used to be every sibling. That reads fine for a category of three, and
-   * fails at eighteen: the student guide put a seventeen-link list under every
-   * article, which is a second table of contents nobody scrolls past — and the
-   * one link that actually matters (the next step) sits somewhere inside it.
-   *
-   * Categories are ordered as a reading order in `articles.ts`, so "the next
-   * few" is the useful set. A category of four or fewer is unaffected: every
-   * sibling still shows, in the same order it always did.
-   */
   const siblings = articlesInCategory(meta.category);
   const at = siblings.findIndex((a) => a.slug === slug);
   const related = await Promise.all(
@@ -81,9 +68,6 @@ export async function HelpArticleScreen({
 
           <hr className="my-8" style={{ border: 0, borderTop: "1px solid var(--rule)" }} />
 
-          {/* `HelpArticleView` is the client boundary that fires the
-              `help_article_viewed` event; the compiled MDX is passed through it
-              as children so the article itself stays a server component. */}
           <HelpArticleView slug={slug} category={meta.category}>
             <div className={styles.prose}>
               <MDXRemote source={article.body} components={helpMdxComponents} />

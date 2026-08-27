@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 validate.py — الخطوة 6: تطبيق قواعد المنصة صفًا صفًا، وإنتاج ملف الاستيراد
 وملف المرفوضات معًا.
@@ -71,12 +70,8 @@ from pathlib import Path
 
 from _common import dump_dicts, is_blank, map_columns, read_records, write_csv
 
-# نفس الصيغة التي تفرضها كل شاشة في المنصة
-# (EGYPT_PHONE_RE في packages/server-core/src/validation/common.ts).
 EGYPT_PHONE_RE = re.compile(r"^(?:\+20|0)1[0125]\d{8}$")
 
-# متحفّظ عمدًا: هدفه استبعاد ما ليس بريدًا («لا يوجد»، «-»، «؟»)، لا الحكم على
-# صحة نطاق. بريد خاطئ لا يصل؛ وأما نصٌّ ليس بريدًا أصلًا فيفتح بوابة أمان.
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
 
@@ -122,7 +117,7 @@ def main() -> int:
         counts[k] = counts.get(k, 0) + 1
 
     for i, row in enumerate(body):
-        line = i + 2  # ترقيم المستورد: الرأس سطر 1
+        line = i + 2
         if is_blank(row):
             blank_rows += 1
             continue
@@ -158,7 +153,6 @@ def main() -> int:
                     reason = ("invalid_phone — لا يطابق 01[0125] + 8 خانات؛ "
                               "رقم مشوَّه يحجز عمودًا فريدًا باسم إنسان آخر")
 
-        # بريد وليّ الأمر: يُفرَّغ ولا يُرفض — الصف سليم والخانة وحدها فاسدة.
         if not reason and gmail_i is not None and row[gmail_i].strip():
             gmail = row[gmail_i].strip()
             if not EMAIL_RE.match(gmail):
@@ -175,9 +169,6 @@ def main() -> int:
         else:
             accepted.append(row)
 
-    # ------------------------------------------------------------------
-    # الضمانة: كل صف غير فارغ إما مقبول أو مرفوض — لا ثالث ولا ضائع.
-    # ------------------------------------------------------------------
     total = len(body) - blank_rows
     if len(accepted) + len(rejected) != total:
         raise SystemExit(
@@ -186,12 +177,6 @@ def main() -> int:
 
     if args.out:
         write_csv(args.out, header, accepted)
-        # الحد 1000 صف **لكل استدعاء API** لا لكل ملف، والواجهة و
-        # `import_students.py` كلاهما يرسل 20 صفًا في الطلب — فالحد لا يُبلَغ
-        # منهما مهما كبر الملف. لا يُقسَّم الملف هنا عمدًا: أجزاءٌ تُرفع
-        # منفصلةً يستأنف ترقيمُ أسطر كلٍّ منها من 2، فتتصادم أرقام الأسطر
-        # وينهار الربط بين الردّ وصفوف الملف — أي أن التقسيم يُفسد جدول الربط
-        # لحلّ مشكلة غير قائمة.
         if len(accepted) > 1000:
             print(f"\nℹ️  {len(accepted)} صفًا. ارفعه بالواجهة أو بـ"
                   "`import_students.py` — كلاهما يقسّمه إلى دفعات من 20 تلقائيًا. "
@@ -199,12 +184,9 @@ def main() -> int:
     if args.rejected and rejected:
         write_csv(args.rejected, header + ["reason"], rejected)
     elif args.rejected:
-        # ملف برأس بلا صفوف: `reconcile.py` يقرؤه فيرى صفرًا. غيابُ الملف
-        # يُقرأ كنسيان، ووجوده فارغًا يقول «فُحص ولم يُرفض شيء».
         write_csv(args.rejected, header + ["reason"], [])
     dump_dicts(args.report, ["line", "name", "field", "action", "value", "note"], report)
 
-    # ------------------------------------------------------------------
     print(f"\nالمصدر: {args.src}")
     print(f"صفوف غير فارغة: {total}   →   مقبول {len(accepted)} + مرفوض "
           f"{len(rejected)}   ✅ متزن")

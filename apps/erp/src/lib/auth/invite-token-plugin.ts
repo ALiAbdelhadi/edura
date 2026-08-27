@@ -7,30 +7,6 @@ import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 
-/**
- * Step 7 — tokenized claim (passwordless, DELIBERATELY NARROW), ported from
- * the NextAuth `invite-token` / `walkin-token` credentials provider to a
- * better-auth plugin. ONE door for the three invite purposes that end in
- * "set your own password": a walk-in student, an invited assistant, an
- * invited center staff member.
- *
- * Every one of Step 7's five gates holds verbatim:
- *   1. purpose must be one of CLAIMABLE — and each purpose resolves to
- *      EXACTLY ONE role (a lookup, not a branch someone can forget), so an
- *      assistant token can never open a student or staff account;
- *   2. token unused + unexpired, and consumed ATOMICALLY (single-use);
- *   3. the account must be shell/active with NO passwordHash — a credentialed
- *      account can never be entered this way — and the assistant/staff link
- *      that justified the invite must still be live (revoking a membership
- *      kills an outstanding invite without hunting for the token);
- *   4. the status-gate relaxation lives in THIS endpoint only; the normal
- *      email/password door is untouched;
- *   5. rate-limited per IP against brute force (tokens are 256-bit anyway).
- *
- * On success it mints a REAL DB session via better-auth's internal adapter,
- * so centerId enrichment (databaseHooks.session.create.before) and the
- * sessions/devices UI apply to claim sessions exactly like password logins.
- */
 export const inviteTokenPlugin = () => {
   return {
     id: "invite-token",
@@ -84,13 +60,6 @@ export const inviteTokenPlugin = () => {
               });
               if (!link) return null;
             }
-            // An off-system teacher joining the platform. The live link that
-            // justified this invite is TWO facts, and both must still hold:
-            // the center still works with them (an active affiliation), and
-            // the center has not changed its mind and flipped them back to
-            // `external` — in which case the center owns data entry again and
-            // an outstanding link must stop working, exactly as a revoked
-            // assistant membership kills theirs.
             if (spec.role === "teacher") {
               const profile = await tx.teacherProfile.findUnique({
                 where: { userId: user.id },
@@ -104,7 +73,6 @@ export const inviteTokenPlugin = () => {
               if (!link) return null;
             }
 
-            // (2) atomic single-use: only one concurrent claim can flip usedAt.
             const consumed = await tx.inviteToken.updateMany({
               where: { id: row.id, usedAt: null },
               data: { usedAt: new Date() },

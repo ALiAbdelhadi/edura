@@ -7,36 +7,21 @@ import type {
   WebhookVerification,
 } from "./types";
 
-// Dev-only fallback so PAYMENTS_MODE=mock needs zero env configuration.
-// The real paymob driver will REQUIRE PAYMOB_HMAC_SECRET (no fallback).
 const MOCK_HMAC_FALLBACK = "edura-mock-hmac";
 
 export function mockHmacSecret(): string {
   const secret = process.env.PAYMOB_HMAC_SECRET;
   if (secret) return secret;
-  // C1: never use the in-repo fallback secret in production — a public signing
-  // key would let anyone forge a settlement. Require the real secret.
   if (process.env.NODE_ENV === "production") {
     throw new Error("PAYMOB_HMAC_SECRET is required in production (no mock fallback)");
   }
   return MOCK_HMAC_FALLBACK;
 }
 
-/**
- * Signs a raw webhook body the same way the paymob driver will verify it
- * (HMAC-SHA512, hex). Exported so the mock-complete endpoint can synthesize
- * a correctly-signed callback and exercise the REAL webhook path.
- */
 export function signMockWebhook(rawBody: string): string {
   return createHmac("sha512", mockHmacSecret()).update(rawBody).digest("hex");
 }
 
-/**
- * Mock gateway — fully local, no external calls. Simulates the Paymob
- * lifecycle: checkout "url" is a placeholder the UI can show, and settlement
- * only ever happens through the webhook endpoint (triggered manually via
- * POST /api/v1/payments/intents/[id]/mock-complete).
- */
 export const mockDriver: PaymentGatewayDriver = {
   name: "mock",
 
@@ -47,8 +32,6 @@ export const mockDriver: PaymentGatewayDriver = {
     return {
       gatewayOrderId: `mock_${intent.id}`,
       checkout: {
-        // Card = iframe, wallet = redirect — mirrors how real Paymob behaves,
-        // so the client integration shape won't change later.
         kind: intent.method === "card" ? "iframe" : "redirect",
         url: `/payments/mock-checkout?intentId=${intent.id}`,
       },
@@ -62,8 +45,6 @@ export const mockDriver: PaymentGatewayDriver = {
     const provided = query.hmac ?? "";
     if (!provided) return { valid: false, error: "Missing hmac" };
     const expected = signMockWebhook(rawBody);
-    // C1: constant-time compare so the HMAC can't be recovered byte-by-byte
-    // via response timing.
     const providedBuf = Buffer.from(provided);
     const expectedBuf = Buffer.from(expected);
     if (

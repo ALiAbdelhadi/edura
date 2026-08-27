@@ -22,7 +22,6 @@ const putSchema = z
   })
   .strict();
 
-/** super_admin ONLY — the accountant portal has no wallet-policy surface. */
 export const PUT = withErrors(async (req) => {
   const user = await requireRole("super_admin");
   const body = await parseJson(req, putSchema);

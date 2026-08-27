@@ -331,8 +331,6 @@ export function StudentImportDialog({
               {t("adminHome.students_importDownload")}
             </Button>
           )}
-          {/* Once committed the only action left is to close — a second click
-              must not re-run an import that already happened. */}
           {!committed && (
             <>
               <Button
@@ -364,14 +362,6 @@ export function StudentImportDialog({
   );
 }
 
-/**
- * Class strings are written out in full, never assembled from a variable:
- * Tailwind scans source text, so a interpolated class name produces no CSS at
- * all and the colour silently does not apply (tailwind-dead-classes.test.ts
- * exists because this has bitten before).
- *
- * A zero stays ink-coloured — "0 rejected" is good news and must not be red.
- */
 const TALLY_TONE: Record<Exclude<BadgeTone, "neutral">, string> = {
   done: "text-[var(--teal)]",
   info: "text-[var(--indigo)]",

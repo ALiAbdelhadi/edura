@@ -15,9 +15,6 @@ export function AuthShell({
   const t = useTranslations();
   const isSignup = variant === "signup";
 
-  // No icons — a calendar glyph beside "attendance tracking" adds decoration,
-  // not meaning. Same device the marketing hero uses for its reassurances
-  // (apps/www/src/sections/hero.tsx): a short gold rule, then the claim.
   const features = [
     t("auth.heroFeatureAttendance"),
     t("auth.heroFeaturePayments"),
@@ -32,9 +29,6 @@ export function AuthShell({
     >
       <header className="flex shrink-0 items-center justify-between gap-3 px-6 py-4">
         <div className="flex items-center gap-2.5">
-          {/* The real Edura mark — same file the marketing header and the
-              dashboard sidebar render, in place of the generic placeholder
-              icon this shell carried before. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/edura-mark.svg" alt="" width={28} height={28} className="size-7 shrink-0" />
           <span className="text-[15px] font-bold leading-none" style={{ color: "var(--ink)" }}>

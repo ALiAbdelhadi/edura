@@ -1,37 +1,5 @@
 "use client";
 
-/* مستحقات وصرف / Payouts — the system's signature screen.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   WHAT THE SYSTEM GUARANTEES HERE: approving a payout debits a wallet, writes an
-   immutable `transactions` row (REVOKE UPDATE/DELETE) and marks the request paid, in
-   ONE irreversible step. It settles through an H2 conditional decrement, so a payout
-   the wallet cannot cover fails and rolls back rather than pushing a balance negative.
-
-   WHAT THE INTERFACE MUST DO TO BE HONEST ABOUT IT:
-
-   1. SHOW THE WHOLE COMPUTATION BEFORE THE COMMIT. Gross and commission are both
-      printed; the net is not pre-summed. Append-only means the operator cannot
-      correct the figure afterwards, so they must be able to derive it beforehand.
-   2. THE BUTTON CARRIES ITS OWN AMOUNT. «اعتماد وصرف 38,235.00 ج.م», never "Approve".
-   3. NO PER-ROW ACTION BUTTONS. The screen this replaces rendered a solid Approve and
-      a solid destructive Reject in EVERY row — twenty saturated buttons at ten rows,
-      with reject at equal visual weight to approve. Selecting a row opens the panel;
-      that is where the action lives, once, with the full computation beside it.
-   4. STATE CLEARANCE BEFORE ARMING. The panel reads the same wallet comparison
-      settlePayout will make, so "this will fail" is said before the press, not after.
-
-   ── Two departures from the design brief, both forced by the schema ──────────
-
-   Handoff §5.3 specifies a «رسوم التحويل البنكي −15.00» line and a «بيانات التحويل»
-   block (bank name, masked account `**** 4432`). NEITHER EXISTS: there is no transfer
-   fee and no bank/IBAN/account column anywhere in schema.prisma. Rendering them would
-   imply a capability the system does not have, so the computation is gross →
-   commission → net (all three real columns on `payouts`), and the bank block is
-   replaced by the period and session count the payout actually covers —
-   `periodStart`/`periodEnd`/`lessonCount`, which is what the operator needs to know
-   the figure is for. */
-
 import { useEffect, useMemo, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { asArray } from "@/lib/refine/as-array";
@@ -109,21 +77,10 @@ export function PayoutsScreen() {
     method: "get",
   });
 
-  // `?? []` does NOT guard this: useCustom defaults its payload to a frozen
-  // empty OBJECT, which is not nullish, so `rows.find` threw on first paint and
-  // on every failed request. See @/lib/refine/as-array.
-  // Keyed on the PAYLOAD, not on `result` — refine hands back a fresh result
-  // wrapper every render, so `[result]` would re-run this and hand DataTable a
-  // new `data` reference each time. DataTable recomputes its selection from
-  // `data` and pushes it through onSelectionChange → setSelected → re-render,
-  // so an unstable array here is an infinite update loop. The old frozen `{}`
-  // was stable, which is why this only surfaced once `rows.find` was fixed.
   const rows = useMemo(() => asArray<PayoutRow>(result?.data), [result?.data]);
   const counts = (countsResult?.data ?? {}) as Record<string, number>;
   const open = rows.find((r) => r.id === openId) ?? null;
 
-  // The panel must never outlive its subject: a filter change that removes the open
-  // row leaves a panel describing something no longer on screen.
   useEffect(() => {
     if (openId && !rows.some((r) => r.id === openId)) setOpenId(null);
   }, [rows, openId]);
@@ -164,8 +121,6 @@ export function PayoutsScreen() {
       ),
     },
     {
-      // Only the net is --ink/600 — the operator's eye lands on the number they are
-      // actually authorising, not on the two figures that produced it.
       id: "net",
       header: t("colNet"),
       cell: ({ row }) => (
@@ -220,8 +175,6 @@ export function PayoutsScreen() {
         }
       />
 
-      {/* Filter row — each pill carries its own count, and the selection's total is
-          visible before any bulk action rather than after it. */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
         {STATUSES.map((s) => (
           <button
@@ -278,8 +231,6 @@ export function PayoutsScreen() {
             error={
               query.isError ? (
                 (() => {
-                  // Denied is not an error: retrying cannot change a permission, so
-                  // the Retry affordance is absent rather than disabled (D-027).
                   const denied =
                     (query.error as { statusCode?: number } | null)?.statusCode === 403;
                   return (
@@ -309,8 +260,6 @@ export function PayoutsScreen() {
                 description={t("emptyBody")}
               />
             }
-            // Pagination/sort chrome copy comes from the kit shim's `actions`
-            // namespace — overriding it here would undo the localised aria-labels.
             labels={{ selectRow: t("rowSelect") }}
           />
         </div>
@@ -362,10 +311,6 @@ function GenerateButton({
   );
 }
 
-/* ── The decision panel ────────────────────────────────────────────────────────
-   396px, border on the start edge. Because the write is irreversible, the panel
-   shows the WHOLE computation before the commit, and the commit states its own
-   amount. */
 function DecisionPanel({
   payout,
   locale,
@@ -384,7 +329,6 @@ function DecisionPanel({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  // Reject state is per-subject, exactly like the armed state.
   useEffect(() => {
     setRejecting(false);
     setReason("");
@@ -455,8 +399,6 @@ function DecisionPanel({
           <h2 className="mt-1 truncate text-[17px] font-bold text-ink">
             {payout.beneficiaryName ?? "—"}
           </h2>
-          {/* The separator is rendered here, not typed into the copy — `·` is
-              bidi-neutral and would migrate to the wrong side of the code. */}
           <Num.Code className="mt-0.5 block text-[11px]">
             {payout.id.slice(0, 8).toUpperCase()}
           </Num.Code>
@@ -466,7 +408,6 @@ function DecisionPanel({
         </Button>
       </header>
 
-      {/* تفصيل الحساب — every intermediate figure shown, nothing pre-summed. */}
       <section className="mt-4 rounded-[10px] border border-rule bg-field p-4">
         <Eyebrow locale={locale} className="mb-3">
           {t("breakdown")}
@@ -531,7 +472,6 @@ function DecisionPanel({
 
       {actionable ? (
         <>
-          {/* Two advisories, both required: what is clear, and what is permanent. */}
           <p
             className={cn(
               "mt-4 flex gap-2 rounded-lg p-3 text-xs",
@@ -559,8 +499,6 @@ function DecisionPanel({
               icon={BanknoteArrowDown}
               onCommit={approve}
               labels={{
-                // The button carries its own amount — an operator authorises a
-                // specific number, not a category of action.
                 action: (
                   <span className="inline-flex items-baseline gap-2">
                     {t("commitAction")}
@@ -575,7 +513,6 @@ function DecisionPanel({
             />
           </div>
 
-          {/* Low-weight, bordered — never a filled destructive twin of the approve. */}
           <div className="mt-3 flex flex-col gap-2">
             {rejecting ? (
               <div className="flex flex-col gap-2">

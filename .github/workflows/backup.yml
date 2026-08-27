@@ -1,51 +1,6 @@
 name: Database backup
 
-# ============================================================================
-# Daily encrypted logical backup + a WEEKLY PROVEN RESTORE.
-#
-# The restore job is not optional decoration. A backup nobody has restored is a
-# hypothesis, and the failure modes (a truncated upload, a dump that only
-# captured the schema, a client/server version drift) are all invisible until
-# the day you need it. This workflow makes that day boring.
-#
-# WHY GITHUB ACTIONS and not the app's own /api/v1/cron/[job] runner: pg_dump is
-# a binary that needs a filesystem, minutes of runtime and hundreds of MB of
-# memory. It has no business inside a serverless request handler.
-# ============================================================================
-
 on:
-  # ==========================================================================
-  # ⚠️  THE SCHEDULE IS DISABLED — THERE ARE NO AUTOMATIC BACKUPS RIGHT NOW.
-  #
-  # Paused 2026-08-02 because the storage bucket and the BACKUP_* secrets do
-  # not exist yet, and the job is built to FAIL LOUDLY rather than skip
-  # quietly (a green tick on a backup that never ran is how people discover
-  # months later that they have nothing). Rather than train anyone to ignore a
-  # red run, the schedule is off until it can actually succeed.
-  #
-  # TO RE-ENABLE, in order:
-  #   1. bash packages/database/scripts/setup-backup-secrets.sh
-  #   2. gh workflow run backup.yml -f environment=production   (must pass)
-  #   3. replace this comment block with EXACTLY:
-  #
-  #        schedule:
-  #          - cron: "30 2 * * *"
-  #          - cron: "0 4 * * 1"
-  #
-  # Note the `schedule:` key must come back too — the crons are nested under
-  # it. They are not merely commented out here: an empty `schedule: []` is
-  # rejected by GitHub and would break the whole file, so the key is gone.
-  #
-  #   "30 2 * * *"  daily 02:30 UTC = 04:30 Africa/Cairo — after the day's
-  #                 teaching has ended, before anyone is awake to notice the
-  #                 read load.
-  #   "0 4 * * 1"   Mondays 04:00 UTC — the restore test. Its own schedule
-  #                 rather than a day-of-week check inside the job, because
-  #                 GitHub exposes the matched cron in github.event.schedule.
-  #
-  # Manual runs still work in the meantime:
-  #   gh workflow run backup.yml -f environment=production
-  # ==========================================================================
   workflow_dispatch:
     inputs:
       environment:
@@ -55,16 +10,12 @@ on:
         default: production
 
 concurrency:
-  # Two overlapping dumps of the same database waste a lot of I/O and can
-  # interleave uploads to the same key.
   group: db-backup-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   backup:
     name: Dump, encrypt, upload
-    # Skip on the Monday restore-test schedule — that run exists to exercise the
-    # RESTORE path, and the nightly job already produced a fresh dump.
     if: github.event_name != 'schedule' || github.event.schedule == '30 2 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -83,9 +34,6 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # The client MAJOR must be >= the server's or pg_dump refuses outright.
-      # Neon is on 18.x; ubuntu-latest ships an older client by default, so the
-      # PGDG repository is added explicitly rather than hoping.
       - name: Install PostgreSQL 18 client
         if: steps.guard.outputs.configured == 'true'
         run: |
@@ -104,7 +52,6 @@ jobs:
         if: steps.guard.outputs.configured == 'true'
         run: bun install --frozen-lockfile
         env:
-          # postinstall runs `prisma generate`, which reads these.
           DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
           DATABASE_URL: ${{ secrets.BACKUP_DIRECT_URL }}
 
@@ -114,20 +61,12 @@ jobs:
         env:
           DIRECT_URL: ${{ secrets.BACKUP_DIRECT_URL }}
           DATABASE_URL: ${{ secrets.BACKUP_DIRECT_URL }}
-          # Public-key encryption: this runner holds only the RECIPIENT, so a
-          # compromised runner cannot decrypt any backup, including its own.
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
           BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
           BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
           AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
-          # 'auto' is only correct for Cloudflare R2. Backblaze needs its real
-          # region (eu-central-003, ...) — set BACKUP_S3_REGION and this
-          # fallback never applies.
           AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'auto' }}
-          # AWS CLI v2.23+ attaches x-amz-checksum to every upload; B2 and some
-          # other S3-compatible providers reject it with an opaque error. No-op
-          # on AWS and R2. Matches what backup-db.ts sets for its own uploads.
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           BACKUP_ALERT_EMAIL: ${{ secrets.BACKUP_ALERT_EMAIL }}
           MAIL_PROVIDER: smtp
@@ -138,8 +77,6 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
         run: bun run db:backup "${EDURA_ENV}"
 
-      # A silently-skipped scheduled job looks identical to a healthy one on the
-      # Actions dashboard: a green tick. Fail loudly instead.
       - name: Fail if the job was skipped on a SCHEDULED run
         if: steps.guard.outputs.configured != 'true' && github.event_name == 'schedule'
         run: |
@@ -149,10 +86,6 @@ jobs:
   restore-test:
     name: Prove the backup restores (weekly)
     runs-on: ubuntu-latest
-    # Weekly, and deliberately NOT `needs: backup` — it pulls the newest object
-    # from the BUCKET, so it exercises the download and decrypt path too.
-    # Restoring the file we just wrote locally would prove nothing about
-    # whether the upload arrived intact.
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 4 * * 1'
     timeout-minutes: 45
     steps:
@@ -167,8 +100,6 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # postgresql-18 (not -client-18): the restore test starts a real scratch
-      # server, so initdb/pg_ctl/postgres are needed too.
       - name: Install PostgreSQL 18 server + client
         if: steps.guard.outputs.configured == 'true'
         run: |
@@ -198,13 +129,7 @@ jobs:
           BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
           AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
-          # 'auto' is only correct for Cloudflare R2. Backblaze needs its real
-          # region (eu-central-003, ...) — set BACKUP_S3_REGION and this
-          # fallback never applies.
           AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'auto' }}
-          # AWS CLI v2.23+ attaches x-amz-checksum to every upload; B2 and some
-          # other S3-compatible providers reject it with an opaque error. No-op
-          # on AWS and R2. Matches what backup-db.ts sets for its own uploads.
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
         run: |
@@ -230,7 +155,6 @@ jobs:
         working-directory: packages/database
         run: bun run db:restore-test .backups/restore.dump
 
-      # The dump held real user data. It must not survive as an artifact.
       - name: Shred the working copy
         if: always() && steps.guard.outputs.configured == 'true'
         working-directory: packages/database

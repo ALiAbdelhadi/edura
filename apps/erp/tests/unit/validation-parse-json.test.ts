@@ -3,11 +3,6 @@ import { z } from "zod";
 import { parseJson, parseOrThrow } from "@/lib/validation/zod";
 import { ValidationError } from "@/lib/errors/classes";
 
-// parseJson is the single body-parsing door for every mutating route (the
-// convention suite forbids raw req.json()). These tests pin its two contracts:
-// malformed JSON and schema failures both become a 400 ValidationError, with
-// field errors keyed by dotted path.
-
 const schema = z.object({
   name: z.string().min(1),
   nested: z.object({ n: z.number() }).optional(),

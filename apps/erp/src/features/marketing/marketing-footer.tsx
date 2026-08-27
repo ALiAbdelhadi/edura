@@ -6,14 +6,6 @@ import { footerColumn } from "./nav";
 
 const COLUMNS = ["product", "resources", "company"] as const;
 
-/**
- * The public footer. Its link columns are DERIVED from MARKETING_LINKS, so a
- * page added to the nav table is in the footer and the sitemap without a second
- * edit — the drift that left /terms reachable only from the landing page.
- *
- * The year is rendered through <Num> because every figure in this system is set
- * in the mono face, and because Arabic-Indic digits must not resolve for it.
- */
 export async function MarketingFooter() {
   const t = await getTranslations("marketing");
   const year = new Date().getFullYear();
@@ -24,9 +16,6 @@ export async function MarketingFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div>
             <div className="flex items-center gap-2.5">
-              {/* A bare <img>: next/image REFUSES SVG unless the optimizer is
-                  opened to it, so this rendered as a broken image. `alt=""` is
-                  correct here — the wordmark is right beside it. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/edura-mark.svg" alt="" width={24} height={24} />
               <span className="text-sm font-bold" style={{ color: "var(--ink)" }}>

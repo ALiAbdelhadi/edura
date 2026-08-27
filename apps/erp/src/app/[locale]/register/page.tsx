@@ -106,9 +106,6 @@ const SERVER_FIELD_TO_FORM: Record<string, keyof RegisterFormValues> = {
 export default function RegisterPage() {
   const t = useTranslations();
   const locale = useLocale();
-  // The marketing site's per-role CTAs land here with `?role=` so the reader
-  // does not re-answer a question they answered by clicking. Anything not a
-  // registrable role falls back to the default.
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
   const [role, setRole] = useState<RoleOption>(
@@ -161,9 +158,6 @@ export default function RegisterPage() {
       },
     );
 
-  // Sign-in hands unregistered visitors over with their email in the query
-  // (login page "create an account" CTA) — carry it into the form so they
-  // never retype it. Anything non-email-shaped is simply ignored.
   const emailParam = searchParams.get("email");
   const prefilledEmail =
     emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam) ? emailParam : "";
@@ -262,8 +256,6 @@ export default function RegisterPage() {
     return (
       <AuthShell variant="signup">
         <div className="flex flex-col items-center gap-4 text-center">
-          {/* Waiting is amber in this system — it is the one state an operator
-              scans for, and it is not an error. */}
           <div
             className="flex size-11 items-center justify-center rounded-lg"
             style={{ background: "var(--amber-soft)", color: "var(--amber)" }}
@@ -387,11 +379,6 @@ export default function RegisterPage() {
               <FormItem>
                 <FormLabel>{t("auth.email")}</FormLabel>
                 <FormControl>
-                  {/* `dir="ltr"` sits on the WRAPPER, not on the field
-                      alone: `start-0`/`ms-3`/`ps-9` are logical, so an LTR
-                      field inside an RTL wrapper puts the icon on one side and
-                      the padding cut for it on the other, and the address runs
-                      under the icon. */}
                   <div className="relative" dir="ltr">
                     <Mail className="pointer-events-none absolute inset-y-0 start-0 my-auto ms-3 size-4 text-muted-foreground" />
                     <Input

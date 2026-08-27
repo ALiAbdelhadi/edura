@@ -11,7 +11,6 @@ import {
 } from "@repo/server-core/services/wallet/wallet";
 import { parentWalletCredit } from "@repo/server-core/services/wallet/parent-wallet";
 
-// Re-export the money primitives so callers can `@/lib/services/wallet/parent-wallet`.
 export {
   parentWalletCredit,
   parentWalletDebit,
@@ -49,32 +48,12 @@ function toClientIntent(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Online top-up (Paymob / mock) — reuses the Step 3 intent + webhook engine
-// ---------------------------------------------------------------------------
-
-/**
- * Create a PARENT wallet-top-up PaymentIntent. Same machinery as the student
- * top-up, with two differences that the schema now records explicitly:
- *
- *   studentId   = NULL — this money has no beneficiary student yet; it is
- *                 platform float until the parent spends it on a specific
- *                 child. A DB CHECK holds that NULL to this one purpose.
- *   payerUserId = the parent — who is actually paying.
- *
- * The amount is CLIENT-chosen but SERVER-VALIDATED (the same min/max policy as
- * the student wallet) and snapshotted onto the intent; the webhook settles from
- * the intent row, never from the gateway payload.
- */
 export async function initiateParentWalletTopUpIntent(
   input: { amount: number; method: "card" | "wallet"; idempotencyKey: string },
   user: SessionUser,
 ) {
   if (user.role !== "parent") throw new ForbiddenError("Parents only");
   const driver = resolveDriver();
-  // MVP blocker #2: a gateway checkout may only be OFFERED when it can settle
-  // (see onlineCheckoutAvailable). Asserted at the initiator so no route can
-  // mint a charge that is a dead end in production-with-mock.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
@@ -85,18 +64,14 @@ export async function initiateParentWalletTopUpIntent(
         where: { idempotencyKey: input.idempotencyKey },
       });
       if (existing) {
-        // The principal of a parent top-up is the PAYER, not a student.
         if (existing.payerUserId !== user.id) {
           throw new ForbiddenError("Idempotency key belongs to another user");
         }
         return { intent: existing, parent: null };
       }
 
-      // Reject out-of-range amounts BEFORE creating the intent (no money taken).
       await assertTopupAllowed(tx, user.id, input.amount);
 
-      // A parent who somehow has no profile row cannot hold a balance — fail
-      // here rather than at settlement, when the money would already be taken.
       const profile = await tx.parentProfile.findUnique({
         where: { userId: user.id },
         select: { id: true },
@@ -126,7 +101,6 @@ export async function initiateParentWalletTopUpIntent(
 
   if (!parent) return toClientIntent(intent, null);
 
-  // Billing contact is the PARENT — it is their card at the gateway.
   const { gatewayOrderId, checkout } = await driver.createCheckout(intent, {
     id: parent.id,
     name: parent.name,
@@ -139,34 +113,6 @@ export async function initiateParentWalletTopUpIntent(
   return toClientIntent(updated, checkout);
 }
 
-/**
- * Settle a paid PARENT top-up intent, WITHIN the webhook claim transaction (M1)
- * so the credit is atomic with the pending->paid claim.
- *
- * IT NOW WRITES A PAYMENT ROW, and that reverses
- * docs/decisions/parent-pays-lesson.md §5 — Ali's call on 2026-08-20, see
- * migration 20260820200000_parent_topup_receipt for the reasoning.
- *
- * The old shape had already broken its own promise: it minted a receipt number
- * and announced it ("Receipt RCP-EDURA-2026-00042 has been issued"), while
- * `sendPaymentReceiptEmail` looked it up, found no `payments` row and returned
- * `no_payment_row`. The parent held a number nothing could produce.
- *
- * SAME TRIO AS THE CASH DESK. `topUpWalletCash` has always written Payment +
- * Transaction + WalletLedger in one transaction, and this is that pattern for
- * the card path — deliberately not a second way to record a top-up.
- *
- * THE MONEY MODEL IS UNCHANGED. `centerId` and `courseId` stay NULL, so no
- * center's revenue report, P&L, payout or statement sees a piaster of it: the
- * center-scoped reads all key on `center_id`, and `listPayments` for a
- * `center_admin` filters by it. The Transaction still records the float
- * direction it always did (parent -> NULL, no center). What is new is the
- * receipt, not the money.
- *
- * Idempotent via the intent claim — a replayed webhook never reaches here
- * (claim.count===0), so the wallet is credited ONCE and exactly one Payment row
- * is written. `receiptNumber` is unique, so a second one could not land anyway.
- */
 export async function settleParentWalletTopUpFromIntentTx(
   tx: TenantTx,
   intentId: string,
@@ -175,17 +121,12 @@ export async function settleParentWalletTopUpFromIntentTx(
   const intent = await tx.paymentIntent.findUnique({ where: { id: intentId } });
   if (!intent) throw new NotFoundError("Intent vanished during settlement");
   if (!intent.payerUserId) {
-    // Cannot happen (initiate always sets it); guards against a hand-written row
-    // silently crediting nobody.
     throw new NotFoundError("Parent top-up intent has no payer");
   }
   const parentId = intent.payerUserId;
 
   const receiptNumber = await nextPlatformReceipt(tx);
 
-  // The receipt itself. `studentId: null` is the shape the
-  // `payments_student_required` CHECK exists to permit and to bound: a payer,
-  // no center, no course — a guardian's float deposit and nothing else.
   const payment = await tx.payment.create({
     data: {
       centerId: null, // platform-held float, NOT center revenue
@@ -193,7 +134,6 @@ export async function settleParentWalletTopUpFromIntentTx(
       payerUserId: parentId, // who actually paid — and who owns this receipt
       courseId: null,
       amount: intent.amount,
-      // MC-3: mirrors the sibling Transaction's method.
       paymentMethod: "online_paymob",
       note: "Parent wallet top-up (online)",
       receiptNumber,
@@ -222,8 +162,6 @@ export async function settleParentWalletTopUpFromIntentTx(
     type: "topup",
     method: "online_paymob",
     refNumber,
-    // The ledger row now points at the receipt too, so the wallet history can
-    // link each top-up to the document for it — the whole reason this exists.
     paymentId: payment.id,
     paymentIntentId: intent.id,
     relatedTxnId: transaction.id,
@@ -237,17 +175,12 @@ export async function settleParentWalletTopUpFromIntentTx(
   });
 
   return {
-    // Addressed to the PARENT alone — the default studentAndParents() fan-out
-    // is meaningless here, since no child is involved in a top-up.
     studentId: parentId,
     recipients: [parentId],
     type: "payment_recorded",
     title: "Wallet topped up",
     body: `${(intent.amount / 100).toFixed(2)} EGP was added to your wallet. Receipt ${receiptNumber}.`,
     data: {
-      // `paymentId` is what a receipt link needs; `receiptNumber` is what the
-      // post-commit receipt email resolves. Both are real now — before this,
-      // `receiptNumber` was here and resolved to nothing.
       paymentId: payment.id,
       receiptNumber,
       amount: intent.amount,
@@ -256,10 +189,6 @@ export async function settleParentWalletTopUpFromIntentTx(
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Reads (the parent's own wallet + history)
-// ---------------------------------------------------------------------------
 
 export async function getWalletForParent(user: SessionUser) {
   if (user.role !== "parent") throw new ForbiddenError("Parents only");
@@ -302,7 +231,6 @@ export async function listParentWalletHistory(
       },
     });
 
-    // Name the child a spend was for — a bare uuid is useless in a history list.
     const childIds = [
       ...new Set(rows.map((r) => r.beneficiaryStudentId).filter(Boolean) as string[]),
     ];

@@ -34,9 +34,6 @@ const createSchema = z.object({
   teacherId: z.string().min(1),
   rating: z.number().int().min(1).max(5),
   text: z.string().max(2000).optional(),
-  // Optional: rate ONE lesson rather than the teacher overall. Omitted by
-  // every existing caller, which keeps writing the standing review it always
-  // wrote. Eligibility for the named lesson is checked in the service.
   lessonId: z.string().uuid().optional(),
 });
 

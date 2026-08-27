@@ -1,28 +1,3 @@
-// ONE NORMALIZER, TWO IMPLEMENTATIONS — and this is what keeps them one.
-//
-// `edura_search_normalize(text)` (migration 20260820120000_search_normalize)
-// and `normalizeSearchText` (packages/database/src/search-text.ts) must produce
-// BYTE-IDENTICAL output. They exist separately because neither can do the
-// other's job: the SQL one can be indexed and used inside a paginated `WHERE`,
-// and the JS one runs in the browser, where the palette matches its own
-// destination list. Two normalizers that disagree are two search engines — a
-// reader would learn one rule on the palette and a different one on the list
-// below it, and neither would be wrong on its own screen.
-//
-// So the agreement is MEASURED, not asserted by reading the two side by side:
-//
-//   1. Hand-picked cases, one per rule, so a failure names the rule.
-//   2. EVERY DISTINCT VALUE in every searchable column on the live database.
-//      This is the one that would catch a real row nobody thought of.
-//   3. A fuzz pass over Arabic, Latin-with-diacritics, Cyrillic, CJK, Hangul,
-//      emoji, Arabic presentation forms, full-width Latin, Unicode digraphs and
-//      the invisible bidi/joiner controls a paste carries. The corpus is Arabic
-//      and Latin because that is what this product holds; the divergence risk
-//      lives in everything it does not hold YET.
-//   4. The function's own properties: IMMUTABLE (an expression index cannot be
-//      built on anything less), STRICT, and the five indexes actually present.
-//
-// Nothing is mocked and nothing is written: every query here is a SELECT.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import {
   matchesSearchQuery,
@@ -48,7 +23,6 @@ function section(t: string) {
   console.log(`\n── ${t} ${"─".repeat(Math.max(0, 62 - t.length))}`);
 }
 
-/** One per rule, so a red line names the rule that broke. */
 const RULES: [string, string][] = [
   ["أحمد", "hamza above alef"],
   ["إيهاب", "hamza below alef"],
@@ -74,7 +48,6 @@ const RULES: [string, string][] = [
   ["​محمد‪", "zero-width and bidi controls"],
 ];
 
-/** Fuzz alphabet — deliberately far wider than anything the product holds. */
 const POOL = [
   ..."abcxyzABCXYZ0123456789",
   ..."أإآٱةىؤئءکیھ",
@@ -94,7 +67,6 @@ const POOL = [
   ..."ǆǅǄŉ",
 ];
 
-/** Every free-text column a human searches, across both apps. */
 const CORPUS: [string, string][] = [
   ["users", "name"],
   ["users", "email"],
@@ -115,7 +87,6 @@ const EXPECTED_INDEXES = [
   "rooms_search_text_trgm",
 ];
 
-/** The tables carrying `search_text`, and the fields each one's column joins. */
 const GENERATED: { table: string; fields: string[] }[] = [
   { table: "users", fields: ["name", "email", "phone"] },
   {
@@ -127,18 +98,10 @@ const GENERATED: { table: string; fields: string[] }[] = [
     table: "contact_submissions",
     fields: ["name", "email", "phone", "subject", "message"],
   },
-  // `student_code` and the guardian columns are DELIBERATELY absent — see the
-  // header of migration 20260820180000. Both would widen reach: the code is
-  // matched through `readStudentScan`, whose check character means a mistype
-  // resolves to nobody, and a guardian's contact details would make a CHILD
-  // findable by their parent's email. If either is ever added to the column,
-  // this list disagrees with the database and the desync check below goes red —
-  // which is the point.
   { table: "student_profiles", fields: ["full_name", "phone"] },
   { table: "rooms", fields: ["name", "description"] },
 ];
 
-/** Queries chosen so each one exercises a different fold. */
 const PARITY_QUERIES = [
   "احمد",
   "فاطمه",
@@ -151,15 +114,11 @@ const PARITY_QUERIES = [
 
 async function main() {
   try {
-    /* ── 0) the function is there, and is what an index needs ───────────── */
     section("0. The function exists, and has the properties an index requires");
     const meta = await admin.query(
       `SELECT provolatile, proisstrict, proparallel
          FROM pg_proc WHERE proname = 'edura_search_normalize'`,
     );
-    // A missing function means the migration has not been applied to THIS
-    // database. Every assertion below would then fail with a confusing error,
-    // so say the true thing once and stop.
     if (meta.rowCount === 0) {
       console.error(
         "  ✗ edura_search_normalize is ABSENT — migration " +
@@ -178,7 +137,6 @@ async function main() {
     );
     assert(meta.rows[0].proparallel === "s", "PARALLEL SAFE — it touches nothing outside itself");
 
-    /* ── 1) one case per rule ───────────────────────────────────────────── */
     section("1. Every fold, one case each");
     for (const [input, rule] of RULES) {
       const { rows } = await admin.query(`SELECT edura_search_normalize($1) AS r`, [input]);
@@ -190,7 +148,6 @@ async function main() {
       );
     }
 
-    /* ── 2) the real corpus ─────────────────────────────────────────────── */
     section("2. Every distinct value in every searchable column");
     let checked = 0;
     const mismatches: string[] = [];
@@ -212,7 +169,6 @@ async function main() {
       `SQL and JS agree on all ${checked} distinct values across ${CORPUS.length} columns`,
     );
 
-    /* ── 3) fuzz, well past what the product holds ──────────────────────── */
     section("3. Fuzz — scripts this product does not hold yet");
     const ROUNDS = 1500;
     let fuzzBad: string[] = [];
@@ -226,7 +182,6 @@ async function main() {
     if (fuzzBad.length) console.error("    first mismatches:", fuzzBad.slice(0, 5));
     assert(fuzzBad.length === 0, `SQL and JS agree on all ${ROUNDS} fuzzed strings`);
 
-    /* ── 4) the indexes ─────────────────────────────────────────────────── */
     section("4. The indexes the paginated lists depend on");
     const idx = await admin.query(
       `SELECT indexname FROM pg_indexes WHERE indexname = ANY($1::text[])`,
@@ -242,7 +197,6 @@ async function main() {
       "pg_trgm is installed — a GIN trigram index is the only kind that serves LIKE '%…%'",
     );
 
-    /* ── 5) the generated columns ───────────────────────────────────────── */
     section("5. search_text — generated, and equal to the JS matcher");
     for (const { table } of GENERATED) {
       const meta = await admin.query(
@@ -257,12 +211,6 @@ async function main() {
       );
     }
 
-    // THE DESYNC CHECK, and it is the one that earns its place. A STORED
-    // generated column is computed on WRITE. `CREATE OR REPLACE FUNCTION` on
-    // `edura_search_normalize` with a different body would NOT recompute the
-    // rows already stored, and the database would then hold two definitions of
-    // the same word with nothing to say so. Comparing every stored value
-    // against a live call turns that silent divergence into a red line here.
     for (const { table, fields } of GENERATED) {
       const expr = fields.map((f) => `coalesce(${f}, '')`).join(` || ' ' || `);
       const stale = await admin.query(
@@ -276,11 +224,6 @@ async function main() {
       );
     }
 
-    // PARITY. `search_text LIKE '%term%'` for every term, ANDed, must return
-    // exactly what `matchesSearchTerms` returns over the same fields. This is
-    // the property the paginated list screens now depend on: it is what lets
-    // them be exact AND counted, which a JS filter after the page is cut cannot
-    // be.
     {
       const rows = await admin.query(
         `SELECT name, email, phone, search_text FROM users LIMIT 500`,
@@ -309,20 +252,7 @@ async function main() {
       );
     }
 
-    /* ── 6) THE INVARIANT: every searched table has the column ──────────── */
     section("6. No free-text search without a search_text column");
-    // The rule this whole line of work converges on is one sentence: EVERY TABLE
-    // A FREE-TEXT SEARCH REACHES CARRIES `search_text`. Measured 2026-08-20, the
-    // database has 79 tables and 58 carry a candidate free-text column, but only
-    // these SIX are reached by a search — the other 52 have no code searching
-    // them, and a generated column there would be write cost on every row with
-    // no reader.
-    //
-    // This assertion is what stops that drifting. A future search written
-    // against a seventh table will not fail here — nothing can detect that from
-    // SQL alone — but the day somebody ADDS a `search_text` column without
-    // adding it to `GENERATED` above, or removes one this list expects, they
-    // find out here instead of in production.
     {
       const present = await admin.query(
         `SELECT table_name FROM information_schema.columns
@@ -341,7 +271,6 @@ async function main() {
       );
     }
 
-    /* ── 7) it actually finds the row ILIKE could not ───────────────────── */
     section("7. The point of the whole thing");
     const probe = await admin.query(
       `SELECT
@@ -361,8 +290,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// Read-only throughout, but the guard runs anyway: it is what stops this file
-// being pointed at production by an env edit nobody reviewed.
 assertDbEnv(["test"], { intent: "suite search-normalize.test.ts" })
   .then(() => main())
   .catch((e) => {

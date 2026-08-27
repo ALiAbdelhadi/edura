@@ -1,15 +1,3 @@
-// PARENT_IA_AUDIT.md §7.1, finding 1 — `GET /api/v1/sessions` took no
-// `studentId` for a parent.
-//
-// The `studentIdParam === "me"` branch was guarded by `user.role === "student"`,
-// so a parent got the UNION of every child's courses with no attribution: two
-// children, one undifferentiated timetable, and no way to ask "which of these
-// is Youssef's".
-//
-// The risk in fixing it is not the narrowing — it is the gate. A `studentId` a
-// parent does not hold an APPROVED link to must never widen this read, and the
-// check must be the one every other parent path uses rather than a fourth
-// inline copy of the same query. That is what these pin.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const {
@@ -92,7 +80,6 @@ describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
   });
 
   it("a child the parent has no APPROVED link to is refused, not silently widened", async () => {
-    // What `assertApprovedChild` does for pending / rejected / revoked links.
     const forbidden = new Error("Not an approved child of this parent");
     (forbidden as any).status = 403;
     assertApprovedChild.mockRejectedValue(forbidden);
@@ -100,7 +87,6 @@ describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
     const res = await GET(req("?studentId=someone-elses-child"), {} as any);
 
     expect(res.status).toBeGreaterThanOrEqual(400);
-    // The critical half: the query never ran with the unapproved id.
     expect(state.sessionWhere).toBeNull();
     expect(state.enrollmentWhere).toBeNull();
   });

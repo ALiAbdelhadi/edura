@@ -51,12 +51,6 @@ const CATEGORIES = [
 ] as const;
 type Category = (typeof CATEGORIES)[number];
 
-/**
- * Category is a label, not a state — so it is NOT coloured semantically. Amber
- * would mean "waiting" and teal would mean "money confirmed"; neither is true of
- * "rent". Everything stays neutral except maintenance, which is the one category
- * an operator scans for as an exception.
- */
 const categoryTone: Record<Category, BadgeTone> = {
   rent: "neutral",
   utilities: "neutral",
@@ -224,7 +218,6 @@ export function AdminExpensesScreen() {
       id: "amount",
       header: t("adminManage.expenses.amount"),
       numeric: true,
-      // Money leaving the center — red, with its sign, end-aligned.
       cell: (r) => (
         <Amount
           piasters={-(r.amount ?? 0)}
@@ -235,7 +228,6 @@ export function AdminExpensesScreen() {
     },
     {
       id: "actions",
-      // Was `header: ""` — the column had no accessible name at all.
       header: t("adminHome.students_colActions"),
       srOnly: true,
       numeric: true,
@@ -252,8 +244,6 @@ export function AdminExpensesScreen() {
               <Pencil className="size-4" />
               {t("actions.edit")}
             </Button>
-            {/* Never a bare icon for a destructive action — it carries its label
-                and still confirms. */}
             <ConfirmDialog
               trigger={
                 <Button variant="ghost" size="sm" className="text-destructive">
@@ -305,8 +295,6 @@ export function AdminExpensesScreen() {
             }
           />
 
-          {/* The total closes on the accountant's double rule, outside the table
-              so it is never mistaken for a row. */}
           {sortedExpenses.length > 0 ? (
             <Sheet className="px-[18px] py-3">
               <div className="lg-total flex items-baseline justify-between gap-3 pt-2.5">
@@ -334,11 +322,6 @@ export function AdminExpensesScreen() {
             </DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            {/* ONE VALIDATOR. `noValidate` hands every rule to the zod schema
-                above, which states them in Arabic under the field. Without it
-                the browser validates FIRST, and a constraint that disagrees
-                with the schema by so much as a `step` stops the submit dead
-                with an English bubble and no message in the form. */}
             <form
               noValidate
               onSubmit={form.handleSubmit(handleSubmit)}
@@ -352,14 +335,6 @@ export function AdminExpensesScreen() {
                   <FormItem>
                     <FormLabel>{t("adminManage.expenses.amountEgp")}</FormLabel>
                     <FormControl>
-                      {/* The wrapper carries `dir="ltr"` too, not just the
-                          field. `start-0`/`ps-*` are LOGICAL — they resolve
-                          against each element's OWN direction — so with an RTL
-                          wrapper around an LTR input the adornment sat at the
-                          right while the padding reserved for it was cut on the
-                          left, and the figure ran under the label. One
-                          direction for both puts "EGP 1250.75" in the order the
-                          number is actually read. */}
                       <div className="relative" dir="ltr">
                         <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-sm text-[var(--ink-3)]">
                           EGP
@@ -367,12 +342,6 @@ export function AdminExpensesScreen() {
                         <Input
                           type="number"
                           min={0.01}
-                          /* 0.01, never a "nice increment": `step` is a
-                             VALIDITY rule, not a stepper size. At `step={1}`
-                             the browser refused every amount that carried
-                             piasters — 1250.75 among them — and refused it by
-                             blocking submit with an English bubble, so the
-                             dialog simply did nothing when pressed. */
                           step="0.01"
                           inputMode="decimal"
                           dir="ltr"

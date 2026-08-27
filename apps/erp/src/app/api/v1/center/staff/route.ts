@@ -7,18 +7,11 @@ import { createStaff, listStaff } from "@/lib/services/center/staff";
 
 export const dynamic = "force-dynamic";
 
-// Owner-only (requireRole("center_admin")). Staff-management is HARD EXCLUSION
-// #4 — a center_staff caller 403s here by default-closed design (this route is
-// never opened via center-actor).
-
 export const GET = withErrors(async () => {
   const user = await requireRole("center_admin");
   return ok(await listStaff(user));
 });
 
-// No `password` field, deliberately: the center owner never chooses their staff
-// member's credential. The staff member sets it themselves via the emailed
-// single-use claim link (see services/center/staff.ts).
 const createSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email(),

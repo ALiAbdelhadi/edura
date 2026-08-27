@@ -37,13 +37,11 @@ export function useFormatters() {
     ) => formatDate(v, locale, opts),
     formatWeekdayShort: (dayIndex: number) =>
       formatWeekdayShort(dayIndex, locale),
-    /* `HH:MM` wall-clock strings — 12-hour with the day period written out. */
     formatClock: (v: string | null | undefined) => formatClock(v, locale),
     formatClockRange: (
       start: string | null | undefined,
       end: string | null | undefined,
     ) => formatClockRange(start, end, locale),
-    /** An already-joined literal — `"16:00 – 17:30"` — as the tour worlds hold them. */
     formatClockText: (v: string | null | undefined) => formatClockText(v, locale),
   };
 }

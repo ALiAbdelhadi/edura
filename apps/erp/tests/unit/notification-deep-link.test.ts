@@ -16,7 +16,6 @@ const SCHEMA = join(
   "../../packages/database/prisma/schema.prisma",
 );
 
-/** The route segments that actually exist under a portal, read off disk. */
 function routesOf(portal: NotificationPortal): Set<string> {
   const dir = join(DASHBOARD, portal);
   return new Set(
@@ -43,13 +42,6 @@ describe("notification deep links", () => {
     }
   });
 
-  /**
-   * THE POINT OF THIS FILE. Every destination is checked against the routes
-   * that exist on disk, because the failure mode is invisible in review: the
-   * previous map sent a parent's grade notification to /dashboard/parent/grades
-   * and a teacher's cancelled lesson to /dashboard/teacher/schedule, and both
-   * of those are 404s — one map, six portals that do not share a page layout.
-   */
   it("points every destination at a route that exists", () => {
     const missing: string[] = [];
     for (const [type, destinations] of Object.entries(
@@ -75,8 +67,6 @@ describe("notification deep links", () => {
   });
 
   it("names no type the schema does not have", () => {
-    // `grade_posted` used to be a case in the screen's switch and has never
-    // been a NotificationType — a branch that could not fire.
     const types = new Set(notificationTypes());
     const invented = Object.keys(NOTIFICATION_DESTINATIONS).filter(
       (t) => !types.has(t),
@@ -91,8 +81,6 @@ describe("notification deep links", () => {
     expect(portalForRole("assistant")).toBe("assistant");
     expect(portalForRole("center_admin")).toBe("admin");
     expect(portalForRole("center_staff")).toBe("staff");
-    // These two sign into apps/superadmin; a link into a www portal would be a
-    // link they cannot open.
     expect(portalForRole("super_admin")).toBeNull();
     expect(portalForRole("accountant")).toBeNull();
     expect(portalForRole(null)).toBeNull();
@@ -115,20 +103,12 @@ describe("notification deep links", () => {
   });
 
   it("returns no link rather than a wrong one", () => {
-    // A teacher has no /materials-less portal problem here — a parent simply
-    // has no materials page, so the notification stays a readable line.
     expect(notificationPath("material_uploaded", "parent")).toBeNull();
     expect(notificationPath("admin_broadcast", "student")).toBeNull();
     expect(notificationPath("grade_entered", null)).toBeNull();
     expect(notificationPath("not_a_type", "student")).toBeNull();
   });
 
-  /**
-   * The push URL carries the RECIPIENT's locale. A locale-less path does
-   * resolve — next-intl's proxy 307s it — but to the locale the request
-   * negotiates, i.e. whatever the phone asks for, rather than the language this
-   * person chose; and it costs a redirect on a cold open.
-   */
   it("prefixes the push URL with the recipient's locale", () => {
     expect(notificationUrlForRole("absence_marked", "student", "ar")).toBe(
       "/ar/dashboard/student/attendance",
@@ -136,8 +116,6 @@ describe("notification deep links", () => {
     expect(notificationUrlForRole("absence_marked", "student", "en")).toBe(
       "/en/dashboard/student/attendance",
     );
-    // Arabic is the product's default, and an unknown locale must not produce
-    // a two-segment path that resolves to nothing.
     expect(notificationUrlForRole("absence_marked", "student", null)).toBe(
       "/ar/dashboard/student/attendance",
     );

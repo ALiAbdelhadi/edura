@@ -46,17 +46,10 @@ type Entry = {
   method: string | null;
   refNumber: string | null;
   reason: string | null;
-  /** Which child a spend was for — NULL on top-ups. */
   beneficiaryName: string | null;
   createdAt: string;
 };
 
-/**
- * The parent's OWN wallet: top up by card, spend on a child's lesson from the
- * pay screen. Deliberately the same shape as the student wallet screen — one
- * mental model for "a balance you load and spend" — with one column the student
- * has no use for: which child a spend was for.
- */
 export function ParentWalletScreen() {
   const t = useTranslations();
   const { formatEGP, formatDate } = useFormatters();
@@ -76,7 +69,6 @@ export function ParentWalletScreen() {
   const entries = asArray<Entry>(histRes?.data);
 
   const [topupOpen, setTopupOpen] = useState(false);
-  // MVP blocker #2: absent, not disabled (D-027).
   const onlineCheckout = useOnlineCheckout();
   const [amountEgp, setAmountEgp] = useState("");
   const [busy, setBusy] = useState(false);
@@ -108,8 +100,6 @@ export function ParentWalletScreen() {
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
-        // Same gesture-stack problem as the pay screen: blocked on mobile
-        // Safari, silently. See lib/payments/checkout-redirect.ts.
         goToCheckout(intent.checkout.url);
       }
     } catch (err) {
@@ -227,7 +217,6 @@ export function ParentWalletScreen() {
         </CardContent>
       </Card>
 
-      {/* Top-up dialog */}
       <Dialog open={topupOpen} onOpenChange={(o) => !busy && setTopupOpen(o)}>
         <DialogContent>
           <DialogHeader>

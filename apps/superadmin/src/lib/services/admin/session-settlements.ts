@@ -1,13 +1,5 @@
 import { platformDb } from "@/lib/db/scope";
 
-// ---------------------------------------------------------------------------
-// Superadmin oversight of per-session settlement records (Room Pricing
-// Methods). Read-only: the rows are written by distributeSessionRevenue in the
-// same tx as the ledger and are append-only. The mismatch flag compares the
-// FROZEN settled present_count with the LIVE attendance count — post-settlement
-// attendance edits (allowed, money never re-rates) become visible here.
-// ---------------------------------------------------------------------------
-
 export type SettlementFilters = {
   centerId?: string;
   pricingMethod?: string;
@@ -49,7 +41,6 @@ export function listSessionSettlements(filters: SettlementFilters = {}) {
       tx.sessionSettlement.count({ where }),
     ]);
 
-    // Enrichment: names + the LIVE present count per settled session.
     const centerIds = [...new Set(rows.map((r) => r.centerId))];
     const teacherIds = [...new Set(rows.map((r) => r.teacherId))];
     const courseIds = [...new Set(rows.map((r) => r.courseId))];
@@ -94,7 +85,6 @@ export function listSessionSettlements(filters: SettlementFilters = {}) {
           courseTitle: courseMap.get(r.courseId) ?? null,
           roomName: r.roomId ? (roomMap.get(r.roomId) ?? null) : null,
           livePresentCount,
-          // Attendance was edited AFTER the money settled (frozen at claim time).
           attendanceMismatch: livePresentCount !== r.presentCount,
         };
       }),

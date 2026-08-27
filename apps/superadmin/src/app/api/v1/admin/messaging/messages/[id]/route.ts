@@ -7,9 +7,6 @@ import { removeMessage } from "@/lib/services/admin/messaging";
 
 export const dynamic = "force-dynamic";
 
-// Moderation = SOFT delete. Participants stop seeing the message; the row keeps
-// its body so the platform record stays complete. There is no hard-delete
-// endpoint anywhere, by design.
 export const DELETE = withErrors(
   async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     const admin = await requireRole("super_admin");

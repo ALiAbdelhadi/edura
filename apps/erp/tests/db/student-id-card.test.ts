@@ -1,28 +1,3 @@
-// Student ID card + student code v2 — proofs against the LIVE DB, driving the
-// REAL services with plain SessionUser objects. No mocks.
-//
-// Proves:
-//   1. WHO MAY SEE A CARD — the student themselves and a parent with an
-//      APPROVED link; a pending / rejected / revoked link, another student,
-//      another parent, a teacher and a center admin are all refused.
-//   2. WHAT THE CARD CARRIES — an exhaustive key check, because "we did not
-//      put the phone on it" is a claim about the object, not about intent.
-//      A card is printed, photographed and dropped in corridors, and nearly
-//      every student here is a minor.
-//   3. ISSUANCE IS ONCE-ONLY — a pending 'X' code becomes the system letter
-//      exactly once, is derived from the student's own profile id, and no
-//      later call (a re-run, a changed grade, a second finalize) can move it.
-//   4. THE SQL AND THE TYPESCRIPT AGREE — `gen_student_code()` mints codes
-//      inside the INSERT and TypeScript verifies them at the counter. Two
-//      implementations of one rule, so the agreement is asserted rather than
-//      assumed: 400 minted codes, every one verified, and every single
-//      character mutation of them rejected.
-//   5. THE COUNTER CANNOT RESOLVE A TYPO — `lookupStudents` finds the student
-//      by their real code, and finds NOBODY when one character is wrong.
-//      That is the whole reason the check character exists.
-//   6. THE DATABASE HOLDS THE SHAPE — the CHECK constraint rejects a code with
-//      a character outside the alphabet and a code whose check character does
-//      not agree, so no writer anywhere can store one the counter would fail.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import {
@@ -108,8 +83,6 @@ async function main() {
     const teacher = await mkUser("teacher", "teacher");
     const gone = await mkUser("gone", "student");
 
-    // A real catalog system, so the letter comes from the catalog and not from
-    // a constant in the test.
     const system = await tx.educationSystem.findFirst({
       where: { code: "general" },
       select: { id: true, codeLetter: true },
@@ -136,13 +109,6 @@ async function main() {
                 stageId: stage?.id,
                 gradeLevelId: grade?.id,
                 onboardingCompleted: true,
-                // A COMPLETE record, because since 2026-08-09 `buildStudentCard`
-                // refuses an incomplete one — a card is a document that leaves
-                // the product, so it is not minted from a half-filled row. The
-                // gate itself (both directions, and its agreement with
-                // `cardAvailable`) is proven in student-qr-credential.test.ts;
-                // this suite is about what the card CARRIES, so its fixture has
-                // to be a student who is allowed one.
                 guardianEmail: `${tag}-${key}-guardian@x.io`,
               }
             : {}),
@@ -165,8 +131,6 @@ async function main() {
       data: { parentId: revokedParent.id, studentId: student.id, status: "revoked", initiatedBy: "parent" },
     });
 
-    // A real center with a real roster, so the counter search can be asked the
-    // question that matters: does free text stay inside it?
     const center = await tx.center.create({
       data: { name: `${tag}-center`, shortId: `${tag}`.slice(0, 20), receiptSeq: 0 },
     });
@@ -193,7 +157,6 @@ async function main() {
   const parentUser = su({ id: fx.parent.id, role: "parent" });
 
   try {
-    // ================= 1. ISSUANCE =================
     console.log("\n-- issuance --");
 
     const born = await withPlatformContext((tx) =>
@@ -224,8 +187,6 @@ async function main() {
     assert(second?.changed === false, "a second finalize is a no-op");
     assert(second?.studentCode === first?.studentCode, "…and the code did not move");
 
-    // The strongest form of the once-only guarantee: even a caller who has no
-    // idea the rule exists cannot move an issued code.
     const third = await withPlatformContext(async (tx) => {
       await tx.studentProfile.update({
         where: { userId: fx.student.id },
@@ -238,12 +199,6 @@ async function main() {
       "changing the student's academic details does NOT re-issue the code",
     );
 
-    // RESTORE what that assertion deliberately broke. It nulls `gradeLevelId`
-    // to prove the code does not move, which also makes the student
-    // academically INCOMPLETE — and since 2026-08-09 an incomplete record is
-    // refused a card, so every disclosure assertion below would have failed on
-    // a state this section created for a different purpose. A test that mutates
-    // shared state owes it back.
     await withPlatformContext((tx) =>
       tx.studentProfile.update({
         where: { userId: fx.student.id },
@@ -259,7 +214,6 @@ async function main() {
 
     const CODE = first!.studentCode;
 
-    // ================= 2. WHO MAY SEE THE CARD =================
     console.log("\n-- authorization --");
 
     const mine = await buildStudentCard(fx.student.id, studentUser);
@@ -305,7 +259,6 @@ async function main() {
       "the checklist carries the SAME gate as the card",
     );
 
-    // Soft-deleted: gone means gone, on this surface too.
     await withPlatformContext((tx) =>
       tx.user.update({ where: { id: fx.other.id }, data: { deletedAt: new Date() } }),
     );
@@ -315,7 +268,6 @@ async function main() {
       "a soft-deleted student has no card",
     );
 
-    // ================= 3. WHAT THE CARD CARRIES =================
     console.log("\n-- disclosure --");
 
     const KEYS = Object.keys(mine).sort();
@@ -329,10 +281,6 @@ async function main() {
         ),
       `the card carries EXACTLY these fields: ${KEYS.join(", ")}`,
     );
-    // `qr` arrived 2026-08-09 when the square became a signed credential. It is
-    // held to the same exhaustive check as the card itself, and for the same
-    // reason: the QR is the part of this object that a stranger can read with a
-    // phone, so a field added to it later is a disclosure, not a convenience.
     const QR_KEYS = Object.keys(mine.qr).sort();
     assert(
       JSON.stringify(QR_KEYS) ===
@@ -354,7 +302,6 @@ async function main() {
       "the pattern seed is the student's own id — already in every URL they open, and not a secret",
     );
 
-    // ================= 4. SQL AND TYPESCRIPT AGREE =================
     console.log("\n-- the SQL generator and the TypeScript verifier --");
 
     const minted = await admin.query<{ code: string }>(
@@ -376,7 +323,6 @@ async function main() {
     }
     assert(slipped === 0, "9600 single-character mutations of those codes: none validates");
 
-    // ================= 5. THE COUNTER =================
     console.log("\n-- the counter --");
 
     const centerStaffUser = su({ id: fx.teacher.id, role: "center_admin", centerId: fx.student.id });
@@ -401,18 +347,11 @@ async function main() {
       "the code as PRINTED on the card (grouped) resolves too",
     );
 
-    // ========== 5b. THE COUNTER REACHES FURTHER THAN IT READS ==========
-    // The lookup runs platform-wide on purpose — a walk-in carrying another
-    // center's card has to resolve. What it must NOT be is a directory: free
-    // text used to reach every center on the platform and every row came back
-    // with a phone number, to the least privileged center role there is.
     console.log("\n-- the counter does not leak other centers' children --");
 
     const desk = su({ id: fx.teacher.id, role: "center_admin", centerId: fx.center.id });
     const strangerPhone = fx.student.phone as string;
 
-    // `other` is on this desk's roster; `student` is not. Both names carry the
-    // tag, so one free-text query asks the whole question at once.
     const byName = await lookupStudents(tag, desk);
     assert(
       byName.some((m) => m.studentId === fx.other.id),
@@ -428,7 +367,6 @@ async function main() {
       "our own student comes back in full — the center already holds that data",
     );
 
-    // A digit fragment is the enumeration vector: it must behave like a name.
     const fragment = strangerPhone.slice(0, 5);
     const byFragment = await lookupStudents(fragment, desk);
     assert(
@@ -436,8 +374,6 @@ async function main() {
       `a ${fragment.length}-digit fragment resolves nobody off-roster`,
     );
 
-    // The identifiers still reach — that is the walk-in — but they now read
-    // masked.
     const byCode = await lookupStudents(CODE, desk);
     const stranger = byCode.find((m) => m.studentId === fx.student.id);
     assert(stranger !== undefined, "a valid code still reaches a student at another center");
@@ -467,7 +403,6 @@ async function main() {
       "…but their CODE is withheld: reached by phone, the code would be new information",
     );
 
-    // ================= 6. THE DATABASE HOLDS THE SHAPE =================
     console.log("\n-- the CHECK constraint --");
 
     for (const [label, bad] of [
@@ -512,8 +447,6 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-// The environment guard runs BEFORE main(), so invoking this file directly
-// cannot write to dev or production.
 assertDbEnv(["test"], { intent: "suite student-id-card.test.ts" })
   .then(() => main())
   .catch((e) => {

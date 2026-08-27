@@ -29,42 +29,12 @@ type PaymentRow = {
   courseName?: string;
 };
 
-/**
- * The student's OWN receipts.
- *
- * The product had payment-history surfaces for the parent and for center staff,
- * and none for the person the receipts are actually about — so a student could
- * not obtain a document for money they paid. This closes that, in the place
- * they already go for their money, rather than inventing a second money screen.
- *
- * `payments` is the SAME endpoint the parent and center screens read; the
- * service scopes a student to `studentId = user.id`, so no new authorization
- * exists here and none was widened.
- *
- * This is deliberately NOT merged into the wallet ledger beside it. The wallet
- * ledger is the balance's derivation — every row must sum to the closing
- * figure. Payments made by card or cash never touched the wallet, so folding
- * them in would break the one property that table exists to guarantee. They are
- * two tabs of one page, never one list.
- *
- * ── `embedded` ────────────────────────────────────────────────────────────
- *
- * The section used to own its own `Sheet` and heading and sit BENEATH the
- * ledger — which, with a hundred entries above it, put a student's proof of
- * payment about four thousand pixels down a phone screen. It is now a tab
- * inside the wallet's own sheet, so it renders bare there. The standalone form
- * is kept because the component is reusable and a caller outside a tab strip
- * still needs its own frame.
- */
 export function StudentReceiptsSection({ embedded = false }: { embedded?: boolean } = {}) {
   const t = useTranslations();
   const { formatDate } = useFormatters();
 
   const { query, result } = useCustom({ url: "payments", method: "get" });
 
-  // `asArray`, not `?? []` — `result.data` is a frozen `{}` until the request
-  // resolves, so the old guard let a non-array through and `.filter` threw on
-  // the FIRST render, before the isLoading branch below could ever run.
   const rows = asArray<PaymentRow>(result?.data).filter((r) => r.receiptNumber);
 
   const body = query.isLoading ? (
@@ -73,9 +43,6 @@ export function StudentReceiptsSection({ embedded = false }: { embedded?: boolea
     <LedgerEmpty title={t("studentWallet.noReceipts")} hint={t("studentWallet.noReceiptsHint")} />
   ) : (
     <>
-      {/* ── Phone: rows ────────────────────────────────────────────────────
-          Four columns of a receipt do not fit a 375px sheet; the amount is the
-          first thing to be squeezed out, and the amount is the point. */}
       <ul className="sm:hidden">
         {rows.map((r, i) => (
           <li key={r.id}>
@@ -96,7 +63,6 @@ export function StudentReceiptsSection({ embedded = false }: { embedded?: boolea
         ))}
       </ul>
 
-      {/* ── From `sm`: the table, which is this product's money idiom. */}
       <div className="hidden sm:block">
         <LedgerTable
           head={

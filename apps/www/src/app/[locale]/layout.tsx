@@ -63,11 +63,6 @@ export async function generateMetadata({
   const t = getMessages(isLocale(locale) ? locale : DEFAULT_LOCALE);
 
   return {
-    // Every page below sets `alternates.languages` as ROOT-RELATIVE paths.
-    // Without a base, Next emits those into the HTML as-is, and a relative
-    // hreflang is invalid — a crawler needs an absolute URL to resolve one
-    // language version to another. This is what makes them absolute, for this
-    // page and for every page that inherits it.
     metadataBase: new URL(siteOrigin()),
     title: t.meta.title,
     description: t.meta.description,

@@ -1,22 +1,5 @@
 "use client";
 
-/* المستخدمون / Users — the cross-role platform directory.
-   ══════════════════════════════════════════════════════════════════════════════
-
-   The one screen that does not ask "which kind of person is this?" first. Centers,
-   teachers and registrations each had their own list; a support request that arrives
-   as an email address had nowhere to land.
-
-   THE ROW IS A LINK, NOT A CONTROL PANEL. Every operation here (suspend, revoke,
-   reset 2FA, impersonate) is consequential and needs a reason, so none of them belong
-   in a row where they would compete in a scan (D-038). The row's only job is to be
-   identifiable — name, role, status, whether a second factor stands behind it — and
-   to open the record where the acting happens.
-
-   THE SECOND FACTOR IS SHOWN IN THE LIST DELIBERATELY. It is the one property of an
-   account an operator needs BEFORE opening it: a back-office account without 2FA is
-   the finding, and hiding it one click deep means nobody goes looking. */
-
 import { useEffect, useState } from "react";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
@@ -95,15 +78,12 @@ export function UsersScreen() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
-  // The search box types faster than the directory can answer.
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
     return () => clearTimeout(id);
   }, [q]);
 
   const filterKey = `${debouncedQ}|${role ?? ""}|${status ?? ""}`;
-  // Any change of filter starts a NEW cursor walk — an appended page from the
-  // previous filter would silently mix two result sets.
   useEffect(() => {
     setCursor(null);
     setRows([]);
@@ -120,9 +100,6 @@ export function UsersScreen() {
   const data = req.result?.data as { users: UserRow[]; nextCursor: string | null } | undefined;
 
   useEffect(() => {
-    // `rows` must never become undefined: it is read as `rows.length` during
-    // render, so a payload that does not carry `users` would crash the screen
-    // rather than show an empty table.
     const page = data?.users;
     if (!page) return;
     setNextCursor(data?.nextCursor ?? null);

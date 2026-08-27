@@ -30,10 +30,6 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          // Surface, hairline, radius, elevation and motion come from
-          // `chrome-2026.css`, keyed on the `data-slot` above — the same block
-          // the dropdown and the select popup use, so the three cannot drift
-          // apart. What stays here is layout: width, padding, origin.
           "z-50 w-72 origin-(--radix-popover-content-transform-origin) border p-4 outline-hidden",
           className
         )}
