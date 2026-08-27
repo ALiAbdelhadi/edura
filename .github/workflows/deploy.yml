@@ -1,7 +1,7 @@
 name: Deploy
 
 # ============================================================================
-# PRODUCTION DEPLOY — www + superadmin to Vercel.
+# PRODUCTION DEPLOY — erp + www + superadmin to Vercel.
 #
 # WHY THIS FILE EXISTS. Until 2026-08-02 nothing deployed this repo. The
 # 2026-07-31 launch was a `vercel deploy` typed by hand on one laptop, and the
@@ -32,6 +32,19 @@ name: Deploy
 # missing the run goes RED with an explanation, it does not go green having done
 # nothing. A green tick on a deploy that never ran is how you end up debugging
 # production code that is not deployed.
+#
+# THREE APPS, NOT TWO (fixed 2026-08-27). This file shipped `apps/www` and
+# `apps/superadmin` and never mentioned `apps/erp` — so the actual application
+# was not deployed by it at all. Fallout from the www -> erp rename: `apps/www`
+# used to BE the app and is now the marketing site. It is the identical defect
+# ci.yml's E2E steps carried until 2026-08-20, and it survived here for the same
+# reason — this workflow has never run past its first step, because the five
+# deploy secrets have never been set, so nothing downstream was ever exercised.
+#
+# The second half of that defect: the smoke test asks every app for
+# /api/health, and `apps/www` does not have one (its only route is
+# /api/contact). Even with every secret present, the www leg could not have gone
+# green. Each matrix entry now names its own liveness path.
 # ============================================================================
 
 on:
@@ -73,6 +86,7 @@ jobs:
         env:
           HAS_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
           HAS_ORG: ${{ secrets.VERCEL_ORG_ID != '' }}
+          HAS_ERP: ${{ secrets.VERCEL_PROJECT_ID_ERP != '' }}
           HAS_WWW: ${{ secrets.VERCEL_PROJECT_ID_WWW != '' }}
           HAS_SA: ${{ secrets.VERCEL_PROJECT_ID_SUPERADMIN != '' }}
           HAS_DB: ${{ secrets.PRODUCTION_DIRECT_URL != '' }}
@@ -81,6 +95,7 @@ jobs:
           missing=""
           [ "$HAS_TOKEN" = "true" ] || missing="$missing VERCEL_TOKEN"
           [ "$HAS_ORG"   = "true" ] || missing="$missing VERCEL_ORG_ID"
+          [ "$HAS_ERP"   = "true" ] || missing="$missing VERCEL_PROJECT_ID_ERP"
           [ "$HAS_WWW"   = "true" ] || missing="$missing VERCEL_PROJECT_ID_WWW"
           [ "$HAS_SA"    = "true" ] || missing="$missing VERCEL_PROJECT_ID_SUPERADMIN"
           [ "$HAS_DB"    = "true" ] || missing="$missing PRODUCTION_DIRECT_URL"
@@ -89,7 +104,7 @@ jobs:
             echo "See the header of .github/workflows/deploy.yml for where each value comes from."
             exit 1
           fi
-          echo "All five deploy secrets are present."
+          echo "All six deploy secrets are present."
 
       - uses: actions/checkout@v4
         with:
@@ -132,10 +147,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The application itself. Absent from this list until 2026-08-27 —
+          # see the header.
+          - app: erp
+            project_id_secret: VERCEL_PROJECT_ID_ERP
+            health_path: /api/health
+          # The marketing site. It has no /api/health (only /api/contact), so
+          # its liveness check is the root document instead.
           - app: www
             project_id_secret: VERCEL_PROJECT_ID_WWW
+            health_path: /
           - app: superadmin
             project_id_secret: VERCEL_PROJECT_ID_SUPERADMIN
+            health_path: /api/health
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets[matrix.project_id_secret] }}
@@ -171,8 +195,12 @@ jobs:
         run: |
           set -euo pipefail
           url="${{ steps.deploy.outputs.url }}"
+          probe="$url${{ matrix.health_path }}"
+          echo "probing $probe"
+          # -L because the marketing site's root redirects to a locale prefix;
+          # /api/health on the other two returns 200 directly and is unaffected.
           for attempt in 1 2 3 4 5 6; do
-            code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 30 "$url/api/health" || echo 000)
+            code=$(curl -sL -o /tmp/health.json -w "%{http_code}" --max-time 30 "$probe" || echo 000)
             echo "attempt $attempt: HTTP $code"
             if [ "$code" = "200" ]; then
               cat /tmp/health.json; echo
@@ -183,6 +211,6 @@ jobs:
             # route allows itself. Retry before calling it a failure.
             sleep 15
           done
-          echo "::error title=${{ matrix.app }} deployed but is not healthy::$url/api/health returned $code"
+          echo "::error title=${{ matrix.app }} deployed but is not healthy::$probe returned $code"
           cat /tmp/health.json 2>/dev/null || true
           exit 1

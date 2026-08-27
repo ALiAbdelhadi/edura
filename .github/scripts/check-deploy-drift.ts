@@ -197,9 +197,12 @@ async function latestProductionDeployment(projectId: string): Promise<Deployment
 async function main(): Promise<void> {
   if (process.argv.includes("--self-test")) return selfTest();
 
-  const missing = ["VERCEL_TOKEN", "VERCEL_PROJECT_ID_WWW", "VERCEL_PROJECT_ID_SUPERADMIN"].filter(
-    (k) => !process.env[k],
-  );
+  const missing = [
+    "VERCEL_TOKEN",
+    "VERCEL_PROJECT_ID_ERP",
+    "VERCEL_PROJECT_ID_WWW",
+    "VERCEL_PROJECT_ID_SUPERADMIN",
+  ].filter((k) => !process.env[k]);
   if (missing.length) {
     console.error(
       `::error title=Deploy-drift check cannot run::Missing secrets: ${missing.join(", ")}. ` +
@@ -213,7 +216,13 @@ async function main(): Promise<void> {
     Number(execFileSync("git", ["log", "-1", "--format=%ct", "origin/main"], { encoding: "utf8" }).trim()) * 1000;
   const now = Date.now();
 
+  // `erp` was absent from this list until 2026-08-27, so the drift alarm
+  // watched the marketing site and the back office and never the application
+  // itself — the same www -> erp rename fallout that left it out of
+  // deploy.yml's matrix. Neither was noticed because neither workflow has ever
+  // run: the Vercel secrets have never been set.
   const apps = [
+    { name: "erp", projectId: process.env.VERCEL_PROJECT_ID_ERP! },
     { name: "www", projectId: process.env.VERCEL_PROJECT_ID_WWW! },
     { name: "superadmin", projectId: process.env.VERCEL_PROJECT_ID_SUPERADMIN! },
   ];

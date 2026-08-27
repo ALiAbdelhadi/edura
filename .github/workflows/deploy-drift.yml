@@ -63,6 +63,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID_ERP: ${{ secrets.VERCEL_PROJECT_ID_ERP }}
           VERCEL_PROJECT_ID_WWW: ${{ secrets.VERCEL_PROJECT_ID_WWW }}
           VERCEL_PROJECT_ID_SUPERADMIN: ${{ secrets.VERCEL_PROJECT_ID_SUPERADMIN }}
           # Minutes main may legitimately be ahead — a deploy in flight, or CI
