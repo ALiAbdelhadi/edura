@@ -150,7 +150,7 @@ async function main() {
   assert(st?.pricingMethod === null, "pricing_method is NULL — honestly 'the legacy no-room model'");
   assert(st?.presentCount === 2 && st?.perSessionPrice === 5000, "frozen present_count 2 at 50 EGP/lesson");
   assert(
-    (after.payments._sum.amount ?? 0) === 10000 && st?.presentCount! * st?.perSessionPrice! === 10000,
+    (after.payments._sum.amount ?? 0) === 10000 && (st?.presentCount ?? 0) * (st?.perSessionPrice ?? 0) === 10000,
     "gross: Σ ledger payment rows = 100 EGP = present × price",
   );
   assert(

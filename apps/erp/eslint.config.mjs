@@ -12,7 +12,7 @@ const eslintConfig = [
     },
   },
   {
-    ignores: [".next/**", ".next-*/**", "node_modules/**", "scratch.js"],
+    ignores: [".next/**", ".next-*/**", "node_modules/**", "scratch.js", "public/sw.js"],
   },
 ];
 

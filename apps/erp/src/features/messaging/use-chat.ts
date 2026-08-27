@@ -10,7 +10,7 @@ import type {
   SendMessageAck,
   TypingEvent,
 } from "@repo/database/chat-protocol";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   ChatConnectionStatus,
@@ -96,7 +96,9 @@ export function useChat(meId: string) {
   const typingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
-  activeIdRef.current = activeId;
+  useLayoutEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const refreshConversations = useCallback(async () => {
     try {

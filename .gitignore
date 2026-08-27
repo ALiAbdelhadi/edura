@@ -48,3 +48,6 @@ apps/showcase/.auth/
 QA/.env.qa
 
 .local-logs/
+
+__pycache__/
+*.pyc

@@ -161,14 +161,14 @@ export default async function PrivacyPage({ params }: Props) {
             <h2>2. Protection of minors — a core rule</h2>
             <ul>
               <li>Any student not verifiably 18+ is automatically treated as a minor.</li>
-              <li>A minor's messaging with adults requires a guardian contact channel; an approved linked guardian has read-only visibility into their child's conversations with adults, disclosed to both sides.</li>
+              <li>A minor’s messaging with adults requires a guardian contact channel; an approved linked guardian has read-only visibility into their child’s conversations with adults, disclosed to both sides.</li>
               <li>We never sell student data or use it for advertising.</li>
             </ul>
           </section>
           <section>
             <h2>3. Payments</h2>
             <p>
-              Card and mobile-wallet payments run on the licensed payment provider's (Paymob)
+              Card and mobile-wallet payments run on the licensed payment provider’s (Paymob)
               secure pages — <strong>we never store card numbers</strong>. We keep the transaction
               record (amount, time, status, reference) for accounting and refunds.
             </p>
@@ -210,7 +210,7 @@ export default async function PrivacyPage({ params }: Props) {
               </li>
               <li>The file is deleted automatically 7 days after it is prepared.</li>
               <li>
-                A guardian with an approved link may request a copy of their minor child's data.
+                A guardian with an approved link may request a copy of their minor child’s data.
               </li>
             </ul>
             <h3>Deletion</h3>
@@ -221,7 +221,7 @@ export default async function PrivacyPage({ params }: Props) {
                 reviews it, and you may withdraw it before review.
               </li>
               <li>
-                For a minor student's account, the request is made by the guardian linked to it,
+                For a minor student’s account, the request is made by the guardian linked to it,
                 not by the student. Any student not verifiably 18+ is treated as a minor.
               </li>
               <li>

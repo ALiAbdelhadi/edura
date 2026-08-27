@@ -126,7 +126,7 @@ export default async function TermsPage({ params }: Props) {
             </ul>
           </section>
           <section>
-            <h2>3. The platform's role</h2>
+            <h2>3. The platform’s role</h2>
             <p>
               Edura is a technical intermediary: lessons and educational services are provided by
               the center or teacher, who are responsible for their quality, schedule, and content.
@@ -140,13 +140,13 @@ export default async function TermsPage({ params }: Props) {
               <li>Cash payment at the center is supported and recorded on the platform.</li>
               <li>The platform deducts published commissions/service fees from settlements, at the rates in force when a class was created.</li>
               <li>Wallet balances (student/parent) are prepaid balances used within the platform; refunds follow the published refund policy of the lesson or subscription.</li>
-              <li>The platform's attendance and settlement records are the reference for computing dues.</li>
+              <li>The platform’s attendance and settlement records are the reference for computing dues.</li>
             </ul>
           </section>
           <section>
             <h2>5. Acceptable use</h2>
             <ul>
-              <li>Any unlawful use, infringement of others' rights, or abuse involving minors is prohibited.</li>
+              <li>Any unlawful use, infringement of others’ rights, or abuse involving minors is prohibited.</li>
               <li>Attempting unauthorized access or disrupting the service is prohibited.</li>
               <li>Violating accounts may be suspended or terminated, with legally required financial records retained.</li>
             </ul>
@@ -162,9 +162,9 @@ export default async function TermsPage({ params }: Props) {
           <section>
             <h2>7. Limitation of liability</h2>
             <p>
-              The platform is provided "as is". Edura does not guarantee uninterrupted or
+              The platform is provided “as is”. Edura does not guarantee uninterrupted or
               error-free operation and is not liable for the educational services provided by
-              centers and teachers. The platform's maximum liability to you shall not exceed the
+              centers and teachers. The platform’s maximum liability to you shall not exceed the
               fees it collected from you in the three months preceding the claim.
             </p>
           </section>

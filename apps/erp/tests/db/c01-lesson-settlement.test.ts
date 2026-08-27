@@ -147,7 +147,7 @@ async function settleLesson(opts: {
     schedulePattern: { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: `${hh}:00`, endTime: `${String(Number(hh) + 1).padStart(2, "0")}:00`, startDate: start, endDate: end },
   };
   if (opts.withRoom) { body.defaultRoomId = opts.withRoom; body.pricingMethod = "whole_room_percent"; }
-  let r = await call("POST", "/api/v1/courses", opts.adminSession, body);
+  const r = await call("POST", "/api/v1/courses", opts.adminSession, body);
   if (r.status !== 201 && r.status !== 200) return { error: `course create -> ${r.status}: ${r.text}` };
   const courseId = (D(r) as { id?: string }).id as string;
   created.courses.push(courseId);

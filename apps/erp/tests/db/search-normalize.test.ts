@@ -171,7 +171,7 @@ async function main() {
 
     section("3. Fuzz — scripts this product does not hold yet");
     const ROUNDS = 1500;
-    let fuzzBad: string[] = [];
+    const fuzzBad: string[] = [];
     for (let i = 0; i < ROUNDS; i++) {
       const n = 1 + Math.floor(Math.random() * 12);
       let s = "";
