@@ -558,7 +558,7 @@ jobs:
   # to "Passw0rd!" — the value tests/playwright/helpers.ts signs in with.
   # ---------------------------------------------------------------------------
   e2e-playwright:
-    name: E2E — ${{ matrix.spec }}
+    name: E2E — ${{ matrix.name }}
     needs: static
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -568,7 +568,20 @@ jobs:
       # two, which is exactly what a shared job would do.
       fail-fast: false
       matrix:
-        spec: [auth, role-guard, navigation]
+        include:
+          - { name: auth,        spec: auth,       grep: "" }
+          - { name: role-guard,  spec: role-guard, grep: "" }
+          # navigation is SPLIT BY PORTAL, one runner each. As one job it swept
+          # 26 routes through a single `next dev`, and two of them timed out at
+          # 60s per run — never the same two, and the job ran 10.8m against
+          # 8m35s for the run before. Different routes each time plus a slower
+          # job overall is one server under load, not one slow route, which is
+          # why raising navigationTimeout from 30s to 60s changed nothing.
+          # Six routes per server instead of twenty-six.
+          - { name: nav-student, spec: navigation, grep: "student pages" }
+          - { name: nav-teacher, spec: navigation, grep: "teacher pages" }
+          - { name: nav-admin,   spec: navigation, grep: "admin pages" }
+          - { name: nav-parent,  spec: navigation, grep: "parent pages" }
 
     services:
       postgres:
@@ -675,17 +688,38 @@ jobs:
       # The `setup` project (auth.setup.ts) is a dependency of `chromium`, so it
       # runs first and parks a signed-in session per role; navigation.spec.ts
       # reuses those instead of signing in 26 times.
-      - name: Playwright — ${{ matrix.spec }}
+      - name: Playwright — ${{ matrix.name }}
         working-directory: apps/erp
         env:
           PW_BASE_URL: http://localhost:${{ env.E2E_PORT }}
-        run: bunx playwright test ${{ matrix.spec }} --project=chromium
+          SPEC: ${{ matrix.spec }}
+          GREP: ${{ matrix.grep }}
+        run: |
+          set -euo pipefail
+          # `-g` only when the matrix entry asks for it: an empty -g would
+          # match every test in the file and undo the split.
+          if [ -z "$GREP" ]; then
+            bunx playwright test "$SPEC" --project=chromium
+            exit 0
+          fi
+          # A filter that matches NOTHING must fail here. `--list` exits 0 on a
+          # non-match, so a renamed describe block would otherwise turn this job
+          # green having run zero tests — the exact false pass this suite was
+          # revived to remove. Counted before the run, not inferred after it.
+          found=$(bunx playwright test "$SPEC" --project=chromium -g "$GREP" --list 2>/dev/null \
+                  | grep -cE '\.spec\.ts:[0-9]+' || true)
+          if [ "${found:-0}" -eq 0 ]; then
+            echo "::error title=E2E filter matched no tests::-g '$GREP' selected 0 tests in $SPEC. A describe block was probably renamed."
+            exit 1
+          fi
+          echo "filter '$GREP' selected $found tests"
+          bunx playwright test "$SPEC" --project=chromium -g "$GREP"
 
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-${{ matrix.spec }}
+          name: playwright-${{ matrix.name }}
           path: |
             apps/erp/test-results/
             apps/erp/playwright-report/
