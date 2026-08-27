@@ -136,6 +136,15 @@ function platformOffsetMs(instant: Date): number {
 /**
  * The instant at which a given Cairo wall-clock time on a given day occurs.
  *
+ * EXPORTED, not just a private helper for the two day bounds below. A lesson's
+ * `startTime` is a bare `HH:MM` that means Cairo wall-clock — the clock the
+ * center's door runs on — so "when does the 16:00 lesson actually begin" is
+ * this function's question at an arbitrary hour rather than at 00:00 or
+ * 23:59:59.999. `apps/erp/src/features/sessions/session-time.ts` used to answer
+ * it with `new Date("2026-08-20T16:00:00")`, a zoneless literal that JS parses
+ * in the DEVICE's zone, which put every lesson hours out on any non-Cairo
+ * device. There is no second way to do this arithmetic correctly.
+ *
  * TWO PASSES, and the second one is not belt-and-braces. The offset is itself a
  * function of the instant, so the first guess uses the offset in force at the
  * WRONG moment — and on a DST boundary that is the other side of the change.
@@ -151,7 +160,13 @@ function platformOffsetMs(instant: Date): number {
  *     happens TWICE. The pass resolves to the SECOND occurrence, which is what
  *     an end bound must be if the last hour of trading is to be inside the day.
  */
-function platformInstant(key: string, h: number, m: number, s: number, ms: number): Date {
+export function platformInstant(
+  key: string,
+  h: number,
+  m: number,
+  s: number,
+  ms: number,
+): Date {
   const y = Number(key.slice(0, 4));
   const mo = Number(key.slice(5, 7));
   const d = Number(key.slice(8, 10));

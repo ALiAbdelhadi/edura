@@ -24,9 +24,18 @@
  * is Egyptian (UTC+2/+3) so it happens to hold today, but it is a silent trap
  * for anyone who runs the app anywhere else. Taking the first ten characters
  * asks the string for the day it already states, and crosses no timezone at
- * all. The clock time is then applied in the reader's own zone, which is where
- * a wall-clock lesson time belongs.
+ * all.
+ *
+ * The clock time is then applied ON THE CAIRO CLOCK — see `startsAt`. This
+ * paragraph used to end "in the reader's own zone, which is where a wall-clock
+ * lesson time belongs", and that sentence was the bug: it is the one place a
+ * reader could have gone to check, and it told them the wrong thing with
+ * confidence. A lesson's `HH:MM` belongs to the zone of the door the student
+ * walks through, which is Cairo for every center this product has.
  */
+
+// Safe from a client component: `date-key` imports nothing and says so.
+import { platformInstant } from "@repo/server-core/lib/date-key";
 
 export type TimedSession = {
   date: string | Date;
@@ -59,11 +68,46 @@ export function todayKey(now: Date = new Date()): string {
   return dateKeyOf(now);
 }
 
-/** The wall-clock instant a session begins, in the reader's zone. */
+/** `2026-08-20` exactly — anything else is not a day and must not be arithmetic. */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `16:00`, and the leading anchor matters — `"6:00"` is not a wall-clock time. */
+const CLOCK = /^(\d{2}):(\d{2})$/;
+
+/**
+ * The instant a session begins — on the CAIRO clock, not the reader's.
+ *
+ * ── WHY NOT `new Date(`${key}T${clock}:00`)` ──────────────────────────────
+ *
+ * That is what this did until 2026-08-27, and it is wrong everywhere except
+ * Cairo. A zoneless ISO literal is parsed in the DEVICE's zone, so on a UTC
+ * device `2026-08-20T16:00:00` becomes 16:00Z — 19:00 Cairo. The lesson is
+ * treated as starting three hours after it really did, which is not a rounding
+ * error: it is past the entire 45-minute STILL_NOW_MS window twice over.
+ *
+ * A `startTime` is a bare `HH:MM` and it means Cairo wall-clock, because that
+ * is the clock the center's door runs on — `services/attendance/counter.ts`
+ * says so, and the money engine has always agreed. The reader's zone never
+ * entered into it; the old comment here ("in the reader's zone") described the
+ * bug rather than the intent.
+ *
+ * `platformInstant` does the conversion DST included. There is no second
+ * derivation of it in the app and there must not be one.
+ *
+ * ── WHAT AN UNUSABLE ROW GIVES BACK ───────────────────────────────────────
+ *
+ * `new Date(NaN)`, exactly as the string form did for a malformed literal. It
+ * matters that this stays a value and not a throw: `platformInstant` would
+ * reach `Intl.formatToParts`, which raises `RangeError` on an invalid date, and
+ * one bad row out of a list would take down a whole portal screen. An Invalid
+ * Date compares false against every bound instead, so the row simply never
+ * shows as next, upcoming, or happening now.
+ */
 export function startsAt(session: TimedSession): Date {
   const key = dateKeyOf(session.date);
-  const clock = session.startTime || "00:00";
-  return new Date(`${key}T${clock}:00`);
+  const clock = CLOCK.exec(session.startTime || "00:00");
+  if (!DAY_KEY.test(key) || !clock) return new Date(NaN);
+  return platformInstant(key, Number(clock[1]), Number(clock[2]), 0, 0);
 }
 
 /** Ascending by the instant they begin. */
