@@ -37,18 +37,92 @@ function exportedMethods(src) {
   );
 }
 
-function bodyStub(src) {
-  const m = src.match(/z\.object\(\{([\s\S]*?)\}\)/);
+function braceBody(src, open) {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}" && --depth === 0) return src.slice(open + 1, i);
+  }
+  return null;
+}
+
+function topLevelKeys(body) {
+  const keys = [];
+  let depth = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === "{" || c === "[" || c === "(") { depth++; continue; }
+    if (c === "}" || c === "]" || c === ")") { depth--; continue; }
+    if (depth !== 0) continue;
+    const prev = body[i - 1];
+    if (prev && /[\w$.]/.test(prev)) continue;
+    const m = /^([a-zA-Z_$][\w$]*)\s*:/.exec(body.slice(i));
+    if (!m) continue;
+    keys.push(m[1]);
+    i += m[0].length - 1;
+  }
+  return keys;
+}
+
+function handlerBlock(src, method) {
+  const m = new RegExp(`export\\s+(?:const|async\\s+function)\\s+${method}\\b`).exec(src);
   if (!m) return null;
-  const keys = [...m[1].matchAll(/^\s*([a-zA-Z_][\w]*)\s*:/gm)].map((x) => x[1]);
+  const rest = src.slice(m.index + m[0].length);
+  const next = rest.search(/\nexport\s/);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+const OBJECT_OPEN = /z\s*\.\s*object\(\s*\{/;
+
+function bodySchemaOpen(src, method) {
+  const block = handlerBlock(src, method);
+  if (block) {
+    const named = [...block.matchAll(/parseJson\s*\([^,]*,\s*([a-zA-Z_$][\w$]*)/g)];
+    for (let i = named.length - 1; i >= 0; i--) {
+      const decl = new RegExp(
+        `(?:const|let|var)\\s+${named[i][1]}\\s*(?::[^=;]*)?=\\s*z\\s*\\.\\s*object\\(\\s*\\{`,
+      ).exec(src);
+      if (decl) return decl.index + decl[0].length - 1;
+    }
+    const inline = new RegExp(`parseJson\\s*\\([^,]*,\\s*${OBJECT_OPEN.source}`).exec(block);
+    if (inline) return src.indexOf(inline[0]) + inline[0].length - 1;
+  }
+  const first = OBJECT_OPEN.exec(src);
+  return first ? first.index + first[0].length - 1 : null;
+}
+
+function bodyStub(src, method) {
+  const open = bodySchemaOpen(src, method);
+  if (open == null) return null;
+  const body = braceBody(src, open);
+  if (body == null) return null;
+  const keys = topLevelKeys(body);
   if (!keys.length) return null;
   const obj = {};
-  for (const k of keys) obj[k] = /id$/i.test(k) ? "{{" + k + "}}" : /reason|note|comment|title|body|name/i.test(k) ? "" : /amount|price|share|delta|points|score/i.test(k) ? 0 : "";
+  for (const k of keys) obj[k] = /^paymentMethod$/.test(k) ? "cash" : /id$/i.test(k) ? "{{" + k + "}}" : /reason|note|comment|title|body|name/i.test(k) ? "" : /amount|price|share|delta|points|score/i.test(k) ? 0 : "";
   return obj;
 }
 
 const bru = (s) => s.replace(/\{/g, "{").trimStart();
 const indent = (obj) => JSON.stringify(obj, null, 2).split("\n").map((l) => "  " + l).join("\n");
+
+function mergeBody(stub, preserved) {
+  if (stub == null) return preserved ?? indent({});
+  if (!preserved) return indent(stub);
+  let prev;
+  try {
+    prev = JSON.parse(preserved);
+  } catch {
+    return indent(stub);
+  }
+  if (!prev || typeof prev !== "object" || Array.isArray(prev)) return indent(stub);
+  const placeholder = (k, v) => v === "" || v === 0 || v === `{{${k}}}`;
+  const out = {};
+  for (const k of Object.keys(stub)) {
+    out[k] = k in prev && !placeholder(k, prev[k]) ? prev[k] : stub[k];
+  }
+  return indent(out);
+}
 
 const PRESERVE = new Set(["README.md", "environments", "bruno.json"]);
 
@@ -140,13 +214,9 @@ for (const file of files) {
     const seq = seqByDir[folder];
     const name = `${method} ${segs[segs.length - 1] || "root"}`;
     const isWrite = method !== "GET" && method !== "DELETE";
-    const stub = isWrite ? bodyStub(src) : null;
+    const stub = isWrite ? bodyStub(src, method) : null;
     const relFile = [...segs.map((s) => s.replace(/^:/, "_")), `${method}.bru`].join("/");
-    const preserved = stub == null ? handBodies.get(relFile) : null;
-    const bodyBlock =
-      isWrite
-        ? `\nbody:json {\n${preserved ?? indent(stub ?? {})}\n}\n`
-        : "";
+    const bodyBlock = isWrite ? `\nbody:json {\n${mergeBody(stub, handBodies.get(relFile))}\n}\n` : "";
     const bodyLine = isWrite ? "\n  body: json" : "";
     const content = `meta {
   name: ${name}
