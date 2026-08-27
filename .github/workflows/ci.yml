@@ -211,6 +211,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cheapest possible check, first, because these files are DELETABLE BY
+      # ACCIDENT and their absence is expensive. On 2026-08-27 a cleanup commit
+      # removed apps/erp/.env.test.example alongside three stale plan documents;
+      # four jobs — the DB suites and all three E2E jobs — then failed eight
+      # minutes later at `cp: cannot stat`, which names the symptom and not the
+      # commit. `static` gates every one of them, so failing here turns that into
+      # one obvious red step in twenty seconds.
+      #
+      # Nothing secret lives in these: every value is a placeholder
+      # (PASSWORD@HOST, generate-with-openssl-rand-base64-32). CI substitutes the
+      # real connection strings at run time.
+      - name: Required CI inputs are present
+        run: |
+          set -euo pipefail
+          missing=""
+          for f in apps/erp/.env.test.example apps/superadmin/.env.test.example; do
+            [ -f "$f" ] || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=A file CI materialises has been deleted::$missing"
+            echo "The db and e2e-playwright jobs cp these to .env.test. Restore with:"
+            echo "  git show <commit-that-deleted-it>^:<path> > <path>"
+            exit 1
+          fi
+          echo "env templates present."
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
