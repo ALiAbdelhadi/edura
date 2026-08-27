@@ -1,6 +1,9 @@
 # Cleanup plan — Phase 3: rendering, route by route
 
-**Status: ANALYSIS ONLY. Nothing in this file has been executed.**
+**Status: I-3.0, I-3.1, I-3.2 and I-3.3 EXECUTED** on `cleanup/performance`
+(2026-08-27). I-3.4 not started — it needs the bundle analyzer, which is Phase 4.
+**Gates 3 and 4 have not run on any of it**, so nothing here may reach `main` yet.
+See the run report at the end.
 Every route in all three Next apps was classified against the build of
 `0dec74d` (`bun run build`, 31 s, green).
 
@@ -223,3 +226,53 @@ whole experience. The 94 dashboard pages get streaming, not prerendering.
 Nothing in this phase changes what any authenticated user sees, and nothing
 changes when their data is read: every screen still fetches from a
 `force-dynamic` route on every mount.
+
+
+---
+
+## Run report — 2026-08-27
+
+| Item | Commit | Result |
+|---|---|---|
+| I-3.2 ui-preview gate | `46105b1` | route 404s in production; gallery moved to `features/dev/` |
+| I-3.0 root-layout session read | `36a6ad8` | **erp 356 dynamic → 341**; 15 routes prerender |
+| I-3.1 pricing | `6b1f26b` | **no change** — the directive is load-bearing |
+| I-3.3 streaming | `3edbbfb` | 9 `loading.tsx`, census unmoved |
+
+### Where the plan was wrong, corrected by the build
+
+1. **Six routes I classified as permanently dynamic now prerender** — `claim`,
+   `invite/accept`, `login`, `register`, `reset-password`, `two-factor`. I called
+   them dynamic because they consume `searchParams`; they read them client-side
+   through `useSearchParams` under a Suspense boundary, which does not force a
+   dynamic render.
+2. **`/pricing` was NOT the easy win the plan called it.** It reads the live
+   `commission_settings` row through `getPricingExamples()` — the same row the
+   settlement engine reads. Prerendering it would bake a commission rate into
+   static HTML and a back-office rate change would silently stop reaching the
+   public page. The directive stays and now carries the reason.
+3. **`loading.tsx` coverage was already complete under `/dashboard`.** All 94
+   routes resolve to one of the fourteen that existed. The real gap was outside
+   `/dashboard`, and 15 of those routes no longer need one because I-3.0 made
+   them static.
+
+Net: the 15-page win Ali approved is real and landed. The two items the plan
+expected to add to it (pricing, dashboard streaming) turned out to be a hazard
+and a non-issue respectively.
+
+### Gate status
+
+| Gate | I-3.0 | I-3.1 | I-3.3 |
+|---|---|---|---|
+| 1 route-table diff | ✅ 15 intended flips, 0 unintended, 0 under `/dashboard` | ✅ census unmoved | ✅ census unmoved |
+| 2 static-leak scan | ✅ 0 hits / 589 files / 9 sentinels | ✅ | ✅ |
+| 3 two-user smoke | ⏸ pending a free dev database | ⏸ | ⏸ |
+| 4 per-role smoke | ⏸ pending a free dev database | ⏸ | ⏸ |
+
+`scripts/static-leak-check.ts` is the gate-2 implementation. It was verified
+against a **planted** leak before its green was trusted, which is how a dud
+sentinel was found (`@nile-academy.eg` never matched the seeded student logins at
+`@student.nile-academy.eg`). 9 of 9 sentinels now fire on synthetic data.
+
+**Merge block, per Ali: gates 3 and 4 must run against all 15 flipped routes —
+`/login` and `/register` especially — before any of this reaches `main`.**
