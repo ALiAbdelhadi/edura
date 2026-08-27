@@ -44,7 +44,7 @@ export type MarkPath = {
 };
 
 /** Stroke weights in viewBox units — heavy for the outline, light for the spine. */
-export const EDURA_MARK_STROKE = { heavy: 11, light: 8 } as const;
+export const EDURA_MARK_STROKE = { heavy: 10, light: 8 } as const;
 
 // ── WHY IT IS ONLY THE BOOK ────────────────────────────────────────────────
 //
@@ -60,8 +60,12 @@ export const EDURA_MARK_STROKE = { heavy: 11, light: 8 } as const;
 export const EDURA_MARK_PATHS: MarkPath[] = [
   // The two open pages — outlines, where the original had two translucent
   // white fills. An engraving states an edge; it does not wash an area.
-  { d: "M100 52 L54 84 L54 150 L100 122 Z" },
-  { d: "M100 52 L146 84 L146 150 L100 122 Z" },
+  {
+    d: "M100 68 C87 58.5 70.5 54 51 55.5 C47.5 56 45 58.5 45 62 L45 130 C45 134 48 137 52 136.5 C70 135 86 139 100 148.5",
+  },
+  {
+    d: "M100 68 C113 58.5 129.5 54 149 55.5 C152.5 56 155 58.5 155 62 L155 130 C155 134 152 137 148 136.5 C130 135 114 139 100 148.5",
+  },
   // The spine, holding the two halves together.
-  { d: "M100 52 L100 122", light: true },
+  { d: "M100 68 L100 148.5", light: true },
 ];

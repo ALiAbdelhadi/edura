@@ -1,18 +1,24 @@
 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none" role="img" aria-label="Edura">
   <!-- The Edura mark, engraved.
-       ONE geometry, three surfaces: the paths below are the same strings held in
+       ONE geometry, four surfaces: the paths below are the same strings held in
        packages/ui/src/lib/edura-mark.ts, which the student ID card feeds to
-       <path d> and the PNG exporter feeds to new Path2D(). If you change a
-       coordinate here, change it there.
+       <path d>, the PNG exporter feeds to new Path2D(), and
+       apps/erp/scripts/generate-brand-icons.ts interpolates into the generated
+       assets. If you change a coordinate here, change it there.
 
-       The file this replaced was EduConnect-era: a violet-to-indigo gradient on
-       a filled tile, plus #00b473 and #ffc6c6 — three hues the Ledger palette
-       does not contain, and the one device the direction forbids. It is the open
-       book and its spine only; the cap, tassel and stud are shapes at 200px and
-       a smudge at the 16px this file actually renders at as a favicon.
+       This is the open book the public site draws in its header
+       (apps/www/src/components/mark.tsx), transposed from its 32x24 box onto
+       this square canvas. The drawing this replaced was an ANGULAR chevron:
+       at any size it read as an arrow or a bookmark rather than a book, so the
+       favicon and the marketing site were showing two different companies.
+
+       The leaves are ink and the spine is the one gold stroke, where the site
+       draws the whole mark in gold. A favicon is 16px and stands alone: gold
+       on paper is about 3.4:1, which is fine for a rule under a heading and
+       not for the only shape in the square.
 
        Colours are LITERAL, never CSS custom properties. A favicon, a manifest
-       icon and a push-notification badge are all rendered outside any document
+       icon and a push notification badge are all rendered outside any document
        that has the token sheet, so a custom property here would resolve to
        nothing. The embedded media query is what carries dark mode instead.
 
@@ -20,8 +26,7 @@
        XML, where a comment may not contain a double hyphen, and a custom
        property's name begins with one. The line above used to spell two of
        them out, which made this whole file fail to parse: Chrome reported
-       "EncodingError: The source image cannot be decoded", the sidebar mark
-       rendered as a broken image showing its alt text, and the favicon,
+       "EncodingError: The source image cannot be decoded", the sidebar
        manifest icons and push badge were all served from the same unparseable
        file. It fetched 200 with the correct content-type the entire time,
        which is why it went unnoticed. -->
@@ -35,11 +40,11 @@
   </style>
 
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <!-- The two open pages — outlines, where the original had translucent fills.
-         An engraving states an edge; it does not wash an area. -->
-    <path class="ink" stroke-width="11" d="M100 52 L54 84 L54 150 L100 122 Z" />
-    <path class="ink" stroke-width="11" d="M100 52 L146 84 L146 150 L100 122 Z" />
+    <!-- The two open leaves — outlines, where the original had translucent
+         fills. An engraving states an edge; it does not wash an area. -->
+    <path class="ink" stroke-width="10" d="M100 68 C87 58.5 70.5 54 51 55.5 C47.5 56 45 58.5 45 62 L45 130 C45 134 48 137 52 136.5 C70 135 86 139 100 148.5" />
+    <path class="ink" stroke-width="10" d="M100 68 C113 58.5 129.5 54 149 55.5 C152.5 56 155 58.5 155 62 L155 130 C155 134 152 137 148 136.5 C130 135 114 139 100 148.5" />
     <!-- The spine, holding the two halves together. The one gold stroke. -->
-    <path class="gold" stroke-width="8" d="M100 52 L100 122" />
+    <path class="gold" stroke-width="8" d="M100 68 L100 148.5" />
   </g>
 </svg>

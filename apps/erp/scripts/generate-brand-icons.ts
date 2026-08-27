@@ -95,7 +95,7 @@ const MASKABLE_GLYPH_SCALE = 0.84;
  * centre (its own vertical midpoint is y=101). Centring it on a square the
  * platform will crop from every side means correcting that.
  */
-const MASKABLE_GLYPH_CENTRE_Y = 101;
+const MASKABLE_GLYPH_CENTRE_Y = 101.25;
 
 function markPaths(strokeScale: number, ink: string, gold: string): string {
   return EDURA_MARK_PATHS.map((p) => {
