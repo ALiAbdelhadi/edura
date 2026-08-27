@@ -129,7 +129,7 @@ test.describe("Authentication & Login", () => {
     await page.goto("/en/dashboard/admin", { waitUntil: "domcontentloaded" });
 
     // Was `/(login|dashboard)/`, which matched either outcome.
-    await page.waitForURL(/\/login/, { timeout: 15_000 });
+    await page.waitForURL(/\/login/, { timeout: 15_000, waitUntil: "commit" });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   });
 });

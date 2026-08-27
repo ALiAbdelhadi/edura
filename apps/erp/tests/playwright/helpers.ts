@@ -24,17 +24,22 @@ export async function login(page: Page, role: Role, timeout = 30_000) {
   await page.getByPlaceholder("you@example.com").fill(USERS[role].email);
   await page.getByPlaceholder("Enter your password").fill(USERS[role].password);
   await page.getByRole("button", { name: /sign in/i }).click();
-  // `timeout` is raised by auth.setup.ts: it is the first thing to touch each
-  // portal, so under `next dev` it pays that portal's cold Turbopack compile.
-  // Every later spec arrives warm. This was the suite's only recurring flake.
-  await page.waitForURL(/\/dashboard/, { timeout });
+  // `waitUntil: "commit"` is the fix for this suite's only recurring flake, and
+  // the default is the bug: waitForURL waits for "load", so it kept timing out
+  // AFTER the redirect had already landed, whenever the dev server was still
+  // streaming that portal's first compile. The question here is only "did the
+  // sign-in redirect me to a dashboard", which "commit" answers exactly.
+  // `timeout` is still raised by auth.setup.ts, which pays each portal's cold
+  // compile so later specs arrive warm.
+  await page.waitForURL(/\/dashboard/, { timeout, waitUntil: "commit" });
 }
 
 export async function quickLogin(page: Page, role: Role) {
   await page.goto("/en/login", { waitUntil: "domcontentloaded" });
   const label = role.charAt(0).toUpperCase() + role.slice(1);
   await page.getByRole("button", { name: label }).click();
-  await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+  // "commit" for the same reason as `login` above.
+  await page.waitForURL(/\/dashboard/, { timeout: 30_000, waitUntil: "commit" });
 }
 
 /**

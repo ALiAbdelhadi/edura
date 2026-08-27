@@ -53,7 +53,16 @@ test.describe("Portal boundary", () => {
 
       // Positive: the exact destination, not merely "somewhere else" — "not the
       // forbidden URL" would also pass on an error page or a blank screen.
-      await page.waitForURL(`**${ownPortal}`, { timeout: 15_000 });
+      //
+      // `waitUntil: "commit"` for the same reason as helpers.login: the default
+      // waits for "load" on the destination, and under `next dev` that portal
+      // may still be compiling. Measured in CI: this exact line was two of the
+      // three flakes in the first run of the e2e-playwright job. The question is
+      // where the gate SENT the browser, which "commit" answers.
+      await page.waitForURL(`**${ownPortal}`, {
+        timeout: 15_000,
+        waitUntil: "commit",
+      });
       // Negative: and the forbidden portal was never reached.
       expect(page.url()).not.toContain(forbidden.replace("/en", ""));
     });
@@ -65,7 +74,8 @@ test.describe("Portal boundary", () => {
     await page.context().clearCookies();
     await page.goto("/en/dashboard/teacher", { waitUntil: "domcontentloaded" });
 
-    await page.waitForURL(/\/login/, { timeout: 15_000 });
+    await page.waitForURL(/\/login/, { timeout: 15_000, waitUntil: "commit" });
+    // The heading assertion still auto-waits, so "commit" costs no rigour here.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   });
 });
