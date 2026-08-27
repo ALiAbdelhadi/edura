@@ -53,7 +53,38 @@ const LIVE_STATUSES = new Set(["scheduled", "postponed"]);
  */
 const STILL_NOW_MS = 45 * 60 * 1000;
 
-/** `2026-08-20` — the calendar day, never shifted by a timezone. */
+/**
+ * The calendar day of a value that is ALREADY A DAY.
+ *
+ * ── THE TWO BRANCHES ANSWER DIFFERENT QUESTIONS ───────────────────────────
+ *
+ * This used to read, in full: "`2026-08-20` — the calendar day, never shifted
+ * by a timezone." That is true of one branch and false of the other, and one
+ * comment covering both is how a reader gets told the opposite of what happens.
+ *
+ *   STRING  `"2026-08-20T00:00:00.000Z".slice(0, 10)` — the day the string
+ *           already states. Crosses no timezone, because no conversion occurs:
+ *           there is nothing here but characters. Genuinely unshiftable, and
+ *           this is the branch every caller in the app actually takes, since
+ *           `Session.date` arrives from the API as an ISO string.
+ *
+ *   DATE    `getFullYear/getMonth/getDate` — the day in the DEVICE's zone.
+ *           This one IS shifted, by the reader's offset. It is `pickedDateKey`
+ *           semantics (see `date-key.ts`): correct for a `Date` that a calendar
+ *           control produced at LOCAL midnight, wrong for an instant.
+ *
+ * ── WHAT MUST NOT BE PASSED ───────────────────────────────────────────────
+ *
+ * A `Date` that is a moment in time rather than a day — `new Date()` above all.
+ * The `Date` branch would answer with the device's day, which is how a
+ * `todayKey` returning `dateKeyOf(new Date())` came to live in this module and
+ * disagree with the rest of the product for two hours a night. "What day is it
+ * now" is `todayKey` in `@repo/server-core/lib/date-key`, and it is not
+ * answerable here.
+ *
+ * Empty string for a missing value, so a half-built row sorts and compares as
+ * "no day" instead of throwing inside a render.
+ */
 export function dateKeyOf(value: string | Date | null | undefined): string {
   if (!value) return "";
   if (typeof value === "string") return value.slice(0, 10);

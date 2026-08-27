@@ -26,19 +26,42 @@ const s = (date: string, startTime: string, status = "scheduled") => ({
   status,
 });
 
-describe("dateKeyOf — the calendar day, never shifted", () => {
-  it("takes the day an ISO instant already states", () => {
-    expect(dateKeyOf("2026-08-20T00:00:00.000Z")).toBe("2026-08-20");
+describe("dateKeyOf — TWO branches, and they answer different questions", () => {
+  // The suite used to be titled "the calendar day, never shifted", which is
+  // the claim the docblock made about both branches and is true of only one.
+
+  describe("string in — the day the value already states, unshiftable", () => {
+    it("takes the ten characters and converts nothing", () => {
+      expect(dateKeyOf("2026-08-20T00:00:00.000Z")).toBe("2026-08-20");
+    });
+
+    it("does not move the day for a zone west of Greenwich", () => {
+      // `new Date("2026-08-20T00:00:00.000Z").getDate()` is 19 in New York. The
+      // slice cannot be wrong that way, in any zone.
+      expect(dateKeyOf("2026-08-20T00:00:00.000Z")).not.toBe("2026-08-19");
+    });
   });
 
-  it("does not move the day for a zone west of Greenwich", () => {
-    // `new Date("2026-08-20T00:00:00.000Z").getDate()` is 19 in New York. The
-    // slice cannot be wrong that way, in any zone.
-    expect(dateKeyOf("2026-08-20T00:00:00.000Z")).not.toBe("2026-08-19");
-  });
+  describe("Date in — the DEVICE's day, and it IS shifted", () => {
+    it("reads local fields, which is right only for a local-midnight Date", () => {
+      // Local in, local out. Written this way on purpose: it is what a date
+      // picker hands back, and `pickedDateKey` in date-key.ts is the same rule.
+      expect(dateKeyOf(new Date(2026, 7, 20, 13, 30))).toBe("2026-08-20");
+    });
 
-  it("reads a real Date in the reader's own zone", () => {
-    expect(dateKeyOf(new Date(2026, 7, 20, 13, 30))).toBe("2026-08-20");
+    it("gives the DEVICE's day for an instant, which is why an instant is banned", () => {
+      // Pinned so the shift is on the record rather than implied. This instant
+      // is 01:30 on the 20th in Cairo and 22:30 on the 19th in UTC, and the
+      // branch answers with whichever zone the reader is in — never Cairo. A
+      // `todayKey` built on this is the bug the sibling commit removed.
+      const acrossCairoMidnight = new Date("2026-08-19T22:30:00.000Z");
+      const local = new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(acrossCairoMidnight);
+      expect(dateKeyOf(acrossCairoMidnight)).toBe(local);
+    });
   });
 
   it("answers empty for a missing value rather than throwing", () => {
