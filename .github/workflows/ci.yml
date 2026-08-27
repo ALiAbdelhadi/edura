@@ -232,8 +232,24 @@ jobs:
       - name: Typecheck
         run: bun run check-types
 
-      - name: Unit tests (www)
-        run: bun run --filter edura test:unit
+      # TWO ZONES, BOTH PINNED — and the pinning is the point.
+      #
+      # A GitHub runner's clock is UTC, so this step has ALWAYS been a UTC run;
+      # what it has never been is a CAIRO one. That is backwards for this
+      # product. The portals compare a session's day key against "today", and
+      # the wrong-day class of bug is invisible on a Cairo device and visible
+      # everywhere else — so the zone the business runs on and the zone that
+      # exposes the bug are different zones, and CI has to run both on purpose
+      # rather than inherit whichever one the runner happens to boot with.
+      #
+      # Neither run may depend on the runner's own TZ. If a future image ships
+      # a different default, an unpinned run would silently change which of
+      # these two questions CI is asking.
+      - name: Unit tests (www) — Cairo clock
+        run: bun run --filter edura test:unit:cairo
+
+      - name: Unit tests (www) — UTC clock
+        run: bun run --filter edura test:unit:utc
 
       # Migration tools (migrations/tools) — stdlib Python, no install step, no
       # database. They belong in `static` for one reason above the others: the

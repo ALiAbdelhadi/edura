@@ -14,6 +14,8 @@
     "check-types:sw": "tsc --noEmit -p tsconfig.sw.json",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:unit:cairo": "TZ=Africa/Cairo vitest run",
+    "test:unit:utc": "TZ=UTC vitest run",
     "test:watch": "vitest",
     "pretest:db": "tsx --env-file=.env.test ../../packages/database/scripts/db-guard.ts test",
     "test:db": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db",
