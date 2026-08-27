@@ -61,6 +61,11 @@ const APP_CTA: Record<RoleSlug, string> = {
   parent: "/register?role=parent",
   student: "/register?role=student",
   assistant: "/login",
+  // Staff cannot self-register either — a center owner creates them with a
+  // preset. So this page's CTA is addressed to the OWNER, which is what its
+  // copy says ("Running a center and staffing a desk?"), and it lands on
+  // center registration rather than on a sign-in the reader has no account for.
+  staff: "/register?role=center_admin",
 };
 
 export default async function RolePage({

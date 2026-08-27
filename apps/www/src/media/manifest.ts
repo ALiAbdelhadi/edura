@@ -115,6 +115,22 @@ export const MEDIA = {
   },
 
   /**
+   * The staff portal. `src: null` on purpose — this page ships before the
+   * shot exists, and a reserved plate holds the exact box the image will
+   * occupy rather than letting the page reflow when it lands. Shooting notes:
+   * the receptionist's screen mid-shift, so the reader sees the ONE view a
+   * front-desk hire is given rather than the owner's whole console.
+   */
+  roleStaff: {
+    id: "role-staff",
+    kind: "image",
+    src: null,
+    aspect: ASPECT_DESKTOP,
+    frame: "plate",
+    capture: { width: 1440, height: 900 },
+  },
+
+  /**
    * The confirm step that quotes the split before it is committed. This is
    * the money section's evidence: the section claims the quote and the ledger
    * are one function, and this is the screen where a reader can check it.

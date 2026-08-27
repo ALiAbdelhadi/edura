@@ -20,7 +20,10 @@ import type { MediaKey } from "@/media/manifest";
  * students, and any claim about performance. None of those are facts I have.
  */
 
-export const ROLE_SLUGS = ["center", "teacher", "parent", "student", "assistant"] as const;
+/* `staff` is sixth and last on purpose: the nav, the footer and the homepage's
+   role list all derive their ORDER from this array, and a center's own staff
+   are the role a visitor reaches for after the four they already know. */
+export const ROLE_SLUGS = ["center", "teacher", "parent", "student", "assistant", "staff"] as const;
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
 
 export function isRoleSlug(value: string): value is RoleSlug {
@@ -96,6 +99,10 @@ const ar: Record<RoleSlug, RolePage> = {
           { name: "الفصول", detail: "المجموعات وأسعارها وخطط الدفع اللي مفتوحة فيها." },
           { name: "الجدول", detail: "جدول الأسبوع لكل قاعة ومدرّس، والتعارضات بتتمنع قبل ما تحصل." },
           {
+            name: "طلبات التعاون",
+            detail: "مدرّس بيطلب يشتغل عندك — الطلب فيه المادة والسنة والقاعة والميعاد ونسبة السنتر. توافق، يتفتح الفصل والجدول لوحدهم.",
+          },
+          {
             name: "القاعات",
             detail: "كل قاعة وسعرها: نسبة على الحصة، أو تعريفة لكل طالب حاضر — وأنت بتحدد تعريفة قاعاتك بنفسك في حدود السقف المنشور.",
           },
@@ -123,6 +130,7 @@ const ar: Record<RoleSlug, RolePage> = {
           },
           { name: "ملاحظات الفريق", detail: "لوحة مهام للفريق: مفتوح، اتعمل، اترفض، ومين قرأ." },
           { name: "سجل التدقيق", detail: "كل عملية إدارية ومين عملها وإمتى — ومحدش يقدر يعدّله." },
+          { name: "الرسائل", detail: "محادثات مع المدرّسين وأولياء الأمور والطلبة، محكومة بالعلاقة — محدش بيراسل حد مالوش علاقة بيه." },
         ],
       },
     ],
@@ -183,6 +191,7 @@ const ar: Record<RoleSlug, RolePage> = {
             detail: "مساعد بيشتغل نيابة عنك في كل حاجة ما عدا الفلوس، وكل حركة بتتسجّل باسمه هو نيابة عنك — مش باسمك.",
           },
           { name: "ملاحظات الفريق", detail: "لوحة مهام بينك وبين مساعدينك." },
+          { name: "الرسائل", detail: "ولي الأمر بيسألك من جوه النظام، من غير ما تدّي رقمك الشخصي." },
         ],
       },
       {
@@ -233,6 +242,7 @@ const ar: Record<RoleSlug, RolePage> = {
             name: "سلامة الأبناء",
             detail: "محادثات ابنك مع الكبار، للقراءة فقط — ما بتلمسش الرسائل غير المقروءة ولا علامات القراءة، والطرفين شايفين إشعار إنك مطّلع.",
           },
+          { name: "الرسائل", detail: "تسأل المدرّس أو السنتر، وتقرا محادثات ابنك القاصر — الاطّلاع للقراءة بس." },
         ],
       },
       {
@@ -245,6 +255,7 @@ const ar: Record<RoleSlug, RolePage> = {
             detail: "فعّل حصة أو شهر لابنك من محفظتك أنت. الفلوس بتتسجّل في اسم ابنك زي أي دفعة، وأنت متسجّل كالدافع.",
           },
           { name: "محفظتي", detail: "رصيدك أنت، منفصل تمامًا عن محفظة ابنك." },
+          { name: "الاشتراكات", detail: "اشتراك شهري أو حصة بحصة، وأنت اللي بتختار عند الدفع. مفيش خصم تلقائي." },
         ],
       },
     ],
@@ -298,6 +309,7 @@ const ar: Record<RoleSlug, RolePage> = {
             detail: "كود من تمن خانات وQR موقّع، بيتطبع أو يتبعت واتساب. الكود ده هو اللي بيتقرا على الكاونتر.",
           },
           { name: "رمز العائلة", detail: "اربط ولي أمرك بموافقة الطرفين." },
+          { name: "الرسائل", detail: "تسأل مدرّسك من جوه النظام. لو أنت قاصر، ولي أمرك بيقدر يطّلع." },
         ],
       },
       {
@@ -305,6 +317,7 @@ const ar: Record<RoleSlug, RolePage> = {
         shot: null,
         capabilities: [
           { name: "المحفظة", detail: "شحن أونلاين أو كاش من الكاونتر، والدفع من الرصيد." },
+          { name: "الاشتراكات", detail: "اشتراكاتك: إيه اللي شغّال، وإيه اللي قرب يخلص." },
         ],
       },
     ],
@@ -394,6 +407,64 @@ const ar: Record<RoleSlug, RolePage> = {
     ctaBody: "الدعوة بتوصلك على إيميلك، وأنت اللي بتحط كلمة السر — المدرّس ما بيشوفهاش ولا بيحطها.",
     ctaPrimary: "افتح دعوتك",
   },
+
+  staff: {
+    label: "لموظفي السنتر",
+    headline: "كل موظف بيشوف شغله هو بس.",
+    question: "أوظّف حد على الكاونتر من غير ما أفتحله السنتر كله؟",
+    lede: "الموظف بياخد صفة جاهزة — استقبال أو مدير أو محاسب — والصفة هي اللي بتحدّد شاشته. الاستقبال بيشوف ست حاجات، المحاسب بيشوف خمسة، ومحدش بيشوف كونسول صاحب السنتر.",
+    hero: "roleStaff",
+    groups: [
+      {
+        label: "الاستقبال",
+        shot: null,
+        capabilities: [
+          { name: "الطلبة", detail: "تسجيل طالب جديد، تحصيل، وتأكيد الحضور على الكاونتر." },
+          { name: "الرسائل", detail: "الرد على ولي الأمر والطالب من نفس الشاشة، من غير أرقام شخصية." },
+        ],
+      },
+      {
+        label: "الإدارة",
+        shot: null,
+        capabilities: [
+          { name: "طلبات التعاون", detail: "طلبات المدرّسين اللي عايزين يشتغلوا في السنتر: قبول أو رفض." },
+          { name: "القاعات", detail: "المواعيد والأسعار وحجز القاعة." },
+          { name: "التقارير", detail: "نفس أرقام صاحب السنتر، للقراءة." },
+        ],
+      },
+      {
+        label: "الحسابات",
+        shot: null,
+        capabilities: [
+          { name: "المالية", detail: "التحصيل والمصروفات والكشوف — صفة المحاسب لوحدها اللي بتوصلها." },
+        ],
+      },
+      {
+        label: "الفريق",
+        shot: null,
+        capabilities: [
+          { name: "ملاحظات الفريق", detail: "لوحة مهام للورديّة: اللي اتعمل واللي لسه." },
+        ],
+      },
+    ],
+    guarantees: [
+      {
+        title: "الصفة هي السقف",
+        detail: "الاستقبال ما بيوصلش للمالية، والمحاسب ما بيوصلش لطلبات التعاون. ده مقفول في الـ API نفسه، مش إخفاء من القائمة بس.",
+      },
+      {
+        title: "اسمك على كل حركة",
+        detail: "كل تحصيل وكل تسجيل حضور بيتسجّل باسم اللي عمله. لو حصل خلاف على مبلغ، السطر بيقول مين كان على الكاونتر.",
+      },
+      {
+        title: "شيله في ثانية",
+        detail: "موظف مشي؟ بتوقف صفته، وجلساته بتقفل في نفس اللحظة — مش لما التوكن يخلص.",
+      },
+    ],
+    ctaTitle: "عندك سنتر ومحتاج تظبّط فريقك؟",
+    ctaBody: "الصفات جاهزة من الأول — بتختار الصفة والموظف بياخد شاشته على طول.",
+    ctaPrimary: "ابدأ بسنترك",
+  },
 };
 
 const en: Record<RoleSlug, RolePage> = {
@@ -434,6 +505,10 @@ const en: Record<RoleSlug, RolePage> = {
           { name: "Classes", detail: "Your groups, their prices, and which payment plans are open on them." },
           { name: "Schedule", detail: "The week per hall and per teacher, with conflicts refused before they happen." },
           {
+            name: "Collaboration requests",
+            detail: "A teacher asks to work at your center — subject, year, hall, schedule and the center's share are all in the request. Accept it and the class and its schedule are created for you.",
+          },
+          {
             name: "Rooms",
             detail: "Each hall and how it is priced: a share of the lesson, or a rate per attending student — which you set yourself, under the published ceiling.",
           },
@@ -461,6 +536,7 @@ const en: Record<RoleSlug, RolePage> = {
           },
           { name: "Team notes", detail: "A shared to-do board: open, done, declined, and who has read it." },
           { name: "Audit log", detail: "Every administrative action, who did it and when — and nobody can edit it." },
+          { name: "Messages", detail: "Threads with teachers, parents and students, scoped by relationship — nobody can message someone they have no relationship with." },
         ],
       },
     ],
@@ -521,6 +597,7 @@ const en: Record<RoleSlug, RolePage> = {
             detail: "An assistant acts on your behalf on everything except the money — and every action is recorded under their name on your behalf, never under yours.",
           },
           { name: "Team notes", detail: "A shared to-do board between you and your assistants." },
+          { name: "Messages", detail: "A parent reaches you inside the system, without you handing out a personal number." },
         ],
       },
       {
@@ -571,6 +648,7 @@ const en: Record<RoleSlug, RolePage> = {
             name: "Child safety",
             detail: "Your child's threads with adults, strictly read-only — it never touches unread counts or read receipts, and both sides see a notice that you can read it.",
           },
+          { name: "Messages", detail: "Ask the teacher or the center, and read your minor child's threads — oversight is read-only." },
         ],
       },
       {
@@ -583,6 +661,7 @@ const en: Record<RoleSlug, RolePage> = {
             detail: "Activate a lesson or a month for your child from your own wallet. The money is recorded in the child's name like any payment, with you recorded as the payer.",
           },
           { name: "My wallet", detail: "Your balance, entirely separate from your child's." },
+          { name: "Subscriptions", detail: "Monthly or per-session, chosen at checkout. Nothing renews by charging you automatically." },
         ],
       },
     ],
@@ -636,6 +715,7 @@ const en: Record<RoleSlug, RolePage> = {
             detail: "An eight-character code and a signed QR, printable or sent over WhatsApp. That code is what the counter reads.",
           },
           { name: "Family", detail: "Link your parent, with approval from both sides." },
+          { name: "Messages", detail: "Ask your teacher inside the system. If you are a minor, your guardian can see the thread." },
         ],
       },
       {
@@ -643,6 +723,7 @@ const en: Record<RoleSlug, RolePage> = {
         shot: null,
         capabilities: [
           { name: "Wallet", detail: "Top up online or in cash at the counter, and pay from the balance." },
+          { name: "Subscriptions", detail: "What you are covered for, and what is about to run out." },
         ],
       },
     ],
@@ -723,6 +804,64 @@ const en: Record<RoleSlug, RolePage> = {
     ctaTitle: "Been invited as an assistant?",
     ctaBody: "The invitation arrives at your own email, and you set your own password — the teacher never sees it and never sets it.",
     ctaPrimary: "Open your invitation",
+  },
+
+  staff: {
+    label: "For center staff",
+    headline: "Each hire sees only their own job.",
+    question: "Can I put someone on the desk without opening the whole center to them?",
+    lede: "Staff are hired into a preset — receptionist, manager or accountant — and the preset is the screen. A receptionist sees six things, an accountant five, and nobody sees the owner's console.",
+    hero: "roleStaff",
+    groups: [
+      {
+        label: "The front desk",
+        shot: null,
+        capabilities: [
+          { name: "Students", detail: "Register a walk-in, take payment, and check them in at the counter." },
+          { name: "Messages", detail: "Answer a parent or a student from the same screen, with no personal numbers involved." },
+        ],
+      },
+      {
+        label: "Managing",
+        shot: null,
+        capabilities: [
+          { name: "Collaboration requests", detail: "Teachers asking to work at the center — accept or decline." },
+          { name: "Rooms", detail: "Schedules, rates, and who has the hall." },
+          { name: "Reports", detail: "The owner's figures, read-only." },
+        ],
+      },
+      {
+        label: "Accounts",
+        shot: null,
+        capabilities: [
+          { name: "Finance", detail: "Collections, expenses and statements — the accountant preset alone reaches this." },
+        ],
+      },
+      {
+        label: "The team",
+        shot: null,
+        capabilities: [
+          { name: "Team notes", detail: "A shift's to-do board: what was done and what is still open." },
+        ],
+      },
+    ],
+    guarantees: [
+      {
+        title: "The preset is the ceiling",
+        detail: "A receptionist cannot reach finance, and an accountant cannot reach collaboration requests. That is enforced at the API, not by hiding a menu item.",
+      },
+      {
+        title: "Your name on every action",
+        detail: "Every payment taken and every check-in is recorded against whoever did it. If a figure is ever disputed, the line says who was at the desk.",
+      },
+      {
+        title: "Removed in a second",
+        detail: "Someone leaves, you stop their preset, and their sessions end in the same moment — not whenever a token happens to expire.",
+      },
+    ],
+    ctaTitle: "Running a center and staffing a desk?",
+    ctaBody: "The presets already exist — pick one and the hire gets their screen immediately.",
+    ctaPrimary: "Start with your center",
   },
 };
 

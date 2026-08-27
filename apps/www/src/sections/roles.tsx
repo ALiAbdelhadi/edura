@@ -25,6 +25,7 @@ const SHOT_KEYS: MediaKey[] = [
   "roleParent",
   "roleStudent",
   "roleAssistant",
+  "roleStaff",
 ];
 
 export function Roles({ t, locale }: { t: Messages; locale: Locale }) {
@@ -34,6 +35,7 @@ export function Roles({ t, locale }: { t: Messages; locale: Locale }) {
     t.media.roleParent,
     t.media.roleStudent,
     t.media.roleAssistant,
+    t.media.roleStaff,
   ];
 
   const entries: RoleEntry[] = t.roles.entries.map((entry, i) => ({

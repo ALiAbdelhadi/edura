@@ -122,7 +122,7 @@ const ar = {
   roles: {
     label: "لكل دور",
     pagesLabel: "صفحة لكل دور",
-    title: "خمس شاشات، كل واحدة بتجاوب على سؤال واحد.",
+    title: "ست شاشات، كل واحدة بتجاوب على سؤال واحد.",
     entries: [
       {
         who: "السنتر",
@@ -154,6 +154,12 @@ const ar = {
         detail:
           "كل اللي المدرّس بيعمله ما عدا الفلوس. وكل حركة بتتسجّل باسمك أنت نيابة عنه — مش باسمه.",
       },
+      {
+        who: "موظف السنتر",
+        question: "أشوف شغلي أنا بس، من غير السنتر كله؟",
+        detail:
+          "صفة جاهزة بتحدّد الشاشة: استقبال أو مدير أو محاسب. الاستقبال ما بيوصلش للمالية، والمحاسب ما بيوصلش لطلبات التعاون.",
+      },
     ],
   },
 
@@ -175,6 +181,34 @@ const ar = {
     ],
   },
 
+  communication: {
+    label: "التواصل",
+    title: "النظام بيوصل للناس من غير ما حد يدّي رقمه.",
+    body:
+      "التواصل جوّه النظام مش رفاهية: هو اللي بيخلي المدرّس ما يضطرش يدّي رقمه الشخصي، وولي الأمر يعرف يسأل، والقاصر يفضل تحت عين أهله.",
+    entries: [
+      {
+        title: "محادثات محكومة بالعلاقة",
+        detail:
+          "مش أي حد بيراسل أي حد. المدرّس بيراسل طلبته وأولياء أمورهم، والسنتر بيراسل اللي مشترك عنده. اللي مالوش علاقة، مالوش باب.",
+      },
+      {
+        title: "القاصر تحت عين أهله",
+        detail:
+          "لو الطالب قاصر، ولي أمره بيقدر يقرا محادثاته مع الكبار — قراءة بس، من غير ما يكتب مكانه. والقاصر هو الافتراض: من غير تاريخ ميلاد متحقَّق، الحساب بيتعامل كقاصر.",
+      },
+      {
+        title: "واتساب للي لسه ما دخلش",
+        detail:
+          "الطالب اللي بيتسجّل على الكاونتر بياخد رسالة واتساب فيها رقمه ولينك مؤمَّن يكمّل بيه بياناته — من غير ما يقف على الكاونتر يملّي ورق.",
+      },
+      {
+        title: "ملخص الاتنين لصاحب السنتر",
+        detail:
+          "إيميل أسبوعي بيلخّص الأسبوع اللي فات: الحصص، التحصيل، ومين لسه عليه. مش تقرير بتفتحه لما تفتكر — بييجي لك.",
+      },
+    ],
+  },
   integrity: {
     label: "الضمانات",
     title: "الوعود دي مكتوبة في قاعدة البيانات، مش في صفحة تسويق.",
@@ -228,6 +262,7 @@ const ar = {
     roleParent: "ولي الأمر بيدفع حصة أو شهر لابنه من محفظته هو.",
     roleStudent: "مواد الطالب المتحدّدة من سنته وشعبته، وجدوله.",
     roleAssistant: "المساعد بيسجّل حضور نيابة عن المدرّس، والتسجيل باسمه هو.",
+    roleStaff: "شاشة موظف الاستقبال في نص الورديّة — ست حاجات، مش كونسول صاحب السنتر.",
   },
 
   closing: {
@@ -364,7 +399,7 @@ const en: Messages = {
   roles: {
     label: "By role",
     pagesLabel: "A page for each",
-    title: "Five screens, each answering one question.",
+    title: "Six screens, each answering one question.",
     entries: [
       {
         who: "The center",
@@ -396,6 +431,12 @@ const en: Messages = {
         detail:
           "Everything the teacher does, except the money. And every action is recorded under your name on their behalf — never under theirs.",
       },
+      {
+        who: "Center staff",
+        question: "Can I see only my own job, not the whole center?",
+        detail:
+          "A preset decides the screen: receptionist, manager or accountant. A receptionist cannot reach finance, and an accountant cannot reach collaboration requests.",
+      },
     ],
   },
 
@@ -417,6 +458,34 @@ const en: Messages = {
     ],
   },
 
+  communication: {
+    label: "Communication",
+    title: "The system reaches people without anyone handing out a number.",
+    body:
+      "Messaging inside the product is not a nicety: it is what lets a teacher keep their personal number private, a parent ask a question, and a minor stay within their guardian's sight.",
+    entries: [
+      {
+        title: "Threads scoped by relationship",
+        detail:
+          "Not everyone can message everyone. A teacher reaches their own students and those students' parents; a center reaches the people subscribed to it. No relationship, no door.",
+      },
+      {
+        title: "A minor stays in their guardian's sight",
+        detail:
+          "If the student is a minor, their guardian can read their threads with adults — read-only, never writing as them. And minor is the default: without a verified date of birth, the account is treated as a minor.",
+      },
+      {
+        title: "WhatsApp for whoever has not signed in yet",
+        detail:
+          "A student registered at the counter gets a WhatsApp message with their student ID and a secure link to finish their own details — instead of standing at the desk filling in forms.",
+      },
+      {
+        title: "The owner's Monday email",
+        detail:
+          "A weekly summary of the week that ended: lessons, collections, and who still owes. Not a report you open when you remember — it arrives.",
+      },
+    ],
+  },
   integrity: {
     label: "Guarantees",
     title: "These promises live in the database, not on a marketing page.",
@@ -451,7 +520,7 @@ const en: Messages = {
     counterBoard:
       "The counter board: the running lesson already selected, cash taken and attendance recorded in one step.",
     settlementLoop:
-      "A teacher marks the room present, and the moment it saves the split appears: the teacher's share, the centre's and the platform's, per student, before the confirm is pressed.",
+      "A teacher marks the room present, and the moment it saves the split appears: the teacher's share, the center's and the platform's, per student, before the confirm is pressed.",
     walkInLoop:
       "A receptionist registers a new student at the counter — name and phone — and inside a minute the student code and the link to hand the guardian are on screen.",
     doorLoop:
@@ -465,6 +534,7 @@ const en: Messages = {
     roleParent: "A parent paying for a lesson or a month from their own wallet.",
     roleStudent: "A student's subjects, assigned from their year and track, and their schedule.",
     roleAssistant: "An assistant recording attendance for a teacher — under the assistant's name.",
+    roleStaff: "A receptionist's screen mid-shift — six things, not the owner's console.",
   },
 
   closing: {

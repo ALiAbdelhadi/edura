@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { Hero } from "@/sections/hero";
 import { Money } from "@/sections/money";
 import { Roles } from "@/sections/roles";
+import { Communication } from "@/sections/communication";
 import { Counter } from "@/sections/counter";
 import { Integrity } from "@/sections/integrity";
 import { Closing } from "@/sections/closing";
@@ -37,6 +38,7 @@ export default async function LandingPage({
         <Money t={t} locale={locale} />
         <Roles t={t} locale={locale} />
         <Counter t={t} locale={locale} />
+        <Communication t={t} locale={locale} />
         <Integrity t={t} locale={locale} />
         <Closing t={t} locale={locale} />
       </main>
