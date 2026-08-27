@@ -16,7 +16,9 @@ import {
   sessionsOnDay,
   startsAt,
   upcomingSessions,
+  weekDayKeys,
 } from "@/features/sessions/session-time";
+import * as sessionTime from "@/features/sessions/session-time";
 
 const s = (date: string, startTime: string, status = "scheduled") => ({
   date,
@@ -159,5 +161,60 @@ describe("isHappeningNow", () => {
     const session = s("2026-08-20T00:00:00.000Z", "16:00");
     expect(isHappeningNow(session, new Date("2026-08-20T16:10:00.000Z"))).toBe(false);
     expect(isHappeningNow(session, new Date("2026-08-20T13:10:00.000Z"))).toBe(true);
+  });
+});
+
+describe("weekDayKeys — the strip is anchored on the CAIRO day", () => {
+  // The instant is chosen so the two answers land in DIFFERENT WEEKS, which is
+  // the only way this assertion can discriminate. 2026-08-22 21:30Z is still
+  // Saturday the 22nd on a UTC device, but already 00:30 on SUNDAY the 23rd in
+  // Cairo — and Sunday is where a week starts here. So:
+  //
+  //   Cairo day  2026-08-23 (Sun) -> the week 23–29   <- correct
+  //   device day 2026-08-22 (Sat) -> the week 16–22   <- what it used to give
+  //
+  // A whole week apart, not a column. Pick an instant mid-week instead and both
+  // answers return the same seven keys, which is how a weaker version of this
+  // test would pass on the broken code.
+  const CAIRO_SUNDAY = new Date("2026-08-22T21:30:00.000Z");
+
+  it("returns the week holding the CAIRO day, a week away from the device's", () => {
+    expect(weekDayKeys(CAIRO_SUNDAY)).toEqual([
+      "2026-08-23",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-08-29",
+    ]);
+  });
+
+  it("starts on Sunday, matching the attendance heatmap", () => {
+    expect(weekDayKeys(new Date("2026-08-19T22:30:00.000Z"))[0]).toBe("2026-08-16");
+  });
+
+  it("moves whole weeks and crosses a month end cleanly", () => {
+    expect(weekDayKeys(CAIRO_SUNDAY, -1)[0]).toBe("2026-08-16");
+    expect(weekDayKeys(CAIRO_SUNDAY, 1)).toEqual([
+      "2026-08-30",
+      "2026-08-31",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-05",
+    ]);
+  });
+});
+
+describe("the module exports no `todayKey`", () => {
+  // A STRUCTURAL guard, not a style check. Two exported functions named
+  // `todayKey` — one Cairo, one device-local, same signature, same return
+  // shape — is what made this class of bug invisible: nothing at the import
+  // site said which one you had. Re-adding one here brings the ambiguity back
+  // whatever its body does, so the name itself is what is asserted absent.
+  it("does not re-introduce the name that shadowed the Cairo one", () => {
+    expect(Object.keys(sessionTime)).not.toContain("todayKey");
   });
 });

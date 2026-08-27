@@ -35,7 +35,7 @@
  */
 
 // Safe from a client component: `date-key` imports nothing and says so.
-import { platformInstant } from "@repo/server-core/lib/date-key";
+import { platformInstant, shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
 
 export type TimedSession = {
   date: string | Date;
@@ -63,10 +63,23 @@ export function dateKeyOf(value: string | Date | null | undefined): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Today, in the reader's own zone, in the same shape as `dateKeyOf`. */
-export function todayKey(now: Date = new Date()): string {
-  return dateKeyOf(now);
-}
+/* THERE IS NO `todayKey` IN THIS MODULE, and its absence is load-bearing.
+   ──────────────────────────────────────────────────────────────────────────
+   One lived here until 2026-08-27, returning `dateKeyOf(new Date())` — the
+   DEVICE's calendar day. `@repo/server-core/lib/date-key` exports a function
+   of the same name, the same signature and the same return shape that answers
+   the CAIRO day, and the two disagreed for the two hours (three on DST)
+   between Cairo midnight and a western device's. Nothing at either import site
+   showed which one you had:
+
+       import { todayKey } from "@repo/server-core/lib/date-key";   // Cairo
+       import { todayKey } from "@/features/sessions/session-time";  // the device
+
+   The center portal took the first, the student and parent portals the second,
+   so the two halves of the product disagreed about what day it was and no
+   symptom ever appeared in Cairo. Ask `date-key` — it is the only module that
+   should answer "what day is it", and it holds the three answers (UTC day,
+   picked day, platform day) separately on purpose. */
 
 /** `2026-08-20` exactly — anything else is not a day and must not be arithmetic. */
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -138,15 +151,23 @@ export function upcomingSessions<T extends TimedSession>(
  * disagreed about where a week starts would be worse than either choice.
  *
  * `offsetWeeks` moves whole weeks: -1 is last week, +1 is next.
+ *
+ * ANCHORED ON THE CAIRO DAY, like every other "what day is it" in the app.
+ * This used to read `now.getFullYear()/getMonth()/getDate()` — the DEVICE's
+ * day — and then walk the week with local `setDate` calls. West of Cairo, in
+ * the hours after Cairo midnight, that returned the previous week's strip: the
+ * highlighted "today" column was the wrong column, and on a Saturday the whole
+ * week started a day early. The weekday of a calendar date is the same in every
+ * zone once you have the date, so the arithmetic is pure calendar arithmetic
+ * (`shiftDayKey`) and no second instant is constructed.
  */
 export function weekDayKeys(now: Date = new Date(), offsetWeeks = 0): string[] {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  start.setDate(start.getDate() - start.getDay() + offsetWeeks * 7);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return dateKeyOf(d);
-  });
+  const key = todayKey(now);
+  const dow = new Date(
+    Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10))),
+  ).getUTCDay();
+  const start = shiftDayKey(key, offsetWeeks * 7 - dow);
+  return Array.from({ length: 7 }, (_, i) => shiftDayKey(start, i));
 }
 
 /** Sessions on one calendar day, soonest first — past ones included. */

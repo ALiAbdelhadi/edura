@@ -29,9 +29,11 @@ import {
 import {
   dateKeyOf,
   isHappeningNow,
-  todayKey,
   upcomingSessions,
 } from "@/features/sessions/session-time";
+// The CAIRO day. There used to be a `todayKey` in session-time returning the
+// device's day, and this screen imported that one.
+import { todayKey } from "@repo/server-core/lib/date-key";
 import { asRecord } from "@/lib/refine/as-record";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { GradeBandId } from "@repo/database/grading-scale";

@@ -30,9 +30,10 @@ import {
 import {
   isHappeningNow,
   sessionsOnDay,
-  todayKey,
   weekDayKeys,
 } from "@/features/sessions/session-time";
+// The CAIRO day — see the note in session-time.ts about the two `todayKey`s.
+import { todayKey } from "@repo/server-core/lib/date-key";
 
 type Session = {
   id?: string;

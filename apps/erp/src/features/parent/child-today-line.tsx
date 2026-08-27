@@ -5,7 +5,11 @@ import { useTranslations } from "next-intl";
 import { Chip, Eyebrow, Sheet } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
-import { todayKey } from "@/features/sessions/session-time";
+// The CAIRO day. This line answers "هل ابني حضر النهاردة؟" by matching an
+// attendance record's `date` against today, and a record's date is the day the
+// CENTER registered it on — so "today" has to be the center's day, not the
+// phone's.
+import { todayKey } from "@repo/server-core/lib/date-key";
 
 /**
  * "ابني راح الحصة النهاردة ولا لأ؟" — question number one, answered as a

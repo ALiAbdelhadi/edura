@@ -8,9 +8,10 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import {
   dateKeyOf,
   isHappeningNow,
-  todayKey,
   upcomingSessions,
 } from "@/features/sessions/session-time";
+// The CAIRO day — see the note in session-time.ts about the two `todayKey`s.
+import { todayKey } from "@repo/server-core/lib/date-key";
 
 /**
  * "الحصة الجاية" — the parent's structural question, answered for the first
