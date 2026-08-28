@@ -593,13 +593,26 @@ governs. Violating one of these is never a local change.
   CI is the exception and always has been: it creates its own throwaway
   Postgres per run, labelled `edura-env:test`, so a genuinely test-labelled
   database does exist there.
-  **[dev, 2026-08-18] A CONSEQUENCE, MEASURED:** `hall-booking.test.ts` A4
-  ("a per-student hall with NO configured rate is refused at REQUEST time")
-  FAILS on dev, and it is the DATA, not the code — `commission_settings` on dev
-  carries a **`global`-scope row with `center_per_student_bp = 1500`**, which the
-  room → center → global chain resolves, so the "no rate" case cannot arise.
-  Reproduces identically against unmodified `HEAD`. Do not chase it as a code
-  defect.
+  **[dev, 2026-08-28] THE `hall-booking` A4 WARNING THAT STOOD HERE IS
+  WITHDRAWN — A4 PASSES.** It said A4 ("a per-student hall with NO configured
+  rate is refused at REQUEST time") FAILS on dev because `commission_settings`
+  carried a `global` row with `center_per_student_bp = 1500`. Measured
+  2026-08-28, that column is **NULL** on dev; the `1500` on that row is
+  `center_share_bp`, a DIFFERENT column. The full erp suite run the same day
+  did not list `hall-booking` among its failures.
+  **A note like this is more dangerous than the bug it describes**: for ten days
+  it told every reader to dismiss a red A4 as known-and-fine, which is exactly
+  how a real regression walks in unchallenged. Verify a claim like this against
+  the database before repeating it.
+  **THE UNDERLYING HAZARD IS REAL AND STILL LOADED**, which is probably what was
+  measured in August: `packages/database/prisma/room-rate-demo-seed.ts` writes
+  `centerPerStudentBp = 1500` onto the **global** `commission_settings` row —
+  and its `else if` branch fills that column in even when the row already
+  exists. That is a DEMO seed permanently mutating non-demo platform money
+  config, which no `is_demo` purge reverses. Run that seed on any database and
+  A4 goes red again, for the reason the withdrawn note described.
+  A4 is also **not hermetic**: it asserts a refusal that only happens while a
+  globally-scoped value is ABSENT, and the superadmin UI can set that value.
 - **`expected-db-shape.json`** is committed at **53** and now TRAILS BOTH
   environments, which sit at 55 since 2026-08-20. Harmless as it stands: both
   migrations are additive — an extension, a function and five indexes — so the

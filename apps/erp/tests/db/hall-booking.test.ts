@@ -213,11 +213,39 @@ async function main() {
   const aPerStudent = await createCollaborationRequest(input({ roomId: fx.rooms.perStudent }), T);
   assert(aPerStudent.proposedPricingMethod === "per_attending_student", "A3 a per-student-ONLY hall forces per_attending_student");
 
-  await expectError(
-    () => createCollaborationRequest(input({ centerId: fx.bare, roomId: fx.rooms.unrated }), T),
-    "not configured",
-    "A4 a per-student hall with NO configured rate is refused at REQUEST time (not at settlement)",
+  const globalRate = await withPlatformContext((tx) =>
+    tx.commissionSetting.findFirst({
+      where: { scope: "global" },
+      select: { id: true, centerPerStudentFee: true, centerPerStudentBp: true },
+    }),
   );
+  try {
+    if (globalRate && (globalRate.centerPerStudentFee !== null || globalRate.centerPerStudentBp !== null)) {
+      await withPlatformContext((tx) =>
+        tx.commissionSetting.update({
+          where: { id: globalRate.id },
+          data: { centerPerStudentFee: null, centerPerStudentBp: null },
+        }),
+      );
+    }
+    await expectError(
+      () => createCollaborationRequest(input({ centerId: fx.bare, roomId: fx.rooms.unrated }), T),
+      "not configured",
+      "A4 a per-student hall with NO configured rate is refused at REQUEST time (not at settlement)",
+    );
+  } finally {
+    if (globalRate && (globalRate.centerPerStudentFee !== null || globalRate.centerPerStudentBp !== null)) {
+      await withPlatformContext((tx) =>
+        tx.commissionSetting.update({
+          where: { id: globalRate.id },
+          data: {
+            centerPerStudentFee: globalRate.centerPerStudentFee,
+            centerPerStudentBp: globalRate.centerPerStudentBp,
+          },
+        }),
+      );
+    }
+  }
 
   const aBothDefault = await createCollaborationRequest(input({ roomId: fx.rooms.both }), T);
   assert(aBothDefault.proposedPricingMethod === "whole_room_percent", "A5 a both-methods hall defaults to the classic % when the teacher sends nothing");

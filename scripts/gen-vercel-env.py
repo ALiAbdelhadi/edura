@@ -68,6 +68,10 @@ ensure_secret("PAYMOB_HMAC_SECRET",
               "Signs the mock gateway's own webhooks. Replace with Paymob's real "
               "secret when PAYMENTS_MODE stops being 'mock'.")
 
+# ADMIN_URL is deliberately NOT emitted to any Vercel file. It is the database
+# OWNER string, no app reads it (only packages/database/scripts/* do), and
+# src/extensions/index.ts refuses to serve at all under a BYPASSRLS role:
+# "ADMIN_URL — those must never appear in a serving environment."
 MISSING = "REPLACE_ME"
 
 OPTIONAL = {
@@ -119,7 +123,7 @@ emit(".env-erp", "Vercel project: ERP (apps/erp) — the product",
   ("Secrets — required in production, no fallback",
      ["NEXTAUTH_SECRET","STUDENT_QR_SECRET","VIEW_AS_SECRET","REALTIME_JWT_SECRET","INTERNAL_API_SECRET","CRON_SECRET"]),
   ("Database — role edura_app, never neondb_owner",
-     ["DATABASE_URL","DIRECT_URL","ADMIN_URL","DATABASE_DRIVER","DATABASE_POOL_MAX"]),
+     ["DATABASE_URL","DIRECT_URL","DATABASE_DRIVER","DATABASE_POOL_MAX"]),
   ("Payments", ["PAYMENTS_MODE","PAYMOB_HMAC_SECRET","PAYMOB_API_KEY",
      "PAYMOB_INTEGRATION_ID_CARD","PAYMOB_INTEGRATION_ID_WALLET"]),
   ("Mail", ["MAIL_PROVIDER","MAIL_FROM","MAIL_REPLY_TO","SMTP_HOST","SMTP_PORT",
@@ -131,6 +135,8 @@ emit(".env-erp", "Vercel project: ERP (apps/erp) — the product",
      "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"]),
   ("Realtime (the Railway service)", ["NEXT_PUBLIC_REALTIME_URL","REALTIME_INTERNAL_URL"]),
   ("Web push", ["VAPID_PRIVATE_KEY","NEXT_PUBLIC_VAPID_PUBLIC_KEY","VAPID_SUBJECT"]),
+  ("Observability — next.config.ts refuses to build for production without this",
+     ["NEXT_PUBLIC_SENTRY_DSN"]),
   ("Rate limiting and proxy", ["REDIS_URL","TRUSTED_PROXY_HOPS","TRUSTED_CLIENT_IP_HEADER"])],
  {"NEXTAUTH_URL": ERP_URL, "APP_BASE_URL": ERP_URL,
   "NEXT_PUBLIC_APP_URL": ERP_URL, "MARKETING_SITE_URL": WWW_URL,
@@ -148,10 +154,12 @@ emit(".env-superadmin", "Vercel project: superadmin (apps/superadmin) — the ba
   "credential to a route that only exists in the other app."],
  [("Public URLs — this app signs in at its OWN host", ["NEXTAUTH_URL","APP_BASE_URL","ERP_BASE_URL"]),
   ("Secrets", ["SUPERADMIN_NEXTAUTH_SECRET","STUDENT_QR_SECRET","VIEW_AS_SECRET","INTERNAL_API_SECRET"]),
-  ("Database", ["DATABASE_URL","DIRECT_URL","ADMIN_URL","DATABASE_DRIVER","DATABASE_POOL_MAX"]),
+  ("Database", ["DATABASE_URL","DIRECT_URL","DATABASE_DRIVER","DATABASE_POOL_MAX"]),
   ("Mail", ["MAIL_PROVIDER","MAIL_FROM","SMTP_HOST","SMTP_PORT","SMTP_SECURE","SMTP_USER","SMTP_PASS"]),
   ("Media", ["CLOUDINARY_CLOUD_NAME","CLOUDINARY_API_KEY","CLOUDINARY_API_SECRET",
      "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"]),
+  ("Observability — next.config.ts refuses to build for production without this",
+     ["NEXT_PUBLIC_SENTRY_DSN"]),
   ("Rate limiting and proxy", ["REDIS_URL","TRUSTED_PROXY_HOPS","TRUSTED_CLIENT_IP_HEADER"])],
  {"NEXTAUTH_URL": SA_URL, "APP_BASE_URL": SA_URL, "ERP_BASE_URL": ERP_URL})
 
