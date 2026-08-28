@@ -851,8 +851,25 @@ docs/security/security-audit.md for the full report and severities.
   anything.** Its real effect is now unverified. Leave it for the moment, but
   treat re-checking it as its own small task, not as settled fact.
 
-  No security-sensitive runtime dep (next/react/prisma/bcryptjs/zod/jose/
-  socket.io/ioredis) has been bumped by any of this — deliberately out of scope.
+  **[2026-08-28] SUPERSEDED — that sentence is no longer true.** It said no
+  security-sensitive runtime dep had been bumped. On 2026-08-28 `node_modules`,
+  every `.next`/`.turbo` and `bun.lock` were deleted and reinstalled from
+  scratch, and re-resolution moved four of them inside the ranges package.json
+  already declared: **next 16.2.12 → 16.3.0**, **prisma and @prisma/client
+  7.9.0 → 7.10.0**, **jose 6.2.4 → 6.2.10**, **nodemailer 9.0.3 → 9.0.6**. The
+  first two are MINOR, not patch. `react`, `bcryptjs`, `zod`, `socket.io`,
+  `better-auth`, `ioredis` and `typescript` did not move.
+
+  **`bun audit` is now 2 (1 high, 1 moderate), not 5.** Three of the five
+  documented above as STAYING were resolved by the newer transitive versions
+  that clean install picked up — so read that list as a snapshot of
+  2026-08-27, not as current. No manifest was edited to achieve any of this;
+  1217 → 1223 resolutions, 230 version changes, 6 additions, nothing removed.
+
+  Verified on the new set the same day: prisma client generates, check-types
+  9/9, `bun run build` 3/3 apps, erp unit suite 1447 passed / 1 skipped —
+  identical counts to before. The DB suites and E2E were NOT run locally
+  against it; CI is what covers those.
 - Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
   **M6** (materials %PDF- magic-byte check).
 - **M8** — *Done (2026-08-26):* the last `$queryRawUnsafe` (a fully static

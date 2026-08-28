@@ -7,7 +7,7 @@ import { SettlementRegister } from "@/components/settlement-register";
 
 export function Hero({ t, locale }: { t: Messages; locale: Locale }) {
   return (
-    <section className="mx-auto w-full max-w-[87.5rem] px-6 pt-16 pb-16 md:px-10 lg:pt-24 lg:pb-24">
+    <section className="mx-auto w-full max-w-350 px-6 pt-16 pb-16 md:px-10 lg:pt-24 lg:pb-24">
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,31rem)_1fr] lg:gap-20">
         <div className="order-2 lg:order-1">
           <SettlementRegister t={t} locale={locale} />
@@ -36,7 +36,7 @@ export function Hero({ t, locale }: { t: Messages; locale: Locale }) {
           <ul className="mt-10 space-y-3 border-t border-rule pt-6">
             {t.hero.assurances.map((line) => (
               <li key={line} className="flex items-baseline gap-3 text-[0.875rem] text-ink-3">
-                <span aria-hidden="true" className="mt-1.5 h-[2px] w-4 shrink-0 bg-gold" />
+                <span aria-hidden="true" className="mt-1.5 h-0.5 w-4 shrink-0 bg-gold" />
                 <span>{line}</span>
               </li>
             ))}

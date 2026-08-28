@@ -181,4 +181,7 @@ emit(".env-realtime", "Railway service: realtime (apps/realtime) — NOT a Verce
   ("Shared secrets — identical to the ERP", ["REALTIME_JWT_SECRET","INTERNAL_API_SECRET"]),
   ("Database", ["DATABASE_URL","DATABASE_DRIVER"]),
   ("Port", ["REALTIME_PORT"])],
- {"APP_ORIGIN": ERP_URL, "APP_INTERNAL_URL": ERP_URL})
+ # DATABASE_DRIVER is pg here, not the ws the shared source carries: Railway
+ # runs a long-lived process with a direct TCP connection, while ws is for the
+ # serverless Vercel apps. Matches the live Railway config (verified 2026-08-28).
+ {"APP_ORIGIN": ERP_URL, "APP_INTERNAL_URL": ERP_URL, "DATABASE_DRIVER": "pg"})

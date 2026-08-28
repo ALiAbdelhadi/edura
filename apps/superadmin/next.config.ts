@@ -113,8 +113,10 @@ const sentryBuildOptions = {
     disable: !process.env.SENTRY_AUTH_TOKEN,
   },
   widenClientFileUpload: true,
-  disableLogger: true,
-  automaticVercelMonitors: false,
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: false,
+  },
 };
 
 const baseConfig = withNextIntl(nextConfig);

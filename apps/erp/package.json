@@ -6,7 +6,7 @@
     "dev": "next dev -p ${WWW_PORT:-3002}",
     "dev:pwa": "SERWIST_DEV=1 next dev -p ${WWW_PORT:-3002} --webpack",
     "build": "next build --webpack",
-    "build:light": "SERWIST_DISABLE=1 next build --webpack",
+    "build:light": "SERWIST_DISABLE=1 next build",
     "start": "bun --bun next start -p 3003",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

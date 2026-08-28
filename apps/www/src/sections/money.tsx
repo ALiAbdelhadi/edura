@@ -36,7 +36,7 @@ export function Money({ t, locale }: { t: Messages; locale: Locale }) {
               <dd className="col-span-2 max-w-[46ch] text-[0.9375rem] leading-[1.7] text-ink-2 sm:col-span-1">
                 {basis.detail}
               </dd>
-              <div className="khana col-start-2 row-start-1 flex w-[7.5rem] items-center justify-end ps-5 sm:col-start-3 sm:w-[9rem] sm:ps-8">
+              <div className="khana col-start-2 row-start-1 flex w-30 items-center justify-end ps-5 sm:col-start-3 sm:w-36 sm:ps-8">
                 {basis.value ? (
                   <Figure value={basis.value} currency={t.register.currency} post />
                 ) : (

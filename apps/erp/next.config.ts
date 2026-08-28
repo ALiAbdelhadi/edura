@@ -87,6 +87,12 @@ const nextConfig = {
 
     ...(process.env.SERWIST_DISABLE === "1" ? { webpackBuildWorker: false } : {}),
 
+    // Next 16.3 deprecates this in favour of the top-level cacheComponents,
+    // but that option REFUSES any route exporting `dynamic`, and ~340 routes
+    // here do — deliberately, because money, wallets, subscriptions,
+    // attendance, messaging and auth must never be cached. Migrating is a
+    // per-route rendering review, not a rename. Left on the deprecated option
+    // until that review happens.
     useCache: true,
   },
 
@@ -174,9 +180,10 @@ const sentryBuildOptions = {
 
   widenClientFileUpload: true,
 
-  disableLogger: true,
-
-  automaticVercelMonitors: false,
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: false,
+  },
 };
 
 export default withOptionalSentry(withSerwist(withNextIntl(nextConfig)));

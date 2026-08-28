@@ -8,7 +8,7 @@ import { Ink } from "@/components/ink";
 export function Closing({ t, locale }: { t: Messages; locale: Locale }) {
   return (
     <section id="closing" className="border-t border-rule">
-      <div className="mx-auto w-full max-w-[72rem] px-6 py-14 md:px-10 md:py-24 lg:py-32">
+      <div className="mx-auto w-full max-w-6xl px-6 py-14 md:px-10 md:py-24 lg:py-32">
         <div className="grid items-center gap-14 lg:grid-cols-[1fr_auto] lg:gap-20">
           <div>
             <Ink

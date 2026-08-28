@@ -34,7 +34,12 @@ export async function writePreview(input: {
     const { mkdir, writeFile } = await import("node:fs/promises");
     const { join, resolve } = await import("node:path");
 
-    const dir = resolve(process.env.NOTIFICATIONS_PREVIEW_DIR ?? PREVIEW_DIR_DEFAULT);
+    // turbopackIgnore keeps this dev-only path out of the production trace.
+    // isPreviewMode() returns false when NODE_ENV is production, so nothing
+    // below line 31 ever runs there — but Turbopack cannot see that, and a
+    // resolve() over a variable makes it trace the WHOLE project into the
+    // server bundle, public folder included.
+    const dir = resolve(/*turbopackIgnore: true*/ process.env.NOTIFICATIONS_PREVIEW_DIR ?? PREVIEW_DIR_DEFAULT);
     await mkdir(dir, { recursive: true });
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
