@@ -1,0 +1,26 @@
+# Local build output and caches. Vercel builds from source on its own
+# machines, so uploading these only inflates the deploy payload — the CLI
+# packed 3 GB and the upload failed with an internal error before this existed.
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+.next
+**/.next
+.next-review
+**/.next-review
+.next-*
+**/.next-*
+graphify-out
+.claude
+**/.claude
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+
+# Env files NEVER ship — Vercel injects env from the dashboard, and the
+# app-level .env.production symlinks break tar extraction there anyway.
+.env*
+**/.env*
