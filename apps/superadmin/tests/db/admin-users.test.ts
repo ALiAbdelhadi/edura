@@ -142,7 +142,7 @@ async function main() {
       typeof detail.sessions[0]?.userAgent === "string",
       "the session carries a device string",
     );
-    const missing = await rejects(() => getUserDetail(superAdmin.id.replace(/.$/, "0")), /not found|invalid/i);
+    const missing = await rejects(() => getUserDetail(superAdmin.id.replace(/.$/, (c) => (c === "0" ? "1" : "0"))), /not found|invalid/i);
     assert(missing.threw, "an unknown id is a clean not-found, not a crash");
 
     section("3. Suspend — ONE mechanism, and it revokes");
