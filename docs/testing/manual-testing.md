@@ -2,7 +2,7 @@
 
 > ## ⚠️ PARTIALLY STALE — VERIFY BEFORE USE
 >
-> **Last accurate: the Newman/MongoDB era (pre-Prisma migration).** This
+> **Last accurate: the Newman era (pre-Prisma).** This
 > document is framed around a **Newman e2e harness that no longer exists** —
 > the PRD compliance audit confirms `scripts/e2e-runner.mjs` and the
 > `bun run test:e2e` script were never present post-migration

@@ -59,29 +59,29 @@ Both record state in `_prisma_migrations`, so they are interchangeable.
 
 ## Seeding
 
-> **⚠️ STALE — both sentences below are wrong as of 2026-07-26. Do not act on
-> them.** Kept verbatim for history; superseded, not rewritten.
+> **⚠️ Read before running any seed.**
 >
-> - *"Production data was ported from MongoDB via a one-time ETL"* — no. The
->   production database is an EMPTY SCHEMA SHELL: 68 tables, zero rows, no
->   catalog, no staff accounts. It has never been seeded.
-> - *"safe to run anywhere"* — no, and this is the dangerous one. `prisma/seed.ts`
->   now reads the `edura-env:` label from **inside** the target database and
->   **refuses an unlabelled one outright**; against a `production`-labelled
->   database it additionally refuses unless `SEED_SUPERADMIN_EMAIL`,
+> - **There was never a data import into production.** No ETL and no port from
+>   any prior system — the production database has only ever been written by
+>   `prisma/seed.ts`. Measured 2026-08-29: 2 users (the staff accounts) and 45
+>   catalog subjects, with zero students, centres, courses, enrolments or
+>   payments.
+> - **A seed is not "safe to run anywhere".** `prisma/seed.ts` reads the
+>   `edura-env:` label from **inside** the target database and **refuses an
+>   unlabelled one outright**; against a `production`-labelled database it
+>   additionally refuses unless `SEED_SUPERADMIN_EMAIL`,
 >   `SEED_SUPERADMIN_PASSWORD`, `SEED_ACCOUNTANT_EMAIL` and
->   `SEED_ACCOUNTANT_PASSWORD` are all set (they are absent from
->   `.env.production` today, which is why production is empty). Against a
->   `dev`-labelled database it writes the full NILE demo world, which is the
->   opposite of "only baseline accounts".
+>   `SEED_ACCOUNTANT_PASSWORD` are all set. Against a `dev`-labelled database it
+>   writes the full NILE demo world, which is the opposite of "only baseline
+>   accounts".
 > - Correct order for a fresh environment: `label-db` → `bootstrap-app-role` →
 >   `prisma migrate deploy` → `seed` → `verify-db`. Re-running the seed rewrites
 >   the super_admin password — see
 >   [../reports/seed-and-fixture-findings.md](../reports/seed-and-fixture-findings.md).
 
-Production data was ported from MongoDB via a one-time ETL (July 2026).
-`bun run db:seed` only upserts the demo/baseline accounts — safe to run anywhere,
-but only needed for fresh/preview databases.
+`bun run seed --no-demo` is the production-equivalent path: catalog, the two real
+staff accounts and points rules, and zero demo entities.
+
 
 ## Post-deploy checklist
 

@@ -20,7 +20,7 @@ confirm these are the intended business rules**):
 - A **"booked lesson" = one PRESENT student** in a completed session.
 - **lessonPrice** per present student = `round(course.price / plannedSessions)`.
 - **centerShare** per lesson = the active `CenterTeacherAffiliation.centerShare`
-  for (center, teacher), default `0`. *(ETL did not populate this from Mongo —
+  for (center, teacher), default `0`. *(no data import ever populated this —
   set per-teacher shares via the affiliation to make center margins non-zero.)*
 - **Platform fee = EGP 2 from teacher + EGP 2 from center per booked lesson**
   (200 + 200 piasters), exactly per PRD §5.1.

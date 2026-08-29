@@ -269,7 +269,7 @@ Ordering principles: fix the broken migration workflow first; land the app split
 **Schema:** none (restores correctness only).
 1. Reconcile `packages/database/prisma/schema.prisma` with the applied migrations/generated client (assistant role, TeacherAssistant, Conversation models, catalog models, onboarding fields). Until this lands, any `prisma generate` or new migration is dangerous.
 2. Commit the two untracked migrations (`education_catalog`, `realtime_chat`) — they exist in the DB but not in git.
-3. Replace the stock Turborepo `README.md`; delete/refresh the stale `apps/www/AGENTS.md` (describes a dead Mongoose stack).
+3. Replace the stock Turborepo `README.md`; delete/refresh the stale `apps/www/AGENTS.md` (describes a dead pre-Prisma stack).
 
 **Risk:** low, but *doing anything else first* risks generating a client that drops half the schema.
 

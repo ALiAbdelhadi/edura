@@ -2,8 +2,8 @@
 
 > ## ⚠️ STALE — DO NOT TREAT AS CURRENT
 >
-> **Last accurate: the MongoDB era (pre-Prisma migration).** This analysis
-> cross-references **MongoDB collections** and a Mongo-era seed layout
+> **Last accurate: the pre-Prisma era.** This analysis
+> cross-references the **pre-Prisma data model** and a seed layout
 > (`seed/center.ts`, `seed/users.ts`, …) that no longer exist. The project now
 > seeds **Neon Postgres via Prisma** (`packages/database/prisma/seed.ts` plus
 > the per-feature demo seeds), so the collection names, counts, and source-file
@@ -17,14 +17,14 @@
 > [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
 > anything in this file.
 
-> Cross-reference of all MongoDB collections vs what `bun run seed` actually
+> Cross-reference of the pre-Prisma entity set vs what `bun run seed` actually
 > creates. Identifies what's missing for production demo readiness.
 
 ---
 
 ## Current Seed Coverage
 
-| Collection | Seeded? | Count | Source file |
+| Entity | Seeded? | Count | Source file |
 |------------|---------|-------|-------------|
 | Center | Yes | 1 (NILE01) | `seed/center.ts` |
 | Room | Yes | 6 | `seed/center.ts` |
@@ -202,7 +202,7 @@ being present. If `bun run seed` hasn't run, dashboards show zeros/empty lists.
 ## Checklist Before Production Demo
 
 ```
-[ ] Run `bun run seed` against production MongoDB
+[ ] Seed a fresh environment in order: db:label -> db:bootstrap-role -> migrate deploy -> seed -> db:verify
 [ ] Verify admin login: admin@nile-academy.eg / Passw0rd!
 [ ] Verify admin dashboard shows non-zero counts
 [ ] Verify teacher login: hossam.aziz@nile-academy.eg / Passw0rd!

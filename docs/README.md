@@ -56,14 +56,14 @@ Operational how-to.
 | [deployment.md](guides/deployment.md) | Deploying to Vercel + Neon: project settings, required env vars, post-deploy checks. |
 | [test-credentials.md](guides/test-credentials.md) | Seeded dev/demo login accounts for each role. |
 | [whatsapp-templates.md](guides/whatsapp-templates.md) | WhatsApp message template bodies to submit for Meta approval, in both languages. |
-| [runbook.md](guides/runbook.md) | ⚠️ **Stale** — operational runbook last accurate 2026-05-07; still describes MongoDB/DaisyUI. Historical reference only; see the banner in the file. |
+| [runbook.md](guides/runbook.md) | ⚠️ **Stale** — operational runbook rewritten 2026-08-29 for the Neon/Prisma stack; earlier sections still describe DaisyUI. Historical reference only; see the banner in the file. |
 
 ## testing/
 
 | Document | What it's for |
 |---|---|
 | [manual-testing.md](testing/manual-testing.md) | ⚠️ **Partially stale** — manual QA scenarios (uploads, email, UI, rate limits) with P1–P3 priorities. The scenarios are still useful; the Newman-harness framing and coverage claims are outdated. |
-| [seed-data-gaps.md](testing/seed-data-gaps.md) | ⚠️ **Stale** — seed coverage gap analysis written against MongoDB collections, pre-Prisma. Historical reference only. |
+| [seed-data-gaps.md](testing/seed-data-gaps.md) | ⚠️ **Stale** — seed coverage gap analysis written against the pre-Prisma data model. Historical reference only. |
 
 ---
 

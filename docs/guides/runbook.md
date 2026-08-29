@@ -5,9 +5,10 @@
 > **Last accurate: 2026-05-07.** This runbook describes a stack the project no
 > longer uses. Specifically outdated:
 >
-> - **MongoDB Atlas** — the database is now **Neon Postgres via Prisma** with
->   row-level security (`packages/database`). Every Mongo collection, query,
->   connection-string, and backup instruction below is obsolete.
+> - **Sections 2 (Environment Setup) and 4 (Seeding) were rewritten 2026-08-29**
+>   for the current database — **Neon Postgres via Prisma** with row-level
+>   security (`packages/database`). Treat those two as current; every other
+>   section below still predates them.
 > - **DaisyUI 5** — the UI migrated to **shadcn/ui** (Radix + Tailwind v4)
 >   via `@repo/ui`.
 > - **Zustand** — no longer the state layer described here.
@@ -27,8 +28,8 @@
 > and [CLAUDE.md](../../CLAUDE.md). Verify against the codebase before acting on
 > anything in this file.
 
-> Last updated: 2026-05-07
-> Stack: Next.js 14 · MongoDB Atlas · NextAuth JWT · Zustand · DaisyUI 5 · Tailwind 4
+> Last updated: 2026-05-07 (sections 2 and 4 rewritten 2026-08-29)
+> Stack: Next.js 16 · Neon Postgres via Prisma · better-auth · shadcn/ui · Tailwind 4
 
 ---
 
@@ -71,7 +72,7 @@ The demo instance is pre-seeded with **Nile Educational Academy** (أكاديم�
 ### Prerequisites
 
 - Bun 1.3.12 (`curl -fsSL https://bun.sh/install | bash`)
-- MongoDB Atlas cluster (or local `mongod --replSet rs0` for transactions)
+- A Neon Postgres branch (or any Postgres 16+ reachable over TLS)
 
 ### Install
 
@@ -83,42 +84,51 @@ bun install
 
 ### Environment variables
 
-Fill `.env` in the project root (all apps/packages read it via symlinks; `.env.production` carries the same keys):
+Every app and package reads its own gitignored env file: `.env.local` in
+development, `.env.production` for the deployed stack (the app-level
+`.env.production` files are symlinks to the one at the repo root). Nothing is
+committed — `.env*` is gitignored and there is no example carve-out.
+
+The authoritative key list is `.github/scripts/write-env-local.sh`, which is what
+CI materialises before every run. A minimal development file:
 
 ```env
-# MongoDB
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?appName=<app>
-MONGODB_DB=edura
+# Database — Neon Postgres. Three roles, deliberately separate:
+#   DATABASE_URL  runtime app role (edura_app, NOBYPASSRLS)
+#   DIRECT_URL    same role, unpooled — used by prisma migrate
+#   ADMIN_URL     database owner — migrations, bootstrap, fixture teardown only
+DATABASE_URL=postgresql://edura_app:<password>@<endpoint>-pooler.<region>.aws.neon.tech/neondb?sslmode=require
+DIRECT_URL=postgresql://edura_app:<password>@<endpoint>.<region>.aws.neon.tech/neondb?sslmode=require
+ADMIN_URL=postgresql://<owner>:<password>@<endpoint>-pooler.<region>.aws.neon.tech/neondb?sslmode=require
+DATABASE_DRIVER=ws
 
-# NextAuth — generate secret with: openssl rand -base64 32
-NEXTAUTH_SECRET=<your-secret>
+# Auth — one secret per app, and they must differ
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+SUPERADMIN_NEXTAUTH_SECRET=<a different one>
 NEXTAUTH_URL=http://localhost:3002
 
-# Email (use "console" to print to stdout in dev)
+# Dedicated secrets — required in production, no fallback
+REALTIME_JWT_SECRET=<openssl rand -base64 32>
+INTERNAL_API_SECRET=<openssl rand -base64 32>
+CRON_SECRET=<openssl rand -base64 32>
+
+# Modes — must be explicit
+PAYMENTS_MODE=mock
+WHATSAPP_MODE=mock
 MAIL_PROVIDER=console
-MAIL_FROM=no-reply@edura.local
+INVITE_CHANNELS=email
+SMS_PROVIDER=console
 
 # App
 APP_BASE_URL=http://localhost:3002
-
-# Seed password for all demo accounts
-SEED_PASSWORD=Passw0rd!
 ```
 
-#### Current root `.env` (dev / demo)
-
-```env
-MONGODB_URI=mongodb+srv://<REDACTED>
-MONGODB_DB=edura
-NEXTAUTH_SECRET=KtaKlwLYhfgqY7EM9APZmjH12I_Y8HpDBPjOrK-ENkQ
-NEXTAUTH_URL=http://localhost:3002
-MAIL_PROVIDER=console
-MAIL_FROM=no-reply@edura.local
-APP_BASE_URL=http://localhost:3002
-SEED_PASSWORD=Passw0rd!
-```
-
-> **Note:** The Atlas cluster has IP whitelisting. Run `bun run seed` from a machine whose IP is whitelisted, or add `0.0.0.0/0` in Atlas Network Access for dev.
+> **`EDURA_ENV` is what selects the database, and nothing else.** Unset reaches
+> **dev**; `EDURA_ENV=production` reaches production and arms the guard that
+> refuses `migrate dev`, `migrate reset`, `db push` and `db execute`. Sourcing an
+> env file into the shell does **not** redirect it. Read the
+> `Datasource "db": ... at "<host>"` line Prisma prints on every invocation and
+> check the endpoint before trusting anything that follows.
 
 ---
 
@@ -145,16 +155,32 @@ The app opens at `http://localhost:3002` which redirects to `/login`.
 
 ## 4. Seeding the Database
 
-The seed script is **idempotent** — safe to run multiple times. It uses upsert operations so re-running converges to the same state.
+The seed is **idempotent** — it upserts, so re-running converges to the same
+state. It reads the `edura-env:` label from **inside** the target database and
+**refuses an unlabelled one outright**; against a `production`-labelled database
+it additionally refuses unless `SEED_SUPERADMIN_EMAIL`, `SEED_SUPERADMIN_PASSWORD`,
+`SEED_ACCOUNTANT_EMAIL` and `SEED_ACCOUNTANT_PASSWORD` are all set.
 
 ```bash
-# Full seed (requires MONGODB_URI)
-bun run seed
-# or
-bunx tsx --env-file .env scripts/seed.ts
+cd packages/database
 
-# Deploy-safe variant (exits 0 if MONGODB_URI not set)
-bun run seed:deploy
+# Full demo world — dev only. Catalog + the NILE demo centre and its people.
+bun run seed
+
+# Production-equivalent: catalog + the two real staff accounts + points rules,
+# and zero demo entities.
+bun run seed --no-demo
+```
+
+Order for a fresh environment, each step its own script:
+
+```bash
+cd packages/database
+bun run db:label            # stamps COMMENT ON DATABASE ... 'edura-env:<env>'
+bun run db:bootstrap-role   # creates/rotates edura_app (needs ADMIN_URL + APP_ROLE_PASSWORD)
+npx prisma migrate deploy   # prefix with EDURA_ENV=production to reach production
+bun run seed                # or: bun run seed --no-demo
+bun run db:verify           # read-only, safe against any target
 ```
 
 ### What the seed creates
@@ -174,14 +200,14 @@ bun run seed:deploy
 
 ## 5. Demo Credentials — All Accounts
 
-**All accounts share the same password:** `Passw0rd!`
+**All accounts share the same password:** `<SEED_PASSWORD>`
 
 ### Admin
 
 | Field | Value |
 |---|---|
 | Email | `admin@nile-academy.eg` |
-| Password | `Passw0rd!` |
+| Password | `<SEED_PASSWORD>` |
 | Name | Mostafa Khaled Abdelfattah |
 | Phone | +201112345001 |
 | Role | `center_admin` |
@@ -197,7 +223,7 @@ bun run seed:deploy
 | Rasha Ibrahim | `rasha.ibrahim@nile-academy.eg` | English | 11 years |
 | Ahmed Ibrahim | `ahmed.ibrahim@nile-academy.eg` | Biology | 14 years (Ph.D.) |
 
-**Password for all teachers:** `Passw0rd!`
+**Password for all teachers:** `<SEED_PASSWORD>`
 
 ### Students (10)
 
@@ -215,7 +241,7 @@ bun run seed:deploy
 | Karim Wael | `karim.wael@student.nile-academy.eg` | Cairo |
 
 ⭐ = best accounts to demo (most courses enrolled, have parent links)
-**Password for all students:** `Passw0rd!`
+**Password for all students:** `<SEED_PASSWORD>`
 
 ### Parents (2)
 
@@ -224,7 +250,7 @@ bun run seed:deploy
 | Mona Hassan | `mona.hassan@email.eg` | Lina Hassan |
 | Tarek Mostafa | `tarek.mostafa@email.eg` | Ahmed Mostafa |
 
-**Password for all parents:** `Passw0rd!`
+**Password for all parents:** `<SEED_PASSWORD>`
 
 ---
 
@@ -583,8 +609,8 @@ lib/
     require-role.ts        — Role guard (throws 403 if wrong role)
     require-center-scope.ts — Center tenancy guard
   db/
-    connect.ts            — Mongoose singleton connection
-    models/               — 23 Mongoose models (see §11)
+    connect.ts            — database client singleton
+    models/               — 23 data models (see §11)
   errors/
     classes.ts            — AuthError, NotFoundError, ForbiddenError, etc.
     http.ts               — AppError → HTTP response mapper (withErrors wrapper)
@@ -692,7 +718,7 @@ Session times stored as `"HH:mm"` strings (e.g. `"08:30"`). Lexicographically so
 ### Route conventions
 
 - Every handler wrapped in `withErrors()` — maps AppError subclasses to HTTP
-- Every handler exports `const dynamic = "force-dynamic"` (MongoDB per-request)
+- Every handler exports `const dynamic = "force-dynamic"` (per-request DB access)
 - Response always: `ok(data)` or `fail(status, code, message)`
 - Auth guards: `requireRole("center_admin")` or `getSessionUser()` + manual check
 
@@ -741,17 +767,16 @@ These endpoints exist and work but have no UI:
 Set these in Netlify UI → Site Settings → Environment Variables:
 
 ```
-MONGODB_URI        = <Atlas connection string>
-MONGODB_DB         = edura
+DATABASE_URL       = <Neon pooled connection string, edura_app role>
+DIRECT_URL         = <Neon unpooled connection string, edura_app role>
 NEXTAUTH_SECRET    = <32-byte random string>
-NEXTAUTH_URL       = https://<your-netlify-domain>
-APP_BASE_URL       = https://<your-netlify-domain>
+NEXTAUTH_URL       = https://<your-domain>
+APP_BASE_URL       = https://<your-domain>
 MAIL_PROVIDER      = console
 MAIL_FROM          = no-reply@yourdomain.com
-SEED_PASSWORD      = Passw0rd!
 ```
 
-`seed:deploy` runs automatically after each build. It's idempotent — safe.
+Seeding is never automatic on deploy: run it deliberately, per the order in section 4.
 
 ---
 
@@ -767,7 +792,7 @@ curl http://localhost:3002/api/v1/_ping
 # 2. Login as admin
 curl -s -c cookies.txt -X POST http://localhost:3002/api/auth/sign-in/email \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@nile-academy.eg","password":"Passw0rd!"}' | jq .
+  -d '{"email":"admin@nile-academy.eg","password":"<SEED_PASSWORD>"}' | jq .
 
 # 3. Use the cookie for authenticated requests
 curl -s -b cookies.txt http://localhost:3002/api/v1/dashboards/admin | jq .
