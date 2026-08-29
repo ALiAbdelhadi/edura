@@ -36,7 +36,6 @@ import { todayKey } from "@repo/server-core/lib/date-key";
 
 type Session = {
   id?: string;
-  _id?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -234,7 +233,7 @@ export function ScheduleScreen() {
               {daySessions.map((s, i) => {
                 const now = isHappeningNow(s) && s.status !== "cancelled";
                 return (
-                  <li key={s.id || s._id || i}>
+                  <li key={s.id || i}>
                     {i > 0 ? <Hairline /> : null}
                     <button
                       type="button"

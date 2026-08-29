@@ -13,10 +13,10 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { Badge, ClearanceNotice, DataTable, DateText, EmptyState, Eyebrow, PageHead, RowIdentity, Sheet, TwoStepCommit, type Column } from "./ledger";
 
-type PopulatedRef = { _id?: string; id?: string; name?: string; title?: string };
+type PopulatedRef = { id?: string; name?: string; title?: string };
 
 interface EnrollmentRequest {
-  _id: string;
+  id: string;
   studentId: string | PopulatedRef;
   courseId: string | PopulatedRef;
   centerId: string;
@@ -27,7 +27,7 @@ interface EnrollmentRequest {
 function refId(v: string | PopulatedRef | undefined | null): string {
   if (!v) return "";
   if (typeof v === "string") return v;
-  return v._id ?? v.id ?? "";
+  return v.id ?? "";
 }
 
 function refLabel(v: string | PopulatedRef | undefined | null, field: "name" | "title"): string | undefined {
@@ -60,7 +60,7 @@ export function AdminEnrollmentRequestsScreen() {
   const studentMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of (studentsResult?.data ?? []) as any[]) {
-      m.set(String(s.studentId || s.id || s._id), s.name);
+      m.set(String(s.studentId || s.id), s.name);
     }
     return m;
   }, [studentsResult]);
@@ -68,7 +68,7 @@ export function AdminEnrollmentRequestsScreen() {
   const courseMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of (coursesResult?.data ?? []) as any[]) {
-      m.set(c._id, c.title);
+      m.set(c.id, c.title);
     }
     return m;
   }, [coursesResult]);
@@ -76,7 +76,7 @@ export function AdminEnrollmentRequestsScreen() {
   const { mutateAsync: approveMut } = useCustomMutation();
   const { mutateAsync: declineMut, mutation: declineMutation } = useCustomMutation();
 
-  const selected = requests.find((r) => r._id === selectedId) ?? null;
+  const selected = requests.find((r) => r.id === selectedId) ?? null;
 
   const nameOf = (r: EnrollmentRequest) => {
     const id = refId(r.studentId);
@@ -171,9 +171,9 @@ export function AdminEnrollmentRequestsScreen() {
           <DataTable
             columns={columns}
             rows={requests}
-            rowKey={(r) => r._id}
+            rowKey={(r) => r.id}
             onRowClick={(r) => {
-              setSelectedId(r._id);
+              setSelectedId(r.id);
               setDeclineOpen(false);
               setDeclineReason("");
             }}
@@ -220,13 +220,13 @@ export function AdminEnrollmentRequestsScreen() {
                 </div>
                 <ClearanceNotice>{t("adminManage.enroll.clearance")}</ClearanceNotice>
                 <TwoStepCommit
-                  resetKey={selected._id}
+                  resetKey={selected.id}
                   icon={<Check className="size-4" />}
                   label={t("adminManage.enroll.approveCommit")}
                   armedLabel={t("adminManage.enroll.approveArmed")}
                   hint={t("adminManage.enroll.approveHint")}
                   armedHint={t("adminManage.enroll.approveArmedHint")}
-                  onCommit={() => handleApprove(selected._id)}
+                  onCommit={() => handleApprove(selected.id)}
                 />
                 {declineOpen ? (
                   <div className="flex flex-col gap-2">

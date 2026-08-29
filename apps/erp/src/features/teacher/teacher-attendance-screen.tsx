@@ -44,7 +44,6 @@ import { enqueueAttendance } from "@/lib/pwa/attendance-outbox";
 import { useAttendanceSync } from "@/lib/pwa/use-attendance-sync";
 type Identity = { id: string; name?: string; email?: string };
 type EnrollmentRow = {
-  _id?: string;
   id?: string;
   studentId: string;
   studentName?: string;
@@ -52,7 +51,6 @@ type EnrollmentRow = {
   studentCode?: string | null;
 };
 type SessionRow = {
-  _id?: string;
   id?: string;
   courseId: string;
   teacherId: string;
@@ -118,13 +116,13 @@ export function TeacherAttendanceScreen() {
   const [selectedSession, setSelectedSession] = useState<SessionRow | null>(
     null,
   );
-  const sessionId = selectedSession?.id || selectedSession?._id;
+  const sessionId = selectedSession?.id;
 
   const [seedSessionId, setSeedSessionId] = useState<string | null>(null);
   useParamSeed("sessionId", setSeedSessionId);
   React.useEffect(() => {
     if (!seedSessionId || selectedSession) return;
-    const hit = recentSessions.find((s) => (s.id || s._id) === seedSessionId);
+    const hit = recentSessions.find((s) => (s.id) === seedSessionId);
     if (hit) {
       setSelectedSession(hit);
       setSeedSessionId(null);
@@ -284,7 +282,7 @@ export function TeacherAttendanceScreen() {
         </p>
         <ul className="divide-y divide-border border-y border-border">
           {rows.map((s) => (
-            <li key={s.id || s._id}>{sessionRow(s)}</li>
+            <li key={s.id}>{sessionRow(s)}</li>
           ))}
         </ul>
       </div>

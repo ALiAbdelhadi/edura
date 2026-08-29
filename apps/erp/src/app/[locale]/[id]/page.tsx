@@ -25,7 +25,6 @@ import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 type Affiliation = {
-  _id?: string;
   id?: string;
   status: "pending" | "active" | "declined" | "expired" | "removed";
   expiresAt?: string;
@@ -114,7 +113,7 @@ export default function AffiliationLandingPage() {
           const list: Affiliation[] = Array.isArray(affBody.data)
             ? affBody.data
             : (affBody.data?.items ?? []);
-          const found = list.find((a) => (a.id ?? a._id) === id) ?? null;
+          const found = list.find((a) => (a.id) === id) ?? null;
           if (!cancelled) setAffiliation(found);
         }
       } catch {

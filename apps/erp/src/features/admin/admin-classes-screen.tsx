@@ -277,7 +277,7 @@ export function AdminClassesScreen() {
 
   const handleEdit = (values: EditValues) => {
     if (!editTarget) return;
-    const id = editTarget.id || editTarget._id;
+    const id = editTarget.id;
     const payload = {
       title: values.title.trim(),
       gradeTag: values.gradeTag?.trim() || undefined,
@@ -486,7 +486,7 @@ export function AdminClassesScreen() {
         return (
           <div className="flex items-center gap-1">
             <Button asChild variant="ghost" size="sm">
-              <Link href={`/courses/${record.id || record._id}`}>
+              <Link href={`/courses/${record.id}`}>
                 <Eye className="size-4" />
                 {t("adminManage.classes.view")}
               </Link>
@@ -507,7 +507,7 @@ export function AdminClassesScreen() {
               disabled={record.status === "cancelled"}
               onClick={() => {
                 setCancelTarget({
-                  id: record.id || record._id,
+                  id: record.id,
                   title: record.title,
                 });
                 setCancelReason("");
@@ -524,7 +524,7 @@ export function AdminClassesScreen() {
 
   const roomOptions = rooms.map((r: any) => ({
     label: `${r.name}${r.capacity ? ` · ${t("adminManage.classes.capLabel")} ${r.capacity}` : ""}`,
-    value: (r.id || r._id) as string,
+    value: (r.id) as string,
   }));
 
   return (

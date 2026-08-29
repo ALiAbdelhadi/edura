@@ -153,7 +153,7 @@ export function StudentReviewsScreen() {
   const handleSubmit = (values: { rating: number; text?: string }) => {
     if (editingReview) {
       updateReview(
-        { resource: "reviews", id: editingReview.id || editingReview._id, values },
+        { resource: "reviews", id: editingReview.id, values },
         {
           onSuccess: () => {
             toast.success(t("studentReviews.reviewUpdated"));
@@ -169,7 +169,7 @@ export function StudentReviewsScreen() {
       createReview(
         {
           resource: "reviews",
-          values: { teacherId: selectedTeacher.id || selectedTeacher._id, ...values },
+          values: { teacherId: selectedTeacher.id, ...values },
         },
         {
           onSuccess: () => {
@@ -218,7 +218,7 @@ export function StudentReviewsScreen() {
             <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
               {eligibleTeachers.map((teacher) => (
                 <li
-                  key={teacher.id || teacher._id}
+                  key={teacher.id}
                   className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0"
                 >
                   <InitialsTile name={teacher.name || "?"} size={34} tone="indigo" />
@@ -262,7 +262,7 @@ export function StudentReviewsScreen() {
               {reviews.map((review, i) => {
                 const teacher = review.teacherId;
                 return (
-                  <li key={review.id || review._id}>
+                  <li key={review.id}>
                     {i > 0 ? <Hairline /> : null}
                     <div className="flex flex-col gap-2 py-3.5">
                       <div className="flex items-center gap-2.5">

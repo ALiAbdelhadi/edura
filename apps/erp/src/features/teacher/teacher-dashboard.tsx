@@ -31,7 +31,6 @@ import {
 
 type SessionRow = {
   id?: string;
-  _id?: string;
   courseId: string;
   date: string;
   startTime?: string;
@@ -43,7 +42,6 @@ type SessionRow = {
 
 type CourseRow = {
   id?: string;
-  _id?: string;
   centerId?: string | null;
   location?: string | null;
 };
@@ -55,7 +53,7 @@ const CAIRO_HM = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-const sessionId = (s: SessionRow) => s.id || s._id || "";
+const sessionId = (s: SessionRow) => s.id || "";
 const dayKeyOf = (s: SessionRow) => platformDayKey(String(s.date));
 
 function CounterOnlyProbe({
@@ -122,7 +120,7 @@ export function TeacherDashboard() {
     }
     const byCourse = new Map<string, string>();
     for (const c of asArray<CourseRow>(coursesResult?.data)) {
-      const id = c.id || c._id;
+      const id = c.id;
       if (!id) continue;
       const label = c.centerId
         ? (centerNames.get(c.centerId) ?? "")

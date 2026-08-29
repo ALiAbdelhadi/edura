@@ -293,7 +293,7 @@ export function AdminFeesScreen() {
   const studentOptions = useMemo(
     () =>
       students.map((s) => ({
-        value: String(s.id || s.studentId || s._id),
+        value: String(s.id || s.studentId),
         label: `${s.name || t("adminManage.fees.unnamedStudent")}${s.email ? ` (${s.email})` : ""}`,
       })),
     [students],
@@ -302,7 +302,7 @@ export function AdminFeesScreen() {
   const courseOptions = useMemo(
     () =>
       courses.map((c) => ({
-        value: String(c.id || c._id),
+        value: String(c.id),
         label: c.title || c.subject || t("adminManage.fees.untitledClass"),
       })),
     [courses],

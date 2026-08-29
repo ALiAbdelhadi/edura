@@ -97,7 +97,7 @@ export function TeacherClassesScreen() {
 
   useEffect(() => {
     if (classes.length > 0 && !selectedId) {
-      setSelectedId(classes[0].id || classes[0]._id);
+      setSelectedId(classes[0].id);
     }
   }, [classes, selectedId]);
 
@@ -154,7 +154,7 @@ export function TeacherClassesScreen() {
     if (!s || !reason.trim()) return;
     cancelSessionMut(
       {
-        url: `sessions/${s.id || s._id}/cancel`,
+        url: `sessions/${s.id}/cancel`,
         method: "post",
         values: { reason: reason.trim() },
       },
@@ -175,7 +175,7 @@ export function TeacherClassesScreen() {
     if (!s || !postponeDate || !postponeStart || !postponeEnd || !reason.trim()) return;
     postponeSessionMut(
       {
-        url: `sessions/${s.id || s._id}/postpone`,
+        url: `sessions/${s.id}/postpone`,
         method: "post",
         values: {
           newDate: postponeDate,
@@ -218,7 +218,7 @@ export function TeacherClassesScreen() {
   }
 
   const selectedCourse =
-    classes.find((c: any) => (c.id || c._id) === selectedId) || classes[0];
+    classes.find((c: any) => (c.id) === selectedId) || classes[0];
   const selectedPlace = placeOf(selectedCourse);
   const unpriced =
     !selectedCourse.pricePerMonth && !selectedCourse.pricePerSession;
@@ -234,14 +234,14 @@ export function TeacherClassesScreen() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <div className="flex flex-col gap-2 lg:col-span-1">
           {classes.map((c: any, i: number) => {
-            const isSelected = selectedId === (c.id || c._id);
+            const isSelected = selectedId === (c.id);
             const place = placeOf(c);
             return (
               <Card
-                key={c.id || c._id || i}
+                key={c.id || i}
                 role="button"
                 tabIndex={0}
-                onClick={() => setSelectedId(c.id || c._id)}
+                onClick={() => setSelectedId(c.id)}
                 className={cn(
                   "cursor-pointer gap-0 p-3 transition-colors",
                   isSelected
@@ -324,7 +324,7 @@ export function TeacherClassesScreen() {
                 </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link
-                    href={`/dashboard/teacher/grades?courseId=${selectedCourse.id || selectedCourse._id}`}
+                    href={`/dashboard/teacher/grades?courseId=${selectedCourse.id}`}
                   >
                     <GraduationCap className="size-4" />
                     {t("nav.gradebook")}
@@ -356,7 +356,7 @@ export function TeacherClassesScreen() {
               ) : (
                 <ul className="divide-y divide-border border-y border-border">
                   {courseSessions.map((s: any) => {
-                    const sid = s.id || s._id;
+                    const sid = s.id;
                     return (
                       <li
                         key={sid}

@@ -26,7 +26,6 @@ import {
 
 type PaymentRow = {
   id?: string;
-  _id?: string;
   courseName?: string;
   amount: number;
   paidAt?: string;
@@ -131,7 +130,7 @@ export function ParentFeesScreen() {
       id: "receiptNumber",
       header: t("parentFees.receipt"),
       cell: ({ row }) => {
-        const paymentId = row.original.id ?? row.original._id;
+        const paymentId = row.original.id;
         if (!row.original.receiptNumber) return <span className="text-ink-3">—</span>;
         return (
           <div className="flex flex-col items-start gap-0.5">

@@ -62,7 +62,6 @@ const categoryTone: Record<Category, BadgeTone> = {
 };
 
 type Expense = {
-  _id?: string;
   id?: string;
   amount: number;
   category: Category;
@@ -164,7 +163,7 @@ export function AdminExpensesScreen() {
     };
     if (editTarget) {
       updateExpense(
-        { resource: "expenses", id: editTarget.id || editTarget._id || "", values: payload },
+        { resource: "expenses", id: editTarget.id || "", values: payload },
         {
           onSuccess: onDone,
           onError: (err: any) => toast.error(err?.message || t("adminManage.expenses.failed")),
@@ -232,7 +231,7 @@ export function AdminExpensesScreen() {
       srOnly: true,
       numeric: true,
       cell: (r) => {
-        const id = r.id || r._id || "";
+        const id = r.id || "";
         return (
           <div className="flex items-center justify-end gap-1">
             <Button
@@ -285,7 +284,7 @@ export function AdminExpensesScreen() {
           <DataTable
             columns={columns}
             rows={sortedExpenses}
-            rowKey={(r) => String(r.id ?? r._id)}
+            rowKey={(r) => String(r.id)}
             caption={t("common.expenses")}
             empty={
               <EmptyState

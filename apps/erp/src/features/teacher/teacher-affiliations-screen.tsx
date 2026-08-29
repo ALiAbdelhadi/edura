@@ -17,7 +17,6 @@ import { asArray } from "@/lib/refine/as-array";
 import { CollaborationPanel } from "@/features/collaboration/collaboration-panel";
 
 type Affiliation = {
-  _id?: string;
   id?: string;
   status: "pending" | "active" | "declined" | "expired" | "removed";
   expiresAt?: string;
@@ -108,7 +107,7 @@ export function TeacherAffiliationsScreen() {
           ) : (
             <ul className="divide-y divide-border border-y border-border">
               {affiliations.map((a) => {
-                const id = a.id || a._id || "";
+                const id = a.id || "";
                 return (
                   <li key={id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
                     <span className="min-w-0 flex-1">

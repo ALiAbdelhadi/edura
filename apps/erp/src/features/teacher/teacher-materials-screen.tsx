@@ -101,12 +101,12 @@ export function TeacherMaterialsScreen() {
 
   const courseMap = useMemo(() => {
     const map = new Map<string, string>();
-    courses.forEach((c) => map.set(c.id || c._id, c.title));
+    courses.forEach((c) => map.set(c.id, c.title));
     return map;
   }, [courses]);
 
   const courseOptions = useMemo(
-    () => courses.map((c) => ({ value: c.id || c._id, label: c.title })),
+    () => courses.map((c) => ({ value: c.id, label: c.title })),
     [courses],
   );
 
@@ -230,7 +230,7 @@ export function TeacherMaterialsScreen() {
   };
 
   const materialRow = (m: any) => {
-    const id = m.id || m._id;
+    const id = m.id;
     const type = m.type as string | undefined;
     return (
       <li key={id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">

@@ -97,7 +97,7 @@ export function TeacherReviewsScreen() {
           ) : (
             <ul className="divide-y divide-border border-y border-border">
               {reviews.map((r: any) => (
-                <li key={r.id || r._id} className="px-4 py-3">
+                <li key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-2">
                       <User className="size-4 shrink-0 text-muted-foreground" />

@@ -138,7 +138,7 @@ export function AdminStudentsScreen() {
       id: "name",
       header: t("adminHome.students_colStudent"),
       cell: (r) => {
-        const id = String(r.studentId || r.id || r._id || "");
+        const id = String(r.studentId || r.id || "");
         const name = r.name || r.user?.name || "—";
         return (
           <RowIdentity
@@ -212,7 +212,7 @@ export function AdminStudentsScreen() {
       srOnly: true,
       numeric: true,
       cell: (r) => {
-        const id = r.id || r._id;
+        const id = r.id;
         const name = r.name || r.user?.name || "—";
         if (r.blacklisted) {
           return (
@@ -309,7 +309,7 @@ export function AdminStudentsScreen() {
           <DataTable
             columns={columns}
             rows={filtered}
-            rowKey={(r) => String(r.id ?? r._id ?? r.studentId)}
+            rowKey={(r) => String(r.id ?? r.studentId)}
             selectedKey={cascadeFor?.id ?? null}
             caption={t("nav.students")}
             empty={

@@ -49,7 +49,6 @@ const STATUS_KEYS: Record<string, string> = {
 
 type ParentLink = {
   id?: string;
-  _id?: string;
   status?: string;
   initiatedBy?: string;
   createdAt?: string;
@@ -254,7 +253,7 @@ export function StudentFamilyCodeScreen() {
           ) : (
             <ul>
               {links.map((link, i) => {
-                const id = link.id || link._id || "";
+                const id = link.id || "";
                 const name = link.parentId?.name || t("studentFamilyCode.unknown");
                 const decidable = link.status === "pending" && link.initiatedBy === "parent";
                 return (

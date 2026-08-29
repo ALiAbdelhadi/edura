@@ -168,7 +168,7 @@ export function AdminTeachersScreen() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setAgreementFor({ id: r.id || r._id, name: r.name })}
+                onClick={() => setAgreementFor({ id: r.id, name: r.name })}
               >
                 {t("adminHome.agreements_action")}
               </Button>
@@ -203,7 +203,7 @@ export function AdminTeachersScreen() {
                 confirmText={t("actions.remove")}
                 cancelText={t("actions.cancel")}
                 destructive
-                onConfirm={() => handleRemove(r.id || r._id)}
+                onConfirm={() => handleRemove(r.id)}
               />
             )}
           </div>
@@ -230,7 +230,7 @@ export function AdminTeachersScreen() {
         <DataTable
           columns={columns}
           rows={teachers}
-          rowKey={(r) => String(r.id ?? r._id)}
+          rowKey={(r) => String(r.id)}
           caption={t("nav.teachers")}
           empty={
             <EmptyState

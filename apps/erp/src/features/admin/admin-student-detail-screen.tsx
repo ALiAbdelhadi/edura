@@ -65,7 +65,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 type StudentUser = {
-  _id?: string;
   id?: string;
   name?: string;
   email?: string;
@@ -74,7 +73,6 @@ type StudentUser = {
 };
 
 type StudentRosterRecord = {
-  _id?: string;
   id?: string;
   studentId?: string;
   user?: StudentUser | null;
@@ -154,7 +152,7 @@ export function AdminStudentDetailScreen() {
 
   const record = studentResult?.data as StudentRosterRecord | undefined;
   const user = record?.user ?? null;
-  const userId = String(user?._id || user?.id || record?.studentId || studentId || "");
+  const userId = String(user?.id || record?.studentId || studentId || "");
   const studentName = user?.name || t("adminHome.detail_unnamedStudent");
   const enrollments = (enrollmentsResult?.data ?? []) as any[];
   const payments = (paymentsResult?.data ?? []) as any[];
@@ -234,7 +232,7 @@ export function AdminStudentDetailScreen() {
       id: "id",
       header: t("adminHome.detail_enrollmentId"),
       cell: ({ row }) => (
-        <CopyableText value={row.original.id || row.original._id} label="Enrollment ID" />
+        <CopyableText value={row.original.id} label="Enrollment ID" />
       ),
     },
     {
@@ -330,7 +328,7 @@ export function AdminStudentDetailScreen() {
     },
     {
       label: t("adminHome.detail_rosterId"),
-      value: <CopyableText value={record._id || record.id} label="Roster ID" />,
+      value: <CopyableText value={record.id} label="Roster ID" />,
     },
     { label: t("adminHome.detail_added"), value: fmtDate(record.addedAt) },
     {

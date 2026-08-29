@@ -48,7 +48,6 @@ import { Amount, MetricCard, PageHead } from "./ledger";
 
 type Room = {
   id?: string;
-  _id?: string;
   name: string;
   capacity?: number | null;
   facilities?: string[];
@@ -69,7 +68,7 @@ const rateToInput = (r: M2Rate | null | undefined): string =>
   r == null ? "" : String((r.bp != null ? r.bp : r.fee!) / 100);
 
 function roomId(r: Room): string {
-  return r.id || r._id || "";
+  return r.id || "";
 }
 
 export function AdminRoomsScreen() {

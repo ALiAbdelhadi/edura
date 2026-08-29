@@ -62,7 +62,7 @@ interface RawGrade {
 const BAND_OPTIONS = [...GRADE_BANDS].sort((a, b) => b.ordinal - a.ordinal);
 
 interface GradeEntry {
-  _id: string;
+  id: string;
   title: string;
   type: string;
   gradeType: "numeric" | "letter";
@@ -182,7 +182,7 @@ export function TeacherGradebookScreen() {
   const entries: GradeEntry[] = useMemo(
     () =>
       rawGrades.map((g) => ({
-        _id: g.id,
+        id: g.id,
         title: g.name,
         type: "exam",
         gradeType: g.gradeType || "numeric",
@@ -207,9 +207,9 @@ export function TeacherGradebookScreen() {
     }
     if (
       !selectedEntryId ||
-      !entriesByRecency.some((entry) => entry._id === selectedEntryId)
+      !entriesByRecency.some((entry) => entry.id === selectedEntryId)
     ) {
-      setSelectedEntryId(entriesByRecency[0]._id);
+      setSelectedEntryId(entriesByRecency[0].id);
     }
   }, [entriesByRecency, selectedEntryId]);
 
@@ -240,7 +240,7 @@ export function TeacherGradebookScreen() {
   }, [rawGrades, studentNameMap, enrollmentsResult]);
 
   const focusEntry = useMemo(
-    () => entries.find((e) => e._id === selectedEntryId) ?? null,
+    () => entries.find((e) => e.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
 
@@ -254,7 +254,7 @@ export function TeacherGradebookScreen() {
 
   const gradedCount = useMemo(() => {
     if (!focusEntry) return 0;
-    return studentGrades.filter((r) => scoreFor(r, focusEntry._id) !== undefined)
+    return studentGrades.filter((r) => scoreFor(r, focusEntry.id) !== undefined)
       .length;
   }, [studentGrades, focusEntry, scoreFor]);
 
@@ -269,7 +269,7 @@ export function TeacherGradebookScreen() {
       "90-100": 0,
     };
     for (const row of studentGrades) {
-      const score = scoreFor(row, focusEntry._id);
+      const score = scoreFor(row, focusEntry.id);
       if (score === undefined) continue;
       const pct = Math.round((score / (focusEntry.maxScore || 1)) * 100);
       if (pct < 50) buckets["0-49"] += 1;
@@ -287,7 +287,7 @@ export function TeacherGradebookScreen() {
       entries.map((entry) => {
         const total = studentGrades.length;
         const graded = studentGrades.filter(
-          (row) => scoreFor(row, entry._id) !== undefined,
+          (row) => scoreFor(row, entry.id) !== undefined,
         ).length;
         return {
           label: entry.title,
@@ -336,12 +336,12 @@ export function TeacherGradebookScreen() {
   const didAutoFocus = useRef<string | null>(null);
   useEffect(() => {
     if (!focusEntry || studentGrades.length === 0) return;
-    if (didAutoFocus.current === focusEntry._id) return;
+    if (didAutoFocus.current === focusEntry.id) return;
     if (typeof window === "undefined") return;
     if (!window.matchMedia?.("(pointer: fine)").matches) return;
-    didAutoFocus.current = focusEntry._id;
+    didAutoFocus.current = focusEntry.id;
     const first = studentGrades.findIndex(
-      (r) => scoreFor(r, focusEntry._id) === undefined,
+      (r) => scoreFor(r, focusEntry.id) === undefined,
     );
     const target = first === -1 ? 0 : first;
     const id = window.requestAnimationFrame(() => focusEntryAt(target));
@@ -354,8 +354,8 @@ export function TeacherGradebookScreen() {
     const promises = entries.map(async (entry) => {
       const scores: Array<{ studentId: string; score: number }> = [];
       for (const sg of studentGrades) {
-        const editedScore = editedGrades[sg.studentId]?.[entry._id];
-        const originalScore = sg.scores[entry._id];
+        const editedScore = editedGrades[sg.studentId]?.[entry.id];
+        const originalScore = sg.scores[entry.id];
         if (editedScore !== undefined) {
           scores.push({ studentId: sg.studentId, score: editedScore });
         } else if (originalScore !== undefined) {
@@ -365,7 +365,7 @@ export function TeacherGradebookScreen() {
       if (scores.length === 0) return;
 
       await saveScores({
-        url: `grades/${entry._id}/scores`,
+        url: `grades/${entry.id}/scores`,
         method: "put",
         values: scores,
       });
@@ -404,7 +404,7 @@ export function TeacherGradebookScreen() {
       ),
     },
     ...entries.map<ColumnDef<StudentGradeRow>>((e) => ({
-      id: e._id,
+      id: e.id,
       header: () => (
         <div className="text-center">
           <div>{e.title}</div>
@@ -415,8 +415,8 @@ export function TeacherGradebookScreen() {
       ),
       cell: ({ row }) => {
         const record = row.original;
-        const originalScore = record.scores?.[e._id];
-        const editedScore = editedGrades[record.studentId]?.[e._id];
+        const originalScore = record.scores?.[e.id];
+        const editedScore = editedGrades[record.studentId]?.[e.id];
         const activeScore = editedScore !== undefined ? editedScore : originalScore;
         const isEdited = editedScore !== undefined;
 
@@ -425,7 +425,7 @@ export function TeacherGradebookScreen() {
             <div className="flex flex-col items-center gap-0.5">
               <Select
                 value={activeScore !== undefined ? String(activeScore) : ""}
-                onValueChange={(val) => handleGradeChange(record.studentId, e._id, val)}
+                onValueChange={(val) => handleGradeChange(record.studentId, e.id, val)}
               >
                 <SelectTrigger
                   size="sm"
@@ -455,7 +455,7 @@ export function TeacherGradebookScreen() {
             <Input
               value={activeScore ?? ""}
               placeholder="—"
-              onChange={(ev) => handleGradeChange(record.studentId, e._id, ev.target.value)}
+              onChange={(ev) => handleGradeChange(record.studentId, e.id, ev.target.value)}
               className={cn(
                 "h-8 w-16 text-center",
                 isEdited && "border-info bg-info/10",
@@ -478,7 +478,7 @@ export function TeacherGradebookScreen() {
         let totalScore = 0;
         let totalMax = 0;
         entries.forEach((entry) => {
-          const activeScore = scoreFor(record, entry._id);
+          const activeScore = scoreFor(record, entry.id);
           if (activeScore === undefined) return;
           totalScore += activeScore;
           totalMax += entry.maxScore;
@@ -499,8 +499,8 @@ export function TeacherGradebookScreen() {
 
   const entryRow = (row: StudentGradeRow, index: number) => {
     if (!focusEntry) return null;
-    const active = scoreFor(row, focusEntry._id);
-    const isEdited = editedGrades[row.studentId]?.[focusEntry._id] !== undefined;
+    const active = scoreFor(row, focusEntry.id);
+    const isEdited = editedGrades[row.studentId]?.[focusEntry.id] !== undefined;
 
     return (
       <div
@@ -514,7 +514,7 @@ export function TeacherGradebookScreen() {
           <Select
             value={active !== undefined ? String(active) : ""}
             onValueChange={(val) => {
-              handleGradeChange(row.studentId, focusEntry._id, val);
+              handleGradeChange(row.studentId, focusEntry.id, val);
               window.requestAnimationFrame(() => focusEntryAt(index + 1));
             }}
           >
@@ -546,7 +546,7 @@ export function TeacherGradebookScreen() {
               step="any"
               aria-label={row.studentName}
               onChange={(ev) =>
-                handleGradeChange(row.studentId, focusEntry._id, ev.target.value)
+                handleGradeChange(row.studentId, focusEntry.id, ev.target.value)
               }
               onKeyDown={(e) => onEntryKeyDown(e, index)}
               className={cn(
@@ -630,7 +630,7 @@ export function TeacherGradebookScreen() {
                   </SelectTrigger>
                   <SelectContent>
                     {entriesByRecency.map((entry) => (
-                      <SelectItem key={entry._id} value={entry._id}>
+                      <SelectItem key={entry.id} value={entry.id}>
                         {entry.title}
                       </SelectItem>
                     ))}

@@ -21,7 +21,6 @@ import {
 
 type Material = {
   id?: string;
-  _id?: string;
   title: string;
   courseId?: { toString?: () => string } | string;
   type?: string;
@@ -93,7 +92,7 @@ export function StudentMaterialsScreen() {
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {materials.map((m, i) => {
-            const id = m.id || m._id || String(i);
+            const id = m.id || String(i);
             const cid = typeof m.courseId === "string" ? m.courseId : m.courseId?.toString?.();
             const course = (cid && courseMap.get(cid)) || "—";
             const type = m.type;

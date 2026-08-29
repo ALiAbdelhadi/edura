@@ -48,7 +48,6 @@ const STATUS_CHIP: Record<string, string> = {
 
 type ParentLink = {
   id?: string;
-  _id?: string;
   status?: string;
   initiatedBy?: string;
   createdAt?: string;
@@ -227,7 +226,7 @@ export function ParentLinkingScreen() {
       enableSorting: false,
       cell: ({ row }) => {
         const record = row.original;
-        const id = record.id || record._id || "";
+        const id = record.id || "";
 
         if (record.status === "pending" && record.initiatedBy === "student") {
           return (

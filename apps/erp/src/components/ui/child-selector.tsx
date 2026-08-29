@@ -17,11 +17,10 @@ const STORAGE_KEY = "edura.parent.childId";
 
 type ChildRecord = {
   id?: string;
-  _id?: string;
   name?: string | null;
 };
 
-export const childKey = (c: ChildRecord): string | null => c.id ?? c._id ?? null;
+export const childKey = (c: ChildRecord): string | null => c.id ?? null;
 
 type ChildSelectorContextValue = {
   children: ChildRecord[];
