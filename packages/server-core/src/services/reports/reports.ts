@@ -210,7 +210,7 @@ export async function getExpensesReport(user: SessionUser, from?: string, to?: s
   );
 
   const byCategory = rows.map((r) => ({
-    _id: r.category,
+    category: r.category,
     subtotal: r._sum.amount ?? 0,
     count: r._count,
   }));
@@ -305,7 +305,7 @@ export async function getExpensesTimeseries(
   }
 
   const byCategory = byCategoryRaw.map((r) => ({
-    _id: r.category,
+    category: r.category,
     subtotal: r._sum.amount ?? 0,
     count: r._count,
   }));

@@ -151,7 +151,7 @@ export const REPORT_EXPORTS: Record<ReportExportKey, ReportDef> = {
           { key: "count", header: { ar: "العدد", en: "Count" }, type: "number" },
         ],
         rows: r.byCategory.map((c) => ({
-          category: c._id,
+          category: c.category,
           amount: c.subtotal,
           count: c.count,
         })),

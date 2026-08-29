@@ -95,8 +95,8 @@ export function AdminReportsScreen() {
   }>;
 
   const expenseDonut = expensesByCategory.map((entry, index) => ({
-    id: entry._id,
-    label: entry._id,
+    id: entry.category,
+    label: entry.category,
     value: entry.subtotal ?? 0,
     color: CATEGORICAL[index % CATEGORICAL.length],
   }));
