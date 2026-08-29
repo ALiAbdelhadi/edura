@@ -1,6 +1,0 @@
-*
-!.gitignore
-!CLAUDE.md
-!REFERENCE.md
-!tools/
-!tools/*.py
