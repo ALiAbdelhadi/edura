@@ -1,0 +1,28 @@
+title = "edura"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build output, vendored code, and one frozen historical commit"
+
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)\.turbo/''',
+  '''(^|/)graphify-out/''',
+  '''(^|/)bun\.lock$''',
+  '''(^|/)packages/database/src/generated/''',
+]
+
+# The 2026-07-12 baseline commit holds nine matches in three files that were
+# deleted long before HEAD: apps/www/api-summary.md, apps/www/docs/RUNBOOK.md and
+# apps/www/EduPlatform_Postman_Collection.json. They are demo logins plus one dev
+# NEXTAUTH_SECRET that has since been rotated, so nothing here is live.
+#
+# Allowlisting a fixed SHA is safe in a way that allowlisting a path is not: the
+# commit is immutable, so this exemption can never hide a NEWLY introduced secret.
+# Every other commit, and every future one, is still scanned in full.
+commits = [
+  "8ad8e3516b890aaf5e39e668a232c1a9bca97f21",
+]

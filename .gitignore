@@ -5,6 +5,9 @@ node_modules
 .env*
 !.env.example
 !.env.*.example
+# Bulk-paste env files live OUTSIDE the repo (~/.edura-env/) so they cannot be
+# force-added by accident. This rule is belt-and-braces on top of .env* above.
+.env-*-paste
 
 /coverage
 apps/*/coverage/

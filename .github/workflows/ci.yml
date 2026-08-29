@@ -21,6 +21,33 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
+  secrets-scan:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # Scans FULL history across every ref, which the 2026-08-29 filter-repo pass
+      # made possible: the two leaked env blobs are gone from all commits and no
+      # blob still holds a real Mongo credential. Needs fetch-depth: 0 above —
+      # a shallow checkout would silently scan almost nothing.
+      - name: Scan full history
+        run: |
+          gitleaks version
+          gitleaks git --log-opts="--all" --config .gitleaks.toml --redact --no-banner --verbose
+
   seeds:
     name: seed paths (ephemeral Postgres)
     needs: static
@@ -132,6 +159,7 @@ jobs:
 
   static:
     name: typecheck + build + unit
+    needs: secrets-scan
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

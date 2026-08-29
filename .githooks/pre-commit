@@ -1,0 +1,30 @@
+#!/bin/sh
+# Refuses a commit whose STAGED content looks like a secret.
+#
+# Install:  bash scripts/setup-git-hooks.sh
+# Bypass :  SKIP_GITLEAKS=1 git commit ...   (only for a verified false positive)
+
+if [ -n "$SKIP_GITLEAKS" ]; then
+  echo "pre-commit: gitleaks skipped (SKIP_GITLEAKS is set)."
+  exit 0
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so staged changes cannot be scanned."
+  echo "  install:    brew install gitleaks"
+  echo "  bypass once: SKIP_GITLEAKS=1 git commit ..."
+  exit 1
+fi
+
+CONFIG=""
+if [ -f .gitleaks.toml ]; then
+  CONFIG="--config .gitleaks.toml"
+fi
+
+# shellcheck disable=SC2086
+if ! gitleaks protect --staged $CONFIG --redact --no-banner; then
+  echo ""
+  echo "pre-commit: a staged change matches a secret pattern. Commit refused."
+  echo "Unstage it, or re-run with SKIP_GITLEAKS=1 if it is a verified false positive."
+  exit 1
+fi
