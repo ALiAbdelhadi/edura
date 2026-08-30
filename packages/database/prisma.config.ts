@@ -5,9 +5,21 @@ import { defineConfig } from "prisma/config";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+const VALID_ENVS = ["dev", "test", "production"] as const;
+
+function envFileFor(name: string | undefined): string {
+  if (name && !(VALID_ENVS as readonly string[]).includes(name)) {
+    throw new Error(
+      `EDURA_ENV="${name}" is not one of ${VALID_ENVS.join(", ")}. ` +
+        "It is the ONLY input that selects a database — a typo here reaches dev " +
+        "silently, so it is refused rather than defaulted.",
+    );
+  }
+  return !name || name === "dev" ? ".env.local" : `.env.${name}`;
+}
+
 const EDURA_ENV = process.env.EDURA_ENV;
-const envFile = EDURA_ENV === "production" ? ".env.production" : ".env.local";
-loadEnv({ path: path.join(here, envFile) });
+loadEnv({ path: path.join(here, envFileFor(EDURA_ENV)) });
 
 if (EDURA_ENV === "production") {
   const argv = process.argv.join(" ");
