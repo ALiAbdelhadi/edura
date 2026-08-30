@@ -1,5 +1,7 @@
 import { platformDb } from "../../db/scope";
-import { BusinessRuleError, NotFoundError } from "../../errors/classes";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
+import { maskName } from "../students/disclosure";
+import { isOnCenterRoster } from "../center/roster-membership";
 import type { SessionUser } from "../../auth/types";
 import { createTempStudent } from "../../services/temp-students/temp-students";
 import { normalizeEgyptPhone } from "../../services/whatsapp/phone";
@@ -33,6 +35,7 @@ export type WalkInInvite = {
 
 export type WalkInResult = {
   existing: boolean;
+  onOurRoster: boolean;
   studentId: string;
   studentCode: string | null;
   fullName: string | null;
@@ -46,8 +49,15 @@ async function sendStudentClaim(
   locale: "ar" | "en",
   phone: string | null,
 ): Promise<WalkInInvite> {
+  if (!creator.centerId) {
+    throw new ForbiddenError("Actor has no center scope");
+  }
+
   const { recipient, centerName, dueAt } = await platformDb(
     async (tx) => {
+      if (!(await isOnCenterRoster(tx, creator.centerId as string, student.id))) {
+        throw new NotFoundError("Student not found");
+      }
       const recipient = await resolveStudentInviteRecipient(tx, student.id);
       const center = creator.centerId
         ? await tx.center.findUnique({
@@ -154,18 +164,37 @@ export async function registerWalkIn(
       where: { userId: user.id },
       select: { studentCode: true, fullName: true },
     });
-    if (creator.role === "center_admin" && creator.centerId) {
-      await tx.centerStudentRoster.upsert({
-        where: { centerId_studentId: { centerId: creator.centerId, studentId: user.id } },
-        create: { centerId: creator.centerId, studentId: user.id, addedAt: new Date() },
-        update: {},
-      });
-    }
-    return { user, profile };
+    const onOurRoster = creator.centerId
+      ? await isOnCenterRoster(tx, creator.centerId, user.id)
+      : false;
+    return { user, profile, onOurRoster };
   }, { actorId: creator.id });
 
   if (existing) {
     const name = existing.profile?.fullName ?? existing.user.name ?? "";
+
+    // The phone belongs to a student this centre does not have on its roster.
+    // Recognising them is what stops a duplicate account, but recognition is the
+    // whole of it: no unmasked name, no student code, no message to their phone,
+    // and no silent attachment to the caller's roster. Adding them is a separate,
+    // notified step (addRosterStudent).
+    if (!existing.onOurRoster) {
+      return {
+        existing: true,
+        onOurRoster: false,
+        studentId: existing.user.id,
+        studentCode: null,
+        fullName: maskName(name),
+        invite: {
+          email: { status: "skipped" },
+          whatsapp: { status: "skipped" },
+          recipient: "none",
+          guardianEmailRequired: false,
+        },
+        whatsapp: { status: "skipped" },
+      };
+    }
+
     const whatsapp = await deliverInviteWhatsApp({
       to: phone,
       template: "student_code_reminder",
@@ -177,6 +206,7 @@ export async function registerWalkIn(
     });
     return {
       existing: true,
+      onOurRoster: true,
       studentId: existing.user.id,
       studentCode: existing.profile?.studentCode ?? null,
       fullName: name,
@@ -208,6 +238,7 @@ export async function registerWalkIn(
 
   return {
     existing: false,
+    onOurRoster: true,
     studentId: shell.id,
     studentCode: shell.studentCode ?? null,
     fullName: shell.fullName,
@@ -251,12 +282,22 @@ export async function resendWalkIn(
   creator: SessionUser,
   locale: "ar" | "en" = "ar",
 ): Promise<WalkInResult> {
+  if (!creator.centerId) {
+    throw new ForbiddenError("Actor has no center scope");
+  }
+
   const found = await platformDb(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id: studentId },
       select: { id: true, role: true, name: true, status: true, phone: true, passwordHash: true },
     });
     if (!user || user.role !== "student" || user.status === "deleted") {
+      throw new NotFoundError("Student not found");
+    }
+    // Ownership is checked before anything is read off the student, and it fails
+    // with the SAME error as a missing student: a caller must not be able to tell
+    // "no such id" from "that id belongs to another centre".
+    if (!(await isOnCenterRoster(tx, creator.centerId as string, user.id))) {
       throw new NotFoundError("Student not found");
     }
     if (!user.phone) throw new BusinessRuleError("Student has no phone number");
@@ -283,6 +324,7 @@ export async function resendWalkIn(
     });
     return {
       existing: true,
+      onOurRoster: true,
       studentId: found.user.id,
       studentCode: found.profile?.studentCode ?? null,
       fullName: name,
@@ -305,6 +347,7 @@ export async function resendWalkIn(
 
   return {
     existing: false,
+    onOurRoster: true,
     studentId: found.user.id,
     studentCode: found.profile?.studentCode ?? null,
     fullName: name,

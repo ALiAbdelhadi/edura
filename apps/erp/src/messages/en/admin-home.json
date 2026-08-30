@@ -189,6 +189,7 @@
   "students_importStatusError": "Rejected",
   "students_importMatchedPhone": "matched by phone",
   "students_importMatchedNationalId": "matched by national ID",
+  "students_importMatchedElsewhere": "exists — not on your roster yet",
   "students_importNoMoney": "Importing only adds students to the center roster — no subscriptions, no payments, no group enrolment.",
   "students_importReuseNote": "A student we already know is linked to this center rather than created twice, and their details are left untouched.",
   "students_importFailedToRead": "Could not read the file",

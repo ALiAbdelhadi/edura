@@ -18,6 +18,30 @@ import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days — unchanged
 
+/**
+ * Admin-plugin endpoints that are sealed off from the HTTP surface.
+ *
+ * Each has an audited equivalent in this app that the raw endpoint bypasses:
+ * impersonation here skips assertImpersonatable (refuse self, refuse ERP roles) and
+ * writes no audit row; set-user-password would let a super_admin take over any ERP
+ * account with no `impersonated_by` marker on the resulting session; ban/unban write
+ * better-auth's `banned` columns, which the one-suspension-mechanism rule says are
+ * never written and which do not fire the users_revoke_sessions trigger; remove-user
+ * hard-deletes where this codebase soft-deletes.
+ *
+ * Only the HTTP surface is sealed. Server-side `auth.api.*` calls carry no
+ * ctx.request, so this app's own audited routes still reach the plugin.
+ */
+const SEALED_ADMIN_PATHS = new Set([
+  "/admin/create-user",
+  "/admin/set-role",
+  "/admin/set-user-password",
+  "/admin/ban-user",
+  "/admin/unban-user",
+  "/admin/remove-user",
+  "/admin/impersonate-user",
+]);
+
 const LOGIN_IP_CAP = 10;
 const LOGIN_IP_RATE = 10;
 const LOGIN_EMAIL_CAP = 5;
@@ -98,6 +122,11 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // 404 rather than 403: a sealed endpoint should not advertise that it exists.
+      if (ctx.request && SEALED_ADMIN_PATHS.has(ctx.path)) {
+        throw new APIError("NOT_FOUND", { message: "Not found" });
+      }
+
       if (ctx.path !== "/sign-in/email") return;
       const body = ctx.body as { email?: string; password?: string } | undefined;
       const email = body?.email?.toLowerCase().trim();

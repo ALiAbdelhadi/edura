@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useList } from "@refinedev/core";
+import { useList, useOne } from "@refinedev/core";
 
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
@@ -39,13 +39,12 @@ type MessageRow = {
   id: string;
   recipientPhone: string;
   template: string;
-  params: string[] | null;
+
   locale: string;
   status: "queued" | "sent" | "failed";
   provider: "mock" | "cloud_api";
   providerMessageId: string | null;
-  providerResponse: unknown;
-  error: string | null;
+
   createdAt: string;
 };
 
@@ -58,6 +57,17 @@ export function WhatsAppMessagesScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<MessageRow | null>(null);
+  // params (the child's name and student code) and the provider payload belong to
+  // the one row an operator opens, so they are fetched then — not shipped with every
+  // row in the list.
+  const { result: detailResult } = useOne({
+    resource: "admin/whatsapp-messages",
+    id: detail?.id ?? "",
+    queryOptions: { enabled: !!detail },
+  });
+  const full = detailResult?.data as
+    | { params: string[] | null; providerResponse: unknown; error: string | null }
+    | undefined;
 
   const { query, result } = useList({
     resource: "admin/whatsapp-messages",
@@ -210,16 +220,16 @@ export function WhatsAppMessagesScreen() {
               <div>
                 <span className="font-medium">{t("whatsapp.detailParams")}: </span>
                 <pre className="mt-1 overflow-x-auto rounded bg-field p-2 text-xs" dir="ltr">
-                  {JSON.stringify(detail.params, null, 2)}
+                  {full ? JSON.stringify(full.params, null, 2) : "…"}
                 </pre>
               </div>
-              {detail.error ? (
-                <p className="text-red">{detail.error}</p>
+              {full?.error ? (
+                <p className="text-red">{full.error}</p>
               ) : null}
               <div>
                 <span className="font-medium">{t("whatsapp.detailResponse")}: </span>
                 <pre className="mt-1 max-h-48 overflow-auto rounded bg-field p-2 text-xs" dir="ltr">
-                  {JSON.stringify(detail.providerResponse, null, 2)}
+                  {full ? JSON.stringify(full.providerResponse, null, 2) : "…"}
                 </pre>
               </div>
             </div>

@@ -3,6 +3,7 @@ export type ErrorCode =
   | "unauthenticated"
   | "session_conflict"
   | "forbidden"
+  | "two_factor_required"
   | "not_found"
   | "conflict"
   | "expired"

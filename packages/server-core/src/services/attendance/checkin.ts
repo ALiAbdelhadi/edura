@@ -123,15 +123,6 @@ export async function lookupStudents(q: string, admin: SessionUser) {
       where: { studentId: { in: userIds }, leftAt: null },
       select: { studentId: true, centerId: true },
     });
-    const centerNames = new Map(
-      (
-        await tx.center.findMany({
-          where: { id: { in: [...new Set(rosters.map((r) => r.centerId))] } },
-          select: { id: true, name: true },
-        })
-      ).map((c) => [c.id, c.name]),
-    );
-
     return profiles
       .filter((p) => p.userId)
       .map((p) => {
@@ -140,7 +131,10 @@ export async function lookupStudents(q: string, admin: SessionUser) {
         const name = p.user?.name ?? p.fullName;
         const contact = p.user?.phone ?? p.phone;
         return {
-          studentId: p.userId as string,
+          // A child this centre does not hold is reported, not identified: the real
+          // id is withheld, so a match here cannot be replayed against an endpoint
+          // that takes a student id. The desk's own students keep theirs.
+          studentId: onOurRoster ? (p.userId as string) : null,
           name: onOurRoster ? name : maskName(name),
           studentCode:
             onOurRoster || (code !== null && code === p.studentCode)
@@ -149,9 +143,9 @@ export async function lookupStudents(q: string, admin: SessionUser) {
           phone: onOurRoster ? contact : maskPhone(contact),
           isShell: p.user?.status === "shell",
           onOurRoster,
-          otherCenters: mine
-            .filter((r) => r.centerId !== centerId)
-            .map((r) => centerNames.get(r.centerId) ?? "?"),
+          // A count, never the names. Which other centres a child attends is
+          // behavioural data about that child and the desk has no use for it.
+          otherCenterCount: mine.filter((r) => r.centerId !== centerId).length,
         };
       });
   });

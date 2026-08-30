@@ -138,9 +138,16 @@ async function main() {
       data: { centerId: center.id, studentId: other.id },
     });
 
+    const rivalCenter = await tx.center.create({
+      data: { name: `${tag}-rival`, shortId: `${tag}r`.slice(0, 20), receiptSeq: 0 },
+    });
+    await tx.centerStudentRoster.create({
+      data: { centerId: rivalCenter.id, studentId: student.id },
+    });
+
     return {
       student, other, parent, pendingParent, revokedParent, strangerParent,
-      teacher, gone, center,
+      teacher, gone, center, rivalCenter,
       profileId: sp.id,
       systemLetter: system.codeLetter,
       gradeLevelId: grade?.id ?? null,
@@ -328,7 +335,7 @@ async function main() {
     const centerStaffUser = su({ id: fx.teacher.id, role: "center_admin", centerId: fx.student.id });
     const hit = await lookupStudents(CODE, centerStaffUser);
     assert(
-      hit.some((m) => m.studentId === fx.student.id),
+      hit.some((m) => m.studentCode === CODE),
       "the counter finds the student by their real code",
     );
 
@@ -337,13 +344,13 @@ async function main() {
     assert(resolveStudentCode(typo) === null, `one character wrong is not a code (${typo})`);
     const missed = await lookupStudents(typo, centerStaffUser);
     assert(
-      !missed.some((m) => m.studentId === fx.student.id),
+      missed.length === 0,
       "…and the counter finds NOBODY for it — the defect this format exists to close",
     );
 
     const grouped = await lookupStudents(`${CODE.slice(0, 4)}-${CODE.slice(4)}`, centerStaffUser);
     assert(
-      grouped.some((m) => m.studentId === fx.student.id),
+      grouped.some((m) => m.studentCode === CODE),
       "the code as PRINTED on the card (grouped) resolves too",
     );
 
@@ -358,7 +365,7 @@ async function main() {
       "free text finds a student on THIS center's roster",
     );
     assert(
-      !byName.some((m) => m.studentId === fx.student.id),
+      byName.every((m) => m.onOurRoster),
       "…and finds NOBODY off it — a name fragment is evidence of nothing",
     );
     const ours = byName.find((m) => m.studentId === fx.other.id)!;
@@ -366,16 +373,17 @@ async function main() {
       ours.name?.includes(tag) === true && ours.phone !== null,
       "our own student comes back in full — the center already holds that data",
     );
+    assert(ours.studentId === fx.other.id, "our own student keeps a usable id");
 
     const fragment = strangerPhone.slice(0, 5);
     const byFragment = await lookupStudents(fragment, desk);
     assert(
-      !byFragment.some((m) => m.studentId === fx.student.id),
+      byFragment.every((m) => m.onOurRoster),
       `a ${fragment.length}-digit fragment resolves nobody off-roster`,
     );
 
     const byCode = await lookupStudents(CODE, desk);
-    const stranger = byCode.find((m) => m.studentId === fx.student.id);
+    const stranger = byCode.find((m) => !m.onOurRoster);
     assert(stranger !== undefined, "a valid code still reaches a student at another center");
     assert(
       stranger!.name !== null && !stranger!.name.includes(tag),
@@ -394,9 +402,21 @@ async function main() {
       "the code IS echoed back — they typed it, so it discloses nothing new",
     );
     assert(stranger!.onOurRoster === false, "and the row is labelled as not ours");
+    assert(
+      stranger!.studentId === null,
+      "the real student id is WITHHELD — a match here cannot be replayed against an id endpoint",
+    );
+    assert(
+      stranger!.otherCenterCount === 1,
+      `we learn only HOW MANY other centres hold them (${stranger!.otherCenterCount})`,
+    );
+    assert(
+      !JSON.stringify(stranger).includes(`${tag}-rival`),
+      "…and never WHICH: no centre name appears anywhere in the row",
+    );
 
     const byPhone = await lookupStudents(strangerPhone, desk);
-    const viaPhone = byPhone.find((m) => m.studentId === fx.student.id);
+    const viaPhone = byPhone.find((m) => !m.onOurRoster);
     assert(viaPhone !== undefined, "a full phone number also reaches them — the dedup case");
     assert(
       viaPhone!.studentCode === null,
@@ -433,7 +453,7 @@ async function main() {
     assert(after!.studentCode === CODE, "…and the real code survived every attempt");
   } finally {
     await admin.query(`DELETE FROM center_student_rosters WHERE student_id = ANY($1::uuid[])`, [U]);
-    await admin.query(`DELETE FROM centers WHERE id = $1`, [fx.center.id]);
+    await admin.query(`DELETE FROM centers WHERE id = ANY($1::uuid[])`, [[fx.center.id, fx.rivalCenter.id]]);
     await admin.query(`DELETE FROM parent_student_links WHERE parent_id = ANY($1::uuid[]) OR student_id = ANY($1::uuid[])`, [U]);
     await admin.query(`DELETE FROM parent_profiles WHERE user_id = ANY($1::uuid[])`, [U]);
     await admin.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [U]);

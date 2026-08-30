@@ -1,5 +1,6 @@
 import { Prisma } from "@repo/database";
 import { scopedDb, type TenantTx } from "../../db/scope";
+import { isOnCenterRoster } from "./roster-membership";
 import { BusinessRuleError, ForbiddenError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
@@ -26,6 +27,7 @@ export type ImportRowResult = {
   studentId?: string;
   studentCode?: string;
   matchedOn?: "phone" | "national_id";
+  onOurRoster?: boolean;
   duplicateOfLine?: number;
   errorCode?: "name_required" | "invalid_national_id" | "already_exists";
   error?: string;
@@ -183,15 +185,25 @@ async function importOneRow(
     const existing = await findStudentByKeys(tx, { phone, nationalId, studentCode: null });
 
     if (dryRun) {
-      return existing
-        ? {
-            line: row.line,
-            name,
-            status: "would_reuse" as const,
-            studentCode: existing.studentCode ?? undefined,
-            matchedOn: existing.matchedOn === "student_code" ? undefined : existing.matchedOn,
-          }
-        : { line: row.line, name, status: "would_create" as const };
+      if (!existing) return { line: row.line, name, status: "would_create" as const };
+
+      // A dry run writes nothing and leaves no audit row, so what it echoes is all
+      // the caller gets — and a global match must not turn it into a lookup service.
+      // For a student this centre does not already hold, the answer is limited to
+      // "a record exists": no student code, and not even which key matched, because
+      // "matched on national_id" confirms a national ID the caller merely guessed.
+      const onOurRoster = await isOnCenterRoster(tx, centerId, existing.userId);
+      if (!onOurRoster) {
+        return { line: row.line, name, status: "would_reuse" as const, onOurRoster: false };
+      }
+      return {
+        line: row.line,
+        name,
+        status: "would_reuse" as const,
+        onOurRoster: true,
+        studentCode: existing.studentCode ?? undefined,
+        matchedOn: existing.matchedOn === "student_code" ? undefined : existing.matchedOn,
+      };
     }
 
     if (existing) {

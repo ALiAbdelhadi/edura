@@ -292,6 +292,11 @@ export function StudentImportDialog({
                                 : t("adminHome.students_importMatchedNationalId")}
                             </span>
                           )}
+                          {row.onOurRoster === false && (
+                            <span className="ms-2 text-[12px] text-(--ink-3)">
+                              {t("adminHome.students_importMatchedElsewhere")}
+                            </span>
+                          )}
                           {row.status === "error" && (
                             <span className="ms-2 text-[12px] text-destructive">
                               {errorText(row)}

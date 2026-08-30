@@ -11,6 +11,7 @@ export type ImportRow = {
   studentCode?: string;
   studentId?: string;
   matchedOn?: "phone" | "national_id";
+  onOurRoster?: boolean;
   duplicateOfLine?: number;
   errorCode?: "name_required" | "invalid_national_id" | "already_exists";
   error?: string;

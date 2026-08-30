@@ -69,6 +69,16 @@ async function main() {
     });
     await tx.centerStudentRoster.create({ data: { centerId: centerB.id, studentId: existing.id } });
 
+    // held only by centre B, and deliberately never imported by A: the dry-run
+    // disclosure check needs a match that is genuinely foreign at the time it runs
+    const foreign = await tx.user.create({
+      data: { name: tag + "-foreign", phone: phoneOf(95), role: "student", status: "active", isDemo: true },
+    });
+    await tx.studentProfile.create({
+      data: { userId: foreign.id, fullName: tag + "-foreign", phone: phoneOf(95), nationalId: nidOf(95), entityType: "invited", inviteCode: tag.toUpperCase() + "95", familyLinkCode: tag.toUpperCase() + "F95" },
+    });
+    await tx.centerStudentRoster.create({ data: { centerId: centerB.id, studentId: foreign.id } });
+
     const byNid = await tx.user.create({
       data: { name: tag + "-bynid", role: "student", status: "active", isDemo: true },
     });
@@ -76,7 +86,7 @@ async function main() {
       data: { userId: byNid.id, fullName: tag + "-bynid", nationalId: nidOf(91), entityType: "invited", inviteCode: tag.toUpperCase() + "91", familyLinkCode: tag.toUpperCase() + "F91" },
     });
 
-    return { centerA: centerA.id, centerB: centerB.id, adminA: adminA.id, adminB: adminB.id, existing: existing.id, byNid: byNid.id };
+    return { centerA: centerA.id, centerB: centerB.id, adminA: adminA.id, adminB: adminB.id, existing: existing.id, byNid: byNid.id, foreign: foreign.id };
   });
 
   const A = actorFor(fx.centerA, fx.adminA);
@@ -202,6 +212,38 @@ async function main() {
     );
     ok(auditAfterDry[0].n === auditBefore[0].n, "the dry run wrote no audit row either");
 
+    console.log("\n[5b] A dry run does not identify a student this centre does not hold");
+    const csvForeign = [
+      "name,phone,national id",
+      `${tag}-probe1,${phoneOf(95)},`,
+      `${tag}-probe2,,${nidOf(95)}`,
+    ].join("\n");
+    const rF = await importStudentCsv(A, csvForeign, { dryRun: true });
+    ok(rF.reused === 2, "both probes still report that a record exists (dedup is unaffected)");
+    ok(
+      rF.rows.every((r) => r.status === "would_reuse" && r.onOurRoster === false),
+      "both are flagged as not on the caller's roster",
+    );
+    ok(
+      rF.rows.every((r) => r.studentCode === undefined),
+      "no student code is echoed for a foreign match",
+    );
+    ok(
+      rF.rows.every((r) => r.matchedOn === undefined),
+      "not even the matched key is echoed — that would confirm a guessed national ID",
+    );
+    const foreignUntouched = await q<{ n: number }>(
+      `SELECT count(*)::int n FROM center_student_rosters WHERE center_id=$1 AND student_id=$2`,
+      [fx.centerA, fx.foreign],
+    );
+    ok(foreignUntouched[0].n === 0, "the probe attached the foreign student to nobody");
+
+    const csvOurs = ["name,phone", `${tag}-probe3,${phoneOf(90)}`].join("\n");
+    const rO = await importStudentCsv(A, csvOurs, { dryRun: true });
+    ok(rO.rows[0].onOurRoster === true, "a student already on our roster is flagged on-roster");
+    ok(!!rO.rows[0].studentCode, "and their student code is still shown to the centre that holds them");
+    ok(rO.rows[0].matchedOn === "phone", "and the matched key is still shown");
+
     console.log("\n[6] Re-importing the same file is idempotent");
     const rosterBefore = await q<{ n: number }>(
       `SELECT count(*)::int n FROM center_student_rosters WHERE center_id=$1`, [fx.centerA],
@@ -226,7 +268,7 @@ async function main() {
       "a student who left rejoins on the SAME roster row, not a second one");
 
     console.log("\n[7] MONEY IS UNTOUCHED — asserted by counting");
-    const ids = [...new Set([...createdUserIds, fx.existing, fx.byNid])];
+    const ids = [...new Set([...createdUserIds, fx.existing, fx.byNid, fx.foreign])];
     for (const [table, col] of [
       ["enrollments", "student_id"],
       ["subscriptions", "student_id"],
@@ -296,8 +338,8 @@ async function main() {
     try {
       await c.query(`DELETE FROM audit_logs WHERE center_id = ANY($1::uuid[])`, [[fx.centerA, fx.centerB]]);
       await c.query(`DELETE FROM center_student_rosters WHERE center_id = ANY($1::uuid[])`, [[fx.centerA, fx.centerB]]);
-      await c.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [[...all, fx.existing, fx.byNid]]);
-      await c.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[...all, fx.existing, fx.byNid, fx.adminA, fx.adminB]]);
+      await c.query(`DELETE FROM student_profiles WHERE user_id = ANY($1::uuid[])`, [[...all, fx.existing, fx.byNid, fx.foreign]]);
+      await c.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[...all, fx.existing, fx.byNid, fx.foreign, fx.adminA, fx.adminB]]);
       await c.query(`DELETE FROM centers WHERE id = ANY($1::uuid[])`, [[fx.centerA, fx.centerB]]);
       const left = await c.query(`SELECT count(*)::int n FROM users WHERE name LIKE $1`, [tag + "%"]);
       ok(left.rows[0].n === 0, "teardown: every fixture row removed");

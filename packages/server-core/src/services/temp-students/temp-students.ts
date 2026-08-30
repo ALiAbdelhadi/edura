@@ -1,5 +1,6 @@
 import { platformDb, type TenantTx } from "../../db/scope";
 import { NotFoundError, ConflictError, BusinessRuleError } from "../../errors/classes";
+import { isOnCenterRoster } from "../center/roster-membership";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
 import { sendMail } from "../../mail/send";
 import type { SessionUser } from "../../auth/types";
@@ -72,17 +73,16 @@ async function callerOwnsTempStudent(
   tempUserId: string,
   actor: SessionUser,
 ): Promise<boolean> {
+  // This gate stands in front of an invite code, which is a claim credential: it
+  // merges the temp student's history into whoever redeems it. Membership therefore
+  // has to be CURRENT, not merely historical.
   if (actor.role === "center_admin") {
     if (!actor.centerId) return false;
-    const row = await tx.centerStudentRoster.findUnique({
-      where: { centerId_studentId: { centerId: actor.centerId, studentId: tempUserId } },
-      select: { id: true },
-    });
-    return row !== null;
+    return isOnCenterRoster(tx, actor.centerId, tempUserId);
   }
   if (actor.role === "teacher") {
     const enrollment = await tx.enrollment.findFirst({
-      where: { studentId: tempUserId, course: { teacherId: actor.id } },
+      where: { studentId: tempUserId, status: "active", course: { teacherId: actor.id } },
       select: { id: true },
     });
     return enrollment !== null;

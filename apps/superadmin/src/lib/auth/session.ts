@@ -2,7 +2,8 @@ import { headers } from "next/headers";
 import type { Role } from "@repo/database";
 import { isSessionAmbiguous } from "@repo/server-core/auth/session-cookies";
 import type { SessionUser } from "@repo/server-core/auth/types";
-import { AuthError, SessionConflictError } from "@/lib/errors/classes";
+import { AuthError, SessionConflictError, TwoFactorRequiredError } from "@/lib/errors/classes";
+import { twoFactorSatisfied } from "./two-factor";
 import { tagSentryUser } from "@/lib/observability/sentry-user";
 import { auth } from "./auth";
 import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
@@ -28,8 +29,13 @@ async function requestIsAmbiguous(): Promise<boolean> {
   }
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
-  if (testOverride) return await testOverride();
+type ReadSession = { user: SessionUser; twoFactorOk: boolean };
+
+async function readSession(): Promise<ReadSession | null> {
+  if (testOverride) {
+    const user = await testOverride();
+    return user ? { user, twoFactorOk: true } : null;
+  }
   if (await requestIsAmbiguous()) {
     tagSentryUser(null);
     return null;
@@ -56,14 +62,31 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: user.email ?? null,
   };
   tagSentryUser(sessionUser);
-  return sessionUser;
+  return {
+    user: sessionUser,
+    twoFactorOk: twoFactorSatisfied({
+      twoFactorEnabled: (user as { twoFactorEnabled?: unknown }).twoFactorEnabled,
+      impersonatedBy: (res.session as { impersonatedBy?: unknown } | undefined)?.impersonatedBy,
+    }),
+  };
 }
 
+export async function getSessionUser(): Promise<SessionUser | null> {
+  return (await readSession())?.user ?? null;
+}
+
+/**
+ * Every /api/v1 route reaches the back office through here, so this is where the 2FA
+ * requirement has to bite. The dashboard layout also redirects an unenrolled staff
+ * member, but a redirect only guards a browser: without this check a password-only
+ * session still reached every route directly.
+ */
 export async function requireSession(): Promise<SessionUser> {
-  const user = await getSessionUser();
-  if (!user) {
+  const session = await readSession();
+  if (!session) {
     if (await requestIsAmbiguous()) throw new SessionConflictError();
     throw new AuthError();
   }
-  return user;
+  if (!session.twoFactorOk) throw new TwoFactorRequiredError();
+  return session.user;
 }

@@ -108,13 +108,13 @@ type Roster = {
 };
 
 type Match = {
-  studentId: string;
+  studentId: string | null;
   name: string | null;
   studentCode: string | null;
   phone: string | null;
   isShell: boolean;
   onOurRoster: boolean;
-  otherCenters: string[];
+  otherCenterCount: number;
 };
 
 const IN_TAB = "in";
@@ -375,8 +375,8 @@ export function CenterCounterScreen({
     (m) => !roster?.students.some((s) => s.studentId === m.studentId),
   );
 
-  const targetOf = (studentId: string, covered: boolean): CheckinTarget | null =>
-    roster
+  const targetOf = (studentId: string | null, covered: boolean): CheckinTarget | null =>
+    roster && studentId
       ? {
         studentId,
         sessionId: roster.session.sessionId,
@@ -498,7 +498,7 @@ export function CenterCounterScreen({
   };
 
   const studentRow = (row: {
-    studentId: string;
+    studentId: string | null;
     name: string;
     studentCode: string | null;
     phone: string | null;
@@ -510,7 +510,7 @@ export function CenterCounterScreen({
     const price = selectedSession?.pricePerSession ?? roster?.session.pricePerSession ?? null;
     return (
       <div
-        key={row.studentId}
+        key={row.studentId ?? `masked-${row.name}`}
         className={cn(
           "overflow-hidden rounded-lg border border-(--rule) bg-(--sheet)",
           paying ? "2xl:col-span-2" : null,
@@ -541,7 +541,7 @@ export function CenterCounterScreen({
               <Button
                 size="lg"
                 className="h-11 w-full"
-                disabled={busy}
+                disabled={busy || !row.studentId}
                 {...{ [ACTION_ATTR]: "" }}
                 onClick={() => {
                   const target = targetOf(row.studentId, true);
@@ -556,7 +556,7 @@ export function CenterCounterScreen({
                 size="lg"
                 variant="outline"
                 className="h-auto min-h-11 w-full whitespace-normal px-2 py-1.5 text-[12.5px] leading-tight"
-                disabled={busy}
+                disabled={busy || !row.studentId}
                 {...{ [ACTION_ATTR]: "" }}
                 onClick={() => {
                   const target = targetOf(row.studentId, false);
@@ -835,8 +835,8 @@ export function CenterCounterScreen({
                     studentCode: created.studentCode,
                     phone: created.phone,
                     isShell: !created.existing,
-                    onOurRoster: true,
-                    otherCenters: [],
+                    onOurRoster: created.onOurRoster,
+                    otherCenterCount: 0,
                   },
                 ]);
                 if (sessionId) await loadRoster(sessionId);
@@ -872,10 +872,8 @@ export function CenterCounterScreen({
                     covered: true,
                     note: m.onOurRoster ? (
                       <Badge tone="done">{t("shared.checkin.ourStudent")}</Badge>
-                    ) : m.otherCenters.length > 0 ? (
-                      <Badge tone="pending">
-                        {t("shared.checkin.knownElsewhere", { center: m.otherCenters[0] })}
-                      </Badge>
+                    ) : m.otherCenterCount > 0 ? (
+                      <Badge tone="pending">{t("shared.checkin.knownElsewhere")}</Badge>
                     ) : (
                       <Badge tone="neutral">{t("shared.checkin.newHere")}</Badge>
                     ),

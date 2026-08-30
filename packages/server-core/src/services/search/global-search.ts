@@ -125,12 +125,13 @@ async function centerStudents(
 ): Promise<SearchHit[]> {
   const rows = await lookupStudents(q, p.acting);
 
-  return rows.slice(0, PER_KIND).map((r) => ({
+  return rows.slice(0, PER_KIND).map((r, i) => ({
     kind: "student" as const,
-    id: r.studentId,
+    // A masked hit has no student id to give: it is keyed for the list only.
+    id: r.studentId ?? `masked:${i}`,
     title: r.name ?? r.studentCode ?? "—",
     masked: !r.onOurRoster,
-    subtitle: join(r.phone, r.onOurRoster ? null : r.otherCenters[0]),
+    subtitle: r.phone ?? undefined,
     ...(r.studentCode ? { badge: r.studentCode } : {}),
     href: r.onOurRoster
       ? `/dashboard/${p.portal}/students/${r.studentId}`

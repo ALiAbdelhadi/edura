@@ -189,6 +189,7 @@
   "students_importStatusError": "مرفوض",
   "students_importMatchedPhone": "مطابقة بالهاتف",
   "students_importMatchedNationalId": "مطابقة بالرقم القومي",
+  "students_importMatchedElsewhere": "موجود — ليس في قائمتك بعد",
   "students_importNoMoney": "الاستيراد يضيف الطلاب لكشف المركز فقط — لا اشتراكات ولا مدفوعات ولا تسجيل في مجموعات.",
   "students_importReuseNote": "الطالب الموجود مسبقًا يُربط بالمركز ولا يُنشأ له سجل ثانٍ، ولا تُعدَّل بياناته.",
   "students_importFailedToRead": "تعذّرت قراءة الملف",

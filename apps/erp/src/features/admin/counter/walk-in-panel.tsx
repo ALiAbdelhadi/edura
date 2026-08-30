@@ -24,6 +24,7 @@ export type WalkInCreated = {
   studentCode: string | null;
   phone: string;
   existing: boolean;
+  onOurRoster: boolean;
 };
 
 export function WalkInPanel({
@@ -64,11 +65,17 @@ export function WalkInPanel({
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = (res as any)?.data?.data ?? (res as any)?.data;
-      toast.success(
-        data.existing
-          ? t("shared.checkin.existingResent", { code: data.studentCode ?? "" })
-          : t("shared.checkin.walkInCreated"),
-      );
+      if (data.existing && data.onOurRoster === false) {
+        // Recognised, but this centre does not have them on its roster: nothing
+        // was sent and no code is disclosed. Adding them is a separate step.
+        toast.warning(t("shared.checkin.existingElsewhere"));
+      } else {
+        toast.success(
+          data.existing
+            ? t("shared.checkin.existingResent", { code: data.studentCode ?? "" })
+            : t("shared.checkin.walkInCreated"),
+        );
+      }
 
       const invite = data.invite;
       if (invite?.email?.status === "sent") {
@@ -97,6 +104,7 @@ export function WalkInPanel({
         studentCode: data.studentCode ?? null,
         phone,
         existing: !!data.existing,
+        onOurRoster: data.onOurRoster !== false,
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {

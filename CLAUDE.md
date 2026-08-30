@@ -870,8 +870,24 @@ docs/security/security-audit.md for the full report and severities.
   9/9, `bun run build` 3/3 apps, erp unit suite 1447 passed / 1 skipped —
   identical counts to before. The DB suites and E2E were NOT run locally
   against it; CI is what covers those.
-- Then the lighter: **M5** (temp-students/[id]/send-invite ownership check),
-  **M6** (materials %PDF- magic-byte check).
+- **M5** — *Done (2026-08-29).* `sendTempStudentInvite` already refused a foreign
+  centre and an unrelated teacher; measured, that half was never missing and this
+  list was stale about it. What WAS missing is that neither branch required
+  membership to be CURRENT: the centre check read the roster row without
+  `leftAt IS NULL`, and the teacher check accepted any enrollment regardless of
+  `status`. So a centre a child had left, and a teacher a child had unenrolled from,
+  could both still send that child's invite code — which is a claim credential: it
+  merges the temp student's history into whoever redeems it. Both branches now
+  require current membership, the centre one through the shared
+  `services/center/roster-membership.ts`. Proof:
+  apps/erp/tests/db/temp-student-invite-ownership.test.ts (9/9; the two holes are
+  `<<SUCCEEDED>>` against the previous service).
+- **M6** — *Done, and this list was stale (verified 2026-08-29).* The magic-byte
+  check exists and guards BOTH upload paths — `assertPdfBytes` at
+  apps/erp/src/lib/services/materials/materials.ts:121 (create) and :326 (replace) —
+  each alongside a declared-content-type check and the 10 MB cap. It is covered by
+  apps/erp/tests/unit/m6-materials-magic-bytes.test.ts (4/4: spoofed and genuine, on
+  both paths). No code change was needed; only this entry was wrong.
 - **M8** — *Done (2026-08-26):* the last `$queryRawUnsafe` (a fully static
   query in `packages/database/scripts/reconcile-wallets.ts`) converted to the
   tagged-template `$queryRaw` (byte-identical behaviour, proven by a dry run
@@ -932,8 +948,16 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
 - `SUPERADMIN_BASE_URL` — on **apps/erp only**: where "end view-as" returns the
   browser. Falls back to localhost in development.
 
-(Recommended once M3 lands: `REDIS_URL` for a shared rate-limit store across
-instances, `TRUSTED_PROXY_HOPS` matching the deploy's proxy depth.)
+- `REDIS_URL` — the shared rate-limit store. **Required in production since
+  2026-08-29 (M-C)**: without it the limiter falls back to a per-process in-memory
+  bucket, and on serverless every concurrent lambda holds its own, so the login caps
+  that exist to stop brute-forcing a child's account are decorative. Asserted at BOOT
+  (`assertSharedRateLimitStore`, called from each app's `instrumentation.ts`), so a
+  missing store fails the deploy rather than a request. Must be `rediss://`;
+  plaintext `redis://` needs `ALLOW_PLAINTEXT_REDIS=1`, and a deliberate
+  single-instance deploy can accept the weaker guarantee with
+  `ALLOW_UNSHARED_RATE_LIMIT=1`. `TRUSTED_PROXY_HOPS` should match the deploy's proxy
+  depth.
 
 ## graphify
 

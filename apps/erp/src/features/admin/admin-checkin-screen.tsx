@@ -31,13 +31,13 @@ import {
 } from "./ledger";
 
 type Match = {
-  studentId: string;
+  studentId: string | null;
   name: string | null;
   studentCode: string | null;
   phone: string | null;
   isShell: boolean;
   onOurRoster: boolean;
-  otherCenters: string[];
+  otherCenterCount: number;
 };
 
 type SessionOption = {
@@ -76,6 +76,8 @@ export function AdminCheckinScreen() {
   const busy = localBusy || commit.busy;
 
   const pickStudent = async (m: Match) => {
+    // No id means this centre does not hold the student; there is nothing to open.
+    if (!m.studentId) return;
     setStudent(m);
     setMatches(null);
     commit.clearPayment();
@@ -129,7 +131,7 @@ export function AdminCheckinScreen() {
   }, [searchParams]);
 
   const targetOf = (s: SessionOption): CheckinTarget | null =>
-    student
+    student && student.studentId
       ? {
           studentId: student.studentId,
           sessionId: s.sessionId,
@@ -328,6 +330,7 @@ export function AdminCheckinScreen() {
               onInvite={setPendingInvite}
               onCreated={async (created) => {
                 setWalkInOpen(false);
+                if (!created.onOurRoster) return;
                 await pickStudent({
                   studentId: created.studentId,
                   name: created.fullName,
@@ -335,7 +338,7 @@ export function AdminCheckinScreen() {
                   phone: created.phone,
                   isShell: !created.existing,
                   onOurRoster: true,
-                  otherCenters: [],
+                  otherCenterCount: 0,
                 });
               }}
             />
@@ -352,12 +355,13 @@ export function AdminCheckinScreen() {
             <EmptyState title={t("shared.checkin.noMatches")} />
           ) : (
             <div>
-              {matches.map((m) => (
+              {matches.map((m, i) => (
                 <button
-                  key={m.studentId}
+                  key={m.studentId ?? `masked-${i}`}
                   type="button"
+                  disabled={!m.studentId}
                   onClick={() => pickStudent(m)}
-                  className="flex w-full items-center justify-between gap-3 border-b border-(--rule-2) p-4 text-start last:border-b-0 hover:bg-(--rule-2)"
+                  className="flex w-full items-center justify-between gap-3 border-b border-(--rule-2) p-4 text-start last:border-b-0 hover:bg-(--rule-2) disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <RowIdentity
                     name={m.name ?? "—"}
@@ -366,10 +370,8 @@ export function AdminCheckinScreen() {
                   <span className="flex flex-col items-end gap-1">
                     {m.onOurRoster ? (
                       <Badge tone="done">{t("shared.checkin.ourStudent")}</Badge>
-                    ) : m.otherCenters.length > 0 ? (
-                      <Badge tone="pending">
-                        {t("shared.checkin.knownElsewhere", { center: m.otherCenters[0] })}
-                      </Badge>
+                    ) : m.otherCenterCount > 0 ? (
+                      <Badge tone="pending">{t("shared.checkin.knownElsewhere")}</Badge>
                     ) : (
                       <Badge tone="neutral">{t("shared.checkin.newHere")}</Badge>
                     )}
@@ -391,9 +393,9 @@ export function AdminCheckinScreen() {
               </Button>
             ) : null}
           </div>
-          {student.otherCenters.length > 0 && !student.onOurRoster ? (
+          {student.otherCenterCount > 0 && !student.onOurRoster ? (
             <p className="m-0 border-b border-(--rule-2) bg-(--amber-soft) px-4 py-3 text-[13px] leading-relaxed text-(--amber)">
-              {t("shared.checkin.crossCenterNote", { center: student.otherCenters[0] })}
+              {t("shared.checkin.crossCenterNote")}
             </p>
           ) : null}
           {sessions ? (
