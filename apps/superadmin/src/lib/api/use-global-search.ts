@@ -34,6 +34,7 @@ export function useDebounced(value: string, ms = DEBOUNCE_MS): string {
 
 export function useGlobalSearch(query: string): {
   loading: boolean;
+  failed: boolean;
   groups: { kind: string; hits: GlobalSearchHit[] }[];
   truncated: boolean;
 } {
@@ -54,11 +55,14 @@ export function useGlobalSearch(query: string): {
 
   const payload = result?.data as Partial<GlobalSearchPayload> | undefined;
 
-  const settled = enabled && !state.isFetching && payload?.q === debounced;
+  const failed = enabled && !state.isFetching && state.isError;
+  const settled =
+    enabled && !state.isFetching && (payload?.q === debounced || failed);
 
   return {
     loading: live.length >= MIN_LENGTH && (live !== debounced || !settled),
-    groups: settled && Array.isArray(payload?.groups) ? payload.groups : [],
-    truncated: settled ? Boolean(payload?.truncated) : false,
+    failed: live === debounced && failed,
+    groups: settled && !failed && Array.isArray(payload?.groups) ? payload.groups : [],
+    truncated: settled && !failed ? Boolean(payload?.truncated) : false,
   };
 }

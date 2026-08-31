@@ -18,6 +18,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/dialog";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
+import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Spinner } from "@/components/kit/spinner";
@@ -81,13 +84,18 @@ function DelegationBoundary() {
 
 export function TeacherTeamScreen() {
   const t = useTranslations();
-  const [rows, setRows] = useState<AssistantRow[] | null>(null);
+  const queryStrings = useQueryStrings();
+  const [rows, setRows] = useState<AssistantRow[] | null | "error">(null);
 
   const load = useCallback(async () => {
-    const res = await api
-      .get("teacher/assistants")
-      .json<{ data: AssistantRow[] }>();
-    setRows(res.data);
+    try {
+      const res = await api
+        .get("teacher/assistants")
+        .json<{ data: AssistantRow[] }>();
+      setRows(res.data);
+    } catch {
+      setRows("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -95,7 +103,14 @@ export function TeacherTeamScreen() {
   }, [load]);
 
   const remove = async (row: AssistantRow) => {
-    await api.delete(`teacher/assistants/${row.id}`);
+    try {
+      await api.delete(`teacher/assistants/${row.id}`);
+    } catch (err) {
+      toast.error(
+        (err as { message?: string })?.message || queryStrings.loadFailed,
+      );
+      return;
+    }
     void load();
   };
 
@@ -111,6 +126,16 @@ export function TeacherTeamScreen() {
           <div className="flex justify-center p-8">
             <Spinner />
           </div>
+        ) : rows === "error" ? (
+          <LoadError
+            className="m-4"
+            message={queryStrings.loadFailed}
+            onRetry={() => {
+              setRows(null);
+              void load();
+            }}
+            retryLabel={queryStrings.retry}
+          />
         ) : rows.length === 0 ? (
           <div className="p-8">
             <EmptyState

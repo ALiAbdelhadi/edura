@@ -6,6 +6,7 @@ import { attendanceDayCells } from "@/lib/analytics/transforms";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
 import { SectionHead, SkeletonRows } from "@repo/ui/components/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";
 import { Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -27,8 +28,6 @@ export function AttendanceScreen({
   const url = studentId ? `me/attendance?studentId=${studentId}` : "me/attendance";
   const { query, result } = useCustom({ url, method: "get" });
   const summary = (result?.data as any) || null;
-
-  if (query.isLoading) return <SkeletonRows rows={4} />;
 
   const present = summary?.present ?? 0;
   const absent = summary?.absent ?? 0;
@@ -73,6 +72,7 @@ export function AttendanceScreen({
   );
 
   return (
+    <QuerySection query={query} skeleton={<SkeletonRows rows={4} />}>
     <div className="flex w-full flex-col gap-5">
       <div className="rounded-xl border border-rule bg-sheet p-4">
         <DonutChart
@@ -114,5 +114,6 @@ export function AttendanceScreen({
         </div>
       </section>
     </div>
+    </QuerySection>
   );
 }

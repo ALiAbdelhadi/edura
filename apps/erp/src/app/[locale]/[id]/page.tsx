@@ -2,6 +2,7 @@
 
 import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
+import { api } from "@/lib/api/client";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
@@ -95,29 +96,26 @@ export default function AffiliationLandingPage() {
     let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch("/api/v1/me", { credentials: "same-origin" });
+        const meBody = await api.get("me").json<{ data: Me }>();
         if (cancelled) return;
-        if (meRes.status === 401) {
-          setLoading(false);
-          return;
-        }
-        const meBody = await meRes.json();
         const meData: Me = meBody.data;
         setMe(meData);
 
         if (meData.role === "teacher") {
-          const affRes = await fetch("/api/v1/me/affiliations", {
-            credentials: "same-origin",
-          });
-          const affBody = await affRes.json();
+          const affBody = await api
+            .get("me/affiliations")
+            .json<{ data: Affiliation[] | { items?: Affiliation[] } }>();
           const list: Affiliation[] = Array.isArray(affBody.data)
             ? affBody.data
             : (affBody.data?.items ?? []);
           const found = list.find((a) => (a.id) === id) ?? null;
           if (!cancelled) setAffiliation(found);
         }
-      } catch {
-        if (!cancelled) setError(t("affiliationInvite.loadError"));
+      } catch (err) {
+        if (cancelled) return;
+        if ((err as { statusCode?: number })?.statusCode !== 401) {
+          setError(t("affiliationInvite.loadError"));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -131,23 +129,10 @@ export default function AffiliationLandingPage() {
     setActing(action);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/affiliations/${id}/${action}`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!res.ok) {
-        let msg = t("common.requestFailed");
-        try {
-          const body = await res.json();
-          msg = body?.error?.message ?? msg;
-        } catch {
-        }
-        setError(msg);
-        return;
-      }
+      await api.post(`affiliations/${id}/${action}`);
       setDone(action === "accept" ? "accepted" : "declined");
-    } catch {
-      setError(t("common.genericError"));
+    } catch (err) {
+      setError((err as { message?: string })?.message || t("common.genericError"));
     } finally {
       setActing(null);
     }

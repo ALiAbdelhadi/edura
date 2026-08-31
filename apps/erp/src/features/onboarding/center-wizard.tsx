@@ -43,7 +43,7 @@ export function CenterWizard({ initial }: { initial?: OnboardingInitial<CenterSt
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<CenterState>(initial);
+  const { tree, state, error, saveDraft, draftFailed } = useOnboarding<CenterState>(initial);
 
   const [stepId, setStepId] = useState<StepId>("centerInfo");
   const [info, setInfo] = useState({ name: "", governorate: "", area: "", phone: "" });
@@ -127,6 +127,7 @@ export function CenterWizard({ initial }: { initial?: OnboardingInitial<CenterSt
 
   const shell = (children: React.ReactNode, footer: React.ReactNode) => (
     <WizardShell
+      draftFailed={draftFailed}
       eyebrow={t(
         `onboarding.steps.${stepId === "centerInfo" ? "centerInfo" : stepId === "coverage" ? "coverage" : "review"}` as Parameters<typeof t>[0],
       )}

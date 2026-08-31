@@ -124,7 +124,13 @@ to point the suites at **dev** rather than rebuild the test branch.
   `.env.production`, both gitignored — and `test:db` launches the suites with
   `tsx --env-file=.env.local`. Verified: all three of `apps/erp`,
   `apps/superadmin` and `packages/database` carry `EDURA_ALLOW_DB_ENVS=dev` in
-  their `.env.local`, and all three point at `ep-patient-scene-…` (dev).
+  their `.env.local`, and all three point at dev. **[local, corrected
+  2026-08-30] THE DEV ENDPOINT IS `ep-withered-field-b23csnyq`**, not the
+  `ep-patient-scene-…` this file named until today — the branch was recreated
+  and every `.env.local` already carries the new host. Measured that day: all
+  three files agree on it, and all three roles (`edura_app` on the pooler,
+  `neondb_owner` on the direct host) authenticate. Any earlier mention of
+  `ep-patient-scene-…` below is history, not a lookup table.
   **CI DOES NOT SET THE VARIABLE AT ALL**, and does not need to: it provisions a
   throwaway Postgres per run and stamps it `COMMENT ON DATABASE … IS
   'edura-env:test'`, so the guard is satisfied by the label rather than
@@ -446,6 +452,89 @@ governs. Violating one of these is never a local change.
 
 ## Environment state
 
+> **[ALL THREE ENVIRONMENTS REBUILT FROM SCRATCH, 2026-08-30.] Every endpoint
+> named further down this file is dead.** A new Neon project was created with
+> three branches, each bootstrapped in the order `label-db` →
+> `bootstrap-app-role` → `prisma migrate deploy` → `seed` → `verify-db`:
+>
+> | env | endpoint | migrations | verify-db | data |
+> |---|---|---|---|---|
+> | dev | `ep-withered-field-b23csnyq` | 70 | 28/28 | demo seed — 7 users, 1 center, **0 ledger rows** |
+> | test | `ep-morning-snow-b269im2n` | 70 | 28/28 | `--no-demo` — 2 staff, 45 subjects |
+> | production | `ep-mute-rice-b2s8gg42` | 70 | 28/28 | `--no-demo` — 2 staff, 45 subjects, 411 offerings, 0 money |
+>
+> Shape is identical on all three: 82 tables / 6 sequences / 41 RLS tables /
+> 62 policies / 70 migrations.
+>
+> **THE TEST BRANCH IS THE SECOND ONE OF THAT NAME.** The first
+> (`ep-wandering-resonance-b25h9bvh`) stopped accepting BOTH roles mid-session —
+> owner and `edura_app` together, which is the signature of a branch reset, not
+> of a mistyped password. Its replacement was branched **from production**, so it
+> arrived carrying production's label, its 82 tables and a copy of its rows;
+> `label-db` reported `was: edura-env:production`. It was relabelled, its
+> `edura_app` password re-synced with a bare `ALTER ROLE ... PASSWORD` (no GRANT
+> touched — re-running `bootstrap-app-role` on a populated database would have
+> re-granted the UPDATE/DELETE that migration `00000000000003` revokes on the
+> append-only ledger, which is why that script refuses), then wiped and reseeded
+> `--no-demo`. **A production clone wearing an `edura-env:test` label is
+> wipeable by `db:wipe` and writable by 95 suites** — check `label-db`'s `was:`
+> line whenever a branch is recreated. `edura_app` was created fresh on each with a new
+> password; the old `ep-patient-scene` (dev) and `ep-solitary-river`
+> (production) are gone.
+>
+> **`DIRECT_URL` IS THE OWNER STRING, NOT THE APP ROLE.** `prisma.config.ts`
+> passes it as the migration datasource, and `bootstrap-app-role.ts` runs
+> `REVOKE CREATE ON SCHEMA public FROM edura_app` — so the app role can never
+> migrate, by design. Deriving it as `edura_app` produces
+> `ERROR: permission denied for schema public` from `migrate deploy`, which is
+> what happened on 2026-08-30 before it was corrected. `extensions/index.ts`
+> states the rule: *"Migrations and bootstrap keep using DIRECT_URL / ADMIN_URL
+> — those must never appear in a serving environment."* In
+> `packages/database/.env.*` both are the owner; in the serving files neither
+> belongs, and the root `.env.production` carries an `edura_app` `DIRECT_URL`
+> only because `gen-vercel-env.py` emits that key to both Vercel projects.
+>
+> **`EDURA_ENV=test` NOW REACHES A REAL TEST BRANCH.** `load-env.ts` and
+> `prisma.config.ts` resolved only `production` vs everything-else, so
+> `EDURA_ENV=test` silently loaded `.env.local` — dev. Both now resolve
+> `.env.${EDURA_ENV}` with `dev` mapping to `.env.local`, and an unrecognised
+> value throws instead of defaulting.
+>
+> **THE DB SUITES NOW RUN AGAINST THE REAL TEST BRANCH** (2026-08-31). Both apps
+> gained a gitignored `.env.test`, and all 16 `test:db*` / `pretest:db` scripts
+> name it instead of `.env.local`. `EDURA_ALLOW_DB_ENVS` is GONE from all three
+> `.env.local` files: with a genuinely `test`-labelled branch the guard passes on
+> the label, and the widening was actively harmful — it turned "reached the wrong
+> database" into a silent pass. Measured before removal: `pretest:db` printed
+> `ok — labelled 'dev'` for a run whose command line said `.env.test`.
+>
+> **`EDURA_ENV=test` INSIDE THOSE FILES IS LOAD-BEARING.** Every script starts
+> with `import "./load-env"`, which resolves `packages/database/.env.${EDURA_ENV}`.
+> Without that line it resolves `.env.local` and dev's owner string arrives as
+> `ADMIN_URL` — which `db-guard` prefers over `DATABASE_URL`, so the guard reports
+> a different database than the suites write to.
+>
+> **`bun run` IS FINE FOR THE SUITES**, contrary to what the rule below implies:
+> measured with a real package script, `tsx --env-file` overrides what bun
+> injects, so `bun run test:db` and `npm run test:db` both reach test. The
+> `npx` rule stays for the `scripts/*.ts` DB tooling, which takes no `--env-file`.
+
+> **⚠ `bun run` REACHES DEV WHATEVER `EDURA_ENV` SAYS.** This is the mechanism
+> behind the 2026-08-20 note further down, which recorded the symptom without
+> the cause. Bun injects the CWD's `.env.local` into the child process, and
+> dotenv does not override a variable that is already set — so the file
+> `load-env.ts` picks is read and discarded. Measured 2026-08-30 with a known
+> production value in place:
+>
+> ```
+> EDURA_ENV=production bun run <script>  -> ep-patient-scene-...  (DEV)
+> EDURA_ENV=production npx tsx <script>  -> the intended endpoint
+> ```
+>
+> **Use `npx tsx` / `npx prisma` for anything that is not dev. Never
+> `bun run db:*`.** `migrate deploy` run the wrong way applies to dev while
+> printing that it is production.
+
 > Per the Conventions rule above, every claim here names its environment.
 > `packages/database/scripts/verify-db.ts` is read-only and safe against any
 > target: prefer running it over trusting a line written here.
@@ -469,7 +558,10 @@ governs. Violating one of these is never a local change.
 >
 > So: read the `Datasource "db": … at "<host>"` line prisma prints on EVERY
 > invocation and check the endpoint before trusting anything below it.
-> Production is `ep-solitary-river-…`; dev is `ep-patient-scene-…`.
+> Production is `ep-solitary-river-…`; dev is `ep-withered-field-b23csnyq`
+> (corrected 2026-08-30 — the dev branch was recreated; the `ep-patient-scene-…`
+> named in the 2026-08-20 incident above is the OLD dev host, kept only as the
+> record of what was measured that day).
 >
 > The same variable is what arms the guard: with `EDURA_ENV=production`,
 > `prisma.config.ts` REFUSES `migrate dev`, `migrate reset`, `db push` and
@@ -613,15 +705,27 @@ governs. Violating one of these is never a local change.
   A4 goes red again, for the reason the withdrawn note described.
   A4 is also **not hermetic**: it asserts a refusal that only happens while a
   globally-scoped value is ABSENT, and the superadmin UI can set that value.
-- **`expected-db-shape.json`** is committed at **53** and now TRAILS BOTH
-  environments, which sit at 55 since 2026-08-20. Harmless as it stands: both
-  migrations are additive — an extension, a function and five indexes — so the
-  table / sequence / policy counts the file pins are unchanged and verify-db
-  passes 28/28 against dev and production alike. Re-baseline it the next time
-  the shape itself moves. The old caveat here — that a `verify-db`
-  run against production reporting `expected 52, got 50` was a shared-baseline
-  artifact rather than a defect — NO LONGER APPLIES and has been removed. A
-  shape mismatch reported today is a real mismatch: investigate it.
+- **`expected-db-shape.json` is committed at 70.** Migration 70
+  (`20260831090000_payout_client_request_id` — `payouts.client_request_id`
+  + composite unique on beneficiary+key) is applied to **dev [2026-08-31]**
+  and **production [2026-08-31]**, verify-db 28/28 on both; production
+  pre-flight proved exactly one pending migration, label
+  `edura-env:production` on `ep-mute-rice-b2s8gg42`, and data untouched
+  (2 users / 0 payouts / 0 transactions before and after). Applied BEFORE the
+  payout code deploys, per the 2026-08-02 ordering lesson.
+  **[test, 2026-08-31] STILL AT 69 — BLOCKED ON CREDENTIALS:** every role in
+  `packages/database/.env.test` fails auth against
+  `ep-wandering-resonance-b25h9bvh` (`edura_app` on the pooler AND
+  `neondb_owner` on the direct host, measured that day). The file predates a
+  password rotation; refresh it from the Neon console, then
+  `EDURA_ENV=test npx prisma migrate deploy`. Until then a shape check against
+  test reports 69 vs 70 — that is the pending migration, not drift. CI is
+  unaffected (throwaway Postgres runs all 70). Before this, the file was at 69
+  and matched all three (measured 2026-08-30: 82 tables / 6 sequences /
+  41 RLS tables / 62 policies / 69 migrations). The entry that stood here said it
+  was pinned at 53 and trailing — it is not, and acting on that sentence would
+  mean re-baselining a file that is already correct. A shape mismatch reported
+  today is a real mismatch: investigate it, do not re-baseline it away.
 - **[production Vercel, 2026-08-19] `STUDENT_QR_SECRET` IS GONE.** The
   2026-08-09 entry recorded it as set on BOTH `edura-www` and `edura-superadmin`
   with the SAME value. Those projects were deleted (see the entry below), and
@@ -673,8 +777,21 @@ governs. Violating one of these is never a local change.
   `https://edura-showcase.vercel.app`. Vercel auto-detects Turbo and runs
   `turbo run build`, which dies on this Bun-only repo (`env: 'node'` not found,
   exit 127) — every project needs an explicit `buildCommand`.
-- **BACKUPS ARE NOT RUNNING.** The nightly schedule is DISABLED (no bucket, no
-  `BACKUP_*` secrets); **Neon PITR is the only protection currently in force.**
+- **[2026-08-30] BACKUPS ARE SCHEDULED AGAIN — and the entry that stood here was
+  wrong in both halves.** It said there was no bucket and no `BACKUP_*` secrets.
+  `gh secret list` shows **nine** of them, set 2026-08-08: `BACKUP_DIRECT_URL`,
+  `BACKUP_S3_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` / `_BUCKET` / `_ENDPOINT` /
+  `_REGION`, `BACKUP_AGE_IDENTITY` / `_RECIPIENT`, `BACKUP_ALERT_EMAIL`.
+  What was actually missing was the **trigger**: `backup.yml` carried only
+  `workflow_dispatch`, while two jobs tested `github.event.schedule ==
+  '30 2 * * *'` and `== '0 4 * * 1'` — conditions that could never be true. Both
+  crons have been added, so the nightly dump and the weekly restore-proof now
+  fire on their own.
+  **`BACKUP_DIRECT_URL` was ALSO pointing at a database that no longer exists** —
+  it was set on 2026-08-08 against `ep-solitary-river`, and the production branch
+  was rebuilt as `ep-mute-rice-b2s8gg42` on 2026-08-30. It has been repointed at
+  the new unpooled owner string. A configured backup aimed at a dead endpoint is
+  worse than an unconfigured one: it looks like protection.
   → [backup-restore runbook](docs/runbooks/backup-restore.md)
 - **NO SCHEDULED CRON JOB RUNS ANYWHERE.** Neither `CRON_BASE_URL` nor
   `CRON_SECRET` is set as a repo secret (verified 2026-08-09 with

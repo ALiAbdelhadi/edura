@@ -99,9 +99,9 @@ export function useGroups() {
   }, []);
 
   const post = useCallback(
-    async (groupId: string, body: string) => {
+    async (groupId: string, body: string): Promise<boolean> => {
       const text = body.trim();
-      if (!text) return;
+      if (!text) return false;
       setError(null);
       try {
         const res = await api
@@ -115,9 +115,13 @@ export function useGroups() {
             : prev,
         );
         void refresh();
+        return true;
       } catch (e) {
         const status = (e as { response?: { status?: number } })?.response?.status;
         setError(status === 429 ? "rate_limited" : "send_failed");
+        // The caller keeps the draft on false — a failed post must never
+        // clear the box and lose what the user typed.
+        return false;
       }
     },
     [refresh],

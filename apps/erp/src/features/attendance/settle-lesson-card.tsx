@@ -10,8 +10,9 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
-import { LimitNote } from "@repo/ui/components/ledger";
+import { LimitNote, LoadError } from "@repo/ui/components/ledger";
 import { Num } from "@repo/ui/components/num";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
@@ -38,6 +39,7 @@ type Preview = {
 export function SettleLessonCard({ sessionId }: { sessionId: string }) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
+  const queryStrings = useQueryStrings();
   const invalidate = useInvalidate();
   const { mutateAsync, mutation } = useCustomMutation();
 
@@ -69,6 +71,16 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
     !p.feeExceedsPrice;
 
   const body = () => {
+    if (query.isError) {
+      return (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
+      );
+    }
+
     if (query.isLoading || !p) {
       return (
         <div className="space-y-4">
@@ -272,6 +284,7 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
         <TwoStepCommit
           resetKey={sessionId}
           busy={mutation.isPending}
+          disabled={query.isError || !actionable}
           onCommit={commit}
           labels={{
             action: t("teacher.settleAction", {

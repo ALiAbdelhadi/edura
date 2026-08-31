@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAuthenticatedArea,
   portalFromPath,
   resolveIntegrityAction,
 } from "@/components/providers/session-integrity-guard";
@@ -148,5 +149,51 @@ describe("resolveIntegrityAction", () => {
         sessionRole: "parent",
       }),
     ).toBe("end-session");
+  });
+});
+
+describe("isAuthenticatedArea", () => {
+  it("recognises signed-in surfaces that live outside /dashboard", () => {
+    expect(isAuthenticatedArea("/ar/onboarding")).toBe(true);
+    expect(isAuthenticatedArea("/en/claim")).toBe(true);
+    expect(isAuthenticatedArea("/ar/receipts/abc-123")).toBe(true);
+    expect(isAuthenticatedArea("/ar/student-id/print")).toBe(true);
+  });
+
+  it("leaves genuinely anonymous pages alone", () => {
+    expect(isAuthenticatedArea("/ar/login")).toBe(false);
+    expect(isAuthenticatedArea("/ar/register")).toBe(false);
+    expect(isAuthenticatedArea("/ar/guardian/verify")).toBe(false);
+    expect(isAuthenticatedArea("/ar/contact")).toBe(false);
+    expect(isAuthenticatedArea("/")).toBe(false);
+  });
+
+  it("does not match a path that merely starts with the same letters", () => {
+    expect(isAuthenticatedArea("/ar/claiming-guide")).toBe(false);
+    expect(isAuthenticatedArea("/ar/onboarding-help")).toBe(false);
+  });
+});
+
+describe("resolveIntegrityAction — signed-in areas off the dashboard", () => {
+  it("ends the session on a 401 during claim or onboarding", () => {
+    expect(
+      resolveIntegrityAction({
+        reason: "session_expired",
+        portal: null,
+        sessionRole: null,
+        authenticatedArea: true,
+      }),
+    ).toBe("end-session");
+  });
+
+  it("still ignores a 401 on an anonymous page", () => {
+    expect(
+      resolveIntegrityAction({
+        reason: "session_expired",
+        portal: null,
+        sessionRole: null,
+        authenticatedArea: false,
+      }),
+    ).toBe("ignore");
   });
 });

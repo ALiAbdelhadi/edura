@@ -23,6 +23,7 @@ export function WizardShell({
   onBack,
   children,
   footer,
+  draftFailed = false,
 }: {
   eyebrow: string;
   question: string;
@@ -32,6 +33,7 @@ export function WizardShell({
   onBack?: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  draftFailed?: boolean;
 }) {
   const t = useTranslations();
   return (
@@ -101,8 +103,12 @@ export function WizardShell({
 
         <main className="flex-1">{children}</main>
 
-        <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-          {t("onboarding.progressSaved")}
+        <p
+          className="text-xs"
+          style={{ color: draftFailed ? "var(--red)" : "var(--ink-3)" }}
+          role={draftFailed ? "alert" : undefined}
+        >
+          {t(draftFailed ? "onboarding.progressNotSaved" : "onboarding.progressSaved")}
         </p>
 
         {footer ? (

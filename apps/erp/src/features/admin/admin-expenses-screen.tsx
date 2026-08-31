@@ -38,6 +38,8 @@ import {
 import { toast } from "@repo/ui/components/sonner";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Amount, Badge, DataTable, DateText, EmptyState, PageHead, Sheet, type BadgeTone, type Column } from "./ledger";
 
 const CATEGORIES = [
@@ -71,6 +73,7 @@ type Expense = {
 
 export function AdminExpensesScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatDate, locale } = useFormatters();
   const categoryLabel = (c: Category) => t(`adminManage.expenses.categories.${c}`);
   const { query, result } = useList<Expense>({
@@ -279,6 +282,12 @@ export function AdminExpensesScreen() {
 
       {query.isLoading ? (
         <PageSpinner />
+      ) : query.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
       ) : (
         <>
           <DataTable

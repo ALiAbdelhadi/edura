@@ -15,6 +15,7 @@ import { useCustom, useList } from "@refinedev/core";
 import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
+import { QuerySection } from "@repo/ui/components/query-section";
 import {
   Card,
   CardAction,
@@ -49,7 +50,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useParamSeed } from "@/lib/api/use-param-seed";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -58,6 +59,7 @@ import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
+import { newIdempotencyKey } from "@/features/student/idempotency";
 
 function isRefundRow(record: { amount?: number | null }): boolean {
   return Number(record?.amount ?? 0) < 0;
@@ -112,6 +114,9 @@ export function AdminFeesScreen() {
   const { query: creditQuery, result: creditRes } = useCustom({ url: "center/credit", method: "get" });
   const { query: centerPayoutsQuery, result: centerPayoutsRes } = useCustom({ url: "center/wallet/payouts", method: "get" });
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  // One idempotency key per open of the withdraw dialog — a timeout retry
+  // inside the same session resolves to the same payout server-side.
+  const withdrawKey = useRef("");
   const [withdrawEgp, setWithdrawEgp] = useState("");
 
   const centerCredit = ((creditRes as { data?: unknown })?.data ?? null) as
@@ -192,10 +197,10 @@ export function AdminFeesScreen() {
     }
     setWithdrawBusy(true);
     try {
-      await postMoney(
-        "center/wallet/payout-request",
-        egp === null ? {} : { amount: Math.round(egp * 100) },
-      );
+      await postMoney("center/wallet/payout-request", {
+        ...(egp === null ? {} : { amount: Math.round(egp * 100) }),
+        clientRequestId: withdrawKey.current,
+      });
       setIsWithdrawOpen(false);
       setWithdrawEgp("");
       toast.success(t("adminManage.fees.walletRequestSubmitted"));
@@ -666,13 +671,17 @@ export function AdminFeesScreen() {
                 variant="outline"
                 size="sm"
                 className="border-[var(--rule)]"
-                onClick={() => setIsWithdrawOpen(true)}
+                onClick={() => {
+                  withdrawKey.current = newIdempotencyKey("cpay");
+                  setIsWithdrawOpen(true);
+                }}
                 disabled={(centerWallet?.available ?? 0) <= 0}
               >
                 {t("adminManage.fees.walletWithdraw")}
               </Button>
             }
           />
+          <QuerySection query={walletQuery} className="m-[18px]">
           <div className="flex flex-col p-[18px]">
             <div className="flex items-baseline justify-between gap-3 border-b border-[var(--rule-2)] pb-3.5">
               <span className="text-[13px] text-[var(--ink-2)]">
@@ -708,7 +717,15 @@ export function AdminFeesScreen() {
               />
             </div>
           </div>
+          </QuerySection>
 
+          <QuerySection
+            query={centerPayoutsQuery}
+            skeleton={<></>}
+            isEmpty={centerPayouts.length === 0}
+            empty={<></>}
+            className="m-[18px] mt-0"
+          >
           {centerPayouts.length > 0 ? (
             <div className="border-t border-[var(--rule)]">
               <div className="border-b border-[var(--rule)] bg-[var(--field)] px-4 py-2.5">
@@ -736,10 +753,12 @@ export function AdminFeesScreen() {
               ))}
             </div>
           ) : null}
+          </QuerySection>
         </Sheet>
 
         <Sheet>
           <SheetHead title={t("adminManage.fees.creditTitle")} />
+          <QuerySection query={creditQuery} className="m-[18px]">
           <div className="flex flex-col p-[18px]">
             <div className="flex items-baseline justify-between gap-3 pb-3.5">
               <span className="text-[13px] text-[var(--ink-2)]">
@@ -817,6 +836,7 @@ export function AdminFeesScreen() {
               </div>
             ) : null}
           </div>
+          </QuerySection>
         </Sheet>
 
       </div>
@@ -1011,9 +1031,7 @@ export function AdminFeesScreen() {
               />
             </CardContent>
           </Card>
-          {paymentsQuery.isLoading ? (
-            <PageSpinner />
-          ) : (
+          <QuerySection query={paymentsQuery} skeleton={<PageSpinner />}>
             <DataTable
               columns={columns}
               data={payments}
@@ -1036,7 +1054,7 @@ export function AdminFeesScreen() {
                 />
               }
             />
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
 

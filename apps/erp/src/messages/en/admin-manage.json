@@ -325,7 +325,11 @@
     "export_course_fill_rates": "Group fill rates",
     "export_attendance_by_course": "Attendance by group",
     "export_enrollment_funnel": "Enrollment funnel",
-    "export_shift_reconciliation": "Shift & drawer reconciliation"
+    "export_shift_reconciliation": "Shift & drawer reconciliation",
+    "exportPreparing": "Preparing your file…",
+    "exportReady": "Your file has downloaded.",
+    "exportFailed": "The export did not go through — nothing was downloaded. Please try again.",
+    "exportPopupBlocked": "Your browser blocked the print tab. Allow pop-ups for this site, then try again."
   },
   "enroll": {
     "title": "Enrollment Requests",

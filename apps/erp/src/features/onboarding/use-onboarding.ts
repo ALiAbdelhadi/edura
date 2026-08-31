@@ -1,26 +1,20 @@
 "use client";
 
+import { api } from "@/lib/api/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogSystem } from "./types";
 
-type Envelope<T> = { data: T } | { error: { code: string; message: string } };
+const apiPath = (url: string) => url.replace(/^\/api\/v1\//, "");
 
 async function apiGet<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  const json = (await res.json()) as Envelope<T>;
-  if (!res.ok || "error" in json) throw new Error("error" in json ? json.error.message : "Request failed");
-  return json.data;
+  const res = await api.get(apiPath(url)).json<{ data: T }>();
+  return res.data;
 }
 
 export async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as Envelope<T>;
-  if (!res.ok || "error" in json) throw new Error("error" in json ? json.error.message : "Request failed");
-  return json.data;
+  const send = method === "POST" ? api.post : api.patch;
+  const res = await send(apiPath(url), { json: body }).json<{ data: T }>();
+  return res.data;
 }
 
 export type OnboardingInitial<TState> = { tree: CatalogSystem[]; state: TState };
@@ -47,13 +41,17 @@ export function useOnboarding<TState>(initial?: OnboardingInitial<TState>) {
   }, [prefetched]);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [draftFailed, setDraftFailed] = useState(false);
   const saveDraft = useCallback((draft: Record<string, unknown>) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      void apiSend("/api/v1/me/onboarding", "PATCH", { draft }).catch(() => {
-      });
+      // The shell tells the user their progress is saved; a swallowed failure
+      // here would make that a lie, so the outcome drives that line.
+      void apiSend("/api/v1/me/onboarding", "PATCH", { draft })
+        .then(() => setDraftFailed(false))
+        .catch(() => setDraftFailed(true));
     }, 400);
   }, []);
 
-  return { tree, state, error, saveDraft };
+  return { tree, state, error, saveDraft, draftFailed };
 }

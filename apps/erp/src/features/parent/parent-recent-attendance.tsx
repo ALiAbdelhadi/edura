@@ -11,6 +11,7 @@ import {
   SectionHeading,
   Sheet,
 } from "@/components/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { PageSpinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -55,15 +56,16 @@ export function ParentRecentAttendance({ childId }: { childId: string }) {
   const summary = result?.data as { records?: AttendanceRecord[] } | undefined;
   const records = (summary?.records ?? []).filter((r) => Boolean(r.date)).slice(0, SHOWN);
 
-  if (query.isLoading) return <PageSpinner />;
-
   return (
     <Sheet className="p-5">
       <SectionHeading title={t("attendanceView.recentTitle")} />
       <div className="mt-3">
-        {records.length === 0 ? (
-          <LedgerEmpty title={t("studentClass.noAttendance")} />
-        ) : (
+        <QuerySection
+          query={query}
+          skeleton={<PageSpinner />}
+          isEmpty={records.length === 0}
+          empty={<LedgerEmpty title={t("studentClass.noAttendance")} />}
+        >
           <ul>
             {records.map((r, i) => {
               const name = (r.courseId && courseNames.get(r.courseId)) || null;
@@ -90,7 +92,7 @@ export function ParentRecentAttendance({ childId }: { childId: string }) {
               );
             })}
           </ul>
-        )}
+        </QuerySection>
       </div>
     </Sheet>
   );

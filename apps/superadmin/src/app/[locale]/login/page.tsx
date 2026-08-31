@@ -7,9 +7,9 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { PasswordInput } from "@repo/ui/components/password-input";
 import type { Locale } from "@repo/ui/lib/format";
-import { TriangleAlert } from "lucide-react";
+import { Clock, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 export default function LoginPage() {
   const { mutate: login, isPending } = useLogin();
@@ -19,10 +19,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [capsLock, setCapsLock] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    setSessionExpired(
+      new URLSearchParams(window.location.search).get("reason") === "session_expired",
+    );
+  }, []);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSessionExpired(false);
     login(
       { email, password },
       {
@@ -30,6 +38,9 @@ export default function LoginPage() {
           if (!result.success) {
             setError(t("auth.invalidCredentialsBackoffice"));
           }
+        },
+        onError: () => {
+          setError(t("common.genericError"));
         },
       },
     );
@@ -67,6 +78,15 @@ export default function LoginPage() {
           <span aria-hidden="true" className="mt-4 h-[2px] w-8 bg-gold" />
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4">
+          {sessionExpired && !error ? (
+            <p
+              role="status"
+              className="flex gap-2 rounded-md border border-rule bg-field p-3 text-xs text-ink-2"
+            >
+              <Clock className="mt-px size-4 shrink-0" aria-hidden="true" />
+              {t("auth.sessionExpiredNotice")}
+            </p>
+          ) : null}
           {error ? (
             <p
               role="alert"

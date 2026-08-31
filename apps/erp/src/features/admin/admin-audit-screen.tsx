@@ -4,6 +4,8 @@ import { DateRangeField } from "@/components/kit/date-range-field";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useOnDemand } from "@/lib/api/use-on-demand";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
@@ -39,6 +41,7 @@ const dayKey = (iso: string) => iso.slice(0, 10);
 
 export function AdminAuditScreen() {
   const t = useTranslations("centerAudit");
+  const queryStrings = useQueryStrings();
   const { formatDate } = useFormatters();
 
   const [actorId, setActorId] = useState("");
@@ -168,6 +171,12 @@ export function AdminAuditScreen() {
       </div>
       {req.query.isLoading ? (
         <PageSpinner label={t("loading")} />
+      ) : req.query.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => req.query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
       ) : rows.length === 0 ? (
         <EmptyState icon={ScrollText} title={t("emptyTitle")} description={t("emptyBody")} />
       ) : (

@@ -6,6 +6,8 @@ import { Link } from "@/i18n/navigation";
 import { useCustom, useList } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import { DirectionalIcon } from "@repo/ui/components/directional-icon";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { GuardianContactNotice } from "@/features/student/guardian-contact-notice";
 import { GuardianVerificationNotice } from "@/features/student/guardian-verification-notice";
 import { PracticeInvite } from "@/features/student/emulator/practice-invite";
@@ -135,7 +137,8 @@ function QuickAction({
 export function StudentDashboard() {
   const t = useTranslations();
   const { formatPercent, formatDate, locale } = useFormatters();
-  const { result } = useCustom({ url: "dashboards/student", method: "get" });
+  const queryStrings = useQueryStrings();
+  const { query, result } = useCustom({ url: "dashboards/student", method: "get" });
   const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
   const { result: sessionsRes } = useList({
     resource: "sessions",
@@ -152,6 +155,16 @@ export function StudentDashboard() {
   }>(result?.data);
   const data = payload ?? {};
   const wallet = asRecord<{ balance?: number }>(walletRes?.data);
+
+  if (query.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
 
   if (!payload) return <PageSkeleton />;
 

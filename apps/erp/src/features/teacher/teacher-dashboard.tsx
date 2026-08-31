@@ -15,6 +15,8 @@ import { StatusBadge } from "@/components/kit/status-badge";
 import { BarChart, LineChart } from "@/components/charts";
 import { teacherAttendanceLineSeries, teacherGradeLoadBarData } from "@/lib/analytics/transforms";
 import { useTranslations } from "next-intl";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSkeleton } from "@/components/ui/skeletons";
 import { asArray } from "@/lib/refine/as-array";
@@ -79,7 +81,8 @@ function CounterOnlyProbe({
 export function TeacherDashboard() {
   const t = useTranslations();
   const { formatPercent, formatDate, formatClockRange, formatEGP } = useFormatters();
-  const { result } = useCustom({ url: "dashboards/teacher", method: "get" });
+  const queryStrings = useQueryStrings();
+  const { query, result } = useCustom({ url: "dashboards/teacher", method: "get" });
   const tour = useTourGate();
 
   const today = todayKey();
@@ -103,7 +106,7 @@ export function TeacherDashboard() {
     method: "get",
   });
 
-  const { result: walletResult } = useCustom<{
+  const { query: walletQuery, result: walletResult } = useCustom<{
     balance: number;
     available: number;
   }>({ url: "teacher/wallet", method: "get" });
@@ -182,6 +185,16 @@ export function TeacherDashboard() {
 
   const payload = asRecord<any>(result?.data);
   const data = payload ?? {};
+
+  if (query.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
 
   if (!payload) {
     return <PageSkeleton />;
@@ -301,17 +314,38 @@ export function TeacherDashboard() {
               <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("teacher.yourMoney")}
               </span>
-              <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="text-lg font-bold text-foreground">
-                  {formatEGP(wallet?.balance ?? 0)}
+              {walletQuery.isError ? (
+                <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="text-lg font-bold text-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">
+                    {queryStrings.unavailable}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary underline"
+                    onClick={(e) => {
+                      // inside a Link — retry must not navigate
+                      e.preventDefault();
+                      e.stopPropagation();
+                      walletQuery.refetch();
+                    }}
+                  >
+                    {queryStrings.retry}
+                  </button>
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {t("teacher.teacherWallet.available")}:{" "}
-                  <span className="font-medium text-foreground">
-                    {formatEGP(wallet?.available ?? 0)}
+              ) : (
+                <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="text-lg font-bold text-foreground">
+                    {formatEGP(wallet?.balance ?? 0)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("teacher.teacherWallet.available")}:{" "}
+                    <span className="font-medium text-foreground">
+                      {formatEGP(wallet?.available ?? 0)}
+                    </span>
                   </span>
                 </span>
-              </span>
+              )}
             </span>
             <ChevronLeft className="size-5 shrink-0 rtl:rotate-180 text-muted-foreground" />
           </CardContent>

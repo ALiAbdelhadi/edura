@@ -17,6 +17,8 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
 
 import { PageSpinner } from "@/components/kit/spinner";
@@ -37,6 +39,7 @@ type Summary = {
 export function FinanceTab({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
   const tt = useTranslations();
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const [sub, setSub] = useState("transactions");
 
@@ -87,7 +90,13 @@ export function FinanceTab({ centerId }: { centerId: string }) {
         </span>
       </p>
 
-      {summary.isLoading || !s ? (
+      {summary.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={summary.refetch}
+          retryLabel={queryStrings.retry}
+        />
+      ) : summary.isLoading || !s ? (
         <PageSpinner />
       ) : (
         <>
@@ -246,6 +255,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={txns.isLoading}
+                failed={txns.isError}
+                onRetry={txns.refetch}
                 rows={txns.data?.items ?? []}
                 total={txns.data?.total ?? 0}
                 columns={[
@@ -264,6 +275,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={payments.isLoading}
+                failed={payments.isError}
+                onRetry={payments.refetch}
                 rows={payments.data?.data ?? []}
                 total={payments.data?.total ?? 0}
                 columns={[
@@ -281,6 +294,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={payouts.isLoading}
+                failed={payouts.isError}
+                onRetry={payouts.refetch}
                 rows={payouts.data?.data ?? []}
                 total={payouts.data?.total ?? 0}
                 columns={[
@@ -299,6 +314,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={settlements.isLoading}
+                failed={settlements.isError}
+                onRetry={settlements.refetch}
                 rows={settlements.data?.data ?? []}
                 total={settlements.data?.total ?? 0}
                 columns={[
@@ -318,6 +335,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={invoices.isLoading}
+                failed={invoices.isError}
+                onRetry={invoices.refetch}
                 rows={invoices.data?.data ?? []}
                 total={invoices.data?.total ?? 0}
                 columns={[
@@ -341,6 +360,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <LedgerTable
                 locale={locale}
                 loading={wallet.isLoading}
+                failed={wallet.isError}
+                onRetry={wallet.refetch}
                 rows={wallet.data?.data ?? []}
                 total={wallet.data?.total ?? 0}
                 columns={[
@@ -372,18 +393,32 @@ type Col = {
 function LedgerTable({
   locale,
   loading,
+  failed,
+  onRetry,
   rows,
   total,
   columns,
 }: {
   locale: Locale;
   loading: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
   rows: Record<string, unknown>[];
   total: number;
   columns: Col[];
 }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   if (loading) return <PageSpinner />;
+  if (failed) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => onRetry?.()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   if (!rows.length) return <p className="p-4 text-[13px] text-ink-3">{t("noRows")}</p>;
 
   return (

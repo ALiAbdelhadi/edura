@@ -3,6 +3,7 @@
 import { useList } from "@refinedev/core";
 import { Users } from "lucide-react";
 import { Progress } from "@repo/ui/components/progress";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
@@ -24,7 +25,12 @@ const SERIES = [
 export function ParentProgressScreen() {
   const t = useTranslations();
   const { formatPercent } = useFormatters();
-  const { childId, childName, isLoading: childrenLoading } = useChildSelector();
+  const {
+    childId,
+    childName,
+    isLoading: childrenLoading,
+    failed: childrenFailed,
+  } = useChildSelector();
 
   const { query: gradesQuery, result: gradesResult } = useList({
     resource: "grades",
@@ -36,8 +42,6 @@ export function ParentProgressScreen() {
 
 
   const childGrades = (gradesResult?.data ?? []) as any[];
-  const isLoading =
-    childrenLoading || gradesQuery.isLoading;
 
   const courseMap = new Map<
     string,
@@ -152,12 +156,14 @@ export function ParentProgressScreen() {
         }
       />
 
-      {isLoading && childGrades.length === 0 ? (
+      {childrenLoading ? (
         <SkeletonRows rows={4} />
+      ) : childrenFailed ? (
+        <EmptyState icon={Users} title={t("parentPay.childrenUnavailable")} />
       ) : !childId ? (
         <EmptyState icon={Users} title={t("parentProgress.noChildren")} />
       ) : (
-        <>
+        <QuerySection query={gradesQuery} skeleton={<SkeletonRows rows={4} />}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Metric
               label={t("parentProgress.overallPercent")}
@@ -220,7 +226,7 @@ export function ParentProgressScreen() {
               emptyState={t("parentProgress.noGrades")}
             />
           </section>
-        </>
+        </QuerySection>
       )}
     </div>
   );

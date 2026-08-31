@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api/client";
 import { useCustom } from "@refinedev/core";
 import { ImageUploadField } from "@repo/ui/components/image-upload-field";
 import { SectionHead } from "@repo/ui/components/ledger";
@@ -27,6 +28,8 @@ const ENDPOINTS: Record<Variant, ImageEndpoint> = {
   },
 };
 
+const UPLOAD_TIMEOUT_MS = 60_000;
+
 const REASON_KEYS = {
   image_too_large: "shared.imageTooLarge",
   unsupported_image_type: "shared.imageWrongType",
@@ -41,18 +44,23 @@ export function ProfileImageCard({ variant, name }: { variant: Variant; name?: s
   const value = pick(result?.data as Record<string, unknown> | undefined);
 
   const send = async (method: "POST" | "DELETE", body?: FormData) => {
-    const res = await fetch(mutate, { method, body, credentials: "same-origin" });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const reason = (res.status === 413 ? "image_too_large" : json?.error?.details?.reason) as
+    const path = mutate.replace(/^\/api\/v1\//, "");
+    try {
+      if (method === "POST") await api.post(path, { body, timeout: UPLOAD_TIMEOUT_MS });
+      else await api.delete(path, { timeout: UPLOAD_TIMEOUT_MS });
+    } catch (err) {
+      const status = (err as { statusCode?: number })?.statusCode;
+      const details = (
+        (err as { data?: { error?: { details?: { reason?: string } } } })?.data
+      )?.error?.details;
+      const reason = (status === 413 ? "image_too_large" : details?.reason) as
         | keyof typeof REASON_KEYS
         | undefined;
       const reasonKey = reason ? REASON_KEYS[reason] : undefined;
       const message = reasonKey
         ? t(reasonKey)
-        : method === "DELETE"
-          ? t("shared.imageRemoveFailed")
-          : t("shared.imageUploadFailed");
+        : (err as { message?: string })?.message ||
+          (method === "DELETE" ? t("shared.imageRemoveFailed") : t("shared.imageUploadFailed"));
       toast.error(message);
       throw new Error(message);
     }

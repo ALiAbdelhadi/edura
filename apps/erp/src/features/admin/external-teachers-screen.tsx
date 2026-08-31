@@ -11,6 +11,8 @@ import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { Button } from "@repo/ui/components/button";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import {
   Dialog,
   DialogContent,
@@ -64,8 +66,9 @@ type GapReport = {
 
 export function ExternalTeachersScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatEGP } = useFormatters();
-  const [rows, setRows] = useState<TeacherRow[] | null>(null);
+  const [rows, setRows] = useState<TeacherRow[] | null | "error">(null);
   const [gaps, setGaps] = useState<GapReport | null>(null);
   const [owed, setOwed] = useState<{ teacherId: string; owed: number }[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -85,8 +88,13 @@ export function ExternalTeachersScreen() {
     setOwed(balances?.data ?? []);
   }, []);
 
+  const reload = useCallback(() => {
+    setRows(null);
+    load().catch(() => setRows("error"));
+  }, [load]);
+
   useEffect(() => {
-    load().catch((e: Error) => toast.error(e.message));
+    load().catch(() => setRows("error"));
   }, [load]);
 
   const schema = z.object({
@@ -223,6 +231,12 @@ export function ExternalTeachersScreen() {
 
       {rows === null ? (
         <PageSpinner />
+      ) : rows === "error" ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={reload}
+          retryLabel={queryStrings.retry}
+        />
       ) : (
         <DataTable
           columns={columns}

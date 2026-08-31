@@ -2,6 +2,7 @@
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
 import { PasswordInput } from "@/components/kit/password-input";
+import { api } from "@/lib/api/client";
 import { PageSpinner } from "@/components/kit/spinner";
 import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
@@ -102,19 +103,10 @@ function ResetPasswordContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/auth/password/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error?.message || t("auth.resetFailed"));
-        return;
-      }
+      await api.post("auth/password/reset", { json: { token, password } });
       setDone(true);
-    } catch {
-      setError(t("common.genericError"));
+    } catch (err) {
+      setError((err as { message?: string })?.message || t("auth.resetFailed"));
     } finally {
       setLoading(false);
     }

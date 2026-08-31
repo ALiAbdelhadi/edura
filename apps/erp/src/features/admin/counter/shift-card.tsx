@@ -5,6 +5,8 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { postMoney, readApiError, Eyebrow, Computation, Amount, TwoStepCommit } from "../ledger";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { Wallet2 } from "lucide-react";
@@ -32,8 +34,9 @@ export function ShiftCard() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const { formatEGP, formatDate } = useFormatters();
+  const queryStrings = useQueryStrings();
 
-  const [shift, setShift] = useState<Shift | null | undefined>(undefined);
+  const [shift, setShift] = useState<Shift | null | undefined | "error">(undefined);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
   const [floatEgp, setFloatEgp] = useState("");
@@ -45,7 +48,7 @@ export function ShiftCard() {
       const res = await api.get("center/shifts/current").json<{ data: Shift | null }>();
       setShift(res.data);
     } catch {
-      setShift(null);
+      setShift("error");
     }
   }, []);
   useEffect(() => void refresh(), [refresh]);
@@ -71,7 +74,7 @@ export function ShiftCard() {
   };
 
   const close = async () => {
-    if (!shift) return;
+    if (!shift || shift === "error") return;
     const egp = Number(countedEgp);
     if (!Number.isFinite(egp) || egp < 0) {
       toast.error(t("shared.shifts.invalidAmount"));
@@ -88,13 +91,34 @@ export function ShiftCard() {
       toast.success(t("shared.shifts.closed"));
       await refresh();
     } catch (err) {
-      toast.error((await readApiError(err)).message || t("shared.shifts.failed"));
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("shared.shifts.closeIndeterminate"), { duration: 12000 });
+        setClosing(false);
+        await refresh();
+      } else {
+        toast.error(e.message || t("shared.shifts.failed"));
+      }
     } finally {
       setBusy(false);
     }
   };
 
   if (shift === undefined) return null; // first load — no flicker
+
+  if (shift === "error") {
+    return (
+      <div className="rounded-xl border border-(--rule) bg-(--sheet) p-3.5">
+        <Eyebrow>{t("shared.shifts.title")}</Eyebrow>
+        <LoadError
+          className="mt-2"
+          message={queryStrings.loadFailed}
+          onRetry={() => void refresh()}
+          retryLabel={queryStrings.retry}
+        />
+      </div>
+    );
+  }
 
   if (shift === null) {
     return (

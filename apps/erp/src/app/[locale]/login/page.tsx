@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { Eyebrow, LedgerButton, Num, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { uiRoleForRole } from "@/lib/auth/portal";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -107,9 +108,10 @@ export default function LoginPage() {
         return;
       }
       try {
-        const meRes = await fetch("/api/v1/me");
-        if (meRes.ok) {
-          const meJson = await meRes.json();
+        const meJson = await api
+          .get("me")
+          .json<{ data: { role: string; name?: string; email?: string } }>();
+        {
           const userData = meJson.data;
           const uiRole = uiRoleForRole(userData.role);
           localStorage.setItem(

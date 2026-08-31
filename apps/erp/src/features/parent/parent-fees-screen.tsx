@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
@@ -35,7 +36,12 @@ type PaymentRow = {
 export function ParentFeesScreen() {
   const t = useTranslations();
   const { formatEGP, formatShortEGP, formatDate } = useFormatters();
-  const { childId, childName, isLoading: childrenLoading } = useChildSelector();
+  const {
+    childId,
+    childName,
+    isLoading: childrenLoading,
+    failed: childrenFailed,
+  } = useChildSelector();
   const [range, setRange] = useState<{ start: string; end: string }>({
     start: "",
     end: "",
@@ -50,7 +56,6 @@ export function ParentFeesScreen() {
   });
 
   const all = (result?.data ?? []) as PaymentRow[];
-  const isLoading = childrenLoading || query.isLoading;
 
   const rows = React.useMemo(() => {
     if (!range.start && !range.end) return all;
@@ -185,12 +190,14 @@ export function ParentFeesScreen() {
         }
       />
 
-      {isLoading && all.length === 0 ? (
+      {childrenLoading ? (
         <SkeletonRows rows={4} />
+      ) : childrenFailed ? (
+        <EmptyState icon={Users} title={t("parentPay.childrenUnavailable")} />
       ) : !childId ? (
         <EmptyState icon={Users} title={t("parentFees.noChildren")} />
       ) : (
-        <>
+        <QuerySection query={query} skeleton={<SkeletonRows rows={4} />}>
           <div className="rounded-xl border border-rule bg-field p-4">
             <span className="eyebrow">{t("parentFees.payingEyebrow")}</span>
             <LimitNote className="mt-1.5">
@@ -279,7 +286,7 @@ export function ParentFeesScreen() {
               </div>
             ) : null}
           </section>
-        </>
+        </QuerySection>
       )}
     </div>
   );

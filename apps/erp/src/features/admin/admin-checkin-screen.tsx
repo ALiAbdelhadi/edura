@@ -7,6 +7,8 @@ import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { SearchInput } from "@repo/ui/components/search-input";
 import { toast } from "@repo/ui/components/sonner";
 import { Banknote, CheckCircle2, DoorOpen, UserPlus } from "lucide-react";
@@ -54,12 +56,14 @@ type SessionOption = {
 export function AdminCheckinScreen() {
   const t = useTranslations();
   const { formatEGP, locale } = useFormatters();
+  const queryStrings = useQueryStrings();
   const { mutateAsync: post } = useCustomMutation();
 
   const [q, setQ] = useState("");
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [student, setStudent] = useState<Match | null>(null);
   const [sessions, setSessions] = useState<{ suggested: SessionOption[]; today: SessionOption[] } | null>(null);
+  const [sessionsError, setSessionsError] = useState(false);
   const [localBusy, setLocalBusy] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{
@@ -87,7 +91,9 @@ export function AdminCheckinScreen() {
         .get(`center/checkin/suggest?studentId=${m.studentId}`)
         .json<{ data: { suggested: SessionOption[]; today: SessionOption[] } }>();
       setSessions(res.data);
+      setSessionsError(false);
     } catch (err: any) {
+      setSessionsError(true);
       toast.error(err?.message || t("shared.checkin.searchFailed"));
     } finally {
       setLocalBusy(false);
@@ -100,6 +106,7 @@ export function AdminCheckinScreen() {
     setLocalBusy(true);
     setStudent(null);
     setSessions(null);
+    setSessionsError(false);
     commit.clearPayment();
     try {
       const res = await api
@@ -423,6 +430,13 @@ export function AdminCheckinScreen() {
                 )}
               </div>
             </>
+          ) : sessionsError ? (
+            <LoadError
+              className="m-4"
+              message={queryStrings.loadFailed}
+              onRetry={() => void pickStudent(student)}
+              retryLabel={queryStrings.retry}
+            />
           ) : (
             <div className="p-8 text-center text-[13px] text-(--ink-3)">
               {t("centerStaff.loading")}

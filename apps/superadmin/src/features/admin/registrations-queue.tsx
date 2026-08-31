@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useApiUrl, useCustom, useInvalidate } from "@refinedev/core";
+import { useCustom, useInvalidate } from "@refinedev/core";
+import { api } from "@/lib/api/client";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Landmark, RefreshCcw, TriangleAlert, UserRound, X } from "lucide-react";
 
@@ -52,7 +53,6 @@ const daysSince = (iso: string) =>
 export function RegistrationsQueue() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
-  const apiUrl = useApiUrl();
   const invalidate = useInvalidate();
 
   const [status, setStatus] = useState<"pending" | "active" | "rejected">("pending");
@@ -82,15 +82,9 @@ export function RegistrationsQueue() {
   async function runDecision(kind: Kind, id: string, decision: "approve" | "reject", reason?: string) {
     setBusy(id);
     try {
-      const res = await fetch(`${apiUrl}/admin/${kind}/${id}/${decision}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(decision === "reject" ? { reason } : {}),
+      await api.post(`admin/${kind}/${id}/${decision}`, {
+        json: decision === "reject" ? { reason } : {},
       });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error?.message || t("common.requestFailed"));
-      }
       toast.success(decision === "approve" ? t("status.approved") : t("status.rejected"));
       setOpen(null);
       refresh();

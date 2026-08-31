@@ -78,6 +78,7 @@
   "detail_walletAmount": "المبلغ (ج.م)",
   "detail_walletTopupConfirm": "إضافة للمحفظة",
   "detail_walletTopupDone": "تم شحن المحفظة",
+  "detail_walletIndeterminate": "قد يكون الشحن سُجِّل بالفعل — راجع رصيد المحفظة قبل المحاولة مرة أخرى.",
   "detail_walletInvalid": "أدخل مبلغاً صحيحاً",
   "detail_operationalParent": "ولي الأمر التشغيلي",
   "detail_operationalParentPhone": "هاتف ولي الأمر التشغيلي",

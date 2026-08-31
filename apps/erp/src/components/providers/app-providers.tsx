@@ -5,6 +5,8 @@ import { ThemeModeProvider } from "@/components/providers/theme-mode-provider";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { isRtlLocale } from "@/i18n/routing";
 import { authProvider, dataProvider } from "@/lib/refine";
+import { useSonnerNotificationProvider } from "@/lib/refine/notification-provider";
+import { reactQueryClientConfig } from "@/lib/refine/query-client";
 import { useAppRouterProvider } from "@/lib/refine/router-provider";
 import { Refine } from "@refinedev/core";
 import { DirectionProvider } from "@repo/ui/components/direction-provider";
@@ -37,6 +39,7 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
     <Refine
       dataProvider={dataProvider}
       authProvider={authProvider}
+      notificationProvider={useSonnerNotificationProvider}
       routerProvider={routerProvider}
       resources={resources}
       options={{
@@ -44,6 +47,7 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
         warnWhenUnsavedChanges: true,
         disableTelemetry: true,
         projectId: "edura",
+        reactQuery: { clientConfig: reactQueryClientConfig },
       }}
     >
       {children}

@@ -7,6 +7,8 @@ import { Flag, TriangleAlert } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import { toast } from "@repo/ui/components/sonner";
 import { formatDate, type Locale } from "@repo/ui/lib/format";
@@ -27,6 +29,7 @@ type FlagRow = {
 
 export function FeatureFlagsScreen() {
   const t = useTranslations("featureFlags");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
   const { query, result } = useCustom({ url: "admin/feature-flags", method: "get" });
@@ -53,6 +56,18 @@ export function FeatureFlagsScreen() {
   };
 
   if (query.isLoading) return <PageSpinner label={t("loading")} />;
+  if (query.isError) {
+    return (
+      <div className="flex w-full max-w-3xl flex-col gap-5">
+        <PageHeader title={t("title")} description={t("subtitle")} rule />
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-5">

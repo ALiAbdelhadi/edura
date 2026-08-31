@@ -25,7 +25,7 @@ export default async function ReceiptPage({
 
   const user = await getSessionUser();
   if (!user) {
-    redirect(`/${locale}/login?callbackUrl=/${locale}/receipts/${paymentId}`);
+    redirect(`/${locale}/login?next=/${locale}/receipts/${paymentId}`);
   }
 
   const t = await getTranslations({ locale: locale as "ar" | "en", namespace: "receipt" });

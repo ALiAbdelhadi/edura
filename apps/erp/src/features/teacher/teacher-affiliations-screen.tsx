@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
@@ -98,13 +99,17 @@ export function TeacherAffiliationsScreen() {
           </div>
         </CardHeader>
         <CardContent className="px-0">
-          {query.isLoading ? (
-            <PageSpinner label={t("common.loading")} />
-          ) : affiliations.length === 0 ? (
-            <div className="px-6">
-              <EmptyState icon={Building2} title={t("teacher.noAffiliations")} />
-            </div>
-          ) : (
+          <QuerySection
+            query={query}
+            skeleton={<PageSpinner label={t("common.loading")} />}
+            className="mx-6"
+            isEmpty={affiliations.length === 0}
+            empty={
+              <div className="px-6">
+                <EmptyState icon={Building2} title={t("teacher.noAffiliations")} />
+              </div>
+            }
+          >
             <ul className="divide-y divide-border border-y border-border">
               {affiliations.map((a) => {
                 const id = a.id || "";
@@ -149,7 +154,7 @@ export function TeacherAffiliationsScreen() {
                         />
                         <ConfirmDialog
                           trigger={
-                            <Button size="sm" variant="destructive">
+                            <Button size="sm" variant="destructive" disabled={mutation.isPending}>
                               <X className="size-4" />
                               {t("teacher.decline")}
                             </Button>
@@ -165,7 +170,7 @@ export function TeacherAffiliationsScreen() {
                 );
               })}
             </ul>
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
 

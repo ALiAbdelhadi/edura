@@ -7,16 +7,23 @@ import { requestCenterPayout } from "@/lib/services/finance/center-wallet";
 
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({ amount: z.number().int().positive().optional() }).strict();
+const bodySchema = z
+  .object({
+    amount: z.number().int().positive().optional(),
+    clientRequestId: z.string().min(8).max(64).optional(),
+  })
+  .strict();
 
-async function readAmount(req: Request): Promise<number | undefined> {
+async function readBody(
+  req: Request,
+): Promise<{ amount?: number; clientRequestId?: string }> {
   const len = req.headers.get("content-length");
-  if (!len || len === "0") return undefined;
-  const body = await parseJson(req, bodySchema);
-  return body.amount;
+  if (!len || len === "0") return {};
+  return parseJson(req, bodySchema);
 }
 
 export const POST = withErrors(async (req) => {
   const user = await requireRole("center_admin");
-  return ok(await requestCenterPayout(user, await readAmount(req)), { status: 201 });
+  const body = await readBody(req);
+  return ok(await requestCenterPayout(user, body.amount, body.clientRequestId), { status: 201 });
 });

@@ -8,6 +8,7 @@ import { AlertTriangle, Download, Info, RefreshCcw, Scale } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { Num } from "@repo/ui/components/num";
+import { toast } from "@repo/ui/components/sonner";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import {
   Table,
@@ -19,6 +20,7 @@ import {
 } from "@repo/ui/components/table";
 import { formatEGP, formatPercent, type Locale } from "@repo/ui/lib/format";
 
+import { api } from "@/lib/api/client";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
@@ -45,6 +47,10 @@ type SettlementRow = {
 
 export function RoomSettlementsScreen() {
   const t = useTranslations("roomSettlements");
+  const tc = useTranslations("common");
+  const [exporting, setExporting] = useState(false);
+
+
   const locale = useLocale() as Locale;
   const [method, setMethod] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -57,6 +63,38 @@ export function RoomSettlementsScreen() {
     }),
     [method, page],
   );
+
+  // The old plain anchor landed a raw JSON error page in a tab on any failure.
+  const exportXlsx = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const toastId = toast.loading(tc("exportPreparing"));
+    try {
+      const res = await api.get(
+        `admin/session-settlements/export?locale=${locale}${
+          method !== "all" ? `&pricingMethod=${method}` : ""
+        }`,
+        { timeout: 120_000 },
+      );
+      const blob = await res.blob();
+      const named = /filename="?([^"]+)"?/.exec(
+        res.headers.get("content-disposition") ?? "",
+      )?.[1];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = named || "session-settlements.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(tc("exportReady"), { id: toastId });
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || tc("exportFailed"), { id: toastId });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const req = useCustom({ url: "admin/session-settlements", method: "get", config: { query } });
   const data = req.result?.data as
@@ -116,15 +154,15 @@ export function RoomSettlementsScreen() {
           {t("settlementCount")}
         </span>
 
-        <a
-          href={`/api/v1/admin/session-settlements/export?locale=${locale}${
-            method !== "all" ? `&pricingMethod=${method}` : ""
-          }`}
-          className="focus-ledger ms-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink-2 hover:text-ink"
+        <button
+          type="button"
+          disabled={exporting}
+          onClick={() => void exportXlsx()}
+          className="focus-ledger ms-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink-2 hover:text-ink disabled:opacity-60"
         >
           <Download className="size-3.5" aria-hidden="true" />
           {t("exportXlsx")}
-        </a>
+        </button>
       </div>
 
       {req.query.isLoading ? (

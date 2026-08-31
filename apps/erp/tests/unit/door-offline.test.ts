@@ -68,7 +68,7 @@ describe("offline door check-in", () => {
 
   it("resolves only against this lesson's cached roster", () => {
     expect(SCREEN).toContain("const findRosterRow");
-    expect(SCREEN).toContain("if (!roster) return null;");
+    expect(SCREEN).toContain("if (!Array.isArray(roster)) return null;");
     expect(SCREEN).toContain("offlineNotOnList");
   });
 

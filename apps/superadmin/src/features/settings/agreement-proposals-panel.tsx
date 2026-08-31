@@ -4,9 +4,12 @@ import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
 import { formatPercent, type Locale } from "@repo/ui/lib/format";
+import { Spinner } from "@/components/kit/spinner";
 import { useState } from "react";
 
 type Proposal = {
@@ -23,6 +26,7 @@ type Proposal = {
 
 export function AgreementProposalsPanel() {
   const t = useTranslations("agreements");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const { query, result } = useCustom({ url: "admin/teacher-agreements", method: "get" });
   const { mutateAsync } = useCustomMutation();
@@ -46,7 +50,18 @@ export function AgreementProposalsPanel() {
   return (
     <section className="rounded-xl border border-rule bg-sheet p-5">
       <Eyebrow locale={locale}>{t("queueTitle")}</Eyebrow>
-      {rows.length === 0 ? (
+      {query.isLoading ? (
+        <div className="mt-3">
+          <Spinner />
+        </div>
+      ) : query.isError ? (
+        <LoadError
+          className="mt-3"
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
+      ) : rows.length === 0 ? (
         <p className="m-0 mt-2 text-[13px] text-ink-2">{t("queueEmpty")}</p>
       ) : (
         <div className="mt-3 flex flex-col">

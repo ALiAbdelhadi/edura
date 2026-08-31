@@ -29,6 +29,7 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Ban, Bell, FileUp, UserPlus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -303,9 +304,7 @@ export function AdminStudentsScreen() {
       </div>
 
       <div className={cascadeFor ? "grid gap-4 xl:grid-cols-[1fr_396px]" : undefined}>
-        {query.isLoading ? (
-          <PageSpinner />
-        ) : (
+        <QuerySection query={query} skeleton={<PageSpinner />}>
           <DataTable
             columns={columns}
             rows={filtered}
@@ -330,7 +329,7 @@ export function AdminStudentsScreen() {
               />
             }
           />
-        )}
+        </QuerySection>
 
         {cascadeFor ? (
           <Sheet className="h-fit p-4">

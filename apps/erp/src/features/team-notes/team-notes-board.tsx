@@ -21,6 +21,9 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { ConfirmDialog } from "@repo/ui/components/confirm-dialog";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
+import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { cn } from "@repo/ui/lib/utils";
 import { EmptyState } from "@/components/kit/empty-state";
@@ -93,12 +96,14 @@ function timeAgo(
 
 export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatNumber } = useFormatters();
   const pathname = usePathname();
   const portal = pathname?.split("/dashboard/")[1]?.split("/")[0] ?? "staff";
   const basePath = `/dashboard/${portal}`;
 
   const [board, setBoard] = useState<Board | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -110,7 +115,9 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     try {
       const r = await api.get("team-notes").json<{ data: Board }>();
       setBoard(r.data);
+      setLoadError(false);
     } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -127,7 +134,8 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     try {
       await api.post("team-notes", { json: { body } });
       setDraft("");
-    } catch {
+    } catch (err) {
+      toast.error((err as Error)?.message || queryStrings.loadFailed);
     } finally {
       await refresh();
       setBusy(false);
@@ -140,7 +148,8 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
   ) => {
     try {
       await api.patch(`team-notes/${id}`, { json: patch });
-    } catch {
+    } catch (err) {
+      toast.error((err as Error)?.message || queryStrings.loadFailed);
     } finally {
       await refresh();
     }
@@ -150,7 +159,8 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
     setPendingDelete(null);
     try {
       await api.delete(`team-notes/${id}`);
-    } catch {
+    } catch (err) {
+      toast.error((err as Error)?.message || queryStrings.loadFailed);
     } finally {
       await refresh();
     }
@@ -167,7 +177,23 @@ export function TeamNotesBoard({ compact = false }: { compact?: boolean }) {
       <PageSpinner label={t("common.loading")} />
     );
   }
-  if (!board) return null;
+  if (!board) {
+    if (!loadError) return null;
+    const errorCard = (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => void refresh()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+    return compact ? (
+      <Card className="py-0">
+        <CardContent className="p-4">{errorCard}</CardContent>
+      </Card>
+    ) : (
+      errorCard
+    );
+  }
 
   const totalMembers = board.members.length;
   const openCount = board.notes.filter((n) => n.status === "open").length;

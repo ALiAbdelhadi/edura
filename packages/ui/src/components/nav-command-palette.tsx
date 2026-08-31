@@ -48,6 +48,7 @@ export type PaletteRemote = {
   loading: boolean;
   groups: PaletteRecordGroup[];
   truncated: boolean;
+  error?: string;
 };
 
 export type PaletteStrings = {
@@ -117,7 +118,7 @@ export function NavCommandPalette({
         onValueChange={onQueryChange}
       />
       <CommandList className="max-h-[min(28rem,60svh)]">
-        {!hasNav && !hasRecords && !remote?.loading ? (
+        {!hasNav && !hasRecords && !remote?.loading && !remote?.error ? (
           <CommandEmpty>{strings.empty}</CommandEmpty>
         ) : null}
 
@@ -190,7 +191,15 @@ export function NavCommandPalette({
             </CommandGroup>
           ))}
 
-        {remote?.loading || remote?.truncated ? (
+        {remote?.error && !remote.loading ? (
+          <div
+            role="alert"
+            className="px-4 py-2.5 text-[12px] text-red"
+            aria-live="polite"
+          >
+            {remote.error}
+          </div>
+        ) : remote?.loading || remote?.truncated ? (
           <div
             className="px-4 py-2.5 text-[12px] text-(--chrome-fg-muted)"
             aria-live="polite"

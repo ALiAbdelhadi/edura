@@ -5,6 +5,7 @@ import { BookOpen, GraduationCap, MoonStar, School, Languages, Check } from "luc
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { useRouter } from "@/i18n/navigation";
 import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
 import {
@@ -43,7 +44,7 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<StudentState>(initial);
+  const { tree, state, error, saveDraft, draftFailed } = useOnboarding<StudentState>(initial);
 
   const [sel, setSel] = useState<StudentSelections>({});
   const [stepId, setStepId] = useState<StepId>("system");
@@ -98,9 +99,10 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
   useEffect(() => {
     if (stepId !== "secondLanguage" || !sel.gradeLevelId) return;
     setLangOptions(null);
-    fetch(`/api/v1/catalog/subjects?gradeLevelId=${sel.gradeLevelId}&secondLanguage=1`)
-      .then((r) => r.json())
-      .then((j) => setLangOptions(Array.isArray(j.data) ? j.data : []))
+    api
+      .get(`catalog/subjects?gradeLevelId=${sel.gradeLevelId}&secondLanguage=1`)
+      .json<{ data: unknown }>()
+      .then((j) => setLangOptions(Array.isArray(j.data) ? (j.data as CatalogSubject[]) : []))
       .catch(() => setLangOptions([]));
   }, [stepId, sel.gradeLevelId]);
 
@@ -109,9 +111,10 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
     setPreview(null);
     const q = new URLSearchParams({ gradeLevelId: sel.gradeLevelId });
     if (sel.trackId) q.set("trackId", sel.trackId);
-    fetch(`/api/v1/catalog/subjects?${q}`)
-      .then((r) => r.json())
-      .then((j) => setPreview(Array.isArray(j.data) ? j.data : []))
+    api
+      .get(`catalog/subjects?${q}`)
+      .json<{ data: unknown }>()
+      .then((j) => setPreview(Array.isArray(j.data) ? (j.data as CatalogSubject[]) : []))
       .catch(() => setPreview([]));
   }, [stepId, sel.gradeLevelId, sel.trackId]);
 
@@ -163,6 +166,7 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
 
   const shell = (children: React.ReactNode, footer?: React.ReactNode) => (
     <WizardShell
+      draftFailed={draftFailed}
       eyebrow={t(`onboarding.steps.${stepId === "secondLanguage" ? "secondLanguage" : stepId}` as Parameters<typeof t>[0])}
       question={t(`onboarding.prompts.${stepId}` as Parameters<typeof t>[0])}
       trail={trail}

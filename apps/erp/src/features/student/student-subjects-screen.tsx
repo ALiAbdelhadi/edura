@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import {
@@ -64,6 +66,7 @@ const UNCATEGORIZED_ID = "none";
 function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll: boolean }) {
   const t = useTranslations();
   const { formatEGP, formatDate, formatClock, locale } = useFormatters();
+  const courseStrings = useQueryStrings();
   const { query, result } = useList({
     resource: "search/courses",
     filters: [
@@ -161,6 +164,17 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
       <div className="flex items-center gap-2 px-5 py-6 text-sm" style={{ color: "var(--ink-3)" }}>
         <Spinner /> {t("studentBrowse.loadingCourses")}
       </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <LoadError
+        className="m-4"
+        message={courseStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={courseStrings.retry}
+      />
     );
   }
 
@@ -326,6 +340,7 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
 export function StudentSubjectsScreen() {
   const t = useTranslations();
   const { locale } = useFormatters();
+  const queryStrings = useQueryStrings();
   const [tab, setTab] = useState<"mine" | "all">("mine");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -445,7 +460,15 @@ export function StudentSubjectsScreen() {
 
       {query.isLoading ? <PageSpinner label={t("studentSubjects.loadingSubjects")} /> : null}
 
-      {!query.isLoading && visibleSubjects.length === 0 ? (
+      {query.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
+      ) : null}
+
+      {!query.isLoading && !query.isError && visibleSubjects.length === 0 ? (
         <Sheet className="p-5">
           <LedgerEmpty
             title={

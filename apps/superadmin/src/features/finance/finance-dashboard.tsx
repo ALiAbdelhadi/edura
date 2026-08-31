@@ -19,6 +19,8 @@ import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num } from "@repo/ui/components/num";
 import { LineChart } from "@repo/ui/components/charts";
+import { SkeletonRows } from "@repo/ui/components/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";
 import type { Locale } from "@repo/ui/lib/format";
 
@@ -56,8 +58,11 @@ export function FinanceDashboard() {
     url: "finance/dashboard",
     method: "get",
   });
-  const { result: alertsRes } = useCustom<AlertsResp>({ url: "finance/alerts", method: "get" });
-  const { result: rev } = useCustom<RevenueResp>({
+  const { query: alertsQuery, result: alertsRes } = useCustom<AlertsResp>({
+    url: "finance/alerts",
+    method: "get",
+  });
+  const { query: revQuery, result: rev } = useCustom<RevenueResp>({
     url: "finance/reports/revenue",
     method: "get",
     config: { query: { period: "monthly" } },
@@ -114,29 +119,31 @@ export function FinanceDashboard() {
     <div className="flex w-full flex-col gap-6">
       {head(t("financeHome.title"))}
 
-      {alerts.length > 0 && (
-        <div className="flex w-full flex-col gap-2">
-          {alerts.map((a) => (
-            <p
-              key={a.code}
-              role="status"
-              className={cn(
-                "flex items-center gap-2 rounded-lg border p-3 text-[13px]",
-                a.level === "warning"
-                  ? "border-amber bg-amber-soft text-amber"
-                  : "border-rule bg-field text-ink-2",
-              )}
-            >
-              {a.level === "warning" ? (
-                <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-              ) : (
-                <Info className="size-4 shrink-0" aria-hidden="true" />
-              )}
-              {a.message}
-            </p>
-          ))}
-        </div>
-      )}
+      <QuerySection query={alertsQuery} skeleton={<SkeletonRows rows={1} />}>
+        {alerts.length > 0 && (
+          <div className="flex w-full flex-col gap-2">
+            {alerts.map((a) => (
+              <p
+                key={a.code}
+                role="status"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border p-3 text-[13px]",
+                  a.level === "warning"
+                    ? "border-amber bg-amber-soft text-amber"
+                    : "border-rule bg-field text-ink-2",
+                )}
+              >
+                {a.level === "warning" ? (
+                  <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Info className="size-4 shrink-0" aria-hidden="true" />
+                )}
+                {a.message}
+              </p>
+            ))}
+          </div>
+        )}
+      </QuerySection>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -192,7 +199,12 @@ export function FinanceDashboard() {
           <p className="mt-1 text-[13px] text-ink-2">{t("financeHome.revenueChartSubtitle")}</p>
         </header>
 
-        {series.length > 0 ? (
+        <QuerySection
+          query={revQuery}
+          skeleton={<SkeletonRows rows={3} />}
+          isEmpty={series.length === 0}
+          empty={<EmptyState tone="empty" icon={LineChartIcon} title={t("common.noRevenueYet")} />}
+        >
           <LineChart
             series={[
               {
@@ -215,9 +227,7 @@ export function FinanceDashboard() {
             height={280}
             yValueFormatter={(v) => formatAxis(v * 100, locale)}
           />
-        ) : (
-          <EmptyState tone="empty" icon={LineChartIcon} title={t("common.noRevenueYet")} />
-        )}
+        </QuerySection>
       </section>
     </div>
   );

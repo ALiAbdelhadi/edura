@@ -51,9 +51,9 @@ describe("api client read budget", () => {
     const outcome = req.read();
     expect(outcome).toBeInstanceOf(Error);
     expect((outcome as Error).name).toBe("TimeoutError");
-    expect((outcome as Error).message).toContain(
-      "Request timed out: GET http://test.local/api/v1/messages/conversations",
-    );
+    const localized = outcome as Error & { apiErrorCode?: string };
+    expect(localized.apiErrorCode).toBe("timeout");
+    expect(localized.message).not.toMatch(/request timed out/i);
   });
 
   it("does NOT give up at 10s in development — the compile budget", async () => {

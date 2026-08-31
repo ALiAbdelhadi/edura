@@ -8,6 +8,7 @@ import { DirectionalIcon } from "@repo/ui/components/directional-icon";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Button } from "@repo/ui/components/button";
+import { QuerySection, combineQueries } from "@repo/ui/components/query-section";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { Link } from "@/i18n/navigation";
@@ -63,7 +64,12 @@ function RecordCard({
 export function ParentDashboard() {
   const t = useTranslations();
   const { formatEGP, formatPercent } = useFormatters();
-  const { childId, childName, isLoading: childrenLoading } = useChildSelector();
+  const {
+    childId,
+    childName,
+    isLoading: childrenLoading,
+    failed: childrenFailed,
+  } = useChildSelector();
 
   const { query: gradesQuery, result: gradesResult } = useList({
     resource: "grades",
@@ -93,11 +99,7 @@ export function ParentDashboard() {
   const payments = (paymentsResult?.data ?? []) as any[];
   const attendance = (attendanceResult?.data as any) || null;
 
-  const isLoading =
-    childrenLoading ||
-    gradesQuery.isLoading ||
-    paymentsQuery.isLoading ||
-    attendanceQuery.isLoading;
+  const combined = combineQueries(gradesQuery, paymentsQuery, attendanceQuery);
 
   const courseMap = new Map<string, { scores: { score: number; max: number }[] }>();
   for (const g of grades) {
@@ -133,8 +135,10 @@ export function ParentDashboard() {
         onClose={tour.markDone}
       />
 
-      {isLoading ? (
+      {childrenLoading ? (
         <SkeletonRows rows={4} />
+      ) : childrenFailed ? (
+        <EmptyState icon={Users} title={t("parentPay.childrenUnavailable")} />
       ) : !childId ? (
         <EmptyState
           icon={Users}
@@ -148,7 +152,7 @@ export function ParentDashboard() {
           }
         />
       ) : (
-        <>
+        <QuerySection query={combined} skeleton={<SkeletonRows rows={4} />}>
           <ChildTodayLine
             childId={childId}
             childName={childName}
@@ -214,7 +218,7 @@ export function ParentDashboard() {
               {t("parentDashboard.payFor", { name: childName })}
             </Link>
           </LedgerButton>
-        </>
+        </QuerySection>
       )}
     </div>
   );

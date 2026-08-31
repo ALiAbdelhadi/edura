@@ -1,12 +1,11 @@
 "use client";
 
-import { useApiUrl } from "@refinedev/core";
+import { api } from "@/lib/api/client";
 import { toast } from "@repo/ui/components/sonner";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 export function useCatalogMutation() {
-  const apiUrl = useApiUrl();
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
 
@@ -17,15 +16,10 @@ export function useCatalogMutation() {
   ): Promise<boolean> {
     setBusy(true);
     try {
-      const res = await fetch(`${apiUrl}/${path}`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error?.message || t("common.requestFailed"));
-      }
+      const options = body === undefined ? undefined : { json: body };
+      if (method === "POST") await api.post(path, options);
+      else if (method === "PATCH") await api.patch(path, options);
+      else await api.delete(path, options);
       return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("common.failed"));

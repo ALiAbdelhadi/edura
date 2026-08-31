@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCustomMutation } from "@refinedev/core";
 import { Banknote, Plus, Receipt, Wallet } from "lucide-react";
@@ -33,6 +33,8 @@ import {
 } from "@repo/ui/components/table";
 import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
 import { Spinner } from "@/components/kit/spinner";
 import { useAdminGet, type Paged } from "./use-oversight";
@@ -61,7 +63,8 @@ function useMoneyMutation() {
       toast.success(successMsg);
       return true;
     } catch (e) {
-      toast.error(t("ma_actionFailed"));
+      // Duplicate-payment and insufficient-funds reasons live in this message.
+      toast.error((e as { message?: string })?.message || t("ma_actionFailed"));
       return false;
     }
   };
@@ -122,7 +125,7 @@ function useRosterStudents(centerId: string, enabled: boolean) {
     `admin/centers/${centerId}/roster/students`,
     { enabled },
   );
-  return req.data?.items ?? [];
+  return { students: req.data?.items ?? [], failed: req.isError, retry: req.refetch };
 }
 
 function StudentPicker({
@@ -137,7 +140,20 @@ function StudentPicker({
   onChange: (v: string) => void;
 }) {
   const t = useTranslations("oversight");
-  const students = useRosterStudents(centerId, enabled);
+  const queryStrings = useQueryStrings();
+  const { students, failed, retry } = useRosterStudents(centerId, enabled);
+  if (failed) {
+    // An empty picker in a money dialog reads as "no students" — say what it is.
+    return (
+      <Labeled label={t("ma_student")}>
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => void retry()}
+          retryLabel={queryStrings.retry}
+        />
+      </Labeled>
+    );
+  }
   return (
     <Labeled label={t("ma_student")}>
       <Select value={value} onValueChange={onChange}>
@@ -303,6 +319,7 @@ function WalkInSubscriptionDialog({
 }) {
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
+  const queryStrings = useQueryStrings();
   const run = useMoneyMutation();
   const courses = useAdminGet<Paged<{ id: string; title: string; pricePerMonth: number | null; pricePerSession: number | null }>>(
     `admin/centers/${centerId}/oversight/courses`,
@@ -348,6 +365,13 @@ function WalkInSubscriptionDialog({
             onChange={setStudentId}
           />
           <Labeled label={t("ma_course")}>
+            {courses.isError ? (
+              <LoadError
+                message={queryStrings.loadFailed}
+                onRetry={() => void courses.refetch()}
+                retryLabel={queryStrings.retry}
+              />
+            ) : (
             <Select value={courseId} onValueChange={setCourseId}>
               <SelectTrigger>
                 <SelectValue placeholder={t("ma_pickCourse")} />
@@ -360,6 +384,7 @@ function WalkInSubscriptionDialog({
                 ))}
               </SelectContent>
             </Select>
+            )}
           </Labeled>
           <Labeled label={t("ma_plan")}>
             <Select value={plan} onValueChange={(v) => setPlan(v as "monthly" | "per_session")}>
@@ -403,6 +428,7 @@ function PayoutDialog({
 }) {
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
+  const queryStrings = useQueryStrings();
   const run = useMoneyMutation();
   const req = useAdminGet<{ wallet: { balance?: number }; payouts: unknown[] }>(
     `admin/centers/${centerId}/money/payout-request`,
@@ -410,13 +436,19 @@ function PayoutDialog({
   );
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  // One idempotency key per open of the dialog: a timeout retry resolves to
+  // the same payout server-side instead of minting a second one.
+  const requestKey = useRef("");
+  useEffect(() => {
+    if (open) requestKey.current = crypto.randomUUID();
+  }, [open]);
 
   const submit = async () => {
     const piasters = amount.trim() === "" ? undefined : Math.round(Number(amount) * 100);
     setBusy(true);
     const okDone = await run(
       `admin/centers/${centerId}/money/payout-request`,
-      piasters ? { amount: piasters } : {},
+      { ...(piasters ? { amount: piasters } : {}), clientRequestId: requestKey.current },
       t("ma_payoutOk"),
     );
     setBusy(false);
@@ -437,10 +469,22 @@ function PayoutDialog({
             This <strong>pays nothing</strong>. It raises a pending payout; approval and
             settlement stay with the accountant, where the balance floor is enforced.
           </p>
-          <p className="text-sm">
-            Center wallet:{" "}
-            <Num.Money piasters={req.data?.wallet?.balance ?? 0} locale={locale} tone="net" sign={false} />
-          </p>
+          {req.isError ? (
+            <LoadError
+              message={queryStrings.unavailable}
+              onRetry={() => void req.refetch()}
+              retryLabel={queryStrings.retry}
+            />
+          ) : (
+            <p className="text-sm">
+              Center wallet:{" "}
+              {req.data?.wallet ? (
+                <Num.Money piasters={req.data.wallet.balance ?? 0} locale={locale} tone="net" sign={false} />
+              ) : (
+                <span className="text-ink-3">…</span>
+              )}
+            </p>
+          )}
           <Labeled label={t("ma_amountFull")}>
             <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Labeled>
@@ -468,6 +512,7 @@ type ExpenseRow = {
 
 export function ExpensesCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<ExpenseRow[] | { items: ExpenseRow[] }>(
     `admin/centers/${centerId}/money/expenses`,
@@ -521,6 +566,12 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
         </p>
         {req.isLoading ? (
           <Spinner />
+        ) : req.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => void req.refetch()}
+            retryLabel={queryStrings.retry}
+          />
         ) : rows.length === 0 ? (
           <p className="text-sm text-ink-2">{t("ma_noExpenses")}</p>
         ) : (

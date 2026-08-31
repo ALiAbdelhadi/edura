@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
@@ -54,6 +56,7 @@ type SessionRow = {
 
 export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useOversight<Paged<SessionRow>>(centerId, "sessions", {
     enabled,
@@ -64,6 +67,15 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data?.data ?? [];
 
   return (
@@ -196,6 +208,7 @@ function CompleteSessionDialog({
 }) {
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
+  const queryStrings = useQueryStrings();
   const { mutateAsync } = useCustomMutation();
   const [busy, setBusy] = useState(false);
   const preview = useAdminGet<Preview>(
@@ -233,7 +246,13 @@ function CompleteSessionDialog({
             <AlertTriangle className="size-4 text-amber" />{t("op_completeQ")}</DialogTitle>
         </DialogHeader>
 
-        {preview.isLoading || !p ? (
+        {preview.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => preview.refetch()}
+            retryLabel={queryStrings.retry}
+          />
+        ) : preview.isLoading || !p ? (
           <PageSpinner />
         ) : (
           <div className="space-y-3 text-sm">
@@ -274,7 +293,10 @@ function CompleteSessionDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>{t("op_cancel")}</Button>
-          <Button onClick={run} disabled={busy || preview.isLoading || p?.alreadySettled}>
+          <Button
+            onClick={run}
+            disabled={busy || preview.isLoading || preview.isError || !p || p.alreadySettled}
+          >
             {busy ? <Spinner /> : null}
             Complete &amp; distribute
           </Button>
@@ -384,6 +406,7 @@ type AttendanceRow = {
 
 export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useOversight<Paged<AttendanceRow> & { summary: { status: string; count: number }[] }>(
     centerId,
@@ -395,6 +418,15 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data?.data ?? [];
 
   const correct = async (id: string, status: string) => {
@@ -497,6 +529,7 @@ export function DeletionRequestsTab({
   enabled: boolean;
 }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<DeletionRow[]>(`admin/centers/${centerId}/deletion-requests`, {
     enabled,
@@ -505,6 +538,15 @@ export function DeletionRequestsTab({
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data ?? [];
 
   return (
@@ -691,6 +733,7 @@ type BlacklistEntry = {
 
 export function CenterBlacklistCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<BlacklistEntry[]>(`admin/centers/${centerId}/blacklist`);
   const rows = req.data ?? [];
@@ -707,6 +750,12 @@ export function CenterBlacklistCard({ centerId }: { centerId: string }) {
         </p>
         {req.isLoading ? (
           <Spinner />
+        ) : req.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={req.refetch}
+            retryLabel={queryStrings.retry}
+          />
         ) : rows.length === 0 ? (
           <p className="text-sm text-ink-2">{t("op_nobodyBlocked")}</p>
         ) : (

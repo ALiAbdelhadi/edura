@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { StatCard } from "@/components/kit/stat-card";
 import { PageHeader } from "@/components/kit/page-header";
@@ -101,6 +102,8 @@ export function ParentWalletScreen() {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
       } else if (intent?.checkout?.url) {
         goToCheckout(intent.checkout.url);
+      } else {
+        toast.error(t("parentWallet.topupFailed"));
       }
     } catch (err) {
       toast.error((err as { message?: string })?.message || t("parentWallet.topupFailed"));
@@ -131,8 +134,6 @@ export function ParentWalletScreen() {
     }
   };
 
-  if (walletQuery.isLoading) return <PageSpinner />;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -148,23 +149,26 @@ export function ParentWalletScreen() {
         }
       />
 
-      <StatCard
-        filled
-        label={t("parentWallet.balance")}
-        value={formatEGP(wallet?.balance ?? 0)}
-        icon={Wallet}
-      />
+      <QuerySection query={walletQuery} skeleton={<PageSpinner />}>
+        <StatCard
+          filled
+          label={t("parentWallet.balance")}
+          value={formatEGP(wallet?.balance ?? 0)}
+          icon={Wallet}
+        />
+      </QuerySection>
 
       <Card>
         <CardHeader>
           <CardTitle>{t("parentWallet.history")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {histQuery.isLoading ? (
-            <PageSpinner />
-          ) : entries.length === 0 ? (
-            <EmptyState icon={Wallet} title={t("parentWallet.noHistory")} />
-          ) : (
+          <QuerySection
+            query={histQuery}
+            skeleton={<PageSpinner />}
+            isEmpty={entries.length === 0}
+            empty={<EmptyState icon={Wallet} title={t("parentWallet.noHistory")} />}
+          >
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -213,7 +217,7 @@ export function ParentWalletScreen() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
 

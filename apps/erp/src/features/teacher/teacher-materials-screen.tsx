@@ -10,6 +10,8 @@ import { useTranslations } from "next-intl";
 import { api } from "@/lib/api/client";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { uploadWithProgress } from "@/lib/api/upload";
+import { Progress } from "@repo/ui/components/progress";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { Button } from "@repo/ui/components/button";
@@ -45,6 +47,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
@@ -66,11 +69,16 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// A lecture PDF on a phone connection needs far more than the 10s read budget.
+const UPLOAD_TIMEOUT_MS = 120_000;
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 export function TeacherMaterialsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<"upload" | "link">("upload");
 
@@ -172,6 +180,12 @@ export function TeacherMaterialsScreen() {
         toast.error(t("teacher.onlyPdfError"));
         return;
       }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        // The size hint next to the picker was advisory only; the server
+        // refuses anyway, so stop here instead of spending the upload.
+        toast.error(t("teacher.tooLarge"));
+        return;
+      }
     } else if (!values.fileUrl?.trim()) {
       toast.error(t("teacher.enterLinkError"));
       return;
@@ -188,8 +202,16 @@ export function TeacherMaterialsScreen() {
     }
 
     setUploading(true);
+    setUploadPct(null);
     try {
-      await api.post("materials", { body: formData });
+      if (sourceMode === "upload" && file) {
+        await uploadWithProgress("materials", formData, {
+          timeoutMs: UPLOAD_TIMEOUT_MS,
+          onProgress: (fraction) => setUploadPct(Math.round(fraction * 100)),
+        });
+      } else {
+        await api.post("materials", { body: formData, timeout: UPLOAD_TIMEOUT_MS });
+      }
       toast.success(t("teacher.uploadSuccess"));
       setIsModalOpen(false);
       setSourceMode("upload");
@@ -199,6 +221,7 @@ export function TeacherMaterialsScreen() {
       toast.error(err?.message || t("teacher.uploadFailed"));
     } finally {
       setUploading(false);
+      setUploadPct(null);
     }
   };
 
@@ -326,17 +349,21 @@ export function TeacherMaterialsScreen() {
           </div>
         </CardHeader>
         <CardContent className="px-0">
-          {materialsQuery.isLoading ? (
-            <PageSpinner />
-          ) : materials.length === 0 ? (
-            <div className="px-6">
-              <EmptyState icon={FileText} title={t("teacher.noMaterials")} />
-            </div>
-          ) : (
+          <QuerySection
+            query={materialsQuery}
+            skeleton={<PageSpinner />}
+            className="mx-6"
+            isEmpty={materials.length === 0}
+            empty={
+              <div className="px-6">
+                <EmptyState icon={FileText} title={t("teacher.noMaterials")} />
+              </div>
+            }
+          >
             <ul className="divide-y divide-border border-y border-border">
               {materials.map((m: any) => materialRow(m))}
             </ul>
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
 
@@ -483,7 +510,7 @@ export function TeacherMaterialsScreen() {
                         ? `${(f.size / 1024).toFixed(1)} KB`
                         : `${(f.size / (1024 * 1024)).toFixed(1)} MB`
                       : null;
-                    const tooLarge = f ? f.size > 20 * 1024 * 1024 : false;
+                    const tooLarge = f ? f.size > MAX_UPLOAD_BYTES : false;
                     return (
                       <FormItem>
                         <FormLabel>{t("teacher.fileLabel")}</FormLabel>
@@ -547,8 +574,17 @@ export function TeacherMaterialsScreen() {
                 />
               )}
 
+              {uploading && uploadPct !== null ? (
+                <div className="flex items-center gap-3">
+                  <Progress value={uploadPct} className="h-2 flex-1" />
+                  <span className="w-10 text-end text-xs tabular-nums text-ink-2" dir="ltr">
+                    {uploadPct}%
+                  </span>
+                </div>
+              ) : null}
+
               <DialogFooter>
-                <Button variant="outline" type="button" onClick={closeModal}>
+                <Button variant="outline" type="button" onClick={closeModal} disabled={uploading}>
                   {t("actions.cancel")}
                 </Button>
                 <Button type="submit" disabled={uploading}>

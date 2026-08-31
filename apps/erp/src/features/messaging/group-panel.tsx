@@ -7,6 +7,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { Bell, BellOff, Megaphone, Send, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -133,6 +134,7 @@ function GroupThread({
   const t = useTranslations();
   const { formatDate } = useFormatters();
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -159,10 +161,18 @@ function GroupThread({
   const { group, messages } = ctl.thread;
   const active = ctl.groups.find((g) => g.id === ctl.activeId);
 
-  const send = () => {
-    if (!draft.trim()) return;
-    void ctl.post(group.id, draft);
-    setDraft("");
+  const send = async () => {
+    if (!draft.trim() || sending) return;
+    setSending(true);
+    try {
+      if (await ctl.post(group.id, draft)) setDraft("");
+    } catch {
+      // post() swallows its own failures today; if that ever changes the user
+      // still hears about it rather than watching the draft sit there.
+      toast.error(t("chat.sendFailed"));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -252,6 +262,13 @@ function GroupThread({
         <div className="border-t border-rule bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
           {t("chat.rateLimited")}
         </div>
+      ) : ctl.error === "send_failed" ? (
+        <div
+          role="alert"
+          className="border-t border-rule bg-red-soft px-4 py-2 text-xs text-red"
+        >
+          {t("chat.sendFailed")}
+        </div>
       ) : null}
       {group.canPost ? (
         <div className="border-t border-rule bg-sheet p-4">
@@ -264,7 +281,7 @@ function GroupThread({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  send();
+                  void send();
                 }
               }}
               className="h-10 rounded-full"
@@ -273,8 +290,8 @@ function GroupThread({
               type="button"
               size="icon"
               className="size-10 shrink-0 rounded-full"
-              onClick={send}
-              disabled={!draft.trim()}
+              onClick={() => void send()}
+              disabled={!draft.trim() || sending}
               aria-label={t("chat.send")}
             >
               <Send className="size-4 rtl:-scale-x-100" />

@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useList, useOne } from "@refinedev/core";
 
 import { useLocale, useTranslations } from "next-intl";
+import { RefreshCcw, TriangleAlert } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
 import { SearchInput } from "@repo/ui/components/search-input";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
 import {
@@ -31,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { Spinner } from "@/components/kit/spinner";
@@ -52,6 +56,7 @@ const ANY = "__any__";
 
 export function WhatsAppMessagesScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -60,7 +65,7 @@ export function WhatsAppMessagesScreen() {
   // params (the child's name and student code) and the provider payload belong to
   // the one row an operator opens, so they are fetched then — not shipped with every
   // row in the list.
-  const { result: detailResult } = useOne({
+  const { query: detailQuery, result: detailResult } = useOne({
     resource: "admin/whatsapp-messages",
     id: detail?.id ?? "",
     queryOptions: { enabled: !!detail },
@@ -127,6 +132,25 @@ export function WhatsAppMessagesScreen() {
             <div className="p-6">
               <Spinner />
             </div>
+          ) : query.isError ? (
+            (() => {
+              const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+              return (
+                <EmptyState
+                  tone={denied ? "denied" : "error"}
+                  icon={TriangleAlert}
+                  title={denied ? queryStrings.denied : queryStrings.loadFailed}
+                  action={
+                    denied ? undefined : (
+                      <Button variant="outline" onClick={() => query.refetch()}>
+                        <RefreshCcw className="size-4" aria-hidden="true" />
+                        {queryStrings.retry}
+                      </Button>
+                    )
+                  }
+                />
+              );
+            })()
           ) : (
             <Table>
               <TableHeader>
@@ -214,7 +238,13 @@ export function WhatsAppMessagesScreen() {
           <DialogHeader>
             <DialogTitle>{detail?.template}</DialogTitle>
           </DialogHeader>
-          {detail ? (
+          {detail && detailQuery.isError ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => detailQuery.refetch()}
+              retryLabel={queryStrings.retry}
+            />
+          ) : detail ? (
             <div className="space-y-3 text-sm">
               <div dir="ltr" className="font-mono">{detail.recipientPhone}</div>
               <div>

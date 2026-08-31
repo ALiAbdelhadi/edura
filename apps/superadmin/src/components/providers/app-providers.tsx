@@ -6,7 +6,10 @@ import { Refine } from "@refinedev/core";
 import { DirectionProvider } from "@repo/ui/components/direction-provider";
 import { Toaster } from "@repo/ui/components/sonner";
 import { dataProvider, authProvider } from "@/lib/refine";
+import { useSonnerNotificationProvider } from "@/lib/refine/notification-provider";
+import { reactQueryClientConfig } from "@/lib/refine/query-client";
 import { useAppRouterProvider } from "@/lib/refine/router-provider";
+import { SessionExpiryGuard } from "@/components/providers/session-expiry-guard";
 import { ThemeModeProvider } from "@/components/providers/theme-mode-provider";
 import { isRtlLocale } from "@/i18n/routing";
 
@@ -25,6 +28,7 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
     <Refine
       dataProvider={dataProvider}
       authProvider={authProvider}
+      notificationProvider={useSonnerNotificationProvider}
       routerProvider={routerProvider}
       resources={resources}
       options={{
@@ -32,6 +36,7 @@ function RefineProvider({ children }: { children: React.ReactNode }) {
         warnWhenUnsavedChanges: true,
         disableTelemetry: true,
         projectId: "edura-superadmin",
+        reactQuery: { clientConfig: reactQueryClientConfig },
       }}
     >
       {children}
@@ -52,6 +57,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           dir={dir}
           position={dir === "rtl" ? "bottom-left" : "bottom-right"}
         />
+        <SessionExpiryGuard />
       </DirectionProvider>
     </ThemeModeProvider>
   );

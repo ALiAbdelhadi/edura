@@ -6,6 +6,7 @@ import CopyableText from "@/components/ui/copyable-text";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation, useList } from "@refinedev/core";
 import { Button } from "@repo/ui/components/button";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { Check, Inbox, X } from "lucide-react";
@@ -73,7 +74,7 @@ export function AdminEnrollmentRequestsScreen() {
     return m;
   }, [coursesResult]);
 
-  const { mutateAsync: approveMut } = useCustomMutation();
+  const { mutateAsync: approveMut, mutation: approveMutation } = useCustomMutation();
   const { mutateAsync: declineMut, mutation: declineMutation } = useCustomMutation();
 
   const selected = requests.find((r) => r.id === selectedId) ?? null;
@@ -92,11 +93,11 @@ export function AdminEnrollmentRequestsScreen() {
       setSelectedId(null);
       requestsQuery.refetch();
     } catch (err: any) {
-      const msg = err?.response?.data?.error?.message || err?.message || t("adminManage.enroll.approveFailed");
-      if (msg.toLowerCase().includes("already enrolled")) {
+      const raw = String(err?.serverMessage || err?.message || "");
+      if (raw.toLowerCase().includes("already enrolled")) {
         toast.warning(t("adminManage.enroll.alreadyEnrolled"));
       } else {
-        toast.error(msg);
+        toast.error(err?.message || t("adminManage.enroll.approveFailed"));
       }
       requestsQuery.refetch();
     }
@@ -119,10 +120,6 @@ export function AdminEnrollmentRequestsScreen() {
       toast.error(t("adminManage.enroll.declineFailed"));
     }
   };
-
-  if (requestsQuery.isLoading) {
-    return <PageSpinner label={t("adminManage.enroll.loadingRequests")} />;
-  }
 
   const columns: Column<EnrollmentRequest>[] = [
     {
@@ -162,11 +159,16 @@ export function AdminEnrollmentRequestsScreen() {
         title={t("adminManage.enroll.title")}
         subtitle={t("adminManage.enroll.subtitle")}
       />
-      {requests.length === 0 ? (
-        <Sheet>
-          <EmptyState icon={<Inbox className="size-6" />} title={t("adminManage.enroll.noPending")} />
-        </Sheet>
-      ) : (
+      <QuerySection
+        query={requestsQuery}
+        skeleton={<PageSpinner label={t("adminManage.enroll.loadingRequests")} />}
+        isEmpty={requests.length === 0}
+        empty={
+          <Sheet>
+            <EmptyState icon={<Inbox className="size-6" />} title={t("adminManage.enroll.noPending")} />
+          </Sheet>
+        }
+      >
         <div className="grid gap-4 xl:grid-cols-[1fr_396px]">
           <DataTable
             columns={columns}
@@ -226,6 +228,7 @@ export function AdminEnrollmentRequestsScreen() {
                   armedLabel={t("adminManage.enroll.approveArmed")}
                   hint={t("adminManage.enroll.approveHint")}
                   armedHint={t("adminManage.enroll.approveArmedHint")}
+                  busy={approveMutation.isPending}
                   onCommit={() => handleApprove(selected.id)}
                 />
                 {declineOpen ? (
@@ -267,7 +270,7 @@ export function AdminEnrollmentRequestsScreen() {
             )}
           </Sheet>
         </div>
-      )}
+      </QuerySection>
     </div>
   );
 }

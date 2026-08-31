@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@repo/ui/lib/utils";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { PageSpinner } from "@/components/kit/spinner";
+import { QuerySection } from "@repo/ui/components/query-section";
 import {
   Chip,
   Eyebrow,
@@ -47,14 +48,16 @@ export function GradesScreen() {
   const best = bestSubject(subjects);
   const entries = countEntries(subjects);
 
-  if (query.isLoading) return <PageSpinner label={t("common.loading")} />;
-
   const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
 
   return (
     <div className="space-y-6">
       <PageTitle title={t("nav.grades")} subtitle={t("studentClass.gradesSubtitle")} />
 
+      <QuerySection
+        query={query}
+        skeleton={<PageSpinner label={t("common.loading")} />}
+      >
       <div className="grid gap-3 sm:grid-cols-2">
         <Sheet className="p-5" data-tour="student-latest-grade">
           <Eyebrow>{t("studentClass.latestGrade")}</Eyebrow>
@@ -133,6 +136,7 @@ export function GradesScreen() {
           )}
         </div>
       </Sheet>
+      </QuerySection>
     </div>
   );
 }

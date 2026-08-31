@@ -13,6 +13,7 @@ import {
   type TeacherState,
 } from "@/features/onboarding/teacher-wizard";
 import type { CatalogSystem } from "@/features/onboarding/types";
+import { api } from "@/lib/api/client";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
@@ -46,11 +47,10 @@ export default function OnboardingClient({
   const resend = async () => {
     setResendState("sending");
     try {
-      const res = await fetch("/api/v1/me/onboarding-email", {
-        method: "POST",
-      });
-      const data = res.ok ? (await res.json()).data : null;
-      setResendState(data?.sent ? "sent" : "failed");
+      const res = await api
+        .post("me/onboarding-email")
+        .json<{ data?: { sent?: boolean } }>();
+      setResendState(res.data?.sent ? "sent" : "failed");
     } catch {
       setResendState("failed");
     }

@@ -13,6 +13,8 @@ import { toast } from "@repo/ui/components/sonner";
 import { formatPercent, type Locale } from "@repo/ui/lib/format";
 
 import { PageHeader } from "@/components/kit/page-header";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { AgreementProposalsPanel } from "./agreement-proposals-panel";
 
@@ -25,6 +27,7 @@ type CommissionData = {
 
 export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
   const t = useTranslations("commissionSettings");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const apiUrl = readOnly ? "finance/commission-settings" : "admin/commission-settings";
 
@@ -78,6 +81,15 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
     }
   };
 
+  if (query.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   if (query.isLoading || !data) return <PageSpinner label={t("loading")} />;
 
   return (

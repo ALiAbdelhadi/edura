@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
@@ -95,11 +97,24 @@ export function CenterOversightScreen({ centerId }: { centerId: string }) {
   const [tab, setTab] = useState<string>("overview");
   const t = useTranslations("oversight");
   const tStatus = useTranslations("status");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const overview = useOversight<Overview>(centerId, "overview");
   const center = overview.data?.center;
 
   if (overview.isLoading) return <PageSpinner />;
+  if (
+    overview.isError &&
+    (overview.error as { statusCode?: number } | null)?.statusCode !== 404
+  ) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={overview.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   if (!center) return <p className="p-4 text-sm text-ink-2">{t("notFound")}</p>;
 
   const isActive = center.status === "active";
@@ -449,6 +464,7 @@ function SimpleTable({
 }) {
   const t = useTranslations("oversight");
   const tRoot = useTranslations();
+  const queryStrings = useQueryStrings();
   const tEnum = (key: string, raw: string) =>
     tRoot.has(asKey(key)) ? tRoot(asKey(key)) : raw;
   const locale = useLocale() as Locale;
@@ -458,6 +474,15 @@ function SimpleTable({
   });
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data?.data ?? [];
   return (
     <div className="space-y-2">
@@ -523,6 +548,7 @@ function SimpleTable({
 
 function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useOversight<{
     collaborationRequests: {
@@ -546,6 +572,15 @@ function PendingTab({ centerId, enabled }: { centerId: string; enabled: boolean 
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const collabs = req.data?.collaborationRequests ?? [];
   const affs = req.data?.affiliations ?? [];
 

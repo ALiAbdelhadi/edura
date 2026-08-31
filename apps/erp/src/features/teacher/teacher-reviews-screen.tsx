@@ -5,6 +5,7 @@ import { Star, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
@@ -88,13 +89,17 @@ export function TeacherReviewsScreen() {
           <CardTitle>{t("teacher.reviews")}</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
-          {query.isLoading ? (
-            <PageSpinner />
-          ) : reviews.length === 0 ? (
-            <div className="px-6">
-              <EmptyState icon={Star} title={t("teacher.noReviews")} />
-            </div>
-          ) : (
+          <QuerySection
+            query={query}
+            skeleton={<PageSpinner />}
+            className="mx-6"
+            isEmpty={reviews.length === 0}
+            empty={
+              <div className="px-6">
+                <EmptyState icon={Star} title={t("teacher.noReviews")} />
+              </div>
+            }
+          >
             <ul className="divide-y divide-border border-y border-border">
               {reviews.map((r: any) => (
                 <li key={r.id} className="px-4 py-3">
@@ -124,7 +129,7 @@ export function TeacherReviewsScreen() {
                 </li>
               ))}
             </ul>
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
 

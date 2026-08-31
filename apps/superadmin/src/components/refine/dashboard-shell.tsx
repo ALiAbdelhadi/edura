@@ -13,6 +13,7 @@ import {
   type NavGroup as ShellNavGroup,
   type NavItem,
 } from "@repo/ui/components/app-shell";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useLocale, useTranslations } from "next-intl";
 import React from "react";
 
@@ -155,10 +156,12 @@ export default function DashboardShell({
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchResults = useGlobalSearch(searchQuery);
+  const queryStrings = useQueryStrings();
   const remote = React.useMemo(
     () => ({
       loading: searchResults.loading,
       truncated: searchResults.truncated,
+      ...(searchResults.failed ? { error: queryStrings.loadFailed } : {}),
       groups: searchResults.groups.map((g) => ({
         kind: g.kind,
         heading: SEARCH_KIND_KEY[g.kind]
@@ -167,7 +170,7 @@ export default function DashboardShell({
         hits: g.hits,
       })),
     }),
-    [searchResults, t],
+    [searchResults, queryStrings, t],
   );
 
   return (

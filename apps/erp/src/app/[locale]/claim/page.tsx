@@ -47,8 +47,9 @@ function ClaimInner() {
         { method: "POST", body: { token } },
       );
       if (!claimError) {
-        const me = await fetch("/api/v1/me")
-          .then((r) => r.json())
+        const me = await api
+          .get("me")
+          .json<{ data: { role: string; email?: string; hasPassword?: boolean } | null }>()
           .catch(() => null);
         const user = me?.data ?? null;
         setRole(user?.role ?? null);

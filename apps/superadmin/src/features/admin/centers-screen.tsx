@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { Link } from "@/i18n/navigation";
@@ -35,8 +36,10 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
-import { Eye, Home, Info } from "lucide-react";
+import { Eye, Home, Info, RefreshCcw, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { asArray } from "@/lib/refine/as-array";
@@ -707,6 +710,7 @@ function RoomPriceRow({
 
 function GlobalSplitCard() {
   const t = useTranslations("centersAdmin");
+  const queryStrings = useQueryStrings();
   const { mutateAsync: mutate } = useCustomMutation();
   const req = useCustom({ url: "admin/revenue-split", method: "get" });
   const data = req.result?.data as { split: Split | null; m2Rate?: M2Rate | null } | undefined;
@@ -732,6 +736,12 @@ function GlobalSplitCard() {
       <CardContent className="space-y-3">
         {req.query.isLoading ? (
           <Spinner />
+        ) : req.query.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => req.query.refetch()}
+            retryLabel={queryStrings.retry}
+          />
         ) : (
           <>
             <SplitEditor
@@ -759,6 +769,7 @@ function GlobalSplitCard() {
 export function CentersScreen() {
   const t = useTranslations("centersAdmin");
   const tStatus = useTranslations("status");
+  const queryStrings = useQueryStrings();
   const [detailId, setDetailId] = useState<string | null>(null);
   const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });
   const centers = useMemo(() => asArray<any>(result?.data), [result]);
@@ -772,6 +783,25 @@ export function CentersScreen() {
         <CardContent>
           {query.isLoading ? (
             <PageSpinner />
+          ) : query.isError ? (
+            (() => {
+              const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+              return (
+                <EmptyState
+                  tone={denied ? "denied" : "error"}
+                  icon={TriangleAlert}
+                  title={denied ? queryStrings.denied : queryStrings.loadFailed}
+                  action={
+                    denied ? undefined : (
+                      <Button variant="outline" onClick={() => query.refetch()}>
+                        <RefreshCcw className="size-4" aria-hidden="true" />
+                        {queryStrings.retry}
+                      </Button>
+                    )
+                  }
+                />
+              );
+            })()
           ) : centers.length === 0 ? (
             <p className="p-4 text-sm text-ink-2">{t("noCenters")}</p>
           ) : (

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { toast } from "@repo/ui/components/sonner";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
@@ -217,11 +218,13 @@ export function StudentWalletScreen() {
         <div className="mt-4">
           {tab === "receipts" ? (
             <StudentReceiptsSection embedded />
-          ) : histQuery.isLoading ? (
-            <PageSpinner />
-          ) : entries.length === 0 ? (
-            <LedgerEmpty title={t("studentWallet.noHistory")} />
           ) : (
+          <QuerySection
+            query={histQuery}
+            skeleton={<PageSpinner />}
+            isEmpty={entries.length === 0}
+            empty={<LedgerEmpty title={t("studentWallet.noHistory")} />}
+          >
             <div className="space-y-3">
               <ul className="sm:hidden">
                 {shown.map((e, i) => (
@@ -330,6 +333,7 @@ export function StudentWalletScreen() {
                 </p>
               ) : null}
             </div>
+          </QuerySection>
           )}
         </div>
       </Sheet>

@@ -45,12 +45,13 @@ export function EmailCard({
       setOpen(false);
       onChanged?.();
     } catch (err: unknown) {
-      const message = (err as { message?: string })?.message ?? "";
+      const e = err as { message?: string; serverMessage?: string };
+      const raw = e?.serverMessage ?? e?.message ?? "";
 
-      if (/already in use/i.test(message)) toast.error(t("shared.emailTaken"));
-      else if (/password/i.test(message)) toast.error(t("security.currentPasswordWrong"));
-      else if (/guardian/i.test(message)) toast.error(t("shared.emailIsGuardians"));
-      else toast.error(message || t("shared.emailChangeFailed"));
+      if (/already in use/i.test(raw)) toast.error(t("shared.emailTaken"));
+      else if (/password/i.test(raw)) toast.error(t("security.currentPasswordWrong"));
+      else if (/guardian/i.test(raw)) toast.error(t("shared.emailIsGuardians"));
+      else toast.error(e?.message || t("shared.emailChangeFailed"));
     } finally {
       setBusy(false);
     }

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { toast } from "@repo/ui/components/sonner";
 
+import { api } from "@/lib/api/client";
 import { authClient } from "@/lib/auth/client";
 
 export function ImpersonationBanner() {
@@ -33,13 +34,7 @@ export function ImpersonationBanner() {
   const stop = async () => {
     setBusy(true);
     try {
-      const res = await fetch("/api/v1/admin/impersonation/stop", { method: "POST" });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as
-          | { error?: { message?: string } }
-          | null;
-        throw new Error(body?.error?.message);
-      }
+      await api.post("admin/impersonation/stop");
       window.location.href = "/dashboard";
     } catch (e) {
       toast.error((e as { message?: string })?.message || t("actionFailed"));

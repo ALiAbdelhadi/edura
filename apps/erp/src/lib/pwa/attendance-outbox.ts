@@ -122,19 +122,60 @@ export async function clearAttendanceOutbox(): Promise<void> {
 
 export type SyncOutcome = { synced: number; conflicts: number; errors: number };
 
+type SyncRecordResult = {
+  sessionId: string;
+  studentId: string;
+  result: "synced" | "conflict" | "error";
+  reason?: string;
+};
+
 export const SYNC_CHUNK_SIZE = 500;
+
+// Only rows the server actually processed leave the device. A row the server
+// answered "error" for stays queued so it is retried (e.g. door before
+// counter) or visibly surfaced — never silently dropped.
+export function partitionSyncedRows(
+  chunk: QueuedAttendanceRecord[],
+  results: SyncRecordResult[] | undefined,
+): { removable: QueuedAttendanceRecord[]; kept: QueuedAttendanceRecord[] } {
+  const rejectedKeys = new Set(
+    (results ?? [])
+      .filter((r) => r.result === "error")
+      .map((r) => `${r.sessionId}:${r.studentId}`),
+  );
+  if (rejectedKeys.size === 0) return { removable: chunk, kept: [] };
+  const removable: QueuedAttendanceRecord[] = [];
+  const kept: QueuedAttendanceRecord[] = [];
+  for (const row of chunk) {
+    (rejectedKeys.has(`${row.sessionId}:${row.studentId}`) ? kept : removable).push(row);
+  }
+  return { removable, kept };
+}
 
 export type SyncResult =
   | { status: "empty" }
-  | { status: "offline"; synced: number; conflicts: number; errors: number }
+  | {
+      status: "offline";
+      synced: number;
+      conflicts: number;
+      errors: number;
+      rejected: number;
+    }
   | {
       status: "failed";
       message: string;
       synced: number;
       conflicts: number;
       errors: number;
+      rejected: number;
     }
-  | { status: "done"; synced: number; conflicts: number; errors: number };
+  | {
+      status: "done";
+      synced: number;
+      conflicts: number;
+      errors: number;
+      rejected: number;
+    };
 
 function isNetworkFailure(err: unknown): boolean {
   return !isHTTPError(err);
@@ -150,6 +191,7 @@ export async function syncQueuedAttendance(
   let synced = 0;
   let conflicts = 0;
   let errors = 0;
+  let rejected = 0;
 
   for (let i = 0; i < mine.length; i += SYNC_CHUNK_SIZE) {
     const chunk = mine.slice(i, i + SYNC_CHUNK_SIZE);
@@ -166,15 +208,18 @@ export async function syncQueuedAttendance(
             })),
           },
         })
-        .json<{ data: SyncOutcome }>();
+        .json<{ data: SyncOutcome & { results?: SyncRecordResult[] } }>();
 
-      await removeQueuedAttendance(chunk.map((r) => r.id));
+      const { removable, kept } = partitionSyncedRows(chunk, response.data.results);
+      await removeQueuedAttendance(removable.map((r) => r.id));
+      rejected += kept.length;
+
       synced += response.data.synced;
       conflicts += response.data.conflicts;
       errors += response.data.errors;
     } catch (err) {
       if (isNetworkFailure(err)) {
-        return { status: "offline", synced, conflicts, errors };
+        return { status: "offline", synced, conflicts, errors, rejected };
       }
       return {
         status: "failed",
@@ -185,9 +230,10 @@ export async function syncQueuedAttendance(
         synced,
         conflicts,
         errors,
+        rejected,
       };
     }
   }
 
-  return { status: "done", synced, conflicts, errors };
+  return { status: "done", synced, conflicts, errors, rejected };
 }

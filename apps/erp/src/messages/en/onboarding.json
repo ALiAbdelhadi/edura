@@ -89,5 +89,6 @@
     "coverage": "Covered stages",
     "stagesCount": "{count} stages"
   },
-  "progressSaved": "Your progress is saved — you can close this and pick up where you left off."
+  "progressSaved": "Your progress is saved — you can close this and pick up where you left off.",
+  "progressNotSaved": "We couldn't save your progress just now — keep this page open and check your connection."
 }

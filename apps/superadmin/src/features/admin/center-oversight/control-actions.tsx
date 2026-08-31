@@ -69,8 +69,10 @@ export function ControlAction({
       setOpen(false);
       setReason("");
       onDone?.();
-    } catch {
-      toast.error(t("actionFailed"));
+    } catch (e) {
+      // The message is localized by the api client and often names the real
+      // blocker (e.g. an active course) — discarding it hides the reason.
+      toast.error((e as { message?: string })?.message || t("actionFailed"));
     } finally {
       setBusy(false);
     }

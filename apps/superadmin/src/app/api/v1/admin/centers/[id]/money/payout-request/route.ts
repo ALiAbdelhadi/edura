@@ -12,7 +12,12 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({ amount: moneySchema.positive().optional() }).strict();
+const bodySchema = z
+  .object({
+    amount: moneySchema.positive().optional(),
+    clientRequestId: z.string().min(8).max(64).optional(),
+  })
+  .strict();
 
 export const GET = withErrors(async (_req, ctx) => {
   const user = await requireRole("super_admin");
@@ -27,6 +32,6 @@ export const GET = withErrors(async (_req, ctx) => {
 export const POST = withErrors(async (req, ctx) => {
   const user = await requireRole("super_admin");
   const { id } = await ctx.params;
-  const { amount } = await parseJson(req, bodySchema);
-  return ok(await adminRequestCenterPayout(user, id, amount), { status: 201 });
+  const { amount, clientRequestId } = await parseJson(req, bodySchema);
+  return ok(await adminRequestCenterPayout(user, id, amount, clientRequestId), { status: 201 });
 });

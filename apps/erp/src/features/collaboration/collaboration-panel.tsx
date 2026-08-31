@@ -23,6 +23,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
+import { QuerySection } from "@repo/ui/components/query-section";
 import {
   Select,
   SelectContent,
@@ -180,11 +181,12 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        {query.isLoading ? (
-          <PageSpinner label={t("shared.collab.loading")} />
-        ) : rows.length === 0 ? (
-          <EmptyState icon={Handshake} title={t("shared.collab.empty")} />
-        ) : (
+        <QuerySection
+          query={query}
+          skeleton={<PageSpinner label={t("shared.collab.loading")} />}
+          isEmpty={rows.length === 0}
+          empty={<EmptyState icon={Handshake} title={t("shared.collab.empty")} />}
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -299,7 +301,7 @@ export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
               ))}
             </TableBody>
           </Table>
-        )}
+        </QuerySection>
       </CardContent>
       <CreateCollabDialog
         role={role}

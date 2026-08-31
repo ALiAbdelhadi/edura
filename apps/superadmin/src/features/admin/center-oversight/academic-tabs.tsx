@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
@@ -57,6 +59,7 @@ type CourseRow = {
 
 export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<Paged<CourseRow>>(
     `admin/centers/${centerId}/oversight/courses`,
@@ -72,6 +75,15 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data?.data ?? [];
   const activeTeachers = (teachers.data?.affiliations ?? []).filter((t) => t.status === "active");
 
@@ -604,12 +616,22 @@ type EnrollmentRow = {
 
 export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<EnrollmentRow[]>(`admin/centers/${centerId}/enrollments`, { enabled });
   const [adding, setAdding] = useState(false);
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data ?? [];
 
   return (
@@ -797,6 +819,7 @@ type RequestRow = {
 
 export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<RequestRow[]>(`admin/centers/${centerId}/enrollment-requests`, {
     query: { status: "pending" },
@@ -815,6 +838,12 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
         </p>
         {req.isLoading ? (
           <Spinner />
+        ) : req.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={req.refetch}
+            retryLabel={queryStrings.retry}
+          />
         ) : rows.length === 0 ? (
           <p className="text-sm text-ink-2">{t("ac_nothingPending")}</p>
         ) : (
@@ -879,6 +908,7 @@ type RoomRow = {
 
 export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<{ rooms: RoomRow[] }>(`admin/centers/${centerId}/rooms`, { enabled });
   const [creating, setCreating] = useState(false);
@@ -886,6 +916,15 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rooms = req.data?.rooms ?? [];
 
   return (

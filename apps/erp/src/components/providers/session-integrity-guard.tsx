@@ -22,15 +22,28 @@ export function portalFromPath(pathname: string): string | null {
   return after.split("/")[0] ?? null;
 }
 
+// Signed-in surfaces that live OUTSIDE /dashboard. A 401 here is a dead
+// session, not the ordinary anonymous 401 of /login or /guardian/verify, so it
+// must end the session instead of leaving the user silently un-authed.
+const AUTHENTICATED_AREAS = ["/onboarding", "/claim", "/receipts", "/student-id"];
+
+export function isAuthenticatedArea(pathname: string): boolean {
+  const withoutLocale = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, "");
+  return AUTHENTICATED_AREAS.some(
+    (area) => withoutLocale === area || withoutLocale.startsWith(`${area}/`),
+  );
+}
+
 export function resolveIntegrityAction(input: {
   reason: SessionIntegrityReason;
   portal: string | null;
   sessionRole: Role | null;
+  authenticatedArea?: boolean;
 }): "ignore" | "end-session" {
   if (input.reason === "session_conflict") return "end-session";
 
   if (input.reason === "session_expired") {
-    return input.portal ? "end-session" : "ignore";
+    return input.portal || input.authenticatedArea ? "end-session" : "ignore";
   }
 
   if (!input.portal) return "ignore";
@@ -61,7 +74,11 @@ export function SessionIntegrityGuard() {
           .then((me) => me.data.role)
           .catch(() => null);
       }
-      if (resolveIntegrityAction({ reason, portal, sessionRole }) === "ignore") {
+      const authenticatedArea = isAuthenticatedArea(window.location.pathname);
+      if (
+        resolveIntegrityAction({ reason, portal, sessionRole, authenticatedArea }) ===
+        "ignore"
+      ) {
         return;
       }
 

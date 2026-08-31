@@ -198,7 +198,8 @@
     "activateButton": "Activate account",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "capsLockOn": "Caps Lock is on"
+    "capsLockOn": "Caps Lock is on",
+    "sessionExpiredNotice": "Your session timed out. Sign in again."
   },
   "common": {
     "loading": "Loading…",
@@ -224,7 +225,10 @@
     "phone": "Phone",
     "address": "Address",
     "colActions": "Actions",
-    "colStatus": "Status"
+    "colStatus": "Status",
+    "exportPreparing": "Preparing your file…",
+    "exportReady": "Your file has downloaded.",
+    "exportFailed": "The export did not go through — nothing was downloaded. Please try again."
   },
   "theme": {
     "label": "Theme",
@@ -653,7 +657,10 @@
     "generateOk": "Month-end payout generation complete",
     "generateFail": "Payout generation failed",
     "deniedTitle": "This screen is for platform admins",
-    "deniedBody": "Your account is not permitted to view payout requests."
+    "deniedBody": "Your account is not permitted to view payout requests.",
+    "receiptTitle": "Payout receipt",
+    "receiptLessons": "Lessons covered",
+    "receiptLoadFailed": "Couldn't load the receipt. Please try again."
   },
   "walletPolicy": {
     "title": "Student wallet policy",
@@ -1470,7 +1477,9 @@
     },
     "actionViewAs": "Open the ERP as this user",
     "confirm_viewAs_title": "Open the ERP as this user?",
-    "confirm_viewAs_body": "A one-hour session opens in a new tab with this user's full access — including money actions such as payments, wallets and refunds. Start and end are recorded in the audit log against your account, and a banner names you on every screen. Your back-office session here stays signed in."
+    "confirm_viewAs_body": "A one-hour session opens in a new tab with this user's full access — including money actions such as payments, wallets and refunds. Start and end are recorded in the audit log against your account, and a banner names you on every screen. Your back-office session here stays signed in.",
+    "viewAsNoHandoff": "The server did not return a valid hand-off — nothing was opened. Try again.",
+    "viewAsPopupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site, then try again."
   },
   "featureFlags": {
     "title": "Feature flags",

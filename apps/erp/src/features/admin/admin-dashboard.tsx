@@ -6,6 +6,8 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom, useList } from "@refinedev/core";
 import { BookOpen, CalendarCheck, Coins, GraduationCap, Inbox, TriangleAlert, Users, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Amount, Eyebrow, MetricCard, Num, PageHead, Sheet, SheetHead } from "./ledger";
 import { GuidedTour } from "@/features/tour/guided-tour";
 import { useTourGate } from "@/features/tour/use-tour-gate";
@@ -41,6 +43,7 @@ interface DashboardData {
 export function AdminDashboard() {
   const t = useTranslations();
   const { formatShortEGP, formatPercent, locale } = useFormatters();
+  const queryStrings = useQueryStrings();
   const tour = useTourGate();
   const { query, result } = useCustom<DashboardData>({
     url: "dashboards/admin",
@@ -61,6 +64,16 @@ export function AdminDashboard() {
 
   if (query.isLoading) {
     return <PageSkeleton />;
+  }
+
+  if (query.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
   }
 
   const weekSessions = (sessionsResult?.data ?? []) as CenterSession[];

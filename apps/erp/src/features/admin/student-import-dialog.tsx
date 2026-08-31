@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api/client";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -29,18 +30,9 @@ async function postChunk(body: {
   dryRun: boolean;
   lineOffset: number;
 }): Promise<ImportSummary> {
-  const res = await fetch("/api/v1/center/students/import", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  });
-  const json = (await res.json()) as
-    | { data: ImportSummary }
-    | { error: { message: string } };
-  if (!res.ok || "error" in json) {
-    throw new Error("error" in json ? json.error.message : `HTTP ${res.status}`);
-  }
+  const json = await api
+    .post("center/students/import", { json: body, timeout: 120_000 })
+    .json<{ data: ImportSummary }>();
   return json.data;
 }
 

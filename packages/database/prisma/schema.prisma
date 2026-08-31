@@ -1301,8 +1301,10 @@ model Payout {
   paidAt          DateTime?       @map("paid_at") @db.Timestamptz(6)
   cancelledAt     DateTime?       @map("cancelled_at") @db.Timestamptz(6)
   receiptUrl      String?         @map("receipt_url")
+  clientRequestId String?         @map("client_request_id")
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@unique([beneficiaryId, clientRequestId], map: "payouts_client_request_unique")
   @@index([centerId])
   @@index([beneficiaryId])
   @@index([status])

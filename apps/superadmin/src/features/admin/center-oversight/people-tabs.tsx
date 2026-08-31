@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
@@ -99,6 +101,7 @@ type StudentRow = {
 
 export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const req = useAdminGet<{ items: StudentRow[] }>(
     `admin/centers/${centerId}/roster/students`,
     { enabled },
@@ -110,6 +113,15 @@ export function StudentsTab({ centerId, enabled }: { centerId: string; enabled: 
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data?.items ?? [];
 
   return (
@@ -330,12 +342,22 @@ type TeacherRow = {
 
 export function TeachersTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const req = useAdminGet<TeacherRow[]>(`admin/centers/${centerId}/roster/teachers`, { enabled });
   const run = useMutate(req.refetch);
   const [inviting, setInviting] = useState(false);
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const rows = req.data ?? [];
 
   return (
@@ -466,6 +488,7 @@ const STAFF_ROLES = ["receptionist", "manager", "center_accountant"] as const;
 
 export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const req = useAdminGet<StaffRow[] | { items: StaffRow[] }>(
     `admin/centers/${centerId}/staff`,
     { enabled },
@@ -475,6 +498,15 @@ export function StaffTab({ centerId, enabled }: { centerId: string; enabled: boo
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
+  if (req.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={req.refetch}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   const raw = req.data;
   const rows: StaffRow[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
 
@@ -677,6 +709,7 @@ function StaffCreateDialog({
 
 export function CenterAdminsCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useAdminGet<{ id: string; name: string; email: string | null; status: string }[]>(
     `admin/centers/${centerId}/admins`,
@@ -697,6 +730,12 @@ export function CenterAdminsCard({ centerId }: { centerId: string }) {
       <CardContent>
         {req.isLoading ? (
           <Spinner />
+        ) : req.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={req.refetch}
+            retryLabel={queryStrings.retry}
+          />
         ) : rows.length === 0 ? (
           <p className="text-sm text-ink-2">{t("pp_noCenterAdmins")}</p>
         ) : (

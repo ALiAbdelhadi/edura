@@ -1,7 +1,7 @@
 "use client";
 
 import type { InviteDelivery } from "@/components/kit/invite-link";
-import { useCustomMutation } from "@refinedev/core";
+import { postMoney, readApiError } from "../ledger/money-write";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { toast } from "@repo/ui/components/sonner";
@@ -39,8 +39,6 @@ export function WalkInPanel({
   setBusy: (busy: boolean) => void;
 }) {
   const t = useTranslations();
-  const { mutateAsync: post } = useCustomMutation();
-
   const [walkName, setWalkName] = useState("");
   const [walkPhone, setWalkPhone] = useState("");
   const [guardianEmail, setGuardianEmail] = useState("");
@@ -53,18 +51,13 @@ export function WalkInPanel({
     }
     setBusy(true);
     try {
-      const res = await post({
-        url: "center/walk-in",
-        method: "post",
-        values: {
-          fullName: walkName.trim(),
-          phone: walkPhone.trim(),
-          ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim() } : {}),
-          ...(guardianPhone.trim() ? { guardianPhone: guardianPhone.trim() } : {}),
-        },
-      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (res as any)?.data?.data ?? (res as any)?.data;
+      const data: any = await postMoney("center/walk-in", {
+        fullName: walkName.trim(),
+        phone: walkPhone.trim(),
+        ...(guardianEmail.trim() ? { guardianEmail: guardianEmail.trim() } : {}),
+        ...(guardianPhone.trim() ? { guardianPhone: guardianPhone.trim() } : {}),
+      });
       if (data.existing && data.onOurRoster === false) {
         // Recognised, but this centre does not have them on its roster: nothing
         // was sent and no code is disclosed. Adding them is a separate step.
@@ -106,9 +99,13 @@ export function WalkInPanel({
         existing: !!data.existing,
         onOurRoster: data.onOurRoster !== false,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      toast.error(err?.message || t("shared.checkin.walkInFailed"));
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("shared.checkin.walkInIndeterminate"), { duration: 12000 });
+      } else {
+        toast.error(e.message || t("shared.checkin.walkInFailed"));
+      }
     } finally {
       setBusy(false);
     }

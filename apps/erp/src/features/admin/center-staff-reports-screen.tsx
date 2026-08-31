@@ -1,6 +1,8 @@
 "use client";
 
 import { api } from "@/lib/api/client";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useTranslations } from "next-intl";
 import React, { useEffect, useState } from "react";
 import { EmptyState, Eyebrow, Num, PageHead, Sheet, SheetHead } from "./ledger";
@@ -18,12 +20,29 @@ type Dash = {
 
 export function CenterStaffReportsScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatPercent } = useFormatters();
-  const [d, setD] = useState<Dash | null>(null);
+  const [d, setD] = useState<Dash | null | "error">(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
-    api.get("dashboards/admin").json<{ data: Dash }>().then((r) => setD(r.data)).catch(() => {});
-  }, []);
+    setD(null);
+    api
+      .get("dashboards/admin")
+      .json<{ data: Dash }>()
+      .then((r) => setD(r.data))
+      .catch(() => setD("error"));
+  }, [nonce]);
+
+  if (d === "error") {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => setNonce((n) => n + 1)}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
 
   if (!d) {
     return (

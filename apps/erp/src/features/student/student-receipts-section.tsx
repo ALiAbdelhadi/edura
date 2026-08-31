@@ -18,6 +18,7 @@ import {
   Th,
   Tr,
 } from "@/features/student/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { PageSpinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -37,12 +38,18 @@ export function StudentReceiptsSection({ embedded = false }: { embedded?: boolea
 
   const rows = asArray<PaymentRow>(result?.data).filter((r) => r.receiptNumber);
 
-  const body = query.isLoading ? (
-    <PageSpinner />
-  ) : rows.length === 0 ? (
-    <LedgerEmpty title={t("studentWallet.noReceipts")} hint={t("studentWallet.noReceiptsHint")} />
-  ) : (
-    <>
+  const body = (
+    <QuerySection
+      query={query}
+      skeleton={<PageSpinner />}
+      isEmpty={rows.length === 0}
+      empty={
+        <LedgerEmpty
+          title={t("studentWallet.noReceipts")}
+          hint={t("studentWallet.noReceiptsHint")}
+        />
+      }
+    >
       <ul className="sm:hidden">
         {rows.map((r, i) => (
           <li key={r.id}>
@@ -96,7 +103,7 @@ export function StudentReceiptsSection({ embedded = false }: { embedded?: boolea
           ))}
         </LedgerTable>
       </div>
-    </>
+    </QuerySection>
   );
 
   if (embedded) return body;

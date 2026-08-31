@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useList } from "@refinedev/core";
-import { Eye, ShieldAlert, Ban } from "lucide-react";
+import { Eye, ShieldAlert, Ban, RefreshCcw, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { SearchInput } from "@repo/ui/components/search-input";
@@ -31,9 +31,13 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
+import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
+import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
@@ -84,6 +88,28 @@ type BlockRow = {
 };
 
 type Tab = "log" | "reports" | "blocks";
+
+function ListError({ query }: { query: { error?: unknown; refetch: () => unknown } }) {
+  const s = useQueryStrings();
+  const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
+  return (
+    <div className="p-4">
+      <EmptyState
+        tone={denied ? "denied" : "error"}
+        icon={TriangleAlert}
+        title={denied ? s.denied : s.loadFailed}
+        action={
+          denied ? undefined : (
+            <Button variant="outline" onClick={() => query.refetch()}>
+              <RefreshCcw className="size-4" aria-hidden="true" />
+              {s.retry}
+            </Button>
+          )
+        }
+      />
+    </div>
+  );
+}
 
 export function MessagingScreen() {
   const t = useTranslations();
@@ -196,6 +222,8 @@ function LogTab() {
             <div className="flex justify-center p-8">
               <Spinner />
             </div>
+          ) : query.isError ? (
+            <ListError query={query} />
           ) : (
             <Table>
               <TableHeader>
@@ -291,7 +319,8 @@ function ThreadDialog({
 }) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
-  const [messages, setMessages] = useState<ThreadMessage[] | null>(null);
+  const queryStrings = useQueryStrings();
+  const [messages, setMessages] = useState<ThreadMessage[] | "error" | null>(null);
 
   const load = useCallback(async (id: string) => {
     setMessages(null);
@@ -301,7 +330,7 @@ function ThreadDialog({
         .json<{ data: { messages: ThreadMessage[] } }>();
       setMessages(res.data.messages);
     } catch {
-      setMessages([]);
+      setMessages("error");
     }
   }, []);
 
@@ -323,6 +352,12 @@ function ThreadDialog({
             <div className="flex justify-center p-6">
               <Spinner />
             </div>
+          ) : messages === "error" ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => row && void load(row.id)}
+              retryLabel={queryStrings.retry}
+            />
           ) : (
             <div className="flex flex-col gap-2 pe-2">
               {messages.map((m) => {
@@ -377,6 +412,8 @@ function ReportsTab() {
     try {
       await api.patch(`admin/messaging/reports/${id}`, { json: { status: next } });
       await query.refetch();
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || t("common.genericError"));
     } finally {
       setBusy(null);
     }
@@ -414,6 +451,8 @@ function ReportsTab() {
             <div className="flex justify-center p-8">
               <Spinner />
             </div>
+          ) : query.isError ? (
+            <ListError query={query} />
           ) : (
             <Table>
               <TableHeader>
@@ -514,6 +553,8 @@ function BlocksTab() {
           <div className="flex justify-center p-8">
             <Spinner />
           </div>
+        ) : query.isError ? (
+          <ListError query={query} />
         ) : (
           <Table>
             <TableHeader>

@@ -2,6 +2,7 @@
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
+import { api } from "@/lib/api/client";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { AMENITY_KEYS, ROOM_AMENITIES, amenityLabel } from "@/lib/rooms/amenities";
@@ -30,6 +31,7 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import {
@@ -87,7 +89,7 @@ export function AdminRoomsScreen() {
   const { query, result } = useList({ resource: "rooms" });
   const { mutate: createRoom, mutation: createMutation } = useCreate();
   const { mutate: updateRoom, mutation: updateMutation } = useUpdate();
-  const { mutate: deleteRoom } = useDelete();
+  const { mutate: deleteRoom, mutation: deleteMutation } = useDelete();
 
   const rooms = (result?.data ?? []) as Room[];
 
@@ -214,20 +216,20 @@ export function AdminRoomsScreen() {
       const compressed = await compressImage(file, { maxEdge: 2048 });
       const fd = new FormData();
       fd.append("file", compressed);
-      const res = await fetch(`/api/v1/rooms/${editingId}/photos`, {
-        method: "POST",
-        body: fd,
-        credentials: "same-origin",
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        toast.error(photoErrorMessage(json));
-        return;
-      }
-      setPhotos(json.data.photos as string[]);
+      const json = await api
+        .post(`rooms/${editingId}/photos`, { body: fd, timeout: 60_000 })
+        .json<{ data: { photos: string[] } }>();
+      setPhotos(json.data.photos);
       toast.success(t("adminManage.rooms.photoUploaded"));
-    } catch {
-      toast.error(t("adminManage.rooms.photoUploadFailed"));
+    } catch (err) {
+      const body = (err as { data?: unknown })?.data;
+      if (body && typeof body === "object") {
+        toast.error(photoErrorMessage(body));
+      } else {
+        toast.error(
+          (err as { message?: string })?.message || t("adminManage.rooms.photoUploadFailed"),
+        );
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -337,29 +339,32 @@ export function AdminRoomsScreen() {
         />
       </div>
 
-      {query.isLoading ? (
-        <PageSpinner />
-      ) : rooms.length === 0 ? (
-        <Card>
-          <CardContent className="py-10">
-            <EmptyState
-              icon={Home}
-              title={t("activation.empty.rooms.title")}
-              description={t("activation.empty.rooms.body")}
-              action={
-                <Button
-                  onClick={() => {
-                    track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "rooms" });
-                    handleOpenCreate();
-                  }}
-                >
-                  {t("activation.empty.rooms.cta")}
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
-      ) : (
+      <QuerySection
+        query={query}
+        skeleton={<PageSpinner />}
+        isEmpty={rooms.length === 0}
+        empty={
+          <Card>
+            <CardContent className="py-10">
+              <EmptyState
+                icon={Home}
+                title={t("activation.empty.rooms.title")}
+                description={t("activation.empty.rooms.body")}
+                action={
+                  <Button
+                    onClick={() => {
+                      track(ANALYTICS_EVENTS.EMPTY_STATE_CTA_CLICKED, { list: "rooms" });
+                      handleOpenCreate();
+                    }}
+                  >
+                    {t("activation.empty.rooms.cta")}
+                  </Button>
+                }
+              />
+            </CardContent>
+          </Card>
+        }
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.map((room) => {
             const id = roomId(room);
@@ -454,7 +459,12 @@ export function AdminRoomsScreen() {
                     </Button>
                     <ConfirmDialog
                       trigger={
-                        <Button variant="ghost" size="sm" className="text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          disabled={deleteMutation.isPending}
+                        >
                           <Trash2 className="size-4" />
                           {t("actions.delete")}
                         </Button>
@@ -472,7 +482,7 @@ export function AdminRoomsScreen() {
             );
           })}
         </div>
-      )}
+      </QuerySection>
       <RoomDetailsDialog
         room={viewingRoom}
         onOpenChange={(open) => !open && setViewingRoom(null)}

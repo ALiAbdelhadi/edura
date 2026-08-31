@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useRef, useState } from "react";
+import { postMoney, readApiError } from "@/features/admin/ledger/money-write";
+import { newIdempotencyKey } from "@/features/student/idempotency";
+import { useCustom } from "@refinedev/core";
 import { BanknoteArrowDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
@@ -13,6 +15,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
@@ -74,9 +77,12 @@ export function TeacherWalletScreen() {
     method: "get",
     config: { query: { take } },
   });
-  const { mutateAsync: request, mutation } = useCustomMutation();
-
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+  // One key per OPEN of the dialog: a timeout-retry inside the same dialog
+  // session reuses it (so the server resolves to the same payout), and a
+  // fresh open is a fresh intent.
+  const withdrawKey = useRef("");
   const [amountEgp, setAmountEgp] = useState("");
 
   const w = wallet?.data as
@@ -96,23 +102,31 @@ export function TeacherWalletScreen() {
       toast.error(t("teacher.teacherWallet.invalidAmount"));
       return;
     }
+    setWithdrawBusy(true);
     try {
-      await request({
-        url: "teacher/wallet/payout-request",
-        method: "post",
-        values: requestedEgp === null ? {} : { amount: Math.round(requestedEgp * 100) },
+      await postMoney("teacher/wallet/payout-request", {
+        ...(requestedEgp === null ? {} : { amount: Math.round(requestedEgp * 100) }),
+        clientRequestId: withdrawKey.current,
       });
       toast.success(t("teacher.teacherWallet.requestSubmitted"));
       setWithdrawOpen(false);
       setAmountEgp("");
       walletQuery.refetch();
       payoutsQuery.refetch();
-    } catch (err: any) {
-      toast.error(err?.message || t("teacher.teacherWallet.requestFailed"));
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("teacher.teacherWallet.requestIndeterminate"), { duration: 12000 });
+        setWithdrawOpen(false);
+        walletQuery.refetch();
+        payoutsQuery.refetch();
+      } else {
+        toast.error(e.message || t("teacher.teacherWallet.requestFailed"));
+      }
+    } finally {
+      setWithdrawBusy(false);
     }
   };
-
-  if (walletQuery.isLoading) return <PageSpinner label={t("teacher.teacherWallet.loading")} />;
 
   return (
     <div className="space-y-4">
@@ -121,6 +135,10 @@ export function TeacherWalletScreen() {
         description={t("teacher.teacherWallet.description")}
       />
 
+      <QuerySection
+        query={walletQuery}
+        skeleton={<PageSpinner label={t("teacher.teacherWallet.loading")} />}
+      >
       <Sheet className="p-5">
         <Eyebrow>{t("teacher.teacherWallet.balance")}</Eyebrow>
         <div className="mt-1" style={{ fontSize: 34 }}>
@@ -151,7 +169,13 @@ export function TeacherWalletScreen() {
         </p>
 
         <div className="mt-4">
-          <Button onClick={() => setWithdrawOpen(true)} disabled={available <= 0}>
+          <Button
+            onClick={() => {
+              withdrawKey.current = newIdempotencyKey("tpay");
+              setWithdrawOpen(true);
+            }}
+            disabled={available <= 0}
+          >
             <BanknoteArrowDown className="size-4" />
             {t("teacher.teacherWallet.withdraw")}
           </Button>
@@ -162,15 +186,17 @@ export function TeacherWalletScreen() {
           ) : null}
         </div>
       </Sheet>
+      </QuerySection>
 
       <Sheet className="p-5">
         <SectionHeading title={t("teacher.teacherWallet.payoutRequests")} />
         <div className="mt-2">
-          {payoutsQuery.isLoading ? (
-            <PageSpinner label={t("teacher.teacherWallet.loading")} />
-          ) : payouts.length === 0 ? (
-            <LedgerEmpty title={t("teacher.teacherWallet.noPayouts")} />
-          ) : (
+          <QuerySection
+            query={payoutsQuery}
+            skeleton={<PageSpinner label={t("teacher.teacherWallet.loading")} />}
+            isEmpty={payouts.length === 0}
+            empty={<LedgerEmpty title={t("teacher.teacherWallet.noPayouts")} />}
+          >
             <ul>
               {payouts.map((p, i) => (
                 <li key={p.id}>
@@ -200,18 +226,19 @@ export function TeacherWalletScreen() {
                 </li>
               ))}
             </ul>
-          )}
+          </QuerySection>
         </div>
       </Sheet>
 
       <Sheet className="p-5">
         <SectionHeading title={t("teacher.teacherWallet.recentTransactions")} />
         <div className="mt-2">
-          {txQuery.isLoading && transactions.length === 0 ? (
-            <PageSpinner label={t("teacher.teacherWallet.loading")} />
-          ) : transactions.length === 0 ? (
-            <LedgerEmpty title={t("teacher.teacherWallet.noTransactions")} />
-          ) : (
+          <QuerySection
+            query={txQuery}
+            skeleton={<PageSpinner label={t("teacher.teacherWallet.loading")} />}
+            isEmpty={transactions.length === 0}
+            empty={<LedgerEmpty title={t("teacher.teacherWallet.noTransactions")} />}
+          >
             <>
               <ul>
                 {transactions.map((x, i) => (
@@ -251,7 +278,7 @@ export function TeacherWalletScreen() {
                 </div>
               ) : null}
             </>
-          )}
+          </QuerySection>
         </div>
       </Sheet>
 
@@ -296,7 +323,7 @@ export function TeacherWalletScreen() {
 
             <TwoStepCommit
               resetKey={`${committing}`}
-              busy={mutation.isPending}
+              busy={withdrawBusy}
               onCommit={submitWithdraw}
               disabled={!requestedValid || available <= 0}
               labels={{

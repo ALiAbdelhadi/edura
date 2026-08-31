@@ -24,6 +24,7 @@ import type {
   CustomResponse,
 } from "@refinedev/core";
 import { api } from "@/lib/api/client";
+import { localizeApiError } from "@repo/ui/lib/api-error";
 import type { KyInstance } from "ky";
 
 const RESOURCE_MAP: Record<string, string> = {
@@ -100,21 +101,12 @@ function extractListData<T>(response: unknown): T {
 }
 
 function mapError(error: any): HttpError {
-  if (error?.response) {
-    const status = error.response.status || 500;
-    const body = (typeof error.data === "object" && error.data !== null ? error.data : {}) as {
-      error?: { message?: string; fields?: Record<string, string[]> };
-      message?: string;
-    };
-    return {
-      message: body.error?.message || body.message || error.message || "Unknown error",
-      statusCode: status,
-      errors: body.error?.fields,
-    };
-  }
+  const localized = localizeApiError(error);
   return {
-    message: error?.message || "Unknown error",
-    statusCode: error?.status || 500,
+    message: localized.message,
+    statusCode: localized.statusCode,
+    errors: localized.fields,
+    serverMessage: localized.serverMessage,
   };
 }
 

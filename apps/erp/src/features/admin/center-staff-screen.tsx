@@ -4,6 +4,8 @@ import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { InviteLink, type InviteDelivery } from "@/components/kit/invite-link";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Button } from "@repo/ui/components/button";
 import {
   Badge,
@@ -23,6 +25,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { toast } from "@repo/ui/components/sonner";
 import {
   Select,
   SelectContent,
@@ -56,26 +59,40 @@ type StaffRow = {
 
 export function CenterStaffScreen() {
   const t = useTranslations();
-  const [rows, setRows] = useState<StaffRow[] | null>(null);
+  const queryStrings = useQueryStrings();
+  const [rows, setRows] = useState<StaffRow[] | null | "error">(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await api.get("center/staff").json<{ data: StaffRow[] }>();
-    setRows(res.data);
+    try {
+      const res = await api.get("center/staff").json<{ data: StaffRow[] }>();
+      setRows(res.data);
+    } catch {
+      setRows("error");
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const changeRole = async (row: StaffRow, role: StaffRole) => {
-    await api.patch(`center/staff/${row.id}`, { json: { role } });
-    void load();
+  // A permission change that fails must SAY so — the Select otherwise keeps
+  // showing a role that was never saved.
+  const patchRow = async (row: StaffRow, body: Record<string, unknown>) => {
+    if (rowBusy) return;
+    setRowBusy(row.id);
+    try {
+      await api.patch(`center/staff/${row.id}`, { json: body });
+      await load();
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || queryStrings.loadFailed);
+    } finally {
+      setRowBusy(null);
+    }
   };
 
-  const setActive = async (row: StaffRow, active: boolean) => {
-    await api.patch(`center/staff/${row.id}`, { json: { active } });
-    void load();
-  };
+  const changeRole = (row: StaffRow, role: StaffRole) => patchRow(row, { role });
+  const setActive = (row: StaffRow, active: boolean) => patchRow(row, { active });
 
   return (
     <div className="flex flex-col gap-5">
@@ -90,6 +107,16 @@ export function CenterStaffScreen() {
             <div className="flex justify-center p-8">
               <Spinner />
             </div>
+          ) : rows === "error" ? (
+            <LoadError
+              className="m-4"
+              message={queryStrings.loadFailed}
+              onRetry={() => {
+                setRows(null);
+                void load();
+              }}
+              retryLabel={queryStrings.retry}
+            />
           ) : rows.length === 0 ? (
             <EmptyState
               icon={<Users className="size-6" />}
@@ -124,7 +151,7 @@ export function CenterStaffScreen() {
                   <Select
                     value={row.role}
                     onValueChange={(v) => void changeRole(row, v as StaffRole)}
-                    disabled={!row.active}
+                    disabled={!row.active || rowBusy === row.id}
                   >
                     <SelectTrigger
                       className="w-40 border-[var(--rule)] bg-[var(--field)]"

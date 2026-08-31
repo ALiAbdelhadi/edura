@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronDown, ChevronRight, Inbox, Lock, Mail, Phone } from "lucide-react";
+import { ChevronDown, ChevronRight, Inbox, Lock, Mail, Phone, RefreshCcw, TriangleAlert } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import { toast } from "@repo/ui/components/sonner";
@@ -40,6 +41,7 @@ const TONE = {
 
 export function ContactInboxScreen() {
   const t = useTranslations("contactInbox");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
   const [status, setStatus] = useState<string>("new");
@@ -129,6 +131,25 @@ export function ContactInboxScreen() {
 
       {req.query.isLoading ? (
         <PageSpinner label={t("loading")} />
+      ) : req.query.isError ? (
+        (() => {
+          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={denied ? queryStrings.denied : queryStrings.loadFailed}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => req.query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {queryStrings.retry}
+                  </Button>
+                )
+              }
+            />
+          );
+        })()
       ) : rows.length === 0 ? (
         <EmptyState icon={Inbox} title={t("emptyTitle")} description={t("emptyBody")} />
       ) : (

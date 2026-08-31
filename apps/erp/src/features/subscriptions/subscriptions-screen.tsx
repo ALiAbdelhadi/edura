@@ -17,6 +17,7 @@ import {
   SectionHeading,
   Sheet,
 } from "@/components/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { isLive, stateOf, type SubscriptionRow } from "./subscription-state";
 import { SubscriptionStateChip, useCoverageWords } from "./subscription-state-chip";
 
@@ -109,8 +110,6 @@ export function SubscriptionsScreen({
 
   const subs = asArray<SubscriptionRow>(result?.data);
 
-  if (query.isLoading) return <PageSpinner label={t("common.loading")} />;
-
   const live = subs.filter((s) => isLive(stateOf(s)));
   const past = subs.filter((s) => !isLive(stateOf(s)));
 
@@ -118,6 +117,10 @@ export function SubscriptionsScreen({
     <div className="space-y-6">
       <PageTitle title={title} subtitle={subtitle} />
 
+      <QuerySection
+        query={query}
+        skeleton={<PageSpinner label={t("common.loading")} />}
+      >
       <Sheet className="p-5">
         <SectionHeading
           title={t("shared.subscriptions.sectionActive")}
@@ -171,6 +174,7 @@ export function SubscriptionsScreen({
           </div>
         </Sheet>
       ) : null}
+      </QuerySection>
     </div>
   );
 }

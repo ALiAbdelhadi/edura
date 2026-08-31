@@ -2,6 +2,7 @@
 
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { Link } from "@/i18n/navigation";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
@@ -103,19 +104,10 @@ function InviteAcceptContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/auth/invite/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error?.message || t("auth.inviteFailed"));
-        return;
-      }
+      await api.post("auth/invite/accept", { json: { token, password } });
       setDone(true);
-    } catch {
-      setError(t("common.genericError"));
+    } catch (err) {
+      setError((err as { message?: string })?.message || t("auth.inviteFailed"));
     } finally {
       setLoading(false);
     }

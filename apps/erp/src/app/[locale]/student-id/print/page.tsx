@@ -23,7 +23,7 @@ export default async function StudentIdPrintPage({
   const { studentId, print } = await searchParams;
 
   const user = await getSessionUser();
-  if (!user) redirect(`/${locale}/login?callbackUrl=/${locale}/student-id/print`);
+  if (!user) redirect(`/${locale}/login?next=/${locale}/student-id/print`);
 
   const t = await getTranslations({
     locale: locale as "ar" | "en",

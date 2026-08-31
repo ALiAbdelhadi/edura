@@ -21,6 +21,13 @@ import { StatusBadge } from "@repo/ui/components/status-badge";
 import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/components/sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import { api } from "@/lib/api/client";
 import { cn } from "@repo/ui/lib/utils";
 import type { Locale } from "@repo/ui/lib/format";
 
@@ -164,12 +171,7 @@ export function PayoutsScreen() {
         rule
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <a href="/api/v1/finance/reports/revenue" target="_blank" rel="noreferrer">
-                <FileDown className="size-4" aria-hidden="true" />
-                {t("cycleStatement")}
-              </a>
-            </Button>
+            <CycleStatementButton label={t("cycleStatement")} />
             <GenerateButton onDone={refresh} label={t("generate")} okMsg={t("generateOk")} failMsg={t("generateFail")} />
           </div>
         }
@@ -298,8 +300,8 @@ function GenerateButton({
           await mutateAsync({ url: "finance/payouts", method: "post", values: {} });
           toast.success(okMsg);
           onDone();
-        } catch {
-          toast.error(failMsg);
+        } catch (e) {
+          toast.error((e as { message?: string })?.message || failMsg);
         } finally {
           setBusy(false);
         }
@@ -362,8 +364,9 @@ function DecisionPanel({
       toast.success(t("approveOk"));
       onClose();
       onDone();
-    } catch {
-      toast.error(t("approveFail"));
+    } catch (e) {
+      // "insufficient float" and friends arrive here — do not swallow them.
+      toast.error((e as { message?: string })?.message || t("approveFail"));
     } finally {
       setBusy(false);
     }
@@ -384,8 +387,8 @@ function DecisionPanel({
       toast.success(t("rejectOk"));
       onClose();
       onDone();
-    } catch {
-      toast.error(t("rejectFail"));
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || t("rejectFail"));
     } finally {
       setBusy(false);
     }
@@ -574,20 +577,130 @@ function DecisionPanel({
           ) : null}
 
           {payout.status === "paid" ? (
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href={`/api/v1/finance/payouts/${payout.id}/receipt`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <FileDown className="size-4" aria-hidden="true" />
-                {t("receipt")}
-              </a>
-            </Button>
+            <ReceiptButton payoutId={payout.id} locale={locale} t={t} />
           ) : null}
         </section>
       )}
     </aside>
+  );
+}
+
+type ReceiptData = {
+  lessonCount: number;
+  grossAmount: number;
+  commission: number;
+  netPayable: number;
+  paidAt: string | null;
+};
+
+// Both of these endpoints answer with a JSON envelope, not a file — the old
+// anchors opened a tab of raw JSON even on success.
+function CycleStatementButton({ label }: { label: string }) {
+  const tc = useTranslations("common");
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    const toastId = toast.loading(tc("exportPreparing"));
+    try {
+      const res = await api
+        .get("finance/reports/revenue")
+        .json<{ data: { period: string; grossRevenue: number; platformCommission: number; payouts: number; refunds: number }[] }>();
+      const egp = (n: number) => (n / 100).toFixed(2);
+      const lines = [
+        "period,gross_revenue_egp,platform_commission_egp,payouts_egp,refunds_egp",
+        ...res.data.map((r) =>
+          [r.period, egp(r.grossRevenue), egp(r.platformCommission), egp(r.payouts), egp(r.refunds)].join(","),
+        ),
+      ];
+      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `revenue-statement-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(tc("exportReady"), { id: toastId });
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || tc("exportFailed"), { id: toastId });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Button variant="outline" disabled={busy} onClick={() => void run()}>
+      <FileDown className="size-4" aria-hidden="true" />
+      {label}
+    </Button>
+  );
+}
+
+function ReceiptButton({
+  payoutId,
+  locale,
+  t,
+}: {
+  payoutId: string;
+  locale: Locale;
+  t: ReturnType<typeof useTranslations<"payouts">>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+  const open = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await api
+        .get(`finance/payouts/${payoutId}/receipt`)
+        .json<{ data: ReceiptData }>();
+      setReceipt(res.data);
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || t("receiptLoadFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="outline" size="sm" disabled={busy} onClick={() => void open()}>
+        <FileDown className="size-4" aria-hidden="true" />
+        {t("receipt")}
+      </Button>
+      <Dialog open={!!receipt} onOpenChange={(o) => !o && setReceipt(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("receiptTitle")}</DialogTitle>
+          </DialogHeader>
+          {receipt ? (
+            <dl className="flex flex-col gap-2.5">
+              <Line label={t("receiptLessons")}>
+                <Num.Figure value={receipt.lessonCount} locale={locale} />
+              </Line>
+              <Line label={t("breakdownGross")}>
+                <Num.Money piasters={receipt.grossAmount} locale={locale} tone="muted" sign={false} />
+              </Line>
+              <Line label={t("breakdownCommission")}>
+                <Num.Money piasters={receipt.commission} locale={locale} tone="muted" sign={false} />
+              </Line>
+              <Line label={t("breakdownNet")}>
+                <Num.Money piasters={receipt.netPayable} locale={locale} tone="net" sign={false} />
+              </Line>
+              {receipt.paidAt ? (
+                <Line label={t("paidOn")}>
+                  <Num.Date value={receipt.paidAt} locale={locale} />
+                </Line>
+              ) : null}
+            </dl>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

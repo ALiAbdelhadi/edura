@@ -19,10 +19,10 @@ export function PasswordCard({ locale }: { locale?: string }) {
   const [busy, setBusy] = useState(false);
 
   const localizedError = (err: any) => {
-    const message: string = err?.message ?? "";
-    if (/current password/i.test(message)) return t("security.currentPasswordWrong");
-    if (/no password/i.test(message)) return t("security.noPasswordSet");
-    return message || t("security.actionFailed");
+    const raw: string = err?.serverMessage ?? err?.message ?? "";
+    if (/current password/i.test(raw)) return t("security.currentPasswordWrong");
+    if (/no password/i.test(raw)) return t("security.noPasswordSet");
+    return err?.message || t("security.actionFailed");
   };
 
   const submit = async (e: React.FormEvent) => {

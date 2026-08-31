@@ -36,6 +36,7 @@ import {
   SectionHeading,
   Sheet,
 } from "@/features/student/ledger";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
 
@@ -207,14 +208,17 @@ export function StudentReviewsScreen() {
           }
         />
         <div className="mt-3">
-          {eligibleQuery.isLoading ? (
-            <PageSpinner />
-          ) : eligibleTeachers.length === 0 ? (
-            <LedgerEmpty
-              title={t("studentReviews.noEligibleTeachers")}
-              hint={t("studentReviews.eligibilityHint")}
-            />
-          ) : (
+          <QuerySection
+            query={eligibleQuery}
+            skeleton={<PageSpinner />}
+            isEmpty={eligibleTeachers.length === 0}
+            empty={
+              <LedgerEmpty
+                title={t("studentReviews.noEligibleTeachers")}
+                hint={t("studentReviews.eligibilityHint")}
+              />
+            }
+          >
             <ul className="divide-y" style={{ borderColor: "var(--rule)" }}>
               {eligibleTeachers.map((teacher) => (
                 <li
@@ -239,7 +243,7 @@ export function StudentReviewsScreen() {
                 </li>
               ))}
             </ul>
-          )}
+          </QuerySection>
         </div>
       </Sheet>
 
@@ -253,11 +257,12 @@ export function StudentReviewsScreen() {
           }
         />
         <div className="mt-3">
-          {reviewsQuery.isLoading ? (
-            <PageSpinner />
-          ) : reviews.length === 0 ? (
-            <LedgerEmpty title={t("studentReviews.noReviewsYet")} />
-          ) : (
+          <QuerySection
+            query={reviewsQuery}
+            skeleton={<PageSpinner />}
+            isEmpty={reviews.length === 0}
+            empty={<LedgerEmpty title={t("studentReviews.noReviewsYet")} />}
+          >
             <ul>
               {reviews.map((review, i) => {
                 const teacher = review.teacherId;
@@ -301,7 +306,7 @@ export function StudentReviewsScreen() {
                 );
               })}
             </ul>
-          )}
+          </QuerySection>
         </div>
       </Sheet>
 

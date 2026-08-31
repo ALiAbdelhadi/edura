@@ -5,6 +5,8 @@ import { Combobox } from "@/components/kit/combobox";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Link } from "@/i18n/navigation";
 import { useParamSeed } from "@/lib/api/use-param-seed";
 import { useFormatters } from "@/lib/i18n/use-formatters";
@@ -67,6 +69,7 @@ import { Amount, Badge, Num, PageHead } from "./ledger";
 
 export function AdminClassesScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatEGP, formatClockRange, locale } = useFormatters();
   const { query, result } = useList({ resource: "courses" });
   const { result: teachersResult } = useList({
@@ -654,6 +657,12 @@ export function AdminClassesScreen() {
           )}
           {query.isLoading ? (
             <PageSpinner />
+          ) : query.isError ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => query.refetch()}
+              retryLabel={queryStrings.retry}
+            />
           ) : (
             <DataTable
               columns={columns}

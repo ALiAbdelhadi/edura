@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
+import { apiErrorMessage } from "@repo/ui/lib/api-error";
 
 const realFetch = globalThis.fetch;
 
@@ -16,19 +17,25 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function post(): Promise<Error> {
+type LocalizedError = Error & {
+  apiErrorCode?: string;
+  serverMessage?: string;
+  statusCode?: number;
+};
+
+async function post(): Promise<LocalizedError> {
   const { api } = await import("@/lib/api/client");
   const client = api.extend({ prefix: "http://test.local/api/v1" });
   try {
     await client.post("centers/x/roster/teachers/invite", { json: { email: "a@b.com" } });
   } catch (e) {
-    return e as Error;
+    return e as LocalizedError;
   }
   throw new Error("expected the request to reject");
 }
 
 describe("api client error surfacing", () => {
-  it("lifts the envelope message onto the error for a 409", async () => {
+  it("localizes a 409 conflict and keeps the envelope text on serverMessage", async () => {
     stubResponse(409, {
       error: {
         code: "conflict",
@@ -36,27 +43,36 @@ describe("api client error surfacing", () => {
       },
     });
     const err = await post();
-    expect(err.message).toBe(
+    expect(err.apiErrorCode).toBe("conflict");
+    expect(err.message).toBe(apiErrorMessage("conflict", "ar"));
+    expect(err.serverMessage).toBe(
       "This teacher is already registered — send them a collaboration request instead",
     );
     expect(err.message).not.toMatch(/status code/i);
   });
 
-  it("accepts a bare { message } body too", async () => {
-    stubResponse(400, { message: "Email exists with a different role" });
+  it("keeps unmapped 4xx business messages verbatim", async () => {
+    stubResponse(400, {
+      error: { code: "needs_payment", message: "Student has no coverage for this session" },
+    });
     const err = await post();
-    expect(err.message).toBe("Email exists with a different role");
+    expect(err.apiErrorCode).toBe("business");
+    expect(err.message).toBe("Student has no coverage for this session");
   });
 
-  it("keeps ky's default message when the body is not JSON", async () => {
+  it("localizes a non-JSON 5xx instead of leaking ky's status text", async () => {
     stubResponse(502, "<html>Bad Gateway</html>", "text/html");
     const err = await post();
-    expect(err.message).toMatch(/502/);
+    expect(err.apiErrorCode).toBe("server");
+    expect(err.message).toBe(apiErrorMessage("server", "ar"));
+    expect(err.message).not.toMatch(/502|status code/i);
   });
 
-  it("keeps ky's default message when the envelope carries no message", async () => {
+  it("localizes when the envelope carries no message", async () => {
     stubResponse(409, { error: { code: "conflict" } });
     const err = await post();
-    expect(err.message).toMatch(/409/);
+    expect(err.apiErrorCode).toBe("conflict");
+    expect(err.message).toBe(apiErrorMessage("conflict", "ar"));
+    expect(err.message).not.toMatch(/409/);
   });
 });

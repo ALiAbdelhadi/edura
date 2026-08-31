@@ -4,6 +4,8 @@
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { AgreementProposeDialog } from "./agreement-propose-dialog";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { asKey } from "@/lib/i18n/keys";
 import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
@@ -47,6 +49,7 @@ type Teacher = Record<string, any>;
 
 export function AdminTeachersScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { query, result } = useList({ resource: "teachers" });
   const { mutate: deleteTeacher, mutation: deleteMutation } = useDelete();
   const { mutate: inviteTeacher, mutation: inviteMutation } = useCustomMutation();
@@ -226,6 +229,12 @@ export function AdminTeachersScreen() {
 
       {query.isLoading ? (
         <PageSpinner />
+      ) : query.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
       ) : (
         <DataTable
           columns={columns}

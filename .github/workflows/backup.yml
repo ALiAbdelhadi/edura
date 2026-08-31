@@ -1,6 +1,12 @@
 name: Database backup
 
 on:
+  schedule:
+    # Nightly dump — 02:30 UTC (04:30 Cairo). The `if` on the backup job below
+    # already tests for exactly this expression; it had no trigger to match.
+    - cron: "30 2 * * *"
+    # Weekly restore-proof — Mondays 04:00 UTC. Likewise matched by restore-test.
+    - cron: "0 4 * * 1"
   workflow_dispatch:
     inputs:
       environment:

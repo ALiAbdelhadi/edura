@@ -586,8 +586,9 @@ function MessageThread({ chat, meId }: { chat: ChatController; meId: string }) {
     };
     try {
       await chat.loadOlder(conversationId);
-    } catch {
+    } catch (err) {
       restoreAnchor.current = null;
+      toast.error((err as { message?: string })?.message || t("chat.loadFailed"));
     } finally {
       setLoadingOlder(false);
     }
@@ -864,6 +865,7 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<WireContact[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [starting, setStarting] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -882,8 +884,13 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
       const result = await searchRef.current(term);
       if (requestId.current !== id) return;
       setContacts(result);
+      if (requestId.current === id) setSearchFailed(false);
     } catch {
-      if (requestId.current === id) setContacts([]);
+      // error is not "no contacts" — say so instead of an empty list
+      if (requestId.current === id) {
+        setContacts([]);
+        setSearchFailed(true);
+      }
     } finally {
       if (requestId.current === id) setLoading(false);
     }
@@ -914,7 +921,8 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
     try {
       await chat.startConversation(contact.id);
       setOpen(false);
-    } catch {
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || t("common.requestFailed"));
     } finally {
       setStarting(null);
     }
@@ -974,6 +982,10 @@ function NewConversationDialog({ chat }: { chat: ChatController }) {
             <div className="flex justify-center p-5">
               <Spinner />
             </div>
+          ) : searchFailed ? (
+            <p role="alert" className="p-4 text-center text-sm text-destructive">
+              {t("chat.loadFailed")}
+            </p>
           ) : groups.length === 0 ? (
             <p className="p-4 text-center text-sm text-muted-foreground">
               {t("chat.noContacts")}

@@ -14,11 +14,14 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { AlertTriangle, ArrowRightLeft, CheckCircle2, Plus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, DataTable, DateText, EmptyState, Money, PageHead, RowIdentity, Sheet, SheetHead, type Column } from "./ledger";
+import { postMoney, readApiError } from "./ledger/money-write";
 
 
 type Detail = {
@@ -85,11 +88,12 @@ type Match = {
 
 export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }) {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatEGP, formatDate } = useFormatters();
 
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detail, setDetail] = useState<Detail | null | "error">(null);
   const [students, setStudents] = useState<StudentRow[]>([]);
-  const [statement, setStatement] = useState<Statement | null>(null);
+  const [statement, setStatement] = useState<Statement | null | "error">(null);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -119,7 +123,10 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
     const [d, s, st, g] = await Promise.all([
       api.get(base).json<{ data: Detail }>(),
       api.get(`${base}/students`).json<{ data: StudentRow[] }>(),
-      api.get(`${base}/statement`).json<{ data: Statement }>().catch(() => null),
+      api
+        .get(`${base}/statement`)
+        .json<{ data: Statement }>()
+        .catch(() => "error" as const),
       api
         .get(`center/external-teachers/gaps?teacherId=${teacherId}`)
         .json<{ data: { gaps: Gap[] } }>()
@@ -127,13 +134,15 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
     ]);
     setDetail(d.data);
     setStudents(s.data);
-    setStatement(st?.data ?? null);
+    setStatement(st === "error" ? "error" : st.data);
     setGaps(g?.data.gaps ?? []);
   }, [base, teacherId]);
 
   useEffect(() => {
-    load().catch((e: Error) => toast.error(e.message));
+    load().catch(() => setDetail("error"));
   }, [load]);
+
+  const stmt = statement === "error" ? null : statement;
 
   const groups = useMemo(() => {
     const map = new Map<string, string>();
@@ -197,32 +206,35 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
       const now = new Date();
       const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
       const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-      await api
-        .post(`${base}/settlements`, {
-          json: {
-            amount: Math.round(Number(settleAmount) * 100),
-            from: from.toISOString(),
-            to: to.toISOString(),
-            paymentMethod: "cash",
-            note: settleNote || null,
-            snapshot: statement
-              ? {
-                  grossCollected: statement.grossCollected,
-                  centerShareTotal: statement.centerShare,
-                  platformFeeTotal: statement.platformFees,
-                  teacherAccrued: statement.teacherEarned,
-                }
-              : undefined,
-          },
-        })
-        .json();
+      await postMoney(`${base}/settlements`, {
+        amount: Math.round(Number(settleAmount) * 100),
+        from: from.toISOString(),
+        to: to.toISOString(),
+        paymentMethod: "cash",
+        note: settleNote || null,
+        snapshot: stmt
+          ? {
+              grossCollected: stmt.grossCollected,
+              centerShareTotal: stmt.centerShare,
+              platformFeeTotal: stmt.platformFees,
+              teacherAccrued: stmt.teacherEarned,
+            }
+          : undefined,
+      });
       toast.success(t("externalTeachers.settled"));
       setIsSettleOpen(false);
       setSettleAmount("");
       setSettleNote("");
       await load();
     } catch (e) {
-      toast.error((e as Error).message);
+      const apiErr = await readApiError(e);
+      if (apiErr.indeterminate) {
+        toast.error(t("externalTeachers.settleIndeterminate"), { duration: 12000 });
+        setIsSettleOpen(false);
+        await load();
+      } else {
+        toast.error(apiErr.message || t("externalTeachers.settleFailed"));
+      }
     } finally {
       setBusy(false);
     }
@@ -245,6 +257,19 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
       setBusy(false);
     }
   };
+
+  if (detail === "error") {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => {
+          setDetail(null);
+          load().catch(() => setDetail("error"));
+        }}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
 
   if (!detail) return <PageSpinner />;
 
@@ -317,7 +342,19 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
           </div>
         }
       />
-      {statement ? (
+      {statement === "error" ? (
+        <Sheet>
+          <SheetHead title={t("externalTeachers.statement")} />
+          <LoadError
+            className="m-4"
+            message={queryStrings.loadFailed}
+            onRetry={() => {
+              load().catch(() => setDetail("error"));
+            }}
+            retryLabel={queryStrings.retry}
+          />
+        </Sheet>
+      ) : statement ? (
         <Sheet>
           <SheetHead
             title={t("externalTeachers.statement")}
@@ -511,7 +548,7 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
           </DialogHeader>
           <p className="text-[13px] text-(--ink-2)">
             {t("externalTeachers.settle_hint", {
-              amount: formatEGP(statement?.walletBalance ?? 0),
+              amount: formatEGP(stmt?.walletBalance ?? 0),
             })}
           </p>
           <Field

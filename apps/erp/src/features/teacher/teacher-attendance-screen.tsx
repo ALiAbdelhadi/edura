@@ -28,6 +28,7 @@ import {
 import { Button } from "@repo/ui/components/button";
 import { Alert, AlertTitle, AlertDescription } from "@repo/ui/components/alert";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
+import { combineQueries, QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { resolveStudentCode } from "@repo/database/student-code";
 import { platformDayKey, todayKey } from "@repo/server-core/lib/date-key";
@@ -129,7 +130,7 @@ export function TeacherAttendanceScreen() {
     }
   }, [seedSessionId, recentSessions, selectedSession]);
 
-  const { result: enrollmentsResult } = useList<EnrollmentRow>({
+  const { query: enrollmentsQuery, result: enrollmentsResult } = useList<EnrollmentRow>({
     resource: "enrollments",
     filters: selectedSession
       ? [{ field: "courseId", operator: "eq", value: selectedSession.courseId }]
@@ -222,10 +223,19 @@ export function TeacherAttendanceScreen() {
           toast.success(t("teacher.saved"));
           invalidate({ resource: "sessions", invalidates: ["list"] });
         },
-        onError: (err) => {
-          toast.error(
-            (err as { message?: string })?.message || t("teacher.saveError"),
-          );
+        onError: async (err) => {
+          // statusCode 0 is the classifier's "never reached the server"
+          // (offline or timed out). `navigator.onLine` can report true on a
+          // dead connection, so the failure itself — not the flag — is what
+          // sends these marks to the outbox.
+          const e = err as { statusCode?: number; message?: string };
+          if (teacherId && e?.statusCode === 0) {
+            await enqueueAttendance(teacherId, sessionId, records);
+            await refreshCount();
+            toast.info(t("teacher.savedOffline"));
+            return;
+          }
+          toast.error(e?.message || t("teacher.saveError"));
         },
       },
     );
@@ -240,8 +250,9 @@ export function TeacherAttendanceScreen() {
       toast.error(result.message || t("teacher.syncFailed"));
     } else {
       toast.success(t("teacher.syncedCount", { n: result.synced }));
-      const skipped = result.conflicts + result.errors;
-      if (skipped > 0) toast.info(t("teacher.skippedCount", { n: skipped }));
+      if (result.conflicts > 0) toast.info(t("teacher.skippedCount", { n: result.conflicts }));
+      if (result.rejected > 0)
+        toast.warning(t("teacher.syncRejectedKept", { n: result.rejected }));
     }
   };
 
@@ -411,9 +422,10 @@ export function TeacherAttendanceScreen() {
             </Alert>
           )}
 
-          {attendanceQuery.isLoading ? (
-            <PageSpinner />
-          ) : (
+          <QuerySection
+            query={combineQueries(enrollmentsQuery, attendanceQuery)}
+            skeleton={<PageSpinner />}
+          >
             <>
               {pending.length > 0 && (
                 <section className="overflow-hidden rounded-lg border-2 border-warning/50 bg-warning/5">
@@ -454,7 +466,7 @@ export function TeacherAttendanceScreen() {
                 </div>
               )}
             </>
-          )}
+          </QuerySection>
 
           {sessionId ? <SettleLessonCard sessionId={sessionId} /> : null}
         </CardContent>
@@ -470,16 +482,20 @@ export function TeacherAttendanceScreen() {
           </span>
         </CardHeader>
         <CardContent className="px-0">
-          {sessionsQuery.isLoading ? (
-            <PageSpinner label={t("teacher.loadingSessions")} />
-          ) : recentSessions.length === 0 ? (
-            <div className="px-4">
-              <EmptyState
-                icon={CalendarOff}
-                title={t("teacher.noRecentSessions")}
-              />
-            </div>
-          ) : (
+          <QuerySection
+            query={sessionsQuery}
+            skeleton={<PageSpinner label={t("teacher.loadingSessions")} />}
+            className="mx-4"
+            isEmpty={recentSessions.length === 0}
+            empty={
+              <div className="px-4">
+                <EmptyState
+                  icon={CalendarOff}
+                  title={t("teacher.noRecentSessions")}
+                />
+              </div>
+            }
+          >
             <div>
               {sessionGroup("today", t("teacher.todayHeading"), todaySessions)}
               {sessionGroup(
@@ -488,7 +504,7 @@ export function TeacherAttendanceScreen() {
                 earlierSessions,
               )}
             </div>
-          )}
+          </QuerySection>
         </CardContent>
       </Card>
     );

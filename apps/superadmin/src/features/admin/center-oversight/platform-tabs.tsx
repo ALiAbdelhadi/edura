@@ -29,6 +29,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo/ui/components/tabs";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { MetricCard } from "@repo/ui/components/metric-card";
@@ -48,6 +50,7 @@ const REPORTS = [
 
 export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const [report, setReport] = useState<string>("revenue");
   const dash = useAdminGet<Record<string, unknown>>(`admin/centers/${centerId}/dashboard`, {
@@ -75,6 +78,12 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
 
       {dash.isLoading ? (
         <PageSpinner />
+      ) : dash.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={dash.refetch}
+          retryLabel={queryStrings.retry}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={t("rp_students")} value={<Num.Figure value={num(d.totalStudents)} locale={locale} />} />
@@ -104,6 +113,12 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
               <CardContent>
                 {data.isLoading ? (
                   <Spinner />
+                ) : data.isError ? (
+                  <LoadError
+                    message={queryStrings.loadFailed}
+                    onRetry={data.refetch}
+                    retryLabel={queryStrings.retry}
+                  />
                 ) : (
                   <pre className="overflow-x-auto rounded-md bg-field p-3 text-xs whitespace-pre-wrap">
                     {JSON.stringify(data.data ?? {}, null, 2)}

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useList } from "@refinedev/core";
 import { Download, FileText } from "lucide-react";
 import { toast } from "@repo/ui/components/sonner";
+import { QuerySection, combineQueries } from "@repo/ui/components/query-section";
 import { PageSpinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { useTranslations } from "next-intl";
@@ -74,7 +75,7 @@ export function StudentMaterialsScreen() {
     }
   };
 
-  const loading = materialsQuery.isLoading || enrollmentsQuery.isLoading;
+  const listQuery = combineQueries(materialsQuery, enrollmentsQuery);
 
   return (
     <div className="space-y-6">
@@ -83,13 +84,16 @@ export function StudentMaterialsScreen() {
         subtitle={t("studentMaterials.subtitle")}
       />
 
-      {loading ? (
-        <PageSpinner label={t("common.loading")} />
-      ) : materials.length === 0 ? (
-        <Sheet className="p-5">
-          <LedgerEmpty title={t("studentMaterials.noMaterials")} />
-        </Sheet>
-      ) : (
+      <QuerySection
+        query={listQuery}
+        skeleton={<PageSpinner label={t("common.loading")} />}
+        isEmpty={materials.length === 0}
+        empty={
+          <Sheet className="p-5">
+            <LedgerEmpty title={t("studentMaterials.noMaterials")} />
+          </Sheet>
+        }
+      >
         <ul className="grid gap-3 md:grid-cols-2">
           {materials.map((m, i) => {
             const id = m.id || String(i);
@@ -138,7 +142,7 @@ export function StudentMaterialsScreen() {
             );
           })}
         </ul>
-      )}
+      </QuerySection>
     </div>
   );
 }

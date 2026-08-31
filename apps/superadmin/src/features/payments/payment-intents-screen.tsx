@@ -25,6 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
 
 import { EmptyState } from "@/components/kit/empty-state";
@@ -65,6 +67,7 @@ type IntentRow = {
 
 export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance" }) {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -91,7 +94,7 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
   const total = (result?.total ?? 0) as number;
   const pageCount = Math.max(1, Math.ceil(total / 20));
 
-  const { result: detail } = useOne({
+  const { query: detailQuery, result: detail } = useOne({
     resource,
     id: detailId ?? "",
     queryOptions: { enabled: !!detailId },
@@ -344,6 +347,12 @@ export function PaymentIntentsScreen({ apiBase }: { apiBase: "admin" | "finance"
                 ) : null}
               </Row>
             </dl>
+          ) : detailQuery.isError ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => detailQuery.refetch()}
+              retryLabel={queryStrings.retry}
+            />
           ) : (
             <PageSpinner label={t("common.loading")} />
           )}

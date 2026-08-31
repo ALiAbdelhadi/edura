@@ -13,7 +13,11 @@ export function useOnlineCheckout(): boolean {
       .then((res) => {
         if (alive) setOnline(res.data.online);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Deliberately fails OPEN: a probe blip must not silently remove the
+        // only way to pay. The button stays, and a real attempt now surfaces a
+        // localized error instead of vanishing without explanation.
+      });
     return () => {
       alive = false;
     };

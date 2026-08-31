@@ -16,6 +16,8 @@ import {
   FormControl,
   FormMessage,
 } from "@repo/ui/components/form";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import {
   Chip,
@@ -57,6 +59,7 @@ type ParentLink = {
 
 export function StudentFamilyCodeScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatDate } = useFormatters();
   const [copied, setCopied] = useState(false);
 
@@ -170,6 +173,13 @@ export function StudentFamilyCodeScreen() {
         <Eyebrow>{t("studentFamilyCode.yourCode")}</Eyebrow>
         {codeQuery.isLoading ? (
           <PageSpinner />
+        ) : codeQuery.isError ? (
+          <LoadError
+            className="mt-2"
+            message={queryStrings.loadFailed}
+            onRetry={() => codeQuery.refetch()}
+            retryLabel={queryStrings.retry}
+          />
         ) : (
           <div className="mt-2 flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -245,6 +255,12 @@ export function StudentFamilyCodeScreen() {
         <div className="mt-3">
           {linksQuery.isLoading ? (
             <PageSpinner />
+          ) : linksQuery.isError ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => linksQuery.refetch()}
+              retryLabel={queryStrings.retry}
+            />
           ) : links.length === 0 ? (
             <LedgerEmpty
               title={t("studentFamilyCode.noLinkRequests")}

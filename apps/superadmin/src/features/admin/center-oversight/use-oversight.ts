@@ -16,6 +16,8 @@ export function useAdminGet<T = unknown>(
   return {
     data: asData<T>(req.result?.data),
     isLoading: req.query.isLoading,
+    isError: req.query.isError,
+    error: req.query.error,
     refetch: () => req.query.refetch(),
   };
 }

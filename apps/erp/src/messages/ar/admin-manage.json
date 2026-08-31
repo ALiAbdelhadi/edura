@@ -325,7 +325,11 @@
     "export_course_fill_rates": "نسبة إشغال المجموعات",
     "export_attendance_by_course": "الحضور حسب المجموعة",
     "export_enrollment_funnel": "مسار طلبات التسجيل",
-    "export_shift_reconciliation": "تسوية الورديات والدرج"
+    "export_shift_reconciliation": "تسوية الورديات والدرج",
+    "exportPreparing": "جارٍ تجهيز الملف…",
+    "exportReady": "تم تنزيل الملف.",
+    "exportFailed": "لم يتم التصدير — لم يُنزَّل أي ملف. حاول مرة أخرى.",
+    "exportPopupBlocked": "المتصفح منع فتح تبويب الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع ثم حاول مرة أخرى."
   },
   "enroll": {
     "title": "طلبات التسجيل",

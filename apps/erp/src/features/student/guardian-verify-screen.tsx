@@ -1,6 +1,7 @@
 "use client";
 
 import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { Button } from "@repo/ui/components/button";
 import { CircleAlert, CircleCheck, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -17,6 +18,7 @@ const COPY = {
     badTitle: "الرابط غير صالح",
     badBody:
       "الرابط منتهي الصلاحية أو تم استخدامه من قبل، أو تم تغيير البريد بعد إرساله. اطلب رابطًا جديدًا من داخل التطبيق.",
+    transient: "تعذر الاتصال الآن. تأكد من اتصالك بالإنترنت ثم اضغط تأكيد مرة أخرى.",
     missing: "هذا الرابط ناقص. افتح الرابط كاملًا من رسالة البريد.",
   },
   en: {
@@ -30,11 +32,17 @@ const COPY = {
     badTitle: "This link is not valid",
     badBody:
       "It has expired, was already used, or the address changed after it was sent. Ask for a new link from inside the app.",
+    transient: "Couldn't reach the server. Check your connection and press Confirm again.",
     missing: "This link is incomplete. Open the full link from the email.",
   },
 } as const;
 
-type Phase = { k: "idle" } | { k: "busy" } | { k: "ok"; hint: string } | { k: "bad" };
+type Phase =
+  | { k: "idle" }
+  | { k: "busy" }
+  | { k: "ok"; hint: string }
+  | { k: "bad" }
+  | { k: "transient" };
 
 export function GuardianVerifyScreen({
   locale,
@@ -50,21 +58,15 @@ export function GuardianVerifyScreen({
     if (!token) return;
     setPhase({ k: "busy" });
     try {
-      const res = await fetch("/api/v1/guardian/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const json = (await res.json()) as
-        | { data: { verified: true; emailHint: string } }
-        | { error: { message: string } };
-      if (!res.ok || "error" in json) {
-        setPhase({ k: "bad" });
-        return;
-      }
+      const json = await api
+        .post("guardian/verify", { json: { token } })
+        .json<{ data: { verified: true; emailHint: string } }>();
       setPhase({ k: "ok", hint: json.data.emailHint });
-    } catch {
-      setPhase({ k: "bad" });
+    } catch (err) {
+      const status = (err as { statusCode?: number })?.statusCode ?? 0;
+      // Only a definitive 4xx means the link itself is bad; offline, timeout
+      // and 5xx are retryable and must not tell the guardian to get a new link.
+      setPhase(status >= 400 && status < 500 ? { k: "bad" } : { k: "transient" });
     }
   }
 
@@ -99,6 +101,15 @@ export function GuardianVerifyScreen({
         <p className="text-sm text-[var(--ink-2)]">{t.missing}</p>
       ) : (
         <>
+          {phase.k === "transient" ? (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-(--radius-step-md) border border-[var(--rule)] bg-[var(--field)] p-4"
+            >
+              <CircleAlert className="mt-0.5 size-5 shrink-0 text-[var(--ink-2)]" aria-hidden />
+              <p className="text-sm text-[var(--ink-2)]">{t.transient}</p>
+            </div>
+          ) : null}
           <p className="text-sm leading-relaxed text-[var(--ink-2)]">{t.lead}</p>
           <p className="text-[12.5px] leading-relaxed text-[var(--ink-3)]">{t.noop}</p>
           <div>

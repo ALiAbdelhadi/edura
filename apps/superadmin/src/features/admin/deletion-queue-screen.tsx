@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { ShieldOff, TriangleAlert } from "lucide-react";
+import { RefreshCcw, ShieldOff, TriangleAlert } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ const STATUS_TONE = {
 
 export function DeletionQueueScreen() {
   const t = useTranslations("deletionQueue");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
   const [status, setStatus] = useState("pending");
@@ -79,8 +81,8 @@ export function DeletionQueueScreen() {
       setConfirming(null);
       setNote("");
       void req.query.refetch();
-    } catch {
-      toast.error(t("actionFail"));
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || t("actionFail"));
     } finally {
       setBusy(false);
     }
@@ -117,6 +119,25 @@ export function DeletionQueueScreen() {
 
       {req.query.isLoading ? (
         <PageSpinner label={t("loading")} />
+      ) : req.query.isError ? (
+        (() => {
+          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={denied ? queryStrings.denied : queryStrings.loadFailed}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => req.query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {queryStrings.retry}
+                  </Button>
+                )
+              }
+            />
+          );
+        })()
       ) : rows.length === 0 ? (
         <EmptyState icon={ShieldOff} title={t("emptyTitle")} description={t("emptyBody")} />
       ) : (

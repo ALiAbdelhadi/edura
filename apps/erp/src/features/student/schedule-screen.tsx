@@ -16,6 +16,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { DescriptionList } from "@/components/kit/description-list";
 import { PageSpinner } from "@/components/kit/spinner";
+import { QuerySection } from "@repo/ui/components/query-section";
 import {
   Chip,
   Hairline,
@@ -74,10 +75,6 @@ export function ScheduleScreen() {
     setWeekOffset((w) => w + delta);
     setSelectedKey(nextDays[index === -1 ? 0 : index]!);
   };
-
-  if (sessionsQuery.isLoading) {
-    return <PageSpinner label={t("common.loading")} />;
-  }
 
   const statusTone = (status: string) =>
     status === "cancelled" ? "red" : status === "completed" ? "teal" : "indigo";
@@ -154,6 +151,10 @@ export function ScheduleScreen() {
     <div className="space-y-5">
       <PageTitle title={t("nav.schedule")} subtitle={t("studentClass.scheduleSubtitle")} />
 
+      <QuerySection
+        query={sessionsQuery}
+        skeleton={<PageSpinner label={t("common.loading")} />}
+      >
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <LedgerButton onClick={() => goWeek(-1)} aria-label={t("studentClass.weekPrevious")}>
@@ -286,6 +287,7 @@ export function ScheduleScreen() {
           )}
         </div>
       </Sheet>
+      </QuerySection>
 
       <Dialog
         open={!!selectedSession}

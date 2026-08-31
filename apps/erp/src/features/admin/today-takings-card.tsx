@@ -2,6 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { QuerySection } from "@repo/ui/components/query-section";
 import { useList } from "@refinedev/core";
 import { todayKey } from "@repo/server-core/lib/date-key";
 import { useTranslations } from "next-intl";
@@ -41,6 +42,7 @@ export function TodayTakingsCard() {
           </Link>
         }
       />
+      <QuerySection query={query} skeleton={<></>} className="m-4.5">
       <div className="flex flex-wrap items-start gap-x-8 gap-y-4 p-4.5">
         <div className="min-w-40">
           <Eyebrow>{t("adminHome.takings_net")}</Eyebrow>
@@ -79,6 +81,7 @@ export function TodayTakingsCard() {
           </p>
         ) : null}
       </div>
+      </QuerySection>
       <p className="m-0 border-t border-(--rule-2) px-4.5 py-2 text-xs text-(--ink-3)">
         {t("adminHome.takings_methodNote")}
       </p>

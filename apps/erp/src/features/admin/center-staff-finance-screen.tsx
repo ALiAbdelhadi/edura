@@ -4,6 +4,7 @@ import { api } from "@/lib/api/client";
 import { DateRangeField, EMPTY_RANGE, type DateKeyRange } from "@/components/kit/date-range-field";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { QuerySection, type QueryLike } from "@repo/ui/components/query-section";
 import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import React, { useEffect, useMemo, useState } from "react";
@@ -23,14 +24,25 @@ type PaymentRow = {
   courseName?: string | null;
 };
 
+type Load<T> = { status: "loading" | "error" } | { status: "ready"; data: T };
+
+function asQuery(state: Load<unknown>, retry: () => void): QueryLike {
+  return {
+    isPending: state.status === "loading",
+    isError: state.status === "error",
+    refetch: retry,
+  };
+}
+
 export function CenterStaffFinanceScreen() {
   const t = useTranslations();
   const { locale, formatDate } = useFormatters();
-  const [pnl, setPnl] = useState<NetProfit | null>(null);
-  const [wallet, setWallet] = useState<WalletInfo | null>(null);
-  const [txns, setTxns] = useState<Txn[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [ready, setReady] = useState(false);
+  const [pnlState, setPnlState] = useState<Load<NetProfit>>({ status: "loading" });
+  const [walletState, setWalletState] = useState<Load<WalletInfo>>({ status: "loading" });
+  const [txnsState, setTxnsState] = useState<Load<Txn[]>>({ status: "loading" });
+  const [paymentsState, setPaymentsState] = useState<Load<PaymentRow[]>>({ status: "loading" });
+  const [staticNonce, setStaticNonce] = useState(0);
+  const [rangeNonce, setRangeNonce] = useState(0);
 
   const [range, setRange] = useState<DateKeyRange>(EMPTY_RANGE);
   const rangeQuery = useMemo(() => {
@@ -42,40 +54,46 @@ export function CenterStaffFinanceScreen() {
   }, [range]);
 
   useEffect(() => {
-    Promise.all([
-      api.get("center/wallet").json<{ data: WalletInfo }>().then((r) => setWallet(r.data)).catch(() => {}),
-      api
-        .get("center/wallet/transactions")
-        .json<{ data: { data: Txn[] } }>()
-        .then((r) => setTxns(r.data.data ?? []))
-        .catch(() => {}),
-    ]).finally(() => setReady(true));
-  }, []);
+    setWalletState({ status: "loading" });
+    setTxnsState({ status: "loading" });
+    void api
+      .get("center/wallet")
+      .json<{ data: WalletInfo }>()
+      .then((r) => setWalletState({ status: "ready", data: r.data }))
+      .catch(() => setWalletState({ status: "error" }));
+    void api
+      .get("center/wallet/transactions")
+      .json<{ data: { data: Txn[] } }>()
+      .then((r) => setTxnsState({ status: "ready", data: r.data.data ?? [] }))
+      .catch(() => setTxnsState({ status: "error" }));
+  }, [staticNonce]);
 
   useEffect(() => {
-    void Promise.all([
-      api
-        .get(`reports/net-profit${rangeQuery}`)
-        .json<{ data: NetProfit }>()
-        .then((r) => setPnl(r.data))
-        .catch(() => {}),
-      api
-        .get(`payments${rangeQuery}`)
-        .json<{ data: PaymentRow[] }>()
-        .then((r) => setPayments(Array.isArray(r.data) ? r.data : []))
-        .catch(() => setPayments([])),
-    ]);
-  }, [rangeQuery]);
+    setPnlState({ status: "loading" });
+    setPaymentsState({ status: "loading" });
+    void api
+      .get(`reports/net-profit${rangeQuery}`)
+      .json<{ data: NetProfit }>()
+      .then((r) => setPnlState({ status: "ready", data: r.data }))
+      .catch(() => setPnlState({ status: "error" }));
+    void api
+      .get(`payments${rangeQuery}`)
+      .json<{ data: PaymentRow[] }>()
+      .then((r) =>
+        setPaymentsState({ status: "ready", data: Array.isArray(r.data) ? r.data : [] }),
+      )
+      .catch(() => setPaymentsState({ status: "error" }));
+  }, [rangeQuery, rangeNonce]);
+
+  const retryStatic = () => setStaticNonce((n) => n + 1);
+  const retryRange = () => setRangeNonce((n) => n + 1);
+
+  const pnl = pnlState.status === "ready" ? pnlState.data : null;
+  const wallet = walletState.status === "ready" ? walletState.data : null;
+  const txns = txnsState.status === "ready" ? txnsState.data : [];
+  const payments = paymentsState.status === "ready" ? paymentsState.data : [];
 
   const takings = takingsOf(payments);
-
-  if (!ready) {
-    return (
-      <div className="p-8 text-center text-[13px] text-[var(--ink-3)]">
-        {t("centerStaff.loading")}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -102,6 +120,7 @@ export function CenterStaffFinanceScreen() {
       <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr]">
         <Sheet>
           <SheetHead title={t("common.netProfit")} />
+          <QuerySection query={asQuery(pnlState, retryRange)} className="m-[18px]">
           <div className="flex flex-col p-[18px]">
             <PnlLine
               label={t("common.revenue")}
@@ -127,10 +146,12 @@ export function CenterStaffFinanceScreen() {
               />
             </div>
           </div>
+          </QuerySection>
         </Sheet>
 
         <Sheet>
           <SheetHead title={t("nav.wallet")} />
+          <QuerySection query={asQuery(walletState, retryStatic)} className="m-[18px]">
           <div className="flex flex-col p-[18px]">
             <PnlLine
               label={t("nav.wallet")}
@@ -148,12 +169,14 @@ export function CenterStaffFinanceScreen() {
               />
             </div>
           </div>
+          </QuerySection>
         </Sheet>
       </div>
 
       <Sheet>
         <SheetHead title={t("adminManage.fees.paymentLog")} />
 
+        <QuerySection query={asQuery(paymentsState, retryRange)} className="m-[18px]">
         <div className="flex flex-wrap items-start gap-x-8 gap-y-4 border-b border-[var(--rule)] p-[18px]">
           <div className="min-w-[150px]">
             <Eyebrow>{t("adminHome.takings_net")}</Eyebrow>
@@ -243,10 +266,17 @@ export function CenterStaffFinanceScreen() {
         <p className="m-0 border-t border-[var(--rule-2)] px-[18px] py-2 text-[11px] text-[var(--ink-3)]">
           {t("adminHome.takings_methodNote")}
         </p>
+        </QuerySection>
       </Sheet>
 
       <Sheet>
         <SheetHead title={t("nav.transactions")} />
+        <QuerySection
+          query={asQuery(txnsState, retryStatic)}
+          className="m-[18px]"
+          isEmpty={txns.length === 0}
+          empty={<EmptyState title={t("shared.ledger.empty")} />}
+        >
         {txns.length === 0 ? (
           <EmptyState title={t("shared.ledger.empty")} />
         ) : (
@@ -290,6 +320,7 @@ export function CenterStaffFinanceScreen() {
           </table>
           </div>
         )}
+        </QuerySection>
       </Sheet>
     </div>
   );

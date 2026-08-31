@@ -15,6 +15,8 @@ import {
   type NotificationPortal,
 } from "@repo/server-core/services/notifications/deep-link";
 import { Button } from "@repo/ui/components/button";
+import { QuerySection } from "@repo/ui/components/query-section";
+import { toast } from "@repo/ui/components/sonner";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { cn } from "@repo/ui/lib/utils";
@@ -136,6 +138,7 @@ export function NotificationsScreen() {
   const t = useTranslations();
   const { formatNumber } = useFormatters();
   const [tab, setTab] = useState<"all" | "unread">("all");
+  const [markingAll, setMarkingAll] = useState(false);
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
@@ -166,7 +169,9 @@ export function NotificationsScreen() {
         values: {},
       });
       query.refetch();
-    } catch { }
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || t("common.requestFailed"));
+    }
   };
 
   const handleNotificationClick = async (n: Notification) => {
@@ -176,6 +181,8 @@ export function NotificationsScreen() {
   };
 
   const markAllRead = async () => {
+    if (markingAll) return;
+    setMarkingAll(true);
     try {
       await markAllReadMut({
         url: "notifications/read-all",
@@ -183,7 +190,11 @@ export function NotificationsScreen() {
         values: {},
       });
       query.refetch();
-    } catch { }
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || t("common.requestFailed"));
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
   const unread = notifications.filter((n) => !n.read).length;
@@ -211,19 +222,6 @@ export function NotificationsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  if (query.isLoading && notifications.length === 0) {
-    return <PageSpinner label={t("common.loading")} />;
-  }
-
-  if (notifications.length === 0) {
-    return (
-      <div className="flex w-full max-w-[640px] flex-col gap-6">
-        <PageHeader title={t("nav.notifications")} />
-        <EmptyState icon={Bell} title={t("shared.notifEmpty")} />
-      </div>
-    );
-  }
-
   const GROUP_LABEL: Record<(typeof groups)[number]["key"], string> = {
     today: t("shared.notifGroupToday"),
     yesterday: t("shared.notifGroupYesterday"),
@@ -244,7 +242,8 @@ export function NotificationsScreen() {
             <Button
               size="sm"
               variant="outline"
-              onClick={markAllRead}
+              onClick={() => void markAllRead()}
+              disabled={markingAll}
               className="gap-2"
             >
               <CheckCheck className="size-4" />
@@ -254,6 +253,12 @@ export function NotificationsScreen() {
         }
       />
 
+      <QuerySection
+        query={query}
+        skeleton={<PageSpinner label={t("common.loading")} />}
+        isEmpty={notifications.length === 0}
+        empty={<EmptyState icon={Bell} title={t("shared.notifEmpty")} />}
+      >
       <div className="flex flex-col gap-5">
         <Tabs
           value={tab}
@@ -393,6 +398,7 @@ export function NotificationsScreen() {
           </div>
         )}
       </div>
+      </QuerySection>
     </div>
   );
 }

@@ -287,12 +287,19 @@ export function UserDetailScreen({ userId }: { userId: string }) {
       })) as { data?: { data?: { claimUrl?: string; token?: string } } };
       const claimUrl = res?.data?.data?.claimUrl;
       const token = res?.data?.data?.token;
-      if (!claimUrl || !token) throw new Error();
+      // An empty Error() here used to surface as the generic "action failed".
+      if (!claimUrl || !token) throw new Error(t("viewAsNoHandoff"));
+
+      // Open the target window FIRST: if the browser blocks it, submit() would
+      // be a silent no-op and the operator would think view-as worked. Posting
+      // into the named window we just opened also avoids a second flashed tab.
+      const handoffWindow = window.open("", "edura-view-as");
+      if (!handoffWindow) throw new Error(t("viewAsPopupBlocked"));
 
       const form = document.createElement("form");
       form.method = "POST";
       form.action = claimUrl;
-      form.target = "_blank";
+      form.target = "edura-view-as";
       const field = document.createElement("input");
       field.type = "hidden";
       field.name = "token";

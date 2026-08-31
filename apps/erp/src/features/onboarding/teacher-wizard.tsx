@@ -16,6 +16,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
+import { api } from "@/lib/api/client";
 import { useRouter } from "@/i18n/navigation";
 import {
   OptionChip,
@@ -42,7 +43,7 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { tree, state, error, saveDraft } = useOnboarding<TeacherState>(initial);
+  const { tree, state, error, saveDraft, draftFailed } = useOnboarding<TeacherState>(initial);
 
   const [stepId, setStepId] = useState<StepId>("grades");
   const [gradeIds, setGradeIds] = useState<string[]>([]);
@@ -78,10 +79,11 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
   useEffect(() => {
     if (stepId !== "subjects" || gradeIds.length === 0) return;
     setSubjects(null);
-    fetch(`/api/v1/catalog/subjects?gradeLevelIds=${gradeIds.join(",")}`)
-      .then((r) => r.json())
+    api
+      .get(`catalog/subjects?gradeLevelIds=${gradeIds.join(",")}`)
+      .json<{ data: unknown }>()
       .then((j) => {
-        const list: CatalogSubject[] = Array.isArray(j.data) ? j.data : [];
+        const list: CatalogSubject[] = Array.isArray(j.data) ? (j.data as CatalogSubject[]) : [];
         setSubjects(list);
         setSubjectIds((prev) => prev.filter((id) => list.some((s) => s.id === id)));
       })
@@ -179,6 +181,7 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
 
   const shell = (children: React.ReactNode, footer: React.ReactNode) => (
     <WizardShell
+      draftFailed={draftFailed}
       eyebrow={t(
         `onboarding.steps.${stepId === "grades" ? "grades" : stepId === "subjects" ? "subjects" : "review"}` as Parameters<typeof t>[0],
       )}

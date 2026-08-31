@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
+import { api } from "@/lib/api/client";
 import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { Input } from "@repo/ui/components/input";
@@ -25,19 +26,10 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/auth/password/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, locale }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error?.message || t("auth.forgotFailed"));
-        return;
-      }
+      await api.post("auth/password/forgot", { json: { email, locale } });
       setSent(true);
-    } catch {
-      setError(t("common.genericError"));
+    } catch (err) {
+      setError((err as { message?: string })?.message || t("auth.forgotFailed"));
     } finally {
       setLoading(false);
     }

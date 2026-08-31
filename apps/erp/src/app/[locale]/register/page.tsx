@@ -17,7 +17,7 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import ky from "ky";
+import { api } from "@/lib/api/client";
 import {
   Building2,
   Clock,
@@ -182,8 +182,8 @@ export default function RegisterPage() {
     try {
       const endpoint =
         role === "center_admin"
-          ? "/api/v1/auth/register/center"
-          : `/api/v1/auth/register/${role}`;
+          ? "auth/register/center"
+          : `auth/register/${role}`;
       const payload =
         role === "center_admin"
           ? {
@@ -203,7 +203,7 @@ export default function RegisterPage() {
               locale,
             };
 
-      const created = await ky
+      const created = await api
         .post(endpoint, { json: payload })
         .json<{ data?: { user?: { status?: string } } }>();
 
@@ -218,7 +218,10 @@ export default function RegisterPage() {
       });
 
       if (signInError) {
-        window.location.assign("/login");
+        // The account EXISTS now — bouncing to /login unexplained is how a
+        // user ends up registering twice.
+        setError(t("auth.accountCreatedSignInFailed"));
+        setLoading(false);
         return;
       }
 
@@ -245,7 +248,7 @@ export default function RegisterPage() {
       } else if (anchored) {
         setError(t("auth.fixFieldsBelow"));
       } else {
-        setError(apiError?.message || t("auth.registrationFailed"));
+        setError((err as { message?: string })?.message || t("auth.registrationFailed"));
       }
     } finally {
       setLoading(false);

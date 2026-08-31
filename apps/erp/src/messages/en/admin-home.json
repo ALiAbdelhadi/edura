@@ -78,6 +78,7 @@
   "detail_walletAmount": "Amount (EGP)",
   "detail_walletTopupConfirm": "Add to wallet",
   "detail_walletTopupDone": "Wallet topped up",
+  "detail_walletIndeterminate": "The top-up may or may not have been recorded — check the wallet balance before trying again.",
   "detail_walletInvalid": "Enter a valid amount",
   "detail_operationalParent": "Operational Parent",
   "detail_operationalParentPhone": "Operational Parent Phone",

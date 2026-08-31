@@ -64,12 +64,32 @@ export function getTeacherWalletTransactions(
   });
 }
 
-export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
+// Must cover the client's money-write timeout (45s) plus a human retry.
+const PAYOUT_REPLAY_WINDOW_MS = 120_000;
+
+export function requestTeacherPayout(
+  teacher: SessionUser,
+  amount?: number,
+  clientRequestId?: string,
+) {
   return platformDb(async (tx) => {
     const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
       SELECT wallet_balance FROM teacher_profiles WHERE user_id = ${teacher.id}::uuid FOR UPDATE`;
     if (locked.length === 0) throw new NotFoundError("Teacher profile not found");
     const walletBalance = locked[0].wallet_balance;
+
+    // Keyed idempotency, checked BEFORE availability on purpose: a matching
+    // key means "this exact request already succeeded" — the money was
+    // reserved by that very row, so returning it creates nothing and is safe
+    // even when the remaining balance is now zero. The amount-based replay
+    // guard below stays AFTER the availability check because it is a guess,
+    // not an identity.
+    if (clientRequestId) {
+      const keyed = await tx.payout.findFirst({
+        where: { beneficiaryId: teacher.id, clientRequestId },
+      });
+      if (keyed) return keyed;
+    }
 
     const open = await tx.payout.aggregate({
       where: { beneficiaryId: teacher.id, status: { in: ["pending", "approved"] } },
@@ -87,6 +107,21 @@ export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
       );
     }
 
+    // Replay guard: a client that timed out and retried must not mint a second
+    // payout. The FOR UPDATE lock above serializes concurrent requests, so an
+    // identical pending request inside the window is a retry, not a new intent.
+    const replay = await tx.payout.findFirst({
+      where: {
+        beneficiaryId: teacher.id,
+        beneficiaryType: "teacher",
+        status: "pending",
+        netPayable: requested,
+        createdAt: { gte: new Date(Date.now() - PAYOUT_REPLAY_WINDOW_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (replay) return replay;
+
     const commission = await tx.transaction.aggregate({
       where: { fromEntityId: teacher.id, type: "commission" },
       _sum: { amount: true },
@@ -100,6 +135,7 @@ export function requestTeacherPayout(teacher: SessionUser, amount?: number) {
       data: {
         beneficiaryId: teacher.id,
         beneficiaryType: "teacher",
+        clientRequestId: clientRequestId ?? null,
         netPayable: requested,
         grossAmount: requested + (commission._sum.amount ?? 0),
         commission: commission._sum.amount ?? 0,

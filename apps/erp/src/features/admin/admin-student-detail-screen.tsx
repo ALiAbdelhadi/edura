@@ -17,8 +17,11 @@ import {
   PageHead,
   Sheet,
 } from "./ledger";
+import { postMoney, readApiError } from "./ledger/money-write";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -86,6 +89,7 @@ type StudentRosterRecord = {
 
 export function AdminStudentDetailScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatEGP, formatDate, locale } = useFormatters();
   const params = useParams<{ studentId?: string | string[] }>();
   const router = useRouter();
@@ -298,6 +302,23 @@ export function AdminStudentDetailScreen() {
     return <PageSpinner label={t("adminHome.detail_loadingStudent")} />;
   }
 
+  if (
+    studentQuery.error &&
+    (studentQuery.error as { statusCode?: number })?.statusCode !== 404
+  ) {
+    return (
+      <div className="space-y-6">
+        <LoadError
+          message={
+            (studentQuery.error as { message?: string })?.message || queryStrings.loadFailed
+          }
+          onRetry={() => studentQuery.refetch()}
+          retryLabel={queryStrings.retry}
+        />
+      </div>
+    );
+  }
+
   if (studentQuery.error || !record) {
     return (
       <div className="space-y-6">
@@ -392,17 +413,23 @@ export function AdminStudentDetailScreen() {
     }
     setActionLoading(true);
     try {
-      await patchStudent({
-        url: "center/wallet-topup",
-        method: "post",
-        values: { studentId: userId, amount: Math.round(egp * 100) },
+      await postMoney("center/wallet-topup", {
+        studentId: userId,
+        amount: Math.round(egp * 100),
       });
       toast.success(t("adminHome.detail_walletTopupDone"));
       setWalletModalOpen(false);
       setWalletAmount("");
       refetch();
-    } catch (err: any) {
-      toast.error(err?.message || t("adminHome.detail_actionFailed"));
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("adminHome.detail_walletIndeterminate"), { duration: 12000 });
+        setWalletModalOpen(false);
+        refetch();
+      } else {
+        toast.error(e.message || t("adminHome.detail_actionFailed"));
+      }
     } finally {
       setActionLoading(false);
     }

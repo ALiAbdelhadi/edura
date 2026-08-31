@@ -1,6 +1,7 @@
 "use client";
 
 import { LedgerButton } from "@/components/ledger";
+import { api } from "@/lib/api/client";
 import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
 import { CheckCircle2 } from "lucide-react";
@@ -60,38 +61,29 @@ export function ContactForm({ labels, locale }: { labels: ContactLabels; locale:
     setError(null);
 
     try {
-      const res = await fetch("/api/v1/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await api.post("contact", {
+        json: {
           name: String(form.get("name") ?? ""),
           email: String(form.get("email") ?? ""),
           phone: String(form.get("phone") ?? ""),
           subject: String(form.get("subject") ?? "other"),
           message: String(form.get("message") ?? ""),
           locale,
-        }),
+        },
       });
-
-      if (res.ok) {
-        setStatus("sent");
-        track(ANALYTICS_EVENTS.CONTACT_SUBMITTED, { subject });
-        return;
-      }
-
+      setStatus("sent");
+      track(ANALYTICS_EVENTS.CONTACT_SUBMITTED, { subject });
+    } catch (err) {
+      const status = (err as { statusCode?: number })?.statusCode ?? 0;
       setError(
-        res.status === 429
+        status === 429
           ? labels.errorRateLimited
-          : res.status === 400 || res.status === 422
+          : status === 400 || status === 422
             ? labels.errorValidation
             : labels.errorGeneric,
       );
       setStatus("error");
-      track(ANALYTICS_EVENTS.CONTACT_FAILED, { status: res.status });
-    } catch {
-      setError(labels.errorGeneric);
-      setStatus("error");
-      track(ANALYTICS_EVENTS.CONTACT_FAILED, { status: 0 });
+      track(ANALYTICS_EVENTS.CONTACT_FAILED, { status });
     }
   }
 

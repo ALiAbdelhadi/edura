@@ -32,10 +32,11 @@ export async function readApiError(err: unknown): Promise<ApiError> {
         })();
 
   if (!body) return { status: res.status, indeterminate: false };
+  const localizedMessage = (err as { message?: string })?.message;
   return {
     status: res.status,
     code: body.error?.code,
-    message: body.error?.message,
+    message: localizedMessage || body.error?.message,
     details: body.error?.details,
     indeterminate: false,
   };

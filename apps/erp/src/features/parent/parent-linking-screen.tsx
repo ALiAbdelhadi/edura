@@ -38,6 +38,8 @@ import { Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, SectionHead, SkeletonRows } from "./ledger-kit";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 
 const STATUS_CHIP: Record<string, string> = {
   pending: "bg-amber-soft text-amber",
@@ -56,6 +58,7 @@ type ParentLink = {
 
 export function ParentLinkingScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const { formatDate } = useFormatters();
   const [activeTab, setActiveTab] = useState("code");
 
@@ -400,6 +403,12 @@ export function ParentLinkingScreen() {
         />
         {linksQuery.isLoading ? (
           <SkeletonRows rows={3} />
+        ) : linksQuery.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => linksQuery.refetch()}
+            retryLabel={queryStrings.retry}
+          />
         ) : (
           <DataTable
             columns={columns}

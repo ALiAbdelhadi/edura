@@ -28,7 +28,22 @@ export default function TwoFactorPage() {
           ? await authClient.twoFactor.verifyTotp({ code, trustDevice: trust })
           : await authClient.twoFactor.verifyBackupCode({ code, trustDevice: trust });
       if (res.error) {
-        setError(t("security.invalidCode"));
+        // A wrong code, a dead 2FA step and a rate-limit are three different
+        // problems with three different next actions. better-auth separates
+        // them by code (INVALID_CODE vs INVALID_TWO_FACTOR_COOKIE); status
+        // alone cannot, since both are 401.
+        const { code, status } = res.error as { code?: string; status?: number };
+        const stepIsDead =
+          code === "INVALID_TWO_FACTOR_COOKIE" ||
+          code === "TWO_FACTOR_NOT_ENABLED" ||
+          code === "TOTP_NOT_CONFIGURED";
+        setError(
+          status === 429
+            ? t("auth.rateLimited")
+            : stepIsDead
+              ? t("security.twoFactorExpired")
+              : t("security.invalidCode"),
+        );
         return;
       }
       window.location.href = "/dashboard";

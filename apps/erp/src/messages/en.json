@@ -219,6 +219,7 @@
     "inviteInvalidTitle": "Invalid invite link",
     "inviteInvalidSubtitle": "This invite link is missing or invalid. Please contact your center administrator.",
     "goToSignIn": "Go to sign in",
+    "accountCreatedSignInFailed": "Your account was created, but signing you in failed. Please sign in with your new password — do not register again.",
     "inviteDoneTitle": "Account activated!",
     "inviteDoneSubtitle": "Your account has been set up. You can now sign in.",
     "inviteFailed": "Failed to activate account",
@@ -679,7 +680,8 @@
     "passwordChanged": "Password changed — please sign in again",
     "passwordRules": "At least 8 characters, including a letter and a digit.",
     "currentPasswordWrong": "Current password is incorrect",
-    "noPasswordSet": "This account has no password yet — use your invite link to set one."
+    "noPasswordSet": "This account has no password yet — use your invite link to set one.",
+    "twoFactorExpired": "This sign-in step expired. Start again from the sign-in page."
   },
   "externalTeachers": {
     "title": "Off-system teachers",
@@ -726,6 +728,8 @@
     "platformFees": "Platform commission",
     "settle": "Settle",
     "settled": "Settlement recorded",
+    "settleFailed": "Could not record the settlement.",
+    "settleIndeterminate": "The settlement may or may not have been recorded — check the statement below before trying again.",
     "settled_clear": "Nothing owed",
     "settle_hint": "This teacher is owed {amount}. Enter what you actually handed over.",
     "settle_amount": "Amount (EGP)",

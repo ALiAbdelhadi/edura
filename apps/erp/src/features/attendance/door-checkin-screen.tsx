@@ -14,15 +14,16 @@ import { resolveStudentCode } from "@repo/database/student-code";
 import { todayKey } from "@repo/server-core/lib/date-key";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
-import { Figure, SectionHead } from "@repo/ui/components/ledger";
+import { Figure, LoadError, SectionHead } from "@repo/ui/components/ledger";
 import { Num } from "@repo/ui/components/num";
 import { Progress } from "@repo/ui/components/progress";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { CheckCircle2, CloudOff, DoorOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type DoorRow = {
   studentId: string;
@@ -38,6 +39,7 @@ type SessionRow = { id: string; courseTitle?: string; startTime: string; endTime
 export function DoorCheckinScreen() {
   const t = useTranslations();
   const { locale } = useFormatters();
+  const queryStrings = useQueryStrings();
   const { mutateAsync: post } = useCustomMutation();
   const { data: identity } = useGetIdentity<{
     id?: string;
@@ -47,9 +49,9 @@ export function DoorCheckinScreen() {
   const { queueCount, isSyncing, flush, refreshCount } =
     useAttendanceSync(teacherId);
 
-  const [sessions, setSessions] = useState<SessionRow[] | null>(null);
+  const [sessions, setSessions] = useState<SessionRow[] | null | "error">(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [roster, setRoster] = useState<DoorRow[] | null>(null);
+  const [roster, setRoster] = useState<DoorRow[] | null | "error">(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [counterOnly, setCounterOnly] = useState(false);
@@ -75,20 +77,23 @@ export function DoorCheckinScreen() {
     })();
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const today = todayKey();
-        const res = await api
-          .get(`sessions?from=${today}&to=${today}`)
-          .json<{ data: { items?: SessionRow[] } | SessionRow[] }>();
-        const items = Array.isArray(res.data) ? res.data : (res.data.items ?? []);
-        setSessions(items);
-      } catch {
-        setSessions([]);
-      }
-    })();
+  const loadSessions = useCallback(async () => {
+    try {
+      const today = todayKey();
+      const res = await api
+        .get(`sessions?from=${today}&to=${today}`)
+        .json<{ data: { items?: SessionRow[] } | SessionRow[] }>();
+      const items = Array.isArray(res.data) ? res.data : (res.data.items ?? []);
+      setSessions(items);
+    } catch {
+      // error ≠ empty — "no sessions today" must never mean "the fetch failed"
+      setSessions("error");
+    }
   }, []);
+
+  useEffect(() => {
+    void loadSessions();
+  }, [loadSessions]);
 
   const loadRoster = async (sid: string) => {
     setSessionId(sid);
@@ -96,8 +101,8 @@ export function DoorCheckinScreen() {
     try {
       const res = await api.get(`door-checkin?sessionId=${sid}`).json<{ data: DoorRow[] }>();
       setRoster(res.data);
-    } catch (err: any) {
-      toast.error(err?.message || t("shared.door.loadFailed"));
+    } catch {
+      setRoster("error");
     }
   };
 
@@ -105,7 +110,7 @@ export function DoorCheckinScreen() {
   const searchParams = useSearchParams();
   const handedOffCode = codeFromScan(searchParams.get("code") ?? "");
   useEffect(() => {
-    if (!handedOffCode || handedOff.current || sessions === null) return;
+    if (!handedOffCode || handedOff.current || !Array.isArray(sessions)) return;
     handedOff.current = true;
     setCode(handedOffCode);
     const only = sessions.length === 1 ? sessions[0] : null;
@@ -116,7 +121,7 @@ export function DoorCheckinScreen() {
     studentId?: string;
     studentCode?: string;
   }): DoorRow | null => {
-    if (!roster) return null;
+    if (!Array.isArray(roster)) return null;
     if (input.studentId)
       return roster.find((r) => r.studentId === input.studentId) ?? null;
 
@@ -155,13 +160,14 @@ export function DoorCheckinScreen() {
       { studentId: row.studentId, status: "present", stage: "door" },
     ]);
     await refreshCount();
-    setRoster(
-      (prev) =>
-        prev?.map((r) =>
-          r.studentId === row.studentId
-            ? { ...r, doorAt: new Date().toISOString() }
-            : r,
-        ) ?? prev,
+    setRoster((prev) =>
+      Array.isArray(prev)
+        ? prev.map((r) =>
+            r.studentId === row.studentId
+              ? { ...r, doorAt: new Date().toISOString() }
+              : r,
+          )
+        : prev,
     );
     setCode("");
     toast.success(t("shared.door.savedOffline", { name: row.name }));
@@ -175,8 +181,9 @@ export function DoorCheckinScreen() {
       toast.error(result.message || t("teacher.syncFailed"));
     else {
       toast.success(t("teacher.syncedCount", { n: result.synced }));
-      const skipped = result.conflicts + result.errors;
-      if (skipped > 0) toast.info(t("teacher.skippedCount", { n: skipped }));
+      if (result.conflicts > 0) toast.info(t("teacher.skippedCount", { n: result.conflicts }));
+      if (result.rejected > 0)
+        toast.warning(t("teacher.syncRejectedKept", { n: result.rejected }));
       if (sessionId) await loadRoster(sessionId);
     }
   };
@@ -205,14 +212,22 @@ export function DoorCheckinScreen() {
       setCode("");
       await loadRoster(sessionId);
     } catch (err: any) {
+      // Never reached the server (offline or timed out) — queue it rather than
+      // losing the check-in to a `navigator.onLine` that reported true.
+      if (teacherId && err?.statusCode === 0) {
+        await confirmOffline(input);
+        return;
+      }
       toast.error(doorErrorMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
-  const checkedIn = roster?.filter((r) => r.doorAt).length ?? 0;
-  const rosterTotal = roster?.length ?? 0;
+  const rosterRows = Array.isArray(roster) ? roster : null;
+  const sessionRows = Array.isArray(sessions) ? sessions : null;
+  const checkedIn = rosterRows?.filter((r) => r.doorAt).length ?? 0;
+  const rosterTotal = rosterRows?.length ?? 0;
   const remaining = rosterTotal - checkedIn;
   const progressPct = rosterTotal > 0 ? Math.round((checkedIn / rosterTotal) * 100) : 0;
 
@@ -253,6 +268,15 @@ export function DoorCheckinScreen() {
         ) : null}
         {sessions === null ? (
           <Spinner />
+        ) : sessions === "error" ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => {
+              setSessions(null);
+              void loadSessions();
+            }}
+            retryLabel={queryStrings.retry}
+          />
         ) : sessions.length === 0 ? (
           <p className="text-sm text-ink-2">{t("shared.door.noSessions")}</p>
         ) : (
@@ -343,14 +367,20 @@ export function DoorCheckinScreen() {
           <SectionHead
             eyebrow={t("shared.door.rosterEyebrow")}
             title={
-              (sessions?.find((s) => s.id === sessionId) as any)?.courseTitle ??
-              (sessions?.find((s) => s.id === sessionId) as any)?.courseName ??
+              (sessionRows?.find((s) => s.id === sessionId) as any)?.courseTitle ??
+              (sessionRows?.find((s) => s.id === sessionId) as any)?.courseName ??
               t("shared.door.session")
             }
           />
 
           {roster === null ? (
             <Spinner />
+          ) : roster === "error" ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => void loadRoster(sessionId)}
+              retryLabel={queryStrings.retry}
+            />
           ) : roster.length === 0 ? (
             <p className="text-sm text-ink-2">{t("shared.door.emptyRoster")}</p>
           ) : (

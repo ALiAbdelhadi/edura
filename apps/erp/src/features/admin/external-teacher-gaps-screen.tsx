@@ -4,7 +4,8 @@ import { PageSpinner } from "@/components/kit/spinner";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { toast } from "@repo/ui/components/sonner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -28,16 +29,19 @@ type Report = { gaps: Gap[]; blocking: number; counts: Record<string, number> };
 export function ExternalTeacherGapsScreen() {
   const t = useTranslations();
   const te = useTranslations("externalTeachers");
+  const queryStrings = useQueryStrings();
   const { formatDate } = useFormatters();
-  const [report, setReport] = useState<Report | null>(null);
+  const [report, setReport] = useState<Report | null | "error">(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
+    setReport(null);
     api
       .get("center/external-teachers/gaps")
       .json<{ data: Report }>()
       .then((r) => setReport(r.data))
-      .catch((e: Error) => toast.error(e.message));
-  }, []);
+      .catch(() => setReport("error"));
+  }, [nonce]);
 
   const columns: Column<Gap>[] = [
     {
@@ -92,6 +96,16 @@ export function ExternalTeacherGapsScreen() {
       ),
     },
   ];
+
+  if (report === "error") {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => setNonce((n) => n + 1)}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
 
   if (!report) return <PageSpinner />;
 

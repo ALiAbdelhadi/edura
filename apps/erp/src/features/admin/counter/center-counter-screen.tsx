@@ -7,6 +7,8 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Button } from "@repo/ui/components/button";
 import { Combobox } from "@repo/ui/components/combobox";
 import { Kbd } from "@repo/ui/components/kbd";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { SearchInput } from "@repo/ui/components/search-input";
 import { toast } from "@repo/ui/components/sonner";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
@@ -158,17 +160,23 @@ export function CenterCounterScreen({
 } = {}) {
   const t = useTranslations();
   const { formatEGP, locale } = useFormatters();
+  const queryStrings = useQueryStrings();
   const pathname = usePathname();
   const portalBase = pathname.includes("/dashboard/staff")
     ? "/dashboard/staff"
     : "/dashboard/admin";
 
   const [teachers, setTeachers] = useState<CounterTeacher[] | null>(null);
+  const [teachersError, setTeachersError] = useState(false);
+  const [teacherNonce, setTeacherNonce] = useState(0);
   const [teacherSearch, setTeacherSearch] = useState("");
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CounterSession[] | null>(null);
+  const [sessionsError, setSessionsError] = useState(false);
+  const [sessionsNonce, setSessionsNonce] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [roster, setRoster] = useState<Roster | null>(null);
+  const [rosterError, setRosterError] = useState(false);
   const [tab, setTab] = useState<string>(IN_TAB);
   const [contextOpen, setContextOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -183,9 +191,11 @@ export function CenterCounterScreen({
     try {
       const res = await api.get(`center/counter/roster?sessionId=${sid}`).json<{ data: Roster }>();
       setRoster(res.data);
+      setRosterError(false);
       return res.data;
     } catch {
       setRoster(null);
+      setRosterError(true);
       return null;
     }
   }, []);
@@ -195,7 +205,9 @@ export function CenterCounterScreen({
         .get(`center/counter/sessions?teacherId=${tid}`)
         .json<{ data: { sessions: CounterSession[] } }>();
       setSessions(res.data.sessions);
+      setSessionsError(false);
     } catch {
+      setSessionsError(true);
     }
   }, []);
 
@@ -226,6 +238,7 @@ export function CenterCounterScreen({
               .get(`center/counter/teachers${term ? `?q=${encodeURIComponent(term)}` : ""}`)
               .json<{ data: { teachers: CounterTeacher[]; defaultTeacherId: string | null } }>();
             setTeachers(res.data.teachers);
+            setTeachersError(false);
             if (!touched.current) {
               setTeacherId(
                 (cur) =>
@@ -234,13 +247,14 @@ export function CenterCounterScreen({
             }
           } catch {
             setTeachers([]);
+            setTeachersError(true);
           }
         })();
       },
       term ? 250 : 0,
     );
     return () => clearTimeout(timer);
-  }, [teacherSearch]);
+  }, [teacherSearch, teacherNonce]);
 
   useEffect(() => {
     if (!teacherId) return;
@@ -251,19 +265,21 @@ export function CenterCounterScreen({
           .get(`center/counter/sessions?teacherId=${teacherId}`)
           .json<{ data: { sessions: CounterSession[]; defaultSessionId: string | null } }>();
         setSessions(res.data.sessions);
+        setSessionsError(false);
         setSessionId(res.data.defaultSessionId);
         setRoster(null);
+        setRosterError(false);
         setMatches(null);
         commit.clearPayment();
-      } catch (err) {
-        setSessions([]);
+      } catch {
+        setSessions(null);
         setSessionId(null);
-        toast.error((err as Error)?.message || t("shared.counter.loadFailed"));
+        setSessionsError(true);
       } finally {
         setLocalBusy(false);
       }
     })();
-  }, [teacherId, t]);
+  }, [teacherId, sessionsNonce]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -613,6 +629,13 @@ export function CenterCounterScreen({
                 </button>
               ) : null}
             </div>
+            {teachersError ? (
+              <LoadError
+                message={queryStrings.loadFailed}
+                onRetry={() => setTeacherNonce((n) => n + 1)}
+                retryLabel={queryStrings.retry}
+              />
+            ) : (
             <Combobox
               options={teacherOptions}
               value={teacherId}
@@ -623,8 +646,10 @@ export function CenterCounterScreen({
                 commit.clearPayment();
                 if (!v) {
                   setSessions(null);
+                  setSessionsError(false);
                   setSessionId(null);
                   setRoster(null);
+                  setRosterError(false);
                 }
               }}
               placeholder={t("shared.counter.teacherPlaceholder")}
@@ -633,7 +658,17 @@ export function CenterCounterScreen({
               search={teacherSearch}
               onSearchChange={setTeacherSearch}
             />
-            {sessions === null ? null : sessions.length === 0 ? (
+            )}
+            {sessionsError ? (
+              <LoadError
+                message={queryStrings.loadFailed}
+                onRetry={() => {
+                  if (teacherId && sessionId) void loadSessionCounts(teacherId);
+                  else setSessionsNonce((n) => n + 1);
+                }}
+                retryLabel={queryStrings.retry}
+              />
+            ) : sessions === null ? null : sessions.length === 0 ? (
               <p className="m-0 text-[13px] text-(--ink-3)">
                 {t("shared.counter.noSessionsToday")}
               </p>
@@ -887,6 +922,13 @@ export function CenterCounterScreen({
             icon={<CalendarClock className="size-5" />}
             title={t("shared.counter.noLesson")}
             hint={t("shared.counter.noLessonHint")}
+          />
+        ) : rosterError ? (
+          <LoadError
+            className="m-3"
+            message={queryStrings.loadFailed}
+            onRetry={() => void loadRoster(sessionId)}
+            retryLabel={queryStrings.retry}
           />
         ) : roster === null ? (
           <div className="p-8 text-center text-[13px] text-(--ink-3)">

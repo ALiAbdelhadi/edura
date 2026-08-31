@@ -1,6 +1,8 @@
 "use client";
 
 import { PageSpinner } from "@/components/kit/spinner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useCustom } from "@refinedev/core";
 import { pickedDateKey, toDateKey, todayKey } from "@repo/server-core/lib/date-key";
 import {
@@ -45,6 +47,7 @@ function addDays(d: Date, n: number): Date {
 
 export function AdminScheduleScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const locale = useLocale();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
@@ -157,6 +160,12 @@ export function AdminScheduleScreen() {
 
       {query.isLoading ? (
         <PageSpinner label={t("adminManage.schedule.title")} />
+      ) : query.isError ? (
+        <LoadError
+          message={queryStrings.loadFailed}
+          onRetry={() => query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
       ) : sessions.length === 0 ? (
         <EmptyState title={t("adminManage.schedule.empty")} />
       ) : (

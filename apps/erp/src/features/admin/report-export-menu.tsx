@@ -9,8 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
+import { api } from "@/lib/api/client";
+import { toast } from "@repo/ui/components/sonner";
 import { Download, FileSpreadsheet, Printer } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useState } from "react";
+
+const EXPORT_TIMEOUT_MS = 120_000;
 
 const MONEY_REPORTS = ["net-profit", "revenue-by-course", "expenses", "shift-reconciliation"] as const;
 const OPS_REPORTS = ["course-fill-rates", "attendance-by-course", "enrollment-funnel"] as const;
@@ -28,6 +33,7 @@ export function ReportExportMenu({
 }) {
   const t = useTranslations();
   const locale = useLocale();
+  const [exporting, setExporting] = useState(false);
 
   const shown: readonly ReportKey[] =
     only === "money" ? MONEY_REPORTS : [...MONEY_REPORTS, ...OPS_REPORTS];
@@ -39,17 +45,48 @@ export function ReportExportMenu({
     return p.toString();
   };
 
-  const downloadCsv = (report: ReportKey) => {
-    const a = document.createElement("a");
-    a.href = `/api/v1/reports/export?${qs(report)}`;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  // A detached <a> reports nothing: a 403 or 500 used to land as raw JSON in a
+  // new tab, or as no reaction at all. Fetching the blob lets the failure be a
+  // message and the success be a confirmation.
+  const downloadCsv = async (report: ReportKey) => {
+    if (exporting) return;
+    setExporting(true);
+    const toastId = toast.loading(t("adminManage.reports.exportPreparing"));
+    try {
+      const res = await api.get(`reports/export?${qs(report)}`, {
+        timeout: EXPORT_TIMEOUT_MS,
+      });
+      const blob = await res.blob();
+      // Keep the server's own filename — it carries the report name and stamp.
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const named = /filename="?([^"]+)"?/.exec(disposition)?.[1];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = named || `${report}-${from ?? "all"}-${to ?? "all"}.csv`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(t("adminManage.reports.exportReady"), { id: toastId });
+    } catch (err) {
+      toast.error(
+        (err as { message?: string })?.message ||
+          t("adminManage.reports.exportFailed"),
+        { id: toastId },
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openPrint = (report: ReportKey) => {
-    window.open(`/${locale}/reports/print?${qs(report, { print: "1" })}`, "_blank");
+    const win = window.open(
+      `/${locale}/reports/print?${qs(report, { print: "1" })}`,
+      "_blank",
+    );
+    if (!win) toast.error(t("adminManage.reports.exportPopupBlocked"));
   };
 
   const label = (r: ReportKey) => {
@@ -85,7 +122,11 @@ export function ReportExportMenu({
           {t("adminManage.reports.exportCsv")}
         </DropdownMenuLabel>
         {shown.map((r) => (
-          <DropdownMenuItem key={`csv-${r}`} onSelect={() => downloadCsv(r)}>
+          <DropdownMenuItem
+            key={`csv-${r}`}
+            disabled={exporting}
+            onSelect={() => void downloadCsv(r)}
+          >
             {label(r)}
           </DropdownMenuItem>
         ))}

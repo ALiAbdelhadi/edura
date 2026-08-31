@@ -44,13 +44,26 @@ export function getCenterWalletTransactions(user: SessionUser, opts?: { take?: n
   });
 }
 
-export function requestCenterPayout(user: SessionUser, amount?: number) {
+export function requestCenterPayout(
+  user: SessionUser,
+  amount?: number,
+  clientRequestId?: string,
+) {
   const centerId = centerIdOf(user);
   return platformDb(async (tx) => {
     const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
       SELECT wallet_balance FROM centers WHERE id = ${centerId}::uuid FOR UPDATE`;
     if (locked.length === 0) throw new NotFoundError("Center not found");
     const walletBalance = locked[0].wallet_balance;
+
+    // Same idempotency contract as requestTeacherPayout: a matching key is an
+    // identity, returned before the availability math ever runs.
+    if (clientRequestId) {
+      const keyed = await tx.payout.findFirst({
+        where: { beneficiaryId: centerId, clientRequestId },
+      });
+      if (keyed) return keyed;
+    }
 
     const open = await tx.payout.aggregate({
       where: { beneficiaryId: centerId, status: { in: ["pending", "approved"] } },
@@ -77,6 +90,7 @@ export function requestCenterPayout(user: SessionUser, amount?: number) {
         beneficiaryId: centerId,
         beneficiaryType: "center",
         centerId,
+        clientRequestId: clientRequestId ?? null,
         netPayable: requested,
         grossAmount: requested + (commission._sum.amount ?? 0),
         commission: commission._sum.amount ?? 0,

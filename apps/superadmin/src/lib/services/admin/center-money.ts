@@ -278,12 +278,13 @@ export async function adminRequestCenterPayout(
   actor: SessionUser,
   centerId: string,
   amount?: number,
+  clientRequestId?: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
   const walletBefore = await platformDb((tx) =>
     tx.center.findUnique({ where: { id: centerId }, select: { walletBalance: true } }),
   );
-  const result = await requestCenterPayout(acting, amount);
+  const result = await requestCenterPayout(acting, amount, clientRequestId);
   await audit(actor, centerId, {
     action: "center.payout_requested",
     targetType: "payout",

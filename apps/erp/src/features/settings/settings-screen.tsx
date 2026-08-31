@@ -29,7 +29,8 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
-import { SkeletonRows } from "@repo/ui/components/ledger";
+import { LoadError, SkeletonRows } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import {
   Select,
   SelectContent,
@@ -337,6 +338,7 @@ function PushNotificationsCard() {
 
 export function SettingsScreen() {
   const t = useTranslations();
+  const queryStrings = useQueryStrings();
   const locale = useLocale();
 
   const { query, result } = useCustom({
@@ -456,6 +458,19 @@ export function SettingsScreen() {
 
   if (query.isLoading) {
     return <SkeletonRows rows={5} className="max-w-280" />;
+  }
+
+  if (query.isError) {
+    // A failed `me` read used to render every field blank, as if the profile
+    // were empty — an invitation to "fix" data that never loaded.
+    return (
+      <LoadError
+        className="max-w-280"
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
   }
 
   const hasFamilyGroup =

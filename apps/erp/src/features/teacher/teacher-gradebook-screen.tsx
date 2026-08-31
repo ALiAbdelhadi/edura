@@ -41,6 +41,12 @@ import {
   FormMessage,
 } from "@repo/ui/components/form";
 import { toast } from "@repo/ui/components/sonner";
+import { LoadError } from "@repo/ui/components/ledger";
+import {
+  combineQueries,
+  QuerySection,
+  useQueryStrings,
+} from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { StatusBadge } from "@/components/kit/status-badge";
@@ -81,6 +87,7 @@ const ENTRY_ATTR = "data-grade-entry";
 export function TeacherGradebookScreen() {
   const t = useTranslations();
   const { formatDate, formatPercent } = useFormatters();
+  const queryStrings = useQueryStrings();
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   useParamSeed("courseId", setSelectedCourseId);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -127,7 +134,7 @@ export function TeacherGradebookScreen() {
   });
   const rawGrades = (gradesResult?.data ?? []) as unknown as RawGrade[];
 
-  const { result: enrollmentsResult } = useList({
+  const { query: enrollmentsQuery, result: enrollmentsResult } = useList({
     resource: "enrollments",
     filters: selectedCourseId
       ? [{ field: "courseId", operator: "eq" as const, value: selectedCourseId }]
@@ -391,6 +398,16 @@ export function TeacherGradebookScreen() {
     return <PageSpinner label={t("teacher.loadingClasses")} />;
   }
 
+  if (coursesQuery.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => coursesQuery.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
+
   if (courses.length === 0) {
     return <EmptyState icon={GraduationCap} title={t("teacher.noClassesAssigned")} />;
   }
@@ -607,6 +624,11 @@ export function TeacherGradebookScreen() {
           </CardAction>
         </CardHeader>
         <CardContent className="space-y-4 px-0">
+          <QuerySection
+            query={combineQueries(gradesQuery, enrollmentsQuery)}
+            skeleton={<PageSpinner />}
+            className="mx-6"
+          >
           {entries.length === 0 ? (
             <div className="px-6">
               <EmptyState title={t("teacher.noGradeEntries")} />
@@ -666,6 +688,7 @@ export function TeacherGradebookScreen() {
               </div>
             </>
           )}
+          </QuerySection>
         </CardContent>
       </Card>
 

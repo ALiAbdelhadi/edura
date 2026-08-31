@@ -621,7 +621,7 @@ function prodItems(): Item[] {
       kind: "fixed",
       key: "EDURA_ALLOW_DB_ENVS",
       group: "Database",
-      targets: T,
+      targets: [...T, "db.prod"],
       value: "",
       what: "MUST stay empty — naming production here is a hard error by design",
     },
@@ -630,7 +630,7 @@ function prodItems(): Item[] {
       kind: "ask",
       key: "SEED_SUPERADMIN_EMAIL",
       group: "Seed accounts",
-      targets: T,
+      targets: ["db.prod"],
       what: "the LIVE super_admin login",
       where: "your real address — this account controls the platform",
       validate: emailish,
@@ -639,7 +639,7 @@ function prodItems(): Item[] {
       kind: "ask",
       key: "SEED_SUPERADMIN_PASSWORD",
       group: "Seed accounts",
-      targets: T,
+      targets: ["db.prod"],
       what: "its password",
       where: "generate one in your password manager first",
       validate: all(notPlaceholder, minLen(16)),
@@ -648,7 +648,7 @@ function prodItems(): Item[] {
       kind: "ask",
       key: "SEED_ACCOUNTANT_EMAIL",
       group: "Seed accounts",
-      targets: T,
+      targets: ["db.prod"],
       what: "the LIVE accountant login",
       where: "your real address",
       validate: emailish,
@@ -657,7 +657,7 @@ function prodItems(): Item[] {
       kind: "ask",
       key: "SEED_ACCOUNTANT_PASSWORD",
       group: "Seed accounts",
-      targets: T,
+      targets: ["db.prod"],
       what: "its password",
       where: "generate one in your password manager first",
       validate: all(notPlaceholder, minLen(16)),
@@ -1100,6 +1100,44 @@ function prodItems(): Item[] {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * Parked and platform-set keys (Ali, 2026-08-30).
+ *
+ * PARKED means: do not prompt, do not write, do not print as an outstanding
+ * checklist item — but do keep saying it exists, because "it never got asked
+ * for" and "it was decided against" look identical six weeks later. Any value
+ * already sitting in an env file is left exactly where it is; this script has
+ * never removed a key it did not write.
+ *
+ * Each one was checked against the code before parking, and none of them can
+ * stop an app from booting:
+ *   Cloudinary  getConfig() throws only when called, and isCloudinaryConfigured()
+ *               guards every call site — uploads go dark, nothing else does.
+ *   WhatsApp    whatsapp/types.ts defaults WHATSAPP_MODE to "mock";
+ *               cloud-api-driver returns {ok:false} rather than throwing.
+ *   Paymob      only the account-specific keys are parked. PAYMOB_HMAC_SECRET
+ *               STAYS — mock-driver.ts throws without it in production (C1),
+ *               because the mock gateway signs its own webhooks with it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const PARKED: Record<string, string> = {
+  PAYMOB_API_KEY: "Paymob — no merchant account yet; PAYMENTS_MODE stays mock",
+  PAYMOB_INTEGRATION_ID_CARD: "Paymob — same",
+  PAYMOB_INTEGRATION_ID_WALLET: "Paymob — same",
+  WHATSAPP_TOKEN: "WhatsApp — no verified business number; WHATSAPP_MODE stays mock",
+  WHATSAPP_PHONE_ID: "WhatsApp — same",
+  CLOUDINARY_CLOUD_NAME: "Cloudinary — parked; existing values left in place and still work",
+  CLOUDINARY_API_KEY: "Cloudinary — same",
+  CLOUDINARY_API_SECRET: "Cloudinary — same",
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: "Cloudinary — same",
+};
+
+/** Set straight on the platform, so the checklist must not ask for it again. */
+const SET_ON_PLATFORM: Record<string, string> = {
+  REDIS_URL:
+    "set directly in Vercel. Still REQUIRED in production — assertSharedRateLimitStore fails the boot without it",
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Terminal I/O — hidden by construction.
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -1360,7 +1398,7 @@ function rebuild(owner: URL, user: string, pass: string, host: string) {
 
 async function neonBlock(
   envName: string,
-  targets: { admin: TargetId[]; app: TargetId[] },
+  targets: { admin: TargetId[]; app: TargetId[]; appDirect?: TargetId[] },
   existingProbe: TargetId,
   rotate: Set<string>,
 ): Promise<Map<TargetId, Map<string, string>>> {
@@ -1417,26 +1455,41 @@ async function neonBlock(
   const pHost = pooledHost(owner.host);
   const appPass = mintPassword();
 
-  const ADMIN_URL = rebuild(owner, owner.username, decodeURIComponent(owner.password), dHost);
-  const DIRECT_URL = rebuild(owner, "edura_app", appPass, dHost);
-  const DATABASE_URL = rebuild(owner, "edura_app", appPass, pHost);
+  // DIRECT_URL is the MIGRATION datasource (prisma.config.ts reads it), and
+  // bootstrap-app-role.ts does `REVOKE CREATE ON SCHEMA public FROM edura_app`
+  // — so the app role can never run a migration, by design. In the database
+  // package DIRECT_URL is therefore the OWNER string, same as ADMIN_URL.
+  // extensions/index.ts puts it plainly: "Migrations and bootstrap keep using
+  // DIRECT_URL / ADMIN_URL — those must never appear in a serving environment."
+  const OWNER_URL = rebuild(owner, owner.username, decodeURIComponent(owner.password), dHost);
+  const APP_DIRECT = rebuild(owner, "edura_app", appPass, dHost);
+  const APP_POOLED = rebuild(owner, "edura_app", appPass, pHost);
 
   for (const id of targets.admin) {
-    put(id, "ADMIN_URL", ADMIN_URL);
-    put(id, "DIRECT_URL", DIRECT_URL);
-    put(id, "DATABASE_URL", DATABASE_URL);
+    put(id, "ADMIN_URL", OWNER_URL);
+    put(id, "DIRECT_URL", OWNER_URL);
+    put(id, "DATABASE_URL", APP_POOLED);
     put(id, "APP_ROLE_PASSWORD", appPass);
   }
+  // Serving files get the app role only. No DIRECT_URL: nothing in the runtime
+  // reads it (grep packages/database/src), and an owner string here is exactly
+  // the leak the role guard exists to prevent.
   for (const id of targets.app) {
-    put(id, "DIRECT_URL", DIRECT_URL);
-    put(id, "DATABASE_URL", DATABASE_URL);
+    put(id, "DATABASE_URL", APP_POOLED);
+  }
+  // The one exception: the production union feeds gen-vercel-env.py, which
+  // emits DIRECT_URL to both Vercel projects. It gets the APP role's direct
+  // string — unused there, but never the owner.
+  for (const id of targets.appDirect ?? []) {
+    put(id, "DIRECT_URL", APP_DIRECT);
+    put(id, "DATABASE_URL", APP_POOLED);
   }
 
   console.log(`    ${C.dim(`endpoint  ${dHost}  (direct)`)}`);
   console.log(`    ${C.dim(`          ${pHost}  (pooled)`)}`);
-  report("ADMIN_URL", ADMIN_URL, "— owner; database package ONLY, never an app");
-  report("DIRECT_URL", DIRECT_URL, "— edura_app @ direct");
-  report("DATABASE_URL", DATABASE_URL, "— edura_app @ pooled");
+  report("ADMIN_URL", OWNER_URL, "— owner; database package ONLY, never an app");
+  report("DIRECT_URL", OWNER_URL, "— owner; the migration datasource");
+  report("DATABASE_URL", APP_POOLED, "— edura_app @ pooled; what the apps serve on");
   report("APP_ROLE_PASSWORD", appPass, "— consumed by db:bootstrap-role");
   return out;
 }
@@ -1463,7 +1516,7 @@ const PLANS: Record<string, Plan> = {
   production: {
     env: "production",
     items: prodItems(),
-    neon: { admin: ["db.prod"], app: ["prod"] },
+    neon: { admin: ["db.prod"], app: [], appDirect: ["prod"] },
     probe: "db.prod",
   },
 };
@@ -1497,7 +1550,12 @@ async function runEnvironment(name: string, rotate: Set<string>) {
   };
 
   let group = "";
+  const parked: string[] = [];
   for (const item of plan.items) {
+    if (PARKED[item.key] || SET_ON_PLATFORM[item.key]) {
+      parked.push(item.key);
+      continue;
+    }
     const needed = item.targets.filter(
       (t) => rotate.has(item.key) || !isSet(t, item.key),
     );
@@ -1548,6 +1606,14 @@ async function runEnvironment(name: string, rotate: Set<string>) {
         `    ${C.green("✓")} ${item.key.padEnd(30)} ${C.dim(item.value === "" ? "(empty, deliberately)" : item.value)}${item.what ? C.dim("  — " + item.what) : ""}`,
       );
     else if (value) report(item.key, value, item.kind === "mint" ? "— minted" : "");
+  }
+
+  if (parked.length) {
+    console.log(`\n  ${C.dim("not asked for — parked or set on the platform:")}`);
+    for (const k of [...new Set(parked)])
+      console.log(
+        `    ${C.dim("·")} ${k.padEnd(32)} ${C.dim(PARKED[k] ?? SET_ON_PLATFORM[k]!)}`,
+      );
   }
 
   console.log("");
@@ -1656,6 +1722,7 @@ const RAILWAY_RT = [
 ] as const;
 
 function checklist() {
+  const seenParked = new Set<string>();
   const block = (
     title: string,
     where: string,
@@ -1663,8 +1730,16 @@ function checklist() {
   ) => {
     console.log(`\n${C.bold(title)}\n${C.dim(where)}`);
     for (const [g, keys] of groups) {
+      const active = keys.filter((k) => {
+        if (PARKED[k] || SET_ON_PLATFORM[k]) {
+          seenParked.add(k);
+          return false;
+        }
+        return true;
+      });
+      if (!active.length) continue;
       console.log(`\n  ${g}`);
-      for (const k of keys) console.log(`    [ ] ${k}`);
+      for (const k of active) console.log(`    [ ] ${k}`);
     }
   };
 
@@ -1694,6 +1769,37 @@ function checklist() {
   console.log(`\n  DB suites in CI (throwaway Postgres, labelled edura-env:test)`);
   for (const k of ["TEST_DATABASE_URL", "TEST_DIRECT_URL", "TEST_ADMIN_URL"])
     console.log(`    [ ] ${k}`);
+
+  if (seenParked.size) {
+    console.log(`\n${C.bold("NOT ON THE LIST, AND ON PURPOSE")}`);
+    console.log(
+      C.dim(
+        "  Absent from the checkboxes above so they do not read as forgotten.\n" +
+          "  Nothing here can stop an app from booting — each was checked against\n" +
+          "  the code. Any value already in an env file was left in place.",
+      ),
+    );
+    const platform = [...seenParked].filter((k) => SET_ON_PLATFORM[k]);
+    const parked = [...seenParked].filter((k) => PARKED[k]);
+    if (platform.length) {
+      console.log(`\n  ${C.green("done — set on the platform directly")}`);
+      for (const k of platform)
+        console.log(`    ${C.green("[x]")} ${k.padEnd(32)} ${C.dim(SET_ON_PLATFORM[k]!)}`);
+    }
+    if (parked.length) {
+      console.log(`\n  ${C.yellow("parked — revisit when the account exists")}`);
+      for (const k of parked)
+        console.log(`    ${C.dim("[-]")} ${k.padEnd(32)} ${C.dim(PARKED[k]!)}`);
+    }
+    console.log(
+      C.dim(
+        "\n  Still required and NOT parked: PAYMENTS_MODE, PAYMOB_HMAC_SECRET,\n" +
+          "  WHATSAPP_MODE, WHATSAPP_API_VERSION. The mock payment driver signs its\n" +
+          "  own webhooks with that secret, and C1 makes it throw in production\n" +
+          "  without one — mock or not.",
+      ),
+    );
+  }
 
   console.log(`\n${C.yellow("Three that a hand-copy reliably gets wrong:")}`);
   console.log(`  1. STUDENT_QR_SECRET and VIEW_AS_SECRET must be BYTE-IDENTICAL on erp and`);

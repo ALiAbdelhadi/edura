@@ -13,6 +13,8 @@ import { toast } from "@repo/ui/components/sonner";
 import type { Locale } from "@repo/ui/lib/format";
 
 import { PageHeader } from "@/components/kit/page-header";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 
 type WalletPolicy = {
@@ -23,6 +25,7 @@ type WalletPolicy = {
 
 export function WalletSettingsScreen() {
   const t = useTranslations("walletPolicy");
+  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
   const { query, result } = useCustom({ url: "admin/wallet-settings", method: "get" });
@@ -68,6 +71,15 @@ export function WalletSettingsScreen() {
     }
   };
 
+  if (query.isError) {
+    return (
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => query.refetch()}
+        retryLabel={queryStrings.retry}
+      />
+    );
+  }
   if (query.isLoading || !data) return <PageSpinner label={t("loading")} />;
 
   return (
