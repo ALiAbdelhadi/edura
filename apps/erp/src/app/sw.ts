@@ -116,9 +116,9 @@ self.addEventListener("pushsubscriptionchange", (event: Event) => {
           change.newSubscription ??
           (applicationServerKey
             ? await self.registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey,
-              })
+              userVisibleOnly: true,
+              applicationServerKey,
+            })
             : null);
         if (!fresh) return;
 
@@ -134,7 +134,7 @@ self.addEventListener("pushsubscriptionchange", (event: Event) => {
             method: "DELETE",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ endpoint: oldEndpoint }),
-          }).catch(() => {});
+          }).catch(() => { });
         }
       } catch {
       }
