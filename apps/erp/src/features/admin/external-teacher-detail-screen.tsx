@@ -94,7 +94,7 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
   const [detail, setDetail] = useState<Detail | null | "error">(null);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [statement, setStatement] = useState<Statement | null | "error">(null);
-  const [gaps, setGaps] = useState<Gap[]>([]);
+  const [gaps, setGaps] = useState<Gap[] | "error">([]);
   const [busy, setBusy] = useState(false);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -130,12 +130,14 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
       api
         .get(`center/external-teachers/gaps?teacherId=${teacherId}`)
         .json<{ data: { gaps: Gap[] } }>()
-        .catch(() => null),
+        // These are compliance warnings — a hidden panel must mean "no gaps",
+        // never "the fetch failed".
+        .catch(() => "error" as const),
     ]);
     setDetail(d.data);
     setStudents(s.data);
     setStatement(st === "error" ? "error" : st.data);
-    setGaps(g?.data.gaps ?? []);
+    setGaps(g === "error" ? "error" : g.data.gaps);
   }, [base, teacherId]);
 
   useEffect(() => {
@@ -404,7 +406,19 @@ export function ExternalTeacherDetailScreen({ teacherId }: { teacherId: string }
           ) : null}
         </Sheet>
       ) : null}
-      {gaps.length > 0 ? (
+      {gaps === "error" ? (
+        <Sheet>
+          <SheetHead title={t("externalTeachers.gaps_title")} />
+          <LoadError
+            className="m-4"
+            message={queryStrings.loadFailed}
+            onRetry={() => {
+              load().catch(() => setDetail("error"));
+            }}
+            retryLabel={queryStrings.retry}
+          />
+        </Sheet>
+      ) : gaps.length > 0 ? (
         <Sheet blocking={gaps.some((g) => g.severity === "blocking")}>
           <SheetHead title={t("externalTeachers.gaps_title")} />
           <ul className="flex flex-col divide-y divide-(--rule)">

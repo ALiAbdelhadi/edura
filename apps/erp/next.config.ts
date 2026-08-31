@@ -178,7 +178,15 @@ const sentryBuildOptions = {
     disable: !process.env.SENTRY_AUTH_TOKEN,
   },
 
-  widenClientFileUpload: true,
+  // false since 2026-08-31. This widens the set of client bundles Sentry's
+  // webpack plugin processes, and its payoff is better stack traces from
+  // uploaded source maps — which are OFF here: `sourcemaps.disable` is
+  // `!SENTRY_AUTH_TOKEN`, and no auth token is set on either project. So it was
+  // paying the cost with nothing to show for it. The ERP build stalled past 20
+  // minutes on Vercel's 2-core box in exactly this phase, while the same commit
+  // compiled in 37s locally on 9 workers. Turn it back on the day a
+  // SENTRY_AUTH_TOKEN exists and source maps are actually uploaded.
+  widenClientFileUpload: false,
 
   webpack: {
     treeshake: { removeDebugLogging: true },

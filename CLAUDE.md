@@ -713,14 +713,25 @@ governs. Violating one of these is never a local change.
   `edura-env:production` on `ep-mute-rice-b2s8gg42`, and data untouched
   (2 users / 0 payouts / 0 transactions before and after). Applied BEFORE the
   payout code deploys, per the 2026-08-02 ordering lesson.
-  **[test, 2026-08-31] STILL AT 69 — BLOCKED ON CREDENTIALS:** every role in
-  `packages/database/.env.test` fails auth against
-  `ep-wandering-resonance-b25h9bvh` (`edura_app` on the pooler AND
-  `neondb_owner` on the direct host, measured that day). The file predates a
-  password rotation; refresh it from the Neon console, then
-  `EDURA_ENV=test npx prisma migrate deploy`. Until then a shape check against
-  test reports 69 vs 70 — that is the pending migration, not drift. CI is
-  unaffected (throwaway Postgres runs all 70). Before this, the file was at 69
+  **[test, 2026-08-31] RESOLVED — the entry that stood here is superseded.** It
+  said test was stuck at 69, blocked on credentials, parked, with an "orphan"
+  `apps/superadmin/.env.test` that "nothing reads". All three claims are wrong
+  as of the same day, and acting on them would undo working configuration.
+  What actually happened: `ep-wandering-resonance-b25h9bvh` stopped accepting
+  BOTH roles at once — the signature of a branch reset, not a stale password —
+  so the branch was replaced by `ep-morning-snow-b269im2n`. That replacement was
+  cut FROM PRODUCTION (`label-db` reported `was: edura-env:production`), so it
+  arrived with production's schema, its rows and an `edura_app` carrying
+  production's password. It was relabelled, the role password re-synced with a
+  bare `ALTER ROLE ... PASSWORD` — deliberately NOT `bootstrap-app-role`, which
+  refuses on a populated schema because its `GRANT ... ON ALL TABLES` would
+  re-grant the UPDATE/DELETE that migration `00000000000003` revokes on the
+  append-only ledger — then wiped and reseeded `--no-demo`.
+  Measured after: **70 migrations, verify-db 28/28**, 2 staff / 45 subjects /
+  0 money, and `center-directory-search` green at 7/7.
+  `apps/erp/.env.test` and `apps/superadmin/.env.test` are BOTH deliberate and
+  BOTH read — all 16 `test:db*` / `pretest:db` scripts in the two apps name
+  them. Do not delete them as orphans. Before this, the file was at 69
   and matched all three (measured 2026-08-30: 82 tables / 6 sequences /
   41 RLS tables / 62 policies / 69 migrations). The entry that stood here said it
   was pinned at 53 and trailing — it is not, and acting on that sentence would

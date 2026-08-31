@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { ToggleGroup, ToggleGroupItem } from "@repo/ui/components/toggle-group";
-import { QuerySection } from "@repo/ui/components/query-section";
+import { QuerySection, useQueryStrings } from "@repo/ui/components/query-section";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
@@ -76,13 +76,14 @@ const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export function TeacherMaterialsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
+  const queryStrings = useQueryStrings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<"upload" | "link">("upload");
 
-  const { result: coursesResult } = useList({
+  const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
   });
   const { query: materialsQuery, result: materialsResult } = useList({
@@ -334,11 +335,23 @@ export function TeacherMaterialsScreen() {
                   <SelectItem value="all">
                     {t("teacher.filterByCourse")}
                   </SelectItem>
-                  {courseOptions.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
+                  {coursesQuery.isError ? (
+                    <div className="px-2 py-1.5">
+                      <button
+                        type="button"
+                        className="text-xs text-red underline underline-offset-2"
+                        onClick={() => coursesQuery.refetch()}
+                      >
+                        {queryStrings.loadFailed} — {queryStrings.retry}
+                      </button>
+                    </div>
+                  ) : (
+                    courseOptions.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <Button onClick={() => setIsModalOpen(true)}>

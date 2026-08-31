@@ -80,6 +80,7 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [sessionChoice, setSessionChoice] = useState<Record<string, string>>({});
   const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
+  const [mockBusy, setMockBusy] = useState(false);
 
   const handleRequest = async (courseId: string) => {
     setLoadingId(courseId);
@@ -132,7 +133,8 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   };
 
   const completeMockPayment = async (outcome: "success" | "failure") => {
-    if (!mockIntent) return;
+    if (!mockIntent || mockBusy) return;
+    setMockBusy(true);
     try {
       await requestEnrollment({
         url: `payments/intents/${mockIntent.intentId}/mock-complete`,
@@ -144,6 +146,7 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
     } catch (err: any) {
       toast.error(err?.message || t("studentSubjects.checkoutFailed"));
     } finally {
+      setMockBusy(false);
       setMockIntent(null);
       query.refetch();
     }
@@ -323,10 +326,18 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               </span>
             </div>
             <div className="flex gap-2">
-              <LedgerButton variant="primary" onClick={() => completeMockPayment("success")}>
+              <LedgerButton
+                variant="primary"
+                disabled={mockBusy}
+                onClick={() => completeMockPayment("success")}
+              >
                 {t("studentSubjects.mockPay")}
               </LedgerButton>
-              <LedgerButton variant="danger" onClick={() => completeMockPayment("failure")}>
+              <LedgerButton
+                variant="danger"
+                disabled={mockBusy}
+                onClick={() => completeMockPayment("failure")}
+              >
                 {t("studentSubjects.mockFail")}
               </LedgerButton>
             </div>

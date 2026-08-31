@@ -23,7 +23,8 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
-import { QuerySection } from "@repo/ui/components/query-section";
+import { LoadError } from "@repo/ui/components/ledger";
+import { combineQueries, QuerySection, useQueryStrings } from "@repo/ui/components/query-section";
 import {
   Select,
   SelectContent,
@@ -429,6 +430,7 @@ function CreateCollabDialog({
 }) {
   const t = useTranslations();
   const { locale, formatEGP, formatDate } = useFormatters();
+  const queryStrings = useQueryStrings();
   const { mutateAsync: create } = useCustomMutation();
 
   const timeOptions = useMemo(() => {
@@ -463,7 +465,7 @@ function CreateCollabDialog({
     return () => clearTimeout(id);
   }, [targetQuery]);
 
-  const { result: targetsRes } = useCustom({
+  const { query: targetsQuery, result: targetsRes } = useCustom({
     url: role === "teacher" ? "search/centers" : "search/teachers",
     method: "get",
     config: {
@@ -476,7 +478,7 @@ function CreateCollabDialog({
   });
   const targets = asArray<any>(targetsRes?.data);
 
-  const { result: subjectsRes } = useCustom({
+  const { query: subjectsQuery, result: subjectsRes } = useCustom({
     url: "catalog/subjects",
     method: "get",
     config: { query: { all: "1" } },
@@ -484,7 +486,7 @@ function CreateCollabDialog({
   });
   const subjects = asArray<any>(subjectsRes?.data);
 
-  const { result: treeRes } = useCustom({
+  const { query: treeQuery, result: treeRes } = useCustom({
     url: "catalog/tree",
     method: "get",
     queryOptions: { enabled: open },
@@ -518,25 +520,36 @@ function CreateCollabDialog({
   const trackOptions = grades.find((g) => g.id === gradeId)?.trackOptions ?? [];
   const gradeLabel = (g: GradeOption) => (locale === "ar" ? g.nameAr : g.nameEn);
 
-  const { result: roomsRes } = useList({
+  const { query: roomsQuery, result: roomsRes } = useList({
     resource: "rooms",
     pagination: { mode: "off" },
     queryOptions: { enabled: open && role === "center" },
   });
   const rooms = (roomsRes?.data ?? []) as any[];
 
-  const { result: centerRoomsRes } = useCustom({
+  const { query: centerRoomsQuery, result: centerRoomsRes } = useCustom({
     url: targetId ? `centers/${targetId}/rooms` : "centers/none/rooms",
     method: "get",
     queryOptions: { enabled: open && role === "teacher" && !!targetId },
   });
   const centerRooms = ((centerRoomsRes as any)?.data?.rooms ?? []) as any[];
 
-  const { result: mySubjectsRes } = useCustom({
+  const { query: mySubjectsQuery, result: mySubjectsRes } = useCustom({
     url: "me/subjects",
     method: "get",
     queryOptions: { enabled: open && role === "teacher" },
   });
+
+  // Six dropdown feeds: a failed catalog must not masquerade as an empty
+  // picker. One banner + one retry covers whichever member failed.
+  const feedState = combineQueries(
+    targetsQuery,
+    subjectsQuery,
+    treeQuery,
+    roomsQuery,
+    centerRoomsQuery,
+    mySubjectsQuery,
+  );
   const mySubjects = asArray<any>(mySubjectsRes?.data);
   const subjectOptions = role === "teacher" && mySubjects.length > 0 ? mySubjects : subjects;
 
@@ -641,6 +654,13 @@ function CreateCollabDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {feedState.isError ? (
+            <LoadError
+              message={queryStrings.loadFailed}
+              onRetry={() => feedState.refetch()}
+              retryLabel={queryStrings.retry}
+            />
+          ) : null}
           <div>
             <div className="mb-1 text-sm font-medium">
               {role === "teacher" ? t("shared.collab.pickCenter") : t("shared.collab.pickTeacher")}
