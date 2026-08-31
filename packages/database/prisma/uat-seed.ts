@@ -353,49 +353,28 @@ function writeCredentialsFile(password: string, env: string, host: string) {
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "uat-accounts.md");
 
+  const pad = Math.max(...PEOPLE.map((p) => emailOf(p.key).length));
+  const label = (p: Person) => (p.staffRole ? `${p.role} / ${p.staffRole}` : p.role);
   const rows = PEOPLE.map(
-    (p) =>
-      `| ${p.role}${p.staffRole ? ` / ${p.staffRole}` : ""} | ${emailOf(p.key)} | ${p.name} | ${p.what} |`,
+    (p) => `${emailOf(p.key).padEnd(pad)}  ${label(p)}`,
   ).join("\n");
 
   writeFileSync(
     file,
-    `# حسابات التجربة — ${env}
-
-المضيف: \`${host}\`
-المركز: **مركز التجربة — UAT** (كود \`${CENTER_SHORT_ID}\`)
-
-**كلمة السر واحدة لكل الحسابات دي:**
+    `كلمة السر لكل الحسابات:
 
     ${password}
 
-> الملف ده فيه كلمات سر. مكانه خارج المستودع وصلاحياته 600.
-> متنسخهوش في شات ولا تيكت ولا تبعته لحد.
+الحسابات (${env}):
 
-## الحسابات
-
-| الدور | الإيميل | الاسم | بيجرّب إيه |
-|---|---|---|---|
 ${rows}
 
-## المنصّات
+التطبيق:      https://edura-erp.vercel.app
+الباك أوفيس:  https://edura-superadmin.vercel.app
+(super_admin و accountant: استخدم حساباتك الحقيقية)
 
-- التطبيق: https://edura-erp.vercel.app
-- الباك أوفيس: https://edura-superadmin.vercel.app
-
-## super_admin و accountant
-
-مش موجودين هنا **عن قصد**. حساباتك الحقيقية موجودة أصلاً على الإنتاج —
-استخدمها. إضافة حسابات إدارة منصّة إضافية على قاعدة حيّة هي بالظبط الطريقة
-اللي بتخلّي ٤١ حساب super_admin شارد يفضلوا وراك، وده حصل في المشروع ده مرة.
-
-## المسح بعد التجربة
-
+المسح بعد التجربة:
     EDURA_ENV=${env} npx tsx prisma/uat-seed.ts --purge --yes
-
-بيمسح بالمعرّفات بالظبط، فمش هيلمس أي صف حقيقي. أي بيانات مالية عملتها
-بنفسك من التطبيق أثناء التجربة **مش** بتتمسح بالأمر ده — دي شغلانة مسح ما
-قبل الإطلاق (\`production-cleanup.ts\`).
 `,
     { mode: 0o600 },
   );
