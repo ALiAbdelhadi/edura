@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { linkGradeTrack } from "@/lib/services/catalog/catalog-admin";
 import { parseJson } from "@/lib/validation/zod";
@@ -12,8 +11,7 @@ const createSchema = z.object({
   trackId: z.string().uuid(),
 });
 
-export const POST = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req) => {
   const body = await parseJson(req, createSchema);
-  return ok(await linkGradeTrack(body.gradeLevelId, body.trackId), { status: 201 });
+  return ok(await linkGradeTrack(body.gradeLevelId, body.trackId, actor), { status: 201 });
 });

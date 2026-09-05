@@ -146,7 +146,11 @@
     "mockFail": "Simulate failure",
     "seats": "Seats",
     "noTrackSubjectsHint": "If your year or track is not set yet, ask your center — you can browse all subjects meanwhile.",
-    "subscribeAtCenter": "Subscribe and pay at the center — online payment is not available yet."
+    "subscribeAtCenter": "Subscribe and pay at the center — online payment is not available yet.",
+    "payFromBalance": "Pay from balance",
+    "balanceAvailable": "Your balance: {amount}",
+    "insufficientBalance": "Your balance ({amount}) is not enough for this class.",
+    "paidFromBalance": "Paid from your balance — the subscription is active."
   },
   "studentWallet": {
     "subtitle": "Top up and pay for classes from your balance",

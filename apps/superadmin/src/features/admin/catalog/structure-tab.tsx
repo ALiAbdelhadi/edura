@@ -14,14 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { toast } from "@repo/ui/components/sonner";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";
-import { Pencil, Plus, X } from "lucide-react";
+import { Pencil, Plus, RefreshCcw, TriangleAlert, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { EntityDialog, type FieldSpec, type FieldValue } from "./entity-dialog";
 import type { GradeRow, StageRow, SystemRow, TrackRow } from "./types";
-import { useCatalogMutation } from "./use-catalog-mutation";
+import { useAction } from "@/lib/api/use-action";
 
 type DialogState =
   | { kind: "system"; row?: SystemRow }
@@ -44,7 +44,8 @@ const ENDPOINT: Record<NonNullable<DialogState>["kind"], string> = {
 
 export function StructureTab() {
   const t = useTranslations();
-  const { mutate, busy } = useCatalogMutation();
+  const queryStrings = useQueryStrings();
+  const { run, busy } = useAction();
   const [systemId, setSystemId] = useState<string | null>(null);
   const [stageId, setStageId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -129,35 +130,75 @@ export function StructureTab() {
       if (kind === "grade" || kind === "track") payload.stageId = stageId;
     }
 
-    const okRes = await mutate(row ? `${endpoint}/${row.id}` : endpoint, row ? "PATCH" : "POST", payload);
-    if (okRes) {
-      toast.success(row ? t("catalog.toasts.updated") : t("catalog.toasts.created"));
+    const res = await run({
+      url: row ? `${endpoint}/${row.id}` : endpoint,
+      method: row ? "patch" : "post",
+      values: payload,
+      successMsg: row ? t("catalog.toasts.updated") : t("catalog.toasts.created"),
+    });
+    if (res.ok) {
       setDialog(null);
       refreshAll();
     }
+    // Returned so the dialog can put a 422's `fields` on the offending input.
+    return res;
   }
 
   async function linkTrack(gradeLevelId: string, trackId: string) {
-    const okRes = await mutate("admin/catalog/grade-tracks", "POST", { gradeLevelId, trackId });
-    if (okRes) {
-      toast.success(t("catalog.toasts.created"));
-      refreshAll();
-    }
+    if (busy) return;
+    const res = await run({
+      url: "admin/catalog/grade-tracks",
+      values: { gradeLevelId, trackId },
+      successMsg: t("catalog.toasts.created"),
+    });
+    if (res.ok) refreshAll();
   }
 
   async function unlinkTrack(linkId: string) {
-    const okRes = await mutate(`admin/catalog/grade-tracks/${linkId}`, "DELETE");
-    if (okRes) {
-      toast.success(t("catalog.toasts.deleted"));
-      refreshAll();
-    }
+    if (busy) return;
+    const res = await run({
+      url: `admin/catalog/grade-tracks/${linkId}`,
+      method: "delete",
+      successMsg: t("catalog.toasts.deleted"),
+    });
+    if (res.ok) refreshAll();
   }
+
+  const loadError = (q: { isError: boolean; error: unknown; refetch: () => unknown }) => {
+    const denied = (q.error as { statusCode?: number } | null)?.statusCode === 403;
+    return (
+      <EmptyState
+        tone={denied ? "denied" : "error"}
+        icon={TriangleAlert}
+        title={denied ? queryStrings.denied : queryStrings.loadFailed}
+        action={
+          denied ? undefined : (
+            <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
+              <RefreshCcw className="size-4" aria-hidden="true" />
+              {queryStrings.retry}
+            </Button>
+          )
+        }
+      />
+    );
+  };
 
   const rowShell = (selected: boolean) =>
     cn(
       "w-full rounded-md border p-3 text-start transition-colors",
       selected ? "border-indigo bg-primary/5" : "hover:bg-field/50",
     );
+
+  // The selectable rows put a real <button> next to the edit button rather
+  // than a role="button" div wrapping it: a native button answers Space as
+  // well as Enter, and nothing interactive is nested inside anything else.
+  const selectableRow = (selected: boolean) =>
+    cn(
+      "flex w-full items-center justify-between gap-2 rounded-md border pe-3 transition-colors",
+      selected ? "border-indigo bg-primary/5" : "hover:bg-field/50",
+    );
+
+  const selectButtonClass = "focus-ledger min-w-0 flex-1 p-3 text-start";
 
   const nameAndCode = (r: { nameAr: string; code: string; isActive: boolean }) => (
     <div className="flex min-w-0 items-center gap-2">
@@ -174,10 +215,7 @@ export function StructureTab() {
       variant="ghost"
       size="icon"
       className="size-7 shrink-0"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      onClick={() => onClick()}
     >
       <Pencil className="size-3.5" />
     </Button>
@@ -197,20 +235,22 @@ export function StructureTab() {
         <CardContent className="grid gap-2">
           {systemsQ.query.isLoading ? (
             <TableSkeleton rows={3} />
+          ) : systemsQ.query.isError ? (
+            loadError(systemsQ.query)
           ) : (
             systems.map((s) => (
-              <div
-                key={s.id}
-                role="button"
-                tabIndex={0}
-                className={cn(rowShell(systemId === s.id), "flex items-center justify-between gap-2")}
-                onClick={() => {
-                  setSystemId(s.id);
-                  setStageId(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && (setSystemId(s.id), setStageId(null))}
-              >
-                {nameAndCode(s)}
+              <div key={s.id} className={selectableRow(systemId === s.id)}>
+                <button
+                  type="button"
+                  aria-pressed={systemId === s.id}
+                  className={selectButtonClass}
+                  onClick={() => {
+                    setSystemId(s.id);
+                    setStageId(null);
+                  }}
+                >
+                  {nameAndCode(s)}
+                </button>
                 {editBtn(() => setDialog({ kind: "system", row: s }))}
               </div>
             ))
@@ -232,22 +272,24 @@ export function StructureTab() {
             <EmptyState title={t("catalog.structure.selectSystemFirst")} />
           ) : stagesQ.query.isLoading ? (
             <TableSkeleton rows={3} />
+          ) : stagesQ.query.isError ? (
+            loadError(stagesQ.query)
           ) : (
             stages.map((s) => (
-              <div
-                key={s.id}
-                role="button"
-                tabIndex={0}
-                className={cn(rowShell(stageId === s.id), "flex items-center justify-between gap-2")}
-                onClick={() => setStageId(s.id)}
-                onKeyDown={(e) => e.key === "Enter" && setStageId(s.id)}
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  {nameAndCode(s)}
-                  {s.hasSecondLanguage ? (
-                    <Badge variant="secondary">{t("catalog.structure.secondLanguageBadge")}</Badge>
-                  ) : null}
-                </div>
+              <div key={s.id} className={selectableRow(stageId === s.id)}>
+                <button
+                  type="button"
+                  aria-pressed={stageId === s.id}
+                  className={selectButtonClass}
+                  onClick={() => setStageId(s.id)}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {nameAndCode(s)}
+                    {s.hasSecondLanguage ? (
+                      <Badge variant="secondary">{t("catalog.structure.secondLanguageBadge")}</Badge>
+                    ) : null}
+                  </div>
+                </button>
                 {editBtn(() => setDialog({ kind: "stage", row: s }))}
               </div>
             ))
@@ -270,6 +312,8 @@ export function StructureTab() {
               <EmptyState title={t("catalog.structure.selectStageFirst")} />
             ) : gradesQ.query.isLoading ? (
               <TableSkeleton rows={3} />
+            ) : gradesQ.query.isError ? (
+              loadError(gradesQ.query)
             ) : grades.length === 0 ? (
               <EmptyState title={t("catalog.structure.noGrades")} />
             ) : (
@@ -292,16 +336,25 @@ export function StructureTab() {
                           <button
                             type="button"
                             aria-label={t("catalog.structure.unlinkTrack")}
+                            disabled={busy}
                             onClick={() => void unlinkTrack(gt.id)}
-                            className="hover:text-red"
+                            className="hover:text-red disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <X className="size-3" />
                           </button>
                         </Badge>
                       ))}
                       {linkable.length > 0 ? (
-                        <Select value="" onValueChange={(trackId) => void linkTrack(g.id, trackId)}>
-                          <SelectTrigger size="sm" className="h-7 w-auto text-xs">
+                        <Select
+                          value=""
+                          disabled={busy}
+                          onValueChange={(trackId) => void linkTrack(g.id, trackId)}
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className="h-7 w-auto text-xs"
+                            aria-label={t("catalog.structure.linkTrack")}
+                          >
                             <SelectValue placeholder={t("catalog.structure.linkTrack")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -334,6 +387,8 @@ export function StructureTab() {
               <EmptyState title={t("catalog.structure.selectStageFirst")} />
             ) : tracksQ.query.isLoading ? (
               <TableSkeleton rows={2} />
+            ) : tracksQ.query.isError ? (
+              loadError(tracksQ.query)
             ) : tracks.length === 0 ? (
               <EmptyState title={t("catalog.structure.noTracks")} />
             ) : (

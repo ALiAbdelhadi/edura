@@ -1,80 +1,55 @@
-import { platformDb } from "@/lib/db/scope";
+import { scopedDb, type TenantTx } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { superadminAsCenter } from "@/lib/authz/center-actor";
 import {
-  createCourse,
-  updateCourse,
-  cancelCourse,
-  reassignCourseTeacher,
+  createCourseTx,
+  updateCourseTx,
+  cancelCourseTx,
+  reassignCourseTeacherTx,
   getCenterCourse,
   type CourseCreateInput,
   type CoursePatch,
 } from "@repo/server-core/services/center/courses";
+import { runEffects } from "@repo/server-core/db/effects";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import {
   listCenterEnrollments,
-  enrollStudent,
-  unenrollStudent,
+  enrollStudentTx,
+  unenrollStudentTx,
   listEnrollmentRequests,
-  approveEnrollmentRequest,
-  declineEnrollmentRequest,
+  approveEnrollmentRequestTx,
+  declineEnrollmentRequestTx,
 } from "@repo/server-core/services/center/enrollments";
 
-type AuditSpec = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  before?: unknown;
-  after?: unknown;
-};
-
-async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: spec.action,
-          targetType: spec.targetType,
-          targetId: spec.targetId,
-          centerId,
-          beforeState: (spec.before ?? undefined) as never,
-          afterState: (spec.after ?? undefined) as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
-}
-
-async function snapshotCourse(id: string) {
-  return platformDb((tx) =>
-    tx.course.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        teacherId: true,
-        defaultRoomId: true,
-        maxStudents: true,
-        price: true,
-        pricePerMonth: true,
-        pricePerSession: true,
-        daysOfWeek: true,
-        startTime: true,
-        endTime: true,
-        startDate: true,
-        endDate: true,
-        pricingMethod: true,
-        splitPlatformBp: true,
-        splitTeacherBp: true,
-        splitCenterBp: true,
-        m2CenterFee: true,
-        m2CenterBp: true,
-      },
-    }),
-  );
+// Reads on the caller's own transaction: an `after` snapshot taken on a separate
+// connection would still see the pre-write row and quietly record a wrong audit.
+function courseSnapshot(tx: TenantTx, id: string) {
+  return tx.course.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      teacherId: true,
+      defaultRoomId: true,
+      maxStudents: true,
+      price: true,
+      pricePerMonth: true,
+      pricePerSession: true,
+      daysOfWeek: true,
+      startTime: true,
+      endTime: true,
+      startDate: true,
+      endDate: true,
+      pricingMethod: true,
+      splitPlatformBp: true,
+      splitTeacherBp: true,
+      splitCenterBp: true,
+      m2CenterFee: true,
+      m2CenterBp: true,
+    },
+  });
 }
 
 function frozenOf(c: Record<string, unknown> | null) {
@@ -110,22 +85,25 @@ export async function adminCreateCourse(
   body: CourseCreateInput,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await createCourse(acting, body);
-  await audit(actor, centerId, {
-    action: "center.course_created",
-    targetType: "course",
-    targetId: result.course.id,
-    before: null,
-    after: {
-      title: result.course.title,
-      teacherId: result.course.teacherId,
-      roomId: result.course.defaultRoomId,
-      maxStudents: result.course.maxStudents,
-      sessionsGenerated: result.sessionsGenerated,
-      frozenPricing: frozenOf(result.course as unknown as Record<string, unknown>),
-    },
+  return scopedDb(acting, async (tx) => {
+    const result = await createCourseTx(tx, acting, body);
+    await writeAdminAudit(tx, actor, {
+      action: "center.course_created",
+      targetType: "course",
+      targetId: result.course.id,
+      centerId,
+      before: null,
+      after: {
+        title: result.course.title,
+        teacherId: result.course.teacherId,
+        roomId: result.course.defaultRoomId,
+        maxStudents: result.course.maxStudents,
+        sessionsGenerated: result.sessionsGenerated,
+        frozenPricing: frozenOf(result.course as unknown as Record<string, unknown>),
+      },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminUpdateCourse(
@@ -135,23 +113,26 @@ export async function adminUpdateCourse(
   patch: CoursePatch,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await snapshotCourse(courseId);
-  const result = await updateCourse(acting, courseId, patch);
-  const after = await snapshotCourse(courseId);
+  return scopedDb(acting, async (tx) => {
+    const before = await courseSnapshot(tx, courseId);
+    const result = await updateCourseTx(tx, acting, courseId, patch);
+    const after = await courseSnapshot(tx, courseId);
 
-  await audit(actor, centerId, {
-    action: "center.course_updated",
-    targetType: "course",
-    targetId: courseId,
-    before,
-    after: {
-      changed: Object.keys(patch),
-      course: after,
-      frozenPricingUnchanged:
-        JSON.stringify(frozenOf(before as never)) === JSON.stringify(frozenOf(after as never)),
-    },
+    await writeAdminAudit(tx, actor, {
+      action: "center.course_updated",
+      targetType: "course",
+      targetId: courseId,
+      centerId,
+      before,
+      after: {
+        changed: Object.keys(patch),
+        course: after,
+        frozenPricingUnchanged:
+          JSON.stringify(frozenOf(before as never)) === JSON.stringify(frozenOf(after as never)),
+      },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminCancelCourse(
@@ -161,36 +142,41 @@ export async function adminCancelCourse(
   reason: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await snapshotCourse(courseId);
-  const counts = await platformDb(async (tx) => ({
-    activeEnrollments: await tx.enrollment.count({
-      where: { courseId, status: "active" },
-    }),
-    futureSessions: await tx.session.count({
-      where: { courseId, status: { in: ["scheduled", "postponed"] } },
-    }),
-    settledSessions: await tx.session.count({
-      where: { courseId, distributedAt: { not: null } },
-    }),
-  }));
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const before = await courseSnapshot(tx, courseId);
+    const counts = {
+      activeEnrollments: await tx.enrollment.count({
+        where: { courseId, status: "active" },
+      }),
+      futureSessions: await tx.session.count({
+        where: { courseId, status: { in: ["scheduled", "postponed"] } },
+      }),
+      settledSessions: await tx.session.count({
+        where: { courseId, distributedAt: { not: null } },
+      }),
+    };
 
-  const result = await cancelCourse(acting, courseId, reason);
+    const outcome = await cancelCourseTx(tx, acting, courseId, reason);
 
-  await audit(actor, centerId, {
-    action: "center.course_cancelled",
-    targetType: "course",
-    targetId: courseId,
-    before: { status: before?.status, ...counts },
-    after: {
-      status: "cancelled",
-      reason,
-      notified: result.notified,
-      refunded: false,
-      subscriptionsCancelled: false,
-      settledSessionsUntouched: counts.settledSessions,
-    },
+    await writeAdminAudit(tx, actor, {
+      action: "center.course_cancelled",
+      targetType: "course",
+      targetId: courseId,
+      centerId,
+      before: { status: before?.status, ...counts },
+      after: {
+        status: "cancelled",
+        reason,
+        notified: outcome.value.notified,
+        refunded: false,
+        subscriptionsCancelled: false,
+        settledSessionsUntouched: counts.settledSessions,
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminReassignTeacher(
@@ -200,20 +186,23 @@ export async function adminReassignTeacher(
   teacherId: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await snapshotCourse(courseId);
-  const result = await reassignCourseTeacher(acting, courseId, teacherId);
-  await audit(actor, centerId, {
-    action: "center.course_teacher_reassigned",
-    targetType: "course",
-    targetId: courseId,
-    before: { teacherId: before?.teacherId },
-    after: {
-      teacherId,
-      futureSessionsOnly: true,
-      frozenPricingUnchanged: true,
-    },
+  return scopedDb(acting, async (tx) => {
+    const before = await courseSnapshot(tx, courseId);
+    const result = await reassignCourseTeacherTx(tx, acting, courseId, teacherId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.course_teacher_reassigned",
+      targetType: "course",
+      targetId: courseId,
+      centerId,
+      before: { teacherId: before?.teacherId },
+      after: {
+        teacherId,
+        futureSessionsOnly: true,
+        frozenPricingUnchanged: true,
+      },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminListEnrollments(
@@ -231,19 +220,24 @@ export async function adminEnrollStudent(
   input: { studentId: string; courseId: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await enrollStudent(acting, input);
-  await audit(actor, centerId, {
-    action: "center.student_enrolled",
-    targetType: "enrollment",
-    targetId: result.id,
-    before: null,
-    after: {
-      studentId: input.studentId,
-      courseId: input.courseId,
-      subscriptionCreated: false,
-    },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await enrollStudentTx(tx, acting, input);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_enrolled",
+      targetType: "enrollment",
+      targetId: outcome.value.id,
+      centerId,
+      before: null,
+      after: {
+        studentId: input.studentId,
+        courseId: input.courseId,
+        subscriptionCreated: false,
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminUnenrollStudent(
@@ -252,21 +246,22 @@ export async function adminUnenrollStudent(
   enrollmentId: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.enrollment.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.enrollment.findUnique({
       where: { id: enrollmentId },
       select: { id: true, studentId: true, courseId: true, status: true, enrolledAt: true },
-    }),
-  );
-  const result = await unenrollStudent(acting, enrollmentId);
-  await audit(actor, centerId, {
-    action: "center.student_unenrolled",
-    targetType: "enrollment",
-    targetId: enrollmentId,
-    before,
-    after: { status: "unenrolled", refunded: false },
+    });
+    const result = await unenrollStudentTx(tx, acting, enrollmentId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_unenrolled",
+      targetType: "enrollment",
+      targetId: enrollmentId,
+      centerId,
+      before,
+      after: { status: "unenrolled", refunded: false },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminListEnrollmentRequests(
@@ -284,21 +279,24 @@ export async function adminApproveEnrollmentRequest(
   requestId: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.enrollmentRequest.findUnique({
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const before = await tx.enrollmentRequest.findUnique({
       where: { id: requestId },
       select: { id: true, status: true, studentId: true, courseId: true },
-    }),
-  );
-  const result = await approveEnrollmentRequest(acting, requestId);
-  await audit(actor, centerId, {
-    action: "center.enrollment_request_approved",
-    targetType: "enrollment_request",
-    targetId: requestId,
-    before,
-    after: { status: "approved", studentId: before?.studentId, courseId: before?.courseId },
+    });
+    const outcome = await approveEnrollmentRequestTx(tx, acting, requestId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.enrollment_request_approved",
+      targetType: "enrollment_request",
+      targetId: requestId,
+      centerId,
+      before,
+      after: { status: "approved", studentId: before?.studentId, courseId: before?.courseId },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminDeclineEnrollmentRequest(
@@ -308,19 +306,22 @@ export async function adminDeclineEnrollmentRequest(
   reason?: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.enrollmentRequest.findUnique({
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const before = await tx.enrollmentRequest.findUnique({
       where: { id: requestId },
       select: { id: true, status: true, studentId: true, courseId: true },
-    }),
-  );
-  const result = await declineEnrollmentRequest(acting, requestId, reason);
-  await audit(actor, centerId, {
-    action: "center.enrollment_request_declined",
-    targetType: "enrollment_request",
-    targetId: requestId,
-    before,
-    after: { status: "declined", reason: reason ?? null },
+    });
+    const outcome = await declineEnrollmentRequestTx(tx, acting, requestId, reason);
+    await writeAdminAudit(tx, actor, {
+      action: "center.enrollment_request_declined",
+      targetType: "enrollment_request",
+      targetId: requestId,
+      centerId,
+      before,
+      after: { status: "declined", reason: reason ?? null },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }

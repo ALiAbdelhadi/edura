@@ -2,6 +2,7 @@ import { platformDb, type TenantTx } from "../../db/scope";
 import { toDateKey } from "../../lib/date-key";
 import { checkConflicts } from "../../services/sessions/conflict-detector";
 import { notify } from "../../services/notifications/notify";
+import { runEffects, type WithEffects, type DeferredEffect } from "../../db/effects";
 import {
   ForbiddenError,
   NotFoundError,
@@ -30,8 +31,22 @@ async function resolveSessionAudience(
 }
 
 export async function cancelSession(sessionId: string, teacherId: string, reason: string) {
-  const { session, recipients } = await platformDb(
-    async (tx) => {
+  const { value, effects } = await platformDb(
+    (tx) => cancelSessionTx(tx, sessionId, teacherId, reason),
+    { actorId: teacherId },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function cancelSessionTx(
+  tx: TenantTx,
+  sessionId: string,
+  teacherId: string,
+  reason: string,
+) {
+  const { session, recipients } = await (async () => {
+    {
       const existing = await tx.session.findUnique({ where: { id: sessionId } });
       if (!existing) throw new NotFoundError("Session not found");
       if (existing.teacherId !== teacherId) {
@@ -61,21 +76,24 @@ export async function cancelSession(sessionId: string, teacherId: string, reason
         : [];
 
       return { session, recipients };
-    },
-    { actorId: teacherId },
-  );
+    }
+  })();
 
-  if (recipients.length > 0) {
-    await notify({
-      recipients,
-      type: "session_cancelled",
-      title: "Session cancelled",
-      body: `A session has been cancelled. Reason: ${reason}`,
-      data: { sessionId, reason },
-    });
-  }
+  const effects: DeferredEffect[] =
+    recipients.length > 0
+      ? [
+          () =>
+            notify({
+              recipients,
+              type: "session_cancelled",
+              title: "Session cancelled",
+              body: `A session has been cancelled. Reason: ${reason}`,
+              data: { sessionId, reason },
+            }),
+        ]
+      : [];
 
-  return session;
+  return { value: session, effects };
 }
 
 export async function postponeSession(
@@ -86,8 +104,26 @@ export async function postponeSession(
   newEndTime: string,
   reason: string,
 ) {
-  const { session, recipients, oldDate, oldStartTime, oldEndTime } = await platformDb(
-    async (tx) => {
+  const { value, effects } = await platformDb(
+    (tx) =>
+      postponeSessionTx(tx, sessionId, teacherId, newDate, newStartTime, newEndTime, reason),
+    { actorId: teacherId },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function postponeSessionTx(
+  tx: TenantTx,
+  sessionId: string,
+  teacherId: string,
+  newDate: string,
+  newStartTime: string,
+  newEndTime: string,
+  reason: string,
+) {
+  const { session, recipients, oldDate, oldStartTime, oldEndTime } = await (async () => {
+    {
       const existing = await tx.session.findUnique({ where: { id: sessionId } });
       if (!existing) throw new NotFoundError("Session not found");
       if (existing.teacherId !== teacherId) {
@@ -143,28 +179,31 @@ export async function postponeSession(
         : [];
 
       return { session, recipients, oldDate, oldStartTime, oldEndTime };
-    },
-    { actorId: teacherId },
-  );
+    }
+  })();
 
-  if (recipients.length > 0) {
-    await notify({
-      recipients,
-      type: "session_postponed",
-      title: "Session postponed",
-      body: `A session has been postponed to ${newDate} ${newStartTime}–${newEndTime}. Reason: ${reason}`,
-      data: {
-        sessionId,
-        reason,
-        oldDate: toDateKey(oldDate),
-        oldStartTime,
-        oldEndTime,
-        newDate,
-        newStartTime,
-        newEndTime,
-      },
-    });
-  }
+  const effects: DeferredEffect[] =
+    recipients.length > 0
+      ? [
+          () =>
+            notify({
+              recipients,
+              type: "session_postponed",
+              title: "Session postponed",
+              body: `A session has been postponed to ${newDate} ${newStartTime}–${newEndTime}. Reason: ${reason}`,
+              data: {
+                sessionId,
+                reason,
+                oldDate: toDateKey(oldDate),
+                oldStartTime,
+                oldEndTime,
+                newDate,
+                newStartTime,
+                newEndTime,
+              },
+            }),
+        ]
+      : [];
 
-  return session;
+  return { value: session, effects };
 }

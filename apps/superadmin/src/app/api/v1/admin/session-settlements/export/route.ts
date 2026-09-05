@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { buildSettlementWorkbook } from "@/lib/services/finance/settlement-export";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("accountant", "super_admin");
+export const GET = withRole(["accountant", "super_admin"], async (_user, req) => {
 
   const p = new URL(req.url).searchParams;
   const date = (v: string | null) => {

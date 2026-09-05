@@ -1,4 +1,4 @@
-import { getRequestContext } from "../context";
+import { getAuditTx, getRequestContext, type AuditTx } from "../context";
 import { Prisma } from "../generated/client/index";
 
 const SOFT_DELETE_MODELS = new Set<string>(["User"]);
@@ -152,6 +152,43 @@ export const immutableExtension = Prisma.defineExtension({
   },
 });
 
+function reportAuditFailure(action: string, err: unknown): void {
+  const why = err instanceof Error ? err.message : String(err);
+  console.error(`[auto-audit] '${action}' row was NOT written: ${why}`);
+}
+
+async function writeAuditInTx(
+  tx: AuditTx,
+  action: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  // The row rides the caller's own transaction, so a rollback takes it with it —
+  // an aborted operation must never leave an audit row claiming it happened. The
+  // savepoint keeps a rejected audit insert (e.g. RLS) from poisoning that
+  // transaction: the business write still commits, and the failure is reported
+  // rather than swallowed.
+  try {
+    await tx.$executeRaw`SAVEPOINT edura_auto_audit`;
+  } catch (err) {
+    reportAuditFailure(action, err);
+    return;
+  }
+  try {
+    await tx.auditLog.create({ data });
+    await tx.$executeRaw`RELEASE SAVEPOINT edura_auto_audit`;
+  } catch (err) {
+    reportAuditFailure(action, err);
+    // Recovery is best-effort and must never become the caller's problem: a
+    // failed audit may not turn a valid business write into a failed request.
+    try {
+      await tx.$executeRaw`ROLLBACK TO SAVEPOINT edura_auto_audit`;
+      await tx.$executeRaw`RELEASE SAVEPOINT edura_auto_audit`;
+    } catch (recoveryErr) {
+      reportAuditFailure(action, recoveryErr);
+    }
+  }
+}
+
 export const auditLogExtension = Prisma.defineExtension((client) =>
   client.$extends({
     name: "edura-audit-log",
@@ -164,33 +201,36 @@ export const auditLogExtension = Prisma.defineExtension((client) =>
           if (action && model) {
             const ctx = getRequestContext();
             const rec = result as { id?: string } | null;
-            try {
-              const c = client as {
-                $transaction: (
-                  fn: (tx: {
-                    $executeRaw: (
-                      q: TemplateStringsArray,
-                      ...v: unknown[]
-                    ) => Promise<unknown>;
-                    auditLog: { create: (a: unknown) => Promise<unknown> };
-                  }) => Promise<unknown>,
-                ) => Promise<unknown>;
-              };
-              await c.$transaction(async (tx) => {
-                await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
-                await tx.auditLog.create({
-                  data: {
-                    actorId: ctx?.actorId ?? null,
-                    action,
-                    targetType: model.toLowerCase(),
-                    targetId: rec?.id ?? null,
-                    centerId: ctx?.centerId ?? null,
-                    afterState: (result as object) ?? undefined,
-                    ipAddress: ctx?.ipAddress ?? null,
-                  },
+            const data = {
+              actorId: ctx?.actorId ?? null,
+              action,
+              targetType: model.toLowerCase(),
+              targetId: rec?.id ?? null,
+              centerId: ctx?.centerId ?? null,
+              afterState: (result as object) ?? undefined,
+              ipAddress: ctx?.ipAddress ?? null,
+            };
+
+            const openTx = getAuditTx();
+            if (openTx) {
+              await writeAuditInTx(openTx, action, data);
+            } else {
+              // No enclosing transaction to join — a bare client call. This one
+              // cannot be atomic with the write, so the only thing owed is that
+              // a failure is reported.
+              try {
+                const c = client as {
+                  $transaction: (
+                    fn: (tx: AuditTx) => Promise<unknown>,
+                  ) => Promise<unknown>;
+                };
+                await c.$transaction(async (tx) => {
+                  await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
+                  await tx.auditLog.create({ data });
                 });
-              });
-            } catch {
+              } catch (err) {
+                reportAuditFailure(action, err);
+              }
             }
           }
           return result;

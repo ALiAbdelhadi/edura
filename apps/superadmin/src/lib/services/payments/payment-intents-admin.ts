@@ -1,12 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
-import {
-  exactQuery,
-  matchesSearchTerms,
-  narrowQuery,
-  searchTerms,
-} from "@repo/database/search-text";
-import { NotFoundError } from "@/lib/errors/classes";
+import { exactQuery, narrowQuery } from "@repo/database/search-text";
 import type { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 export type IntentListFilters = {
   q?: string; // student name/email or gateway order id / ref
@@ -24,8 +19,7 @@ const GATEWAYS = new Set(["mock", "paymob"]);
 const METHODS = new Set(["card", "wallet"]);
 
 export async function listPaymentIntents(filters: IntentListFilters) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const { page, limit } = parsePageLimit(filters, 20);
 
   return platformDb(async (tx) => {
     const where: Prisma.PaymentIntentWhereInput = {};
@@ -117,44 +111,3 @@ export async function listPaymentIntents(filters: IntentListFilters) {
   });
 }
 
-export async function getPaymentIntent(id: string) {
-  return platformDb(async (tx) => {
-    const intent = await tx.paymentIntent.findUnique({ where: { id } });
-    if (!intent) throw new NotFoundError("Payment intent not found");
-
-    const [student, payer, course, center, payment, transaction] = await Promise.all([
-      intent.studentId
-        ? tx.user.findUnique({
-            where: { id: intent.studentId },
-            select: { id: true, name: true, email: true, phone: true },
-          })
-        : null,
-      intent.payerUserId
-        ? tx.user.findUnique({
-            where: { id: intent.payerUserId },
-            select: { id: true, name: true, email: true, phone: true },
-          })
-        : null,
-      intent.courseId
-        ? tx.course.findUnique({ where: { id: intent.courseId }, select: { id: true, title: true } })
-        : null,
-      intent.centerId
-        ? tx.center.findUnique({ where: { id: intent.centerId }, select: { id: true, name: true } })
-        : null,
-      intent.paymentId
-        ? tx.payment.findUnique({
-            where: { id: intent.paymentId },
-            select: { id: true, receiptNumber: true, amount: true, paidAt: true },
-          })
-        : null,
-      intent.transactionId
-        ? tx.transaction.findUnique({
-            where: { id: intent.transactionId },
-            select: { id: true, refNumber: true, amount: true, status: true },
-          })
-        : null,
-    ]);
-
-    return { ...intent, student, payer, course, center, payment, transaction };
-  });
-}

@@ -8,6 +8,7 @@ import {
 } from "@repo/server-core/services/center/shifts";
 import { createWalkInSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
 import { recordPayment } from "@repo/server-core/services/payments/payments";
+import { refundPayment } from "@repo/server-core/services/payments/refund-payment";
 import { REPORT_EXPORTS } from "@repo/server-core/services/reports/report-export";
 import { BusinessRuleError, ForbiddenError } from "@repo/server-core/errors/classes";
 import type { SessionUser } from "@repo/server-core/auth/types";
@@ -127,8 +128,8 @@ async function main() {
     owner,
   );
   const manual = await recordPayment({ studentId: fx.students[2], amount: 7000 }, owner);
-  const refund = await recordPayment(
-    { studentId: fx.students[2], amount: -2000, note: "refund test" },
+  const refund = await refundPayment(
+    { paymentId: manual.id, amount: 2000, reason: "refund test", refundChannel: "cash_drawer" },
     owner,
   );
   const stamped = await withPlatformContext((tx) =>

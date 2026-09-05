@@ -12,6 +12,11 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 const centerActor = (centerId: string): SessionUser =>
   ({ id: "irrelevant-" + centerId, role: "center_admin", centerId, locale: "en" });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RUN_AT = Date.now();
+const utcDay = (offsetDays: number): Date =>
+  new Date(Math.floor((RUN_AT + offsetDays * DAY_MS) / DAY_MS) * DAY_MS);
+
 const courseData = (tag: string, n: string, teacherId: string, centerId: string | null) => ({
   centerId, teacherId, title: `${tag}-${n}`, subject: "Math",
   daysOfWeek: [1], startTime: "10:00", endTime: "11:00",
@@ -63,8 +68,8 @@ async function main() {
       data: {
         studentId: s5, courseId: a1.id, centerId: centerA.id, teacherId: teacher.id,
         targetType: "center", plan: "monthly", status: "active", source: "walk_in", price: 40000,
-        periodStart: new Date("2026-01-01T00:00:00Z"), periodEnd: new Date("2026-12-01T00:00:00Z"),
-        paymentMethod: "cash", activatedAt: new Date("2026-01-01T00:00:00Z"),
+        periodStart: utcDay(-30), periodEnd: utcDay(30),
+        paymentMethod: "cash", activatedAt: utcDay(-30),
       },
     });
 

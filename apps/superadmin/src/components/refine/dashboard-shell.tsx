@@ -7,7 +7,7 @@ import { Link, useRouter, usePathname } from "@/i18n/navigation";
 import { useGlobalSearch } from "@/lib/api/use-global-search";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
-import { useGetIdentity, useList, useLogout } from "@refinedev/core";
+import { useCustom, useGetIdentity, useList, useLogout } from "@refinedev/core";
 import {
   AppShell,
   type NavGroup as ShellNavGroup,
@@ -98,18 +98,19 @@ function useNavBadges(hrefs: Set<string>): Record<string, number> {
     h.endsWith("/registrations"),
   );
 
-  const { result } = useList({
-    resource: "admin-registrations",
-    filters: [{ field: "status", operator: "eq" as const, value: "pending" }],
+  const { result } = useCustom<{ centers: number; teachers: number; total: number }>({
+    url: "admin/registrations/count",
+    method: "get",
     queryOptions: { enabled: Boolean(registrationsHref) },
   });
+  const total = result?.data?.total;
 
   return React.useMemo(() => {
     const map: Record<string, number> = {};
-    const count = result?.total ?? 0;
+    const count = total ?? 0;
     if (registrationsHref && count > 0) map[registrationsHref] = count;
     return map;
-  }, [registrationsHref, result?.total]);
+  }, [registrationsHref, total]);
 }
 
 export default function DashboardShell({

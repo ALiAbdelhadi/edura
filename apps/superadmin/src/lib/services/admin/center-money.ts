@@ -1,49 +1,24 @@
-import { platformDb } from "@/lib/db/scope";
+import { platformDb, scopedDb } from "@/lib/db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import { requireCenterScope } from "@repo/server-core/authz/center-scope";
 import type { SessionUser } from "@/lib/auth/session";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
+import { runEffects } from "@repo/server-core/db/effects";
 import { superadminAsCenter } from "@/lib/authz/center-actor";
-import { recordPayment, listPayments, getPayment } from "@repo/server-core/services/payments/payments";
-import { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
-import { createWalkInSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
+import { recordPaymentTx, listPayments, getPayment } from "@repo/server-core/services/payments/payments";
+import { topUpWalletCashTx } from "@repo/server-core/services/wallet/cash-topup";
+import { createWalkInSubscriptionTx } from "@repo/server-core/services/subscriptions/subscriptions";
 import {
-  createExpense,
+  createExpenseTx,
   listExpenses,
-  updateExpense,
-  deleteExpense,
+  updateExpenseTx,
+  deleteExpenseTx,
 } from "@repo/server-core/services/expenses/expenses";
 import {
   getCenterWallet,
-  requestCenterPayout,
+  requestCenterPayoutTx,
   listCenterPayouts,
 } from "@repo/server-core/services/finance/center-wallet";
-
-type AuditSpec = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  before?: unknown;
-  after?: unknown;
-};
-
-async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: spec.action,
-          targetType: spec.targetType,
-          targetId: spec.targetId,
-          centerId,
-          beforeState: (spec.before ?? undefined) as never,
-          afterState: (spec.after ?? undefined) as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
-}
 
 export async function adminListPayments(
   actor: SessionUser,
@@ -70,24 +45,28 @@ export async function adminRecordPayment(
     );
   }
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await recordPayment(data, acting);
-  const payment = (result as { payment?: { id?: string; receiptNumber?: string } }).payment ?? result;
-
-  await audit(actor, centerId, {
-    action: "center.payment_recorded",
-    targetType: "payment",
-    targetId: (payment as { id?: string }).id ?? centerId,
-    before: null,
-    after: {
-      studentId: data.studentId,
-      courseId: data.courseId ?? null,
-      amount: data.amount,
-      receiptNumber: (payment as { receiptNumber?: string }).receiptNumber ?? null,
-      method: "cash",
-      viaSanctionedFlow: "recordPayment",
-    },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await recordPaymentTx(tx, data, acting);
+    const payment = outcome.value;
+    await writeAdminAudit(tx, actor, {
+      action: "center.payment_recorded",
+      targetType: "payment",
+      targetId: payment.id,
+      centerId,
+      before: null,
+      after: {
+        studentId: data.studentId,
+        courseId: data.courseId ?? null,
+        amount: data.amount,
+        receiptNumber: payment.receiptNumber ?? null,
+        method: "cash",
+        viaSanctionedFlow: "recordPayment",
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminMarkPaymentRefunded(
@@ -106,27 +85,37 @@ export async function adminMarkPaymentRefunded(
       if (current !== "paid") {
         throw new BusinessRuleError(`Cannot transition from ${current} to refunded`);
       }
-      const updated = await tx.payment.update({
-        where: { id: paymentId },
+
+      // Conditional on the status the read saw. Two concurrent marks used to
+      // converge on the same 'refunded' row but BOTH write an audit entry, so
+      // the log claimed the flag was flipped twice. Only the update that
+      // actually moved the row proceeds to the audit write.
+      const moved = await tx.payment.updateMany({
+        where: { id: paymentId, status: "paid" },
         data: { status: "refunded" },
+      });
+      const updated = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
+      if (moved.count === 0) {
+        throw new BusinessRuleError(`Cannot transition from ${updated.status} to refunded`);
+      }
+      await writeAdminAudit(tx, actor, {
+        action: "center.payment_marked_refunded",
+        targetType: "payment",
+        targetId: paymentId,
+        centerId,
+        before: { status: payment.status, amount: payment.amount },
+        after: {
+          status: "refunded",
+          ledgerReversalWritten: false,
+          moneyReturned: false,
+          note: "Status flag only — use the finance refund flow to return money",
+        },
       });
       return { before: payment, updated };
     },
     { actorId: actor.id },
   );
 
-  await audit(actor, centerId, {
-    action: "center.payment_marked_refunded",
-    targetType: "payment",
-    targetId: paymentId,
-    before: { status: result.before.status, amount: result.before.amount },
-    after: {
-      status: "refunded",
-      ledgerReversalWritten: false,
-      moneyReturned: false,
-      note: "Status flag only — use the finance refund flow to return money",
-    },
-  });
   return result.updated;
 }
 
@@ -136,22 +125,30 @@ export async function adminTopUpWallet(
   input: { studentId: string; amount: number },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await topUpWalletCash(input, acting);
-  await audit(actor, centerId, {
-    action: "center.wallet_topped_up",
-    targetType: "user",
-    targetId: input.studentId,
-    before: null,
-    after: {
-      amount: input.amount,
-      balanceAfter: result.balanceAfter,
-      receiptNumber: result.receiptNumber,
-      method: "cash",
-      direction: "credit",
-      viaSanctionedFlow: "topUpWalletCash",
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await topUpWalletCashTx(tx, input, acting);
+      await writeAdminAudit(tx, actor, {
+        action: "center.wallet_topped_up",
+        targetType: "user",
+        targetId: input.studentId,
+        centerId,
+        before: null,
+        after: {
+          amount: input.amount,
+          balanceAfter: outcome.value.balanceAfter,
+          receiptNumber: outcome.value.receiptNumber,
+          method: "cash",
+          direction: "credit",
+          viaSanctionedFlow: "topUpWalletCash",
+        },
+      });
+      return outcome;
     },
-  });
-  return result;
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminCreateWalkInSubscription(
@@ -166,23 +163,28 @@ export async function adminCreateWalkInSubscription(
   },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await createWalkInSubscription(input as never, acting);
-  const sub = (result as { subscription?: { id?: string; price?: number } }).subscription ?? result;
-  await audit(actor, centerId, {
-    action: "center.walk_in_subscription_created",
-    targetType: "subscription",
-    targetId: (sub as { id?: string }).id ?? centerId,
-    before: null,
-    after: {
-      studentId: input.studentId,
-      courseId: input.courseId,
-      plan: input.plan,
-      price: (sub as { price?: number }).price ?? null,
-      method: "cash",
-      viaSanctionedFlow: "createWalkInSubscription",
-    },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await createWalkInSubscriptionTx(tx, input as never, acting);
+    const sub = outcome.value;
+    await writeAdminAudit(tx, actor, {
+      action: "center.walk_in_subscription_created",
+      targetType: "subscription",
+      targetId: sub.id,
+      centerId,
+      before: null,
+      after: {
+        studentId: input.studentId,
+        courseId: input.courseId,
+        plan: input.plan,
+        price: sub.price ?? null,
+        method: "cash",
+        viaSanctionedFlow: "createWalkInSubscription",
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminListExpenses(
@@ -200,15 +202,18 @@ export async function adminCreateExpense(
   data: { amount: number; category: string; description?: string; expenseDate: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await createExpense(data as never, acting);
-  await audit(actor, centerId, {
-    action: "center.expense_created",
-    targetType: "expense",
-    targetId: (result as { id?: string }).id ?? centerId,
-    before: null,
-    after: { ...data },
+  return scopedDb(acting, async (tx) => {
+    const result = await createExpenseTx(tx, data, acting);
+    await writeAdminAudit(tx, actor, {
+      action: "center.expense_created",
+      targetType: "expense",
+      targetId: result.id,
+      centerId,
+      before: null,
+      after: { ...data },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminUpdateExpense(
@@ -218,24 +223,25 @@ export async function adminUpdateExpense(
   data: Record<string, unknown>,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.expense.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.expense.findUnique({
       where: { id: expenseId },
       select: { id: true, centerId: true, amount: true, category: true, description: true },
-    }),
-  );
-  if (!before) throw new NotFoundError("Expense not found");
-  requireCenterScope(acting, before.centerId);
+    });
+    if (!before) throw new NotFoundError("Expense not found");
+    requireCenterScope(acting, before.centerId);
 
-  const result = await updateExpense(expenseId, data as never, acting);
-  await audit(actor, centerId, {
-    action: "center.expense_updated",
-    targetType: "expense",
-    targetId: expenseId,
-    before,
-    after: { changed: Object.keys(data), ...data },
+    const result = await updateExpenseTx(tx, expenseId, data as never, acting);
+    await writeAdminAudit(tx, actor, {
+      action: "center.expense_updated",
+      targetType: "expense",
+      targetId: expenseId,
+      centerId,
+      before,
+      after: { changed: Object.keys(data), ...data },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminDeleteExpense(
@@ -244,24 +250,25 @@ export async function adminDeleteExpense(
   expenseId: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.expense.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.expense.findUnique({
       where: { id: expenseId },
       select: { id: true, centerId: true, amount: true, category: true, description: true },
-    }),
-  );
-  if (!before) throw new NotFoundError("Expense not found");
-  requireCenterScope(acting, before.centerId);
+    });
+    if (!before) throw new NotFoundError("Expense not found");
+    requireCenterScope(acting, before.centerId);
 
-  const result = await deleteExpense(expenseId, acting);
-  await audit(actor, centerId, {
-    action: "center.expense_deleted",
-    targetType: "expense",
-    targetId: expenseId,
-    before,
-    after: { deleted: true, ledgerRowsAffected: 0 },
+    const result = await deleteExpenseTx(tx, expenseId, acting);
+    await writeAdminAudit(tx, actor, {
+      action: "center.expense_deleted",
+      targetType: "expense",
+      targetId: expenseId,
+      centerId,
+      before,
+      after: { deleted: true, ledgerRowsAffected: 0 },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminGetCenterWallet(actor: SessionUser, centerId: string) {
@@ -281,21 +288,28 @@ export async function adminRequestCenterPayout(
   clientRequestId?: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const walletBefore = await platformDb((tx) =>
-    tx.center.findUnique({ where: { id: centerId }, select: { walletBalance: true } }),
-  );
-  const result = await requestCenterPayout(acting, amount, clientRequestId);
-  await audit(actor, centerId, {
-    action: "center.payout_requested",
-    targetType: "payout",
-    targetId: (result as { id?: string }).id ?? centerId,
-    before: { walletBalance: walletBefore?.walletBalance ?? null },
-    after: {
-      amount: amount ?? null,
-      status: "pending",
-      moneyMoved: false,
-      viaSanctionedFlow: "requestCenterPayout",
+  return platformDb(
+    async (tx) => {
+      const walletBefore = await tx.center.findUnique({
+        where: { id: centerId },
+        select: { walletBalance: true },
+      });
+      const result = await requestCenterPayoutTx(tx, acting, amount, clientRequestId);
+      await writeAdminAudit(tx, actor, {
+        action: "center.payout_requested",
+        targetType: "payout",
+        targetId: result.id,
+        centerId,
+        before: { walletBalance: walletBefore?.walletBalance ?? null },
+        after: {
+          amount: amount ?? null,
+          status: "pending",
+          moneyMoved: false,
+          viaSanctionedFlow: "requestCenterPayout",
+        },
+      });
+      return result;
     },
-  });
-  return result;
+    { actorId: actor.id },
+  );
 }

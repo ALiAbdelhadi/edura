@@ -238,10 +238,15 @@
   "reg_contact": "Contact",
   "reg_submitted": "Submitted",
   "reg_approveNote": "Approving activates the account and grants access immediately.",
+  "reg_approveConfirm": "Confirm — activate this account",
+  "reg_approveArmedHint": "Press again to activate. Escape cancels.",
+  "reg_approveAnnounce": "Approval armed. Press the button again to activate this account.",
   "reg_loadError": "Could not load requests",
   "reg_loadErrorBody": "No response from the server.",
   "reg_retry": "Retry",
   "reg_deniedTitle": "Not permitted",
   "reg_deniedBody": "Your account is not permitted to review registration requests.",
-  "reg_rejectSubmit": "Record rejection"
+  "reg_rejectSubmit": "Record rejection",
+  "reg_prev": "Previous",
+  "reg_next": "Next"
 }

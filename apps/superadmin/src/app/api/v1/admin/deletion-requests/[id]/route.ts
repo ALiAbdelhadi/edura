@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import {
@@ -19,8 +18,7 @@ const schema = z
   })
   .strict();
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, schema);
   const locale = body.locale ?? "ar";

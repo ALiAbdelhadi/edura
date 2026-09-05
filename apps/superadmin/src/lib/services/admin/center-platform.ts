@@ -1,6 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import { superadminAsCenter } from "@/lib/authz/center-actor";
 import {
   getAdminDashboard,
@@ -13,34 +14,6 @@ import {
   getAttendanceByCourse,
   getEnrollmentFunnel,
 } from "@repo/server-core/services/reports/reports";
-
-type AuditSpec = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  centerId: string | null;
-  before?: unknown;
-  after?: unknown;
-};
-
-async function audit(actor: SessionUser, spec: AuditSpec) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: spec.action,
-          targetType: spec.targetType,
-          targetId: spec.targetId,
-          centerId: spec.centerId,
-          beforeState: (spec.before ?? undefined) as never,
-          afterState: (spec.after ?? undefined) as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
-}
 
 export async function adminCenterDashboard(actor: SessionUser, centerId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
@@ -134,37 +107,39 @@ export async function moveStudentBetweenCenters(
         update: { leftAt: null, addedAt: new Date() },
       });
 
+      const leftBehind = {
+        activeEnrollments: leftEnrollments,
+        activeSubscriptions: leftSubscriptions,
+        payments: leftPayments,
+      };
+
+      for (const centerId of [fromCenterId, toCenterId]) {
+        await writeAdminAudit(tx, actor, {
+          action: "platform.student_moved_between_centers",
+          targetType: "user",
+          targetId: studentId,
+          centerId,
+          before: { rosterCenterId: fromCenterId },
+          after: {
+            rosterCenterId: toCenterId,
+            reason,
+            movedRosterOnly: true,
+            leftAtOldCenter: leftBehind,
+            moneyMoved: false,
+          },
+        });
+      }
+
       return {
         student,
         from,
         to,
         rosterId: created.id,
-        leftBehind: {
-          activeEnrollments: leftEnrollments,
-          activeSubscriptions: leftSubscriptions,
-          payments: leftPayments,
-        },
+        leftBehind,
       };
     },
     { actorId: actor.id },
   );
-
-  for (const centerId of [fromCenterId, toCenterId]) {
-    await audit(actor, {
-      action: "platform.student_moved_between_centers",
-      targetType: "user",
-      targetId: studentId,
-      centerId,
-      before: { rosterCenterId: fromCenterId },
-      after: {
-        rosterCenterId: toCenterId,
-        reason,
-        movedRosterOnly: true,
-        leftAtOldCenter: result.leftBehind,
-        moneyMoved: false,
-      },
-    });
-  }
 
   return result;
 }
@@ -189,25 +164,26 @@ export async function forceLogoutUser(
       const updated = await tx.$queryRaw<{ token_version: number }[]>`
         UPDATE users SET token_version = token_version + 1 WHERE id = ${userId}::uuid
         RETURNING token_version`;
+      const newVersion = updated[0]?.token_version ?? user.tokenVersion + 1;
 
-      return { user, newVersion: updated[0]?.token_version ?? user.tokenVersion + 1 };
+      await writeAdminAudit(tx, actor, {
+        action: "platform.user_force_logged_out",
+        targetType: "user",
+        targetId: userId,
+        centerId,
+        before: { tokenVersion: user.tokenVersion, status: user.status },
+        after: {
+          tokenVersion: newVersion,
+          reason: why,
+          statusChanged: false,
+          canSignInAgain: true,
+        },
+      });
+
+      return { user, newVersion };
     },
     { actorId: actor.id },
   );
-
-  await audit(actor, {
-    action: "platform.user_force_logged_out",
-    targetType: "user",
-    targetId: userId,
-    centerId,
-    before: { tokenVersion: result.user.tokenVersion, status: result.user.status },
-    after: {
-      tokenVersion: result.newVersion,
-      reason: why,
-      statusChanged: false,
-      canSignInAgain: true,
-    },
-  });
 
   return { userId, tokenVersion: result.newVersion };
 }
@@ -228,7 +204,11 @@ export async function verifyStudentDateOfBirth(
   if (Number.isNaN(dob.getTime())) throw new BusinessRuleError("Invalid date of birth");
   if (dob > new Date()) throw new BusinessRuleError("Date of birth cannot be in the future");
 
-  const result = await platformDb(
+  const ageMs = Date.now() - dob.getTime();
+  const age = Math.floor(ageMs / (365.2425 * 24 * 60 * 60 * 1000));
+  const nowAdult = age >= 18;
+
+  await platformDb(
     async (tx) => {
       const profile = await tx.studentProfile.findFirst({
         where: { userId: studentId },
@@ -250,35 +230,32 @@ export async function verifyStudentDateOfBirth(
         },
         select: { dateOfBirth: true, dateOfBirthVerifiedAt: true },
       });
+
+      await writeAdminAudit(tx, actor, {
+        action: "platform.date_of_birth_verified",
+        targetType: "user",
+        targetId: studentId,
+        centerId,
+        before: {
+          dateOfBirth: profile.dateOfBirth,
+          verifiedAt: profile.dateOfBirthVerifiedAt,
+          wasMinor: true,
+        },
+        after: {
+          dateOfBirth: updated.dateOfBirth,
+          verifiedAt: updated.dateOfBirthVerifiedAt,
+          verifiedBy: actor.id,
+          age,
+          isNowAdult: nowAdult,
+          parentOversightDisabled: nowAdult,
+          reason,
+        },
+      });
+
       return { profile, updated };
     },
     { actorId: actor.id },
   );
-
-  const ageMs = Date.now() - dob.getTime();
-  const age = Math.floor(ageMs / (365.2425 * 24 * 60 * 60 * 1000));
-  const nowAdult = age >= 18;
-
-  await audit(actor, {
-    action: "platform.date_of_birth_verified",
-    targetType: "user",
-    targetId: studentId,
-    centerId,
-    before: {
-      dateOfBirth: result.profile.dateOfBirth,
-      verifiedAt: result.profile.dateOfBirthVerifiedAt,
-      wasMinor: true,
-    },
-    after: {
-      dateOfBirth: result.updated.dateOfBirth,
-      verifiedAt: result.updated.dateOfBirthVerifiedAt,
-      verifiedBy: actor.id,
-      age,
-      isNowAdult: nowAdult,
-      parentOversightDisabled: nowAdult,
-      reason,
-    },
-  });
 
   return { studentId, age, isNowAdult: nowAdult, parentOversightDisabled: nowAdult };
 }

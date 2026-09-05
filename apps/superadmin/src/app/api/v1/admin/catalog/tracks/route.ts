@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { createTrack, listTracks } from "@/lib/services/catalog/catalog-admin";
 import { parseJson } from "@/lib/validation/zod";
@@ -7,8 +6,7 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, req) => {
   const stageId = new URL(req.url).searchParams.get("stageId") ?? undefined;
   return ok(await listTracks(stageId));
 });
@@ -22,8 +20,7 @@ const createSchema = z.object({
   sortOrder: z.number().int().min(0).max(10000).optional(),
 });
 
-export const POST = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req) => {
   const body = await parseJson(req, createSchema);
-  return ok(await createTrack(body), { status: 201 });
+  return ok(await createTrack(body, actor), { status: 201 });
 });

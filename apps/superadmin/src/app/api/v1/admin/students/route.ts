@@ -1,18 +1,17 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { listStudents } from "@/lib/services/admin/platform";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, req) => {
   const sp = new URL(req.url).searchParams;
-  const result = await listStudents({
+  const { data, total, page, limit } = await listStudents({
     grade: sp.get("grade") ?? undefined,
     centerId: sp.get("center_id") ?? undefined,
-    cursor: sp.get("cursor") ?? undefined,
-    take: sp.get("take") ? Number(sp.get("take")) : undefined,
+    q: sp.get("q") ?? undefined,
+    page: sp.get("page") ?? undefined,
+    limit: sp.get("limit") ?? undefined,
   });
-  return ok(result.data, { meta: { nextCursor: result.nextCursor } });
+  return ok(data, { meta: { total, page, limit } });
 });

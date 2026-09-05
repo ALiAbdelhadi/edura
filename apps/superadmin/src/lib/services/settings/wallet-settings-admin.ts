@@ -1,5 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { BusinessRuleError } from "@/lib/errors/classes";
+import { isUniqueViolation } from "@/lib/errors/prisma";
+import { WALLET_SETTINGS_ONE_ROW } from "@repo/server-core/db/unique-indexes";
 import type { SessionUser } from "@/lib/auth/session";
 
 const DEFAULTS = { minTopup: 1000, maxTopup: 500000 }; // mirrors getWalletSettings()
@@ -19,7 +21,7 @@ export function getWalletPolicy() {
   });
 }
 
-export function updateWalletPolicy(
+export async function updateWalletPolicy(
   input: { minTopup: number; maxTopup: number },
   user: SessionUser,
 ) {
@@ -38,17 +40,37 @@ export function updateWalletPolicy(
     );
   }
 
-  return platformDb(
-    async (tx) => {
-      const existing = await tx.walletSettings.findFirst();
-      if (existing) {
-        return tx.walletSettings.update({
-          where: { id: existing.id },
-          data: { ...input, updatedBy: user.id },
-        });
-      }
-      return tx.walletSettings.create({ data: { ...input, updatedBy: user.id } });
-    },
-    { actorId: user.id },
-  );
+  const save = () =>
+    platformDb(
+      async (tx) => {
+        const existing = await tx.walletSettings.findFirst();
+        if (existing) {
+          return tx.walletSettings.update({
+            where: { id: existing.id },
+            data: { ...input, updatedBy: user.id },
+          });
+        }
+        return tx.walletSettings.create({ data: { ...input, updatedBy: user.id } });
+      },
+      { actorId: user.id },
+    );
+
+  try {
+    return await save();
+  } catch (err) {
+    if (!isUniqueViolation(err, WALLET_SETTINGS_ONE_ROW)) throw err;
+    /*
+     * Two concurrent FIRST saves: both read no row and both insert, and
+     * `wallet_settings_one_row` refuses the second. Converge instead of
+     * erroring -- the loser simply saves over the winner, which is what a
+     * second admin pressing Save a moment later would have got anyway.
+     *
+     * The retry has to be a NEW transaction: a failed statement poisons the
+     * Postgres transaction it fired in, so recovering inside the same `tx` is
+     * not possible. Exactly one retry is enough, and is not a loop: the index
+     * guarantees the row now EXISTS, so the retry takes the update branch and
+     * cannot conflict again.
+     */
+    return await save();
+  }
 }

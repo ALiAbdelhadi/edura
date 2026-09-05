@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import {
@@ -24,14 +23,12 @@ const putSchema = z
   })
   .strict();
 
-export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (user, _req, ctx) => {
   const { id, sessionId } = await ctx.params;
   return ok(await adminGetSessionAttendance(user, id, sessionId));
 });
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req, ctx) => {
   const { id, sessionId } = await ctx.params;
   const { entries } = await parseJson(req, putSchema);
   return ok(await adminBulkAttendance(user, id, sessionId, entries));

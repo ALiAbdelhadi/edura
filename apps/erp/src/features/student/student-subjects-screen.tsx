@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useCustom, useList, useCustomMutation } from "@refinedev/core";
-import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users } from "lucide-react";
+import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SearchInput } from "@repo/ui/components/search-input";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
@@ -82,6 +82,21 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
   const [mockBusy, setMockBusy] = useState(false);
 
+  // Deliberately NOT gated on useOnlineCheckout: wallet money is already on the
+  // platform, so spending it needs no gateway. Mirrors parent-pay-screen, where
+  // the card button is gated and the wallet button is not.
+  const { query: walletQuery, result: walletRes } = useCustom({
+    url: "me/wallet",
+    method: "get",
+  });
+  const walletBalance =
+    typeof (walletRes?.data as { balance?: number } | undefined)?.balance === "number"
+      ? (walletRes!.data as { balance: number }).balance
+      : null;
+  const canOfferWallet = walletBalance !== null && walletBalance > 0;
+  const affords = (price: number | null) =>
+    walletBalance !== null && price !== null && walletBalance >= price;
+
   const handleRequest = async (courseId: string) => {
     setLoadingId(courseId);
     try {
@@ -100,7 +115,11 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
 
   const onlineCheckout = useOnlineCheckout();
 
-  const handleSubscribe = async (course: CourseHit, plan: "monthly" | "per_session") => {
+  const handleSubscribe = async (
+    course: CourseHit,
+    plan: "monthly" | "per_session",
+    payFrom: "gateway" | "wallet" = "gateway",
+  ) => {
     setLoadingId(course.id);
     try {
       const sessionId = plan === "per_session" ? sessionChoice[course.id] : undefined;
@@ -116,9 +135,17 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
           plan,
           ...(sessionId ? { sessionId } : {}),
           method: "card",
-          idempotencyKey: newIdempotencyKey(`sub-${course.id}-${plan}`),
+          payFrom,
+          idempotencyKey: newIdempotencyKey(`sub-${course.id}-${plan}-${payFrom}`),
         },
       });
+      // The wallet branch settles server-side and returns no checkout to follow.
+      if (payFrom === "wallet") {
+        toast.success(t("studentSubjects.paidFromBalance"));
+        query.refetch();
+        walletQuery.refetch();
+        return;
+      }
       const intent = (res as any)?.data?.data ?? (res as any)?.data;
       if (intent?.checkout?.url?.includes("mock-checkout")) {
         setMockIntent({ intentId: intent.id, amount: intent.amount });
@@ -237,26 +264,36 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               </div>
             </div>
 
-            {(course.pricePerMonth || course.pricePerSession) && !onlineCheckout ? (
-              <p className="m-0 max-w-48 shrink-0 self-center text-[12.5px] leading-relaxed text-ink-2 sm:text-end">
-                {t("studentSubjects.subscribeAtCenter")}
-              </p>
-            ) : null}
-            {(course.pricePerMonth || course.pricePerSession) && onlineCheckout ? (
+            {course.pricePerMonth || course.pricePerSession ? (
               <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
                 {course.pricePerMonth ? (
-                  <LedgerButton
-                    variant="primary"
-                    disabled={loadingId === course.id}
-                    onClick={() => handleSubscribe(course, "monthly")}
-                  >
-                    {loadingId === course.id ? <Spinner /> : null}
-                    {t("studentSubjects.subscribeMonthly")}
-                    <Num>{formatEGP(course.pricePerMonth)}</Num>
-                  </LedgerButton>
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    {onlineCheckout ? (
+                      <LedgerButton
+                        variant="primary"
+                        disabled={loadingId === course.id}
+                        onClick={() => handleSubscribe(course, "monthly")}
+                      >
+                        {loadingId === course.id ? <Spinner /> : null}
+                        {t("studentSubjects.subscribeMonthly")}
+                        <Num>{formatEGP(course.pricePerMonth)}</Num>
+                      </LedgerButton>
+                    ) : null}
+                    {canOfferWallet ? (
+                      <LedgerButton
+                        variant={onlineCheckout ? undefined : "primary"}
+                        disabled={loadingId === course.id || !affords(course.pricePerMonth)}
+                        onClick={() => handleSubscribe(course, "monthly", "wallet")}
+                      >
+                        <Wallet className="size-4" aria-hidden />
+                        {t("studentSubjects.payFromBalance")}
+                        <Num>{formatEGP(course.pricePerMonth)}</Num>
+                      </LedgerButton>
+                    ) : null}
+                  </div>
                 ) : null}
                 {course.pricePerSession ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <Select
                       value={sessionChoice[course.id] || undefined}
                       onValueChange={(v) =>
@@ -283,14 +320,53 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
                         ))}
                       </SelectContent>
                     </Select>
-                    <LedgerButton
-                      disabled={loadingId === course.id}
-                      onClick={() => handleSubscribe(course, "per_session")}
-                    >
-                      {t("studentSubjects.bookSession")}
-                      <Num>{formatEGP(course.pricePerSession)}</Num>
-                    </LedgerButton>
+                    {onlineCheckout ? (
+                      <LedgerButton
+                        disabled={loadingId === course.id}
+                        onClick={() => handleSubscribe(course, "per_session")}
+                      >
+                        {t("studentSubjects.bookSession")}
+                        <Num>{formatEGP(course.pricePerSession)}</Num>
+                      </LedgerButton>
+                    ) : null}
+                    {canOfferWallet ? (
+                      <LedgerButton
+                        variant={onlineCheckout ? undefined : "primary"}
+                        disabled={loadingId === course.id || !affords(course.pricePerSession)}
+                        onClick={() => handleSubscribe(course, "per_session", "wallet")}
+                      >
+                        <Wallet className="size-4" aria-hidden />
+                        {t("studentSubjects.payFromBalance")}
+                        <Num>{formatEGP(course.pricePerSession)}</Num>
+                      </LedgerButton>
+                    ) : null}
                   </div>
+                ) : null}
+                {canOfferWallet ? (
+                  <p
+                    className="m-0 text-[12px] leading-relaxed sm:text-end"
+                    style={{
+                      color:
+                        affords(course.pricePerMonth) || affords(course.pricePerSession)
+                          ? "var(--ink-3)"
+                          : "var(--red)",
+                    }}
+                  >
+                    {affords(course.pricePerMonth) || affords(course.pricePerSession)
+                      ? t("studentSubjects.balanceAvailable", {
+                          amount: formatEGP(walletBalance ?? 0),
+                        })
+                      : t("studentSubjects.insufficientBalance", {
+                          amount: formatEGP(walletBalance ?? 0),
+                        })}
+                  </p>
+                ) : null}
+                {!onlineCheckout &&
+                !affords(course.pricePerMonth) &&
+                !affords(course.pricePerSession) ? (
+                  <p className="m-0 max-w-48 text-[12.5px] leading-relaxed text-ink-2 sm:text-end">
+                    {t("studentSubjects.subscribeAtCenter")}
+                  </p>
                 ) : null}
               </div>
             ) : (

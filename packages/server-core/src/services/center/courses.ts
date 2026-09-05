@@ -1,5 +1,7 @@
 import { Prisma, type DataSource } from "@repo/database";
 import { platformDb, scopedDb } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "@repo/database";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import { requireCenterScope } from "../../authz/center-scope";
 import type { SessionUser } from "../../auth/types";
@@ -57,10 +59,18 @@ export type CourseCreateInput = {
 };
 
 export async function createCourse(acting: SessionUser, body: CourseCreateInput) {
+  return scopedDb(acting, (tx) => createCourseTx(tx, acting, body));
+}
+
+export async function createCourseTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  body: CourseCreateInput,
+) {
   if (!acting.centerId) throw new ForbiddenError("Actor has no center scope");
   const centerId = acting.centerId;
 
-  const { course, sessionIds } = await scopedDb(acting, async (tx) => {
+  const { course, sessionIds } = await (async () => {
     const affiliation = await tx.centerTeacherAffiliation.findFirst({
       where: { teacherId: body.teacherId, status: "active", centerId },
     });
@@ -124,7 +134,7 @@ export async function createCourse(acting: SessionUser, body: CourseCreateInput)
     });
 
     return { course: created, sessionIds: ids };
-  });
+  })();
 
   return { course: withSchedulePattern(course), sessionsGenerated: sessionIds.length };
 }
@@ -203,9 +213,18 @@ export type CoursePatch = {
 };
 
 export async function updateCourse(acting: SessionUser, id: string, body: CoursePatch) {
+  return scopedDb(acting, (tx) => updateCourseTx(tx, acting, id, body));
+}
+
+export async function updateCourseTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  id: string,
+  body: CoursePatch,
+) {
   const newPattern = body.schedulePattern;
 
-  const updated = await scopedDb(acting, async (tx) => {
+  const updated = await (async () => {
     const course = await tx.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundError("Course not found");
     requireCenterScope(acting, course.centerId);
@@ -274,7 +293,7 @@ export async function updateCourse(acting: SessionUser, id: string, body: Course
     }
 
     return saved;
-  });
+  })();
 
   return withSchedulePattern(updated);
 }
@@ -314,7 +333,20 @@ export async function updateTeacherDirectPricing(
 }
 
 export async function cancelCourse(acting: SessionUser, id: string, reason: string) {
-  const { recipients, courseTitle } = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    cancelCourseTx(tx, acting, id, reason),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function cancelCourseTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  id: string,
+  reason: string,
+): Promise<WithEffects<{ cancelled: true; courseTitle: string; notified: number }>> {
+  const { recipients, courseTitle } = await (async () => {
     const course = await tx.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundError("Course not found");
     requireCenterScope(acting, course.centerId);
@@ -349,17 +381,21 @@ export async function cancelCourse(acting: SessionUser, id: string, reason: stri
       recipients: [...new Set([...studentIds, ...adminIds])],
       courseTitle: course.title,
     };
-  });
+  })();
 
-  await notify({
-    recipients,
-    type: "course_cancelled",
-    title: "Course cancelled",
-    body: `The course "${courseTitle}" has been cancelled. Reason: ${reason}`,
-    data: { courseId: id, reason },
-  });
-
-  return { cancelled: true as const, courseTitle, notified: recipients.length };
+  return {
+    value: { cancelled: true as const, courseTitle, notified: recipients.length },
+    effects: [
+      () =>
+        notify({
+          recipients,
+          type: "course_cancelled",
+          title: "Course cancelled",
+          body: `The course "${courseTitle}" has been cancelled. Reason: ${reason}`,
+          data: { courseId: id, reason },
+        }),
+    ],
+  };
 }
 
 export async function reassignCourseTeacher(
@@ -367,7 +403,16 @@ export async function reassignCourseTeacher(
   id: string,
   teacherId: string,
 ) {
-  await scopedDb(acting, async (tx) => {
+  return scopedDb(acting, (tx) => reassignCourseTeacherTx(tx, acting, id, teacherId));
+}
+
+export async function reassignCourseTeacherTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  id: string,
+  teacherId: string,
+) {
+  await (async () => {
     const course = await tx.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundError("Course not found");
     requireCenterScope(acting, course.centerId);
@@ -389,7 +434,7 @@ export async function reassignCourseTeacher(
       },
       data: { teacherId },
     });
-  });
+  })();
 
   return { reassigned: true as const, teacherId };
 }

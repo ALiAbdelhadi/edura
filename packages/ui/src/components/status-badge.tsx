@@ -27,6 +27,35 @@ const TONE: Record<StatusTone, string> = {
   primary: "bg-indigo-soft text-indigo",
 };
 
+const STATUS_TONE: Record<string, StatusTone> = {
+  accepted: "paid",
+  active: "paid",
+  approved: "paid",
+  handled: "paid",
+  paid: "paid",
+  sent: "paid",
+  new: "pending",
+  pending: "pending",
+  pending_payment: "pending",
+  queued: "pending",
+  blacklisted: "rejected",
+  cancelled: "rejected",
+  failed: "rejected",
+  rejected: "rejected",
+  suspended: "rejected",
+  expired: "neutral",
+  shell: "neutral",
+  spam: "neutral",
+};
+
+export function statusTone(
+  status: string | null | undefined,
+  overrides?: Record<string, StatusTone>,
+): StatusTone {
+  if (!status) return "neutral";
+  return overrides?.[status] ?? STATUS_TONE[status] ?? "neutral";
+}
+
 export function StatusBadge({
   tone = "neutral",
   icon: Icon,

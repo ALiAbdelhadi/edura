@@ -1,7 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { exactQuery } from "@repo/database/search-text";
-import { NotFoundError } from "@/lib/errors/classes";
 import type { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 export type SubscriptionListFilters = {
   q?: string; // student name/email or course title
@@ -21,8 +21,7 @@ const SOURCES = new Set(["online", "walk_in"]);
 const TARGETS = new Set(["teacher", "center"]);
 
 export async function listSubscriptions(filters: SubscriptionListFilters) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const { page, limit } = parsePageLimit(filters, 20);
 
   return platformDb(async (tx) => {
     const where: Prisma.SubscriptionWhereInput = {};
@@ -102,44 +101,3 @@ export async function listSubscriptions(filters: SubscriptionListFilters) {
   });
 }
 
-export async function getSubscription(id: string) {
-  return platformDb(async (tx) => {
-    const sub = await tx.subscription.findUnique({ where: { id } });
-    if (!sub) throw new NotFoundError("Subscription not found");
-
-    const [student, teacher, course, center, payment, intent, enrollment] = await Promise.all([
-      tx.user.findUnique({
-        where: { id: sub.studentId },
-        select: { id: true, name: true, email: true, phone: true },
-      }),
-      tx.user.findUnique({ where: { id: sub.teacherId }, select: { id: true, name: true } }),
-      tx.course.findUnique({
-        where: { id: sub.courseId },
-        select: { id: true, title: true, location: true },
-      }),
-      sub.centerId
-        ? tx.center.findUnique({ where: { id: sub.centerId }, select: { id: true, name: true } })
-        : null,
-      sub.paymentId
-        ? tx.payment.findUnique({
-            where: { id: sub.paymentId },
-            select: { id: true, receiptNumber: true, amount: true, paidAt: true },
-          })
-        : null,
-      sub.paymentIntentId
-        ? tx.paymentIntent.findUnique({
-            where: { id: sub.paymentIntentId },
-            select: { id: true, status: true, gateway: true, gatewayRef: true },
-          })
-        : null,
-      sub.enrollmentId
-        ? tx.enrollment.findUnique({
-            where: { id: sub.enrollmentId },
-            select: { id: true, status: true, enrolledAt: true },
-          })
-        : null,
-    ]);
-
-    return { ...sub, student, teacher, course, center, payment, intent, enrollment };
-  });
-}

@@ -51,7 +51,9 @@
     "teachersCount": "المدرسون",
     "azhari": "أزهري",
     "secondLanguage": "لغة ثانية",
-    "searchPlaceholder": "ابحث في المواد"
+    "searchPlaceholder": "ابحث في المواد",
+    "empty": "لا توجد مواد مطابقة",
+    "emptyHint": "امسح البحث أو أضف مادة جديدة."
   },
   "offerings": {
     "add": "إضافة عرض",
@@ -72,6 +74,7 @@
     "notes": "ملاحظات",
     "approveTitle": "اعتماد الطلب",
     "approveBody": "أنشئ مادة جديدة من هذا الطلب، أو اربطه بمادة موجودة.",
+    "approveMode": "طريقة الاعتماد",
     "createNew": "إنشاء مادة جديدة",
     "linkExisting": "ربط بمادة موجودة",
     "rejectTitle": "رفض الطلب",

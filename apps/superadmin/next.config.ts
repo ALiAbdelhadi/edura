@@ -47,6 +47,11 @@ const nextConfig = {
 
   experimental: {
     useTypeScriptCli: true,
+
+    // `@repo/ui/components/charts` is a barrel re-exporting all 8 chart files,
+    // so one `import { LineChart }` pulls every recharts module into the
+    // importing route's bundle. Next rewrites barrel imports to deep ones here.
+    optimizePackageImports: ["@repo/ui"],
   },
 
   turbopack: {
@@ -62,6 +67,7 @@ const nextConfig = {
   },
 
   transpilePackages: [
+    "@repo/client-core",
     "@repo/database",
     "@repo/ui",
     "@repo/server-core",

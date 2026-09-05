@@ -603,8 +603,16 @@ export async function previewSessionSettlement(sessionId: string, user: SessionU
 }
 
 export async function completeSession(sessionId: string, user: SessionUser) {
-  return platformDb(
-    async (tx) => {
+  return platformDb((tx) => completeSessionTx(tx, sessionId, user), { actorId: user.id });
+}
+
+export async function completeSessionTx(
+  tx: TenantTx,
+  sessionId: string,
+  user: SessionUser,
+) {
+  return (async () => {
+    {
       const { session } = await assertMaySettle(tx, sessionId, user);
 
       if (session.status === "cancelled") {
@@ -621,7 +629,6 @@ export async function completeSession(sessionId: string, user: SessionUser) {
 
       const distribution = await distributeSessionRevenue(tx, sessionId, user.id);
       return { session: updated, distribution };
-    },
-    { actorId: user.id },
-  );
+    }
+  })();
 }

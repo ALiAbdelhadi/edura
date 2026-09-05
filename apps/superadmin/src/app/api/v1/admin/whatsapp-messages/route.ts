@@ -1,12 +1,10 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { listWhatsAppMessages } from "@/lib/services/admin/whatsapp-messages";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, req) => {
   const sp = new URL(req.url).searchParams;
   const result = await listWhatsAppMessages({
     q: sp.get("q") ?? undefined,

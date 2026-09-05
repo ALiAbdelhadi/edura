@@ -85,6 +85,7 @@ type StudentRosterRecord = {
   leftAt?: string | null;
   operationalParentName?: string;
   operationalParentPhone?: string;
+  walletBalance?: number;
 };
 
 export function AdminStudentDetailScreen() {
@@ -482,6 +483,11 @@ export function AdminStudentDetailScreen() {
             <Button variant="outline" className="border-[var(--rule)]" onClick={() => setWalletModalOpen(true)}>
               <Wallet className="size-4" />
               {t("adminHome.detail_walletTopup")}
+              {typeof record?.walletBalance === "number" ? (
+                <span className="text-[var(--ink-3)]">
+                  · {formatEGP(record.walletBalance)}
+                </span>
+              ) : null}
             </Button>
             <Button variant="outline" className="border-[var(--rule)]" onClick={openEditModal}>
               <Pencil className="size-4" />

@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import {
@@ -11,8 +10,7 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (_req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (actor, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await buildStudentCard(id, actor));
 });
@@ -22,8 +20,7 @@ const bodySchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 
-export const POST = withErrors(async (req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req, ctx) => {
   const { id } = await ctx.params;
   const { action, reason } = await parseJson(req, bodySchema);
   return ok(

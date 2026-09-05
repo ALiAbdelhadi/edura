@@ -15,6 +15,34 @@ import {
 let __sweepTag = "";
 const SUITE_NAME = "room-revenue-split.test.ts";
 
+type GlobalSplit = {
+  platformShareBp: number | null;
+  teacherShareBp: number | null;
+  centerShareBp: number | null;
+};
+let __prevGlobalSplit: GlobalSplit | null = null;
+
+async function captureGlobalSplit() {
+  const row = await withPlatformContext((tx) =>
+    tx.commissionSetting.findFirst({ where: { scope: "global" } }),
+  );
+  if (!row) return;
+  __prevGlobalSplit = {
+    platformShareBp: row.platformShareBp,
+    teacherShareBp: row.teacherShareBp,
+    centerShareBp: row.centerShareBp,
+  };
+}
+
+async function restoreGlobalSplit() {
+  if (!__prevGlobalSplit) return;
+  const prev = __prevGlobalSplit;
+  await withPlatformContext(async (tx) => {
+    const row = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
+    if (row) await tx.commissionSetting.update({ where: { id: row.id }, data: prev });
+  }).catch(() => {});
+}
+
 import {
   updateGlobalSplit,
   upsertCenterSplit,
@@ -143,6 +171,7 @@ async function main() {
   );
   const su = { id: suId, role: "super_admin" } as never;
 
+  await captureGlobalSplit();
   await updateGlobalSplit({ platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 }, su);
 
   console.log("\nVP1 — DB sum=100 CHECK + resolution order");
@@ -305,6 +334,7 @@ async function runGuarded() {
     console.error(e);
     process.exitCode = 1;
   } finally {
+    await restoreGlobalSplit();
     if (__sweepTag) await sweepTagQuietly(__sweepTag);
   }
   process.exit(process.exitCode ?? 0);

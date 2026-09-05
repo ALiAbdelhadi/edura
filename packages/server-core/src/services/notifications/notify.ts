@@ -175,3 +175,32 @@ export async function notify(
     );
   }
 }
+
+/**
+ * `notify` for work that runs AFTER a transaction has already committed.
+ *
+ * The write is done and durable by the time this runs, so a failure in the
+ * in-app insert, SMTP, SMS or push must not travel back to the caller: it
+ * turned a successful approval, refund or status change into a 500, and the
+ * operator retried a thing that had already happened. Swallow-and-log, the
+ * same posture `sendMail` inside `notify` already takes per channel -- the
+ * difference is that this covers the notification insert too, which is the
+ * part that was still able to throw.
+ *
+ * Use it only past the commit boundary. Inside a transaction, a failed notify
+ * SHOULD roll the write back, and `notify` itself is the right call there.
+ */
+export async function notifyAfterCommit(
+  input: NotifyInput,
+  email?: EmailPayload,
+): Promise<void> {
+  try {
+    await notify(input, email);
+  } catch (err) {
+    console.error(
+      `[notify] post-commit '${input.type}' notification failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+}

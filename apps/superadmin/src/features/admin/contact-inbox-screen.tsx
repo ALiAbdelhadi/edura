@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronDown, ChevronRight, Inbox, Lock, Mail, Phone, RefreshCcw, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, Inbox, Lock, Mail, Phone } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
-import { StatusBadge } from "@repo/ui/components/status-badge";
-import { toast } from "@repo/ui/components/sonner";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { formatDate, type Locale } from "@repo/ui/lib/format";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
+import { ListButtonFilter, ListSearch, ListShell } from "@/components/kit/list-shell";
+import { useCustomListScreen } from "@/lib/api/use-list-screen";
+import { asKey } from "@/lib/i18n/keys";
+import { useAction } from "@/lib/api/use-action";
 
 type Submission = {
   id: string;
@@ -33,128 +30,78 @@ type Submission = {
   createdAt: string;
 };
 
-const TONE = {
-  new: "pending",
-  handled: "paid",
-  spam: "neutral",
-} as const;
 
 export function ContactInboxScreen() {
   const t = useTranslations("contactInbox");
-  const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
-  const [status, setStatus] = useState<string>("new");
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
 
-  const query: Record<string, string> = { page: String(page), limit: "25" };
-  if (status !== "all") query.status = status;
-  if (q.trim()) query.q = q.trim();
-
-  const req = useCustom({ url: "admin/contact-submissions", method: "get", config: { query } });
-  const { mutateAsync: triage } = useCustomMutation();
-
-  const result = req.result?.data as
-    | { data: Submission[]; total: number; newCount: number }
-    | undefined;
-  const rows = result?.data ?? [];
-  const total = result?.total ?? 0;
-  const newCount = result?.newCount ?? 0;
+  const list = useCustomListScreen<Submission>({
+    url: "admin/contact-submissions",
+    initialFilters: { status: "new" },
+    select: (data) => {
+      const d = data as { data?: Submission[]; total?: number } | undefined;
+      return { rows: d?.data ?? [], total: d?.total ?? 0 };
+    },
+  });
+  // The unread count is about the whole inbox rather than this page, so it
+  // rides on the same response instead of costing a second request.
+  const newCount = (list.data as { newCount?: number } | undefined)?.newCount ?? 0;
+  const { run: triage, busyKey: busy } = useAction({
+    method: "post",
+    successMsg: t("triagedOk"),
+  });
 
   const setRowStatus = async (row: Submission, next: Submission["status"]) => {
-    setBusy(row.id);
-    try {
-      await triage({
-        url: `admin/contact-submissions/${row.id}/status`,
-        method: "post",
-        values: { status: next },
-      });
-      toast.success(t("triagedOk"));
-      void req.query.refetch();
-    } catch {
-      toast.error(t("triageFail"));
-    } finally {
-      setBusy(null);
-    }
+    const res = await triage({
+      url: `admin/contact-submissions/${row.id}/status`,
+      values: { status: next },
+      key: row.id,
+    });
+    if (res.ok) list.query.refetch();
   };
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <PageHeader
-        title={t("title")}
-        description={t("subtitle")}
-        rule
-      />
-
-      <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
-        <Lock className="mt-px size-4 shrink-0" aria-hidden="true" />
-        <span>{t("readOnlyNotice")}</span>
-      </p>
-
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
-        <label className="text-xs">
-          <span className="mb-1 block text-ink-2">{t("filterSearch")}</span>
-          <Input
-            value={q}
-            placeholder={t("filterSearchPlaceholder")}
+    <ListShell
+      list={list}
+      title={t("title")}
+      description={t("subtitle")}
+      loadingLabel={t("loading")}
+      emptyIcon={Inbox}
+      emptyTitle={t("emptyTitle")}
+      emptyDescription={t("emptyBody")}
+      notice={
+        <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+          <Lock className="mt-px size-4 shrink-0" aria-hidden="true" />
+          <span>{t("readOnlyNotice")}</span>
+        </p>
+      }
+      toolbar={
+        <>
+          <ListSearch
+            list={list}
             className="w-64"
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
+            placeholder={t("filterSearchPlaceholder")}
+            clearLabel={t("filterSearch")}
           />
-        </label>
-
-        <div className="flex gap-1">
-          {(["new", "handled", "spam", "all"] as const).map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={status === s ? "default" : "outline"}
-              onClick={() => {
-                setStatus(s);
-                setPage(1);
-              }}
-            >
-              {t(`status.${s}`)}
-            </Button>
-          ))}
-        </div>
-
-        <div className="ms-auto text-xs text-ink-2">
-          {t("waiting")} <Num.Figure value={newCount} locale={locale} />
-        </div>
-      </div>
-
-      {req.query.isLoading ? (
-        <PageSpinner label={t("loading")} />
-      ) : req.query.isError ? (
-        (() => {
-          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
-          return (
-            <EmptyState
-              tone={denied ? "denied" : "error"}
-              icon={TriangleAlert}
-              title={denied ? queryStrings.denied : queryStrings.loadFailed}
-              action={
-                denied ? undefined : (
-                  <Button variant="outline" onClick={() => req.query.refetch()}>
-                    <RefreshCcw className="size-4" aria-hidden="true" />
-                    {queryStrings.retry}
-                  </Button>
-                )
-              }
-            />
-          );
-        })()
-      ) : rows.length === 0 ? (
-        <EmptyState icon={Inbox} title={t("emptyTitle")} description={t("emptyBody")} />
-      ) : (
+          <ListButtonFilter
+            list={list}
+            name="status"
+            options={["new", "handled", "spam"]}
+            render={(s) => t(asKey(`status.${s}`))}
+            allLabel={t("status.all")}
+          />
+          <div className="ms-auto text-xs text-ink-2">
+            {t("waiting")} <Num.Figure value={newCount} locale={locale} />
+          </div>
+        </>
+      }
+      // A submission is a message with a body to read and a triage decision to
+      // make on it — an expandable card, not a table row.
+      body={
         <ul className="flex flex-col gap-2">
-          {rows.map((row) => {
+          {list.rows.map((row) => {
             const expanded = open === row.id;
             return (
               <li
@@ -175,7 +122,7 @@ export function ContactInboxScreen() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-ink">{row.name}</span>
-                      <StatusBadge tone={TONE[row.status]}>{t(`status.${row.status}`)}</StatusBadge>
+                      <StatusBadge tone={statusTone(row.status)}>{t(`status.${row.status}`)}</StatusBadge>
                       {row.source ? (
                         <code className="num rounded bg-field px-1.5 py-0.5 text-[11px] text-ink-2" dir="ltr">
                           {row.source}
@@ -273,26 +220,7 @@ export function ContactInboxScreen() {
             );
           })}
         </ul>
-      )}
-
-      {total > 25 ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-ink-2">
-          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            {t("prev")}
-          </Button>
-          <span>
-            <Num.Figure value={total} locale={locale} /> {t("totalSuffix")}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={page * 25 >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("next")}
-          </Button>
-        </div>
-      ) : null}
-    </div>
+      }
+    />
   );
 }

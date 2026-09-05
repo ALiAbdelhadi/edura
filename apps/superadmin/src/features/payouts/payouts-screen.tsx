@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { asArray } from "@/lib/refine/as-array";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -17,7 +17,7 @@ import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
 import { Num, ProseCount } from "@repo/ui/components/num";
-import { StatusBadge } from "@repo/ui/components/status-badge";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { TwoStepCommit } from "@repo/ui/components/confirm-dialog";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/components/sonner";
@@ -28,10 +28,12 @@ import {
   DialogTitle,
 } from "@repo/ui/components/dialog";
 import { api } from "@/lib/api/client";
+import { useAction } from "@/lib/api/use-action";
 import { cn } from "@repo/ui/lib/utils";
 import type { Locale } from "@repo/ui/lib/format";
 
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { ListErrorState } from "@/components/kit/list-shell";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { asKey } from "@/lib/i18n/keys";
@@ -56,12 +58,9 @@ type PayoutRow = {
   paidAt: string | null;
 };
 
-const STATUS_TONE = {
-  pending: "pending",
-  approved: "active",
-  paid: "paid",
-  rejected: "rejected",
-} as const;
+// An APPROVED payout is not a settled one — the money has not moved yet — so it
+// reads as in-progress (indigo) here rather than the shared map's settled teal.
+const PAYOUT_TONE = { approved: "active" } as const;
 
 const STATUSES = ["pending", "paid", "rejected"] as const;
 
@@ -141,7 +140,7 @@ export function PayoutsScreen() {
         const p = row.original;
         return (
           <StatusBadge
-            tone={STATUS_TONE[p.status]}
+            tone={statusTone(p.status, PAYOUT_TONE)}
             age={
               p.status === "pending" ? (
                 <Num.Date value={p.createdAt} locale={locale} />
@@ -172,7 +171,7 @@ export function PayoutsScreen() {
         actions={
           <div className="flex items-center gap-2">
             <CycleStatementButton label={t("cycleStatement")} />
-            <GenerateButton onDone={refresh} label={t("generate")} okMsg={t("generateOk")} failMsg={t("generateFail")} />
+            <GenerateButton onDone={refresh} label={t("generate")} okMsg={t("generateOk")} />
           </div>
         }
       />
@@ -232,26 +231,16 @@ export function PayoutsScreen() {
             isLoading={query.isLoading}
             error={
               query.isError ? (
-                (() => {
-                  const denied =
-                    (query.error as { statusCode?: number } | null)?.statusCode === 403;
-                  return (
-                    <EmptyState
-                      tone={denied ? "denied" : "error"}
-                      icon={TriangleAlert}
-                      title={t(denied ? "deniedTitle" : "loadError")}
-                      description={t(denied ? "deniedBody" : "loadErrorBody")}
-                      action={
-                        denied ? undefined : (
-                          <Button variant="outline" onClick={refresh}>
-                            <RefreshCcw className="size-4" aria-hidden="true" />
-                            {t("retry")}
-                          </Button>
-                        )
-                      }
-                    />
-                  );
-                })()
+                <ListErrorState
+                  denied={
+                    (query.error as { statusCode?: number } | null)?.statusCode === 403
+                  }
+                  onRetry={refresh}
+                  errorTitle={t("loadError")}
+                  errorDescription={t("loadErrorBody")}
+                  deniedTitle={t("deniedTitle")}
+                  deniedDescription={t("deniedBody")}
+                />
               ) : undefined
             }
             emptyState={
@@ -282,31 +271,18 @@ function GenerateButton({
   onDone,
   label,
   okMsg,
-  failMsg,
 }: {
   onDone: () => void;
   label: string;
   okMsg: string;
-  failMsg: string;
 }) {
-  const { mutateAsync } = useCustomMutation();
-  const [busy, setBusy] = useState(false);
+  const { run, busy } = useAction({
+    url: "finance/payouts",
+    successMsg: okMsg,
+    onSuccess: () => onDone(),
+  });
   return (
-    <Button
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          await mutateAsync({ url: "finance/payouts", method: "post", values: {} });
-          toast.success(okMsg);
-          onDone();
-        } catch (e) {
-          toast.error((e as { message?: string })?.message || failMsg);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
+    <Button disabled={busy} onClick={() => void run({ values: {} })}>
       <RefreshCcw className="size-4" aria-hidden="true" />
       {label}
     </Button>
@@ -326,8 +302,9 @@ function DecisionPanel({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { mutateAsync } = useCustomMutation();
-  const [busy, setBusy] = useState(false);
+  // "insufficient float" and friends arrive as the API message — useAction
+  // surfaces it verbatim rather than collapsing it into a generic failure.
+  const { run, busy } = useAction({ onSuccess: () => onDone() });
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
@@ -354,22 +331,12 @@ function DecisionPanel({
   const actionable = payout.status === "pending";
 
   const approve = async () => {
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `finance/payouts/${payout.id}/approve`,
-        method: "post",
-        values: {},
-      });
-      toast.success(t("approveOk"));
-      onClose();
-      onDone();
-    } catch (e) {
-      // "insufficient float" and friends arrive here — do not swallow them.
-      toast.error((e as { message?: string })?.message || t("approveFail"));
-    } finally {
-      setBusy(false);
-    }
+    const res = await run({
+      url: `finance/payouts/${payout.id}/approve`,
+      values: {},
+      successMsg: t("approveOk"),
+    });
+    if (res.ok) onClose();
   };
 
   const reject = async () => {
@@ -377,21 +344,12 @@ function DecisionPanel({
       toast.error(t("rejectRequired"));
       return;
     }
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `finance/payouts/${payout.id}/reject`,
-        method: "post",
-        values: { reason: reason.trim() },
-      });
-      toast.success(t("rejectOk"));
-      onClose();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("rejectFail"));
-    } finally {
-      setBusy(false);
-    }
+    const res = await run({
+      url: `finance/payouts/${payout.id}/reject`,
+      values: { reason: reason.trim() },
+      successMsg: t("rejectOk"),
+    });
+    if (res.ok) onClose();
   };
 
   return (
@@ -564,7 +522,7 @@ function DecisionPanel({
       ) : (
         <section className="mt-4 flex flex-col gap-2">
           <StatusBadge
-            tone={STATUS_TONE[payout.status]}
+            tone={statusTone(payout.status, PAYOUT_TONE)}
             reason={payout.status === "rejected" ? payout.rejectionReason : undefined}
           >
             {t(asKey(`status${payout.status[0]!.toUpperCase()}${payout.status.slice(1)}`))}

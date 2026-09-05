@@ -1,5 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import type { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 export type AuditFilters = {
   actorId?: string;
@@ -14,8 +15,7 @@ export type AuditFilters = {
 };
 
 export function listAuditLogs(filters: AuditFilters) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(200, Math.max(1, parseInt(filters.limit ?? "50", 10) || 50));
+  const { page, limit } = parsePageLimit(filters, 50);
 
   return platformDb(async (tx) => {
     const where: Prisma.AuditLogWhereInput = {};
@@ -83,11 +83,19 @@ export function listAuditLogs(filters: AuditFilters) {
   });
 }
 
+/**
+ * The distinct `action` values present in the audit log.
+ *
+ * `groupBy` rather than `findMany({ distinct })`: Prisma applies `distinct`
+ * in memory, AFTER `take`, so a `take: 300` on an append-only table returned
+ * the distinct actions of the newest 300 ROWS -- a list that silently shrank
+ * as the table grew. The grouping happens in the database here, so the answer
+ * is exact and the 300 is a cap on distinct actions, not on rows scanned.
+ */
 export function listAuditActions() {
   return platformDb(async (tx) => {
-    const rows = await tx.auditLog.findMany({
-      distinct: ["action"],
-      select: { action: true },
+    const rows = await tx.auditLog.groupBy({
+      by: ["action"],
       orderBy: { action: "asc" },
       take: 300,
     });

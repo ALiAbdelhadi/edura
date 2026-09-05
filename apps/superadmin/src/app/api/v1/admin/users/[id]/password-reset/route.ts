@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { sendPasswordReset } from "@/lib/services/admin/admin-users";
 import { parseJson } from "@/lib/validation/zod";
@@ -11,8 +10,7 @@ const bodySchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
-export const POST = withErrors(async (req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req, ctx) => {
   const { id } = await ctx.params;
   const { reason } = await parseJson(req, bodySchema);
   return ok(await sendPasswordReset(actor, id, reason), { status: 201 });

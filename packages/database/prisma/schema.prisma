@@ -197,6 +197,19 @@ enum MaterialStorage {
   @@map("material_storage")
 }
 
+/// How a refund's money actually leaves the platform (REFUND_DECISION.md
+/// Option B). `wallet` is present from day one even though Option A was
+/// rejected — see WALLET_SPENDABILITY.md — so the two shapes can coexist rather
+/// than fork if the spendability gaps are ever closed.
+enum RefundChannel {
+  cash_drawer
+  bank_transfer
+  gateway
+  wallet
+
+  @@map("refund_channel")
+}
+
 enum PaymentStatus {
   pending
   paid
@@ -841,6 +854,17 @@ model CenterStudentRoster {
   @@map("center_student_rosters")
 }
 
+// A PARTIAL UNIQUE INDEX GUARDS THIS TABLE AND PRISMA CANNOT SEE IT:
+//   center_teacher_affiliation_one_live
+//   UNIQUE (center_id, teacher_id) WHERE status IN ('pending', 'active')
+// It is partial on purpose. A plain @@unique([centerId, teacherId]) would make
+// the terminal states unrepeatable -- a teacher removed from a centre could
+// never be re-invited, because the 'removed' row would block the new 'pending'
+// one -- which breaks inviteTeacher and acceptCollaborationRequest.
+// Prisma's schema language has no partial index, so `prisma migrate dev` WILL
+// offer to drop it as drift. Do not accept. What enforces it is
+// apps/superadmin/tests/db/c04-dedupe-guards.test.ts.
+// Migration 20260902120000_dedupe_guards. Plan: MIGRATION_PLAN_C4.md (C-4).
 model CenterTeacherAffiliation {
   id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId    String            @map("center_id") @db.Uuid
@@ -933,6 +957,14 @@ model TeamNoteRead {
   @@map("team_note_reads")
 }
 
+// A PARTIAL UNIQUE INDEX GUARDS THIS TABLE AND PRISMA CANNOT SEE IT:
+//   parent_student_link_one_live
+//   UNIQUE (parent_id, student_id) WHERE status IN ('pending', 'approved')
+// Partial for the same reason as CenterTeacherAffiliation above: 'rejected' and
+// 'revoked' are history, and a link may legitimately be requested again after
+// either. `prisma migrate dev` WILL offer to drop it as drift -- do not accept;
+// apps/superadmin/tests/db/c04-dedupe-guards.test.ts is what enforces it.
+// Migration 20260902120000_dedupe_guards. Plan: MIGRATION_PLAN_C4.md (C-4).
 model ParentStudentLink {
   id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parentId    String           @map("parent_id") @db.Uuid
@@ -1205,6 +1237,38 @@ model Payment {
   shiftId       String?       @map("shift_id") @db.Uuid
   note          String?
   receiptNumber String        @unique @map("receipt_number")
+
+  /// The receipt this row reverses. A bare column with no Prisma relation, the
+  /// same shape `Transaction.reversalOfId` uses. The database also carries
+  /// `payments_reversal_is_negative` (CHECK) and
+  /// `payments_one_refund_per_payment` (partial unique) on it, NEITHER of which
+  /// Prisma can model -- `prisma migrate dev` will offer to drop them. Refuse;
+  /// `c06-refund-guards` is what makes that a red test.
+  reversalOfId  String?       @map("reversal_of_id") @db.Uuid
+  /// How much of THIS charge has been handed back. Bounded against `amount` by
+  /// the `payments_refunded_within_amount` CHECK, which is the only place an
+  /// over-refund can actually be prevented.
+  refundedTotal Int           @default(0) @map("refunded_total")
+  /// Idempotency key. Unique per (centerId, clientRequestId); NULL is distinct,
+  /// so keyless callers are unaffected. Mirrors `Payout.clientRequestId`.
+  clientRequestId String?     @map("client_request_id")
+
+  /// How the money goes BACK. Required on a reversing row and forbidden on any
+  /// other, by the `payments_refund_channel_shape` CHECK — which Prisma cannot
+  /// model and `prisma migrate dev` will offer to drop. Refuse; see
+  /// `c06-refund-guards`.
+  refundChannel     RefundChannel? @map("refund_channel")
+  /// The evidence: a signed paper voucher, a bank reference, or the provider's
+  /// refund id. Unique per channel except `cash_drawer`, whose numbering is
+  /// centre-local stationery.
+  refundExternalRef String?        @map("refund_external_ref")
+  /// Set together with `refundConfirmedBy` and `refundExternalRef` or not at
+  /// all (`payments_refund_confirmation_complete`). THIS, not
+  /// `transactions.status`, is what says a refund was actually paid — the
+  /// ledger row is written `pending` and can never be updated, because
+  /// `transactions` has UPDATE revoked.
+  refundConfirmedAt DateTime?      @map("refund_confirmed_at") @db.Timestamptz(6)
+  refundConfirmedBy String?        @map("refund_confirmed_by") @db.Uuid
   dataSource    DataSource    @default(system) @map("data_source")
   recordedBy    String        @map("recorded_by") @db.Uuid
   paidAt        DateTime      @default(now()) @map("paid_at") @db.Timestamptz(6)
@@ -1213,6 +1277,7 @@ model Payment {
 
   @@index([centerId, paidAt(sort: Desc)])
   @@index([studentId, paidAt(sort: Desc)])
+  @@unique([centerId, clientRequestId], map: "payments_client_request_unique")
   @@index([payerUserId])
   @@map("payments")
 }
@@ -1246,6 +1311,11 @@ model Transaction {
   paymentMethod PaymentMethod?    @map("payment_method")
   gatewayRef    String?           @map("gateway_ref")
   reversalOfId  String?           @map("reversal_of_id") @db.Uuid
+  /// The `payments` row this ledger entry belongs to, so a refund can find the
+  /// charge's transaction and set `reversalOfId` on it. Bare column; rows
+  /// written before migration 20260906120000 carry NULL and cannot be
+  /// backfilled (UPDATE is revoked on this table).
+  paymentId     String?           @map("payment_id") @db.Uuid
   funding       FundingSource?
   notes         String?
   dataSource    DataSource        @default(system) @map("data_source")
@@ -1258,6 +1328,7 @@ model Transaction {
   @@index([fromEntityId])
   @@index([toEntityId])
   @@index([type, status, createdAt(sort: Desc)])
+  @@index([paymentId])
   @@map("transactions")
 }
 
@@ -1365,6 +1436,14 @@ model Notification {
   @@map("notifications")
 }
 
+// Three partial unique indexes, one per level, live only in migration SQL:
+//   blacklist_platform_one_active  (target_id)                WHERE level='platform' AND is_active
+//   blacklist_center_one_active    (target_id, center_id)     WHERE level='center'   AND is_active
+//   blacklist_teacher_one_active   (target_id, imposed_by_id) WHERE level='teacher'  AND is_active
+// Partial on is_active because a lifted ban is history and may be re-imposed.
+// `prisma migrate dev` WILL offer to drop them as drift -- do not accept;
+// apps/superadmin/tests/db/c05-dedupe-guards.test.ts is what enforces them.
+// Migration 20260905120000_dedupe_guards_c5. Plan: MIGRATION_PLAN_C5.md (C-5).
 model BlacklistEntry {
   id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   targetId    String         @map("target_id") @db.Uuid
@@ -2052,6 +2131,13 @@ model WalletLedger {
   @@map("wallet_ledger")
 }
 
+// THIS TABLE IS A SINGLETON, ENFORCED BY AN EXPRESSION INDEX PRISMA CANNOT SEE:
+//   wallet_settings_one_row   UNIQUE ((true))
+// Same idiom as commission_one_global. It cannot be expressed as @@unique and
+// cannot be named in a Prisma `upsert`, so updateWalletPolicy converges with a
+// create-then-retry instead. `prisma migrate dev` WILL offer to drop it as
+// drift -- do not accept; c04-dedupe-guards.test.ts is what enforces it.
+// Migration 20260902120000_dedupe_guards. Plan: MIGRATION_PLAN_C4.md (C-4).
 model WalletSettings {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   maxBalance Int?     @map("max_balance")
@@ -2290,6 +2376,12 @@ enum AgreementStatus {
   @@map("agreement_status")
 }
 
+// Two partial unique indexes live only in migration SQL:
+//   teacher_agreements_one_active_per_pair   (center_id, teacher_id) WHERE status='active'   (20260825200000)
+//   teacher_agreements_one_proposed_per_pair (center_id, teacher_id) WHERE status='proposed' (20260905120000)
+// `prisma migrate dev` WILL offer to drop them as drift -- do not accept;
+// apps/superadmin/tests/db/c05-dedupe-guards.test.ts is what enforces the second.
+// Plan: MIGRATION_PLAN_C5.md (C-5).
 model TeacherAgreement {
   id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId      String            @map("center_id") @db.Uuid

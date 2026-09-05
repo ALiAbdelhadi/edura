@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useList, useOne } from "@refinedev/core";
-
+import { useOne } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { RefreshCcw, TriangleAlert } from "lucide-react";
-import { Button } from "@repo/ui/components/button";
-import { SearchInput } from "@repo/ui/components/search-input";
-import { Card, CardContent } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
+import { MessageSquare } from "lucide-react";
+
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import type { Locale } from "@repo/ui/lib/format";
 import {
   Dialog,
@@ -19,49 +16,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { StatusBadge } from "@/components/kit/status-badge";
-import { Spinner } from "@/components/kit/spinner";
+
+import type { ColumnDef } from "@/components/kit/data-table";
+import { ListFilter, ListSearch, ListShell } from "@/components/kit/list-shell";
+import { useListScreen } from "@/lib/api/use-list-screen";
 
 type MessageRow = {
   id: string;
   recipientPhone: string;
   template: string;
-
   locale: string;
   status: "queued" | "sent" | "failed";
   provider: "mock" | "cloud_api";
   providerMessageId: string | null;
-
   createdAt: string;
 };
 
-const ANY = "__any__";
+const STATUSES = ["sent", "failed", "queued"] as const;
 
 export function WhatsAppMessagesScreen() {
   const t = useTranslations();
   const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<MessageRow | null>(null);
+
+  const list = useListScreen<MessageRow>({ resource: "admin/whatsapp-messages" });
+
   // params (the child's name and student code) and the provider payload belong to
   // the one row an operator opens, so they are fetched then — not shipped with every
   // row in the list.
@@ -74,165 +54,73 @@ export function WhatsAppMessagesScreen() {
     | { params: string[] | null; providerResponse: unknown; error: string | null }
     | undefined;
 
-  const { query, result } = useList({
-    resource: "admin/whatsapp-messages",
-    filters: [
-      ...(q ? [{ field: "q", operator: "eq" as const, value: q }] : []),
-      ...(status ? [{ field: "status", operator: "eq" as const, value: status }] : []),
-    ],
-    pagination: { currentPage: page, pageSize: 20 },
-  });
-
-  const rows = (result?.data ?? []) as MessageRow[];
-  const total = (result?.total ?? 0) as number;
-  const pageCount = Math.max(1, Math.ceil(total / 20));
+  const columns: ColumnDef<MessageRow, unknown>[] = [
+    {
+      id: "recipient",
+      header: t("whatsapp.colRecipient"),
+      cell: ({ row }) => (
+        <span className="font-mono" dir="ltr">
+          {row.original.recipientPhone}
+        </span>
+      ),
+    },
+    {
+      id: "template",
+      header: t("whatsapp.colTemplate"),
+      cell: ({ row }) => row.original.template,
+    },
+    {
+      id: "status",
+      header: t("whatsapp.colStatus"),
+      cell: ({ row }) => (
+        <StatusBadge tone={statusTone(row.original.status)}>{row.original.status}</StatusBadge>
+      ),
+    },
+    {
+      id: "provider",
+      header: t("whatsapp.colProvider"),
+      cell: ({ row }) => row.original.provider,
+    },
+    {
+      id: "at",
+      header: t("whatsapp.colAt"),
+      cell: ({ row }) => (
+        <Num.Date
+          value={row.original.createdAt}
+          locale={locale}
+          className="text-[11px] text-ink-3"
+        />
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("whatsapp.title")} description={t("whatsapp.description")} />
-
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <SearchInput
-            className="min-w-64 flex-1"
+    <ListShell
+      list={list}
+      title={t("whatsapp.title")}
+      description={t("whatsapp.description")}
+      columns={columns}
+      onRowClick={(row) => setDetail(row)}
+      rowLabel={(row) => row.recipientPhone ?? row.id}
+      toolbar={
+        <>
+          <ListSearch
+            list={list}
             placeholder={t("whatsapp.searchPlaceholder")}
-            value={q}
-            onValueChange={(v) => {
-                setQ(v);
-                setPage(1);
-              }}
-            onClear={() => setQ("")}
             clearLabel={t("whatsapp.clearSearch")}
           />
-          <Select
-            value={status ?? undefined}
-            onValueChange={(v) => {
-              setStatus(v === ANY ? null : v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder={t("whatsapp.statusFilter")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY}>{t("whatsapp.any")}</SelectItem>
-              {["sent", "failed", "queued"].map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-0">
-          {query.isLoading ? (
-            <div className="p-6">
-              <Spinner />
-            </div>
-          ) : query.isError ? (
-            (() => {
-              const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
-              return (
-                <EmptyState
-                  tone={denied ? "denied" : "error"}
-                  icon={TriangleAlert}
-                  title={denied ? queryStrings.denied : queryStrings.loadFailed}
-                  action={
-                    denied ? undefined : (
-                      <Button variant="outline" onClick={() => query.refetch()}>
-                        <RefreshCcw className="size-4" aria-hidden="true" />
-                        {queryStrings.retry}
-                      </Button>
-                    )
-                  }
-                />
-              );
-            })()
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("whatsapp.colRecipient")}</TableHead>
-                  <TableHead>{t("whatsapp.colTemplate")}</TableHead>
-                  <TableHead>{t("whatsapp.colStatus")}</TableHead>
-                  <TableHead>{t("whatsapp.colProvider")}</TableHead>
-                  <TableHead>{t("whatsapp.colAt")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-ink-2">
-                      {t("whatsapp.empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((r) => (
-                    <TableRow
-                      key={r.id}
-                      className="cursor-pointer"
-                      onClick={() => setDetail(r)}
-                    >
-                      <TableCell className="font-mono" dir="ltr">
-                        {r.recipientPhone}
-                      </TableCell>
-                      <TableCell>{r.template}</TableCell>
-                      <TableCell>
-                        <StatusBadge
-                          tone={
-                            r.status === "sent"
-                              ? "success"
-                              : r.status === "failed"
-                                ? "danger"
-                                : "warning"
-                          }
-                        >
-                          {r.status}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell>{r.provider}</TableCell>
-                      <TableCell className="text-sm text-ink-2">
-                        <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-ink-2">
-          {t("whatsapp.total", { count: total })}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("whatsapp.prev")}
-          </Button>
-          <span className="self-center text-sm">
-            <Num>{page} / {pageCount}</Num>
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pageCount}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("whatsapp.next")}
-          </Button>
-        </div>
-      </div>
-
+          <ListFilter
+            list={list}
+            name="status"
+            anyLabel={t("whatsapp.any")}
+            options={STATUSES}
+            render={(s) => s}
+          />
+        </>
+      }
+      emptyIcon={MessageSquare}
+      emptyTitle={t("whatsapp.empty")}
+    >
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -246,16 +134,16 @@ export function WhatsAppMessagesScreen() {
             />
           ) : detail ? (
             <div className="space-y-3 text-sm">
-              <div dir="ltr" className="font-mono">{detail.recipientPhone}</div>
+              <div dir="ltr" className="font-mono">
+                {detail.recipientPhone}
+              </div>
               <div>
                 <span className="font-medium">{t("whatsapp.detailParams")}: </span>
                 <pre className="mt-1 overflow-x-auto rounded bg-field p-2 text-xs" dir="ltr">
                   {full ? JSON.stringify(full.params, null, 2) : "…"}
                 </pre>
               </div>
-              {full?.error ? (
-                <p className="text-red">{full.error}</p>
-              ) : null}
+              {full?.error ? <p className="text-red">{full.error}</p> : null}
               <div>
                 <span className="font-medium">{t("whatsapp.detailResponse")}: </span>
                 <pre className="mt-1 max-h-48 overflow-auto rounded bg-field p-2 text-xs" dir="ltr">
@@ -266,6 +154,6 @@ export function WhatsAppMessagesScreen() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </ListShell>
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
+
+import { api } from "@/lib/api/client";
 
 type PrefsShape = { tourCompleted?: boolean };
 
 export function useTourGate() {
   const { query, result } = useCustom<PrefsShape>({ url: "me/prefs", method: "get" });
-  const { mutateAsync: savePrefs } = useCustomMutation();
   const [dismissed, setDismissed] = useState(false);
 
   const payload = (result as { data?: PrefsShape } | undefined)?.data ?? (result as PrefsShape);
@@ -21,11 +22,20 @@ export function useTourGate() {
   const markDone = useCallback(() => {
     setShouldOpen(false);
     setDismissed(true);
-    void savePrefs({ url: "me/prefs", method: "patch", values: { tourCompleted: true } }).catch(
-      () => {
-      },
-    );
-  }, [savePrefs]);
+    // The tour is already closed for this session either way, so a failed
+    // save is not worth a toast -- but swallowing it silently meant the tour
+    // reappearing next visit with nothing anywhere saying why.
+    //
+    // This is the one write that deliberately does NOT go through `useAction`:
+    // that hook always toasts. Going through Refine did not keep it quiet
+    // either -- the provider's fallback errorNotification toasted it, against
+    // the intent stated above. `api` directly is the only silent path.
+    void api
+      .patch("me/prefs", { json: { tourCompleted: true } })
+      .catch((e: unknown) => {
+        console.warn("[tour] could not persist tourCompleted", e);
+      });
+  }, []);
 
   return { shouldOpen, markDone };
 }

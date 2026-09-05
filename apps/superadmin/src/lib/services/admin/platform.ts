@@ -1,28 +1,72 @@
-import { platformDb, type TenantTx } from "@/lib/db/scope";
-import { exactQuery } from "@repo/database/search-text";
+import { Prisma } from "@repo/database";
+import { platformDb } from "@/lib/db/scope";
+import { exactQuery, searchTerms } from "@repo/database/search-text";
 import { NotFoundError, BusinessRuleError, ConflictError } from "@/lib/errors/classes";
-import { notify } from "@/lib/services/notifications/notify";
+import { isUniqueViolation } from "@/lib/errors/prisma";
+import {
+  AFFILIATION_ONE_LIVE,
+  PARENT_LINK_ONE_LIVE,
+} from "@repo/server-core/db/unique-indexes";
+import { notifyAfterCommit } from "@/lib/services/notifications/notify";
+import { parsePageLimit, type PageLimitInput } from "@/lib/validation/common";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 
-
-async function audit(
-  tx: TenantTx,
-  actorId: string,
-  action: string,
-  targetType: string,
-  targetId: string,
-  after?: Record<string, unknown>,
-) {
-  await tx.auditLog.create({
-    data: { actorId, action, targetType, targetId, afterState: (after ?? {}) as never },
+export function countPendingRegistrations() {
+  return platformDb(async (tx) => {
+    const [centers, teachers] = await Promise.all([
+      tx.center.count({ where: { status: "pending" } }),
+      tx.user.count({ where: { role: "teacher", status: "pending" } }),
+    ]);
+    return { centers, teachers, total: centers + teachers };
   });
 }
 
-export function listRegistrations(status: "pending" | "active" | "rejected" = "pending") {
+/**
+ * The registrations queue: centers and teachers awaiting (or already given) a
+ * decision, both halves paged by the SAME `page`/`limit`.
+ *
+ * The centers half used to have no bound at all, so the "active" tab returned
+ * every active center on the platform in one response; the teachers half had a
+ * bare `take: 200`, which is a silent truncation -- the screen showed 200 rows
+ * and said nothing about the rest. Both now page, and both report their own
+ * total so the screen can say which slice it is showing.
+ *
+ * One shared page across two lists is deliberate: this is a triage screen whose
+ * two halves drain together, and a page past the end of one half simply renders
+ * that section empty.
+ */
+export function listRegistrations(
+  status: "pending" | "active" | "rejected" = "pending",
+  paging: PageLimitInput = {},
+) {
+  const { page, limit, skip, take } = parsePageLimit(paging, 20);
   return platformDb(async (tx) => {
-    const centers = await tx.center.findMany({
-      where: { status },
-      orderBy: { createdAt: "desc" },
-    });
+    const wantsTeachers = status === "pending" || status === "active";
+    const teacherWhere = {
+      role: "teacher",
+      status: status === "pending" ? "pending" : "active",
+    } as const;
+
+    const [centers, centersTotal, teachers, teachersTotal] = await Promise.all([
+      tx.center.findMany({
+        where: { status },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      tx.center.count({ where: { status } }),
+      wantsTeachers
+        ? tx.user.findMany({
+            where: teacherWhere,
+            select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+            skip,
+            take,
+          })
+        : [],
+      wantsTeachers ? tx.user.count({ where: teacherWhere }) : 0,
+    ]);
+
     const centerIds = centers.map((c) => c.id);
     const admins = centerIds.length
       ? await tx.centerAdminProfile.findMany({
@@ -46,25 +90,19 @@ export function listRegistrations(status: "pending" | "active" | "rejected" = "p
       adminsByCenter.set(a.centerId, list);
     }
 
-    const teachers =
-      status === "pending" || status === "active"
-        ? await tx.user.findMany({
-            where: { role: "teacher", status: status === "pending" ? "pending" : "active" },
-            select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true },
-            orderBy: { createdAt: "desc" },
-            take: 200,
-          })
-        : [];
-
     return {
       centers: centers.map((c) => ({ ...c, admins: adminsByCenter.get(c.id) ?? [] })),
       teachers,
+      centersTotal,
+      teachersTotal,
+      page,
+      limit,
     };
   });
 }
 
 export function listCenters(filters: { status?: string; take?: number; cursor?: string }) {
-  const take = Math.min(100, Math.max(1, filters.take ?? 50));
+  const { take } = parsePageLimit({ limit: filters.take }, 50);
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.status) where.status = filters.status;
@@ -105,11 +143,18 @@ export async function approveCenter(centerId: string, adminId: string) {
     if (adminUserIds.length) {
       await tx.user.updateMany({ where: { id: { in: adminUserIds }, status: "pending" }, data: { status: "active" } });
     }
-    await audit(tx, adminId, "center.approved", "center", centerId, { status: "active" });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "center.approved",
+      targetType: "center",
+      targetId: centerId,
+      centerId,
+      before: { status: center.status },
+      after: { status: "active" },
+    });
     return { center, adminUserIds };
   }, { actorId: adminId });
 
-  await notify({
+  await notifyAfterCommit({
     recipients: adminUserIds,
     type: "registration_approved",
     title: "Registration approved",
@@ -132,11 +177,18 @@ export async function rejectCenter(centerId: string, reason: string, adminId: st
     if (adminUserIds.length) {
       await tx.user.updateMany({ where: { id: { in: adminUserIds } }, data: { status: "suspended" } });
     }
-    await audit(tx, adminId, "center.rejected", "center", centerId, { status: "rejected", reason });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "center.rejected",
+      targetType: "center",
+      targetId: centerId,
+      centerId,
+      before: { status: center.status },
+      after: { status: "rejected", reason },
+    });
     return { center, adminUserIds };
   }, { actorId: adminId });
 
-  await notify({
+  await notifyAfterCommit({
     recipients: adminUserIds,
     type: "registration_rejected",
     title: "Registration not approved",
@@ -158,11 +210,18 @@ export async function blacklistCenter(centerId: string, reason: string, adminId:
     if (adminUserIds.length) {
       await tx.user.updateMany({ where: { id: { in: adminUserIds } }, data: { status: "suspended" } });
     }
-    await audit(tx, adminId, "center.blacklisted", "center", centerId, { status: "blacklisted", reason });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "center.blacklisted",
+      targetType: "center",
+      targetId: centerId,
+      centerId,
+      before: { status: center.status },
+      after: { status: "blacklisted", reason },
+    });
     return { center, adminUserIds };
   }, { actorId: adminId });
 
-  await notify({
+  await notifyAfterCommit({
     recipients: adminUserIds,
     type: "blacklist_action",
     title: "Center suspended",
@@ -172,28 +231,6 @@ export async function blacklistCenter(centerId: string, reason: string, adminId:
   return { id: centerId, status: "blacklisted" };
 }
 
-export async function toggleCenter(centerId: string, adminId: string) {
-  const updated = await platformDb(async (tx) => {
-    const center = await tx.center.findUnique({ where: { id: centerId } });
-    if (!center) throw new NotFoundError("Center not found");
-    if (!["active", "suspended"].includes(center.status)) {
-      throw new BusinessRuleError(`Cannot toggle a center in status '${center.status}'`);
-    }
-    const next = center.status === "active" ? "suspended" : "active";
-    const row = await tx.center.update({ where: { id: centerId }, data: { status: next } });
-    const admins = await tx.centerAdminProfile.findMany({ where: { centerId }, select: { userId: true } });
-    if (admins.length) {
-      await tx.user.updateMany({
-        where: { id: { in: admins.map((a) => a.userId) } },
-        data: { status: next === "active" ? "active" : "suspended" },
-      });
-    }
-    await audit(tx, adminId, "center.toggled", "center", centerId, { status: next });
-    return row;
-  }, { actorId: adminId });
-  return { id: centerId, status: updated.status };
-}
-
 export function listTeachers(filters: {
   q?: string;
   status?: string;
@@ -201,8 +238,7 @@ export function listTeachers(filters: {
   page?: string;
   limit?: string;
 }) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const { page, limit } = parsePageLimit(filters, 20);
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = { role: "teacher" };
     if (filters.status) where.status = filters.status;
@@ -229,6 +265,28 @@ export function listTeachers(filters: {
       }),
       tx.user.count({ where }),
     ]);
+
+    // Live centre affiliations ride along: linking and unlinking a centre are
+    // administrative overrides, and an operator cannot judge one without
+    // seeing where the teacher already teaches.
+    const affiliations = rows.length
+      ? await tx.centerTeacherAffiliation.findMany({
+          where: { teacherId: { in: rows.map((r) => r.id) }, status: { in: ["pending", "active"] } },
+          select: { teacherId: true, centerId: true, status: true },
+        })
+      : [];
+    const centerIds = [...new Set(affiliations.map((a) => a.centerId))];
+    const centers = centerIds.length
+      ? await tx.center.findMany({ where: { id: { in: centerIds } }, select: { id: true, name: true } })
+      : [];
+    const centerName = new Map(centers.map((c) => [c.id, c.name]));
+    const byTeacher = new Map<string, { centerId: string; name: string | null; status: string }[]>();
+    for (const a of affiliations) {
+      const list = byTeacher.get(a.teacherId) ?? [];
+      list.push({ centerId: a.centerId, name: centerName.get(a.centerId) ?? null, status: a.status });
+      byTeacher.set(a.teacherId, list);
+    }
+
     return {
       data: rows.map((r) => ({
         id: r.id,
@@ -238,6 +296,7 @@ export function listTeachers(filters: {
         status: r.status,
         createdAt: r.createdAt,
         attendanceMode: r.teacherProfile?.attendanceMode ?? null,
+        centers: byTeacher.get(r.id) ?? [],
       })),
       total,
       page,
@@ -259,9 +318,12 @@ export async function setTeacherAttendanceMode(
     if (!profile) throw new NotFoundError("Teacher not found");
     if (profile.attendanceMode === mode) return;
     await tx.teacherProfile.update({ where: { userId: teacherUserId }, data: { attendanceMode: mode } });
-    await audit(tx, adminId, "teacher.attendance_mode_changed", "teacher", teacherUserId, {
-      from: profile.attendanceMode,
-      to: mode,
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "teacher.attendance_mode_changed",
+      targetType: "teacher",
+      targetId: teacherUserId,
+      before: { attendanceMode: profile.attendanceMode },
+      after: { attendanceMode: mode, from: profile.attendanceMode, to: mode },
     });
   }, { actorId: adminId });
   return { id: teacherUserId, attendanceMode: mode };
@@ -273,10 +335,16 @@ export async function approveTeacher(teacherUserId: string, adminId: string) {
     if (!u || u.role !== "teacher") throw new NotFoundError("Teacher not found");
     if (u.status !== "pending") throw new BusinessRuleError(`Teacher is already ${u.status}`);
     await tx.user.update({ where: { id: teacherUserId }, data: { status: "active" } });
-    await audit(tx, adminId, "teacher.approved", "teacher", teacherUserId, { status: "active" });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "teacher.approved",
+      targetType: "teacher",
+      targetId: teacherUserId,
+      before: { status: u.status },
+      after: { status: "active" },
+    });
   }, { actorId: adminId });
 
-  await notify({
+  await notifyAfterCommit({
     recipients: [teacherUserId],
     type: "registration_approved",
     title: "Registration approved",
@@ -293,10 +361,16 @@ export async function rejectTeacher(teacherUserId: string, reason: string, admin
     if (!u || u.role !== "teacher") throw new NotFoundError("Teacher not found");
     if (u.status !== "pending") throw new BusinessRuleError(`Teacher is already ${u.status}`);
     await tx.user.update({ where: { id: teacherUserId }, data: { status: "suspended" } });
-    await audit(tx, adminId, "teacher.rejected", "teacher", teacherUserId, { status: "suspended", reason });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "teacher.rejected",
+      targetType: "teacher",
+      targetId: teacherUserId,
+      before: { status: u.status },
+      after: { status: "suspended", reason },
+    });
   }, { actorId: adminId });
 
-  await notify({
+  await notifyAfterCommit({
     recipients: [teacherUserId],
     type: "registration_rejected",
     title: "Registration not approved",
@@ -315,17 +389,27 @@ export async function linkTeacherCenter(teacherUserId: string, centerId: string,
     if (!teacher || teacher.role !== "teacher") throw new NotFoundError("Teacher not found");
     if (!center) throw new NotFoundError("Center not found");
 
-    const existing = await tx.centerTeacherAffiliation.findFirst({
-      where: { teacherId: teacherUserId, centerId, status: { in: ["pending", "active"] } },
-    });
-    if (existing) throw new ConflictError("Teacher is already linked to this center");
-
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    const aff = await tx.centerTeacherAffiliation.create({
-      data: { teacherId: teacherUserId, centerId, status: "active", respondedAt: new Date(), expiresAt },
+
+    const aff = await tx.centerTeacherAffiliation
+      .create({
+        data: { teacherId: teacherUserId, centerId, status: "active", respondedAt: new Date(), expiresAt },
+      })
+      .catch((err: unknown) => {
+        if (isUniqueViolation(err, AFFILIATION_ONE_LIVE)) {
+          throw new ConflictError("Teacher is already linked to this center");
+        }
+        throw err;
+      });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "teacher.linked_center",
+      targetType: "teacher",
+      targetId: teacherUserId,
+      centerId,
+      before: null,
+      after: { centerId, affiliationId: aff.id, status: aff.status },
     });
-    await audit(tx, adminId, "teacher.linked_center", "teacher", teacherUserId, { centerId });
     return aff;
   }, { actorId: adminId });
 }
@@ -340,35 +424,74 @@ export async function unlinkTeacherCenter(teacherUserId: string, centerId: strin
       where: { id: aff.id },
       data: { status: "removed", removedAt: new Date() },
     });
-    await audit(tx, adminId, "teacher.unlinked_center", "teacher", teacherUserId, { centerId });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "teacher.unlinked_center",
+      targetType: "teacher",
+      targetId: teacherUserId,
+      centerId,
+      before: { affiliationId: aff.id, status: aff.status },
+      after: { centerId, affiliationId: aff.id, status: row.status },
+    });
     return row;
   }, { actorId: adminId });
 }
 
-export function listStudents(filters: { grade?: string; centerId?: string; take?: number; cursor?: string }) {
-  const take = Math.min(100, Math.max(1, filters.take ?? 50));
+/**
+ * The platform-wide student directory. Paged like every other list screen
+ * (`page`/`limit` + a real `total`) rather than by cursor: the shared
+ * `useListScreen`/`ListShell` pair the app filters and pages with needs a
+ * total, and a cursor cannot answer "how many are there".
+ */
+export function listStudents(
+  filters: { grade?: string; centerId?: string; q?: string } & PageLimitInput,
+) {
+  const { page, limit, skip, take } = parsePageLimit(filters, 20);
   return platformDb(async (tx) => {
-    let idFilter: string[] | undefined;
+    // Roster membership is an EXISTS, not an IN over ids fetched first: the
+    // old shape read every active student of a centre into memory and sent
+    // them back as a filter, which grows with the centre forever (M-16).
+    //
+    // Raw SQL decides WHICH rows; Prisma still shapes them, so the hydrating
+    // `in` below is bounded by the page and the returned columns are the ones
+    // the screen already had.
+    const conds: Prisma.Sql[] = [];
     if (filters.centerId) {
-      const roster = await tx.centerStudentRoster.findMany({
-        where: { centerId: filters.centerId, leftAt: null },
-        select: { studentId: true },
-      });
-      idFilter = roster.map((r) => r.studentId);
-      if (idFilter.length === 0) return { data: [], nextCursor: null };
+      conds.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM center_student_rosters r
+         WHERE r.student_id = sp.user_id
+           AND r.center_id = ${filters.centerId}::uuid
+           AND r.left_at IS NULL)`);
     }
-    const where: Record<string, unknown> = {};
-    if (filters.grade) where.grade = filters.grade;
-    if (idFilter) where.userId = { in: idFilter };
+    if (filters.grade) conds.push(Prisma.sql`sp.grade = ${filters.grade}`);
+    // The terms come from the shared normalizer, so "احمد" and "أحمد" still
+    // find the same child — the matching rule is not restated in SQL.
+    for (const term of filters.q?.trim() ? searchTerms(filters.q.trim()) : []) {
+      conds.push(Prisma.sql`sp.search_text LIKE ${`%${term}%`}`);
+    }
+    const whereSql = conds.length
+      ? Prisma.sql`WHERE ${Prisma.join(conds, " AND ")}`
+      : Prisma.empty;
+
+    const [idRows, countRows] = await Promise.all([
+      tx.$queryRaw<{ id: string }[]>`
+        SELECT sp.id
+          FROM student_profiles sp
+          ${whereSql}
+         ORDER BY sp.created_at DESC, sp.id DESC
+         LIMIT ${take} OFFSET ${skip}`,
+      tx.$queryRaw<{ n: bigint }[]>`
+        SELECT COUNT(*)::bigint AS n FROM student_profiles sp ${whereSql}`,
+    ]);
+
+    const total = Number(countRows[0]?.n ?? 0);
+    if (idRows.length === 0) return { data: [], total, page, limit };
+
     const rows = await tx.studentProfile.findMany({
-      where,
+      where: { id: { in: idRows.map((r) => r.id) } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: take + 1,
-      ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
       select: { id: true, userId: true, fullName: true, phone: true, grade: true, entityType: true, pointsBalance: true, createdAt: true },
     });
-    const nextCursor = rows.length > take ? rows[take].id : null;
-    return { data: rows.slice(0, take), nextCursor };
+    return { data: rows, total, page, limit };
   });
 }
 
@@ -379,13 +502,40 @@ export function getStudent(studentProfileId: string) {
     const [enrollments, parents, blacklist] = await Promise.all([
       tx.enrollment.count({ where: { studentId: student.userId ?? "", status: "active" } }),
       student.userId
-        ? tx.parentStudentLink.findMany({ where: { studentId: student.userId, status: "approved" }, select: { parentId: true } })
+        ? tx.parentStudentLink.findMany({
+            where: { studentId: student.userId, status: "approved" },
+            // The LINK id, not just the parent's: unlinkParent is addressed by
+            // the link, so a caller given only parentId cannot undo the link it
+            // is looking at.
+            select: { id: true, parentId: true },
+          })
         : Promise.resolve([]),
       student.userId
         ? tx.blacklistEntry.findMany({ where: { targetId: student.userId, isActive: true }, select: { level: true, reason: true } })
         : Promise.resolve([]),
     ]);
-    return { student, activeEnrollments: enrollments, parentIds: parents.map((p) => p.parentId), blacklist };
+
+    const parentUsers = parents.length
+      ? await tx.user.findMany({
+          where: { id: { in: parents.map((p) => p.parentId) } },
+          select: { id: true, name: true, email: true, phone: true },
+        })
+      : [];
+    const byId = new Map(parentUsers.map((u) => [u.id, u]));
+
+    return {
+      student,
+      activeEnrollments: enrollments,
+      parentIds: parents.map((p) => p.parentId),
+      parentLinks: parents.map((p) => ({
+        linkId: p.id,
+        parentId: p.parentId,
+        name: byId.get(p.parentId)?.name ?? null,
+        email: byId.get(p.parentId)?.email ?? null,
+        phone: byId.get(p.parentId)?.phone ?? null,
+      })),
+      blacklist,
+    };
   });
 }
 
@@ -404,13 +554,32 @@ export async function linkParent(studentUserId: string, parentUserId: string, ad
     if (existing) {
       if (existing.status === "approved") throw new ConflictError("Parent is already linked to this student");
       const row = await tx.parentStudentLink.update({ where: { id: existing.id }, data: { status: "approved" } });
-      await audit(tx, adminId, "student.linked_parent", "student", studentUserId, { parentId: parentUserId });
+      await writeAdminAudit(tx, { id: adminId }, {
+        action: "student.linked_parent",
+        targetType: "student",
+        targetId: studentUserId,
+        before: { linkId: existing.id, status: existing.status },
+        after: { parentId: parentUserId, linkId: row.id, status: row.status },
+      });
       return row;
     }
-    const row = await tx.parentStudentLink.create({
-      data: { studentId: studentUserId, parentId: parentUserId, status: "approved", initiatedBy: "parent" },
+    const row = await tx.parentStudentLink
+      .create({
+        data: { studentId: studentUserId, parentId: parentUserId, status: "approved", initiatedBy: "parent" },
+      })
+      .catch((err: unknown) => {
+        if (isUniqueViolation(err, PARENT_LINK_ONE_LIVE)) {
+          throw new ConflictError("Parent is already linked to this student");
+        }
+        throw err;
+      });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "student.linked_parent",
+      targetType: "student",
+      targetId: studentUserId,
+      before: null,
+      after: { parentId: parentUserId, linkId: row.id, status: row.status },
     });
-    await audit(tx, adminId, "student.linked_parent", "student", studentUserId, { parentId: parentUserId });
     return row;
   }, { actorId: adminId });
 }
@@ -426,23 +595,15 @@ export async function unlinkParent(linkId: string, studentId: string, adminId: s
       where: { id: linkId },
       data: { status: "revoked", revokedBy: "parent" },
     });
-    await audit(tx, adminId, "student.unlinked_parent", "student", link.studentId, { parentId: link.parentId });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "student.unlinked_parent",
+      targetType: "student",
+      targetId: link.studentId,
+      before: { linkId: link.id, status: link.status },
+      after: { parentId: link.parentId, linkId: link.id, status: row.status },
+    });
     return row;
   }, { actorId: adminId });
-}
-
-export function getUserPermissions(userId: string) {
-  return platformDb(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true, status: true, name: true, email: true },
-    });
-    if (!user) throw new NotFoundError("User not found");
-    const centerAdmin = user.role === "center_admin"
-      ? await tx.centerAdminProfile.findUnique({ where: { userId }, select: { centerId: true } })
-      : null;
-    return { ...user, centerId: centerAdmin?.centerId ?? null };
-  });
 }
 
 export function updateUserStatus(userId: string, status: "active" | "suspended", adminId: string) {
@@ -451,13 +612,19 @@ export function updateUserStatus(userId: string, status: "active" | "suspended",
     if (!user) throw new NotFoundError("User not found");
     if (user.status === "blacklisted") throw new BusinessRuleError("Lift the blacklist first");
     const row = await tx.user.update({ where: { id: userId }, data: { status } });
-    await audit(tx, adminId, "user.status_changed", "user", userId, { status });
+    await writeAdminAudit(tx, { id: adminId }, {
+      action: "user.status_changed",
+      targetType: "user",
+      targetId: userId,
+      before: { status: user.status },
+      after: { status },
+    });
     return { id: userId, status: row.status };
   }, { actorId: adminId });
 }
 
 export function notificationsHistory(filters: { type?: string; take?: number; cursor?: string }) {
-  const take = Math.min(100, Math.max(1, filters.take ?? 50));
+  const { take } = parsePageLimit({ limit: filters.take }, 50);
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.type) where.type = filters.type;

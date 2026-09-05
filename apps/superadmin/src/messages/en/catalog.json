@@ -51,7 +51,9 @@
     "teachersCount": "Teachers",
     "azhari": "Azhari",
     "secondLanguage": "2nd language",
-    "searchPlaceholder": "Search subjects"
+    "searchPlaceholder": "Search subjects",
+    "empty": "No subjects match",
+    "emptyHint": "Clear the search, or add a new subject."
   },
   "offerings": {
     "add": "Add offering",
@@ -72,6 +74,7 @@
     "notes": "Notes",
     "approveTitle": "Approve request",
     "approveBody": "Create a new subject from this request, or link it to an existing subject.",
+    "approveMode": "How to approve",
     "createNew": "Create new subject",
     "linkExisting": "Link to existing subject",
     "rejectTitle": "Reject request",

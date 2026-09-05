@@ -1,8 +1,27 @@
 import { platformDb } from "../../db/scope";
+import { runEffects, type WithEffects, type DeferredEffect } from "../../db/effects";
 import { NotFoundError, ForbiddenError, BusinessRuleError, ConflictError } from "../../errors/classes";
 import { notify } from "../notifications/notify";
 import type { SessionUser } from "../../auth/types";
 import type { TenantTx } from "../../db/scope";
+import { parsePageLimit, type PageLimitInput } from "../../validation/common";
+import { isUniqueViolation } from "../../errors/prisma";
+import {
+  BLACKLIST_CENTER_ONE_ACTIVE,
+  BLACKLIST_PLATFORM_ONE_ACTIVE,
+  BLACKLIST_TEACHER_ONE_ACTIVE,
+} from "../../db/unique-indexes";
+
+// The findFirst checks above each create stay: they give the sequential case its
+// message without a failed insert. The partial unique index is what makes them
+// real under a concurrent double-submit, and these rethrow its P2002 as the SAME
+// message so the loser reads exactly what the sequential case reads (C-5).
+function rethrowAsExisting(index: string, message: string) {
+  return (err: unknown): never => {
+    if (isUniqueViolation(err, index)) throw new ConflictError(message);
+    throw err;
+  };
+}
 
 type CascadeScope =
   | { level: "platform" }
@@ -260,9 +279,9 @@ export async function platformBlacklistUser(targetId: string, reason: string, ad
     if (existing) throw new ConflictError("User is already platform-blacklisted");
 
     await tx.user.update({ where: { id: targetId }, data: { status: "blacklisted" } });
-    const entry = await tx.blacklistEntry.create({
-      data: { targetId, level: "platform", imposedById: adminId, reason },
-    });
+    const entry = await tx.blacklistEntry
+      .create({ data: { targetId, level: "platform", imposedById: adminId, reason } })
+      .catch(rethrowAsExisting(BLACKLIST_PLATFORM_ONE_ACTIVE, "User is already platform-blacklisted"));
     await applyEnrollmentCascade(tx, entry.id, targetId, { level: "platform" });
     return { entry, target };
   }, { actorId: adminId });
@@ -287,9 +306,28 @@ export async function centerBlacklistStudent(
   if (explicitCenterId && explicitCenterId !== admin.centerId && admin.role !== "super_admin") {
     throw new ForbiddenError("Not authorized to blacklist at another center");
   }
+  const { value, effects } = await platformDb(
+    (tx) => centerBlacklistStudentTx(tx, studentId, reason, admin, explicitCenterId),
+    { actorId: admin.id },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function centerBlacklistStudentTx(
+  tx: TenantTx,
+  studentId: string,
+  reason: string,
+  admin: SessionUser,
+  explicitCenterId?: string,
+) {
+  if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
+  if (explicitCenterId && explicitCenterId !== admin.centerId && admin.role !== "super_admin") {
+    throw new ForbiddenError("Not authorized to blacklist at another center");
+  }
   const centerId = (explicitCenterId ?? admin.centerId) as string;
   if (!centerId) throw new BusinessRuleError("A center is required");
-  const entry = await platformDb(async (tx) => {
+  const entry = await (async () => {
     const roster = await tx.centerStudentRoster.findFirst({
       where: { centerId, studentId, leftAt: null },
     });
@@ -304,21 +342,30 @@ export async function centerBlacklistStudent(
       where: { id: roster.id },
       data: { blacklisted: true, blacklistReason: reason, blacklistedAt: new Date(), blacklistedBy: admin.id },
     });
-    const entry = await tx.blacklistEntry.create({
-      data: { targetId: studentId, level: "center", centerId, imposedById: admin.id, reason },
-    });
+    const entry = await tx.blacklistEntry
+      .create({
+        data: { targetId: studentId, level: "center", centerId, imposedById: admin.id, reason },
+      })
+      .catch(
+        rethrowAsExisting(BLACKLIST_CENTER_ONE_ACTIVE, "Student is already blacklisted at this center"),
+      );
     await applyEnrollmentCascade(tx, entry.id, studentId, { level: "center", centerId });
     return entry;
-  }, { actorId: admin.id });
+  })();
 
-  await notify({
-    recipients: [studentId],
-    type: "blacklist_action",
-    title: "Blocked from a center",
-    body: `You have been blocked from booking at a center. Reason: ${reason}`,
-    data: { level: "center", centerId, reason },
-  });
-  return entry;
+  return {
+    value: entry,
+    effects: [
+      () =>
+        notify({
+          recipients: [studentId],
+          type: "blacklist_action",
+          title: "Blocked from a center",
+          body: `You have been blocked from booking at a center. Reason: ${reason}`,
+          data: { level: "center", centerId, reason },
+        }),
+    ],
+  };
 }
 
 export async function teacherBlacklistStudent(studentId: string, reason: string, teacher: SessionUser) {
@@ -328,9 +375,9 @@ export async function teacherBlacklistStudent(studentId: string, reason: string,
       where: { targetId: studentId, level: "teacher", imposedById: teacher.id, isActive: true },
     });
     if (existing) throw new ConflictError("You have already blacklisted this student");
-    const entry = await tx.blacklistEntry.create({
-      data: { targetId: studentId, level: "teacher", imposedById: teacher.id, reason },
-    });
+    const entry = await tx.blacklistEntry
+      .create({ data: { targetId: studentId, level: "teacher", imposedById: teacher.id, reason } })
+      .catch(rethrowAsExisting(BLACKLIST_TEACHER_ONE_ACTIVE, "You have already blacklisted this student"));
     await applyEnrollmentCascade(tx, entry.id, studentId, { level: "teacher", teacherId: teacher.id });
     return entry;
   }, { actorId: teacher.id });
@@ -346,7 +393,21 @@ export async function teacherBlacklistStudent(studentId: string, reason: string,
 }
 
 export async function removeBlacklistEntry(entryId: string, user: SessionUser, reason?: string) {
-  const { updated, summary, targetId } = await platformDb(async (tx) => {
+  const { value, effects } = await platformDb(
+    (tx) => removeBlacklistEntryTx(tx, entryId, user, reason),
+    { actorId: user.id },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function removeBlacklistEntryTx(
+  tx: TenantTx,
+  entryId: string,
+  user: SessionUser,
+  reason?: string,
+) {
+  const { updated, summary, targetId } = await (async () => {
     const entry = await tx.blacklistEntry.findUnique({ where: { id: entryId } });
     if (!entry || !entry.isActive) throw new NotFoundError("Active blacklist entry not found");
 
@@ -382,24 +443,74 @@ export async function removeBlacklistEntry(entryId: string, user: SessionUser, r
     });
     const summary = await reverseEnrollmentCascade(tx, entry, user.id);
     return { updated, summary, targetId: entry.targetId };
-  }, { actorId: user.id });
+  })();
 
+  const effects: DeferredEffect[] = [];
   if (summary.restored > 0) {
-    await notify({
-      recipients: [targetId],
-      type: "blacklist_action",
-      title: "Block lifted",
-      body: `A block on your account was lifted and ${summary.restored} enrollment(s) were restored.`,
-      data: { entryId, restored: summary.restored, skipped: summary.skipped },
-    });
+    effects.push(() =>
+      notify({
+        recipients: [targetId],
+        type: "blacklist_action",
+        title: "Block lifted",
+        body: `A block on your account was lifted and ${summary.restored} enrollment(s) were restored.`,
+        data: { entryId, restored: summary.restored, skipped: summary.skipped },
+      }),
+    );
   }
-  await notifyOverCapacity(summary.overCapacity, targetId);
+  effects.push(() => notifyOverCapacity(summary.overCapacity, targetId));
 
-  return updated;
+  return { value: updated, effects };
 }
 
-export function listPlatformBlacklist() {
-  return platformDb((tx) => tx.blacklistEntry.findMany({ orderBy: { createdAt: "desc" } }));
+/**
+ * The whole blacklist ledger, for the back office.
+ *
+ * Despite the name it deliberately spans every LEVEL -- platform, centre and
+ * teacher -- because the super admin's job here is to see bans imposed anywhere
+ * and lift the ones that were wrong; `level` narrows it when that is what you
+ * want. It also spans lifted entries: an entry is never deleted, and the
+ * history of who lifted what is the point of keeping them.
+ *
+ * Rows carry the target's and the imposer's names, because a screen listing
+ * bare uuids cannot be acted on.
+ */
+export function listPlatformBlacklist(
+  filters: { level?: string; active?: boolean } & PageLimitInput = {},
+) {
+  const { page, limit, skip, take } = parsePageLimit(filters, 25);
+  return platformDb(async (tx) => {
+    const where: Record<string, unknown> = {};
+    if (filters.level) where.level = filters.level;
+    if (filters.active !== undefined) where.isActive = filters.active;
+
+    const [rows, total] = await Promise.all([
+      tx.blacklistEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
+      tx.blacklistEntry.count({ where }),
+    ]);
+
+    const userIds = [
+      ...new Set(rows.flatMap((r) => [r.targetId, r.imposedById, r.removedBy].filter(Boolean))),
+    ] as string[];
+    const users = userIds.length
+      ? await tx.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, email: true, role: true },
+        })
+      : [];
+    const byId = new Map(users.map((u) => [u.id, u]));
+
+    return {
+      data: rows.map((r) => ({
+        ...r,
+        target: byId.get(r.targetId) ?? null,
+        imposedBy: r.imposedById ? (byId.get(r.imposedById) ?? null) : null,
+        removedByUser: r.removedBy ? (byId.get(r.removedBy) ?? null) : null,
+      })),
+      total,
+      page,
+      limit,
+    };
+  });
 }
 
 export function listCenterBlacklist(centerId: string) {

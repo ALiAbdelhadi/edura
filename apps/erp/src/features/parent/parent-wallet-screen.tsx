@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ChevronDown, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -39,6 +39,19 @@ type WalletInfo = {
   minTopup: number;
   maxTopup: number;
 };
+type Child = {
+  id: string;
+  name: string | null;
+  walletBalance: number;
+};
+type ChildEntry = {
+  id: string;
+  type: "topup" | "payment" | "refund" | "adjustment";
+  delta: number;
+  balanceAfter: number;
+  reason: string | null;
+  createdAt: string;
+};
 type Entry = {
   id: string;
   type: "topup" | "payment" | "refund" | "adjustment";
@@ -66,8 +79,25 @@ export function ParentWalletScreen() {
   });
   const { mutateAsync: mutate } = useCustomMutation();
 
+  // A child's wallet is a separate balance the parent cannot spend, and a
+  // refund can land in it. Shown here read-only so the money is never
+  // invisible to the person who is owed it.
+  const [openChildId, setOpenChildId] = useState<string | null>(null);
+  const { query: childrenQuery, result: childrenRes } = useCustom({
+    url: "me/children",
+    method: "get",
+  });
+  const { query: childHistQuery, result: childHistRes } = useCustom({
+    url: "me/wallet/history",
+    method: "get",
+    config: { query: { studentId: openChildId ?? "", take: 20 } },
+    queryOptions: { enabled: !!openChildId },
+  });
+
   const wallet = (walletRes?.data as WalletInfo | undefined) ?? null;
   const entries = asArray<Entry>(histRes?.data);
+  const children = asArray<Child>(childrenRes?.data);
+  const childEntries = asArray<ChildEntry>(childHistRes?.data);
 
   const [topupOpen, setTopupOpen] = useState(false);
   const onlineCheckout = useOnlineCheckout();
@@ -156,6 +186,88 @@ export function ParentWalletScreen() {
           value={formatEGP(wallet?.balance ?? 0)}
           icon={Wallet}
         />
+      </QuerySection>
+
+      <QuerySection query={childrenQuery} skeleton={<PageSpinner />} isEmpty={children.length === 0}>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("parentWallet.childBalances")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              {t("parentWallet.childBalancesHint")}
+            </p>
+            <ul className="divide-y">
+              {children.map((child) => {
+                const open = openChildId === child.id;
+                return (
+                  <li key={child.id} className="py-2">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 text-start"
+                      aria-expanded={open}
+                      onClick={() => setOpenChildId(open ? null : child.id)}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="truncate text-sm">{child.name ?? "—"}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="font-semibold">{formatEGP(child.walletBalance)}</span>
+                        <ChevronDown
+                          className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+                          aria-hidden
+                        />
+                      </span>
+                    </button>
+
+                    {open ? (
+                      <div className="mt-2 ps-6">
+                        <QuerySection
+                          query={childHistQuery}
+                          skeleton={<Spinner />}
+                          isEmpty={childEntries.length === 0}
+                          empty={
+                            <p className="py-2 text-sm text-muted-foreground">
+                              {t("parentWallet.noHistory")}
+                            </p>
+                          }
+                        >
+                          <ul className="space-y-1">
+                            {childEntries.map((e) => (
+                              <li
+                                key={e.id}
+                                className="flex items-start justify-between gap-3 py-1 text-sm"
+                              >
+                                <span className="flex min-w-0 flex-col">
+                                  <span className="text-muted-foreground">
+                                    {formatDate(e.createdAt)} ·{" "}
+                                    {t(`parentWallet.type_${e.type}`)}
+                                  </span>
+                                  {e.reason ? (
+                                    <span className="truncate text-xs text-muted-foreground">
+                                      {e.reason}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span
+                                  className={`shrink-0 font-medium ${e.delta >= 0 ? "text-success" : "text-destructive"}`}
+                                >
+                                  {e.delta >= 0 ? "+" : "−"}
+                                  {formatEGP(Math.abs(e.delta))}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </QuerySection>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
       </QuerySection>
 
       <Card>

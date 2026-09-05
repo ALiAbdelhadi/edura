@@ -1,5 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import type { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 
 type TxFilters = {
@@ -16,8 +17,7 @@ const TX_TYPES = new Set(["payment", "commission", "payout", "refund", "adjustme
 const TX_STATUSES = new Set(["pending", "completed", "failed", "reversed"]);
 
 export function listTransactions(filters: TxFilters) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(200, Math.max(1, parseInt(filters.limit ?? "50", 10) || 50));
+  const { page, limit } = parsePageLimit(filters, 50);
 
   return platformDb(async (tx) => {
     const where: Prisma.TransactionWhereInput = {};
@@ -59,8 +59,16 @@ export function financeDashboard() {
         where: { type: "payment", status: "completed" },
         _sum: { amount: true },
       }),
-      tx.transaction.aggregate({
-        where: { type: "refund" },
+      // Money actually returned, not money promised. A refund ledger row is
+      // written `pending` and can never be flipped (transactions is
+      // UPDATE-revoked), so the state lives on the payment — see
+      // MIGRATION_PLAN_B.md §4. The `reversalOfId: null` branch is legacy
+      // refunds, which had no confirmation step.
+      tx.payment.aggregate({
+        where: {
+          amount: { lt: 0 },
+          OR: [{ reversalOfId: null }, { refundConfirmedAt: { not: null } }],
+        },
         _sum: { amount: true },
       }),
       tx.payout.aggregate({
@@ -74,7 +82,7 @@ export function financeDashboard() {
     return {
       platformCommission: commission._sum.amount ?? 0,
       grossLessonRevenue: grossRevenue._sum.amount ?? 0,
-      totalRefunds: refunds._sum.amount ?? 0,
+      totalRefunds: Math.abs(refunds._sum.amount ?? 0),
       pendingPayouts: {
         count: pendingPayouts._count._all,
         amount: pendingPayouts._sum.netPayable ?? 0,

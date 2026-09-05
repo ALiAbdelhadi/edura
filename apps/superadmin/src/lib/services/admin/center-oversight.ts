@@ -3,17 +3,15 @@ import { NotFoundError } from "@/lib/errors/classes";
 import { getCenterRoomsWithSplit, getCenterAffiliations } from "@/lib/services/admin/rooms-split";
 import { centerStatement } from "@/lib/services/finance/finance-reports";
 import { listTransactions } from "@/lib/services/finance/accountant";
-import type { Prisma } from "@repo/database";
+import { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 
 export type PageArgs = { page?: string; limit?: string; from?: string; to?: string };
 
 function paging(args: PageArgs) {
-  const page = Math.max(1, parseInt(args.page ?? "1", 10) || 1);
-  const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(args.limit ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT));
-  return { page, limit, skip: (page - 1) * limit, take: limit };
+  return parsePageLimit(args, DEFAULT_LIMIT);
 }
 
 function dateRange(args: PageArgs): Prisma.DateTimeFilter | undefined {
@@ -714,23 +712,42 @@ export function centerWalletMovements(
   return platformDb(async (tx) => {
     await assertCenter(tx, centerId);
 
-    let where: Prisma.WalletLedgerWhereInput;
-    if (scope === "roster") {
-      const roster = await tx.centerStudentRoster.findMany({
-        where: { centerId, leftAt: null },
-        select: { studentId: true },
-      });
-      if (!roster.length) return { data: [], total: 0, page, limit, scope };
-      where = { studentId: { in: roster.map((r) => r.studentId) } };
-    } else {
-      where = { centerId };
-    }
-    if (range) where.createdAt = range;
+    // The roster scope is an EXISTS, not an IN over ids fetched first: reading
+    // every active student of a centre into memory to build a filter grows
+    // with the centre forever (M-16). Raw SQL decides WHICH ledger rows;
+    // Prisma still fetches them, so the hydrating `in` is bounded by the page
+    // and the returned row shape is unchanged.
+    const conds: Prisma.Sql[] = [
+      scope === "roster"
+        ? Prisma.sql`EXISTS (
+            SELECT 1 FROM center_student_rosters r
+             WHERE r.student_id = w.student_id
+               AND r.center_id = ${centerId}::uuid
+               AND r.left_at IS NULL)`
+        : Prisma.sql`w.center_id = ${centerId}::uuid`,
+    ];
+    if (range?.gte) conds.push(Prisma.sql`w.created_at >= ${range.gte}`);
+    if (range?.lte) conds.push(Prisma.sql`w.created_at <= ${range.lte}`);
+    const whereSql = Prisma.sql`WHERE ${Prisma.join(conds, " AND ")}`;
 
-    const [rows, total] = await Promise.all([
-      tx.walletLedger.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
-      tx.walletLedger.count({ where }),
+    const [idRows, countRows] = await Promise.all([
+      tx.$queryRaw<{ id: string }[]>`
+        SELECT w.id
+          FROM wallet_ledger w
+          ${whereSql}
+         ORDER BY w.created_at DESC
+         LIMIT ${take} OFFSET ${skip}`,
+      tx.$queryRaw<{ n: bigint }[]>`
+        SELECT COUNT(*)::bigint AS n FROM wallet_ledger w ${whereSql}`,
     ]);
+
+    const total = Number(countRows[0]?.n ?? 0);
+    if (idRows.length === 0) return { data: [], total, page, limit, scope };
+
+    const rows = await tx.walletLedger.findMany({
+      where: { id: { in: idRows.map((r) => r.id) } },
+      orderBy: { createdAt: "desc" },
+    });
     const students = await userMap(tx, rows.map((r) => r.studentId));
     return {
       data: rows.map((w) => ({

@@ -1,12 +1,10 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { adminCenterReports } from "@/lib/services/admin/center-platform";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (user, req, ctx) => {
   const { id, report } = await ctx.params;
   const url = new URL(req.url);
   return ok(

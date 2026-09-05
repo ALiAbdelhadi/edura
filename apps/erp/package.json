@@ -40,6 +40,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
     "@refinedev/core": "^5.0.12",
+    "@repo/client-core": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/notifications": "workspace:*",
     "@repo/observability": "workspace:*",

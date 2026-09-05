@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { upsertCenterM2Rate, clearCenterM2Rate } from "@/lib/services/admin/rooms-split";
@@ -17,15 +16,13 @@ const rateSchema = z
     message: "Set exactly one of fee (piasters/student) or bp (basis points/student)",
   });
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, rateSchema);
   return ok(await upsertCenterM2Rate(id, body, user));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await clearCenterM2Rate(id, user));
 });

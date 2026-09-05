@@ -28,11 +28,17 @@ export function decisionQueue() {
         _sum: { netPayable: true },
       }),
 
-      tx.payout.findFirst({
-        where: { status: "pending" },
-        orderBy: { createdAt: "asc" },
-        select: { id: true, createdAt: true, beneficiaryId: true, beneficiaryType: true },
-      }),
+      // The beneficiary's name is resolved in the same query rather than in a
+      // follow-up await: payouts.beneficiary_id is polymorphic, so Prisma cannot
+      // join it, and a second round trip to Neon costs more than this LEFT JOIN.
+      db.$queryRaw<{ id: string; created_at: Date; name: string | null }[]>`
+        SELECT p.id, p.created_at, COALESCE(u.name, c.name) AS name
+          FROM payouts p
+          LEFT JOIN users   u ON p.beneficiary_type = 'teacher'  AND u.id = p.beneficiary_id
+          LEFT JOIN centers c ON p.beneficiary_type <> 'teacher' AND c.id = p.beneficiary_id
+         WHERE p.status = 'pending'
+         ORDER BY p.created_at ASC
+         LIMIT 1`,
 
       tx.center.count({ where: { status: "pending" } }),
       tx.user.count({ where: { role: "teacher", status: "pending" } }),
@@ -42,8 +48,14 @@ export function decisionQueue() {
         _sum: { netPayable: true },
       }),
       tx.studentProfile.aggregate({ _sum: { walletBalance: true } }),
-      tx.transaction.aggregate({
-        where: { type: "refund", status: "pending" },
+      // This tile read `transactions type:"refund", status:"pending"` and was a
+      // permanent zero, because every writer set "completed". Option B makes
+      // pending real — but the ledger row STAYS pending after confirmation
+      // (transactions is UPDATE-revoked), so counting those rows would now
+      // overcount in the other direction. The obligation lives on the payment:
+      // a refund armed and not yet paid out.
+      tx.payment.aggregate({
+        where: { reversalOfId: { not: null }, refundConfirmedAt: null },
         _sum: { amount: true },
       }),
 
@@ -108,35 +120,18 @@ export function decisionQueue() {
          LIMIT ${LAST_WRITES}`,
     ]);
 
-    let oldestBeneficiary: string | null = null;
-    if (oldestPending) {
-      oldestBeneficiary =
-        oldestPending.beneficiaryType === "teacher"
-          ? ((
-              await tx.user.findUnique({
-                where: { id: oldestPending.beneficiaryId },
-                select: { name: true },
-              })
-            )?.name ?? null)
-          : ((
-              await tx.center.findUnique({
-                where: { id: oldestPending.beneficiaryId },
-                select: { name: true },
-              })
-            )?.name ?? null);
-    }
-
     const short = underfunded[0] ?? { count: 0n, shortfall: 0n };
     const reserved = reservedForPayouts._sum.netPayable ?? 0;
     const wallets = studentWallets._sum.walletBalance ?? 0;
-    const refunds = refundsInFlight._sum.amount ?? 0;
+    // Negative on `payments`; this is a magnitude of money owed out.
+    const refunds = Math.abs(refundsInFlight._sum.amount ?? 0);
 
     return {
       payouts: {
         count: pendingPayouts._count._all,
         total: pendingPayouts._sum.netPayable ?? 0,
-        oldestAt: oldestPending?.createdAt.toISOString() ?? null,
-        oldestBeneficiary,
+        oldestAt: oldestPending[0]?.created_at.toISOString() ?? null,
+        oldestBeneficiary: oldestPending[0]?.name ?? null,
       },
       registrations: {
         centers: centersPending,
@@ -180,6 +175,9 @@ export function platformKpis() {
       students,
       parents,
       pendingTeachers,
+      commissionAgg,
+      lessonRevenueAgg,
+      lessonsCompleted,
     ] = await Promise.all([
       tx.center.count({ where: { status: "active" } }),
       tx.center.count({ where: { status: "pending" } }),
@@ -187,17 +185,16 @@ export function platformKpis() {
       tx.user.count({ where: { role: "student" } }),
       tx.user.count({ where: { role: "parent" } }),
       tx.user.count({ where: { role: "teacher", status: "pending" } }),
+      tx.transaction.aggregate({
+        where: { type: "commission", status: "completed" },
+        _sum: { amount: true },
+      }),
+      tx.transaction.aggregate({
+        where: { type: "payment", status: "completed" },
+        _sum: { amount: true },
+      }),
+      tx.session.count({ where: { status: "completed" } }),
     ]);
-
-    const commissionAgg = await tx.transaction.aggregate({
-      where: { type: "commission", status: "completed" },
-      _sum: { amount: true },
-    });
-    const lessonRevenueAgg = await tx.transaction.aggregate({
-      where: { type: "payment", status: "completed" },
-      _sum: { amount: true },
-    });
-    const lessonsCompleted = await tx.session.count({ where: { status: "completed" } });
 
     return {
       centers: { active: centersActive, pending: centersPending },

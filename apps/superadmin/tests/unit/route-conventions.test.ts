@@ -18,7 +18,7 @@ function routeKey(file: string): string {
   return path.relative(API_ROOT, path.dirname(file)).split(path.sep).join("/");
 }
 
-const AUTH_TOKENS = ["requireRole(", "requireSession(", "getSessionUser("];
+const AUTH_TOKENS = ["withRole(", "requireRole(", "requireSession(", "getSessionUser("];
 
 type PublicEntry = {
   reason: string;
@@ -80,6 +80,17 @@ describe("route conventions (all api routes)", () => {
       )
       .map(([key]) => key);
     expect(unguarded).toEqual([]);
+  });
+
+  it("a role-guarded route declares the guard in its signature, not its body", () => {
+    // withRole(role, handler) runs requireRole BEFORE the handler body exists.
+    // A bare `withErrors` handler that calls requireRole as its first line is
+    // the shape that wrapper replaced: equivalent today, but it puts the guard
+    // one editable line away from being deleted without the signature changing.
+    const inBody = [...sources.entries()]
+      .filter(([, src]) => /=>\s*\{[\s\S]*?await requireRole\(/.test(src))
+      .map(([key]) => key);
+    expect(inBody).toEqual([]);
   });
 
   it("public allowlist entries are fresh and keep their gates", () => {

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { updateCenterRoom } from "@/lib/services/admin/rooms-split";
@@ -24,8 +23,7 @@ const patchSchema = z
   })
   .strict();
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id, roomId } = await ctx.params;
   const body = await parseJson(req, patchSchema);
   return ok(await updateCenterRoom(id, roomId, body, user));

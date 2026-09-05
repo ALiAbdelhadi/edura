@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { listPointsRules, createPointsRule } from "@/lib/services/points/points-admin";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async () => {
   return ok(await listPointsRules());
 });
 
@@ -18,8 +16,7 @@ const createSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const POST = withErrors(async (req) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req) => {
   const body = await parseJson(req, createSchema);
   return ok(await createPointsRule(body, user.id), { status: 201 });
 });

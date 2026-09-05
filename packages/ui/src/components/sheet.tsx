@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+
+import { useKitStrings } from "@repo/ui/lib/kit-strings"
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
@@ -54,6 +56,7 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
+  const strings = useKitStrings()
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -81,7 +84,7 @@ function SheetContent({
             className="absolute top-3 end-3 z-20 inline-flex size-8 items-center justify-center disabled:pointer-events-none"
           >
             <XIcon className="size-4 shrink-0" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{strings.close}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>

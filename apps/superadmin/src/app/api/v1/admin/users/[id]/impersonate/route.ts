@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth/auth";
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import {
   assertImpersonatable,
@@ -9,18 +8,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const POST = withErrors(async (req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req, ctx) => {
   const { id } = await ctx.params;
 
   const target = await assertImpersonatable(actor, id);
-  await auditImpersonationStart(actor, target);
 
+  // The audit row is written AFTER better-auth actually mints the impersonated
+  // session, not before: a failure in impersonateUser used to leave behind an
+  // audit claiming a start that never happened, which is worse than a missing
+  // row -- a reader cannot tell it apart from a real one.
   const { headers, response } = await auth.api.impersonateUser({
     body: { userId: id },
     headers: req.headers,
     returnHeaders: true,
   });
+  await auditImpersonationStart(actor, target);
 
   const res = ok({
     impersonating: {

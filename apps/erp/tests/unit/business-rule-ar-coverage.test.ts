@@ -7,6 +7,16 @@ import {
   AR_TEMPLATE_SOURCES,
   arabicErrorMessage,
 } from "@repo/server-core/errors/messages-ar";
+import {
+  AuthError,
+  BusinessRuleError,
+  ConflictError,
+  ExpiredError,
+  ForbiddenError,
+  NotFoundError,
+  SessionConflictError,
+  ValidationError,
+} from "@repo/server-core/errors/classes";
 
 const ROOTS = [
   join(__dirname, "../../../../apps/erp/src"),
@@ -14,10 +24,30 @@ const ROOTS = [
   join(__dirname, "../../../../packages/server-core/src"),
 ];
 
-// `new BusinessRuleError(<literal>)` — including `"a" + "b"` concatenations
-// and multi-line constructor calls.
-const CALL_RE =
-  /new BusinessRuleError\(\s*("(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)((?:\s*\+\s*"(?:[^"\\]|\\.)*")*)/g;
+// Every error class whose message reaches the operator through the envelope's
+// `messageAr`. A 404 / 403 / 409 is read by the same counter staff as a 422, so
+// the same coverage applies (VERIFICATION_REPORT.md §2.4, 2026-09-05).
+const CLASSES = ["BusinessRuleError", "NotFoundError", "ForbiddenError", "ConflictError"];
+
+// `new <Class>(<literal>)` — including `"a" + "b"` concatenations, multi-line
+// constructor calls, and the BARE `new ForbiddenError()` that falls back to the
+// class default message.
+const CALL_RE = new RegExp(
+  `new (${CLASSES.join("|")})\\(\\s*(\\)|"(?:[^"\\\\]|\\\\.)*"|\`(?:[^\`\\\\]|\\\\.)*\`)((?:\\s*\\+\\s*"(?:[^"\\\\]|\\\\.)*")*)`,
+  "g",
+);
+
+// What a bare `new X()` throws — read from the classes themselves, not retyped.
+const CLASS_DEFAULTS = [
+  new AuthError(),
+  new BusinessRuleError(),
+  new ConflictError(),
+  new ExpiredError(),
+  new ForbiddenError(),
+  new NotFoundError(),
+  new SessionConflictError(),
+  new ValidationError(),
+].map((e) => e.message);
 
 function unquote(literal: string): string {
   return literal
@@ -26,9 +56,10 @@ function unquote(literal: string): string {
     .replace(/\\n/g, "\n");
 }
 
-function harvest(): { statics: Set<string>; templates: Set<string> } {
+function harvest(): { statics: Set<string>; templates: Set<string>; bare: number } {
   const statics = new Set<string>();
   const templates = new Set<string>();
+  let bare = 0;
 
   const scan = (dir: string) => {
     let entries: string[];
@@ -48,8 +79,12 @@ function harvest(): { statics: Set<string>; templates: Set<string> } {
       if (!/\.(ts|tsx)$/.test(name)) continue;
       const src = readFileSync(p, "utf8");
       for (const m of src.matchAll(CALL_RE)) {
-        let message = unquote(m[1]!);
-        for (const cont of m[2]!.matchAll(/"(?:[^"\\]|\\.)*"/g)) {
+        if (m[2] === ")") {
+          bare += 1;
+          continue;
+        }
+        let message = unquote(m[2]!);
+        for (const cont of m[3]!.matchAll(/"(?:[^"\\]|\\.)*"/g)) {
           message += unquote(cont[0]);
         }
         if (message.includes("${")) templates.add(message);
@@ -58,25 +93,42 @@ function harvest(): { statics: Set<string>; templates: Set<string> } {
     }
   };
   for (const root of ROOTS) scan(root);
-  return { statics, templates };
+  return { statics, templates, bare };
 }
 
-describe("Arabic coverage of business-rule messages", () => {
-  const { statics, templates } = harvest();
+describe("Arabic coverage of server error messages", () => {
+  const { statics, templates, bare } = harvest();
 
   it("harvests a plausible number of messages", () => {
-    expect(statics.size).toBeGreaterThan(150);
-    expect(templates.size).toBeGreaterThan(15);
+    // 2026-09-05: 443 statics / 43 templates / 53 bare across the three roots.
+    expect(statics.size).toBeGreaterThan(400);
+    expect(templates.size).toBeGreaterThan(35);
+    expect(bare).toBeGreaterThan(30);
   });
 
-  it("every static BusinessRuleError message has an Arabic translation", () => {
+  it("every static NotFound / Forbidden / Conflict / BusinessRule message has an Arabic translation", () => {
     const missing = [...statics].filter((m) => !(m in AR_MESSAGES));
     expect(missing).toEqual([]);
   });
 
-  it("every templated BusinessRuleError message is a known template source", () => {
+  it("every class default message (a bare `new ForbiddenError()`) has an Arabic translation", () => {
+    const missing = CLASS_DEFAULTS.filter((m) => !(m in AR_MESSAGES));
+    expect(missing).toEqual([]);
+  });
+
+  it("every templated message is a known template source", () => {
     const missing = [...templates].filter((t) => !AR_TEMPLATE_SOURCES.includes(t));
     expect(missing).toEqual([]);
+  });
+
+  it("every template source is actually matched by a pattern once rendered", () => {
+    // A source listed here but matched by no pattern would pass the test above
+    // and still reach the operator in English. Stub every interpolation and
+    // demand Arabic back.
+    const unmatched = AR_TEMPLATE_SOURCES.filter(
+      (t) => !arabicErrorMessage(t.replace(/\$\{[^}]*\}/g, "1")),
+    );
+    expect(unmatched).toEqual([]);
   });
 
   it("every pattern matches its own sample and produces Arabic", () => {

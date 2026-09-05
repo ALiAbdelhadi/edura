@@ -28,3 +28,30 @@ export async function parseJson<T>(req: Request, schema: ZodSchema<T>): Promise<
   }
   return parseOrThrow(schema, raw);
 }
+
+/**
+ * `parseJson` for a route whose body is entirely optional.
+ *
+ * An ABSENT body parses as `{}` and still goes through the schema; a body that
+ * is present but malformed or invalid throws, exactly as `parseJson` does.
+ * That distinction is the point: the `parseJson(...).catch(() => ({}))` this
+ * replaces treated "no body" and "a field the caller got wrong" as the same
+ * thing, so a bad value was silently dropped and the request proceeded on the
+ * default as though the caller had never sent it.
+ */
+export async function parseOptionalJson<T>(req: Request, schema: ZodSchema<T>): Promise<T> {
+  let text: string;
+  try {
+    text = await req.text();
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
+  if (text.trim() === "") return parseOrThrow(schema, {});
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new ValidationError("Invalid JSON body");
+  }
+  return parseOrThrow(schema, raw);
+}

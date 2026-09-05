@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import {
@@ -22,21 +21,18 @@ const splitSchema = z
     message: "The three shares must sum to exactly 100% (10000 basis points)",
   });
 
-export const GET = withErrors(async (_req, ctx) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await getCenterSplit(id));
 });
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, splitSchema);
   return ok(await upsertCenterSplit(id, body, user));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await clearCenterSplit(id, user));
 });

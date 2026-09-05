@@ -1,5 +1,7 @@
 import { Prisma } from "@repo/database";
 import { scopedDb, platformDb } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "@repo/database";
 import {
   BusinessRuleError,
   ConflictError,
@@ -51,14 +53,26 @@ export async function enrollStudent(
   acting: SessionUser,
   input: { studentId: string; courseId: string },
 ) {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    enrollStudentTx(tx, acting, input),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function enrollStudentTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  input: { studentId: string; courseId: string },
+): Promise<WithEffects<Awaited<ReturnType<TenantTx["enrollment"]["create"]>>>> {
   const { studentId, courseId } = input;
 
-  const course0 = await platformDb((tx) =>
-    tx.course.findUnique({ where: { id: courseId }, select: { centerId: true, teacherId: true } }),
+  const course0 = await platformDb((db) =>
+    db.course.findUnique({ where: { id: courseId }, select: { centerId: true, teacherId: true } }),
   ).catch(() => null);
   if (course0) await assertNotBlacklisted(studentId, course0.centerId, course0.teacherId);
 
-  const { enrollment, courseTitle } = await scopedDb(acting, async (tx) => {
+  const { enrollment, courseTitle } = await (async () => {
     let course;
     try {
       course = await tx.course.findUnique({ where: { id: courseId } });
@@ -103,21 +117,29 @@ export async function enrollStudent(
     }
 
     return { enrollment: created, courseTitle: course.title };
-  });
+  })();
 
-  await notify({
-    recipients: [studentId],
-    type: "enrollment_request_approved",
-    title: "Enrolled in course",
-    body: `You have been directly enrolled in "${courseTitle}".`,
-    data: { courseId, enrollmentId: enrollment.id },
-  });
-
-  return enrollment;
+  return {
+    value: enrollment,
+    effects: [
+      () =>
+        notify({
+          recipients: [studentId],
+          type: "enrollment_request_approved",
+          title: "Enrolled in course",
+          body: `You have been directly enrolled in "${courseTitle}".`,
+          data: { courseId, enrollmentId: enrollment.id },
+        }),
+    ],
+  };
 }
 
 export async function unenrollStudent(acting: SessionUser, id: string) {
-  return scopedDb(acting, async (tx) => {
+  return scopedDb(acting, (tx) => unenrollStudentTx(tx, acting, id));
+}
+
+export async function unenrollStudentTx(tx: TenantTx, acting: SessionUser, id: string) {
+  return (async () => {
     const enrollment = await tx.enrollment.findUnique({ where: { id } });
     if (!enrollment || enrollment.status !== "active") {
       throw new NotFoundError("Enrollment not found");
@@ -129,7 +151,7 @@ export async function unenrollStudent(acting: SessionUser, id: string) {
       data: { status: "unenrolled", unenrolledAt: new Date() },
     });
     return { unenrolled: true as const, studentId: enrollment.studentId, courseId: enrollment.courseId };
-  });
+  })();
 }
 
 export async function listEnrollmentRequests(
@@ -166,7 +188,15 @@ export async function listEnrollmentRequests(
 }
 
 export async function approveEnrollmentRequest(acting: SessionUser, id: string) {
-  const { request, courseTitle, studentId, courseId } = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    approveEnrollmentRequestTx(tx, acting, id),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function approveEnrollmentRequestTx(tx: TenantTx, acting: SessionUser, id: string) {
+  const { request, courseTitle, studentId, courseId } = await (async () => {
     const request = await tx.enrollmentRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundError("Request not found");
     requireCenterScope(acting, request.centerId);
@@ -223,17 +253,21 @@ export async function approveEnrollmentRequest(acting: SessionUser, id: string) 
       studentId: request.studentId,
       courseId: request.courseId,
     };
-  });
+  })();
 
-  await notify({
-    recipients: [studentId],
-    type: "enrollment_request_approved",
-    title: "Enrollment approved",
-    body: `Your enrollment request for "${courseTitle}" has been approved.`,
-    data: { courseId, requestId: id },
-  });
-
-  return { approved: true as const, ...request };
+  return {
+    value: { approved: true as const, ...request },
+    effects: [
+      () =>
+        notify({
+          recipients: [studentId],
+          type: "enrollment_request_approved",
+          title: "Enrollment approved",
+          body: `Your enrollment request for "${courseTitle}" has been approved.`,
+          data: { courseId, requestId: id },
+        }),
+    ],
+  };
 }
 
 export async function declineEnrollmentRequest(
@@ -241,7 +275,20 @@ export async function declineEnrollmentRequest(
   id: string,
   reason?: string,
 ) {
-  const { studentId, courseId, courseTitle } = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    declineEnrollmentRequestTx(tx, acting, id, reason),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function declineEnrollmentRequestTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  id: string,
+  reason?: string,
+): Promise<WithEffects<{ declined: true }>> {
+  const { studentId, courseId, courseTitle } = await (async () => {
     const request = await tx.enrollmentRequest.findUnique({ where: { id } });
     if (!request) throw new NotFoundError("Request not found");
     requireCenterScope(acting, request.centerId);
@@ -270,15 +317,19 @@ export async function declineEnrollmentRequest(
       courseId: request.courseId,
       courseTitle: course?.title ?? "the course",
     };
-  });
+  })();
 
-  await notify({
-    recipients: [studentId],
-    type: "enrollment_request_declined",
-    title: "Enrollment declined",
-    body: `Your enrollment request for "${courseTitle}" has been declined.`,
-    data: { courseId, requestId: id, reason },
-  });
-
-  return { declined: true as const };
+  return {
+    value: { declined: true as const },
+    effects: [
+      () =>
+        notify({
+          recipients: [studentId],
+          type: "enrollment_request_declined",
+          title: "Enrollment declined",
+          body: `Your enrollment request for "${courseTitle}" has been declined.`,
+          data: { courseId, requestId: id, reason },
+        }),
+    ],
+  };
 }

@@ -1,5 +1,7 @@
 import type { SessionUser } from "../../auth/types";
 import { platformDb, scopedDb } from "../../db/scope";
+import { runEffects, type WithEffects, type DeferredEffect } from "../../db/effects";
+import type { TenantTx } from "@repo/database";
 import {
   BusinessRuleError,
   ConflictError,
@@ -104,8 +106,39 @@ export async function createStaff(
   const email = input.email.toLowerCase().trim();
   const locale = input.locale ?? "ar";
 
-  const { link, user, existingAccount, needsInvite } = await platformDb(
-    async (tx) => {
+  const { value, effects } = await platformDb(
+    (tx) => createStaffTx(tx, owner, input),
+    { actorId: owner.id },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function createStaffTx(
+  tx: TenantTx,
+  owner: SessionUser,
+  input: {
+    name: string;
+    email: string;
+    role: CenterStaffRole;
+    title?: string;
+    locale?: "ar" | "en";
+  },
+): Promise<
+  WithEffects<{
+    link: { id: string; role: CenterStaffRole; title: string | null };
+    user: { id: string; name: string; email: string | null; status: string };
+    existingAccount: boolean;
+    invite: InviteOutcome | null;
+  }>
+> {
+  const centerId = ownerCenterId(owner);
+  assertValidRole(input.role);
+  const email = input.email.toLowerCase().trim();
+  const locale = input.locale ?? "ar";
+
+  const { link, user, existingAccount, needsInvite } = await (async () => {
+    {
       let staffUser = await tx.user.findUnique({ where: { email } });
 
       if (staffUser) {
@@ -174,26 +207,31 @@ export async function createStaff(
         existingAccount: !!staffUser.passwordHash,
         needsInvite: staffUser.passwordHash === null,
       };
-    },
-    { actorId: owner.id },
-  );
+    }
+  })();
 
-  const invite = needsInvite
-    ? await sendStaffInvite(
-        { id: user.id, name: user.name, email: user.email },
-        owner,
-        centerId,
-        link.role,
-        locale,
-      )
-    : null;
-
-  return {
+  const result = {
     link: { id: link.id, role: link.role, title: link.title },
     user: { id: user.id, name: user.name, email: user.email, status: user.status },
     existingAccount,
-    invite,
+    invite: null as InviteOutcome | null,
   };
+
+  const effects: DeferredEffect[] = needsInvite
+    ? [
+        async () => {
+          result.invite = await sendStaffInvite(
+            { id: user.id, name: user.name, email: user.email },
+            owner,
+            centerId,
+            link.role,
+            locale,
+          );
+        },
+      ]
+    : [];
+
+  return { value: result, effects };
 }
 
 async function sendStaffInvite(
@@ -256,8 +294,21 @@ export async function resendStaffInvite(
   linkId: string,
   locale: "ar" | "en" = "ar",
 ): Promise<InviteOutcome> {
+  const { value, effects } = await scopedDb(owner, (tx) =>
+    resendStaffInviteTx(tx, owner, linkId, locale),
+  );
+  await runEffects(effects);
+  return value.invite as InviteOutcome;
+}
+
+export async function resendStaffInviteTx(
+  tx: TenantTx,
+  owner: SessionUser,
+  linkId: string,
+  locale: "ar" | "en" = "ar",
+): Promise<WithEffects<{ invite: InviteOutcome | null }>> {
   const centerId = ownerCenterId(owner);
-  const { staff, staffRole } = await scopedDb(owner, async (tx) => {
+  const { staff, staffRole } = await (async () => {
     const link = await tx.centerStaff.findFirst({
       where: { id: linkId, centerId, removedAt: null },
     });
@@ -273,9 +324,19 @@ export async function resendStaffInvite(
       );
     }
     return { staff: user, staffRole: link.role };
-  });
+  })();
 
-  return sendStaffInvite(staff, owner, centerId, staffRole, locale);
+  // The invite is delivered after the transaction commits, so the outcome is
+  // filled into this holder by the effect rather than returned from inside the tx.
+  const holder = { invite: null as InviteOutcome | null };
+  return {
+    value: holder,
+    effects: [
+      async () => {
+        holder.invite = await sendStaffInvite(staff, owner, centerId, staffRole, locale);
+      },
+    ],
+  };
 }
 
 export async function updateStaff(
@@ -286,7 +347,19 @@ export async function updateStaff(
   const centerId = ownerCenterId(owner);
   if (patch.role !== undefined) assertValidRole(patch.role);
 
-  return scopedDb(owner, async (tx) => {
+  return scopedDb(owner, (tx) => updateStaffTx(tx, owner, linkId, patch));
+}
+
+export async function updateStaffTx(
+  tx: TenantTx,
+  owner: SessionUser,
+  linkId: string,
+  patch: { role?: CenterStaffRole; title?: string | null; active?: boolean },
+) {
+  const centerId = ownerCenterId(owner);
+  if (patch.role !== undefined) assertValidRole(patch.role);
+
+  return (async () => {
     const link = await tx.centerStaff.findFirst({
       where: { id: linkId, centerId },
     });
@@ -332,22 +405,24 @@ export async function updateStaff(
       title: updated.title,
       active: updated.removedAt === null,
     };
-  });
+  })();
 }
 
 export async function removeStaff(owner: SessionUser, linkId: string) {
+  return scopedDb(owner, (tx) => removeStaffTx(tx, owner, linkId));
+}
+
+export async function removeStaffTx(tx: TenantTx, owner: SessionUser, linkId: string) {
   const centerId = ownerCenterId(owner);
-  return scopedDb(owner, async (tx) => {
-    const link = await tx.centerStaff.findFirst({
-      where: { id: linkId, centerId, removedAt: null },
-    });
-    if (!link) throw new NotFoundError("Staff member not found on your team");
-    await tx.centerStaff.update({
-      where: { id: link.id },
-      data: { removedAt: new Date() },
-    });
-    return { removed: true };
+  const link = await tx.centerStaff.findFirst({
+    where: { id: linkId, centerId, removedAt: null },
   });
+  if (!link) throw new NotFoundError("Staff member not found on your team");
+  await tx.centerStaff.update({
+    where: { id: link.id },
+    data: { removedAt: new Date() },
+  });
+  return { removed: true };
 }
 
 export async function getStaffMe(user: SessionUser) {

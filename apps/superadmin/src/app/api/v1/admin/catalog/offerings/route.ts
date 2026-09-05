@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { listOfferings, createOffering } from "@/lib/services/catalog/catalog-admin";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, req) => {
   const params = new URL(req.url).searchParams;
   return ok(
     await listOfferings({
@@ -25,8 +23,7 @@ const createSchema = z.object({
   trackId: z.string().uuid().nullish(),
 });
 
-export const POST = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, req) => {
   const body = await parseJson(req, createSchema);
-  return ok(await createOffering(body), { status: 201 });
+  return ok(await createOffering(body, actor), { status: 201 });
 });

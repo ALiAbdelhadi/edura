@@ -52,8 +52,11 @@ export function toErrorResponse(err: unknown): NextResponse {
   return fail(500, "internal", message);
 }
 
-type RouteCtx = { params: Promise<Record<string, string>> };
-type Handler = (req: Request, ctx: RouteCtx) => Promise<NextResponse> | NextResponse;
+export type RouteCtx = { params: Promise<Record<string, string>> };
+export type Handler = (
+  req: Request,
+  ctx: RouteCtx,
+) => Promise<NextResponse> | NextResponse;
 
 export function withErrors(handler: Handler): Handler {
   return async (req, ctx) => {

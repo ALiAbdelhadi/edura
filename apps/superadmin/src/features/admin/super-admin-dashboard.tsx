@@ -6,6 +6,8 @@ import { StatCardsSkeleton } from "@/components/ui/skeletons";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
 import { useCustom } from "@refinedev/core";
+
+import { PlatformTrends } from "@/features/admin/platform-trends";
 import { Button } from "@repo/ui/components/button";
 import { BarChart } from "@repo/ui/components/charts";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
@@ -231,6 +233,8 @@ export function SuperAdminDashboard() {
       </div>
 
       <LastWritesCard writes={d.lastWrites} locale={locale} t={t} />
+
+      <PlatformTrends />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminListStaff, adminCreateStaff } from "@/lib/services/admin/center-people";
@@ -17,14 +16,12 @@ const createSchema = z
   })
   .strict();
 
-export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (user, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await adminListStaff(user, id));
 });
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const data = await parseJson(req, createSchema);
   const result = await adminCreateStaff(user, id, data);

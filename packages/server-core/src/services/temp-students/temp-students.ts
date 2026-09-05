@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "../../db/scope";
+import { runEffects, type WithEffects, type DeferredEffect } from "../../db/effects";
 import { NotFoundError, ConflictError, BusinessRuleError } from "../../errors/classes";
 import { isOnCenterRoster } from "../center/roster-membership";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
@@ -10,9 +11,17 @@ export async function createTempStudent(
   input: { fullName: string; phone: string; grade?: string },
   creator: SessionUser,
 ) {
+  return platformDb((tx) => createTempStudentTx(tx, input, creator), { actorId: creator.id });
+}
+
+export async function createTempStudentTx(
+  tx: TenantTx,
+  input: { fullName: string; phone: string; grade?: string },
+  creator: SessionUser,
+) {
   const phone = input.phone.trim();
-  return platformDb(
-    async (tx) => {
+  return (async () => {
+    {
       const active = await tx.user.findFirst({
         where: { phone, status: { notIn: ["deleted", "shell"] } },
         select: { id: true },
@@ -63,9 +72,8 @@ export async function createTempStudent(
         entityType: profile.entityType,
         studentCode: profile.studentCode, // Step 6: typeable counter ID
       };
-    },
-    { actorId: creator.id },
-  );
+    }
+  })();
 }
 
 async function callerOwnsTempStudent(
@@ -91,8 +99,21 @@ async function callerOwnsTempStudent(
 }
 
 export async function sendTempStudentInvite(tempUserId: string, actor: SessionUser) {
-  return platformDb(
-    async (tx) => {
+  const { value, effects } = await platformDb(
+    (tx) => sendTempStudentInviteTx(tx, tempUserId, actor),
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function sendTempStudentInviteTx(
+  tx: TenantTx,
+  tempUserId: string,
+  actor: SessionUser,
+): Promise<WithEffects<{ sent: boolean; inviteCode: string | null; phone: string | null }>> {
+  return (async () => {
+    {
       if (!(await callerOwnsTempStudent(tx, tempUserId, actor))) {
         throw new NotFoundError("Temp student not found");
       }
@@ -112,18 +133,27 @@ export async function sendTempStudentInvite(tempUserId: string, actor: SessionUs
         data: { invitationSentAt: new Date() },
       });
 
-      if (profile.phone) {
-        await sendMail({
-          to: `${profile.phone}@sms.local`,
-          subject: "Edura invite",
-          text: `Your code is ${profile.inviteCode} — join Edura and register with this phone to keep your history.`,
-        }).catch(() => {});
-      }
+      // The mail used to be awaited INSIDE this transaction; it is now deferred
+      // to after the commit, like every other outbound channel in this codebase.
+      const effects: DeferredEffect[] = profile.phone
+        ? [
+            () =>
+              sendMail({
+                to: `${profile.phone}@sms.local`,
+                subject: "Edura invite",
+                text: `Your code is ${profile.inviteCode} — join Edura and register with this phone to keep your history.`,
+              })
+                .then(() => undefined)
+                .catch(() => undefined),
+          ]
+        : [];
 
-      return { sent: true, inviteCode: profile.inviteCode, phone: profile.phone };
-    },
-    { actorId: actor.id },
-  );
+      return {
+        value: { sent: true, inviteCode: profile.inviteCode, phone: profile.phone },
+        effects,
+      };
+    }
+  })();
 }
 
 export async function claimTempStudent(inviteCode: string, user: SessionUser) {

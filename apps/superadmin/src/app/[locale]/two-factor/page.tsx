@@ -58,6 +58,9 @@ export default function TwoFactorPage() {
             autoComplete="one-time-code"
             autoFocus
             maxLength={mode === "totp" ? 6 : 32}
+            aria-label={
+              mode === "totp" ? t("security.codePlaceholder") : t("security.backupPlaceholder")
+            }
             placeholder={
               mode === "totp" ? t("security.codePlaceholder") : t("security.backupPlaceholder")
             }

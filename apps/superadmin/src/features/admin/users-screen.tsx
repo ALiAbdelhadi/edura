@@ -1,30 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { RefreshCcw, ShieldCheck, ShieldOff, TriangleAlert, UsersRound } from "lucide-react";
+import { ShieldCheck, ShieldOff, UsersRound } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
-import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
 import { Num } from "@repo/ui/components/num";
-import { SearchInput } from "@repo/ui/components/search-input";
-import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import type { Locale } from "@repo/ui/lib/format";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
+import type { ColumnDef } from "@/components/kit/data-table";
+import { ListFilter, ListSearch, ListShell } from "@/components/kit/list-shell";
+import { NewAccountantDialog } from "@/features/admin/new-accountant-dialog";
 import { useRouter } from "@/i18n/navigation";
+import { useCursorListScreen } from "@/lib/api/use-list-screen";
 import { asKey } from "@/lib/i18n/keys";
 
 export type UserRow = {
@@ -40,7 +29,6 @@ export type UserRow = {
   createdAt: string;
 };
 
-const ANY = "__any__";
 const PAGE = 25;
 
 export const USER_ROLES = [
@@ -56,236 +44,152 @@ export const USER_ROLES = [
 
 export const USER_STATUSES = ["active", "pending", "suspended", "blacklisted", "shell"] as const;
 
-export const STATUS_TONE: Record<string, StatusTone> = {
-  active: "paid",
-  pending: "pending",
-  suspended: "rejected",
-  blacklisted: "rejected",
-  shell: "neutral",
-};
-
 export function UsersScreen() {
   const t = useTranslations("adminUsers");
   const tg = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
 
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [role, setRole] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const list = useCursorListScreen<UserRow>({
+    url: "admin/users",
+    take: PAGE,
+    select: (data) => {
+      const d = data as { users?: UserRow[]; nextCursor?: string | null } | undefined;
+      return { rows: d?.users ?? [], nextCursor: d?.nextCursor ?? null };
+    },
+  });
 
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
-    return () => clearTimeout(id);
-  }, [q]);
+  const openUser = (id: string) => router.push(`/dashboard/superadmin/users/${id}`);
 
-  const filterKey = `${debouncedQ}|${role ?? ""}|${status ?? ""}`;
-  useEffect(() => {
-    setCursor(null);
-    setRows([]);
-    setNextCursor(null);
-  }, [filterKey]);
-
-  const query: Record<string, string> = { take: String(PAGE) };
-  if (debouncedQ) query.q = debouncedQ;
-  if (role) query.role = role;
-  if (status) query.status = status;
-  if (cursor) query.cursor = cursor;
-
-  const req = useCustom({ url: "admin/users", method: "get", config: { query } });
-  const data = req.result?.data as { users: UserRow[]; nextCursor: string | null } | undefined;
-
-  useEffect(() => {
-    const page = data?.users;
-    if (!page) return;
-    setNextCursor(data?.nextCursor ?? null);
-    setRows((prev) => {
-      if (!cursor) return page;
-      const seen = new Set(prev.map((u) => u.id));
-      return [...prev, ...page.filter((u) => !seen.has(u.id))];
-    });
-  }, [data, cursor]);
-
-  const select = (
-    anyLabel: string,
-    value: string | null,
-    set: (v: string | null) => void,
-    options: readonly string[],
-    render: (o: string) => string,
-  ) => (
-    <select
-      value={value ?? ANY}
-      aria-label={anyLabel}
-      onChange={(e) => set(e.target.value === ANY ? null : e.target.value)}
-      className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
-    >
-      <option value={ANY}>{anyLabel}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {render(o)}
-        </option>
-      ))}
-    </select>
-  );
-
-  const COLS = ["colUser", "colRole", "colStatus", "colSecurity", "colJoined"] as const;
-  const firstLoad = req.query.isLoading && rows.length === 0;
+  const columns: ColumnDef<UserRow, unknown>[] = [
+    {
+      id: "user",
+      header: t("colUser"),
+      cell: ({ row }) => (
+        <>
+          <IdentityCell
+            initials={initialsOf(row.original.name ?? row.original.email ?? "—")}
+            name={row.original.name ?? "—"}
+          />
+          {row.original.email ? (
+            <Num.Code className="block text-[11px]">{row.original.email}</Num.Code>
+          ) : row.original.phone ? (
+            <Num.Code className="block text-[11px]">{row.original.phone}</Num.Code>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "role",
+      header: t("colRole"),
+      cell: ({ row }) => (
+        <StatusBadge tone="neutral">{tg(asKey(`roles.${row.original.role}`))}</StatusBadge>
+      ),
+    },
+    {
+      id: "status",
+      header: t("colStatus"),
+      cell: ({ row }) => (
+        <>
+          <StatusBadge tone={statusTone(row.original.status)}>
+            {tg(asKey(`status.${row.original.status}`))}
+          </StatusBadge>
+          {row.original.isDemo ? (
+            <StatusBadge tone="active" className="ms-1.5">
+              {t("demo")}
+            </StatusBadge>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "security",
+      header: t("colSecurity"),
+      cell: ({ row }) =>
+        row.original.twoFactorEnabled ? (
+          <span className="flex items-center gap-1.5 text-[11px] text-teal">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            {t("twoFactorOn")}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[11px] text-ink-3">
+            <ShieldOff className="size-4" aria-hidden="true" />
+            {t("twoFactorOff")}
+          </span>
+        ),
+    },
+    {
+      id: "joined",
+      header: t("colJoined"),
+      cell: ({ row }) => (
+        <Num.Date
+          value={row.original.createdAt}
+          locale={locale}
+          className="text-[11px] text-ink-3"
+        />
+      ),
+    },
+  ];
 
   return (
-    <div className="flex w-full flex-col gap-5">
-      <PageHeader title={t("title")} description={t("subtitle")} rule />
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
-        <SearchInput
-          className="min-w-64 flex-1"
-          placeholder={t("searchPlaceholder")}
-          value={q}
-          onValueChange={setQ}
-          onClear={() => setQ("")}
-          clearLabel={t("clearSearch")}
-        />
-        {select(t("anyRole"), role, setRole, USER_ROLES, (r) => tg(asKey(`roles.${r}`)))}
-        {select(t("anyStatus"), status, setStatus, USER_STATUSES, (s) =>
-          tg(asKey(`status.${s}`)),
-        )}
-      </div>
-
-      {firstLoad ? (
-        <PageSpinner label={tg("common.loading")} />
-      ) : req.query.isError ? (
-        (() => {
-          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
-          return (
-            <EmptyState
-              tone={denied ? "denied" : "error"}
-              icon={TriangleAlert}
-              title={t(denied ? "deniedTitle" : "loadError")}
-              description={t(denied ? "deniedBody" : "loadErrorBody")}
-              action={
-                denied ? undefined : (
-                  <Button variant="outline" onClick={() => req.query.refetch()}>
-                    <RefreshCcw className="size-4" aria-hidden="true" />
-                    {t("retry")}
-                  </Button>
-                )
-              }
-            />
-          );
-        })()
-      ) : rows.length === 0 ? (
-        <EmptyState
-          tone="empty"
-          icon={UsersRound}
-          title={t("empty")}
-          description={t("emptyBody")}
-        />
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-rule bg-field hover:bg-field">
-                {COLS.map((c) => (
-                  <TableHead key={c} className="h-[34px] px-3">
-                    <Eyebrow locale={locale} marker={false}>
-                      {t(c)}
-                    </Eyebrow>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow
-                  key={r.id}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={r.name ?? r.email ?? r.id}
-                  className="focus-ledger cursor-pointer border-rule-2"
-                  onClick={() => router.push(`/dashboard/superadmin/users/${r.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/dashboard/superadmin/users/${r.id}`);
-                    }
-                  }}
-                >
-                  <TableCell className="px-3 py-[7px]">
-                    <IdentityCell
-                      initials={initialsOf(r.name ?? r.email ?? "—")}
-                      name={r.name ?? "—"}
-                    />
-                    {r.email ? (
-                      <Num.Code className="block text-[11px]">{r.email}</Num.Code>
-                    ) : r.phone ? (
-                      <Num.Code className="block text-[11px]">{r.phone}</Num.Code>
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-[7px]">
-                    <StatusBadge tone="neutral">{tg(asKey(`roles.${r.role}`))}</StatusBadge>
-                  </TableCell>
-
-                  <TableCell className="px-3 py-[7px]">
-                    <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
-                      {tg(asKey(`status.${r.status}`))}
-                    </StatusBadge>
-                    {r.isDemo ? (
-                      <StatusBadge tone="active" className="ms-1.5">
-                        {t("demo")}
-                      </StatusBadge>
-                    ) : null}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-[7px]">
-                    {r.twoFactorEnabled ? (
-                      <span className="flex items-center gap-1.5 text-[11px] text-teal">
-                        <ShieldCheck className="size-4" aria-hidden="true" />
-                        {t("twoFactorOn")}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-[11px] text-ink-3">
-                        <ShieldOff className="size-4" aria-hidden="true" />
-                        {t("twoFactorOff")}
-                      </span>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Date
-                      value={r.createdAt}
-                      locale={locale}
-                      className="text-[11px] text-ink-3"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-field px-[18px] py-3">
-            <span className="flex items-baseline gap-1.5 text-[11px] text-ink-3">
-              <Num.Figure value={rows.length} locale={locale} />
-              {t("shown")}
-            </span>
-            {nextCursor ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={req.query.isFetching}
-                onClick={() => setCursor(nextCursor)}
-              >
-                {t("loadMore")}
-              </Button>
-            ) : (
-              <span className="text-[11px] text-ink-3">{t("endOfList")}</span>
-            )}
-          </div>
+    <ListShell
+      list={list}
+      title={t("title")}
+      description={t("subtitle")}
+      actions={<NewAccountantDialog onCreated={() => list.query.refetch()} />}
+      columns={columns}
+      onRowClick={(row) => openUser(row.id)}
+      rowLabel={(row) => row.name ?? row.email ?? row.id}
+      toolbar={
+        <>
+          <ListSearch
+            list={list}
+            placeholder={t("searchPlaceholder")}
+            clearLabel={t("clearSearch")}
+          />
+          <ListFilter
+            list={list}
+            name="role"
+            anyLabel={t("anyRole")}
+            options={USER_ROLES}
+            render={(r) => tg(asKey(`roles.${r}`))}
+          />
+          <ListFilter
+            list={list}
+            name="status"
+            anyLabel={t("anyStatus")}
+            options={USER_STATUSES}
+            render={(s) => tg(asKey(`status.${s}`))}
+          />
+        </>
+      }
+      emptyIcon={UsersRound}
+      emptyTitle={t("empty")}
+      emptyDescription={t("emptyBody")}
+      errorTitle={t("loadError")}
+      errorDescription={t("loadErrorBody")}
+      deniedTitle={t("deniedTitle")}
+      deniedDescription={t("deniedBody")}
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rule bg-field px-3 py-2">
+          <span className="flex items-baseline gap-1.5 text-[11px] text-ink-3">
+            <Num.Figure value={list.rows.length} locale={locale} />
+            {t("shown")}
+          </span>
+          {list.hasMore ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={list.query.isFetching}
+              onClick={list.loadMore}
+            >
+              {t("loadMore")}
+            </Button>
+          ) : (
+            <span className="text-[11px] text-ink-3">{t("endOfList")}</span>
+          )}
         </div>
-      )}
-    </div>
+      }
+    />
   );
 }

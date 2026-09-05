@@ -61,8 +61,27 @@ import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
 import { newIdempotencyKey } from "@/features/student/idempotency";
 
+type RefundChannel = "cash_drawer" | "bank_transfer" | "gateway";
+const REFUND_CHANNELS: readonly RefundChannel[] = ["cash_drawer", "bank_transfer", "gateway"];
+function channelOf(value: unknown): RefundChannel {
+  return REFUND_CHANNELS.includes(value as RefundChannel) ? (value as RefundChannel) : "cash_drawer";
+}
+
 function isRefundRow(record: { amount?: number | null }): boolean {
   return Number(record?.amount ?? 0) < 0;
+}
+
+/**
+ * `payments_one_refund_per_payment` allows ONE refund row per receipt — full or
+ * partial, once. So the button has to disappear as soon as any amount has been
+ * returned, not only when the whole receipt has: a partially refunded receipt
+ * still has a remainder on paper, but a second refund against it is refused by
+ * the index, and offering a button that can only fail is worse than offering
+ * none. When multiple partials are enabled (by dropping that index) this
+ * becomes `>= amount` and the dialog below already computes the remainder.
+ */
+function isAlreadyRefunded(record: { amount?: number | null; refundedTotal?: number | null }): boolean {
+  return Number(record?.amount ?? 0) > 0 && Number(record?.refundedTotal ?? 0) > 0;
 }
 
 export function AdminFeesScreen() {
@@ -113,6 +132,10 @@ export function AdminFeesScreen() {
   const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
   const { query: creditQuery, result: creditRes } = useCustom({ url: "center/credit", method: "get" });
   const { query: centerPayoutsQuery, result: centerPayoutsRes } = useCustom({ url: "center/wallet/payouts", method: "get" });
+  const { query: unconfirmedQuery, result: unconfirmedRes } = useCustom({
+    url: "payments/refunds/unconfirmed",
+    method: "get",
+  });
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   // One idempotency key per open of the withdraw dialog — a timeout retry
   // inside the same session resolves to the same payout server-side.
@@ -348,9 +371,51 @@ export function AdminFeesScreen() {
   const [refundRow, setRefundRow] = useState<any | null>(null);
   const [refundEgp, setRefundEgp] = useState("");
   const [refundReason, setRefundReason] = useState("");
+  // Where the money goes back. Defaults to the drawer because that is what a
+  // counter does; the operator changes it when it is a transfer or a card
+  // reversal. `wallet` is deliberately not offered — a student wallet credit is
+  // a balance the family cannot spend (WALLET_SPENDABILITY.md).
+  const [refundChannel, setRefundChannel] = useState<RefundChannel>("cash_drawer");
   const [refundBusy, setRefundBusy] = useState(false);
+  const refundKey = useRef("");
 
-  const refundOriginal = Math.abs(Number(refundRow?.amount ?? 0));
+  const [confirmRow, setConfirmRow] = useState<any | null>(null);
+  const [confirmRef, setConfirmRef] = useState("");
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  const unconfirmedRefunds = asArray<any>((unconfirmedRes as { data?: unknown })?.data);
+
+  const handleConfirmRefund = async () => {
+    if (!confirmRow) return;
+    const ref = confirmRef.trim();
+    if (!ref) {
+      toast.error(t("adminManage.fees.refundRefRequired"));
+      return;
+    }
+    setConfirmBusy(true);
+    try {
+      await postMoney(`payments/${confirmRow.id}/refund/confirm`, { externalRef: ref });
+      toast.success(t("adminManage.fees.refundConfirmed"));
+      setConfirmRow(null);
+      setConfirmRef("");
+      unconfirmedQuery.refetch();
+      paymentsQuery.refetch();
+    } catch (err) {
+      const e = await readApiError(err);
+      if (e.indeterminate) {
+        toast.error(t("adminManage.fees.writeIndeterminate"), { duration: 12000 });
+        setConfirmRow(null);
+        unconfirmedQuery.refetch();
+      } else {
+        toast.error(e.message || t("adminManage.fees.recordFailed"));
+      }
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const refundOriginal =
+    Math.abs(Number(refundRow?.amount ?? 0)) - Number(refundRow?.refundedTotal ?? 0);
   const refundPiasters = useMemo(() => {
     const egp = Number(refundEgp.trim());
     return Number.isFinite(egp) && egp > 0 ? Math.round(egp * 100) : 0;
@@ -358,8 +423,14 @@ export function AdminFeesScreen() {
   const refundExceeds = refundPiasters > refundOriginal;
 
   const openRefund = (row: any) => {
+    // Minted once per dialog opening, so a retry after the 45s money-write
+    // timeout resolves to the SAME refund instead of minting a second one.
+    refundKey.current = newIdempotencyKey("refund");
+    setRefundChannel("cash_drawer");
     setRefundRow(row);
-    setRefundEgp((Math.abs(Number(row.amount ?? 0)) / 100).toFixed(2));
+    setRefundEgp(
+      ((Math.abs(Number(row.amount ?? 0)) - Number(row.refundedTotal ?? 0)) / 100).toFixed(2),
+    );
     setRefundReason("");
   };
 
@@ -384,18 +455,18 @@ export function AdminFeesScreen() {
 
     setRefundBusy(true);
     try {
-      await postMoney("payments", {
-        studentId: refundRow.studentId,
-        amount: -refundPiasters,
-        note: `${t("adminManage.fees.refundNotePrefix", {
-          receipt: refundRow.receiptNumber ?? "",
-        })} — ${reason}`,
+      await postMoney(`payments/${refundRow.id}/refund`, {
+        amount: refundPiasters,
+        reason,
+        refundChannel,
+        clientRequestId: refundKey.current,
       });
       toast.success(t("adminManage.fees.refundDone"));
       closeRefund(false);
       paymentsQuery.refetch();
       reportsQuery.refetch();
       walletQuery.refetch();
+      unconfirmedQuery.refetch();
     } catch (err) {
       const e = await readApiError(err);
       if (e.indeterminate) {
@@ -598,7 +669,7 @@ export function AdminFeesScreen() {
       header: t("adminManage.fees.refundOpen"),
       enableSorting: false,
       cell: ({ row }) =>
-        isRefundRow(row.original) ? null : (
+        isRefundRow(row.original) || isAlreadyRefunded(row.original) ? null : (
           <Button
             variant="ghost"
             size="sm"
@@ -912,6 +983,106 @@ export function AdminFeesScreen() {
         </DialogContent>
       </Dialog>
 
+      {/* Refunds armed but not yet handed over. This is the queue an operator
+          works, and the thing to check a shift's unexplained cash variance
+          against — a drawer that is heavier than expected usually means a
+          cash_drawer refund on this list was never actually paid out. */}
+      <QuerySection
+        query={unconfirmedQuery}
+        skeleton={<></>}
+        isEmpty={unconfirmedRefunds.length === 0}
+        empty={<></>}
+      >
+        {unconfirmedRefunds.length > 0 ? (
+          <Sheet>
+            <div className="border-b border-[var(--rule)] bg-[var(--field)] px-4 py-2.5">
+              <Eyebrow>{t("adminManage.fees.refundsAwaiting")}</Eyebrow>
+            </div>
+            {unconfirmedRefunds.map((r) => (
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rule-2)] px-4 py-2.5 last:border-b-0"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <Amount
+                    piasters={Math.abs(Number(r.amount ?? 0))}
+                    locale={locale}
+                    className="text-[13px] font-semibold text-[var(--ink)]"
+                  />
+                  <span className="text-[12px] text-[var(--ink-3)]">
+                    <Num>{r.receiptNumber ?? ""}</Num>
+                    {" · "}
+                    {t(`adminManage.fees.refundChannel_${channelOf(r.refundChannel)}`)}
+                  </span>
+                </div>
+                {r.refundChannel === "gateway" ? (
+                  <span className="text-[12px] text-[var(--ink-3)]">
+                    {t("adminManage.fees.refundGatewayWaits")}
+                  </span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setConfirmRow(r);
+                      setConfirmRef("");
+                    }}
+                  >
+                    {t("adminManage.fees.refundConfirmOpen")}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </Sheet>
+        ) : null}
+      </QuerySection>
+
+      <Dialog
+        open={!!confirmRow}
+        onOpenChange={(open) => {
+          if (open) return;
+          setConfirmRow(null);
+          setConfirmRef("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("adminManage.fees.refundConfirmTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] text-[var(--ink-2)]">
+              {t("adminManage.fees.refundConfirmBody", {
+                amount: formatEGP(Math.abs(Number(confirmRow?.amount ?? 0)), { decimals: true }),
+              })}
+            </p>
+            <div>
+              <label
+                htmlFor="refund-ref"
+                className="mb-1 block text-[13px] font-medium text-[var(--ink)]"
+              >
+                {t("adminManage.fees.refundRef")}
+              </label>
+              <Input
+                id="refund-ref"
+                value={confirmRef}
+                onChange={(e) => setConfirmRef(e.target.value)}
+                placeholder={t("adminManage.fees.refundRefPlaceholder")}
+              />
+            </div>
+            <FinalityNotice>{t("adminManage.fees.refundConfirmFinality")}</FinalityNotice>
+            <TwoStepCommit
+              resetKey={`${confirmRow?.id ?? ""}:${confirmRef}`}
+              icon={<Undo2 className="size-4" />}
+              label={t("adminManage.fees.refundConfirmArm")}
+              armedLabel={t("adminManage.fees.refundConfirmFinal2")}
+              busy={confirmBusy}
+              disabled={!confirmRef.trim()}
+              onCommit={handleConfirmRefund}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!refundRow} onOpenChange={closeRefund}>
         <DialogContent>
           <DialogHeader>
@@ -968,6 +1139,37 @@ export function AdminFeesScreen() {
             </div>
 
             <div>
+              <span className="mb-1 block text-[13px] font-medium text-[var(--ink)]">
+                {t("adminManage.fees.refundChannel")}
+              </span>
+              {/* Three plain buttons rather than a dropdown: the operator is
+                  counter staff and the choice decides where real money goes,
+                  so it is shown in full rather than hidden behind a control
+                  that has to be opened to be read. */}
+              <div className="flex flex-wrap gap-2">
+                {REFUND_CHANNELS.map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => setRefundChannel(ch)}
+                    aria-pressed={refundChannel === ch}
+                    className={cn(
+                      "rounded-[var(--radius-sm)] border px-3 py-2 text-[13px] font-medium transition-colors",
+                      refundChannel === ch
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                        : "border-[var(--rule)] bg-[var(--field)] text-[var(--ink)] hover:border-[var(--ink-3)]",
+                    )}
+                  >
+                    {t(`adminManage.fees.refundChannel_${ch}`)}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-3)]">
+                {t(`adminManage.fees.refundChannelHint_${refundChannel}`)}
+              </p>
+            </div>
+
+            <div>
               <label
                 htmlFor="refund-reason"
                 className="mb-1 block text-[13px] font-medium text-[var(--ink)]"
@@ -985,7 +1187,7 @@ export function AdminFeesScreen() {
             <FinalityNotice>{t("adminManage.fees.refundFinality")}</FinalityNotice>
 
             <TwoStepCommit
-              resetKey={`${refundRow?.id ?? ""}:${refundEgp}:${refundReason}`}
+              resetKey={`${refundRow?.id ?? ""}:${refundEgp}:${refundReason}:${refundChannel}`}
               icon={<Undo2 className="size-4" />}
               label={t("adminManage.fees.refundArm", {
                 amount: formatEGP(refundPiasters, { decimals: true }),

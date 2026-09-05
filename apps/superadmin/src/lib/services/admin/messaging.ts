@@ -2,6 +2,7 @@ import * as oversight from "@repo/database/chat-oversight";
 import * as safety from "@repo/database/chat-safety";
 import type { ReportStatus, Role } from "@repo/database";
 import { platformDb } from "@/lib/db/scope";
+import { parsePageLimit } from "@/lib/validation/common";
 
 export function searchConversations(filters: {
   q?: string;
@@ -13,8 +14,7 @@ export function searchConversations(filters: {
   page?: string;
   limit?: string;
 }) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "25", 10) || 25));
+  const { page, limit } = parsePageLimit(filters, 25);
   return platformDb(async (tx) => {
     const { rows, total } = await oversight.adminSearchConversations(tx, {
       q: filters.q?.trim() || undefined,
@@ -62,8 +62,7 @@ export function listReports(filters: {
   page?: string;
   limit?: string;
 }) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(200, Math.max(1, parseInt(filters.limit ?? "50", 10) || 50));
+  const { page, limit } = parsePageLimit(filters, 50);
   return platformDb(async (tx) => {
     const { reports, total } = await safety.listReportsForReview(tx, {
       status: (filters.status as ReportStatus) || undefined,
@@ -98,8 +97,7 @@ export function resolveReport(
 }
 
 export function listBlocks(filters: { page?: string; limit?: string; all?: string }) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(200, Math.max(1, parseInt(filters.limit ?? "50", 10) || 50));
+  const { page, limit } = parsePageLimit(filters, 50);
   return platformDb(async (tx) => {
     const { blocks, total } = await safety.listAllBlocks(tx, {
       limit,

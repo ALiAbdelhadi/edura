@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Flag, TriangleAlert } from "lucide-react";
 
@@ -10,11 +9,11 @@ import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { StatusBadge } from "@repo/ui/components/status-badge";
-import { toast } from "@repo/ui/components/sonner";
 import { formatDate, type Locale } from "@repo/ui/lib/format";
 
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
+import { useAction } from "@/lib/api/use-action";
 import { asArray } from "@/lib/refine/as-array";
 
 type FlagRow = {
@@ -33,27 +32,22 @@ export function FeatureFlagsScreen() {
   const locale = useLocale() as Locale;
 
   const { query, result } = useCustom({ url: "admin/feature-flags", method: "get" });
-  const { mutateAsync: save } = useCustomMutation();
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const { run, busyKey } = useAction({
+    url: "admin/feature-flags",
+    method: "put",
+    onSuccess: () => query.refetch(),
+  });
 
   const flags = asArray<FlagRow>(result?.data);
 
-  const toggle = async (flag: FlagRow) => {
-    setBusyKey(flag.key);
-    try {
-      await save({
-        url: "admin/feature-flags",
-        method: "put",
-        values: { key: flag.key, enabled: !flag.enabled },
-      });
-      toast.success(!flag.enabled ? t("enabledOk", { key: flag.key }) : t("disabledOk", { key: flag.key }));
-      void query.refetch();
-    } catch {
-      toast.error(t("saveFail"));
-    } finally {
-      setBusyKey(null);
-    }
-  };
+  const toggle = (flag: FlagRow) =>
+    run({
+      key: flag.key,
+      values: { key: flag.key, enabled: !flag.enabled },
+      successMsg: !flag.enabled
+        ? t("enabledOk", { key: flag.key })
+        : t("disabledOk", { key: flag.key }),
+    });
 
   if (query.isLoading) return <PageSpinner label={t("loading")} />;
   if (query.isError) {

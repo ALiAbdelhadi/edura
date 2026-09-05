@@ -1,0 +1,37 @@
+{
+  "name": "@repo/client-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura shared browser kernel -- the ky API client and its session-integrity handling, the refine data/router/notification providers and the i18n helpers, used by apps/erp and apps/superadmin. Drift-critical client code lives here exactly once, mirroring @repo/server-core on the server side.",
+  "type": "module",
+  "exports": {
+    "./components/*": {
+      "types": "./src/components/*.tsx",
+      "default": "./src/components/*.tsx"
+    },
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "dependencies": {
+    "@refinedev/core": "^5.0.12",
+    "@repo/ui": "workspace:*",
+    "ky": "^2.0.2",
+    "lucide-react": "^1.27.0",
+    "next-intl": "^4.13.4"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "next": "^16",
+    "react": "^19"
+  }
+}

@@ -184,15 +184,16 @@ async function main() {
     assert(cDone.stageIds.length === 2, "center coverage saved (2 stages)");
 
     console.log("\n6) Admin adds a new system + subject from the panel — zero deploys");
-    const sys = await createSystem({ code: `intl-${SUFFIX}`, nameAr: "دولي (اختبار)", sortOrder: 99 });
+    const catalogAdmin: SessionUser = { id: fx.centerAdmin.id, role: "super_admin", locale: "ar" };
+    const sys = await createSystem({ code: `intl-${SUFFIX}`, nameAr: "دولي (اختبار)", sortOrder: 99 }, catalogAdmin);
     ids.systems.push(sys.id);
-    const stg = await createStage({ code: `intl-sec-${SUFFIX}`, educationSystemId: sys.id, nameAr: "ثانوي دولي" });
+    const stg = await createStage({ code: `intl-sec-${SUFFIX}`, educationSystemId: sys.id, nameAr: "ثانوي دولي" }, catalogAdmin);
     ids.stages.push(stg.id);
-    const grd = await createGradeLevel({ code: `intl-sec-1-${SUFFIX}`, stageId: stg.id, nameAr: "Year 10", level: 1 });
+    const grd = await createGradeLevel({ code: `intl-sec-1-${SUFFIX}`, stageId: stg.id, nameAr: "Year 10", level: 1 }, catalogAdmin);
     ids.grades.push(grd.id);
-    const subj = await createSubject({ code: `business-${SUFFIX}`, nameAr: "إدارة الأعمال (اختبار)" });
+    const subj = await createSubject({ code: `business-${SUFFIX}`, nameAr: "إدارة الأعمال (اختبار)" }, catalogAdmin);
     ids.subjects.push(subj.id);
-    await createOffering({ subjectId: subj.id, gradeLevelId: grd.id });
+    await createOffering({ subjectId: subj.id, gradeLevelId: grd.id }, catalogAdmin);
 
     const tree2 = await getCatalogTree();
     const newSys = tree2.find((s) => s.id === sys.id);

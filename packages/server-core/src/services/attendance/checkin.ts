@@ -6,6 +6,7 @@ import {
 } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../../services/notifications/notify";
+import { runEffects, type WithEffects, type DeferredEffect } from "../../db/effects";
 import { coveredStudentIds } from "../../services/subscriptions/coverage";
 import { lessonClosed, lockSessionRow } from "./lesson-lock";
 import { readStudentScan } from "../students/student-qr";
@@ -230,10 +231,22 @@ export async function counterCheckin(
   input: { studentId: string; sessionId: string },
   admin: SessionUser,
 ): Promise<CounterResult> {
+  const { value, effects } = await platformDb((tx) => counterCheckinTx(tx, input, admin), {
+    actorId: admin.id,
+  });
+  await runEffects(effects);
+  return value;
+}
+
+export async function counterCheckinTx(
+  tx: TenantTx,
+  input: { studentId: string; sessionId: string },
+  admin: SessionUser,
+): Promise<WithEffects<CounterResult>> {
   const centerId = admin.centerId as string;
 
-  const { result, crossCenterNotify } = await platformDb(
-    async (tx) => {
+  const { result, crossCenterNotify } = await (async () => {
+    {
       await lockSessionRow(tx, input.sessionId);
       const session = await tx.session.findUnique({
         where: { id: input.sessionId },
@@ -350,24 +363,26 @@ export async function counterCheckin(
               }
             : null,
       };
-    },
-    { actorId: admin.id },
-  );
+    }
+  })();
 
-  if (crossCenterNotify) {
-    await notify({
-      recipients: [crossCenterNotify.studentId],
-      type: "student_added_to_roster",
-      title: "Choose your center",
-      body: `You attended at ${crossCenterNotify.newCenterName} but are also registered at ${crossCenterNotify.otherNames.join(", ")}. Keep your current center or switch — open the app to choose.`,
-      data: {
-        action: "center_choice",
-        newCenterId: crossCenterNotify.newCenterId,
-      },
-    });
-  }
+  const effects: DeferredEffect[] = crossCenterNotify
+    ? [
+        () =>
+          notify({
+            recipients: [crossCenterNotify.studentId],
+            type: "student_added_to_roster",
+            title: "Choose your center",
+            body: `You attended at ${crossCenterNotify.newCenterName} but are also registered at ${crossCenterNotify.otherNames.join(", ")}. Keep your current center or switch — open the app to choose.`,
+            data: {
+              action: "center_choice",
+              newCenterId: crossCenterNotify.newCenterId,
+            },
+          }),
+      ]
+    : [];
 
-  return result;
+  return { value: result, effects };
 }
 
 export type DoorOutcome = "present" | "already_present" | "no_counter" | "settled" | "error";

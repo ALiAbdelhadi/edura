@@ -705,7 +705,20 @@ governs. Violating one of these is never a local change.
   A4 goes red again, for the reason the withdrawn note described.
   A4 is also **not hermetic**: it asserts a refusal that only happens while a
   globally-scoped value is ABSENT, and the superadmin UI can set that value.
-- **`expected-db-shape.json` is committed at 70.** Migration 70
+- **`expected-db-shape.json` is at 72 [dev, test AND production, 2026-09-05].**
+  Migration 72 is `20260905120000_dedupe_guards_c5` — four partial unique
+  indexes: one active blacklist entry per (target) at platform level, per
+  (target, center) at center level, per (target, imposer) at teacher level, and
+  one `proposed` teacher agreement per (center, teacher). Applied dev → test →
+  production the same day, each after a read-only pre-flight
+  (`scripts/dedupe-census.ts` 0 rows / 0 duplicates, datasource line read,
+  exactly one pending); verify-db 28/28 on all three. Migration 71 is
+  `20260902120000_dedupe_guards` (C-4), likewise on all three. Prisma cannot
+  model any of these seven partial/expression indexes — `prisma migrate dev`
+  WILL propose dropping them; refuse. `c04-dedupe-guards` and
+  `c05-dedupe-guards` are what enforce them. Plans: MIGRATION_PLAN_C4.md,
+  MIGRATION_PLAN_C5.md. The entry below is history from when the file was at 70.
+- **`expected-db-shape.json` was committed at 70 [2026-08-31].** Migration 70
   (`20260831090000_payout_client_request_id` — `payouts.client_request_id`
   + composite unique on beneficiary+key) is applied to **dev [2026-08-31]**
   and **production [2026-08-31]**, verify-db 28/28 on both; production

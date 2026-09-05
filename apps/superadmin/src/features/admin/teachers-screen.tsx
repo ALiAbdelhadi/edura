@@ -1,30 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { useCustomMutation, useList } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
-import { RefreshCcw, TriangleAlert, UserRound } from "lucide-react";
+import { ShieldBan, UserRound, X } from "lucide-react";
 
-import { Button } from "@repo/ui/components/button";
-import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
 import { Num } from "@repo/ui/components/num";
-import { SearchInput } from "@repo/ui/components/search-input";
-import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
-import { toast } from "@repo/ui/components/sonner";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import type { Locale } from "@repo/ui/lib/format";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
+import type { ColumnDef } from "@/components/kit/data-table";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+
+import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { ListFilter, ListSearch, ListShell } from "@/components/kit/list-shell";
+import { ReasonDialog } from "@/components/kit/reason-dialog";
+import { useAction } from "@/lib/api/use-action";
+import { useListScreen } from "@/lib/api/use-list-screen";
 import { asKey } from "@/lib/i18n/keys";
 
 type TeacherRow = {
@@ -35,211 +36,301 @@ type TeacherRow = {
   status: string;
   createdAt: string;
   attendanceMode: "counter_only" | "counter_and_door" | null;
+  centers: { centerId: string; name: string | null; status: string }[];
 };
 
-const ANY = "__any__";
+type CenterOption = { id: string; name: string };
+
 const MODES = ["counter_only", "counter_and_door"] as const;
-
-const TONE: Record<string, StatusTone> = {
-  active: "paid",
-  pending: "pending",
-  suspended: "rejected",
-};
+const STATUSES = ["active", "pending", "suspended"] as const;
 
 export function TeachersScreen() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [mode, setMode] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const { mutateAsync: patch } = useCustomMutation();
-
-  const { query, result } = useList({
-    resource: "admin/teachers",
-    filters: [
-      ...(q ? [{ field: "q", operator: "eq" as const, value: q }] : []),
-      ...(status ? [{ field: "status", operator: "eq" as const, value: status }] : []),
-      ...(mode ? [{ field: "mode", operator: "eq" as const, value: mode }] : []),
-    ],
-    pagination: { currentPage: page, pageSize: 20 },
+  const list = useListScreen<TeacherRow>({ resource: "admin/teachers" });
+  const [pendingMode, setPendingMode] = useState<{ id: string; mode: string } | null>(null);
+  const [banning, setBanning] = useState<TeacherRow | null>(null);
+  const { run: patch } = useAction({ method: "patch" });
+  const { run: post } = useAction();
+  const { run: link, busyKey: linkBusy } = useAction({
+    onSuccess: () => list.query.refetch(),
   });
+  const [linking, setLinking] = useState<TeacherRow | null>(null);
 
-  const rows = (result?.data ?? []) as TeacherRow[];
-  const total = (result?.total ?? 0) as number;
-  const pageCount = Math.max(1, Math.ceil(total / 20));
+  // Centres are picked, not typed. Loaded only when the picker opens.
+  const centersQ = useCustom<CenterOption[]>({
+    url: "admin/centers",
+    method: "get",
+    config: { query: { take: "100" } },
+    queryOptions: { enabled: !!linking },
+  });
+  const centerOptions = (() => {
+    const d = centersQ.result?.data as unknown;
+    return Array.isArray(d) ? (d as CenterOption[]) : [];
+  })();
+
+  // NOTE: the normal path for a teacher to join a centre is a collaboration
+  // request, which both sides accept. This is the administrative override for
+  // when that flow cannot run -- it writes the affiliation directly.
+  const linkCenter = (teacherId: string, centerId: string) =>
+    link({
+      url: `admin/teachers/${teacherId}/link-center`,
+      values: { centerId },
+      key: teacherId,
+      successMsg: t("teachers.centerLinked"),
+    });
+
+  const unlinkCenter = async (teacherId: string, centerId: string) => {
+    const res = await link({
+      url: `admin/teachers/${teacherId}/unlink-center`,
+      method: "delete",
+      query: { centerId },
+      key: `${teacherId}:${centerId}`,
+      successMsg: t("teachers.centerUnlinked"),
+    });
+    if (!res.ok) throw res.error;
+  };
+
+  const blacklist = async (reason: string) => {
+    if (!banning) return;
+    const res = await post({
+      url: `admin/teachers/${banning.id}/blacklist`,
+      values: { reason },
+      successMsg: t("blacklist.blacklistedToast"),
+    });
+    if (!res.ok) throw res.error;
+    setBanning(null);
+    list.query.refetch();
+  };
 
   const setTeacherMode = async (row: TeacherRow, next: string) => {
-    if (next === row.attendanceMode) return;
+    if (next === row.attendanceMode || pendingMode) return;
+    setPendingMode({ id: row.id, mode: next });
     try {
-      await patch({
+      const res = await patch({
         url: `admin/teachers/${row.id}/attendance-mode`,
-        method: "patch",
         values: { mode: next },
+        successMsg: t("teachers.modeSaved"),
       });
-      toast.success(t("teachers.modeSaved"));
-      void query.refetch();
-    } catch {
-      toast.error(t("teachers.modeFailed"));
+      if (res.ok) list.query.refetch();
+    } finally {
+      setPendingMode(null);
     }
   };
 
-  const select = (
-    anyLabel: string,
-    value: string | null,
-    set: (v: string | null) => void,
-    options: readonly string[],
-    render: (o: string) => string,
-  ) => (
-    <select
-      value={value ?? ANY}
-      aria-label={anyLabel}
-      onChange={(e) => {
-        set(e.target.value === ANY ? null : e.target.value);
-        setPage(1);
-      }}
-      className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
-    >
-      <option value={ANY}>{anyLabel}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {render(o)}
-        </option>
-      ))}
-    </select>
-  );
-
-  const COLS = ["colName", "colContact", "colStatus", "colMode", "colJoined"] as const;
+  const columns: ColumnDef<TeacherRow, unknown>[] = [
+    {
+      id: "name",
+      header: t("teachers.colName"),
+      cell: ({ row }) => (
+        <IdentityCell
+          initials={initialsOf(row.original.name ?? "—")}
+          name={row.original.name ?? "—"}
+        />
+      ),
+    },
+    {
+      id: "contact",
+      header: t("teachers.colContact"),
+      cell: ({ row }) => (
+        <>
+          {row.original.email ? (
+            <Num.Code className="block">{row.original.email}</Num.Code>
+          ) : (
+            <span className="text-[13px]">—</span>
+          )}
+          {row.original.phone ? (
+            <Num.Code className="block">{row.original.phone}</Num.Code>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "status",
+      header: t("teachers.colStatus"),
+      cell: ({ row }) => (
+        <StatusBadge tone={statusTone(row.original.status)}>
+          {t(asKey(`status.${row.original.status}`))}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "mode",
+      header: t("teachers.colMode"),
+      cell: ({ row }) =>
+        row.original.attendanceMode === null ? (
+          <span className="text-[11px] text-ink-3">{t("teachers.noProfile")}</span>
+        ) : (
+          <select
+            value={
+              pendingMode?.id === row.original.id
+                ? pendingMode.mode
+                : row.original.attendanceMode
+            }
+            aria-label={t("teachers.modeAria")}
+            aria-busy={pendingMode?.id === row.original.id}
+            disabled={pendingMode !== null}
+            onChange={(e) => void setTeacherMode(row.original, e.target.value)}
+            className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {MODES.map((m) => (
+              <option key={m} value={m}>
+                {t(asKey(`teachers.mode_${m}`))}
+              </option>
+            ))}
+          </select>
+        ),
+    },
+    {
+      id: "centers",
+      header: t("teachers.colCenters"),
+      cell: ({ row }) => (
+        <div className="flex flex-wrap items-center gap-1">
+          {row.original.centers.map((c) => (
+            <Badge key={c.centerId} variant="secondary" className="gap-1">
+              {c.name ?? c.centerId.slice(0, 8)}
+              <ConfirmDialog
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={t("teachers.unlinkCenter")}
+                    disabled={linkBusy === `${row.original.id}:${c.centerId}`}
+                    className="hover:text-red disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="size-3" />
+                  </button>
+                }
+                destructive
+                title={t("teachers.unlinkTitle")}
+                description={t("teachers.unlinkBody")}
+                confirmText={t("teachers.unlinkCenter")}
+                onConfirm={() => unlinkCenter(row.original.id, c.centerId)}
+              />
+            </Badge>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-[12px]"
+            onClick={() => setLinking(row.original)}
+          >
+            {t("teachers.linkCenter")}
+          </Button>
+        </div>
+      ),
+    },
+    {
+      id: "blacklist",
+      header: t("common.colActions"),
+      cell: ({ row }) =>
+        row.original.status === "blacklisted" ? (
+          <span className="text-[11px] text-red">{t("blacklist.stateActive")}</span>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red"
+            onClick={() => setBanning(row.original)}
+          >
+            <ShieldBan className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">{t("blacklist.blacklistAction")}</span>
+          </Button>
+        ),
+    },
+    {
+      id: "joined",
+      header: t("teachers.colJoined"),
+      cell: ({ row }) => (
+        <Num.Date
+          value={row.original.createdAt}
+          locale={locale}
+          className="text-[11px] text-ink-3"
+        />
+      ),
+    },
+  ];
 
   return (
-    <div className="flex w-full flex-col gap-5">
-      <PageHeader title={t("teachers.title")} description={t("teachers.description")} rule />
+    <>
+    <ListShell
+      list={list}
+      title={t("teachers.title")}
+      description={t("teachers.description")}
+      columns={columns}
+      toolbar={
+        <>
+          <ListSearch
+            list={list}
+            placeholder={t("teachers.searchPlaceholder")}
+            clearLabel={t("teachers.clearSearch")}
+          />
+          <ListFilter
+            list={list}
+            name="status"
+            anyLabel={t("teachers.anyStatus")}
+            options={STATUSES}
+            render={(s) => t(asKey(`status.${s}`))}
+          />
+          <ListFilter
+            list={list}
+            name="mode"
+            anyLabel={t("teachers.anyMode")}
+            options={MODES}
+            render={(m) => t(asKey(`teachers.mode_${m}`))}
+          />
+        </>
+      }
+      loadingLabel={t("common.loading")}
+      emptyIcon={UserRound}
+      emptyTitle={t("teachers.empty")}
+      emptyDescription={t("teachers.emptyBody")}
+      errorTitle={t("teachers.loadError")}
+      errorDescription={t("teachers.loadErrorBody")}
+      deniedTitle={t("teachers.deniedTitle")}
+      deniedDescription={t("teachers.deniedBody")}
+    />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
-        <SearchInput
-          className="min-w-64 flex-1"
-          placeholder={t("teachers.searchPlaceholder")}
-          value={q}
-          onValueChange={(v) => {
-            setQ(v);
-            setPage(1);
-          }}
-          onClear={() => setQ("")}
-          clearLabel={t("teachers.clearSearch")}
-        />
-        {select(t("teachers.anyStatus"), status, setStatus, ["active", "pending", "suspended"], (s) =>
-          t(asKey(`status.${s}`)),
-        )}
-        {select(t("teachers.anyMode"), mode, setMode, MODES, (m) => t(asKey(`teachers.mode_${m}`)))}
-      </div>
-
-      {query.isLoading ? (
-        <PageSpinner label={t("common.loading")} />
-      ) : query.isError ? (
-        (() => {
-          const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
-          return (
-            <EmptyState
-              tone={denied ? "denied" : "error"}
-              icon={TriangleAlert}
-              title={t(denied ? "teachers.deniedTitle" : "teachers.loadError")}
-              description={t(denied ? "teachers.deniedBody" : "teachers.loadErrorBody")}
-              action={
-                denied ? undefined : (
-                  <Button variant="outline" onClick={() => query.refetch()}>
-                    <RefreshCcw className="size-4" aria-hidden="true" />
-                    {t("teachers.retry")}
-                  </Button>
-                )
-              }
-            />
-          );
-        })()
-      ) : rows.length === 0 ? (
-        <EmptyState
-          tone="empty"
-          icon={UserRound}
-          title={t("teachers.empty")}
-          description={t("teachers.emptyBody")}
-        />
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-rule bg-field hover:bg-field">
-                {COLS.map((c) => (
-                  <TableHead key={c} className="h-[34px] px-3">
-                    <Eyebrow locale={locale} marker={false}>
-                      {t(asKey(`teachers.${c}`))}
-                    </Eyebrow>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id} className="border-rule-2">
-                  <TableCell className="px-3 py-[7px]">
-                    <IdentityCell initials={initialsOf(r.name ?? "—")} name={r.name ?? "—"} />
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    {r.email ? <Num.Code className="block">{r.email}</Num.Code> : <span className="text-[13px]">—</span>}
-                    {r.phone ? <Num.Code className="block">{r.phone}</Num.Code> : null}
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <StatusBadge tone={TONE[r.status] ?? "neutral"}>
-                      {t(asKey(`status.${r.status}`))}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    {r.attendanceMode === null ? (
-                      <span className="text-[11px] text-ink-3">{t("teachers.noProfile")}</span>
-                    ) : (
-                      <select
-                        value={r.attendanceMode}
-                        aria-label={t("teachers.modeAria")}
-                        onChange={(e) => void setTeacherMode(r, e.target.value)}
-                        className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink"
-                      >
-                        {MODES.map((m) => (
-                          <option key={m} value={m}>
-                            {t(asKey(`teachers.mode_${m}`))}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
-                  </TableCell>
-                </TableRow>
+    <Dialog open={!!linking} onOpenChange={(o) => !o && setLinking(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("teachers.linkTitle")}</DialogTitle>
+          <DialogDescription>{t("teachers.linkBody")}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5 py-2">
+          <label className="text-xs text-ink-2" htmlFor="link-center">
+            {t("teachers.colCenters")}
+          </label>
+          <select
+            id="link-center"
+            defaultValue=""
+            className="focus-ledger h-9 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink"
+            onChange={(e) => {
+              const centerId = e.target.value;
+              if (!centerId || !linking) return;
+              void linkCenter(linking.id, centerId).then(() => setLinking(null));
+            }}
+          >
+            <option value="">{t("teachers.pickCenter")}</option>
+            {centerOptions
+              .filter((c) => !linking?.centers.some((x) => x.centerId === c.id))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
-            </TableBody>
-          </Table>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-field px-[18px] py-3">
-            <Num className="text-[11px] text-ink-3">
-              {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} / {total}
-            </Num>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                {t("teachers.prev")}
-              </Button>
-              <Num className="text-[11px] text-ink-3">
-                {page} / {pageCount}
-              </Num>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= pageCount}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t("teachers.next")}
-              </Button>
-            </div>
-          </div>
+          </select>
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
+
+    <ReasonDialog
+      open={!!banning}
+      onOpenChange={(o) => !o && setBanning(null)}
+      title={t("blacklist.blacklistTitle")}
+      description={t("blacklist.blacklistBody")}
+      confirmText={t("blacklist.blacklistAction")}
+      onConfirm={blacklist}
+    />
+    </>
   );
 }

@@ -8,8 +8,8 @@ import { headers } from "next/headers";
 import type { SessionUser } from "@/lib/auth/session";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
-
-const PAGE_MAX = 100;
+import { parsePageLimit } from "@/lib/validation/common";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 
 async function callerIp(): Promise<string | null> {
   try {
@@ -21,25 +21,23 @@ async function callerIp(): Promise<string | null> {
   }
 }
 
+// Every row here is about a user and carries the caller's IP — the one thing
+// the shared writer cannot read for itself.
 async function audit(
   tx: TenantTx,
-  actorId: string,
+  actor: Pick<SessionUser, "id">,
   action: string,
   targetId: string,
   before?: Record<string, unknown>,
   after?: Record<string, unknown>,
 ) {
-  await tx.auditLog.create({
-    data: {
-      actorId,
-      action,
-      targetType: "user",
-      targetId,
-      beforeState: (before ?? undefined) as never,
-      afterState: (after ?? undefined) as never,
-      ipAddress: await callerIp(),
-      onBehalfOf: null,
-    },
+  await writeAdminAudit(tx, actor, {
+    action,
+    targetType: "user",
+    targetId,
+    before,
+    after,
+    ipAddress: await callerIp(),
   });
 }
 
@@ -64,7 +62,7 @@ export type UserListFilters = {
 };
 
 export function listUsers(filters: UserListFilters) {
-  const take = Math.min(PAGE_MAX, Math.max(1, filters.take ?? 25));
+  const { limit: take } = parsePageLimit({ limit: filters.take }, 25);
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.role) where.role = filters.role;
@@ -194,9 +192,7 @@ export function setUserSuspended(
         select: { id: true, status: true, tokenVersion: true },
       });
 
-      await audit(
-        tx,
-        actor.id,
+      await audit(tx, actor,
         suspended ? "user.suspended" : "user.reinstated",
         userId,
         { status: user.status },
@@ -227,9 +223,7 @@ export function revokeAllSessions(actor: SessionUser, userId: string, reason?: s
         select: { tokenVersion: true },
       });
 
-      await audit(
-        tx,
-        actor.id,
+      await audit(tx, actor,
         "user.sessions_revoked",
         userId,
         { tokenVersion: user.tokenVersion },
@@ -259,7 +253,7 @@ export function revokeOneSession(actor: SessionUser, userId: string, sessionId: 
         throw new NotFoundError("Session not found");
       }
       await tx.authSession.delete({ where: { id: sessionId } });
-      await audit(tx, actor.id, "user.session_revoked", userId, undefined, {
+      await audit(tx, actor, "user.session_revoked", userId, undefined, {
         sessionId,
         ipAddress: session.ipAddress,
         userAgent: session.userAgent,
@@ -291,9 +285,7 @@ export function resetTwoFactor(actor: SessionUser, userId: string, reason?: stri
       });
       const removed = await tx.authSession.deleteMany({ where: { userId } });
 
-      await audit(
-        tx,
-        actor.id,
+      await audit(tx, actor,
         "user.two_factor_reset",
         userId,
         { twoFactorEnabled: true },
@@ -332,7 +324,7 @@ export async function sendPasswordReset(actor: SessionUser, userId: string, reas
 
   await platformDb(
     (tx) =>
-      audit(tx, actor.id, "user.password_reset_sent", userId, undefined, {
+      audit(tx, actor, "user.password_reset_sent", userId, undefined, {
         email: target.email,
         reason: why,
       }),
@@ -407,7 +399,7 @@ export async function startViewAs(
 
   await platformDb(
     (tx) =>
-      audit(tx, actor.id, "user.view_as_requested", target.id, undefined, {
+      audit(tx, actor, "user.view_as_requested", target.id, undefined, {
         jti: minted.jti,
         targetRole: target.role,
         targetEmail: target.email,
@@ -424,7 +416,7 @@ export function auditImpersonationStart(
 ) {
   return platformDb(
     (tx) =>
-      audit(tx, actor.id, "user.impersonation_started", target.id, undefined, {
+      audit(tx, actor, "user.impersonation_started", target.id, undefined, {
         targetRole: target.role,
         targetEmail: target.email,
       }),
@@ -435,7 +427,7 @@ export function auditImpersonationStart(
 export function auditImpersonationStop(actorId: string, targetUserId: string) {
   return platformDb(
     (tx) =>
-      audit(tx, actorId, "user.impersonation_stopped", targetUserId, undefined, {
+      audit(tx, { id: actorId }, "user.impersonation_stopped", targetUserId, undefined, {
         endedBy: actorId,
       }),
     { actorId },

@@ -240,10 +240,15 @@
   "reg_contact": "جهة الاتصال",
   "reg_submitted": "تاريخ التقديم",
   "reg_approveNote": "الاعتماد يفعّل الحساب ويسمح له بالدخول فوراً.",
+  "reg_approveConfirm": "تأكيد — تفعيل الحساب",
+  "reg_approveArmedHint": "اضغط مرة أخرى للتفعيل. زر Escape يلغي.",
+  "reg_approveAnnounce": "تم تجهيز الاعتماد. اضغط الزر مرة أخرى لتفعيل الحساب.",
   "reg_loadError": "تعذّر تحميل الطلبات",
   "reg_loadErrorBody": "لم يصل رد من الخادم.",
   "reg_retry": "إعادة المحاولة",
   "reg_deniedTitle": "غير مصرّح",
   "reg_deniedBody": "حسابك لا يملك صلاحية مراجعة طلبات التسجيل.",
-  "reg_rejectSubmit": "تسجيل الرفض"
+  "reg_rejectSubmit": "تسجيل الرفض",
+  "reg_prev": "السابق",
+  "reg_next": "التالي"
 }

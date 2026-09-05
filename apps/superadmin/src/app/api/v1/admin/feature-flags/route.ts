@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { listFeatureFlags, setFeatureFlag } from "@/lib/services/admin/feature-flags";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async () => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async () => {
   return ok(await listFeatureFlags());
 });
 
@@ -20,8 +18,7 @@ const putSchema = z
   })
   .strict();
 
-export const PUT = withErrors(async (req) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req) => {
   const body = await parseJson(req, putSchema);
   return ok(await setFeatureFlag(user.id, body.key, body.enabled, { note: body.note }));
 });

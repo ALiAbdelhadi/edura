@@ -218,6 +218,7 @@ export async function listChildren(user: SessionUser) {
       select: {
         userId: true,
         gradeLevelId: true,
+        walletBalance: true,
         gradeLevel: { select: { id: true, nameAr: true, nameEn: true } },
       },
     });
@@ -229,6 +230,9 @@ export async function listChildren(user: SessionUser) {
         ...s,
         gradeLevelId: p?.gradeLevelId ?? null,
         gradeLevel: p?.gradeLevel ?? null,
+        // So a parent can see money refunded into a child's wallet without a
+        // second round trip per child. Read-only: no parent surface spends it.
+        walletBalance: p?.walletBalance ?? 0,
       };
     });
   });

@@ -86,6 +86,15 @@ function nationalId(seed: number): string {
   return String(29900000000000 + seed).slice(0, 14);
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RUN_AT = Date.now();
+const utcDay = (offsetDays: number): Date =>
+  new Date(Math.floor((RUN_AT + offsetDays * DAY_MS) / DAY_MS) * DAY_MS);
+const daysAgo = (n: number): Date => utcDay(-n);
+const daysAhead = (n: number): Date => utcDay(n);
+const isoDay = (d: Date): string => d.toISOString().slice(0, 10);
+const REPORT_WINDOW = { from: daysAgo(90), to: daysAhead(1) };
+
 async function main() {
   const tag = "ext-" + Math.floor(Math.random() * 1e9).toString(36);
   const seed = Math.floor(Math.random() * 1e8);
@@ -138,7 +147,7 @@ async function main() {
         teacherId: enrolledTeacher.id,
         status: "active",
         centerShare: 0,
-        expiresAt: new Date("2030-01-01T00:00:00Z"),
+        expiresAt: daysAhead(365),
       },
     });
 
@@ -233,8 +242,8 @@ async function main() {
         daysOfWeek: [1, 3],
         startTime: "16:00",
         endTime: "17:30",
-        startDate: new Date("2026-07-06T00:00:00Z"),
-        endDate: new Date("2026-07-29T00:00:00Z"),
+        startDate: daysAgo(28),
+        endDate: daysAgo(1),
       },
       price: 40000,
       pricePerSession: 5000,
@@ -255,8 +264,8 @@ async function main() {
         daysOfWeek: [2],
         startTime: "16:00",
         endTime: "17:30",
-        startDate: new Date("2026-07-07T00:00:00Z"),
-        endDate: new Date("2026-07-28T00:00:00Z"),
+        startDate: daysAgo(28),
+        endDate: daysAgo(1),
       },
       price: 30000,
       pricePerSession: 4000,
@@ -460,8 +469,8 @@ async function main() {
     );
 
     const statement = await buildStatement(ownerActorA.acting, created.teacherId, {
-      from: new Date("2026-07-01T00:00:00Z"),
-      to: new Date("2026-09-01T00:00:00Z"),
+      from: REPORT_WINDOW.from,
+      to: REPORT_WINDOW.to,
     });
     assert(statement.grossCollected === 40000, "statement: what students paid");
     assert(
@@ -476,7 +485,7 @@ async function main() {
       () =>
         settleWithTeacher(ownerActorA, created.teacherId, {
           amount: owedBefore + 1,
-          period: { from: new Date("2026-07-01"), to: new Date("2026-09-01") },
+          period: REPORT_WINDOW,
         }),
       BusinessRuleError,
       "settling MORE than is owed is refused (H2 floor)",
@@ -484,7 +493,7 @@ async function main() {
 
     const settled = await settleWithTeacher(ownerActorA, created.teacherId, {
       amount: owedBefore,
-      period: { from: new Date("2026-07-01"), to: new Date("2026-09-01") },
+      period: REPORT_WINDOW,
       note: "July cash",
     });
     assert(settled.amountPaid === owedBefore, "the full amount was settled");
@@ -530,7 +539,7 @@ async function main() {
       courseId: extCourseId,
       name: "Quiz 1",
       maxScore: 20,
-      date: "2026-07-10",
+      date: isoDay(daysAgo(7)),
     });
     assert(grade.dataSource === "manual", "the assessment is labelled manual");
     assert(
@@ -567,7 +576,7 @@ async function main() {
       () =>
         settleWithTeacher(ownerActorB, created.teacherId, {
           amount: 100,
-          period: { from: new Date("2026-07-01"), to: new Date("2026-09-01") },
+          period: REPORT_WINDOW,
         }),
       NotFoundError,
       "another center cannot SETTLE with this teacher",
@@ -586,8 +595,8 @@ async function main() {
 
     const gapReport = await buildGapReport(ownerActorA.acting, {
       teacherId: created.teacherId,
-      from: new Date("2026-07-01T00:00:00Z"),
-      to: new Date("2026-12-31T00:00:00Z"),
+      from: REPORT_WINDOW.from,
+      to: REPORT_WINDOW.to,
     });
     const kinds = new Set(gapReport.gaps.map((g) => g.kind));
     assert(
@@ -765,7 +774,7 @@ async function main() {
           centerId: fx.centerB,
           teacherId: fx.enrolledTeacher.id,
           status: "active",
-          expiresAt: new Date("2030-01-01T00:00:00Z"),
+          expiresAt: daysAhead(365),
         },
       }),
     );

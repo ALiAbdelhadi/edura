@@ -73,6 +73,11 @@ describe("POST /api/v1/admin/accountants", () => {
             throw new Error("must not be reached");
           },
         },
+        auditLog: {
+          create: async () => {
+            throw new Error("must not be reached");
+          },
+        },
       }),
     );
     const res = await hit(VALID_BODY);
@@ -87,8 +92,12 @@ describe("POST /api/v1/admin/accountants", () => {
       email: data.email,
       role: data.role,
     }));
+    const auditCreate = vi.fn(async () => ({ id: "a-1" }));
     platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-      cb({ user: { findFirst: async () => null, create } }),
+      cb({
+        user: { findFirst: async () => null, create },
+        auditLog: { create: auditCreate },
+      }),
     );
     const res = await hit({ ...VALID_BODY, role: "super_admin" });
     expect([200, 201]).toContain(res.status);
@@ -96,5 +105,15 @@ describe("POST /api/v1/admin/accountants", () => {
     expect(
       (create.mock.calls[0][0] as { data: { role: string } }).data.role,
     ).toBe("accountant");
+
+    // C-1: the audit row rides the SAME tx object the user row was created on —
+    // creating a privileged back-office account can never commit unaudited.
+    expect(auditCreate).toHaveBeenCalledTimes(1);
+    const audited = (auditCreate.mock.calls[0] as unknown as [
+      { data: { action: string; actorId: string; targetId: string } },
+    ])[0].data;
+    expect(audited.action).toBe("accountant.created");
+    expect(audited.actorId).toBe(superAdmin.id);
+    expect(audited.targetId).toBe("u-new");
   });
 });

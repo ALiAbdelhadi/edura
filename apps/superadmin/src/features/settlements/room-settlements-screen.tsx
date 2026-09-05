@@ -1,29 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useCustom } from "@refinedev/core";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, Download, Info, RefreshCcw, Scale } from "lucide-react";
+import { AlertTriangle, Download, Info, Scale } from "lucide-react";
 
-import { Button } from "@repo/ui/components/button";
-import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
 import { StatusBadge } from "@repo/ui/components/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { formatEGP, formatPercent, type Locale } from "@repo/ui/lib/format";
 
 import { api } from "@/lib/api/client";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner } from "@/components/kit/spinner";
+import type { ColumnDef } from "@/components/kit/data-table";
+import { ListFilter, ListShell } from "@/components/kit/list-shell";
+import { useCustomListScreen } from "@/lib/api/use-list-screen";
 
 type SettlementRow = {
   id: string;
@@ -48,21 +37,18 @@ type SettlementRow = {
 export function RoomSettlementsScreen() {
   const t = useTranslations("roomSettlements");
   const tc = useTranslations("common");
+  const locale = useLocale() as Locale;
   const [exporting, setExporting] = useState(false);
 
-
-  const locale = useLocale() as Locale;
-  const [method, setMethod] = useState<string>("all");
-  const [page, setPage] = useState(1);
-
-  const query = useMemo(
-    () => ({
-      page: String(page),
-      limit: "50",
-      ...(method !== "all" ? { pricingMethod: method } : {}),
-    }),
-    [method, page],
-  );
+  const list = useCustomListScreen<SettlementRow>({
+    url: "admin/session-settlements",
+    pageSize: 50,
+    select: (data) => {
+      const d = data as { settlements?: SettlementRow[]; meta?: { total?: number } } | undefined;
+      return { rows: d?.settlements ?? [], total: d?.meta?.total ?? 0 };
+    },
+  });
+  const method = list.filter("pricingMethod");
 
   // The old plain anchor landed a raw JSON error page in a tab on any failure.
   const exportXlsx = async () => {
@@ -72,7 +58,7 @@ export function RoomSettlementsScreen() {
     try {
       const res = await api.get(
         `admin/session-settlements/export?locale=${locale}${
-          method !== "all" ? `&pricingMethod=${method}` : ""
+          method ? `&pricingMethod=${method}` : ""
         }`,
         { timeout: 120_000 },
       );
@@ -96,15 +82,6 @@ export function RoomSettlementsScreen() {
     }
   };
 
-  const req = useCustom({ url: "admin/session-settlements", method: "get", config: { query } });
-  const data = req.result?.data as
-    | { settlements: SettlementRow[]; meta: { total: number; page: number; limit: number } }
-    | undefined;
-
-  const rows = data?.settlements ?? [];
-  const total = data?.meta?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / (data?.meta?.limit ?? 50)));
-
   const rateOf = (r: SettlementRow) => {
     if (r.pricingMethod !== "per_attending_student") return "—";
     return r.m2CenterFee != null
@@ -112,175 +89,163 @@ export function RoomSettlementsScreen() {
       : `${formatPercent((r.m2CenterBp ?? 0) / 100, locale)} / ${t("perStudent")}`;
   };
 
-  const COLS = [
-    "colDate",
-    "colCenter",
-    "colCourse",
-    "colTeacher",
-    "colMethod",
-    "colRate",
-    "colPresent",
-    "colPrice",
-    "colCenterShare",
-    "colTeacherShare",
-    "colPlatform",
-  ] as const;
+  const columns: ColumnDef<SettlementRow, unknown>[] = [
+    {
+      id: "date",
+      header: t("colDate"),
+      cell: ({ row }) => (
+        <Num.Date
+          value={row.original.createdAt}
+          locale={locale}
+          className="text-[11px] whitespace-nowrap text-ink-3"
+        />
+      ),
+    },
+    {
+      id: "center",
+      header: t("colCenter"),
+      cell: ({ row }) => row.original.centerName ?? "—",
+    },
+    {
+      id: "course",
+      header: t("colCourse"),
+      cell: ({ row }) => (
+        <>
+          <div className="max-w-48 truncate text-[13px] text-ink">
+            {row.original.courseTitle ?? "—"}
+          </div>
+          {row.original.roomName ? (
+            <div className="text-[11px] text-ink-3">{row.original.roomName}</div>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "teacher",
+      header: t("colTeacher"),
+      cell: ({ row }) => row.original.teacherName ?? "—",
+    },
+    {
+      id: "method",
+      header: t("colMethod"),
+      cell: ({ row }) => (
+        <StatusBadge tone="neutral">
+          {row.original.pricingMethod === "per_attending_student"
+            ? t("methodPerStudent")
+            : row.original.pricingMethod === "whole_room_percent"
+              ? t("methodWholeRoom")
+              : t("methodNoRoom")}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "rate",
+      header: t("colRate"),
+      cell: ({ row }) => (
+        <Num className="text-[11px] whitespace-nowrap text-ink-2">{rateOf(row.original)}</Num>
+      ),
+    },
+    {
+      id: "present",
+      meta: { align: "end" },
+      header: t("colPresent"),
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-1.5">
+          <Num.Figure value={row.original.presentCount} locale={locale} />
+          {row.original.attendanceMismatch ? (
+            <StatusBadge tone="rejected" icon={AlertTriangle}>
+              <span className="inline-flex items-baseline gap-1">
+                {t("nowPresent")}
+                <Num.Figure value={row.original.livePresentCount} locale={locale} />
+              </span>
+            </StatusBadge>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: "price",
+      meta: { align: "end" },
+      header: t("colPrice"),
+      cell: ({ row }) => (
+        <Num.Money
+          piasters={row.original.perSessionPrice}
+          locale={locale}
+          tone="muted"
+          sign={false}
+        />
+      ),
+    },
+    {
+      id: "centerShare",
+      meta: { align: "end" },
+      header: t("colCenterShare"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.centerTotal} locale={locale} tone="muted" sign={false} />
+      ),
+    },
+    {
+      id: "teacherShare",
+      meta: { align: "end" },
+      header: t("colTeacherShare"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.teacherTotal} locale={locale} tone="muted" sign={false} />
+      ),
+    },
+    {
+      id: "platform",
+      meta: { align: "end" },
+      header: t("colPlatform"),
+      cell: ({ row }) => (
+        <Num.Money piasters={row.original.platformTotal} locale={locale} tone="net" sign={false} />
+      ),
+    },
+  ];
 
   return (
-    <div className="flex w-full flex-col gap-5">
-      <PageHeader title={t("title")} description={t("subtitle")} rule />
-
-      <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
-        <Info className="mt-px size-4 shrink-0" aria-hidden="true" />
-        {t("mismatchNote")}
-      </p>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-sheet px-4 py-3 shadow-[var(--lift)]">
-        <select
-          value={method}
-          aria-label={t("colMethod")}
-          onChange={(e) => {
-            setMethod(e.target.value);
-            setPage(1);
-          }}
-          className="focus-ledger h-8 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink-2"
-        >
-          <option value="all">{t("allMethods")}</option>
-          <option value="whole_room_percent">{t("methodWholeRoom")}</option>
-          <option value="per_attending_student">{t("methodPerStudent")}</option>
-        </select>
-        <span className="flex items-baseline gap-1.5 text-[13px] text-ink-2">
-          <Num.Figure value={total} locale={locale} />
-          {t("settlementCount")}
-        </span>
-
-        <button
-          type="button"
-          disabled={exporting}
-          onClick={() => void exportXlsx()}
-          className="focus-ledger ms-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink-2 hover:text-ink disabled:opacity-60"
-        >
-          <Download className="size-3.5" aria-hidden="true" />
-          {t("exportXlsx")}
-        </button>
-      </div>
-
-      {req.query.isLoading ? (
-        <PageSpinner label={t("loading")} />
-      ) : req.query.isError ? (
-        (() => {
-          const denied = (req.query.error as { statusCode?: number } | null)?.statusCode === 403;
-          return (
-            <EmptyState
-              tone={denied ? "denied" : "error"}
-              icon={AlertTriangle}
-              title={t(denied ? "deniedTitle" : "loadError")}
-              description={t(denied ? "deniedBody" : "loadErrorBody")}
-              action={
-                denied ? undefined : (
-                  <Button variant="outline" onClick={() => req.query.refetch()}>
-                    <RefreshCcw className="size-4" aria-hidden="true" />
-                    {t("retry")}
-                  </Button>
-                )
-              }
-            />
-          );
-        })()
-      ) : rows.length === 0 ? (
-        <EmptyState tone="empty" icon={Scale} title={t("empty")} description={t("emptyBody")} />
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-rule bg-sheet shadow-[var(--lift)]">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-rule bg-field hover:bg-field">
-                {COLS.map((c) => (
-                  <TableHead
-                    key={c}
-                    className={
-                      ["colPresent", "colPrice", "colCenterShare", "colTeacherShare", "colPlatform"].includes(c)
-                        ? "h-[34px] px-3 text-end"
-                        : "h-[34px] px-3"
-                    }
-                  >
-                    <Eyebrow locale={locale} marker={false}>
-                      {t(c)}
-                    </Eyebrow>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id} className="border-rule-2">
-                  <TableCell className="px-3 py-[7px] whitespace-nowrap">
-                    <Num.Date value={r.createdAt} locale={locale} className="text-[11px] text-ink-3" />
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px] text-[13px]">{r.centerName ?? "—"}</TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <div className="max-w-48 truncate text-[13px] text-ink">{r.courseTitle ?? "—"}</div>
-                    {r.roomName ? <div className="text-[11px] text-ink-3">{r.roomName}</div> : null}
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px] text-[13px]">{r.teacherName ?? "—"}</TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <StatusBadge tone="neutral">
-                      {r.pricingMethod === "per_attending_student"
-                        ? t("methodPerStudent")
-                        : r.pricingMethod === "whole_room_percent"
-                          ? t("methodWholeRoom")
-                          : t("methodNoRoom")}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px] whitespace-nowrap">
-                    <Num className="text-[11px] text-ink-2">{rateOf(r)}</Num>
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px] text-end">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Num.Figure value={r.presentCount} locale={locale} />
-                      {r.attendanceMismatch ? (
-                        <StatusBadge tone="rejected" icon={AlertTriangle}>
-                          <span className="inline-flex items-baseline gap-1">
-                            {t("nowPresent")}
-                            <Num.Figure value={r.livePresentCount} locale={locale} />
-                          </span>
-                        </StatusBadge>
-                      ) : null}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Money piasters={r.perSessionPrice} locale={locale} tone="muted" sign={false} />
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Money piasters={r.centerTotal} locale={locale} tone="muted" sign={false} />
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Money piasters={r.teacherTotal} locale={locale} tone="muted" sign={false} />
-                  </TableCell>
-                  <TableCell className="px-3 py-[7px]">
-                    <Num.Money piasters={r.platformTotal} locale={locale} tone="net" sign={false} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {pages > 1 ? (
-            <div className="flex items-center justify-between gap-2 border-t border-rule bg-field px-[18px] py-3">
-              <Num className="text-[11px] text-ink-3">
-                {page} / {pages}
-              </Num>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  {t("prev")}
-                </Button>
-                <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
-                  {t("next")}
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-    </div>
+    <ListShell
+      list={list}
+      title={t("title")}
+      description={t("subtitle")}
+      columns={columns}
+      notice={
+        <p className="flex gap-2 rounded-lg border border-rule bg-field p-3 text-[13px] text-ink-2">
+          <Info className="mt-px size-4 shrink-0" aria-hidden="true" />
+          {t("mismatchNote")}
+        </p>
+      }
+      toolbar={
+        <>
+          <ListFilter
+            list={list}
+            name="pricingMethod"
+            anyLabel={t("allMethods")}
+            options={["whole_room_percent", "per_attending_student"]}
+            render={(m) => (m === "whole_room_percent" ? t("methodWholeRoom") : t("methodPerStudent"))}
+          />
+          <span className="flex items-baseline gap-1.5 text-[13px] text-ink-2">
+            <Num.Figure value={list.total} locale={locale} />
+            {t("settlementCount")}
+          </span>
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={() => void exportXlsx()}
+            className="focus-ledger ms-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink-2 hover:text-ink disabled:opacity-60"
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            {t("exportXlsx")}
+          </button>
+        </>
+      }
+      loadingLabel={t("loading")}
+      emptyIcon={Scale}
+      emptyTitle={t("empty")}
+      emptyDescription={t("emptyBody")}
+      errorTitle={t("loadError")}
+      errorDescription={t("loadErrorBody")}
+      deniedTitle={t("deniedTitle")}
+      deniedDescription={t("deniedBody")}
+    />
   );
 }

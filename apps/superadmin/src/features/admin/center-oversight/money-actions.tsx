@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCustomMutation } from "@refinedev/core";
 import { Banknote, Plus, Receipt, Wallet } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { Badge } from "@repo/ui/components/badge";
@@ -12,10 +11,10 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogForm,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import { Input } from "@repo/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -31,44 +30,22 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
 import { Spinner } from "@/components/kit/spinner";
+import {
+  EntityDialog,
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { Form } from "@repo/ui/components/form";
+import { useAction } from "@/lib/api/use-action";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
-
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="space-y-1 text-sm">
-      <span className="block font-medium">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function useMoneyMutation() {
-  const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  return async (
-    url: string,
-    values: Record<string, unknown>,
-    successMsg: string,
-    method: "post" | "patch" | "delete" = "post",
-  ) => {
-    try {
-      await mutateAsync({ url, method, values });
-      toast.success(successMsg);
-      return true;
-    } catch (e) {
-      // Duplicate-payment and insufficient-funds reasons live in this message.
-      toast.error((e as { message?: string })?.message || t("ma_actionFailed"));
-      return false;
-    }
-  };
-}
 
 export function MoneyActions({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
@@ -142,33 +119,33 @@ function StudentPicker({
   const t = useTranslations("oversight");
   const queryStrings = useQueryStrings();
   const { students, failed, retry } = useRosterStudents(centerId, enabled);
+
+  // No label of its own any more: it is rendered as a `custom` field, so the
+  // shared FormItem supplies the label and the validation message. The retry
+  // branch is why it cannot just be a `select` — an empty picker in a money
+  // dialog reads as "no students".
   if (failed) {
-    // An empty picker in a money dialog reads as "no students" — say what it is.
     return (
-      <Labeled label={t("ma_student")}>
-        <LoadError
-          message={queryStrings.loadFailed}
-          onRetry={() => void retry()}
-          retryLabel={queryStrings.retry}
-        />
-      </Labeled>
+      <LoadError
+        message={queryStrings.loadFailed}
+        onRetry={() => void retry()}
+        retryLabel={queryStrings.retry}
+      />
     );
   }
   return (
-    <Labeled label={t("ma_student")}>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder={t("ma_pickStudent")} />
-        </SelectTrigger>
-        <SelectContent>
-          {students.map((s) => (
-            <SelectItem key={s.studentId} value={s.studentId}>
-              {s.name ?? s.studentId}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Labeled>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full" aria-label={t("ma_student")}>
+        <SelectValue placeholder={t("ma_pickStudent")} />
+      </SelectTrigger>
+      <SelectContent>
+        {students.map((s) => (
+          <SelectItem key={s.studentId} value={s.studentId}>
+            {s.name ?? s.studentId}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -182,64 +159,52 @@ function RecordPaymentDialog({
   centerId: string;
 }) {
   const t = useTranslations("oversight");
-  const run = useMoneyMutation();
-  const [studentId, setStudentId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    const piasters = Math.round(Number(amount) * 100);
-    if (!studentId || !Number.isFinite(piasters) || piasters <= 0) {
-      toast.error(t("ma_needStudentAmount"));
-      return;
-    }
-    setBusy(true);
-    const okDone = await run(
-      `admin/centers/${centerId}/money/payments`,
-      { studentId, amount: piasters, ...(note.trim() ? { note: note.trim() } : {}) },
-      t("ma_paymentOk"),
-    );
-    setBusy(false);
-    if (okDone) {
-      setAmount("");
-      setNote("");
-      onClose();
-    }
-  };
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/money/payments`,
+    successMsg: t("ma_paymentOk"),
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ma_recordCashTitle")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            Writes a Payment with a center receipt number and a mirrored ledger entry, in one
-            transaction. Positive amounts only — returning money is the refund flow.
-          </p>
-          <StudentPicker
-            centerId={centerId}
-            enabled={open}
-            value={studentId}
-            onChange={setStudentId}
-          />
-          <Labeled label={t("ma_amountEgp")}>
-            <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </Labeled>
-          <Labeled label={t("ma_noteOptional")}>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} />
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Record payment
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={t("ma_recordCashTitle")}
+      note={t("ma_recordCashNote")}
+      busy={busy}
+      fields={[
+        {
+          name: "studentId",
+          label: t("ma_student"),
+          type: "custom",
+          required: true,
+          render: (field) => (
+            <StudentPicker
+              centerId={centerId}
+              enabled={open}
+              value={String(field.value ?? "")}
+              onChange={field.onChange}
+            />
+          ),
+        },
+        // 0.01 EGP, not 0: this path writes a Payment and a ledger entry, and
+        // a zero-value receipt is not a thing a counter should be able to mint.
+        { name: "amount", label: t("ma_amountEgp"), type: "number", required: true, min: 0.01 },
+        { name: "note", label: t("ma_noteOptional"), type: "text" },
+      ]}
+      submitLabel={t("ma_recordPayment")}
+      onSubmit={async (v) => {
+        const note = String(v.note ?? "").trim();
+        const res = await run({
+          values: {
+            studentId: v.studentId,
+            amount: Math.round(Number(v.amount) * 100),
+            ...(note ? { note } : {}),
+          },
+        });
+        if (res.ok) onClose();
+        return res;
+      }}
+    />
   );
 }
 
@@ -253,58 +218,48 @@ function TopUpDialog({
   centerId: string;
 }) {
   const t = useTranslations("oversight");
-  const run = useMoneyMutation();
-  const [studentId, setStudentId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    const piasters = Math.round(Number(amount) * 100);
-    if (!studentId || !Number.isFinite(piasters) || piasters <= 0) {
-      toast.error(t("ma_needStudentAmount"));
-      return;
-    }
-    setBusy(true);
-    const okDone = await run(
-      `admin/centers/${centerId}/money/wallet-topup`,
-      { studentId, amount: piasters },
-      t("ma_topUpOk"),
-    );
-    setBusy(false);
-    if (okDone) {
-      setAmount("");
-      onClose();
-    }
-  };
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/money/wallet-topup`,
+    successMsg: t("ma_topUpOk"),
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ma_topUpTitle")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            <strong>{t("ma_creditOnly")}</strong> {t("ma_creditOnlyBody")}
-          </p>
-          <StudentPicker
-            centerId={centerId}
-            enabled={open}
-            value={studentId}
-            onChange={setStudentId}
-          />
-          <Labeled label={t("ma_amountEgp")}>
-            <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Add to wallet
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={t("ma_topUpTitle")}
+      note={
+        <>
+          <strong>{t("ma_creditOnly")}</strong> {t("ma_creditOnlyBody")}
+        </>
+      }
+      busy={busy}
+      fields={[
+        {
+          name: "studentId",
+          label: t("ma_student"),
+          type: "custom",
+          required: true,
+          render: (field) => (
+            <StudentPicker
+              centerId={centerId}
+              enabled={open}
+              value={String(field.value ?? "")}
+              onChange={field.onChange}
+            />
+          ),
+        },
+        { name: "amount", label: t("ma_amountEgp"), type: "number", required: true, min: 0.01 },
+      ]}
+      submitLabel={t("ma_addToWallet")}
+      onSubmit={async (v) => {
+        const res = await run({
+          values: { studentId: v.studentId, amount: Math.round(Number(v.amount) * 100) },
+        });
+        if (res.ok) onClose();
+        return res;
+      }}
+    />
   );
 }
 
@@ -320,98 +275,124 @@ function WalkInSubscriptionDialog({
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
   const queryStrings = useQueryStrings();
-  const run = useMoneyMutation();
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/money/subscriptions`,
+    successMsg: t("ma_subscriptionOk"),
+  });
   const courses = useAdminGet<Paged<{ id: string; title: string; pricePerMonth: number | null; pricePerSession: number | null }>>(
     `admin/centers/${centerId}/oversight/courses`,
     { enabled: open, query: { limit: "100" } },
   );
-  const [studentId, setStudentId] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [plan, setPlan] = useState<"monthly" | "per_session">("monthly");
-  const [busy, setBusy] = useState(false);
 
-  const course = (courses.data?.data ?? []).find((c) => c.id === courseId);
-  const price = plan === "monthly" ? course?.pricePerMonth : course?.pricePerSession;
+  // Not an EntityDialog: the charge is derived from the picked course and plan
+  // and has to show BELOW the fields, and the confirm button stays disabled
+  // while the course has no price for the chosen plan.
+  const fields: FieldSpec[] = [
+    {
+      name: "studentId",
+      label: t("ma_student"),
+      type: "custom",
+      required: true,
+      render: (field) => (
+        <StudentPicker
+          centerId={centerId}
+          enabled={open}
+          value={String(field.value ?? "")}
+          onChange={field.onChange}
+        />
+      ),
+    },
+    {
+      name: "courseId",
+      label: t("ma_course"),
+      type: "custom",
+      required: true,
+      render: (field) =>
+        courses.isError ? (
+          <LoadError
+            message={queryStrings.loadFailed}
+            onRetry={() => void courses.refetch()}
+            retryLabel={queryStrings.retry}
+          />
+        ) : (
+          <Select value={String(field.value ?? "")} onValueChange={field.onChange}>
+            <SelectTrigger className="w-full" aria-label={t("ma_course")}>
+              <SelectValue placeholder={t("ma_pickCourse")} />
+            </SelectTrigger>
+            <SelectContent>
+              {(courses.data?.data ?? []).map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+    },
+    {
+      name: "plan",
+      label: t("ma_plan"),
+      type: "select",
+      required: true,
+      options: [
+        { value: "monthly", label: t("ma_monthly") },
+        { value: "per_session", label: t("ma_perSession") },
+      ],
+    },
+  ];
 
-  const submit = async () => {
-    if (!studentId || !courseId) {
-      toast.error(t("ma_needStudentCourse"));
-      return;
-    }
-    setBusy(true);
-    const okDone = await run(
-      `admin/centers/${centerId}/money/subscriptions`,
-      { studentId, courseId, plan },
-      "Subscription created and paid in cash",
-    );
-    setBusy(false);
-    if (okDone) onClose();
-  };
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    initial: { plan: "monthly" },
+    open,
+    onSubmit: async (v) => {
+      const res = await run({
+        values: { studentId: v.studentId, courseId: v.courseId, plan: v.plan },
+      });
+      if (res.ok) onClose();
+      return res;
+    },
+  });
+
+  const course = (courses.data?.data ?? []).find((c) => c.id === form.watch("courseId"));
+  const price =
+    form.watch("plan") === "monthly" ? course?.pricePerMonth : course?.pricePerSession;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ma_walkInTitle")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            {t("ma_walkInNote")}
-          </p>
-          <StudentPicker
-            centerId={centerId}
-            enabled={open}
-            value={studentId}
-            onChange={setStudentId}
-          />
-          <Labeled label={t("ma_course")}>
-            {courses.isError ? (
-              <LoadError
-                message={queryStrings.loadFailed}
-                onRetry={() => void courses.refetch()}
-                retryLabel={queryStrings.retry}
-              />
-            ) : (
-            <Select value={courseId} onValueChange={setCourseId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("ma_pickCourse")} />
-              </SelectTrigger>
-              <SelectContent>
-                {(courses.data?.data ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            )}
-          </Labeled>
-          <Labeled label={t("ma_plan")}>
-            <Select value={plan} onValueChange={(v) => setPlan(v as "monthly" | "per_session")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monthly">{t("ma_monthly")}</SelectItem>
-                <SelectItem value="per_session">{t("ma_perSession")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Labeled>
-          {course ? (
-            <p className="text-sm">
-              Charge:{" "}
-              <strong className="tabular-nums">
-                {price != null ? <Num.Money piasters={price} locale={locale} sign={false} /> : t("ma_notPriced")}
-              </strong>
-            </p>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy || price == null}>
-            {busy ? <Spinner /> : null}
-            Take cash &amp; subscribe
-          </Button>
-        </DialogFooter>
+        <Form {...form}>
+          <DialogForm onSubmit={() => void submit()}>
+            <DialogHeader>
+              <DialogTitle>{t("ma_walkInTitle")}</DialogTitle>
+            </DialogHeader>
+
+            <FormRootError message={rootError} />
+            <p className="text-xs text-ink-2">{t("ma_walkInNote")}</p>
+
+            <FieldControls fields={fields} form={form} />
+
+            {course ? (
+              <p className="text-sm">
+                {t("ma_charge")}{" "}
+                <strong className="tabular-nums">
+                  {price != null ? (
+                    <Num.Money piasters={price} locale={locale} sign={false} />
+                  ) : (
+                    t("ma_notPriced")
+                  )}
+                </strong>
+              </p>
+            ) : null}
+
+            <DialogFooter>
+              <Button type="submit" disabled={busy || price == null}>
+                {busy ? <Spinner /> : null}
+                {t("ma_takeCashSubscribe")}
+              </Button>
+            </DialogFooter>
+          </DialogForm>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -429,13 +410,14 @@ function PayoutDialog({
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
   const queryStrings = useQueryStrings();
-  const run = useMoneyMutation();
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/money/payout-request`,
+    successMsg: t("ma_payoutOk"),
+  });
   const req = useAdminGet<{ wallet: { balance?: number }; payouts: unknown[] }>(
     `admin/centers/${centerId}/money/payout-request`,
     { enabled: open },
   );
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
   // One idempotency key per open of the dialog: a timeout retry resolves to
   // the same payout server-side instead of minting a second one.
   const requestKey = useRef("");
@@ -443,58 +425,73 @@ function PayoutDialog({
     if (open) requestKey.current = crypto.randomUUID();
   }, [open]);
 
-  const submit = async () => {
-    const piasters = amount.trim() === "" ? undefined : Math.round(Number(amount) * 100);
-    setBusy(true);
-    const okDone = await run(
-      `admin/centers/${centerId}/money/payout-request`,
-      { ...(piasters ? { amount: piasters } : {}), clientRequestId: requestKey.current },
-      t("ma_payoutOk"),
-    );
-    setBusy(false);
-    if (okDone) {
-      setAmount("");
-      onClose();
-    }
-  };
+  // Not an EntityDialog: the wallet balance (or its retry) sits ABOVE the one
+  // field, and the amount is optional — blank means "the whole balance".
+  const fields: FieldSpec[] = [
+    { name: "amount", label: t("ma_amountFull"), type: "number", min: 0 },
+  ];
+
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    open,
+    onSubmit: async (v) => {
+      const egp = Number(v.amount);
+      const piasters = egp > 0 ? Math.round(egp * 100) : undefined;
+      const res = await run({
+        values: {
+          ...(piasters ? { amount: piasters } : {}),
+          clientRequestId: requestKey.current,
+        },
+      });
+      if (res.ok) onClose();
+      return res;
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ma_requestPayoutTitle")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            This <strong>pays nothing</strong>. It raises a pending payout; approval and
-            settlement stay with the accountant, where the balance floor is enforced.
-          </p>
-          {req.isError ? (
-            <LoadError
-              message={queryStrings.unavailable}
-              onRetry={() => void req.refetch()}
-              retryLabel={queryStrings.retry}
-            />
-          ) : (
-            <p className="text-sm">
-              Center wallet:{" "}
-              {req.data?.wallet ? (
-                <Num.Money piasters={req.data.wallet.balance ?? 0} locale={locale} tone="net" sign={false} />
-              ) : (
-                <span className="text-ink-3">…</span>
-              )}
-            </p>
-          )}
-          <Labeled label={t("ma_amountFull")}>
-            <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Request payout
-          </Button>
-        </DialogFooter>
+        <Form {...form}>
+          <DialogForm onSubmit={() => void submit()}>
+            <DialogHeader>
+              <DialogTitle>{t("ma_requestPayoutTitle")}</DialogTitle>
+            </DialogHeader>
+
+            <FormRootError message={rootError} />
+            <p className="text-xs text-ink-2">{t("ma_payoutNote")}</p>
+
+            {req.isError ? (
+              <LoadError
+                message={queryStrings.unavailable}
+                onRetry={() => void req.refetch()}
+                retryLabel={queryStrings.retry}
+              />
+            ) : (
+              <p className="text-sm">
+                {t("ma_centerWallet")}{" "}
+                {req.data?.wallet ? (
+                  <Num.Money
+                    piasters={req.data.wallet.balance ?? 0}
+                    locale={locale}
+                    tone="net"
+                    sign={false}
+                  />
+                ) : (
+                  <span className="text-ink-3">…</span>
+                )}
+              </p>
+            )}
+
+            <FieldControls fields={fields} form={form} />
+
+            <DialogFooter>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Spinner /> : null}
+                {t("ma_requestPayout")}
+              </Button>
+            </DialogFooter>
+          </DialogForm>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -517,38 +514,17 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
   const req = useAdminGet<ExpenseRow[] | { items: ExpenseRow[] }>(
     `admin/centers/${centerId}/money/expenses`,
   );
-  const run = useMoneyMutation();
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/money/expenses`,
+    successMsg: t("ma_expenseOk"),
+    onSuccess: () => {
+      void req.refetch();
+    },
+  });
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ amount: "", category: "other", description: "", expenseDate: "" });
-  const [busy, setBusy] = useState(false);
 
   const raw = req.data;
   const rows: ExpenseRow[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
-
-  const submit = async () => {
-    const piasters = Math.round(Number(f.amount) * 100);
-    if (!Number.isFinite(piasters) || piasters <= 0 || !f.expenseDate) {
-      toast.error(t("ma_needAmountDate"));
-      return;
-    }
-    setBusy(true);
-    const okDone = await run(
-      `admin/centers/${centerId}/money/expenses`,
-      {
-        amount: piasters,
-        category: f.category,
-        expenseDate: f.expenseDate,
-        ...(f.description.trim() ? { description: f.description.trim() } : {}),
-      },
-      t("ma_expenseOk"),
-    );
-    setBusy(false);
-    if (okDone) {
-      setF({ amount: "", category: "other", description: "", expenseDate: "" });
-      setOpen(false);
-      req.refetch();
-    }
-  };
 
   return (
     <Card>
@@ -621,60 +597,39 @@ export function ExpensesCard({ centerId }: { centerId: string }) {
         )}
       </CardContent>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("ma_addExpenseTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Labeled label={t("ma_amountEgp")}>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={f.amount}
-                onChange={(e) => setF((s) => ({ ...s, amount: e.target.value }))}
-              />
-            </Labeled>
-            <Labeled label={t("ma_category")}>
-              <Select
-                value={f.category}
-                onValueChange={(v) => setF((s) => ({ ...s, category: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Labeled>
-            <Labeled label={t("ma_date")}>
-              <Input
-                type="date"
-                value={f.expenseDate}
-                onChange={(e) => setF((s) => ({ ...s, expenseDate: e.target.value }))}
-              />
-            </Labeled>
-            <Labeled label={t("ma_descOptional")}>
-              <Input
-                value={f.description}
-                onChange={(e) => setF((s) => ({ ...s, description: e.target.value }))}
-              />
-            </Labeled>
-          </div>
-          <DialogFooter>
-            <Button onClick={submit} disabled={busy}>
-              {busy ? <Spinner /> : null}
-              Add expense
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EntityDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={t("ma_addExpenseTitle")}
+        busy={busy}
+        initial={{ category: "other" }}
+        fields={[
+          { name: "amount", label: t("ma_amountEgp"), type: "number", required: true, min: 0.01 },
+          {
+            name: "category",
+            label: t("ma_category"),
+            type: "select",
+            required: true,
+            options: CATEGORIES.map((c) => ({ value: c, label: c })),
+          },
+          { name: "expenseDate", label: t("ma_date"), type: "date", required: true },
+          { name: "description", label: t("ma_descOptional"), type: "text" },
+        ]}
+        submitLabel={t("ma_addExpense")}
+        onSubmit={async (v) => {
+          const description = String(v.description ?? "").trim();
+          const res = await run({
+            values: {
+              amount: Math.round(Number(v.amount) * 100),
+              category: v.category,
+              expenseDate: v.expenseDate,
+              ...(description ? { description } : {}),
+            },
+          });
+          if (res.ok) setOpen(false);
+          return res;
+        }}
+      />
     </Card>
   );
 }

@@ -1,4 +1,6 @@
 import { platformDb } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError } from "../../errors/classes";
 import { openShiftIdFor } from "../center/shifts";
 import { creditMove } from "../finance/center-credit";
@@ -12,11 +14,23 @@ export async function topUpWalletCash(
   input: { studentId: string; amount: number },
   user: SessionUser,
 ) {
+  const { value, effects } = await platformDb((tx) => topUpWalletCashTx(tx, input, user), {
+    actorId: user.id,
+  });
+  await runEffects(effects);
+  return value;
+}
+
+export async function topUpWalletCashTx(
+  tx: TenantTx,
+  input: { studentId: string; amount: number },
+  user: SessionUser,
+): Promise<WithEffects<{ balanceAfter: number; receiptNumber: string }>> {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
   const centerId = user.centerId;
 
-  const { balanceAfter, receiptNumber, studentId } = await platformDb(
-    async (tx) => {
+  const { balanceAfter, receiptNumber, studentId } = await (async () => {
+    {
       const roster = await tx.centerStudentRoster.findFirst({
         where: { centerId, studentId: input.studentId, leftAt: null },
         select: { id: true },
@@ -86,17 +100,21 @@ export async function topUpWalletCash(
       });
 
       return { balanceAfter, receiptNumber, studentId: input.studentId };
-    },
-    { actorId: user.id },
-  );
+    }
+  })();
 
-  await notify({
-    recipients: await studentAndParents(studentId),
-    type: "payment_recorded",
-    title: "Wallet topped up",
-    body: `${(input.amount / 100).toFixed(2)} EGP was added to your wallet at the center. Receipt ${receiptNumber}.`,
-    data: { amount: input.amount, balanceAfter, receiptNumber, studentId },
-  });
-
-  return { balanceAfter, receiptNumber };
+  return {
+    value: { balanceAfter, receiptNumber },
+    effects: [
+      async () => {
+        await notify({
+          recipients: await studentAndParents(studentId),
+          type: "payment_recorded",
+          title: "Wallet topped up",
+          body: `${(input.amount / 100).toFixed(2)} EGP was added to your wallet at the center. Receipt ${receiptNumber}.`,
+          data: { amount: input.amount, balanceAfter, receiptNumber, studentId },
+        });
+      },
+    ],
+  };
 }

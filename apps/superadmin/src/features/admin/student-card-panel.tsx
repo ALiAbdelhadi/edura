@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, IdCard, RefreshCcw, ShieldOff } from "lucide-react";
 
@@ -9,10 +9,14 @@ import { Button } from "@repo/ui/components/button";
 import { Num } from "@repo/ui/components/num";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import { StudentIdCard } from "@repo/ui/components/student-id-card";
-import { toast } from "@repo/ui/components/sonner";
+import { LoadError } from "@repo/ui/components/ledger";
+import { useQueryStrings } from "@repo/ui/components/query-section";
 
+import { ReasonDialog } from "@/components/kit/reason-dialog";
 import { Spinner } from "@/components/kit/spinner";
-import { ReasonDialog, type ReasonAction } from "./user-detail-screen";
+import { useAction } from "@/lib/api/use-action";
+import { asKey } from "@/lib/i18n/keys";
+import { RESTORATIVE, type ReasonAction } from "./user-detail-screen";
 
 type CardPayload = {
   studentId: string;
@@ -34,10 +38,11 @@ type CardPayload = {
 
 export function StudentCardPanel({ userId }: { userId: string }) {
   const t = useTranslations("adminUsers.card");
+  const tu = useTranslations("adminUsers");
+  const queryStrings = useQueryStrings();
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [action, setAction] = useState<ReasonAction | null>(null);
-  const { mutateAsync: mutate } = useCustomMutation();
 
   const req = useCustom({
     url: `admin/users/${userId}/card`,
@@ -47,19 +52,19 @@ export function StudentCardPanel({ userId }: { userId: string }) {
 
   const card = (req.result?.data ?? null) as CardPayload | null;
 
-  const run = async (which: ReasonAction, reason: string) => {
-    try {
-      await mutate({
-        url: `admin/users/${userId}/card`,
-        method: "post",
-        values: { action: which === "reissueCard" ? "reissue" : "revoke", reason },
-      });
-      toast.success(t(which === "reissueCard" ? "reissuedToast" : "revokedToast"));
-      await req.query.refetch();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("failed"));
-    }
-  };
+  // `rethrow` is the contract with ReasonDialog: a rejected submit keeps the
+  // dialog open so the typed reason survives the failure.
+  const { run: mutate } = useAction({
+    url: `admin/users/${userId}/card`,
+    rethrow: true,
+    onSuccess: () => req.query.refetch(),
+  });
+
+  const run = (which: ReasonAction, reason: string) =>
+    mutate({
+      values: { action: which === "reissueCard" ? "reissue" : "revoke", reason },
+      successMsg: t(which === "reissueCard" ? "reissuedToast" : "revokedToast"),
+    }).then(() => undefined);
 
   return (
     <section className="rounded-xl border border-rule bg-sheet p-4">
@@ -84,6 +89,13 @@ export function StudentCardPanel({ userId }: { userId: string }) {
         <div className="py-6 text-center">
           <Spinner />
         </div>
+      ) : req.query.isError ? (
+        <LoadError
+          className="mt-4"
+          message={queryStrings.loadFailed}
+          onRetry={() => void req.query.refetch()}
+          retryLabel={queryStrings.retry}
+        />
       ) : !card ? (
         <p className="py-4 text-sm text-ink-2">{t("unavailable")}</p>
       ) : card.isPending ? (
@@ -132,7 +144,20 @@ export function StudentCardPanel({ userId }: { userId: string }) {
         </div>
       )}
 
-      <ReasonDialog action={action} onClose={() => setAction(null)} onConfirm={run} />
+      {action ? (
+        <ReasonDialog
+          key={action}
+          open
+          onOpenChange={(o) => !o && setAction(null)}
+          title={tu(asKey(`confirm_${action}_title`))}
+          description={tu(asKey(`confirm_${action}_body`))}
+          confirmText={tu("confirm")}
+          destructive={!RESTORATIVE.has(action)}
+          onConfirm={(reason) => run(action, reason)}
+        >
+          <p className="text-[11px] text-ink-3">{tu("reasonHint")}</p>
+        </ReasonDialog>
+      ) : null}
     </section>
   );
 }

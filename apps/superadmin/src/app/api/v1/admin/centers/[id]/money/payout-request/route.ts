@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import {
   adminGetCenterWallet,
@@ -19,8 +18,7 @@ const bodySchema = z
   })
   .strict();
 
-export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (user, _req, ctx) => {
   const { id } = await ctx.params;
   const [wallet, payouts] = await Promise.all([
     adminGetCenterWallet(user, id),
@@ -29,8 +27,7 @@ export const GET = withErrors(async (_req, ctx) => {
   return ok({ wallet, payouts });
 });
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const { amount, clientRequestId } = await parseJson(req, bodySchema);
   return ok(await adminRequestCenterPayout(user, id, amount, clientRequestId), { status: 201 });

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { setCenterStatus } from "@/lib/services/admin/center-control";
@@ -14,8 +13,7 @@ const schema = z
   })
   .strict();
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const { action, reason } = await parseJson(req, schema);
   return ok(await setCenterStatus(id, action, reason, user));

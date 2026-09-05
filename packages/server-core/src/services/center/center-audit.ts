@@ -2,8 +2,7 @@ import { platformDb } from "../../db/scope";
 import { ForbiddenError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import type { Prisma } from "@repo/database";
-
-const PAGE_MAX = 100;
+import { parsePageLimit } from "../../validation/common";
 
 export type CenterAuditFilters = {
   actorId?: string;
@@ -33,8 +32,7 @@ export function listCenterAuditLogs(acting: SessionUser, filters: CenterAuditFil
   const centerId = acting.centerId;
   if (!centerId) throw new ForbiddenError("Actor has no center scope");
 
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(PAGE_MAX, Math.max(1, parseInt(filters.limit ?? "50", 10) || 50));
+  const { page, limit } = parsePageLimit(filters, 50);
 
   return platformDb(async (tx) => {
     const where: Prisma.AuditLogWhereInput = { centerId };

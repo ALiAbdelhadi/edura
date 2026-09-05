@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Info, Percent } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
-import { Input } from "@repo/ui/components/input";
 import { Num } from "@repo/ui/components/num";
-import { toast } from "@repo/ui/components/sonner";
 import { formatPercent, type Locale } from "@repo/ui/lib/format";
 
+import {
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { Form } from "@repo/ui/components/form";
 import { PageHeader } from "@/components/kit/page-header";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { useAction } from "@/lib/api/use-action";
 import { AgreementProposalsPanel } from "./agreement-proposals-panel";
 
 type CommissionData = {
@@ -32,54 +37,52 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
   const apiUrl = readOnly ? "finance/commission-settings" : "admin/commission-settings";
 
   const { query, result } = useCustom({ url: apiUrl, method: "get" });
-  const { mutateAsync: save } = useCustomMutation();
+  const { run: save, busy: saving } = useAction({
+    url: "admin/commission-settings",
+    method: "put",
+    successMsg: t("savedOk"),
+    onSuccess: () => query.refetch(),
+  });
 
   const data = result?.data as CommissionData | undefined;
 
-  const [pct, setPct] = useState("");
-  const [teacherFeeEgp, setTeacherFeeEgp] = useState("");
-  const [centerFeeEgp, setCenterFeeEgp] = useState("");
-  const [saving, setSaving] = useState(false);
+  // Two toasts named neither box: one for the percentage being out of range,
+  // one for either fee being negative. Each is a per-field bound now.
+  const fields: FieldSpec[] = [
+    {
+      name: "teacherDirectCommissionBp",
+      label: t("pct"),
+      type: "number",
+      required: true,
+      min: 0,
+      max: 100,
+      hint: t("pctHint"),
+    },
+    { name: "platformTeacherFee", label: t("teacherFee"), type: "number", required: true, min: 0 },
+    { name: "platformCenterFee", label: t("centerFee"), type: "number", required: true, min: 0 },
+  ];
 
-  useEffect(() => {
-    if (data) {
-      setPct(String(data.teacherDirectCommissionBp / 100));
-      setTeacherFeeEgp(String(data.platformTeacherFee / 100));
-      setCenterFeeEgp(String(data.platformCenterFee / 100));
-    }
-  }, [data]);
-
-  const submit = async () => {
-    const pctNum = Number(pct);
-    const tFee = Number(teacherFeeEgp);
-    const cFee = Number(centerFeeEgp);
-    if (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100) {
-      toast.error(t("pctError"));
-      return;
-    }
-    if (!Number.isFinite(tFee) || tFee < 0 || !Number.isFinite(cFee) || cFee < 0) {
-      toast.error(t("feeError"));
-      return;
-    }
-    setSaving(true);
-    try {
-      await save({
-        url: "admin/commission-settings",
-        method: "put",
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    resetKey: data
+      ? `${data.teacherDirectCommissionBp}:${data.platformTeacherFee}:${data.platformCenterFee}`
+      : "",
+    initial: data
+      ? {
+          teacherDirectCommissionBp: data.teacherDirectCommissionBp / 100,
+          platformTeacherFee: data.platformTeacherFee / 100,
+          platformCenterFee: data.platformCenterFee / 100,
+        }
+      : undefined,
+    onSubmit: (v) =>
+      save({
         values: {
-          teacherDirectCommissionBp: Math.round(pctNum * 100),
-          platformTeacherFee: Math.round(tFee * 100),
-          platformCenterFee: Math.round(cFee * 100),
+          teacherDirectCommissionBp: Math.round(Number(v.teacherDirectCommissionBp) * 100),
+          platformTeacherFee: Math.round(Number(v.platformTeacherFee) * 100),
+          platformCenterFee: Math.round(Number(v.platformCenterFee) * 100),
         },
-      });
-      toast.success(t("savedOk"));
-      void query.refetch();
-    } catch {
-      toast.error(t("saveFail"));
-    } finally {
-      setSaving(false);
-    }
-  };
+      }),
+  });
 
   if (query.isError) {
     return (
@@ -132,58 +135,17 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
             </Figure>
           </dl>
         ) : (
-          <div className="flex flex-col gap-4">
-            <div>
-              <label htmlFor="commission-pct" className="mb-1 block text-[13px] font-medium text-ink">
-                {t("pct")}
-              </label>
-              <Input
-                id="commission-pct"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={pct}
-                onChange={(e) => setPct(e.target.value)}
+          <Form {...form}>
+            <form id="commission-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+              <FormRootError message={rootError} />
+              <FieldControls className="flex flex-col gap-4" fields={[fields[0]!]} form={form} />
+              <FieldControls
+                className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
+                fields={[fields[1]!, fields[2]!]}
+                form={form}
               />
-              <p className="mt-1 text-xs text-ink-3">{t("pctHint")}</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="platform-fee-teacher"
-                  className="mb-1 block text-[13px] font-medium text-ink"
-                >
-                  {t("teacherFee")}
-                </label>
-                <Input
-                  id="platform-fee-teacher"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={teacherFeeEgp}
-                  onChange={(e) => setTeacherFeeEgp(e.target.value)}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="platform-fee-center"
-                  className="mb-1 block text-[13px] font-medium text-ink"
-                >
-                  {t("centerFee")}
-                </label>
-                <Input
-                  id="platform-fee-center"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={centerFeeEgp}
-                  onChange={(e) => setCenterFeeEgp(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
+            </form>
+          </Form>
         )}
 
         <p className="mt-4 text-xs text-ink-3">
@@ -198,7 +160,7 @@ export function CommissionSettingsScreen({ readOnly }: { readOnly: boolean }) {
 
         {!readOnly ? (
           <div className="mt-4 flex justify-end">
-            <Button onClick={submit} disabled={saving}>
+            <Button type="submit" form="commission-form" disabled={saving}>
               {saving ? <Spinner /> : null}
               {t("save")}
             </Button>

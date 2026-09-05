@@ -6,42 +6,20 @@ import {
   NotFoundError,
 } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
-import { notify } from "@/lib/services/notifications/notify";
+import { writeAdminAudit as writeAudit } from "@/lib/services/admin/admin-audit";
+import { notifyAfterCommit } from "@/lib/services/notifications/notify";
 import {
-  centerBlacklistStudent,
-  removeBlacklistEntry,
+  centerBlacklistStudentTx,
+  removeBlacklistEntryTx,
 } from "@/lib/services/blacklist/blacklist";
 import {
-  acceptCollaborationRequest,
-  rejectCollaborationRequest,
+  acceptCollaborationRequestTx,
+  rejectCollaborationRequestTx,
 } from "@repo/server-core/services/collaboration/collaboration";
+import { runEffects } from "@repo/server-core/db/effects";
 import { deleteReplacedImage, imageSlot } from "@repo/server-core/media/images";
 import type { RoomPricingMethodValue } from "@/lib/services/finance/commission";
 import type { Prisma } from "@repo/database";
-
-type AuditInput = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  centerId: string | null;
-  before?: Record<string, unknown> | null;
-  after?: Record<string, unknown> | null;
-};
-
-async function writeAudit(tx: TenantTx, actor: SessionUser, input: AuditInput) {
-  await tx.auditLog.create({
-    data: {
-      actorId: actor.id,
-      action: input.action,
-      targetType: input.targetType,
-      targetId: input.targetId,
-      centerId: input.centerId,
-      beforeState: (input.before ?? undefined) as never,
-      afterState: (input.after ?? undefined) as never,
-      onBehalfOf: null,
-    },
-  });
-}
 
 function requireReason(reason: string | undefined | null, what: string): string {
   const r = (reason ?? "").trim();
@@ -110,7 +88,7 @@ export async function setCenterStatus(
     { actorId: actor.id },
   );
 
-  await notify({
+  await notifyAfterCommit({
     recipients: adminUserIds,
     type: "blacklist_action",
     title: action === "activate" ? "Center reactivated" : "Center deactivated",
@@ -193,7 +171,7 @@ export async function setCenterMemberStatus(
     { actorId: actor.id },
   );
 
-  await notify({
+  await notifyAfterCommit({
     recipients: [userId],
     type: "blacklist_action",
     title: action === "activate" ? "Account reactivated" : "Account deactivated",
@@ -214,10 +192,15 @@ export async function removeStudentFromCenter(
   actor: SessionUser,
 ) {
   const why = requireReason(reason, "remove a student from a center");
-  const entry = await centerBlacklistStudent(studentId, why, actor, centerId);
-
-  await platformDb(
+  const { value: entry, effects } = await platformDb(
     async (tx) => {
+      const { value: entry, effects } = await centerBlacklistStudentTx(
+        tx,
+        studentId,
+        why,
+        actor,
+        centerId,
+      );
       const journaled = await tx.blacklistCascadeAction.findMany({
         where: { entryId: entry.id },
         select: { id: true, entityType: true, entityId: true, courseId: true, prevStatus: true },
@@ -236,9 +219,11 @@ export async function removeStudentFromCenter(
           cascadeJournal: journaled,
         },
       });
+      return { value: entry, effects };
     },
     { actorId: actor.id },
   );
+  await runEffects(effects);
 
   return { studentId, centerId, blacklistEntryId: entry.id };
 }
@@ -249,19 +234,17 @@ export async function restoreStudentToCenter(
   reason: string | undefined,
   actor: SessionUser,
 ) {
-  const entryId = await platformDb(async (tx) => {
-    const entry = await tx.blacklistEntry.findFirst({
-      where: { targetId: studentId, level: "center", centerId, isActive: true },
-      select: { id: true },
-    });
-    if (!entry) throw new NotFoundError("This student is not blocked at this center");
-    return entry.id;
-  });
-
-  const updated = await removeBlacklistEntry(entryId, actor, reason);
-
-  await platformDb(
+  const { value: updated, effects } = await platformDb(
     async (tx) => {
+      const entry = await tx.blacklistEntry.findFirst({
+        where: { targetId: studentId, level: "center", centerId, isActive: true },
+        select: { id: true },
+      });
+      if (!entry) throw new NotFoundError("This student is not blocked at this center");
+      const entryId = entry.id;
+
+      const { value: updated, effects } = await removeBlacklistEntryTx(tx, entryId, actor, reason);
+
       const replayed = await tx.blacklistCascadeAction.findMany({
         where: { entryId },
         select: { entityType: true, entityId: true, reversal: true, reversedAt: true },
@@ -274,9 +257,11 @@ export async function restoreStudentToCenter(
         before: { rosterActive: false, blacklistEntryId: entryId },
         after: { rosterActive: true, reason: (reason ?? "").trim() || null, cascadeReplay: replayed },
       });
+      return { value: updated, effects };
     },
     { actorId: actor.id },
   );
+  await runEffects(effects);
 
   return { studentId, centerId, blacklistEntryId: updated.id };
 }
@@ -291,19 +276,21 @@ export async function decideCollaborationRequest(
     throw new ForbiddenError("Only a super admin can decide a request on behalf of the platform");
   }
 
-  const before = await platformDb(async (tx) => {
-    const r = await tx.collaborationRequest.findUnique({ where: { id: requestId } });
-    if (!r) throw new NotFoundError("Collaboration request not found");
-    return r;
-  });
-
   if (decision === "approve") {
-    const result = await acceptCollaborationRequest(requestId, actor, {
-      pricingMethod: opts.pricingMethod ?? null,
-      as: "platform_override",
-    });
-    await platformDb(
+    const { value, effects } = await platformDb(
       async (tx) => {
+        const before = await tx.collaborationRequest.findUnique({ where: { id: requestId } });
+        if (!before) throw new NotFoundError("Collaboration request not found");
+
+        const outcome = await acceptCollaborationRequestTx(tx, requestId, actor, {
+          pricingMethod: opts.pricingMethod ?? null,
+          as: "platform_override",
+        });
+        // An expired request is marked, committed and refused — there is no
+        // decision to audit (see acceptCollaborationRequestTx).
+        if (outcome.value.expired) return outcome;
+
+        const result = outcome.value;
         await writeAudit(tx, actor, {
           action: "collaboration_request.approved",
           targetType: "collaboration_request",
@@ -320,16 +307,24 @@ export async function decideCollaborationRequest(
             reason: (opts.reason ?? "").trim() || null,
           },
         });
+        return outcome;
       },
       { actorId: actor.id },
     );
-    return { id: requestId, status: "accepted", courseId: result.course.id };
+    if (value.expired) throw new BusinessRuleError("This request has expired");
+    await runEffects(effects);
+    return { id: requestId, status: "accepted", courseId: value.course.id };
   }
 
   const why = requireReason(opts.reason, "reject a collaboration request");
-  await rejectCollaborationRequest(requestId, why, actor, { as: "platform_override" });
-  await platformDb(
+  const { effects } = await platformDb(
     async (tx) => {
+      const before = await tx.collaborationRequest.findUnique({ where: { id: requestId } });
+      if (!before) throw new NotFoundError("Collaboration request not found");
+
+      const outcome = await rejectCollaborationRequestTx(tx, requestId, why, actor, {
+        as: "platform_override",
+      });
       await writeAudit(tx, actor, {
         action: "collaboration_request.rejected",
         targetType: "collaboration_request",
@@ -338,9 +333,11 @@ export async function decideCollaborationRequest(
         before: { status: before.status },
         after: { status: "rejected", reason: why, decidedBy: "platform_override" },
       });
+      return outcome;
     },
     { actorId: actor.id },
   );
+  await runEffects(effects);
   return { id: requestId, status: "rejected" };
 }
 

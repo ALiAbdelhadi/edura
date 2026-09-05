@@ -78,18 +78,23 @@ export function teacherStatement(
     });
 
     const range = dateWhere(from, to);
-    const sessions = await tx.session.findMany({
-      where: { teacherId: teacherUserId },
-      select: { id: true },
-    });
-    const lessonIds = sessions.map((s) => s.id);
-    const [gross, commission, payouts] = await Promise.all([
-      lessonIds.length
-        ? tx.transaction.aggregate({
-            where: { lessonId: { in: lessonIds }, type: "payment", ...range },
-            _sum: { amount: true },
-          })
-        : Promise.resolve({ _sum: { amount: 0 } }),
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const [grossRows, commission, payouts] = await Promise.all([
+      // transactions.lesson_id has no Prisma relation (polymorphic-style bare
+      // column), and materialising every session id of a teacher into an IN
+      // clause is an unbounded read that grows forever (M-16). One JOIN
+      // aggregate keeps the exact same semantics in a single bounded query.
+      // Refunds are subtracted here for the same reason they are in
+      // `teacherStatementAmounts` — the two derivations must not drift.
+      (tx as TenantTx).$queryRaw<{ gross: bigint }[]>`
+        SELECT COALESCE(SUM(CASE WHEN t.type = 'refund' THEN -t.amount ELSE t.amount END), 0) AS gross
+          FROM transactions t
+          JOIN sessions s ON s.id = t.lesson_id
+         WHERE s.teacher_id = ${teacherUserId}::uuid
+           AND t.type IN ('payment', 'refund')
+           AND (${fromDate}::timestamptz IS NULL OR t.created_at >= ${fromDate}::timestamptz)
+           AND (${toDate}::timestamptz IS NULL OR t.created_at <= ${toDate}::timestamptz)`,
       tx.transaction.aggregate({
         where: { fromEntityId: teacherUserId, type: "commission", ...range },
         _sum: { amount: true },
@@ -102,7 +107,7 @@ export function teacherStatement(
     return {
       teacher: { id: teacher.id, name: teacher.name },
       period: { from: from ?? null, to: to ?? null },
-      grossLessonRevenue: gross._sum.amount ?? 0,
+      grossLessonRevenue: Number(grossRows[0]?.gross ?? 0),
       platformCommission: commission._sum.amount ?? 0,
       paidOut: payouts._sum.amount ?? 0,
       walletBalance: profile?.walletBalance ?? 0,
@@ -118,9 +123,13 @@ export function centerStatement(centerId: string, from?: string, to?: string) {
     });
     if (!center) throw new NotFoundError("Center not found");
     const range = dateWhere(from, to);
-    const [gross, commission, payouts, expenses] = await Promise.all([
+    const [gross, refunded, commission, payouts, expenses] = await Promise.all([
       tx.transaction.aggregate({
         where: { centerId, type: "payment", ...range },
+        _sum: { amount: true },
+      }),
+      tx.transaction.aggregate({
+        where: { centerId, type: "refund", ...range },
         _sum: { amount: true },
       }),
       tx.transaction.aggregate({
@@ -142,7 +151,7 @@ export function centerStatement(centerId: string, from?: string, to?: string) {
     return {
       center: { id: center.id, name: center.name },
       period: { from: from ?? null, to: to ?? null },
-      grossLessonRevenue: gross._sum.amount ?? 0,
+      grossLessonRevenue: (gross._sum.amount ?? 0) - (refunded._sum.amount ?? 0),
       platformCommission: commission._sum.amount ?? 0,
       paidOut: payouts._sum.amount ?? 0,
       expenses: expenses._sum.amount ?? 0,
@@ -151,25 +160,56 @@ export function centerStatement(centerId: string, from?: string, to?: string) {
   });
 }
 
+/**
+ * `count`/`total` are the money that has actually GONE BACK, and the rows are
+ * the full ledger trail beside it.
+ *
+ * Under Option B a refund is armed as an obligation and confirmed separately,
+ * and the confirmation cannot be a status flip — `transactions` has UPDATE
+ * revoked, so a refund ledger row stays `pending` for the life of the row even
+ * after the family has been paid (REFUND_DECISION.md / MIGRATION_PLAN_B.md §4).
+ * So the state is read from `payments.refund_confirmed_at`, never from
+ * `transactions.status`. Aggregating every `type:"refund"` row, as this did,
+ * books an unpaid promise as a paid refund — the exact failure Option B exists
+ * to prevent.
+ *
+ * `reversal_of_id IS NULL` is the legacy branch: refunds recorded before the
+ * channel work carried no confirmation step, so they count as paid, which is
+ * what they were.
+ */
 export function refundsReport(from?: string, to?: string) {
   return platformDb(async (tx) => {
     const range = dateWhere(from, to);
-    const [rows, agg] = await Promise.all([
+    const paymentRange = from || to ? { paidAt: dateWhere(from, to).createdAt } : {};
+    const [rows, paid, awaiting] = await Promise.all([
       tx.transaction.findMany({
         where: { type: "refund", ...range },
         orderBy: { createdAt: "desc" },
         take: 500,
       }),
-      tx.transaction.aggregate({
-        where: { type: "refund", ...range },
+      tx.payment.aggregate({
+        where: {
+          amount: { lt: 0 },
+          OR: [{ reversalOfId: null }, { refundConfirmedAt: { not: null } }],
+          ...paymentRange,
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      tx.payment.aggregate({
+        where: { reversalOfId: { not: null }, refundConfirmedAt: null, ...paymentRange },
         _sum: { amount: true },
         _count: { _all: true },
       }),
     ]);
     return {
       period: { from: from ?? null, to: to ?? null },
-      count: agg._count._all,
-      total: agg._sum.amount ?? 0,
+      count: paid._count._all,
+      total: Math.abs(paid._sum.amount ?? 0),
+      awaiting: {
+        count: awaiting._count._all,
+        total: Math.abs(awaiting._sum.amount ?? 0),
+      },
       refunds: rows,
     };
   });
@@ -266,10 +306,3 @@ export function financeAlerts() {
   });
 }
 
-export function getTransaction(id: string) {
-  return platformDb(async (tx) => {
-    const t = await tx.transaction.findUnique({ where: { id } });
-    if (!t) throw new NotFoundError("Transaction not found");
-    return t;
-  });
-}

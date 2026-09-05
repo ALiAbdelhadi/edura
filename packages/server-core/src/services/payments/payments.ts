@@ -1,34 +1,50 @@
 import { scopedDb } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "../../db/scope";
 import { notify } from "../../services/notifications/notify";
 import { studentAndParents } from "../../services/notifications/fanout";
 import { awardPoints } from "../../services/points/points";
 import { nextTxnRef } from "../../services/finance/ref-numbers";
 import { openShiftIdFor } from "../center/shifts";
+import { fundingOfMethod } from "../finance/center-credit";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { dayRange } from "../../lib/day-range";
-
-function formatReceiptNumber(shortId: string, seq: number): string {
-  const year = new Date().getFullYear();
-  return `RCP-${shortId}-${year}-${String(seq).padStart(5, "0")}`;
-}
+import { nextReceiptNumber } from "./receipt-sequence";
 
 export type CounterMethod = "cash" | "instapay" | "pos_card" | "mobile_wallet";
 
-export async function recordPayment(
-  data: {
-    studentId: string;
-    courseId?: string;
-    amount: number;
-    note?: string;
-    paymentMethod?: CounterMethod;
-  },
+export type RecordPaymentInput = {
+  studentId: string;
+  courseId?: string;
+  amount: number;
+  note?: string;
+  paymentMethod?: CounterMethod;
+};
+
+export async function recordPayment(data: RecordPaymentInput, user: SessionUser) {
+  const { value, effects } = await scopedDb(user, (tx) => recordPaymentTx(tx, data, user));
+  await runEffects(effects);
+  return value;
+}
+
+export async function recordPaymentTx(
+  tx: TenantTx,
+  data: RecordPaymentInput,
   user: SessionUser,
 ) {
-  if (data.amount === 0) throw new BusinessRuleError("Amount must not be zero");
+  // Refunds have their own door — `refundPayment`. This is the same refusal
+  // `adminRecordCenterPayment` has always made (center-money.ts): a negative
+  // payment is not a refund, it is an unlinked, unbounded, unaudited row that
+  // happens to have a minus sign (REFUND_DECISION.md §1.1).
+  if (data.amount <= 0) {
+    throw new BusinessRuleError(
+      "Amount must be positive — use the refund flow to return money, not a negative payment",
+    );
+  }
   const method: CounterMethod = data.paymentMethod ?? "cash";
 
-  const { payment, receiptNumber } = await scopedDb(user, async (tx) => {
+  const { payment, receiptNumber } = await (async () => {
     const rosterEntry = await tx.centerStudentRoster.findFirst({
       where: { centerId: user.centerId, studentId: data.studentId, leftAt: null },
     });
@@ -51,20 +67,7 @@ export async function recordPayment(
       if (!enrollment) throw new BusinessRuleError("Student is not enrolled in this class");
     }
 
-    let center;
-    try {
-      center = await tx.center.update({
-        where: { id: user.centerId as string },
-        data: { receiptSeq: { increment: 1 } },
-      });
-    } catch (err) {
-      if ((err as { code?: string }).code === "P2025") {
-        throw new NotFoundError("Center not found");
-      }
-      throw err;
-    }
-
-    const receiptNumber = formatReceiptNumber(center.shortId, center.receiptSeq);
+    const receiptNumber = await nextReceiptNumber(tx, user.centerId as string);
 
     const payment = await tx.payment.create({
       data: {
@@ -85,13 +88,16 @@ export async function recordPayment(
     await tx.transaction.create({
       data: {
         refNumber,
-        type: data.amount >= 0 ? "payment" : "refund",
-        amount: Math.abs(data.amount),
-        fromEntityId: data.amount >= 0 ? data.studentId : (user.centerId as string),
-        toEntityId: data.amount >= 0 ? (user.centerId as string) : data.studentId,
+        type: "payment",
+        amount: data.amount,
+        fromEntityId: data.studentId,
+        toEntityId: user.centerId as string,
         centerId: user.centerId as string,
+        // So a later refund can find this row and reverse it.
+        paymentId: payment.id,
         status: "completed",
         paymentMethod: method,
+        funding: fundingOfMethod(method),
         notes:
           method === "cash"
             ? `Cash payment at center (receipt ${receiptNumber})` // byte-identical to before Phase 1
@@ -99,24 +105,32 @@ export async function recordPayment(
       },
     });
 
-    if (data.amount > 0) {
-      await awardPoints(tx, data.studentId, "cash_payment", {
-        reason: "Cash payment recorded",
-      });
-    }
+    await awardPoints(tx, data.studentId, "cash_payment", {
+      reason: "Cash payment recorded",
+    });
 
     return { payment, receiptNumber };
-  });
+  })();
 
-  await notify({
-    recipients: await studentAndParents(data.studentId),
-    type: "payment_recorded",
-    title: data.amount > 0 ? "Payment recorded" : "Refund recorded",
-    body: `Receipt ${receiptNumber} has been issued.`,
-    data: { paymentId: payment.id, receiptNumber, amount: data.amount, studentId: data.studentId },
-  });
-
-  return payment;
+  return {
+    value: payment,
+    effects: [
+      async () => {
+        await notify({
+          recipients: await studentAndParents(data.studentId),
+          type: "payment_recorded",
+          title: "Payment recorded",
+          body: `Receipt ${receiptNumber} has been issued.`,
+          data: {
+            paymentId: payment.id,
+            receiptNumber,
+            amount: data.amount,
+            studentId: data.studentId,
+          },
+        });
+      },
+    ],
+  };
 }
 
 export async function listPayments(

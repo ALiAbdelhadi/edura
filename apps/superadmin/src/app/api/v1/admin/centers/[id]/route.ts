@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { getCenter } from "@/lib/services/admin/platform";
@@ -8,8 +7,7 @@ import { updateCenterProfile } from "@/lib/services/admin/center-control";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (_req, ctx) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, _req, ctx) => {
   const { id } = await ctx.params;
   return ok(await getCenter(id));
 });
@@ -29,8 +27,7 @@ const patchSchema = z
   })
   .strict();
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const patch = await parseJson(req, patchSchema);
   return ok(await updateCenterProfile(id, patch, user));

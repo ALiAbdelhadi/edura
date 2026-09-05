@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   LogOut,
   Monitor,
   RefreshCcw,
+  ShieldBan,
   ShieldCheck,
   ShieldOff,
   Smartphone,
@@ -22,30 +23,21 @@ import {
 } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/dialog";
-import { Label } from "@repo/ui/components/label";
 import { Num } from "@repo/ui/components/num";
-import { StatusBadge } from "@repo/ui/components/status-badge";
-import { Textarea } from "@repo/ui/components/textarea";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { toast } from "@repo/ui/components/sonner";
 import type { Locale } from "@repo/ui/lib/format";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
+import { ReasonDialog } from "@/components/kit/reason-dialog";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { PageSpinner } from "@/components/kit/spinner";
 import { deviceLabel } from "@/features/security/security-screen";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
+import { useAction } from "@/lib/api/use-action";
 import { StudentCardPanel } from "./student-card-panel";
-import { STATUS_TONE } from "./users-screen";
 
 type UserDetail = {
   id: string;
@@ -79,13 +71,14 @@ type CenterRow = { id: string; name: string; status: string } | null;
 export type ReasonAction =
   | "suspend"
   | "reinstate"
+  | "blacklist"
   | "revokeAll"
   | "reset2fa"
   | "passwordReset"
   | "reissueCard"
   | "revokeCard";
 
-const RESTORATIVE: ReadonlySet<ReasonAction> = new Set(["reinstate", "reissueCard"]);
+export const RESTORATIVE: ReadonlySet<ReasonAction> = new Set(["reinstate", "reissueCard"]);
 
 const ERP_ROLES: ReadonlySet<string> = new Set([
   "center_admin",
@@ -95,89 +88,6 @@ const ERP_ROLES: ReadonlySet<string> = new Set([
   "parent",
   "student",
 ]);
-
-function ReasonForm({
-  action,
-  onClose,
-  onConfirm,
-}: {
-  action: ReasonAction;
-  onClose: () => void;
-  onConfirm: (action: ReasonAction, reason: string) => Promise<void>;
-}) {
-  const t = useTranslations("adminUsers");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const ready = reason.trim().length > 0;
-
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>{t(asKey(`confirm_${action}_title`))}</DialogTitle>
-        <DialogDescription>{t(asKey(`confirm_${action}_body`))}</DialogDescription>
-      </DialogHeader>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="admin-user-reason">{t("reasonLabel")}</Label>
-        <Textarea
-          id="admin-user-reason"
-          rows={3}
-          maxLength={500}
-          required
-          autoFocus
-          placeholder={t("reasonPlaceholder")}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-        <p className="text-[11px] text-ink-3">{t("reasonHint")}</p>
-      </div>
-
-      <DialogFooter>
-        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-          {t("cancel")}
-        </Button>
-        <Button
-          type="button"
-          variant={RESTORATIVE.has(action) ? "default" : "destructive"}
-          disabled={!ready || busy}
-          onClick={async () => {
-            if (!ready) return;
-            setBusy(true);
-            try {
-              await onConfirm(action, reason.trim());
-              onClose();
-            } catch {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Spinner /> : null}
-          {t("confirm")}
-        </Button>
-      </DialogFooter>
-    </>
-  );
-}
-
-export function ReasonDialog({
-  action,
-  onClose,
-  onConfirm,
-}: {
-  action: ReasonAction | null;
-  onClose: () => void;
-  onConfirm: (action: ReasonAction, reason: string) => Promise<void>;
-}) {
-  return (
-    <Dialog open={action !== null} onOpenChange={(o) => (o ? undefined : onClose())}>
-      <DialogContent className="max-w-md">
-        {action ? (
-          <ReasonForm key={action} action={action} onClose={onClose} onConfirm={onConfirm} />
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -193,10 +103,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
   const tg = useTranslations();
   const locale = useLocale() as Locale;
   const format = useFormatter();
-  const { mutateAsync: mutate } = useCustomMutation();
-
   const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const req = useCustom({ url: `admin/users/${userId}`, method: "get" });
   const data = req.result?.data as
@@ -207,86 +114,61 @@ export function UserDetailScreen({ userId }: { userId: string }) {
   const sessions = data?.sessions ?? [];
   const center = data?.center ?? null;
 
-  const fail = (e: unknown) => {
-    toast.error((e as { message?: string })?.message || t("actionFailed"));
+  // One instance, so `busy` disables every action on the page while any of
+  // them is in flight — and `rethrow` keeps ReasonDialog/ConfirmDialog open on
+  // failure, which is their contract.
+  const { run, busy } = useAction<{ claimUrl?: string; token?: string }>({
+    rethrow: true,
+    onSuccess: () => req.query.refetch(),
+  });
+
+  // Card actions are also ReasonActions, but their dialog belongs to
+  // StudentCardPanel — this map covers exactly the ones this screen raises.
+  type AccountAction = Exclude<ReasonAction, "reissueCard" | "revokeCard">;
+  const REASONED: Record<AccountAction, { url: string; method: "post" | "patch"; toast: string }> = {
+    suspend: { url: "status", method: "patch", toast: "suspendedToast" },
+    // A platform blacklist is NOT a second suspension path: it cascades to the
+    // account's enrolments and writes a blacklist entry that the Blacklist
+    // screen can lift. users.status is still the one mechanism that disables.
+    blacklist: { url: "blacklist", method: "post", toast: "blacklistedToast" },
+    reinstate: { url: "status", method: "patch", toast: "reinstatedToast" },
+    revokeAll: { url: "revoke-sessions", method: "post", toast: "sessionsRevokedToast" },
+    reset2fa: { url: "reset-2fa", method: "post", toast: "twoFactorResetToast" },
+    passwordReset: { url: "password-reset", method: "post", toast: "passwordResetToast" },
   };
 
   const runReasoned = async (action: ReasonAction, reason: string) => {
-    try {
-      if (action === "suspend" || action === "reinstate") {
-        await mutate({
-          url: `admin/users/${userId}/status`,
-          method: "patch",
-          values: { suspended: action === "suspend", reason },
-        });
-        toast.success(t(action === "suspend" ? "suspendedToast" : "reinstatedToast"));
-      } else if (action === "revokeAll") {
-        await mutate({
-          url: `admin/users/${userId}/revoke-sessions`,
-          method: "post",
-          values: { reason },
-        });
-        toast.success(t("sessionsRevokedToast"));
-      } else if (action === "reset2fa") {
-        await mutate({
-          url: `admin/users/${userId}/reset-2fa`,
-          method: "post",
-          values: { reason },
-        });
-        toast.success(t("twoFactorResetToast"));
-      } else {
-        await mutate({
-          url: `admin/users/${userId}/password-reset`,
-          method: "post",
-          values: { reason },
-        });
-        toast.success(t("passwordResetToast"));
-      }
-      await req.query.refetch();
-    } catch (e) {
-      fail(e);
-      throw e;
-    }
+    const spec = REASONED[action as AccountAction];
+    await run({
+      url: `admin/users/${userId}/${spec.url}`,
+      method: spec.method,
+      values:
+        spec.url === "status"
+          ? { suspended: action === "suspend", reason }
+          : { reason },
+      successMsg: t(asKey(spec.toast)),
+    });
   };
 
   const revokeOne = async (sessionId: string) => {
-    setBusy(true);
-    try {
-      await mutate({
-        url: `admin/users/${userId}/sessions/${sessionId}`,
-        method: "delete",
-        values: {},
-      });
-      toast.success(t("sessionRevokedToast"));
-      await req.query.refetch();
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
+    await run({
+      url: `admin/users/${userId}/sessions/${sessionId}`,
+      method: "delete",
+      values: {},
+      successMsg: t("sessionRevokedToast"),
+    }).catch(() => undefined);
   };
 
   const impersonate = async () => {
-    setBusy(true);
-    try {
-      await mutate({ url: `admin/users/${userId}/impersonate`, method: "post", values: {} });
-      window.location.href = "/dashboard";
-    } catch (e) {
-      fail(e);
-      setBusy(false);
-    }
+    await run({ url: `admin/users/${userId}/impersonate`, values: {} });
+    window.location.href = "/dashboard";
   };
 
   const viewAs = async () => {
-    setBusy(true);
     try {
-      const res = (await mutate({
-        url: `admin/users/${userId}/view-as`,
-        method: "post",
-        values: {},
-      })) as { data?: { data?: { claimUrl?: string; token?: string } } };
-      const claimUrl = res?.data?.data?.claimUrl;
-      const token = res?.data?.data?.token;
+      const res = await run({ url: `admin/users/${userId}/view-as`, values: {} });
+      const claimUrl = res.ok ? res.data?.claimUrl : undefined;
+      const token = res.ok ? res.data?.token : undefined;
       // An empty Error() here used to surface as the generic "action failed".
       if (!claimUrl || !token) throw new Error(t("viewAsNoHandoff"));
 
@@ -309,9 +191,12 @@ export function UserDetailScreen({ userId }: { userId: string }) {
       form.submit();
       form.remove();
     } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
+      // `run` already toasted an API failure; this catches the two local
+      // guards above (no handoff, popup blocked), which have no server error.
+      if (!(e as { localized?: boolean })?.localized) {
+        toast.error((e as { message?: string })?.message || t("actionFailed"));
+      }
+      throw e;
     }
   };
 
@@ -347,6 +232,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
   }
 
   const suspended = user.status === "suspended";
+  const blacklisted = user.status === "blacklisted";
 
   return (
     <div className="flex w-full max-w-[820px] flex-col gap-5">
@@ -370,7 +256,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             <StatusBadge tone="neutral">{tg(asKey(`roles.${user.role}`))}</StatusBadge>
           </Field>
           <Field label={t("fieldStatus")}>
-            <StatusBadge tone={STATUS_TONE[user.status] ?? "neutral"}>
+            <StatusBadge tone={statusTone(user.status)}>
               {tg(asKey(`status.${user.status}`))}
             </StatusBadge>
             {user.isDemo ? (
@@ -438,7 +324,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-semibold text-ink">{center.name}</p>
-              <StatusBadge tone={STATUS_TONE[center.status] ?? "neutral"}>
+              <StatusBadge tone={statusTone(center.status)}>
                 {tg(asKey(`status.${center.status}`))}
               </StatusBadge>
             </div>
@@ -460,7 +346,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
           <Button
             type="button"
             variant={suspended ? "default" : "destructive"}
-            disabled={busy}
+            disabled={busy || blacklisted}
             onClick={() => setReasonAction(suspended ? "reinstate" : "suspend")}
           >
             {suspended ? (
@@ -469,6 +355,16 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               <Ban className="size-4" aria-hidden="true" />
             )}
             {t(suspended ? "actionReinstate" : "actionSuspend")}
+          </Button>
+
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy || blacklisted}
+            onClick={() => setReasonAction("blacklist")}
+          >
+            <ShieldBan className="size-4" aria-hidden="true" />
+            {blacklisted ? t("actionBlacklisted") : t("actionBlacklist")}
           </Button>
 
           <Button
@@ -511,7 +407,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               }
               title={t("confirm_impersonate_title")}
               description={t("confirm_impersonate_body")}
-              onConfirm={() => void impersonate()}
+              onConfirm={impersonate}
             />
           ) : null}
 
@@ -525,7 +421,7 @@ export function UserDetailScreen({ userId }: { userId: string }) {
               }
               title={t("confirm_viewAs_title")}
               description={t("confirm_viewAs_body")}
-              onConfirm={() => void viewAs()}
+              onConfirm={viewAs}
             />
           ) : null}
         </div>
@@ -583,11 +479,20 @@ export function UserDetailScreen({ userId }: { userId: string }) {
         )}
       </section>
 
-      <ReasonDialog
-        action={reasonAction}
-        onClose={() => setReasonAction(null)}
-        onConfirm={runReasoned}
-      />
+      {reasonAction ? (
+        <ReasonDialog
+          key={reasonAction}
+          open
+          onOpenChange={(o) => !o && setReasonAction(null)}
+          title={t(asKey(`confirm_${reasonAction}_title`))}
+          description={t(asKey(`confirm_${reasonAction}_body`))}
+          confirmText={t("confirm")}
+          destructive={!RESTORATIVE.has(reasonAction)}
+          onConfirm={(reason) => runReasoned(reasonAction, reason)}
+        >
+          <p className="text-[11px] text-ink-3">{t("reasonHint")}</p>
+        </ReasonDialog>
+      ) : null}
     </div>
   );
 }

@@ -1,20 +1,20 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { listInvoices, generateInvoice } from "@/lib/services/finance/invoices";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("accountant", "super_admin");
+export const GET = withRole(["accountant", "super_admin"], async (_user, req) => {
   const p = new URL(req.url).searchParams;
   return ok(
     await listInvoices({
       type: p.get("type") ?? undefined,
       issuedToId: p.get("issued_to_id") ?? p.get("student_id") ?? p.get("teacher_id") ?? undefined,
       centerId: p.get("center_id") ?? undefined,
+      page: p.get("page"),
+      limit: p.get("limit"),
     }),
   );
 });
@@ -28,8 +28,7 @@ const generateSchema = z.object({
   periodEnd: z.string().optional(),
 });
 
-export const POST = withErrors(async (req) => {
-  await requireRole("accountant", "super_admin");
+export const POST = withRole(["accountant", "super_admin"], async (user, req) => {
   const body = await parseJson(req, generateSchema);
-  return ok(await generateInvoice(body), { status: 201 });
+  return ok(await generateInvoice(body, user), { status: 201 });
 });

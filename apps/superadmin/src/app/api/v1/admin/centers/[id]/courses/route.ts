@@ -1,6 +1,5 @@
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { toDateKey } from "@repo/server-core/lib/date-key";
-import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { adminCreateCourse } from "@/lib/services/admin/center-academic";
 import { parseJson } from "@/lib/validation/zod";
@@ -41,8 +40,7 @@ const createSchema = z
   })
   .strict();
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, createSchema);
   const result = await adminCreateCourse(user, id, body);

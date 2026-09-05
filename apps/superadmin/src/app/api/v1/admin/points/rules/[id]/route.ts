@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { updatePointsRule, deletePointsRule } from "@/lib/services/points/points-admin";
@@ -13,15 +12,13 @@ const patchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const PATCH = withErrors(async (req, ctx) => {
-  await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, patchSchema);
-  return ok(await updatePointsRule(id, body));
+  return ok(await updatePointsRule(id, body, user.id));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id } = await ctx.params;
-  return ok(await deletePointsRule(id));
+  return ok(await deletePointsRule(id, user.id));
 });

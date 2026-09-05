@@ -1,25 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useCustom, useInvalidate } from "@refinedev/core";
+import React, { useEffect, useMemo, useState } from "react";
+import { useInvalidate } from "@refinedev/core";
 import { api } from "@/lib/api/client";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Landmark, RefreshCcw, TriangleAlert, UserRound, X } from "lucide-react";
+import { Check, Landmark, UserRound, X } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
 import { Num, ProseCount } from "@repo/ui/components/num";
-import { StatusBadge, type StatusTone } from "@repo/ui/components/status-badge";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import type { Locale } from "@repo/ui/lib/format";
 
+import { TwoStepCommit } from "@/components/kit/confirm-dialog";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { ListShell } from "@/components/kit/list-shell";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
-import { TableSkeleton } from "@/components/ui/skeletons";
+import { useCustomListScreen } from "@/lib/api/use-list-screen";
 import { asKey } from "@/lib/i18n/keys";
 
 type CenterRow = {
@@ -30,6 +32,12 @@ type CenterRow = {
   admins: { name: string; email: string | null }[];
 };
 type TeacherRow = { id: string; name: string; email: string | null; status: string; createdAt: string };
+type Payload = {
+  centers?: CenterRow[];
+  teachers?: TeacherRow[];
+  centersTotal?: number;
+  teachersTotal?: number;
+};
 type Kind = "centers" | "teachers";
 
 type Selected = {
@@ -41,11 +49,7 @@ type Selected = {
   createdAt: string;
 };
 
-const TONE: Record<string, StatusTone> = {
-  active: "paid",
-  rejected: "rejected",
-  pending: "pending",
-};
+const PAGE_SIZE = 20;
 
 const daysSince = (iso: string) =>
   Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
@@ -55,18 +59,38 @@ export function RegistrationsQueue() {
   const locale = useLocale() as Locale;
   const invalidate = useInvalidate();
 
-  const [status, setStatus] = useState<"pending" | "active" | "rejected">("pending");
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<Selected | null>(null);
 
-  const { query, result } = useCustom<{ centers: CenterRow[]; teachers: TeacherRow[] }>({
+  const list = useCustomListScreen<CenterRow | TeacherRow>({
     url: "admin/registrations",
-    method: "get",
-    config: { query: { status } },
+    pageSize: PAGE_SIZE,
+    initialFilters: { status: "pending" },
+    // `rows` exists so the shared shell knows whether the page is empty; the
+    // two halves are read off `data` and rendered as their own sections.
+    //
+    // `total` is the LARGER half, not the sum: both halves share one page, so
+    // "there is a next page" means either half still has rows past this one.
+    // A sum would invent pages that neither half can fill.
+    select: (d) => {
+      const p = (d ?? {}) as Payload;
+      return {
+        rows: [...(p.centers ?? []), ...(p.teachers ?? [])],
+        total: Math.max(p.centersTotal ?? 0, p.teachersTotal ?? 0),
+      };
+    },
   });
 
-  const centers = result?.data?.centers ?? [];
-  const teachers = result?.data?.teachers ?? [];
+  const payload = (list.data ?? {}) as Payload;
+  // Memoised because the effect below depends on them: `?? []` mints a new
+  // array on every render while the request is in flight, which would re-run
+  // the effect each time.
+  const centers = useMemo(() => payload.centers ?? [], [payload.centers]);
+  const teachers = useMemo(() => payload.teachers ?? [], [payload.teachers]);
+  const centersTotal = payload.centersTotal ?? 0;
+  const teachersTotal = payload.teachersTotal ?? 0;
+  const status = (list.filter("status") ?? "pending") as "pending" | "active" | "rejected";
+  const page = list.page;
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +101,7 @@ export function RegistrationsQueue() {
     if (!still) setOpen(null);
   }, [centers, teachers, open]);
 
-  const refresh = () => void query.refetch();
+  const refresh = () => void list.query.refetch();
 
   async function runDecision(kind: Kind, id: string, decision: "approve" | "reject", reason?: string) {
     setBusy(id);
@@ -122,7 +146,7 @@ export function RegistrationsQueue() {
         header: t("adminManage.colStatus"),
         cell: ({ row }) => (
           <StatusBadge
-            tone={TONE[row.original.status] ?? "neutral"}
+            tone={statusTone(row.original.status)}
             age={
               row.original.status === "pending" ? (
                 <ProseCount
@@ -156,7 +180,6 @@ export function RegistrationsQueue() {
     ];
   }
 
-  const total = centers.length + teachers.length;
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -173,7 +196,7 @@ export function RegistrationsQueue() {
             type="button"
             aria-pressed={status === s}
             onClick={() => {
-              setStatus(s);
+              list.setFilter("status", s);
               setOpen(null);
             }}
             className={cn(
@@ -190,92 +213,127 @@ export function RegistrationsQueue() {
 
       <div className="flex items-start gap-5">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-          {query.isLoading ? (
-            <TableSkeleton rows={4} columns={3} />
-          ) : query.isError ? (
-            (() => {
-              const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
-              return (
-                <EmptyState
-                  tone={denied ? "denied" : "error"}
-                  icon={TriangleAlert}
-                  title={t(denied ? "adminManage.reg_deniedTitle" : "adminManage.reg_loadError")}
-                  description={t(denied ? "adminManage.reg_deniedBody" : "adminManage.reg_loadErrorBody")}
-                  action={
-                    denied ? undefined : (
-                      <Button variant="outline" onClick={refresh}>
-                        <RefreshCcw className="size-4" aria-hidden="true" />
-                        {t("adminManage.reg_retry")}
-                      </Button>
-                    )
-                  }
-                />
-              );
-            })()
-          ) : total === 0 ? (
-            <EmptyState
-              tone="empty"
-              icon={Landmark}
-              title={status === "pending" ? t("adminManage.noPendingCenters") : t("adminManage.noCenters")}
-              description={status === "pending" ? t("adminManage.noCentersDesc") : undefined}
-            />
-          ) : (
-            <>
-              {centers.length > 0 ? (
-                <section className="flex flex-col gap-2">
-                  <Eyebrow locale={locale}>{t("nav.centers")}</Eyebrow>
-                  <DataTable<CenterRow, unknown>
-                    columns={cols<CenterRow>(
-                      "centers",
-                      (r) => r.name,
-                      (r) => r.admins[0]?.email ?? null,
-                      t("nav.centers"),
-                    )}
-                    data={centers}
-                    density="compact"
-                    pageSize={centers.length || 1}
-                    onRowClick={(r) =>
-                      setOpen({
-                        kind: "centers",
-                        id: r.id,
-                        name: r.name,
-                        email: r.admins[0]?.email ?? null,
-                        status: r.status,
-                        createdAt: r.createdAt,
-                      })
-                    }
-                  />
-                </section>
-              ) : null}
+          <ListShell
+            list={list}
+            loadingLabel={t("common.loading")}
+            emptyIcon={Landmark}
+            emptyTitle={
+              status === "pending"
+                ? t("adminManage.noPendingCenters")
+                : t("adminManage.noCenters")
+            }
+            emptyDescription={
+              status === "pending" ? t("adminManage.noCentersDesc") : undefined
+            }
+            errorTitle={t("adminManage.reg_loadError")}
+            errorDescription={t("adminManage.reg_loadErrorBody")}
+            deniedTitle={t("adminManage.reg_deniedTitle")}
+            deniedDescription={t("adminManage.reg_deniedBody")}
+            body={
+              <>
+                {centers.length > 0 ? (
+                  <section className="flex flex-col gap-2">
+                    <SectionHead
+                      label={t("nav.centers")}
+                      locale={locale}
+                      page={page}
+                      shown={centers.length}
+                      total={centersTotal}
+                    />
+                    <DataTable<CenterRow, unknown>
+                      columns={cols<CenterRow>(
+                        "centers",
+                        (r) => r.name,
+                        (r) => r.admins[0]?.email ?? null,
+                        t("nav.centers"),
+                      )}
+                      data={centers}
+                      density="compact"
+                      pageSize={centers.length || 1}
+                      onRowClick={(r) =>
+                        setOpen({
+                          kind: "centers",
+                          id: r.id,
+                          name: r.name,
+                          email: r.admins[0]?.email ?? null,
+                          status: r.status,
+                          createdAt: r.createdAt,
+                        })
+                      }
+                    />
+                  </section>
+                ) : null}
 
-              {teachers.length > 0 ? (
-                <section className="flex flex-col gap-2">
-                  <Eyebrow locale={locale}>{t("nav.teachers")}</Eyebrow>
-                  <DataTable<TeacherRow, unknown>
-                    columns={cols<TeacherRow>(
-                      "teachers",
-                      (r) => r.name,
-                      (r) => r.email,
-                      t("nav.teachers"),
-                    )}
-                    data={teachers}
-                    density="compact"
-                    pageSize={teachers.length || 1}
-                    onRowClick={(r) =>
-                      setOpen({
-                        kind: "teachers",
-                        id: r.id,
-                        name: r.name,
-                        email: r.email,
-                        status: r.status,
-                        createdAt: r.createdAt,
-                      })
-                    }
-                  />
-                </section>
-              ) : null}
-            </>
-          )}
+                {teachers.length > 0 ? (
+                  <section className="flex flex-col gap-2">
+                    <SectionHead
+                      label={t("nav.teachers")}
+                      locale={locale}
+                      page={page}
+                      shown={teachers.length}
+                      total={teachersTotal}
+                    />
+                    <DataTable<TeacherRow, unknown>
+                      columns={cols<TeacherRow>(
+                        "teachers",
+                        (r) => r.name,
+                        (r) => r.email,
+                        t("nav.teachers"),
+                      )}
+                      data={teachers}
+                      density="compact"
+                      pageSize={teachers.length || 1}
+                      onRowClick={(r) =>
+                        setOpen({
+                          kind: "teachers",
+                          id: r.id,
+                          name: r.name,
+                          email: r.email,
+                          status: r.status,
+                          createdAt: r.createdAt,
+                        })
+                      }
+                    />
+                  </section>
+                ) : null}
+              </>
+            }
+            footer={
+              list.pageCount > 1 ? (
+                <div className="flex items-center justify-end gap-2 rounded-xl border border-rule bg-field px-4 py-2.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => {
+                      list.setPage(Math.max(1, page - 1));
+                      setOpen(null);
+                    }}
+                  >
+                    {t("adminManage.reg_prev")}
+                  </Button>
+                  <Num className="text-[11px] text-ink-3">
+                    {page} / {list.pageCount}
+                  </Num>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= list.pageCount}
+                    onClick={() => {
+                      list.setPage(page + 1);
+                      setOpen(null);
+                    }}
+                  >
+                    {t("adminManage.reg_next")}
+                  </Button>
+                </div>
+              ) : (
+                // The shared pager reports "from-to / total", which would be a
+                // lie here: `total` is the larger half, not the row count.
+                <></>
+              )
+            }
+          />
         </div>
 
         <DecisionPanel
@@ -286,6 +344,31 @@ export function RegistrationsQueue() {
           onDecide={runDecision}
         />
       </div>
+    </div>
+  );
+}
+
+function SectionHead({
+  label,
+  locale,
+  page,
+  shown,
+  total,
+}: {
+  label: string;
+  locale: Locale;
+  page: number;
+  shown: number;
+  total: number;
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <Eyebrow locale={locale}>{label}</Eyebrow>
+      {total > shown ? (
+        <Num className="text-[11px] text-ink-3">
+          {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + shown} / {total}
+        </Num>
+      ) : null}
     </div>
   );
 }
@@ -416,14 +499,23 @@ function DecisionPanel({
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
-              <Button
-                className="h-[46px] w-full justify-center gap-2 font-semibold"
+              {/* Approving activates a live account and grants access at once —
+                  as irreversible as the reject beside it, which already costs a
+                  typed reason. TwoStepCommit is the kit's arm-then-confirm
+                  primitive, the same one guarding payout approval. */}
+              <TwoStepCommit
+                resetKey={selected.id}
                 disabled={busy === selected.id}
-                onClick={() => onDecide(selected.kind, selected.id, "approve")}
-              >
-                <Check className="size-4" aria-hidden="true" />
-                {t("actions.approve")}
-              </Button>
+                busy={busy === selected.id}
+                icon={Check}
+                onCommit={() => onDecide(selected.kind, selected.id, "approve")}
+                labels={{
+                  action: t("actions.approve"),
+                  confirm: t("adminManage.reg_approveConfirm"),
+                  armedHint: t("adminManage.reg_approveArmedHint"),
+                  armedAnnouncement: t("adminManage.reg_approveAnnounce"),
+                }}
+              />
               <Button
                 variant="outline"
                 className="border-rule text-red hover:bg-red-soft"
@@ -436,7 +528,7 @@ function DecisionPanel({
         </>
       ) : (
         <div className="mt-4">
-          <StatusBadge tone={TONE[selected.status] ?? "neutral"}>
+          <StatusBadge tone={statusTone(selected.status)}>
             {t(asKey(`status.${selected.status}`))}
           </StatusBadge>
         </div>

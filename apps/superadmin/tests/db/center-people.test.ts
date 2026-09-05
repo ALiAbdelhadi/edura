@@ -7,11 +7,9 @@ import {
   adminGetStudent,
   adminUpdateStudent,
   adminRemoveStudent,
-  adminLookupStudent,
   adminInviteStudent,
   adminListTeachers,
   adminRemoveTeacher,
-  adminLookupTeacher,
   adminInviteTeacher,
   adminListStaff,
   adminCreateStaff,
@@ -272,14 +270,6 @@ async function main() {
       "audit: the student edit records the previous and new value",
     );
 
-    const probe = await adminLookupStudent(actor, centerA, {
-      email: `${tag}-studentA@edura.test`,
-    });
-    assert(probe.found === true, "lookup finds an existing student");
-    assert(
-      Object.keys(probe).sort().join(",") === "found,inviteSendable",
-      "lookup leaks no PII — only { found, inviteSendable }",
-    );
 
     const invited = await adminInviteStudent(actor, centerA, {
       email: `${tag}-invitee@edura.test`,
@@ -395,13 +385,6 @@ async function main() {
       "audit: the prior affiliation status is recorded",
     );
 
-    const tProbe = await adminLookupTeacher(actor, centerA, {
-      email: `${tag}-regTeacher@edura.test`,
-    });
-    assert(
-      tProbe.found === true && Object.keys(tProbe).sort().join(",") === "found,inviteSendable",
-      "teacher lookup is existence-only too",
-    );
 
     section("Center staff — create / edit role / remove");
     const staffCreated = await adminCreateStaff(actor, centerA, {

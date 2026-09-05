@@ -5,6 +5,7 @@ import { notify } from "../../services/notifications/notify";
 import { withParentFallback } from "../../services/notifications/fanout";
 import { ForbiddenError, NotFoundError, BusinessRuleError } from "../../errors/classes";
 import { lockSessionRow } from "./lesson-lock";
+import { runEffects, type WithEffects } from "../../db/effects";
 
 const EDIT_WINDOW_DAYS = 7;
 
@@ -102,7 +103,21 @@ export async function bulkMarkAttendance(
     centerId: adminCenterId ?? undefined,
   } as unknown as SessionUser;
 
-  const { absentEntries } = await scopedDb(actor, async (tx) => {
+  const { value, effects } = await scopedDb(actor, (tx) =>
+    bulkMarkAttendanceTx(tx, sessionId, entries, adminId, adminCenterId),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function bulkMarkAttendanceTx(
+  tx: TenantTx,
+  sessionId: string,
+  entries: AttendanceEntry[],
+  adminId: string,
+  adminCenterId: string | null,
+): Promise<WithEffects<{ updated: number; count: number }>> {
+  const { absentEntries } = await (async () => {
     await lockSessionRow(tx, sessionId);
     const session = await tx.session.findUnique({ where: { id: sessionId } });
     if (!session) throw new NotFoundError("Session not found");
@@ -157,19 +172,20 @@ export async function bulkMarkAttendance(
     }
 
     return { absentEntries: entries.filter((e) => e.status === "absent") };
-  });
+  })();
 
-  for (const entry of absentEntries) {
-    await notify({
-      recipients: await withParentFallback(entry.studentId),
-      type: "absence_marked",
-      title: "Absence recorded",
-      body: "Your child was marked absent for a session.",
-      data: { sessionId, studentId: entry.studentId },
-    });
-  }
-
-  return { updated: entries.length, count: entries.length };
+  return {
+    value: { updated: entries.length, count: entries.length },
+    effects: absentEntries.map((entry) => async () => {
+      await notify({
+        recipients: await withParentFallback(entry.studentId),
+        type: "absence_marked",
+        title: "Absence recorded",
+        body: "Your child was marked absent for a session.",
+        data: { sessionId, studentId: entry.studentId },
+      });
+    }),
+  };
 }
 
 export type ReopenActor =
@@ -256,7 +272,22 @@ export async function editAttendance(
     centerId: adminCenterId,
   } as unknown as SessionUser;
 
-  const { record, prevStatus } = await scopedDb(actor, async (tx) => {
+  const { value, effects } = await scopedDb(actor, (tx) =>
+    editAttendanceTx(tx, attendanceId, newStatus, adminId, adminCenterId, opts),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function editAttendanceTx(
+  tx: TenantTx,
+  attendanceId: string,
+  newStatus: "present" | "absent" | "excused",
+  adminId: string,
+  adminCenterId: string,
+  opts?: { overrideSettledLock?: boolean },
+) {
+  const { record, prevStatus } = await (async () => {
     const existing = await tx.attendanceRecord.findUnique({ where: { id: attendanceId } });
     if (!existing) throw new NotFoundError("Attendance record not found");
     if (existing.centerId !== adminCenterId) throw new ForbiddenError();
@@ -292,25 +323,30 @@ export async function editAttendance(
       },
     });
     return { record: updated, prevStatus: prev };
-  });
+  })();
 
+  const effects = [];
   if (prevStatus === "absent" && newStatus === "present") {
-    await notify({
-      recipients: await withParentFallback(record.studentId),
-      type: "attendance_corrected",
-      title: "Attendance corrected",
-      body: "Attendance was updated from absent to present.",
-      data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
+    effects.push(async () => {
+      await notify({
+        recipients: await withParentFallback(record.studentId),
+        type: "attendance_corrected",
+        title: "Attendance corrected",
+        body: "Attendance was updated from absent to present.",
+        data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
+      });
     });
   } else if (newStatus === "absent" && prevStatus !== "absent") {
-    await notify({
-      recipients: await withParentFallback(record.studentId),
-      type: "absence_marked",
-      title: "Absence recorded",
-      body: "Your child was marked absent for a session.",
-      data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
+    effects.push(async () => {
+      await notify({
+        recipients: await withParentFallback(record.studentId),
+        type: "absence_marked",
+        title: "Absence recorded",
+        body: "Your child was marked absent for a session.",
+        data: { sessionId: record.sessionId, attendanceId, studentId: record.studentId },
+      });
     });
   }
 
-  return record;
+  return { value: record, effects };
 }

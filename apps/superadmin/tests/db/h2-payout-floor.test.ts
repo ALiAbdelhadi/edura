@@ -3,18 +3,16 @@ import { approvePayout } from "@/lib/services/finance/payouts";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import {
+  createTeacherFixture,
+  createCenterFixture,
+} from "../../../../packages/database/scripts/payout-fixtures";
 const admin = testPool();
 
-const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
-let HOSSAM = SEED_TEACHER;
-
-async function resolveTeacher(): Promise<string> {
-  const seeded = await admin.query(`SELECT user_id FROM teacher_profiles WHERE user_id=$1`, [SEED_TEACHER]);
-  if (seeded.rows.length > 0) return SEED_TEACHER;
-  const any = await admin.query(`SELECT user_id FROM teacher_profiles ORDER BY user_id LIMIT 1`);
-  if (any.rows.length === 0) throw new Error("no teacher_profiles in the database to run the H2 proof against");
-  return any.rows[0].user_id as string;
-}
+const SUITE_NAME = "h2-payout-floor.test.ts";
+let __sweepTag = "";
+let HOSSAM = "";
 
 let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : (fail++, console.error("  ✗", m)); };
@@ -36,15 +34,14 @@ async function payoutStatus(id: string): Promise<string> {
 }
 
 async function main() {
-  HOSSAM = await resolveTeacher();
-  console.log(`  beneficiary under test: ${HOSSAM}${HOSSAM === SEED_TEACHER ? " (seed)" : " (resolved — seed UUID absent)"}`);
+  const tag = "h2pf-" + Math.floor(Math.random() * 1e9).toString(36);
+  __sweepTag = tag;
+  HOSSAM = (await createTeacherFixture(tag, 5000)).userId;
+  console.log(`  beneficiary under test: ${HOSSAM} (owned by this suite, tag ${tag})`);
   const adminUser = (
     await admin.query(`SELECT id FROM users WHERE role='super_admin' LIMIT 1`)
   ).rows[0].id as string;
   const superUser = { id: adminUser, role: "super_admin", locale: "en" } as SessionUser;
-
-  const orig = await bal();
-  await admin.query(`UPDATE teacher_profiles SET wallet_balance=5000 WHERE user_id=$1`, [HOSSAM]);
 
   console.log("\n(1) settlement exceeding balance:");
   const bigId = await createPending(8000); // > 5000
@@ -61,9 +58,7 @@ async function main() {
   } catch (e) { dbThrewTeacher = String((e as Error).message).includes("wallet_balance_nonneg"); }
   ok(dbThrewTeacher, "teacher_profiles CHECK rejected wallet_balance = -100");
 
-  const cleanCenter = (
-    await admin.query(`SELECT id FROM centers WHERE wallet_balance >= 0 LIMIT 1`)
-  ).rows[0].id as string;
+  const cleanCenter = (await createCenterFixture(tag, 0)).centerId;
   let dbThrewCenter = false;
   try {
     await admin.query(`UPDATE centers SET wallet_balance=-100 WHERE id=$1`, [cleanCenter]);
@@ -76,14 +71,23 @@ async function main() {
   ok(paid.status === "paid", "payout settled -> 'paid'");
   ok((await bal()) === 2000, "balance decremented 5000 -> 2000");
 
-  await admin.query(`DELETE FROM payouts WHERE id = ANY($1::uuid[])`, [[bigId, okId]]);
-  await admin.query(`DELETE FROM notifications WHERE user_id=$1 AND created_at >= now() - interval '5 minutes'`, [HOSSAM]);
-  await admin.query(`UPDATE teacher_profiles SET wallet_balance=$2 WHERE user_id=$1`, [HOSSAM, orig]);
   await admin.end();
 
   console.log(`\n${fail === 0 ? "H2 PROOF PASS ✔" : "H2 PROOF FAIL ✗"} — ${pass} passed, ${fail} failed`);
-  process.exit(fail === 0 ? 0 : 1);
+  process.exitCode = fail === 0 ? 0 : 1;
 }
 
-assertDbEnv(["test"], { intent: "suite h2-payout-floor.test.ts" })
-  .then(() => main()).catch((e) => { console.error(e); process.exit(1); });
+async function runGuarded() {
+  await assertDbEnv(["test"], { intent: `suite ${SUITE_NAME}` });
+  try {
+    await main();
+  } catch (e) {
+    console.error(e);
+    process.exitCode = 1;
+  } finally {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+runGuarded().catch((e) => { console.error(e); process.exit(1); });

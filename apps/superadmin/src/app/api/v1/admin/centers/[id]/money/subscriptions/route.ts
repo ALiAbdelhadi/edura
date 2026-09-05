@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { adminCreateWalkInSubscription } from "@/lib/services/admin/center-money";
 import { parseJson } from "@/lib/validation/zod";
@@ -17,8 +16,7 @@ const bodySchema = z
   })
   .strict();
 
-export const POST = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (user, req, ctx) => {
   const { id } = await ctx.params;
   const body = await parseJson(req, bodySchema);
   return ok(await adminCreateWalkInSubscription(user, id, body), { status: 201 });

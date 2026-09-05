@@ -1,6 +1,5 @@
 import { appBaseUrl } from "@repo/server-core/http/app-url";
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { assertViewAsTarget, startViewAs } from "@/lib/services/admin/admin-users";
 
@@ -17,8 +16,7 @@ function erpBaseUrl(): string {
   return appBaseUrl().replace(/\/+$/, "");
 }
 
-export const POST = withErrors(async (_req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const POST = withRole("super_admin", async (actor, _req, ctx) => {
   const { id } = await ctx.params;
 
   const target = await assertViewAsTarget(actor, id);

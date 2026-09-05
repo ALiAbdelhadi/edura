@@ -3,10 +3,13 @@ import { requestTeacherPayout } from "@/lib/services/finance/teacher-wallet";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
+import { createTeacherFixture } from "../../../../packages/database/scripts/payout-fixtures";
 const admin = testPool();
 
-const SEED_TEACHER = "47b21cb0-a166-5876-901f-2cc4ef9f8487";
-let TEACHER = SEED_TEACHER;
+const SUITE_NAME = "teacher-payout-replay.test.ts";
+let __sweepTag = "";
+let TEACHER = "";
 const BAL = 10_000; // 100 EGP
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 
@@ -22,18 +25,6 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-async function resolveFixture() {
-  const seeded = await admin.query(`SELECT user_id FROM teacher_profiles WHERE user_id=$1`, [
-    SEED_TEACHER,
-  ]);
-  if (seeded.rows.length === 0) {
-    const any = await admin.query(`SELECT user_id FROM teacher_profiles ORDER BY user_id LIMIT 1`);
-    if (any.rows.length === 0)
-      throw new Error("no teacher_profiles to run the payout-replay proof against");
-    TEACHER = any.rows[0].user_id as string;
-  }
-  console.log(`  fixture: teacher=${TEACHER}${TEACHER === SEED_TEACHER ? " (seed)" : " (resolved)"}`);
-}
 
 async function openPayouts() {
   const r = await admin.query(
@@ -50,21 +41,11 @@ async function openPayouts() {
 }
 
 async function main() {
-  await resolveFixture();
+  const tag = "tpr-" + rid();
+  __sweepTag = tag;
+  TEACHER = (await createTeacherFixture(tag, BAL)).userId;
+  console.log(`  fixture owned by this suite (tag ${tag}): teacher=${TEACHER}`);
   const teacher = { id: TEACHER, role: "teacher", locale: "en" } as SessionUser;
-
-  const orig = (
-    await admin.query(`SELECT wallet_balance FROM teacher_profiles WHERE user_id=$1`, [TEACHER])
-  ).rows[0].wallet_balance as number;
-
-  await admin.query(
-    `DELETE FROM payouts WHERE beneficiary_id=$1 AND status IN ('pending','approved')`,
-    [TEACHER],
-  );
-  await admin.query(`UPDATE teacher_profiles SET wallet_balance=$2 WHERE user_id=$1`, [
-    TEACHER,
-    BAL,
-  ]);
 
   const refusal = async (amount?: number): Promise<string> => {
     try {
@@ -166,47 +147,45 @@ async function main() {
 
     // 10. Another beneficiary reusing the same key is not blocked (composite
     //     unique on beneficiary+key). Proven at the index level.
-    const otherTeacher = await admin.query(
-      `SELECT user_id FROM teacher_profiles WHERE user_id <> $1 LIMIT 1`,
-      [TEACHER],
-    );
-    if (otherTeacher.rows.length > 0) {
-      const ins = await admin
-        .query(
-          `INSERT INTO payouts (beneficiary_id, beneficiary_type, net_payable, status, client_request_id)
-           VALUES ($1, 'teacher', 100, 'pending', $2) RETURNING id`,
-          [otherTeacher.rows[0].user_id, keyA],
-        )
-        .then(
-          (r) => ({ ok: true, id: r.rows[0].id as string }),
-          () => ({ ok: false, id: "" }),
-        );
-      assert(ins.ok, "the same key under a different beneficiary is not blocked");
-      if (ins.ok) await admin.query(`DELETE FROM payouts WHERE id=$1`, [ins.id]);
-    } else {
-      console.log("  (skipped cross-beneficiary check — only one teacher on this database)");
-    }
+    //     This used to borrow whichever OTHER teacher happened to exist and
+    //     skip itself when there was none -- which is what it did on the test
+    //     branch, so the composite unique was never actually exercised here.
+    const otherTeacher = await createTeacherFixture(tag, 0, "t2");
+    const ins = await admin
+      .query(
+        `INSERT INTO payouts (beneficiary_id, beneficiary_type, net_payable, status, client_request_id)
+         VALUES ($1, 'teacher', 100, 'pending', $2) RETURNING id`,
+        [otherTeacher.userId, keyA],
+      )
+      .then(
+        (r) => ({ ok: true, id: r.rows[0].id as string }),
+        () => ({ ok: false, id: "" }),
+      );
+    assert(ins.ok, "the same key under a different beneficiary is not blocked");
   } finally {
-    await admin.query(
-      `DELETE FROM payouts WHERE beneficiary_id=$1 AND status IN ('pending','approved')`,
-      [TEACHER],
-    );
-    await admin.query(`UPDATE teacher_profiles SET wallet_balance=$2 WHERE user_id=$1`, [
-      TEACHER,
-      orig,
-    ]);
     await admin.end();
   }
 
   console.log(
     `\n${fail === 0 ? "PAYOUT-REPLAY PROOF PASS ✔" : "PAYOUT-REPLAY PROOF FAIL ✗"} (${pass} passed, ${fail} failed)`,
   );
-  process.exit(fail === 0 ? 0 : 1);
+  process.exitCode = fail === 0 ? 0 : 1;
 }
 
-assertDbEnv(["test"], { intent: "suite teacher-payout-replay.test.ts" })
-  .then(() => main())
-  .catch((e) => {
+async function runGuarded() {
+  await assertDbEnv(["test"], { intent: `suite ${SUITE_NAME}` });
+  try {
+    await main();
+  } catch (e) {
     console.error(e);
-    process.exit(1);
-  });
+    process.exitCode = 1;
+  } finally {
+    if (__sweepTag) await sweepTagQuietly(__sweepTag);
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+runGuarded().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -1,5 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
+import { parsePageLimit } from "@/lib/validation/common";
 
 
 export function listPointsRules() {
@@ -19,31 +20,39 @@ export function createPointsRule(
         createdBy: adminId,
       },
     }),
+    { actorId: adminId },
   );
 }
 
 export function updatePointsRule(
   id: string,
   data: { pointsValue?: number; isActive?: boolean },
+  adminId: string,
 ) {
-  return platformDb(async (tx) => {
-    const rule = await tx.pointsRule.findUnique({ where: { id } });
-    if (!rule) throw new NotFoundError("Points rule not found");
-    return tx.pointsRule.update({ where: { id }, data });
-  });
+  return platformDb(
+    async (tx) => {
+      const rule = await tx.pointsRule.findUnique({ where: { id } });
+      if (!rule) throw new NotFoundError("Points rule not found");
+      return tx.pointsRule.update({ where: { id }, data });
+    },
+    { actorId: adminId },
+  );
 }
 
-export function deletePointsRule(id: string) {
-  return platformDb(async (tx) => {
-    const rule = await tx.pointsRule.findUnique({ where: { id } });
-    if (!rule) throw new NotFoundError("Points rule not found");
-    await tx.pointsRule.delete({ where: { id } });
-    return { deleted: true };
-  });
+export function deletePointsRule(id: string, adminId: string) {
+  return platformDb(
+    async (tx) => {
+      const rule = await tx.pointsRule.findUnique({ where: { id } });
+      if (!rule) throw new NotFoundError("Points rule not found");
+      await tx.pointsRule.delete({ where: { id } });
+      return { deleted: true };
+    },
+    { actorId: adminId },
+  );
 }
 
 export function getStudentLedger(studentUserId: string, opts?: { limit?: number }) {
-  const limit = Math.min(500, Math.max(1, opts?.limit ?? 100));
+  const { limit } = parsePageLimit({ limit: opts?.limit }, 100);
   return platformDb(async (tx) => {
     const profile = await tx.studentProfile.findUnique({
       where: { userId: studentUserId },
@@ -94,5 +103,5 @@ export function adjustStudentPoints(
       },
     });
     return { balance: balanceAfter, entry };
-  });
+  }, { actorId: adminId });
 }

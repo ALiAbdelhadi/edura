@@ -1,13 +1,12 @@
 "use client";
 
 import React from "react";
-import { useList, useCustomMutation, useInvalidate } from "@refinedev/core";
+import { useList, useInvalidate } from "@refinedev/core";
 import { useRouter } from "@/i18n/navigation";
 import { Bell, Check, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Button } from "@repo/ui/components/button";
-import { toast } from "@repo/ui/components/sonner";
 import { ProseCount } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
@@ -16,6 +15,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
+import { useAction } from "@/lib/api/use-action";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 
 interface Notification {
@@ -82,9 +82,36 @@ const PORTAL_ROUTES: Record<StaffPortal, ReadonlySet<string>> = {
   finance: new Set(["payments", "subscriptions", "payouts", "commission"]),
 };
 
-function TimeAgo({ dateStr, locale }: { dateStr: string; locale: Locale }) {
+/**
+ * One clock for the whole list, sampled on a minute tick.
+ *
+ * `Date.now()` in a render body is non-idempotent, and TimeAgo renders once
+ * per row -- so the labels were whatever the clock happened to say at each
+ * unrelated re-render. Snapshotting inside TimeAgo instead would have frozen
+ * every row at mount, which is worse for a relative time: a panel left open
+ * would still read "just now" an hour later. Lifting it means the rows are a
+ * pure function of `now`, and they all move together, once a minute.
+ */
+function useNow(intervalMs = 60_000): number {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function TimeAgo({
+  dateStr,
+  locale,
+  now,
+}: {
+  dateStr: string;
+  locale: Locale;
+  now: number;
+}) {
   const t = useTranslations("shared");
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const diff = now - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1) return <>{t("timeJustNow")}</>;
 
@@ -118,6 +145,7 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
   const locale = useLocale() as Locale;
   const router = useRouter();
   const invalidate = useInvalidate();
+  const now = useNow();
   const basePath = `/dashboard/${portal}`;
 
   const { query, result } = useList<Notification>({
@@ -126,11 +154,14 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
   });
   const notifications = (result?.data ?? []) as Notification[];
 
-  const { mutateAsync: markReadMut } = useCustomMutation();
-  const { mutateAsync: markAllReadMut } = useCustomMutation();
-
   const refreshAll = () =>
     invalidate({ resource: "notifications", invalidates: ["list"] });
+
+  const { run: markReadMut } = useAction({ onSuccess: refreshAll });
+  const { run: markAllReadMut, busy: markingAll } = useAction({
+    url: "notifications/read-all",
+    onSuccess: refreshAll,
+  });
 
   const getNotificationLink = (n: Notification): string | null => {
     const segment = TYPE_ROUTE[n.type];
@@ -138,18 +169,8 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
     return `${basePath}/${segment}`;
   };
 
-  const markRead = async (id: string) => {
-    try {
-      await markReadMut({
-        url: `notifications/${id}/read`,
-        method: "post",
-        values: {},
-      });
-      refreshAll();
-    } catch {
-      toast.error(t("common.failed"));
-    }
-  };
+  const markRead = (id: string) =>
+    markReadMut({ url: `notifications/${id}/read`, values: {} });
 
   const handleNotificationClick = async (n: Notification) => {
     if (!n.read) await markRead(n.id);
@@ -157,18 +178,9 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
     if (link) router.push(link);
   };
 
-  const markAllRead = async () => {
-    try {
-      await markAllReadMut({
-        url: "notifications/read-all",
-        method: "post",
-        values: {},
-      });
-      refreshAll();
-    } catch {
-      toast.error(t("common.failed"));
-    }
-  };
+  // `run` is re-entrant-safe, so the old `if (markingAll) return` guard is
+  // now the hook's job.
+  const markAllRead = () => markAllReadMut({ values: {} });
 
   if (query.isLoading && notifications.length === 0) {
     return <PageSpinner label={t("common.loading")} />;
@@ -213,7 +225,12 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
         }
         actions={
           unread > 0 && (
-            <Button size="sm" variant="outline" onClick={markAllRead}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={markingAll}
+              onClick={() => void markAllRead()}
+            >
               <Check className="size-4" />
               {t("shared.notifMarkAllRead")}
             </Button>
@@ -231,13 +248,23 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
           return (
             <Card
               key={n.id}
-              onClick={
-                clickable ? () => handleNotificationClick(n) : undefined
-              }
+              {...(clickable
+                ? {
+                    role: "button" as const,
+                    tabIndex: 0,
+                    onClick: () => handleNotificationClick(n),
+                    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      handleNotificationClick(n);
+                    },
+                  }
+                : {})}
               className={cn(
                 "border-s-2 py-0 transition-colors",
-                clickable && "cursor-pointer hover:border-indigo/40 hover:bg-accent",
-                n.read ? "border-s-transparent opacity-65" : "border-s-primary",
+                clickable &&
+                  "focus-ledger cursor-pointer hover:border-indigo/40 hover:bg-accent",
+                n.read ? "border-s-transparent bg-field/50" : "border-s-primary",
               )}
             >
               <CardContent className="p-3">
@@ -247,7 +274,7 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
                       <span
                         className={cn(
                           "text-sm",
-                          n.read ? "font-normal" : "font-semibold",
+                          n.read ? "font-normal text-ink-2" : "font-semibold",
                         )}
                       >
                         {n.title}
@@ -265,7 +292,7 @@ export function NotificationsScreen({ portal }: { portal: StaffPortal }) {
                   <div className="shrink-0 text-end">
                     <StatusBadge tone={tone}>{typeText}</StatusBadge>
                     <div className="mt-1 text-[11px] text-ink-2">
-                      <TimeAgo dateStr={n.createdAt} locale={locale} />
+                      <TimeAgo dateStr={n.createdAt} locale={locale} now={now} />
                     </div>
                   </div>
                 </div>

@@ -21,10 +21,16 @@ export function useTourGate() {
   const markDone = useCallback(() => {
     setShouldOpen(false);
     setDismissed(true);
-    void savePrefs({ url: "me/prefs", method: "patch", values: { tourCompleted: true } }).catch(
-      () => {
-      },
-    );
+    // The tour is already closed for this session either way, so a failed
+    // save is not worth a toast -- but swallowing it silently meant the tour
+    // reappearing next visit with nothing anywhere saying why.
+    void savePrefs({
+      url: "me/prefs",
+      method: "patch",
+      values: { tourCompleted: true },
+    }).catch((e: unknown) => {
+      console.warn("[tour] could not persist tourCompleted", e);
+    });
   }, [savePrefs]);
 
   return { shouldOpen, markDone };

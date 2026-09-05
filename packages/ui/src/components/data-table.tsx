@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { useKitStrings } from "@repo/ui/lib/kit-strings";
 import { cn } from "@repo/ui/lib/utils";
 import {
   flexRender,
@@ -54,6 +55,11 @@ export type DataTableLabels = {
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+function alignClass(column: { columnDef: { meta?: unknown } }): string | undefined {
+  const align = (column.columnDef.meta as { align?: "end" | "center" } | undefined)?.align;
+  return align === "end" ? "text-end" : align === "center" ? "text-center" : undefined;
+}
+
 function mobileLabelFor(column: {
   columnDef: { header?: unknown; meta?: unknown };
 }): React.ReactNode {
@@ -81,6 +87,7 @@ export function DataTable<TData, TValue>({
   rowHref,
   rowDisabled,
   onRowClick,
+  rowLabel,
   isLoading = false,
   error,
 }: {
@@ -100,9 +107,11 @@ export function DataTable<TData, TValue>({
   rowHref?: (row: TData) => string | undefined;
   rowDisabled?: (row: TData) => boolean;
   onRowClick?: (row: TData) => void;
+  rowLabel?: (row: TData) => string | undefined;
   isLoading?: boolean;
   error?: React.ReactNode;
 }) {
+  const strings = useKitStrings();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
 
@@ -117,7 +126,7 @@ export function DataTable<TData, TValue>({
             (table.getIsSomePageRowsSelected() && "indeterminate")
           }
           onCheckedChange={(v: boolean) => table.toggleAllPageRowsSelected(!!v)}
-          aria-label={labels?.selectAll ?? "Select all rows"}
+          aria-label={labels?.selectAll ?? strings.selectAll}
         />
       ),
       cell: ({ row }: any) => (
@@ -125,14 +134,14 @@ export function DataTable<TData, TValue>({
           checked={row.getIsSelected()}
           disabled={!row.getCanSelect()}
           onCheckedChange={(v: boolean) => row.toggleSelected(!!v)}
-          aria-label={labels?.selectRow ?? "Select row"}
+          aria-label={labels?.selectRow ?? strings.selectRow}
         />
       ),
       enableSorting: false,
-      meta: { srLabel: labels?.selectRow ?? "Select row" },
+      meta: { srLabel: labels?.selectRow ?? strings.selectRow },
     } as unknown as ColumnDef<TData, TValue>;
     return [selectColumn, ...columns];
-  }, [columns, selectable, labels?.selectAll, labels?.selectRow]);
+  }, [columns, selectable, labels?.selectAll, labels?.selectRow, strings]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -204,9 +213,22 @@ export function DataTable<TData, TValue>({
                     <TableHead
                       key={header.id}
                       scope="col"
+                      aria-sort={
+                        canSort
+                          ? sorted === "asc"
+                            ? "ascending"
+                            : sorted === "desc"
+                              ? "descending"
+                              : "none"
+                          : undefined
+                      }
                       className={cn(
                         d.head,
-                        "text-[10px] font-semibold text-ink-3",
+                        // ink-2, not ink-3: at 10px uppercase this is the
+                        // smallest text in the table, and ink-3 on --field
+                        // measures 4.56:1 -- passing AA by 1%, with nothing
+                        // left for antialiasing. ink-2 is 5.38:1.
+                        "text-[10px] font-semibold text-ink-2",
                         stickyFirstColumn &&
                           i === 0 &&
                           "sticky start-0 z-10 bg-field",
@@ -272,17 +294,30 @@ export function DataTable<TData, TValue>({
                 const href = rowHref?.(row.original);
                 const disabled = rowDisabled?.(row.original) ?? false;
                 const selected = selectable && row.getIsSelected();
+                const clickable = !disabled && Boolean(onRowClick);
                 return (
                   <TableRow
                     key={row.id}
                     data-disabled={disabled || undefined}
                     aria-disabled={disabled || undefined}
-                    onClick={
-                      disabled ? undefined : onRowClick ? () => onRowClick(row.original) : undefined
-                    }
+                    {...(clickable
+                      ? {
+                          role: "button" as const,
+                          tabIndex: 0,
+                          "aria-label": rowLabel?.(row.original),
+                          onClick: () => onRowClick?.(row.original),
+                          onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            if (event.target !== event.currentTarget) return;
+                            event.preventDefault();
+                            onRowClick?.(row.original);
+                          },
+                        }
+                      : {})}
                     className={cn(
                       "border-rule-2",
                       d.text,
+                      clickable && "focus-ledger",
                       disabled && "opacity-50",
                       !disabled && (href || onRowClick) && "cursor-pointer",
                       selected && "bg-indigo-soft shadow-[inset_3px_0_0_var(--indigo)] rtl:shadow-[inset_-3px_0_0_var(--indigo)]",
@@ -293,6 +328,7 @@ export function DataTable<TData, TValue>({
                         key={cell.id}
                         className={cn(
                           d.cell,
+                          alignClass(cell.column),
                           stickyFirstColumn && i === 0 && "sticky start-0 z-10 bg-sheet",
                         )}
                       >
@@ -344,6 +380,7 @@ export function DataTable<TData, TValue>({
               const href = rowHref?.(row.original);
               const disabled = rowDisabled?.(row.original) ?? false;
               const selected = selectable && row.getIsSelected();
+              const clickable = !disabled && Boolean(onRowClick);
               const cells = row.getVisibleCells();
               const selectCell = cells.find((c) => c.column.id === "__select__");
               const [titleCell, ...restCells] = cells.filter(
@@ -355,12 +392,24 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-disabled={disabled || undefined}
                   aria-disabled={disabled || undefined}
-                  onClick={
-                    disabled ? undefined : onRowClick ? () => onRowClick(row.original) : undefined
-                  }
+                  {...(clickable
+                    ? {
+                        role: "button" as const,
+                        tabIndex: 0,
+                        "aria-label": rowLabel?.(row.original),
+                        onClick: () => onRowClick?.(row.original),
+                        onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          if (event.target !== event.currentTarget) return;
+                          event.preventDefault();
+                          onRowClick?.(row.original);
+                        },
+                      }
+                    : {})}
                   className={cn(
                     "rounded-xl border border-rule bg-sheet px-3.5 py-3 shadow-[var(--lift)]",
                     d.text,
+                    clickable && "focus-ledger",
                     disabled && "opacity-50",
                     !disabled && (href || onRowClick) && "cursor-pointer",
                     selected &&

@@ -7,14 +7,17 @@ import {
   LogOut,
   Monitor,
   MonitorSmartphone,
+  RefreshCcw,
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { PasswordInput } from "@repo/ui/components/password-input";
 import { toast } from "@repo/ui/components/sonner";
+import { Spinner } from "@/components/kit/spinner";
 import { authClient } from "@/lib/auth/client";
 
 type SessionRow = {
@@ -118,8 +121,19 @@ function SessionsSection() {
       <h2 className="text-[15px] font-bold text-ink">{t("security.sessionsTitle")}</h2>
       <p className="mt-1 text-[13px] text-ink-2">{t("security.sessionsDesc")}</p>
       {failed ? (
-        <p className="mt-3 text-[13px] text-red">{t("security.loadFailed")}</p>
-      ) : sessions === null ? null : (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="text-[13px] text-red">{t("security.loadFailed")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+            <RefreshCcw className="size-3.5" aria-hidden />
+            {t("actions.retry")}
+          </Button>
+        </div>
+      ) : sessions === null ? (
+        <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-2">
+          <Spinner className="size-4" />
+          {t("common.loading")}
+        </p>
+      ) : (
         <ul className="mt-3 flex flex-col divide-y divide-rule">
           {sessions.map((s) => {
             const isCurrent = s.token === currentToken;
@@ -189,14 +203,24 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
-    void authClient.getSession().then(({ data }) => {
+  const loadStatus = useCallback(async () => {
+    try {
+      const { data, error } = await authClient.getSession();
+      if (error) throw new Error(error.message ?? "");
       setEnabled(
         Boolean((data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled),
       );
-    });
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
 
   const start = async () => {
     setBusy(true);
@@ -210,6 +234,8 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
       setBackupCodes(data.backupCodes ?? []);
       setPassword("");
       setPhase("verify");
+    } catch {
+      toast.error(t("security.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -229,6 +255,8 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
       setTotpUri(null);
       setCode("");
       if (required) window.location.href = "/dashboard";
+    } catch {
+      toast.error(t("security.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -257,7 +285,36 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
     }
   };
 
-  if (enabled === null) return null;
+  if (loadFailed)
+    return (
+      <section className="rounded-xl border border-rule bg-sheet p-4">
+        <h2 className="text-[15px] font-bold text-ink">{t("security.twoFactorTitle")}</h2>
+        <p className="mt-1 text-[13px] text-red">{t("security.statusLoadFailed")}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => void loadStatus()}
+        >
+          <RefreshCcw className="size-3.5" aria-hidden />
+          {t("actions.retry")}
+        </Button>
+      </section>
+    );
+
+  // Rendering nothing here reads as "this account has no two-factor section",
+  // which is a different claim from "the status has not arrived yet".
+  if (enabled === null)
+    return (
+      <section className="rounded-xl border border-rule bg-sheet p-4">
+        <h2 className="text-[15px] font-bold text-ink">{t("security.twoFactorTitle")}</h2>
+        <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-2">
+          <Spinner className="size-4" />
+          {t("common.loading")}
+        </p>
+      </section>
+    );
 
   return (
     <section className="rounded-xl border border-rule bg-sheet p-4">
@@ -278,10 +335,17 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
 
       {!enabled && phase === "password" ? (
         <div className="mt-4 flex flex-col gap-2 border-t border-rule pt-4">
-          <p className="text-[13px] font-semibold text-ink">{t("security.passwordPrompt")}</p>
+          <Label
+            htmlFor="totp-confirm-password"
+            className="text-[13px] font-semibold text-ink"
+          >
+            {t("security.passwordPrompt")}
+          </Label>
           <div className="flex gap-2">
             <PasswordInput
+              id="totp-confirm-password"
               dir="ltr"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -345,6 +409,7 @@ export function TwoFactorSetup({ required = false }: { required?: boolean }) {
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
+              aria-label={t("security.codePlaceholder")}
               placeholder={t("security.codePlaceholder")}
               className="font-mono"
               value={code}
@@ -364,7 +429,7 @@ export function SecurityScreen() {
   const t = useTranslations();
   return (
     <div className="flex w-full max-w-[640px] flex-col gap-5">
-      <h1 className="text-xl font-bold text-ink">{t("nav.security")}</h1>
+      <h2 className="text-xl font-bold text-ink">{t("nav.security")}</h2>
       <TwoFactorSetup />
       <SessionsSection />
     </div>

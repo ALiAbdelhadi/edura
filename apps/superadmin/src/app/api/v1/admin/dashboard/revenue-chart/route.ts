@@ -1,12 +1,10 @@
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { revenueChart } from "@/lib/services/admin/platform-dashboard";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors(async (req) => {
-  await requireRole("super_admin");
+export const GET = withRole("super_admin", async (_user, req) => {
   const period = new URL(req.url).searchParams.get("period") === "weekly" ? "weekly" : "monthly";
   return ok(await revenueChart(period));
 });

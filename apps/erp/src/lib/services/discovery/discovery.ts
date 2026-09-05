@@ -1,6 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { exactQuery } from "@repo/database/search-text";
 import type { Prisma } from "@repo/database";
+import { parsePageLimit } from "@/lib/validation/common";
 
 const TIME_BUCKETS: Record<string, { start: string; end: string }> = {
   morning: { start: "06:00", end: "12:00" },
@@ -47,11 +48,7 @@ export async function searchCourses(
   filters: CourseSearchInput,
   studentScope?: StudentCatalogScope | null,
 ) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(
-    100,
-    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
-  );
+  const { page, limit } = parsePageLimit(filters, 20);
 
   return platformDb(async (tx) => {
     const where: Prisma.CourseWhereInput = { status: "active" };
@@ -235,11 +232,7 @@ type CenterSearchInput = {
 };
 
 export async function searchCenters(filters: CenterSearchInput) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(
-    100,
-    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
-  );
+  const { page, limit } = parsePageLimit(filters, 20);
 
   return platformDb(async (tx) => {
     const where: Prisma.CenterWhereInput = {
@@ -297,11 +290,7 @@ type TeacherSearchInput = {
 };
 
 export async function searchTeachers(filters: TeacherSearchInput) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(
-    100,
-    Math.max(1, parseInt(filters.limit ?? "20", 10) || 20),
-  );
+  const { page, limit } = parsePageLimit(filters, 20);
 
   return platformDb(async (tx) => {
     const userFilter: Prisma.UserWhereInput = {

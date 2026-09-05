@@ -18,6 +18,40 @@ import {
 let __sweepTag = "";
 const SUITE_NAME = "hall-booking.test.ts";
 
+type GlobalSplit = {
+  platformShareBp: number | null;
+  teacherShareBp: number | null;
+  centerShareBp: number | null;
+};
+let __prevGlobalSplit: GlobalSplit | null = null;
+
+async function pinGlobalSplit() {
+  const row = await withPlatformContext((tx) =>
+    tx.commissionSetting.findFirst({ where: { scope: "global" } }),
+  );
+  if (!row) return;
+  __prevGlobalSplit = {
+    platformShareBp: row.platformShareBp,
+    teacherShareBp: row.teacherShareBp,
+    centerShareBp: row.centerShareBp,
+  };
+  await withPlatformContext((tx) =>
+    tx.commissionSetting.update({
+      where: { id: row.id },
+      data: { platformShareBp: 1500, teacherShareBp: 7000, centerShareBp: 1500 },
+    }),
+  );
+}
+
+async function restoreGlobalSplit() {
+  if (!__prevGlobalSplit) return;
+  const prev = __prevGlobalSplit;
+  await withPlatformContext(async (tx) => {
+    const row = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
+    if (row) await tx.commissionSetting.update({ where: { id: row.id }, data: prev });
+  }).catch(() => {});
+}
+
 let pass = 0;
 let fail = 0;
 function assert(cond: boolean, msg: string) {
@@ -57,6 +91,8 @@ async function main() {
   const tag = "hallbook-" + rid();
   __sweepTag = tag;
   console.log("Hall booking (collaboration requests) DB tests —", tag);
+
+  await pinGlobalSplit();
 
   const fx = await withPlatformContext(async (tx) => {
     const all = await tx.subjectOffering.findMany({
@@ -509,6 +545,7 @@ async function runGuarded() {
     console.error(e);
     process.exitCode = 1;
   } finally {
+    await restoreGlobalSplit();
     if (__sweepTag) await sweepTagQuietly(__sweepTag);
   }
   process.exit(process.exitCode ?? 0);

@@ -3,15 +3,12 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { useCustomMutation } from "@refinedev/core";
 import { ArrowLeft, Inbox, Info, Save } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { EmptyState } from "@repo/ui/components/empty-state";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
 import {
   Table,
   TableBody,
@@ -31,6 +28,14 @@ import { Num } from "@repo/ui/components/num";
 import { StatusBadge } from "@repo/ui/components/status-badge";
 import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { Form } from "@repo/ui/components/form";
+import { useAction } from "@/lib/api/use-action";
 import { asKey } from "@/lib/i18n/keys";
 import { useOversight, type Paged } from "./use-oversight";
 import { FinanceTab } from "./finance-tab";
@@ -346,49 +351,63 @@ function CenterProfileCard({
   onSaved: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  const [form, setForm] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
+  const { run, busy } = useAction({
+    url: `admin/centers/${center.id}`,
+    method: "patch",
+    successMsg: t("profileSaved"),
+    onSuccess: () => onSaved(),
+  });
+
+  // A required box left empty was one toast naming it; it is on the field now.
+  const fields: FieldSpec[] = [
+    ...PROFILE_FIELDS.map<FieldSpec>((f) => ({
+      name: f.key,
+      label: t(asKey(f.labelKey)),
+      type: "text",
+      required: f.required,
+    })),
+    { name: "classroomCount", label: t("fClassroomCount"), type: "number", min: 0 },
+    { name: "description", label: t("fDescription"), type: "textarea", rows: 3 },
+  ];
+
+  const initial = {
+    ...Object.fromEntries(
       PROFILE_FIELDS.map((f) => [f.key, (center[f.key] as string | null) ?? ""]),
     ),
-  );
-  const [description, setDescription] = useState(center.description ?? "");
-  const [classroomCount, setClassroomCount] = useState(String(center.classroomCount ?? 0));
-  const [busy, setBusy] = useState(false);
+    classroomCount: center.classroomCount ?? 0,
+    description: center.description ?? "",
+  };
 
-  const save = async () => {
-    const patch: Record<string, unknown> = {};
-    for (const f of PROFILE_FIELDS) {
-      const next = form[f.key].trim();
-      const current = ((center[f.key] as string | null) ?? "").trim();
-      if (next === current) continue;
-      if (f.required && !next) {
-        toast.error(`${t(asKey(f.labelKey))} ${t("cannotBeEmpty")}`);
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    initial,
+    resetKey: center.id,
+    onSubmit: async (v) => {
+      // Only what actually changed is sent, so an untouched box is never
+      // cleared and the audit records a real edit rather than a rewrite.
+      const patch: Record<string, unknown> = {};
+      for (const f of PROFILE_FIELDS) {
+        const next = String(v[f.key] ?? "").trim();
+        const current = ((center[f.key] as string | null) ?? "").trim();
+        if (next === current) continue;
+        patch[f.key] = next === "" ? null : next;
+      }
+      const description = String(v.description ?? "").trim();
+      if (description !== (center.description ?? "").trim()) {
+        patch.description = description || null;
+      }
+      const cc = Number(v.classroomCount);
+      if (Number.isFinite(cc) && cc !== center.classroomCount) {
+        patch.classroomCount = Math.round(cc);
+      }
+
+      if (!Object.keys(patch).length) {
+        toast.info(t("nothingChanged"));
         return;
       }
-      patch[f.key] = next === "" ? (f.required ? undefined : null) : next;
-    }
-    if (description.trim() !== (center.description ?? "").trim()) {
-      patch.description = description.trim() || null;
-    }
-    const cc = Number(classroomCount);
-    if (Number.isFinite(cc) && cc !== center.classroomCount) patch.classroomCount = Math.round(cc);
-
-    if (!Object.keys(patch).length) {
-      toast.info(t("nothingChanged"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({ url: `admin/centers/${center.id}`, method: "patch", values: patch });
-      toast.success(t("profileSaved"));
-      onSaved();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to update profile");
-    } finally {
-      setBusy(false);
-    }
-  };
+      return run({ values: patch });
+    },
+  });
 
   return (
     <Card>
@@ -404,38 +423,22 @@ function CenterProfileCard({
           </AlertDescription>
         </Alert>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {PROFILE_FIELDS.map((f) => (
-            <label key={f.key} className="space-y-1 text-sm">
-              <span className="font-medium">
-                {t(asKey(f.labelKey))}
-                {f.required ? <span className="text-red"> *</span> : null}
-              </span>
-              <Input
-                value={form[f.key]}
-                onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
-              />
-            </label>
-          ))}
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">{t("fClassroomCount")}</span>
-            <Input
-              type="number"
-              min={0}
-              value={classroomCount}
-              onChange={(e) => setClassroomCount(e.target.value)}
+        <Form {...form}>
+          <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-3">
+            <FormRootError message={rootError} />
+            <FieldControls
+              className="grid gap-3 sm:grid-cols-2"
+              fields={fields.slice(0, PROFILE_FIELDS.length + 1)}
+              form={form}
             />
-          </label>
-        </div>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">{t("fDescription")}</span>
-          <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </label>
+            <FieldControls className="" fields={fields.slice(-1)} form={form} />
 
-        <Button onClick={save} disabled={busy}>
-          {busy ? <Spinner /> : <Save className="size-4" />}
-          {t("saveProfile")}
-        </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? <Spinner /> : <Save className="size-4" />}
+              {t("saveProfile")}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

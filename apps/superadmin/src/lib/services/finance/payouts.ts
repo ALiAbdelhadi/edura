@@ -1,6 +1,6 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { AppError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
-import { notify } from "@/lib/services/notifications/notify";
+import { notifyAfterCommit } from "@/lib/services/notifications/notify";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -282,7 +282,7 @@ export async function approvePayout(payoutId: string, user: SessionUser) {
   );
 
   if (recipients.length > 0) {
-    await notify({
+    await notifyAfterCommit({
       recipients,
       type: "payout_approved",
       title: "Payout approved",
@@ -291,19 +291,6 @@ export async function approvePayout(payoutId: string, user: SessionUser) {
     });
   }
   return payout;
-}
-
-export async function bulkApprovePayouts(ids: string[], user: SessionUser) {
-  const results: { id: string; ok: boolean; error?: string }[] = [];
-  for (const id of ids) {
-    try {
-      await approvePayout(id, user);
-      results.push({ id, ok: true });
-    } catch (e) {
-      results.push({ id, ok: false, error: e instanceof Error ? e.message : "failed" });
-    }
-  }
-  return { approved: results.filter((r) => r.ok).length, results };
 }
 
 export function rejectPayout(payoutId: string, reason: string, user: SessionUser) {

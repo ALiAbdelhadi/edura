@@ -1,5 +1,6 @@
 import { platformDb } from "@/lib/db/scope";
 import type { SessionUser } from "@/lib/auth/session";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import {
   approveAgreementTx,
   rejectAgreementTx,
@@ -7,77 +8,69 @@ import {
   listAgreementProposals,
 } from "@repo/server-core/services/finance/agreements";
 
-async function audit(
-  actor: SessionUser,
-  centerId: string,
-  action: string,
-  targetId: string,
-  after: Record<string, unknown>,
-) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action,
-          targetType: "teacher_agreement",
-          targetId,
-          centerId,
-          afterState: after as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
-}
-
 export function listProposals(status?: string) {
   return listAgreementProposals({ status });
 }
 
-export async function approveAgreement(
-  proposalId: string,
-  user: SessionUser,
-  effectiveFrom?: string,
-) {
-  const row = await platformDb(
-    (tx) =>
-      approveAgreementTx(
+export function approveAgreement(proposalId: string, user: SessionUser, effectiveFrom?: string) {
+  return platformDb(
+    async (tx) => {
+      const row = await approveAgreementTx(
         tx,
         proposalId,
         user.id,
         effectiveFrom ? new Date(effectiveFrom) : new Date(),
-      ),
+      );
+      await writeAdminAudit(tx, user, {
+        action: "teacher_agreement.approved",
+        targetType: "teacher_agreement",
+        targetId: row.id,
+        centerId: row.centerId,
+        after: {
+          teacherId: row.teacherId,
+          basis: row.basis,
+          rateBp: row.rateBp,
+          rateFlat: row.rateFlat,
+          residual: row.residual,
+          effectiveFrom: row.effectiveFrom,
+        },
+      });
+      return row;
+    },
     { actorId: user.id },
   );
-  await audit(user, row.centerId, "teacher_agreement.approved", row.id, {
-    teacherId: row.teacherId,
-    basis: row.basis,
-    rateBp: row.rateBp,
-    rateFlat: row.rateFlat,
-    residual: row.residual,
-    effectiveFrom: row.effectiveFrom,
-  });
-  return row;
 }
 
-export async function rejectAgreement(proposalId: string, user: SessionUser) {
-  const row = await platformDb((tx) => rejectAgreementTx(tx, proposalId, user.id), {
-    actorId: user.id,
-  });
-  await audit(user, row.centerId, "teacher_agreement.rejected", row.id, {
-    teacherId: row.teacherId,
-  });
-  return row;
+export function rejectAgreement(proposalId: string, user: SessionUser) {
+  return platformDb(
+    async (tx) => {
+      const row = await rejectAgreementTx(tx, proposalId, user.id);
+      await writeAdminAudit(tx, user, {
+        action: "teacher_agreement.rejected",
+        targetType: "teacher_agreement",
+        targetId: row.id,
+        centerId: row.centerId,
+        after: { teacherId: row.teacherId },
+      });
+      return row;
+    },
+    { actorId: user.id },
+  );
 }
 
-export async function terminateAgreement(agreementId: string, user: SessionUser) {
-  const row = await platformDb((tx) => terminateAgreementTx(tx, agreementId), {
-    actorId: user.id,
-  });
-  await audit(user, row.centerId, "teacher_agreement.terminated", row.id, {
-    teacherId: row.teacherId,
-    endedAt: row.endedAt,
-  });
-  return row;
+export function terminateAgreement(agreementId: string, user: SessionUser) {
+  return platformDb(
+    async (tx) => {
+      const row = await terminateAgreementTx(tx, agreementId);
+      await writeAdminAudit(tx, user, {
+        action: "teacher_agreement.terminated",
+        targetType: "teacher_agreement",
+        targetId: row.id,
+        centerId: row.centerId,
+        after: { teacherId: row.teacherId, endedAt: row.endedAt },
+      });
+      return row;
+    },
+    { actorId: user.id },
+  );
 }

@@ -8,6 +8,7 @@ import {
   BusinessRuleError,
 } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
+import { parsePageLimit } from "@/lib/validation/common";
 
 async function recomputeRating(tx: TenantTx, teacherId: string) {
   const reviews = await tx.review.findMany({
@@ -123,8 +124,7 @@ export async function listReviews(
   if (filters.studentId) where.studentId = filters.studentId;
   if (filters.centerId) where.centerId = filters.centerId;
 
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const { page, limit } = parsePageLimit(filters, 20);
   const skip = (page - 1) * limit;
 
   return platformDb(async (tx) => {

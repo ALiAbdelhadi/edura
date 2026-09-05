@@ -1,6 +1,6 @@
 "use client";
 
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
@@ -9,7 +9,10 @@ import { useQueryStrings } from "@repo/ui/components/query-section";
 import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
 import { formatPercent, type Locale } from "@repo/ui/lib/format";
+import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { Spinner } from "@/components/kit/spinner";
+import { asKey } from "@/lib/i18n/keys";
+import { useAction } from "@/lib/api/use-action";
 import { useState } from "react";
 
 type Proposal = {
@@ -24,32 +27,63 @@ type Proposal = {
   createdAt: string;
 };
 
+type AgreementStatus = "proposed" | "active" | "ended";
+const STATUSES: readonly AgreementStatus[] = ["proposed", "active", "ended"];
+
 export function AgreementProposalsPanel() {
   const t = useTranslations("agreements");
   const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
-  const { query, result } = useCustom({ url: "admin/teacher-agreements", method: "get" });
-  const { mutateAsync } = useCustomMutation();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Same table, three lives: a `proposed` row is decided, an `active` one is
+  // ended. Terminate had no surface because the panel only ever asked for
+  // proposals.
+  const [status, setStatus] = useState<AgreementStatus>("proposed");
+  const { query, result } = useCustom({
+    url: "admin/teacher-agreements",
+    method: "get",
+    config: { query: { status } },
+  });
+  const { run, busyKey: busyId } = useAction({
+    onSuccess: () => query.refetch(),
+  });
 
   const rows = ((result as { data?: Proposal[] })?.data ?? []) as Proposal[];
 
-  const act = async (id: string, action: "approve" | "reject") => {
-    setBusyId(id);
-    try {
-      await mutateAsync({ url: `admin/teacher-agreements/${id}/${action}`, method: "post", values: {} });
-      toast.success(action === "approve" ? t("approved") : t("rejected"));
-      query.refetch();
-    } catch (err) {
-      toast.error((err as { message?: string })?.message || t("failed"));
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const act = (id: string, action: "approve" | "reject" | "terminate") =>
+    run({
+      url: `admin/teacher-agreements/${id}/${action}`,
+      values: {},
+      key: id,
+      successMsg:
+        action === "approve"
+          ? t("approved")
+          : action === "reject"
+            ? t("rejected")
+            : t("terminated"),
+    });
 
   return (
     <section className="rounded-xl border border-rule bg-sheet p-5">
-      <Eyebrow locale={locale}>{t("queueTitle")}</Eyebrow>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Eyebrow locale={locale}>{t("queueTitle")}</Eyebrow>
+        <div className="flex gap-1">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={status === s}
+              onClick={() => setStatus(s)}
+              className={
+                status === s
+                  ? "focus-ledger rounded-lg border border-indigo bg-indigo-soft px-2.5 py-1 text-[12px] font-semibold text-indigo"
+                  : "focus-ledger rounded-lg border border-rule px-2.5 py-1 text-[12px] text-ink-2 hover:bg-rule-2"
+              }
+            >
+              {t(asKey(`agreementStatus_${s}`))}
+            </button>
+          ))}
+        </div>
+      </div>
       {query.isLoading ? (
         <div className="mt-3">
           <Spinner />
@@ -90,17 +124,37 @@ export function AgreementProposalsPanel() {
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <Button size="sm" disabled={busyId === p.id} onClick={() => void act(p.id, "approve")}>
-                  {t("approve")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busyId === p.id}
-                  onClick={() => void act(p.id, "reject")}
-                >
-                  {t("reject")}
-                </Button>
+                {status === "proposed" ? (
+                  <>
+                    <Button size="sm" disabled={busyId === p.id} onClick={() => void act(p.id, "approve")}>
+                      {t("approve")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busyId === p.id}
+                      onClick={() => void act(p.id, "reject")}
+                    >
+                      {t("reject")}
+                    </Button>
+                  </>
+                ) : status === "active" ? (
+                  <ConfirmDialog
+                    trigger={
+                      <Button size="sm" variant="outline" className="border-red text-red hover:bg-red-soft" disabled={busyId === p.id}>
+                        {t("terminate")}
+                      </Button>
+                    }
+                    destructive
+                    title={t("terminateTitle")}
+                    description={t("terminateBody")}
+                    confirmText={t("terminate")}
+                    onConfirm={async () => {
+                      const res = await act(p.id, "terminate");
+                      if (!res.ok) throw res.error;
+                    }}
+                  />
+                ) : null}
               </div>
             </div>
           ))}

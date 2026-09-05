@@ -5,15 +5,14 @@ import { UserRoundCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@repo/ui/components/button";
-import { toast } from "@repo/ui/components/sonner";
 
-import { api } from "@/lib/api/client";
+import { useAction } from "@/lib/api/use-action";
 import { authClient } from "@/lib/auth/client";
 
 export function ImpersonationBanner() {
   const t = useTranslations("adminUsers");
   const [who, setWho] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { run, busy } = useAction({ url: "admin/impersonation/stop" });
 
   useEffect(() => {
     let alive = true;
@@ -32,14 +31,8 @@ export function ImpersonationBanner() {
   if (!who) return null;
 
   const stop = async () => {
-    setBusy(true);
-    try {
-      await api.post("admin/impersonation/stop");
-      window.location.href = "/dashboard";
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("actionFailed"));
-      setBusy(false);
-    }
+    const res = await run({ values: {} });
+    if (res.ok) window.location.href = "/dashboard";
   };
 
   return (

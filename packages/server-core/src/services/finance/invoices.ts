@@ -1,18 +1,33 @@
 import { platformDb, type TenantTx } from "../../db/scope";
 import { toDateKey } from "../../lib/date-key";
 import { NotFoundError, BusinessRuleError } from "../../errors/classes";
+import { writeAdminAudit } from "../../audit/admin-audit";
+import type { SessionUser } from "../../auth/types";
 import { sendMail } from "../../mail/send";
 import { nextInvoiceRef } from "./ref-numbers";
 import { appBaseUrl } from "../../http/app-url";
+import { parsePageLimit, type PageLimitInput } from "../../validation/common";
 
 type InvoiceType = "payment_receipt" | "student_invoice" | "teacher_statement" | "center_statement";
 
 async function teacherStatementAmounts(tx: TenantTx, teacherUserId: string) {
-  const sessions = await tx.session.findMany({ where: { teacherId: teacherUserId }, select: { id: true } });
-  const lessonIds = sessions.map((s) => s.id);
-  const gross = lessonIds.length
-    ? (await tx.transaction.aggregate({ where: { lessonId: { in: lessonIds }, type: "payment" }, _sum: { amount: true } }))._sum.amount ?? 0
-    : 0;
+  // transactions.lesson_id has no Prisma relation (polymorphic-style bare
+  // column), and materialising every session id of a teacher into an IN clause
+  // is an unbounded read that grows forever (M-16). One JOIN aggregate keeps
+  // the same semantics in a single bounded query — the same derivation
+  // `teacherStatement` uses, so the two cannot drift.
+  //
+  // Refunds are SUBTRACTED, not ignored. `type:"payment"` alone made every
+  // issued statement overstate gross by the whole refunded total, which is a
+  // second set of books against the refunds report that reads the same rows
+  // (REFUND_DECISION.md §1.4).
+  const grossRows = await tx.$queryRaw<{ gross: bigint }[]>`
+    SELECT COALESCE(SUM(CASE WHEN t.type = 'refund' THEN -t.amount ELSE t.amount END), 0) AS gross
+      FROM transactions t
+      JOIN sessions s ON s.id = t.lesson_id
+     WHERE s.teacher_id = ${teacherUserId}::uuid
+       AND t.type IN ('payment', 'refund')`;
+  const gross = Number(grossRows[0]?.gross ?? 0);
   const commission = (await tx.transaction.aggregate({ where: { fromEntityId: teacherUserId, type: "commission" }, _sum: { amount: true } }))._sum.amount ?? 0;
   const payouts = (await tx.transaction.aggregate({ where: { toEntityId: teacherUserId, type: "payout" }, _sum: { amount: true } }))._sum.amount ?? 0;
   const profile = await tx.teacherProfile.findUnique({ where: { userId: teacherUserId }, select: { walletBalance: true } });
@@ -21,7 +36,10 @@ async function teacherStatementAmounts(tx: TenantTx, teacherUserId: string) {
 }
 
 async function centerStatementAmounts(tx: TenantTx, centerId: string) {
-  const gross = (await tx.transaction.aggregate({ where: { centerId, type: "payment" }, _sum: { amount: true } }))._sum.amount ?? 0;
+  // Same rule as the teacher side: gross is net of refunds.
+  const charged = (await tx.transaction.aggregate({ where: { centerId, type: "payment" }, _sum: { amount: true } }))._sum.amount ?? 0;
+  const refunded = (await tx.transaction.aggregate({ where: { centerId, type: "refund" }, _sum: { amount: true } }))._sum.amount ?? 0;
+  const gross = charged - refunded;
   const commission = (await tx.transaction.aggregate({ where: { fromEntityId: centerId, type: "commission" }, _sum: { amount: true } }))._sum.amount ?? 0;
   const payouts = (await tx.transaction.aggregate({ where: { toEntityId: centerId, type: "payout" }, _sum: { amount: true } }))._sum.amount ?? 0;
   const center = await tx.center.findUnique({ where: { id: centerId }, select: { walletBalance: true } });
@@ -29,13 +47,27 @@ async function centerStatementAmounts(tx: TenantTx, centerId: string) {
   return { subtotal: gross, commission, netAmount: net };
 }
 
-export function listInvoices(filters: { type?: string; issuedToId?: string; centerId?: string }) {
-  return platformDb((tx) => {
+/**
+ * With no filter this used to return every invoice the platform had ever
+ * issued, in one response, and the screen rendered all of them (M-16). It
+ * pages now, and reports its own total so the screen can say which slice it
+ * is showing.
+ */
+export function listInvoices(
+  filters: { type?: string; issuedToId?: string; centerId?: string } & PageLimitInput = {},
+) {
+  const { page, limit, skip, take } = parsePageLimit(filters, 25);
+  return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.type) where.type = filters.type;
     if (filters.issuedToId) where.issuedToId = filters.issuedToId;
     if (filters.centerId) where.centerId = filters.centerId;
-    return tx.invoice.findMany({ where, orderBy: { createdAt: "desc" } });
+
+    const [data, total] = await Promise.all([
+      tx.invoice.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
+      tx.invoice.count({ where }),
+    ]);
+    return { data, total, page, limit };
   });
 }
 
@@ -47,14 +79,48 @@ export function getInvoice(id: string) {
   });
 }
 
-export function generateInvoice(input: {
+/**
+ * `new Date("garbage")` is an Invalid Date, not a throw -- Prisma then rejects
+ * it at the driver and the accountant gets a 500 for what is a bad field.
+ *
+ * Returns null both for "absent" and for "unparseable"; the caller separates
+ * the two, so that each refusal reads as its own string literal at its own
+ * throw site. `tests/unit/business-rule-ar-coverage.test.ts` harvests those
+ * literals, and a message assembled from a variable would slip past it.
+ */
+function toDate(value: string | undefined): Date | null {
+  if (value === undefined) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export type GenerateInvoiceInput = {
   type: InvoiceType;
   issuedToId?: string;
   centerId?: string;
   paymentId?: string;
   periodStart?: string;
   periodEnd?: string;
-}) {
+};
+
+/**
+ * `actor` is optional because the month-end cron generates statements with no
+ * signed-in user behind them. Present or absent, the write leaves an audit row
+ * -- an accountant-reachable write that recorded nothing was the gap here --
+ * with `source` saying which of the two it was.
+ */
+export function generateInvoice(input: GenerateInvoiceInput, actor?: SessionUser) {
+  const periodStart = toDate(input.periodStart);
+  const periodEnd = toDate(input.periodEnd);
+  if (input.periodStart !== undefined && periodStart === null) {
+    throw new BusinessRuleError("periodStart is not a valid date");
+  }
+  if (input.periodEnd !== undefined && periodEnd === null) {
+    throw new BusinessRuleError("periodEnd is not a valid date");
+  }
+  if (periodStart && periodEnd && periodEnd < periodStart) {
+    throw new BusinessRuleError("periodEnd cannot be before periodStart");
+  }
   return platformDb(async (tx) => {
     let subtotal = 0;
     let commission = 0;
@@ -87,8 +153,8 @@ export function generateInvoice(input: {
         type: input.type,
         issuedToId,
         centerId,
-        periodStart: input.periodStart ? new Date(input.periodStart) : null,
-        periodEnd: input.periodEnd ? new Date(input.periodEnd) : null,
+        periodStart,
+        periodEnd,
         subtotal,
         commission,
         netAmount,
@@ -96,15 +162,50 @@ export function generateInvoice(input: {
         qrCode: `${appBaseUrl()}/invoices/verify/${invoiceNumber}`,
       },
     });
-    return tx.invoice.update({
+    const invoice = await tx.invoice.update({
       where: { id: created.id },
       data: { pdfUrl: `${appBaseUrl()}/api/v1/finance/invoices/${created.id}/pdf` },
     });
-  });
+
+    const spec = {
+      action: "finance.invoice_generated",
+      targetType: "invoice",
+      targetId: invoice.id,
+      centerId: invoice.centerId,
+      before: null,
+      after: {
+        invoiceNumber: invoice.invoiceNumber,
+        type: invoice.type,
+        issuedToId: invoice.issuedToId,
+        periodStart: invoice.periodStart,
+        periodEnd: invoice.periodEnd,
+        subtotal: invoice.subtotal,
+        commission: invoice.commission,
+        netAmount: invoice.netAmount,
+        source: actor ? "back_office" : "cron",
+      },
+    };
+    if (actor) {
+      await writeAdminAudit(tx, actor, spec);
+    } else {
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: spec.action,
+          targetType: spec.targetType,
+          targetId: spec.targetId,
+          centerId: spec.centerId ?? null,
+          afterState: spec.after as never,
+        },
+      });
+    }
+
+    return invoice;
+  }, actor ? { actorId: actor.id } : undefined);
 }
 
-export async function generateAndEmailInvoice(input: Parameters<typeof generateInvoice>[0]) {
-  const invoice = await generateInvoice(input);
+export async function generateAndEmailInvoice(input: GenerateInvoiceInput, actor?: SessionUser) {
+  const invoice = await generateInvoice(input, actor);
   if (invoice.issuedToId) {
     await sendInvoiceEmail(invoice.id).catch(() => {});
   }

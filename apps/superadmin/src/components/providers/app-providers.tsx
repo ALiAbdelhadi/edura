@@ -9,17 +9,11 @@ import { dataProvider, authProvider } from "@/lib/refine";
 import { useSonnerNotificationProvider } from "@/lib/refine/notification-provider";
 import { reactQueryClientConfig } from "@/lib/refine/query-client";
 import { useAppRouterProvider } from "@/lib/refine/router-provider";
-import { SessionExpiryGuard } from "@/components/providers/session-expiry-guard";
+import { SessionIntegrityGuard } from "@/components/providers/session-integrity-guard";
 import { ThemeModeProvider } from "@/components/providers/theme-mode-provider";
 import { isRtlLocale } from "@/i18n/routing";
 
-const resources = [
-  { name: "admin-centers", meta: { label: "Centers" } },
-  { name: "admin-teachers", meta: { label: "Teachers" } },
-  { name: "admin-students", meta: { label: "Students" } },
-  { name: "admin-registrations", meta: { label: "Registrations" } },
-  { name: "notifications", meta: { label: "Notifications" } },
-];
+const resources = [{ name: "notifications", meta: { label: "Notifications" } }];
 
 function RefineProvider({ children }: { children: React.ReactNode }) {
   const routerProvider = useAppRouterProvider();
@@ -57,7 +51,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           dir={dir}
           position={dir === "rtl" ? "bottom-left" : "bottom-right"}
         />
-        <SessionExpiryGuard />
+        <SessionIntegrityGuard />
       </DirectionProvider>
     </ThemeModeProvider>
   );

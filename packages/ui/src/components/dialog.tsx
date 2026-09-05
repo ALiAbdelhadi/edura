@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+
+import { useKitStrings } from "@repo/ui/lib/kit-strings"
 import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
@@ -52,6 +54,7 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const strings = useKitStrings()
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -78,7 +81,7 @@ function DialogContent({
             className="absolute top-3 end-3 z-20 inline-flex size-8 items-center justify-center disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{strings.close}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -108,6 +111,7 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
 }) {
+  const strings = useKitStrings()
   return (
     <div
       data-slot="dialog-footer"
@@ -122,10 +126,38 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">{strings.close}</Button>
         </DialogPrimitive.Close>
       )}
     </div>
+  )
+}
+
+/**
+ * Wraps a dialog's fields AND its footer in a real <form>, so Enter in any
+ * field submits -- the behaviour every OS dialog has and a div cannot fake.
+ * `display: contents` keeps DialogContent's own flex/scroll layout intact, so
+ * this drops in around existing markup without moving anything: the sticky
+ * header and footer still position against DialogContent.
+ *
+ * The primary button inside must be `type="submit"`; every other button in the
+ * dialog needs an explicit `type="button"` or it submits too.
+ */
+function DialogForm({
+  className,
+  onSubmit,
+  ...props
+}: React.ComponentProps<"form">) {
+  return (
+    <form
+      data-slot="dialog-form"
+      className={cn("contents", className)}
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit?.(event)
+      }}
+      {...props}
+    />
   )
 }
 
@@ -161,6 +193,7 @@ function DialogDescription({
 export {
   Dialog,
   DialogClose,
+  DialogForm,
   DialogContent,
   DialogDescription,
   DialogFooter,

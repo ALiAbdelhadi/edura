@@ -1,4 +1,6 @@
 import { scopedDb } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "@repo/database";
 import {
   BusinessRuleError,
   ConflictError,
@@ -42,7 +44,21 @@ export async function removeCenterAdmin(
     throw new ForbiddenError("You cannot remove yourself as admin");
   }
 
-  return scopedDb(acting, async (tx) => {
+  return scopedDb(acting, (tx) => removeCenterAdminTx(tx, acting, userId, selfId));
+}
+
+export async function removeCenterAdminTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  userId: string,
+  selfId: string | null,
+) {
+  const centerId = centerOf(acting);
+  if (selfId && selfId === userId) {
+    throw new ForbiddenError("You cannot remove yourself as admin");
+  }
+
+  return (async () => {
     const profile = await tx.centerAdminProfile.findFirst({ where: { userId, centerId } });
     if (!profile) throw new NotFoundError("Admin not found in this center");
 
@@ -53,7 +69,7 @@ export async function removeCenterAdmin(
 
     await tx.centerAdminProfile.deleteMany({ where: { userId, centerId } });
     return { removed: true };
-  });
+  })();
 }
 
 export async function inviteCenterAdmin(acting: SessionUser, input: { email: string }) {
@@ -63,7 +79,25 @@ export async function inviteCenterAdmin(acting: SessionUser, input: { email: str
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000);
 
-  const { existingUserId } = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    inviteCenterAdminTx(tx, acting, input),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function inviteCenterAdminTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  input: { email: string },
+): Promise<WithEffects<{ invited: true; existingUser: boolean; token: string }>> {
+  const centerId = centerOf(acting);
+  const { email } = input;
+  const token = generateOpaqueToken();
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000);
+
+  const { existingUserId } = await (async () => {
     const existing = await tx.user.findFirst({ where: { email, status: { not: "deleted" } } });
 
     if (existing) {
@@ -94,31 +128,35 @@ export async function inviteCenterAdmin(acting: SessionUser, input: { email: str
     });
 
     return { existingUserId: null };
-  });
+  })();
 
-  if (existingUserId) {
-    await notify(
-      {
-        recipients: [existingUserId],
-        type: "shell_activation_invite",
-        title: "Center admin invite",
-        body: "You have been invited to become an admin of a center.",
-        data: { centerId },
-      },
-      {
-        to: email,
-        subject: "You have been invited to join as a center admin",
-        text: `Use this token to accept: ${token}`,
-      },
-    );
-    return { invited: true as const, existingUser: true, token };
-  }
+  const deliver = existingUserId
+    ? () =>
+        notify(
+          {
+            recipients: [existingUserId],
+            type: "shell_activation_invite",
+            title: "Center admin invite",
+            body: "You have been invited to become an admin of a center.",
+            data: { centerId },
+          },
+          {
+            to: email,
+            subject: "You have been invited to join as a center admin",
+            text: `Use this token to accept: ${token}`,
+          },
+        )
+    : () =>
+        sendMail({
+          to: email,
+          subject: "You have been invited to join as a center admin",
+          text: `Use this token to activate your account: ${token}`,
+        })
+          .then(() => undefined)
+          .catch(() => undefined);
 
-  await sendMail({
-    to: email,
-    subject: "You have been invited to join as a center admin",
-    text: `Use this token to activate your account: ${token}`,
-  }).catch(() => {});
-
-  return { invited: true as const, existingUser: false, token };
+  return {
+    value: { invited: true as const, existingUser: !!existingUserId, token },
+    effects: [deliver],
+  };
 }

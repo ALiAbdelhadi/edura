@@ -1,11 +1,21 @@
 "use client";
 
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import {
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { Form } from "@repo/ui/components/form";
+import { useAction } from "@/lib/api/use-action";
+import type { ColumnDef } from "@/components/kit/data-table";
+import { ListShell } from "@/components/kit/list-shell";
+import { useCustomListScreen } from "@/lib/api/use-list-screen";
+import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { Link } from "@/i18n/navigation";
 import { amenityLabel } from "@/lib/rooms/amenities";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -19,7 +29,6 @@ import {
 } from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Num } from "@repo/ui/components/num";
 import {
   Select,
   SelectContent,
@@ -27,21 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { Num } from "@repo/ui/components/num";
 import { toast } from "@repo/ui/components/sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
-import { Eye, Home, Info, RefreshCcw, TriangleAlert } from "lucide-react";
+import { Building2, Eye, Home, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { asArray } from "@/lib/refine/as-array";
 import { asKey } from "@/lib/i18n/keys";
 
@@ -66,58 +68,57 @@ function M2RateEditor({
   label: string;
   override: M2Rate | null;
   inherited: ResolvedM2Rate;
-  onSave: (r: M2Rate) => Promise<void>;
-  onClear: () => Promise<void>;
+  onSave: (r: M2Rate) => Promise<unknown>;
+  onClear: () => Promise<unknown>;
   allowClear?: boolean;
 }) {
   const t = useTranslations("centersAdmin");
-  const seed = override ?? inherited;
-  const [form, setForm] = useState<"fee" | "bp">(seed?.bp != null ? "bp" : "fee");
-  const [value, setValue] = useState(
-    seed?.bp != null ? bpToPct(seed.bp) : seed?.fee != null ? String(seed.fee / 100) : "",
-  );
   const [busy, setBusy] = useState(false);
+  const seed = override ?? inherited;
 
-  useEffect(() => {
-    const s = override ?? inherited;
-    setForm(s?.bp != null ? "bp" : "fee");
-    setValue(s?.bp != null ? bpToPct(s.bp) : s?.fee != null ? String(s.fee / 100) : "");
-  }, [override, inherited]);
+  // The unit is a display toggle rather than an answer -- it decides which key
+  // is sent, and it has to be known BEFORE the schema is built so the label in
+  // a validation message matches the unit on screen.
+  const [mode, setMode] = useState<"fee" | "bp">(seed?.bp != null ? "bp" : "fee");
+  const unitLabel = mode === "fee" ? t("unitEgpPerStudent") : t("unitPctPerStudent");
 
-  const num = Number(value);
-  const valid =
-    value.trim() !== "" &&
-    Number.isFinite(num) &&
-    num >= 0 &&
-    (form === "bp" ? num <= 100 : true);
+  const fields: FieldSpec[] = [
+    {
+      name: "value",
+      label: unitLabel,
+      type: "number",
+      required: true,
+      min: 0,
+      // A percentage cannot exceed 100; an EGP-per-student fee has no ceiling.
+      ...(mode === "bp" ? { max: 100 } : {}),
+    },
+  ];
 
-  const save = async () => {
-    if (!valid) {
-      toast.error(form === "bp" ? t("enterPctRange") : t("enterValidEgp"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await onSave(
-        form === "fee"
-          ? { fee: Math.round(num * 100), bp: null }
-          : { fee: null, bp: Math.round(num * 100) },
-      );
-      toast.success(t("rateSaved"));
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("saveRateError"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    resetKey: `${mode}|${override?.fee ?? ""}|${override?.bp ?? ""}|${inherited?.fee ?? ""}|${inherited?.bp ?? ""}`,
+    initial: {
+      value: seed?.bp != null ? Number(bpToPct(seed.bp)) : seed?.fee != null ? seed.fee / 100 : "",
+    },
+    onSubmit: async (v) => {
+      const num = Number(v.value);
+      setBusy(true);
+      try {
+        await onSave(
+          mode === "fee"
+            ? { fee: Math.round(num * 100), bp: null }
+            : { fee: null, bp: Math.round(num * 100) },
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+  });
 
   const clear = async () => {
     setBusy(true);
     try {
       await onClear();
-      toast.success(t("rateCleared"));
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("clearError"));
     } finally {
       setBusy(false);
     }
@@ -143,40 +144,38 @@ function M2RateEditor({
           <Badge variant="outline">{t("notConfigured")}</Badge>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="text-xs">
-          <Label htmlFor="rate-form" className="text-xs font-normal">{t("rateForm")}</Label>
-          <Select value={form} onValueChange={(v) => setForm(v as "fee" | "bp")}>
-            <SelectTrigger id="rate-form" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="fee">{t("egpPerStudent")}</SelectItem>
-              <SelectItem value="bp">{t("pctOfLessonPerStudent")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <label className="text-xs">
-          {form === "fee" ? t("unitEgpPerStudent") : t("unitPctPerStudent")}
-          <Input
-            type="number"
-            min={0}
-            max={form === "bp" ? 100 : undefined}
-            step="0.01"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={save} disabled={busy || !valid}>
-          {busy ? <Spinner /> : null}
-          {t("saveRate")}
-        </Button>
-        {allowClear && override ? (
-          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
-        ) : null}
-      </div>
+
+      <Form {...form}>
+        <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-2">
+          <FormRootError message={rootError} />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="text-xs">
+              <Label htmlFor="rate-form" className="text-xs font-normal">{t("rateForm")}</Label>
+              <Select value={mode} onValueChange={(v) => setMode(v as "fee" | "bp")}>
+                <SelectTrigger id="rate-form" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fee">{t("egpPerStudent")}</SelectItem>
+                  <SelectItem value="bp">{t("pctOfLessonPerStudent")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <FieldControls className="" fields={fields} form={form} />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" type="submit" disabled={busy}>
+              {busy ? <Spinner /> : null}
+              {t("saveRate")}
+            </Button>
+            {allowClear && override ? (
+              <Button size="sm" type="button" variant="outline" onClick={clear} disabled={busy}>
+                {t("clearOverride")}
+              </Button>
+            ) : null}
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }
@@ -191,52 +190,76 @@ function RoomMethodsRow({
   onSave,
 }: {
   methods: PricingMethod[];
-  onSave: (m: PricingMethod[]) => Promise<void>;
+  onSave: (m: PricingMethod[]) => Promise<unknown>;
 }) {
   const t = useTranslations("centersAdmin");
-  const [sel, setSel] = useState<PricingMethod[]>(methods);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setSel(methods), [methods]);
 
-  const toggle = (m: PricingMethod) =>
-    setSel((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
+  // A set-valued field: "at least one method" is the shared empty check, so
+  // the message lands on the group instead of on a toast.
+  const fields: FieldSpec[] = [
+    {
+      name: "methods",
+      label: t("allowedPricingMethods"),
+      type: "custom",
+      required: true,
+      render: (field) => {
+        const sel = (field.value as PricingMethod[] | undefined) ?? [];
+        return (
+          <div className="flex flex-wrap items-center gap-3">
+            {(Object.keys(METHOD_LABEL_KEYS) as PricingMethod[]).map((m) => (
+              <div key={m} className="flex items-center gap-1.5 text-xs">
+                <Checkbox
+                  id={`pricing-method-${m}`}
+                  checked={sel.includes(m)}
+                  onCheckedChange={() =>
+                    field.onChange(
+                      sel.includes(m) ? sel.filter((x) => x !== m) : [...sel, m],
+                    )
+                  }
+                />
+                <Label htmlFor={`pricing-method-${m}`} className="text-xs font-normal">
+                  {t(asKey(METHOD_LABEL_KEYS[m]))}
+                </Label>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+  ];
 
-  const save = async () => {
-    if (sel.length === 0) {
-      toast.error(t("needOneMethod"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await onSave(sel);
-      toast.success(t("methodsSaved"));
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("saveMethodsError"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    resetKey: methods.join("|"),
+    initial: { methods },
+    onSubmit: async (v) => {
+      setBusy(true);
+      try {
+        await onSave(v.methods as PricingMethod[]);
+      } finally {
+        setBusy(false);
+      }
+    },
+  });
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-xs font-medium">{t("allowedPricingMethods")}</span>
-      {(Object.keys(METHOD_LABEL_KEYS) as PricingMethod[]).map((m) => (
-        <div key={m} className="flex items-center gap-1.5 text-xs">
-          <Checkbox
-            id={`pricing-method-${m}`}
-            checked={sel.includes(m)}
-            onCheckedChange={() => toggle(m)}
-          />
-          <Label htmlFor={`pricing-method-${m}`} className="text-xs font-normal">
-            {t(asKey(METHOD_LABEL_KEYS[m]))}
-          </Label>
-        </div>
-      ))}
-      <Button size="sm" variant="outline" onClick={save} disabled={busy || sel.length === 0}>
-        {busy ? <Spinner /> : null}
-        {t("saveMethods")}
-      </Button>
-    </div>
+    <Form {...form}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+        className="flex flex-wrap items-end gap-3"
+      >
+        <FormRootError message={rootError} />
+        <FieldControls className="flex-1" fields={fields} form={form} />
+        <Button size="sm" type="submit" variant="outline" disabled={busy}>
+          {busy ? <Spinner /> : null}
+          {t("saveMethods")}
+        </Button>
+      </form>
+    </Form>
   );
 }
 
@@ -251,61 +274,75 @@ function SplitEditor({
   label: string;
   override: Split | null;
   inherited: ResolvedSplit;
-  onSave: (s: Split) => Promise<void>;
-  onClear: () => Promise<void>;
+  onSave: (s: Split) => Promise<unknown>;
+  onClear: () => Promise<unknown>;
   allowClear?: boolean;
 }) {
   const t = useTranslations("centersAdmin");
-  const seed = override ?? inherited;
-  const [platform, setPlatform] = useState(seed ? bpToPct(seed.platformShareBp) : "");
-  const [teacher, setTeacher] = useState(seed ? bpToPct(seed.teacherShareBp) : "");
-  const [center, setCenter] = useState(seed ? bpToPct(seed.centerShareBp) : "");
   const [busy, setBusy] = useState(false);
+  const seed = override ?? inherited;
 
-  useEffect(() => {
-    const s = override ?? inherited;
-    if (s) {
-      setPlatform(bpToPct(s.platformShareBp));
-      setTeacher(bpToPct(s.teacherShareBp));
-      setCenter(bpToPct(s.centerShareBp));
-    }
-  }, [override, inherited]);
+  const SHARES = ["platformShareBp", "teacherShareBp", "centerShareBp"] as const;
+  const sumOf = (v: Record<string, unknown>) =>
+    SHARES.reduce((total, k) => total + Number(v[k]), 0);
 
-  const nums = [Number(platform), Number(teacher), Number(center)];
-  const sum = nums.reduce((a, b) => a + (Number.isFinite(b) ? b : NaN), 0);
-  const valid = nums.every((n) => Number.isFinite(n) && n >= 0 && n <= 100) && Math.round(sum * 100) === 10000;
+  // The three shares must land on 100%. The rule belongs to the split, not to
+  // any one box, so it is attached to the last one and reported there — the
+  // running total below still shows how far off it is.
+  const fields: FieldSpec[] = [
+    { name: "platformShareBp", label: t("platformPct"), type: "number", required: true, min: 0, max: 100 },
+    { name: "teacherShareBp", label: t("teacherPct"), type: "number", required: true, min: 0, max: 100 },
+    {
+      name: "centerShareBp",
+      label: t("centerPct"),
+      type: "number",
+      required: true,
+      min: 0,
+      max: 100,
+      validate: (v) =>
+        SHARES.every((k) => Number.isFinite(Number(v[k]))) &&
+        Math.round(sumOf(v) * 100) !== 10000
+          ? t("splitError")
+          : undefined,
+    },
+  ];
 
-  const save = async () => {
-    if (!valid) {
-      toast.error(t("splitError"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await onSave({
-        platformShareBp: Math.round(nums[0] * 100),
-        teacherShareBp: Math.round(nums[1] * 100),
-        centerShareBp: Math.round(nums[2] * 100),
-      });
-      toast.success(t("splitSaved"));
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("saveSplitError"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    resetKey: SHARES.map((k) => (override ?? inherited)?.[k] ?? "").join("|"),
+    initial: seed
+      ? {
+          platformShareBp: Number(bpToPct(seed.platformShareBp)),
+          teacherShareBp: Number(bpToPct(seed.teacherShareBp)),
+          centerShareBp: Number(bpToPct(seed.centerShareBp)),
+        }
+      : undefined,
+    onSubmit: async (v) => {
+      setBusy(true);
+      try {
+        await onSave({
+          platformShareBp: Math.round(Number(v.platformShareBp) * 100),
+          teacherShareBp: Math.round(Number(v.teacherShareBp) * 100),
+          centerShareBp: Math.round(Number(v.centerShareBp) * 100),
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+  });
 
   const clear = async () => {
     setBusy(true);
     try {
       await onClear();
-      toast.success(t("overrideCleared"));
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("clearError"));
     } finally {
       setBusy(false);
     }
   };
+
+  const watched = form.watch();
+  const sum = sumOf(watched);
+  const onTarget = Math.round(sum * 100) === 10000;
 
   return (
     <div className="space-y-2 rounded-md border p-3">
@@ -319,26 +356,27 @@ function SplitEditor({
           </Badge>
         ) : null}
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <label className="text-xs">{t("platformPct")}<Input type="number" min={0} max={100} step="0.01" value={platform} onChange={(e) => setPlatform(e.target.value)} />
-        </label>
-        <label className="text-xs">{t("teacherPct")}<Input type="number" min={0} max={100} step="0.01" value={teacher} onChange={(e) => setTeacher(e.target.value)} />
-        </label>
-        <label className="text-xs">{t("centerPct")}<Input type="number" min={0} max={100} step="0.01" value={center} onChange={(e) => setCenter(e.target.value)} />
-        </label>
-      </div>
-      <div className={`text-xs ${valid ? "text-ink-2" : "text-red"}`}>
-        {t("sumLabel")}: {Number.isFinite(sum) ? sum : "—"}% {valid ? "" : t("mustEqual100")}
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={save} disabled={busy || !valid}>
-          {busy ? <Spinner /> : null}
-          {t("save")}
-        </Button>
-        {allowClear && override ? (
-          <Button size="sm" variant="outline" onClick={clear} disabled={busy}>{t("clearOverride")}</Button>
-        ) : null}
-      </div>
+
+      <Form {...form}>
+        <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-2">
+          <FormRootError message={rootError} />
+          <FieldControls className="grid grid-cols-3 gap-2" fields={fields} form={form} />
+          <div className={`text-xs ${onTarget ? "text-ink-2" : "text-red"}`}>
+            {t("sumLabel")}: {Number.isFinite(sum) ? sum : "—"}% {onTarget ? "" : t("mustEqual100")}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" type="submit" disabled={busy}>
+              {busy ? <Spinner /> : null}
+              {t("save")}
+            </Button>
+            {allowClear && override ? (
+              <Button size="sm" type="button" variant="outline" onClick={clear} disabled={busy}>
+                {t("clearOverride")}
+              </Button>
+            ) : null}
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }
@@ -346,8 +384,6 @@ function SplitEditor({
 function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const t = useTranslations("centersAdmin");
   const locale = useLocale() as Locale;
-  const { mutateAsync: mutate } = useCustomMutation();
-
   const splitReq = useCustom({
     url: `admin/centers/${centerId}/split`,
     method: "get",
@@ -385,72 +421,95 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
     affReq.query.refetch();
   };
 
+  // Every write in this dialog: one toast, one refetch. The editor components
+  // below keep only their own field validation and their own busy spinner.
+  const { run } = useAction({ onSuccess: refetchAll });
+
   const saveAffiliationShare = async (affiliationId: string, egp: string) => {
     const centerShare = egp.trim() === "" ? 0 : Math.round(Number(egp) * 100);
     if (!Number.isFinite(centerShare) || centerShare < 0) {
       toast.error(t("invalidAmount"));
       return;
     }
-    try {
-      await mutate({
-        url: `admin/centers/${centerId}/affiliations/${affiliationId}`,
-        method: "put",
-        values: { centerShare },
-      });
-      toast.success(t("shareUpdated"));
-      refetchAll();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("updateShareError"));
-    }
+    await run({
+      url: `admin/centers/${centerId}/affiliations/${affiliationId}`,
+      method: "put",
+      values: { centerShare },
+      successMsg: t("shareUpdated"),
+    });
   };
 
   const saveCenterSplit = async (s: Split) => {
-    await mutate({ url: `admin/centers/${centerId}/split`, method: "put", values: s });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/split`,
+      method: "put",
+      values: s,
+      successMsg: t("splitSaved"),
+    });
   };
   const clearCenterSplit = async () => {
-    await mutate({ url: `admin/centers/${centerId}/split`, method: "delete", values: {} });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/split`,
+      method: "delete",
+      values: {},
+      successMsg: t("overrideCleared"),
+    });
   };
   const saveRoomSplit = async (roomId: string, s: Split) => {
-    await mutate({ url: `admin/centers/${centerId}/rooms/${roomId}/split`, method: "put", values: s });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/rooms/${roomId}/split`,
+      method: "put",
+      values: s,
+      successMsg: t("splitSaved"),
+    });
   };
   const clearRoomSplit = async (roomId: string) => {
-    await mutate({ url: `admin/centers/${centerId}/rooms/${roomId}/split`, method: "delete", values: {} });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/rooms/${roomId}/split`,
+      method: "delete",
+      values: {},
+      successMsg: t("overrideCleared"),
+    });
   };
   const saveCenterM2Rate = async (r: M2Rate) => {
-    await mutate({ url: `admin/centers/${centerId}/per-student-rate`, method: "put", values: r });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/per-student-rate`,
+      method: "put",
+      values: r,
+      successMsg: t("rateSaved"),
+    });
   };
   const clearCenterM2Rate = async () => {
-    await mutate({ url: `admin/centers/${centerId}/per-student-rate`, method: "delete", values: {} });
-    refetchAll();
+    await run({
+      url: `admin/centers/${centerId}/per-student-rate`,
+      method: "delete",
+      values: {},
+      successMsg: t("rateCleared"),
+    });
   };
   const saveRoomM2Rate = async (roomId: string, r: M2Rate) => {
-    await mutate({
+    await run({
       url: `admin/centers/${centerId}/rooms/${roomId}/per-student-rate`,
       method: "put",
       values: r,
+      successMsg: t("rateSaved"),
     });
-    refetchAll();
   };
   const clearRoomM2Rate = async (roomId: string) => {
-    await mutate({
+    await run({
       url: `admin/centers/${centerId}/rooms/${roomId}/per-student-rate`,
       method: "delete",
       values: {},
+      successMsg: t("rateCleared"),
     });
-    refetchAll();
   };
   const saveRoomMethods = async (roomId: string, methods: PricingMethod[]) => {
-    await mutate({
+    await run({
       url: `admin/centers/${centerId}/rooms/${roomId}`,
       method: "patch",
       values: { allowedPricingMethods: methods },
+      successMsg: t("methodsSaved"),
     });
-    refetchAll();
   };
   const saveRoomPrice = async (roomId: string, priceEgp: string) => {
     const price = priceEgp.trim() === "" ? null : Math.round(Number(priceEgp) * 100);
@@ -458,13 +517,12 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
       toast.error(t("invalidPrice"));
       return;
     }
-    try {
-      await mutate({ url: `admin/centers/${centerId}/rooms/${roomId}`, method: "patch", values: { price } });
-      toast.success(t("priceUpdated"));
-      refetchAll();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || t("updatePriceError"));
-    }
+    await run({
+      url: `admin/centers/${centerId}/rooms/${roomId}`,
+      method: "patch",
+      values: { price },
+      successMsg: t("priceUpdated"),
+    });
   };
 
   const loading = splitReq.query.isLoading || roomsReq.query.isLoading;
@@ -711,22 +769,32 @@ function RoomPriceRow({
 function GlobalSplitCard() {
   const t = useTranslations("centersAdmin");
   const queryStrings = useQueryStrings();
-  const { mutateAsync: mutate } = useCustomMutation();
   const req = useCustom({ url: "admin/revenue-split", method: "get" });
   const data = req.result?.data as { split: Split | null; m2Rate?: M2Rate | null } | undefined;
 
-  const save = async (s: Split) => {
-    await mutate({ url: "admin/revenue-split", method: "put", values: s });
-    req.query.refetch();
-  };
-  const saveM2 = async (r: M2Rate) => {
-    await mutate({ url: "admin/revenue-split/per-student-rate", method: "put", values: r });
-    req.query.refetch();
-  };
-  const clearM2 = async () => {
-    await mutate({ url: "admin/revenue-split/per-student-rate", method: "delete", values: {} });
-    req.query.refetch();
-  };
+  const { run } = useAction({ onSuccess: () => req.query.refetch() });
+
+  const save = (s: Split) =>
+    run({
+      url: "admin/revenue-split",
+      method: "put",
+      values: s,
+      successMsg: t("splitSaved"),
+    });
+  const saveM2 = (r: M2Rate) =>
+    run({
+      url: "admin/revenue-split/per-student-rate",
+      method: "put",
+      values: r,
+      successMsg: t("rateSaved"),
+    });
+  const clearM2 = () =>
+    run({
+      url: "admin/revenue-split/per-student-rate",
+      method: "delete",
+      values: {},
+      successMsg: t("rateCleared"),
+    });
 
   return (
     <Card>
@@ -766,82 +834,80 @@ function GlobalSplitCard() {
   );
 }
 
+type CenterRow = {
+  id: string;
+  name: string;
+  shortId: string;
+  status: string;
+};
+
 export function CentersScreen() {
   const t = useTranslations("centersAdmin");
   const tStatus = useTranslations("status");
-  const queryStrings = useQueryStrings();
   const [detailId, setDetailId] = useState<string | null>(null);
-  const { query, result } = useCustom({ url: "admin/centers", method: "get", config: { query: { take: "100" } } });
-  const centers = useMemo(() => asArray<any>(result?.data), [result]);
+
+  // The endpoint returns the whole set behind `take`, so there is no page to
+  // step through — only the load/denied/error/empty branch every list shares.
+  const list = useCustomListScreen<CenterRow>({
+    url: "admin/centers",
+    paginated: false,
+    extraQuery: { take: "100" },
+    select: (data) => {
+      const rows = asArray<CenterRow>(data);
+      return { rows, total: rows.length };
+    },
+  });
+
+  const columns: ColumnDef<CenterRow, unknown>[] = [
+    {
+      id: "name",
+      header: t("colName"),
+      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+    },
+    {
+      id: "shortId",
+      header: t("colShortId"),
+      cell: ({ row }) => row.original.shortId,
+    },
+    {
+      id: "status",
+      header: t("colStatus"),
+      cell: ({ row }) => (
+        <StatusBadge tone={statusTone(row.original.status)}>
+          {tStatus(asKey(row.original.status))}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      meta: { align: "end", srLabel: t("colActions") },
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-2">
+          <Button asChild size="sm">
+            <Link href={`/dashboard/superadmin/centers/${row.original.id}`}>
+              <Eye className="size-4" />
+              {t("oversight")}
+            </Link>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setDetailId(row.original.id)}>
+            <Home className="size-4" />
+            {t("roomsAndSplit")}
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("title")} />
-
-      <GlobalSplitCard />
-      <Card>
-        <CardContent>
-          {query.isLoading ? (
-            <PageSpinner />
-          ) : query.isError ? (
-            (() => {
-              const denied = (query.error as { statusCode?: number } | null)?.statusCode === 403;
-              return (
-                <EmptyState
-                  tone={denied ? "denied" : "error"}
-                  icon={TriangleAlert}
-                  title={denied ? queryStrings.denied : queryStrings.loadFailed}
-                  action={
-                    denied ? undefined : (
-                      <Button variant="outline" onClick={() => query.refetch()}>
-                        <RefreshCcw className="size-4" aria-hidden="true" />
-                        {queryStrings.retry}
-                      </Button>
-                    )
-                  }
-                />
-              );
-            })()
-          ) : centers.length === 0 ? (
-            <p className="p-4 text-sm text-ink-2">{t("noCenters")}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("colName")}</TableHead>
-                  <TableHead>{t("colShortId")}</TableHead>
-                  <TableHead>{t("colStatus")}</TableHead>
-                  <TableHead className="text-end">{t("colActions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {centers.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{c.shortId}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{tStatus(asKey(c.status))}</Badge>
-                    </TableCell>
-                    <TableCell className="text-end">
-                      <div className="flex justify-end gap-2">
-                        <Button asChild size="sm">
-                          <Link href={`/dashboard/superadmin/centers/${c.id}`}>
-                            <Eye className="size-4" />{t("oversight")}</Link>
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setDetailId(c.id)}>
-                          <Home className="size-4" />
-                          {t("roomsAndSplit")}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
+    <ListShell
+      list={list}
+      title={t("title")}
+      columns={columns}
+      notice={<GlobalSplitCard />}
+      emptyIcon={Building2}
+      emptyTitle={t("noCenters")}
+    >
       {detailId ? (
         <CenterDetailDialog
           centerId={detailId}
@@ -849,6 +915,6 @@ export function CentersScreen() {
           onOpenChange={(o) => !o && setDetailId(null)}
         />
       ) : null}
-    </div>
+    </ListShell>
   );
 }

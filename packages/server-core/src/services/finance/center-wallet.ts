@@ -1,6 +1,8 @@
 import type { SessionUser } from "../../auth/types";
 import { platformDb } from "../../db/scope";
+import type { TenantTx } from "@repo/database";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
+import { parsePageLimit } from "../../validation/common";
 
 function centerIdOf(user: SessionUser): string {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
@@ -31,7 +33,7 @@ export function getCenterWallet(user: SessionUser) {
 
 export function getCenterWalletTransactions(user: SessionUser, opts?: { take?: number; cursor?: string }) {
   const centerId = centerIdOf(user);
-  const take = Math.min(100, Math.max(1, opts?.take ?? 50));
+  const { take } = parsePageLimit({ limit: opts?.take }, 50);
   return platformDb(async (tx) => {
     const rows = await tx.transaction.findMany({
       where: { OR: [{ fromEntityId: centerId }, { toEntityId: centerId }] },
@@ -49,8 +51,19 @@ export function requestCenterPayout(
   amount?: number,
   clientRequestId?: string,
 ) {
+  return platformDb((tx) => requestCenterPayoutTx(tx, user, amount, clientRequestId), {
+    actorId: user.id,
+  });
+}
+
+export function requestCenterPayoutTx(
+  tx: TenantTx,
+  user: SessionUser,
+  amount?: number,
+  clientRequestId?: string,
+) {
   const centerId = centerIdOf(user);
-  return platformDb(async (tx) => {
+  return (async () => {
     const locked = await tx.$queryRaw<{ wallet_balance: number }[]>`
       SELECT wallet_balance FROM centers WHERE id = ${centerId}::uuid FOR UPDATE`;
     if (locked.length === 0) throw new NotFoundError("Center not found");
@@ -97,7 +110,7 @@ export function requestCenterPayout(
         status: "pending",
       },
     });
-  }, { actorId: user.id });
+  })();
 }
 
 export function listCenterPayouts(user: SessionUser) {

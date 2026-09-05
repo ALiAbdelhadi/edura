@@ -15,6 +15,8 @@ import {
 import type { SessionUser } from "../../auth/types";
 import { notify } from "../notifications/notify";
 import { sendMail } from "../../mail/send";
+import { runEffects, type WithEffects } from "../../db/effects";
+import type { TenantTx } from "@repo/database";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
 
 const INVITE_EXPIRY_DAYS = 30;
@@ -105,8 +107,20 @@ export async function listRosterStudents(
 }
 
 export async function addRosterStudent(acting: SessionUser, studentId: string) {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    addRosterStudentTx(tx, acting, studentId),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function addRosterStudentTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  studentId: string,
+) {
   const centerId = centerOf(acting);
-  const entry = await scopedDb(acting, async (tx) => {
+  const entry = await (async () => {
     const student = await tx.user.findFirst({
       where: { id: studentId, role: "student", status: { not: "deleted" } },
     });
@@ -131,17 +145,21 @@ export async function addRosterStudent(acting: SessionUser, studentId: string) {
       }
       throw err;
     }
-  });
+  })();
 
-  await notify({
-    recipients: [studentId],
-    type: "student_added_to_roster",
-    title: "You have been added to a center",
-    body: "A center has added you to their student roster.",
-    data: { centerId },
-  });
-
-  return entry;
+  return {
+    value: entry,
+    effects: [
+      () =>
+        notify({
+          recipients: [studentId],
+          type: "student_added_to_roster",
+          title: "You have been added to a center",
+          body: "A center has added you to their student roster.",
+          data: { centerId },
+        }),
+    ],
+  };
 }
 
 export async function getRosterStudent(acting: SessionUser, studentId: string) {
@@ -157,10 +175,17 @@ export async function getRosterStudent(acting: SessionUser, studentId: string) {
 
     const profile = await tx.studentProfile.findUnique({
       where: { userId: studentId },
-      select: { studentCode: true },
+      // walletBalance so counter staff can answer "where did my money go" for
+      // the family in front of them. Read-only: the centre cannot spend it.
+      select: { studentCode: true, walletBalance: true },
     });
 
-    return { ...roster, user: student, studentCode: profile?.studentCode ?? null };
+    return {
+      ...roster,
+      user: student,
+      studentCode: profile?.studentCode ?? null,
+      walletBalance: profile?.walletBalance ?? 0,
+    };
   });
 }
 
@@ -179,8 +204,17 @@ export async function updateRosterStudent(
   studentId: string,
   body: RosterStudentPatch,
 ) {
+  return scopedDb(acting, (tx) => updateRosterStudentTx(tx, acting, studentId, body));
+}
+
+export async function updateRosterStudentTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  studentId: string,
+  body: RosterStudentPatch,
+) {
   const centerId = centerOf(acting);
-  return scopedDb(acting, async (tx) => {
+  return (async () => {
     const inRoster = await tx.centerStudentRoster.findFirst({
       where: { studentId, centerId, leftAt: null },
     });
@@ -234,18 +268,24 @@ export async function updateRosterStudent(
     });
 
     return { ...(roster ?? {}), user: updatedUser };
-  });
+  })();
 }
 
 export async function removeRosterStudent(acting: SessionUser, studentId: string) {
+  return scopedDb(acting, (tx) => removeRosterStudentTx(tx, acting, studentId));
+}
+
+export async function removeRosterStudentTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  studentId: string,
+) {
   const centerId = centerOf(acting);
-  await scopedDb(acting, async (tx) => {
-    const res = await tx.centerStudentRoster.updateMany({
-      where: { studentId, leftAt: null, centerId },
-      data: { leftAt: new Date() },
-    });
-    if (res.count === 0) throw new NotFoundError("Student not in roster");
+  const res = await tx.centerStudentRoster.updateMany({
+    where: { studentId, leftAt: null, centerId },
+    data: { leftAt: new Date() },
   });
+  if (res.count === 0) throw new NotFoundError("Student not in roster");
   return { removed: true };
 }
 
@@ -279,7 +319,25 @@ export async function inviteStudent(
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
-  const shell = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    inviteStudentTx(tx, acting, input),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function inviteStudentTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  input: { email: string; name?: string },
+) {
+  const centerId = centerOf(acting);
+  const { email, name } = input;
+  const token = generateOpaqueToken();
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+  const shell = await (async () => {
     const existing = await tx.user.findFirst({ where: { email, status: { not: "deleted" } } });
     if (existing && existing.status !== "shell") {
       throw new BusinessRuleError("Active user with this email exists; use lookup instead");
@@ -319,24 +377,30 @@ export async function inviteStudent(
     });
 
     return shellUser;
-  });
-
-  await sendMail({
-    to: email,
-    subject: "You have been invited to join as a student",
-    text: `Use this token to activate your account: ${token}`,
-  }).catch(() => {});
+  })();
 
   return {
-    invited: true as const,
-    token,
-    user: {
-      id: shell.id,
-      email: shell.email,
-      status: shell.status,
-      name: shell.name,
-      role: shell.role,
+    value: {
+      invited: true as const,
+      token,
+      user: {
+        id: shell.id,
+        email: shell.email,
+        status: shell.status,
+        name: shell.name,
+        role: shell.role,
+      },
     },
+    effects: [
+      () =>
+        sendMail({
+          to: email,
+          subject: "You have been invited to join as a student",
+          text: `Use this token to activate your account: ${token}`,
+        })
+          .then(() => undefined)
+          .catch(() => undefined),
+    ],
   };
 }
 
@@ -406,8 +470,16 @@ export async function listRosterTeachers(
 }
 
 export async function removeRosterTeacher(acting: SessionUser, teacherId: string) {
+  return scopedDb(acting, (tx) => removeRosterTeacherTx(tx, acting, teacherId));
+}
+
+export async function removeRosterTeacherTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  teacherId: string,
+) {
   const centerId = centerOf(acting);
-  await scopedDb(acting, async (tx) => {
+  await (async () => {
     const affiliation = await tx.centerTeacherAffiliation.findFirst({
       where: { centerId, teacherId, status: { in: ["pending", "active"] } },
     });
@@ -424,7 +496,7 @@ export async function removeRosterTeacher(acting: SessionUser, teacherId: string
       where: { id: affiliation.id },
       data: { status: "removed", removedAt: new Date() },
     });
-  });
+  })();
   return { removed: true };
 }
 
@@ -450,7 +522,25 @@ export async function inviteTeacher(
   const token = generateOpaqueToken();
   const tokenHash = hashToken(token);
 
-  const { teacher, affiliation, existingUserId } = await scopedDb(acting, async (tx) => {
+  const { value, effects } = await scopedDb(acting, (tx) =>
+    inviteTeacherTx(tx, acting, input),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function inviteTeacherTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  input: { email: string; name?: string },
+) {
+  const centerId = centerOf(acting);
+  const { email, name } = input;
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+  const token = generateOpaqueToken();
+  const tokenHash = hashToken(token);
+
+  const { teacher, affiliation, existingUserId } = await (async () => {
     const existing = await tx.user.findFirst({ where: { email, status: { not: "deleted" } } });
 
     if (existing && existing.role !== "teacher") {
@@ -500,42 +590,47 @@ export async function inviteTeacher(
       affiliation: newAffiliation,
       existingUserId: existing ? existing.id : null,
     };
-  });
+  })();
 
-  if (existingUserId) {
-    await notify(
-      {
-        recipients: [existingUserId],
-        type: "teacher_invited",
-        title: "Center invitation",
-        body: "You have been invited to join a center as a teacher.",
-        data: { centerId },
-      },
-      {
-        to: email,
-        subject: "You have been invited to teach at a center",
-        text: `Use this token to accept: ${token}`,
-      },
-    );
-  } else {
-    await sendMail({
-      to: email,
-      subject: "You have been invited to teach at a center",
-      text: `Use this token to activate your account: ${token}`,
-    }).catch(() => {});
-  }
+  const deliver = existingUserId
+    ? () =>
+        notify(
+          {
+            recipients: [existingUserId],
+            type: "teacher_invited",
+            title: "Center invitation",
+            body: "You have been invited to join a center as a teacher.",
+            data: { centerId },
+          },
+          {
+            to: email,
+            subject: "You have been invited to teach at a center",
+            text: `Use this token to accept: ${token}`,
+          },
+        )
+    : () =>
+        sendMail({
+          to: email,
+          subject: "You have been invited to teach at a center",
+          text: `Use this token to activate your account: ${token}`,
+        })
+          .then(() => undefined)
+          .catch(() => undefined);
 
   return {
-    invited: true as const,
-    token,
-    existingUser: !!existingUserId,
-    user: {
-      id: teacher.id,
-      email: teacher.email,
-      status: teacher.status,
-      role: teacher.role,
-      name: teacher.name,
+    value: {
+      invited: true as const,
+      token,
+      existingUser: !!existingUserId,
+      user: {
+        id: teacher.id,
+        email: teacher.email,
+        status: teacher.status,
+        role: teacher.role,
+        name: teacher.name,
+      },
+      affiliation: { id: affiliation.id, status: affiliation.status },
     },
-    affiliation: { id: affiliation.id, status: affiliation.status },
+    effects: [deliver],
   };
 }

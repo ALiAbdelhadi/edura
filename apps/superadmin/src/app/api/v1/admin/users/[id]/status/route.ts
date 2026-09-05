@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { setUserSuspended } from "@/lib/services/admin/admin-users";
 import { parseJson } from "@/lib/validation/zod";
@@ -12,8 +11,7 @@ const bodySchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const actor = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (actor, req, ctx) => {
   const { id } = await ctx.params;
   const { suspended, reason } = await parseJson(req, bodySchema);
   return ok(await setUserSuspended(actor, id, suspended, reason));

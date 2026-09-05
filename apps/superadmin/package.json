@@ -22,7 +22,9 @@
     "test:db:sweep": "tsx --env-file=../../packages/database/.env.test ../../packages/database/scripts/test-cleanup.ts"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.5.7",
     "@refinedev/core": "^5.0.12",
+    "@repo/client-core": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/notifications": "workspace:*",
     "@repo/observability": "workspace:*",
@@ -40,6 +42,7 @@
     "qrcode.react": "^4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-hook-form": "^7.83.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

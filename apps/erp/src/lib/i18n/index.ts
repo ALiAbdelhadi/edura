@@ -30,9 +30,9 @@ import activationAr from "@/messages/ar/activation.json";
 import maturityAr from "@/messages/ar/maturity.json";
 import assistantAr from "@/messages/ar/assistant.json";
 
-export const LOCALES = ["ar", "en"] as const;
-export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "ar";
+import { DEFAULT_LOCALE, type Locale } from "@repo/client-core/i18n/locale";
+
+export { LOCALES, DEFAULT_LOCALE, isLocale, type Locale } from "@repo/client-core/i18n/locale";
 
 const enMerged = {
   ...en,
@@ -76,8 +76,4 @@ const dictionaries: Record<Locale, Messages> = { en: enMerged, ar: arMerged };
 
 export function getMessages(locale: Locale): Messages {
   return dictionaries[locale] ?? dictionaries[DEFAULT_LOCALE];
-}
-
-export function isLocale(v: string | undefined): v is Locale {
-  return !!v && (LOCALES as readonly string[]).includes(v);
 }

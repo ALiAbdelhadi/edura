@@ -1,6 +1,7 @@
 import { platformDb, scopedDb, type TenantTx } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
+import { parsePageLimit } from "../../validation/common";
 
 function centerIdOf(user: SessionUser): string {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
@@ -144,7 +145,7 @@ export async function listShiftReconciliation(
   opts: { from?: string; to?: string; take?: number } = {},
 ) {
   const centerId = centerIdOf(user);
-  const take = Math.min(200, Math.max(1, opts.take ?? 100));
+  const { take } = parsePageLimit({ limit: opts.take }, 100);
   return scopedDb(user, async (tx) => {
     const shifts = await tx.centerShift.findMany({
       where: {

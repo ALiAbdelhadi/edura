@@ -1,4 +1,5 @@
 import { platformDb } from "@/lib/db/scope";
+import { parsePageLimit } from "@/lib/validation/common";
 
 export type SettlementFilters = {
   centerId?: string;
@@ -12,8 +13,7 @@ export type SettlementFilters = {
 const METHODS = new Set(["whole_room_percent", "per_attending_student"]);
 
 export function listSessionSettlements(filters: SettlementFilters = {}) {
-  const page = Math.max(1, filters.page ?? 1);
-  const limit = Math.min(200, Math.max(1, filters.limit ?? 50));
+  const { page, limit } = parsePageLimit(filters, 50);
 
   return platformDb(async (tx) => {
     const where = {

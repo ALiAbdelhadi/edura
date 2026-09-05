@@ -146,7 +146,11 @@
     "mockFail": "محاكاة فشل",
     "seats": "المقاعد",
     "noTrackSubjectsHint": "لو صفّك أو شعبتك مش مظبوطين، كلّم السنتر — وتقدر تتصفح كل المواد لحد ما يتظبط.",
-    "subscribeAtCenter": "الاشتراك والدفع يتمّان في السنتر — الدفع الأونلاين غير متاح حاليًا."
+    "subscribeAtCenter": "الاشتراك والدفع يتمّان في السنتر — الدفع الأونلاين غير متاح حاليًا.",
+    "payFromBalance": "ادفع من رصيدك",
+    "balanceAvailable": "رصيدك: {amount}",
+    "insufficientBalance": "رصيدك ({amount}) لا يكفي لهذه المجموعة.",
+    "paidFromBalance": "تم الدفع من رصيدك — الاشتراك مفعّل."
   },
   "studentWallet": {
     "subtitle": "اشحن وادفع لحصصك من رصيدك",

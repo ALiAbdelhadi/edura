@@ -1,4 +1,5 @@
 import { platformDb, scopedDb, type TenantTx } from "../../db/scope";
+import { runEffects, type WithEffects } from "../../db/effects";
 import {
   BusinessRuleError,
   ForbiddenError,
@@ -504,9 +505,31 @@ export async function createWalkInSubscription(
   const method: CounterMethod = input.paymentMethod ?? "cash";
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
 
+  const { value, effects } = await scopedDb(user, (tx) =>
+    createWalkInSubscriptionTx(tx, input, user),
+  );
+  await runEffects(effects);
+  return value;
+}
+
+export async function createWalkInSubscriptionTx(
+  tx: TenantTx,
+  input: {
+    studentId: string;
+    courseId: string;
+    plan: "monthly" | "per_session";
+    sessionId?: string;
+    markAttendance?: boolean;
+    paymentMethod?: CounterMethod;
+  },
+  user: SessionUser,
+) {
+  const method: CounterMethod = input.paymentMethod ?? "cash";
+  if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
+
   await assertNotBlacklisted(input.studentId, user.centerId);
 
-  const { sub, receiptNumber } = await scopedDb(user, async (tx) => {
+  const { sub, receiptNumber } = await (async () => {
     const course = await tx.course.findFirst({
       where: { id: input.courseId, status: "active" },
     });
@@ -561,17 +584,22 @@ export async function createWalkInSubscription(
     }
 
     return { sub, receiptNumber };
-  });
+  })();
 
-  await notify({
-    recipients: await studentAndParents(input.studentId),
-    type: "payment_recorded",
-    title: "Subscription active",
-    body: `Your subscription was recorded at the center. Receipt ${receiptNumber}.`,
-    data: { subscriptionId: sub.id, receiptNumber },
-  });
-
-  return { ...sub, receiptNumber };
+  return {
+    value: { ...sub, receiptNumber },
+    effects: [
+      async () => {
+        await notify({
+          recipients: await studentAndParents(input.studentId),
+          type: "payment_recorded",
+          title: "Subscription active",
+          body: `Your subscription was recorded at the center. Receipt ${receiptNumber}.`,
+          data: { subscriptionId: sub.id, receiptNumber },
+        });
+      },
+    ],
+  };
 }
 
 export { coveredStudentIds } from "../../services/subscriptions/coverage";

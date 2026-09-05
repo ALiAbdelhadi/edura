@@ -1,17 +1,28 @@
 import { Prisma } from "@repo/database";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
-import { notify } from "@/lib/services/notifications/notify";
+import { notifyAfterCommit } from "@/lib/services/notifications/notify";
 import { nextTxnRefs } from "@/lib/services/finance/ref-numbers";
 import { resolveCommission } from "@/lib/services/finance/commission";
 import { computeNoRoomLessonSplit } from "@/lib/services/finance/fees";
 import { creditMove } from "@repo/server-core/services/finance/center-credit";
 import { resolveTeacherAgreement } from "@repo/server-core/services/finance/agreements";
 import { computeAgreementSplit } from "@repo/server-core/services/finance/fees";
-import { walletCredit } from "@repo/server-core/services/wallet/wallet";
+import {
+  resolveRefundTarget,
+  creditRefundTarget,
+} from "@repo/server-core/services/wallet/refund-target";
 import type { SessionUser } from "@/lib/auth/session";
 
 const ALREADY_REFUNDED = "This lesson charge has already been refunded";
+
+// The wallet is decremented conditionally, exactly as settlePayout does, so the
+// shortfall surfaces as a 422 the accountant can act on rather than as the DB
+// CHECK's unmapped SQLSTATE 23514 → 500. Money outcome is unchanged: the refund
+// is refused, not partially applied.
+const CLAWBACK_SHORT = (side: "teacher" | "center") =>
+  `The ${side} wallet no longer holds this lesson's share — it was already paid out. ` +
+  "Recover the amount from the next payout, then refund.";
 
 function isDuplicateRefund(err: unknown): boolean {
   return (
@@ -153,10 +164,11 @@ export async function refundLessonForStudent(
         });
 
         if (teacherNet !== 0) {
-          await tx.teacherProfile.updateMany({
-            where: { userId: teacherId },
+          const clawed = await tx.teacherProfile.updateMany({
+            where: { userId: teacherId, walletBalance: { gte: teacherNet } },
             data: { walletBalance: { decrement: teacherNet } },
           });
+          if (clawed.count === 0) throw new BusinessRuleError(CLAWBACK_SHORT("teacher"));
         }
         if (payment.funding === "center_held") {
           if (centerNet !== 0) {
@@ -171,15 +183,23 @@ export async function refundLessonForStudent(
             });
           }
         } else if (centerNet !== 0) {
-          await tx.center.update({
-            where: { id: centerId },
+          const clawed = await tx.center.updateMany({
+            where: { id: centerId, walletBalance: { gte: centerNet } },
             data: { walletBalance: { decrement: centerNet } },
           });
+          if (clawed.count === 0) throw new BusinessRuleError(CLAWBACK_SHORT("center"));
         }
 
-        const { balanceAfter: walletBalanceAfter } = await walletCredit(
-          tx,
+        // Money returns to whoever parted with it: the parent's wallet when a
+        // parent funded this lesson, the student's otherwise. The ledger rows
+        // above are untouched by this -- they still record student -> centre.
+        const refundTarget = await resolveRefundTarget(tx, {
           studentId,
+          session: { id: session.id, courseId: session.courseId, date: session.date },
+        });
+        const { balanceAfter: walletBalanceAfter } = await creditRefundTarget(
+          tx,
+          refundTarget,
           perSessionPrice,
           {
             type: "refund",
@@ -206,6 +226,8 @@ export async function refundLessonForStudent(
               centerFee,
               reason,
               refundRef,
+              creditedTo: refundTarget.kind,
+              creditedUserId: refundTarget.userId,
             } as never,
           },
         });
@@ -218,6 +240,8 @@ export async function refundLessonForStudent(
           teacherNet,
           centerNet,
           walletBalanceAfter,
+          creditedTo: refundTarget.kind,
+          creditedUserId: refundTarget.userId,
         };
       },
       { actorId: user.id },
@@ -234,7 +258,7 @@ export async function refundLessonForStudent(
     }),
   );
   const recipients = [studentId, ...links.map((l) => l.parentId)];
-  await notify({
+  await notifyAfterCommit({
     recipients,
     type: "payment_refunded",
     title: "Refund issued",

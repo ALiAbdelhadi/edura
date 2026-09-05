@@ -14,6 +14,7 @@ export function SearchInput({
   value,
   onValueChange,
   placeholder,
+  ariaLabel,
   onSubmit,
   onClear,
   clearLabel,
@@ -29,6 +30,7 @@ export function SearchInput({
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
   onSubmit?: () => void;
   onClear?: () => void;
   clearLabel?: string;
@@ -56,6 +58,7 @@ export function SearchInput({
         type="search"
         value={value}
         placeholder={placeholder}
+        aria-label={ariaLabel ?? placeholder}
         autoFocus={autoFocus}
         inputMode={inputMode}
         onChange={(e) => onValueChange(e.target.value)}

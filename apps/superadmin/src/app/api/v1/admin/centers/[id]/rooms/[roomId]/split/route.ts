@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { upsertRoomSplit, clearRoomSplit } from "@/lib/services/admin/rooms-split";
@@ -18,15 +17,13 @@ const splitSchema = z
     message: "The three shares must sum to exactly 100% (10000 basis points)",
   });
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req, ctx) => {
   const { id, roomId } = await ctx.params;
   const body = await parseJson(req, splitSchema);
   return ok(await upsertRoomSplit(id, roomId, body, user));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id, roomId } = await ctx.params;
   return ok(await clearRoomSplit(id, roomId, user));
 });

@@ -12,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@repo/ui/components/alert-dialog";
 import { Button, buttonVariants } from "@repo/ui/components/button";
+import { Spinner } from "@repo/ui/components/spinner";
 import { cn } from "@repo/ui/lib/utils";
 import { Lock } from "lucide-react";
 import * as React from "react";
@@ -114,6 +115,10 @@ export function TwoStepCommit({
   );
 }
 
+function isThenable(value: unknown): value is Promise<unknown> {
+  return typeof (value as { then?: unknown } | null | undefined)?.then === "function";
+}
+
 export function ConfirmDialog({
   trigger,
   open,
@@ -133,10 +138,45 @@ export function ConfirmDialog({
   confirmText?: React.ReactNode;
   cancelText?: React.ReactNode;
   destructive?: boolean;
-  onConfirm: () => void;
+  // Return a promise to make the dialog wait: it stays open and busy until the
+  // promise settles, and a REJECTION leaves it open so the operator sees the
+  // failure on the surface that caused it. A void return keeps the old
+  // close-immediately behaviour.
+  onConfirm: () => void | Promise<unknown>;
 }) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const [pending, setPending] = React.useState(false);
+  const isOpen = open ?? uncontrolledOpen;
+
+  const setOpen = (next: boolean) => {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+
+  const confirm = (event: React.MouseEvent<HTMLElement>) => {
+    const result = onConfirm();
+    if (!isThenable(result)) return;
+    event.preventDefault();
+    setPending(true);
+    result.then(
+      () => {
+        setPending(false);
+        setOpen(false);
+      },
+      () => setPending(false),
+    );
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        // Escape, the overlay and Cancel all route through here — none of them
+        // may dismiss a write that is still in flight.
+        if (pending && !next) return;
+        setOpen(next);
+      }}
+    >
       {trigger ? <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger> : null}
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -144,11 +184,13 @@ export function ConfirmDialog({
           {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             className={destructive ? cn(buttonVariants({ variant: "destructive" })) : undefined}
-            onClick={onConfirm}
+            disabled={pending}
+            onClick={confirm}
           >
+            {pending ? <Spinner className="size-4" /> : null}
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>

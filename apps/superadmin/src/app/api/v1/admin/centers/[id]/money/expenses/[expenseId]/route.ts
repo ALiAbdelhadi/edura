@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { adminDeleteExpense, adminUpdateExpense } from "@/lib/services/admin/center-money";
 import { parseJson } from "@/lib/validation/zod";
@@ -19,15 +18,13 @@ const patchSchema = z
   })
   .strict();
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id, expenseId } = await ctx.params;
   const body = await parseJson(req, patchSchema);
   return ok(await adminUpdateExpense(user, id, expenseId, body));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id, expenseId } = await ctx.params;
   return ok(await adminDeleteExpense(user, id, expenseId));
 });

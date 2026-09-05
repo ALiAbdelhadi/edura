@@ -122,6 +122,7 @@ const nextConfig = {
   },
 
   transpilePackages: [
+    "@repo/client-core",
     "@repo/database",
     "@repo/ui",
     "@repo/server-core",

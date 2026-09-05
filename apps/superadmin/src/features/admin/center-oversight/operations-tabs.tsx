@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCustomMutation } from "@refinedev/core";
 import { AlertTriangle, CalendarDays, Megaphone, ShieldAlert, Trash2, UserCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { EmptyState } from "@repo/ui/components/empty-state";
@@ -13,18 +12,10 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogForm,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import {
   Table,
   TableBody,
@@ -38,7 +29,17 @@ import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
+import { asKey } from "@/lib/i18n/keys";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import {
+  EntityDialog,
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { Form } from "@repo/ui/components/form";
+import { useAction } from "@/lib/api/use-action";
 import { useAdminGet, useOversight, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
@@ -64,6 +65,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
   });
   const [completing, setCompleting] = useState<SessionRow | null>(null);
   const [postponing, setPostponing] = useState<SessionRow | null>(null);
+  const [marking, setMarking] = useState<SessionRow | null>(null);
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
@@ -129,11 +131,14 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                     </TableCell>
                     <TableCell className="text-end">
                       {settled ? (
-                        <span className="text-xs text-ink-2">locked — settled</span>
+                        <span className="text-xs text-ink-2">{t("op_lockedSettled")}</span>
                       ) : (
                         <div className="flex flex-wrap justify-end gap-2">
                           <Button size="sm" onClick={() => setCompleting(s)}>
-                            Complete &amp; settle
+                            {t("op_completeSettle")}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setMarking(s)}>
+                            {t("op_markAttendance")}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => setPostponing(s)}>{t("op_postpone")}</Button>
                           <ControlAction
@@ -145,12 +150,7 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
                             url={`admin/centers/${centerId}/sessions/${s.id}/cancel`}
                             values={{}}
                             onDone={req.refetch}
-                            description={
-                              <p>
-                                Students are notified. Refused if the session has already been
-                                settled.
-                              </p>
-                            }
+                            description={<p>{t("op_cancelSessionBody")}</p>}
                           />
                         </div>
                       )}
@@ -174,6 +174,16 @@ export function SessionsTab({ centerId, enabled }: { centerId: string; enabled: 
         centerId={centerId}
         onClose={() => setPostponing(null)}
         onDone={req.refetch}
+      />
+
+      <AttendanceSheetDialog
+        centerId={centerId}
+        session={marking}
+        onClose={() => setMarking(null)}
+        onDone={() => {
+          setMarking(null);
+          req.refetch();
+        }}
       />
     </div>
   );
@@ -209,8 +219,10 @@ function CompleteSessionDialog({
   const t = useTranslations("oversight");
   const locale = useLocale() as Locale;
   const queryStrings = useQueryStrings();
-  const { mutateAsync } = useCustomMutation();
-  const [busy, setBusy] = useState(false);
+  const { run: complete, busy } = useAction({
+    successMsg: t("op_sessionCompleted"),
+    onSuccess: () => onDone(),
+  });
   const preview = useAdminGet<Preview>(
     `admin/centers/${centerId}/sessions/${session?.id}/settlement-preview`,
     { enabled: !!session },
@@ -221,21 +233,11 @@ function CompleteSessionDialog({
 
   const run = async () => {
     if (!session) return;
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `admin/centers/${centerId}/sessions/${session.id}/complete`,
-        method: "post",
-        values: {},
-      });
-      toast.success(t("op_sessionCompleted"));
-      onClose();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to complete the session");
-    } finally {
-      setBusy(false);
-    }
+    const res = await complete({
+      url: `admin/centers/${centerId}/sessions/${session.id}/complete`,
+      values: {},
+    });
+    if (res.ok) onClose();
   };
 
   return (
@@ -283,10 +285,7 @@ function CompleteSessionDialog({
             </div>
 
             {p.presentCount === 0 ? (
-              <p className="text-xs text-red">
-                No students are marked present — settling now distributes nothing. Check the
-                attendance first.
-              </p>
+              <p className="text-xs text-red">{t("op_nonePresent")}</p>
             ) : null}
           </div>
         )}
@@ -298,9 +297,136 @@ function CompleteSessionDialog({
             disabled={busy || preview.isLoading || preview.isError || !p || p.alreadySettled}
           >
             {busy ? <Spinner /> : null}
-            Complete &amp; distribute
+            {t("op_completeDistribute")}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const ATTENDANCE_STATUSES = [
+  "present",
+  "absent",
+  "late",
+  "excused",
+  "counter_only",
+  "removed",
+] as const;
+
+type AttendanceEntry = {
+  studentId: string;
+  studentName?: string | null;
+  status: string;
+};
+
+/**
+ * The register for one session, edited as a sheet and saved in one PUT.
+ * Row-by-row saving was never the shape of this job: a teacher calls a class
+ * roll in one pass, and one request is also one audit entry.
+ */
+function AttendanceSheetDialog({
+  centerId,
+  session,
+  onClose,
+  onDone,
+}: {
+  centerId: string;
+  session: { id: string; courseTitle: string | null } | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const t = useTranslations("oversight");
+  const tt = useTranslations();
+  const queryStrings = useQueryStrings();
+  const req = useAdminGet<{ entries?: AttendanceEntry[] } | AttendanceEntry[]>(
+    `admin/centers/${centerId}/sessions/${session?.id ?? ""}/attendance`,
+    { enabled: !!session },
+  );
+  const { run, busy } = useAction({ method: "put" });
+
+  const rows: AttendanceEntry[] = (() => {
+    const d = req.data as unknown;
+    if (Array.isArray(d)) return d as AttendanceEntry[];
+    const e = (d as { entries?: AttendanceEntry[] } | undefined)?.entries;
+    return Array.isArray(e) ? e : [];
+  })();
+
+  // One select per student, keyed by id, so a server 422 can name the row it
+  // rejected and the sheet re-seeds when the register arrives.
+  const statusOptions = ATTENDANCE_STATUSES.map((x) => ({
+    value: x,
+    label: tt(asKey(`attendanceStatus.${x}`)),
+  }));
+  const fields: FieldSpec[] = rows.map((r) => ({
+    name: r.studentId,
+    label: r.studentName ?? r.studentId.slice(0, 8),
+    type: "select",
+    options: statusOptions,
+  }));
+
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    open: !!session,
+    resetKey: `${session?.id ?? ""}:${rows.map((r) => r.studentId).join(",")}`,
+    initial: Object.fromEntries(rows.map((r) => [r.studentId, r.status ?? "absent"])),
+    onSubmit: async (v) => {
+      if (!session || rows.length === 0) return;
+      const res = await run({
+        url: `admin/centers/${centerId}/sessions/${session.id}/attendance`,
+        values: {
+          entries: rows.map((r) => ({ studentId: r.studentId, status: v[r.studentId] })),
+        },
+        successMsg: t("op_attendanceSaved"),
+      });
+      if (res.ok) onDone();
+      return res;
+    },
+  });
+
+  return (
+    <Dialog open={!!session} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <Form {...form}>
+          <DialogForm onSubmit={() => void submit()}>
+            <DialogHeader>
+              <DialogTitle>{t("op_markAttendance")}</DialogTitle>
+            </DialogHeader>
+
+            <div className="py-2">
+              {req.isLoading ? (
+                <PageSpinner />
+              ) : req.isError ? (
+                <LoadError
+                  message={queryStrings.loadFailed}
+                  onRetry={req.refetch}
+                  retryLabel={queryStrings.retry}
+                />
+              ) : rows.length === 0 ? (
+                <p className="text-[13px] text-ink-3">{t("op_noAttendees")}</p>
+              ) : (
+                <>
+                  <FormRootError message={rootError} />
+                  <FieldControls
+                    fields={fields}
+                    form={form}
+                    className="grid max-h-[50vh] gap-3 overflow-y-auto py-1 sm:grid-cols-2"
+                  />
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                {tt("actions.cancel")}
+              </Button>
+              <Button type="submit" disabled={busy || rows.length === 0}>
+                {busy ? <Spinner /> : null}
+                {tt("actions.save")}
+              </Button>
+            </DialogFooter>
+          </DialogForm>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -318,81 +444,38 @@ function PostponeDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  const [f, setF] = useState({ newDate: "", newStartTime: "", newEndTime: "", reason: "" });
-  const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
+  const { run, busy } = useAction({
+    successMsg: t("op_sessionPostponed"),
+    onSuccess: () => onDone(),
+  });
 
-  const submit = async () => {
-    if (!session || !f.newDate || !f.newStartTime || !f.newEndTime || !f.reason.trim()) {
-      toast.error(t("op_needDateTimesReason"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `admin/centers/${centerId}/sessions/${session.id}/postpone`,
-        method: "post",
-        values: f,
-      });
-      toast.success(t("op_sessionPostponed"));
-      setF({ newDate: "", newStartTime: "", newEndTime: "", reason: "" });
-      onClose();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to postpone");
-    } finally {
-      setBusy(false);
-    }
-  };
+  // The four boxes were checked by one toast that named none of them.
+  const fields: FieldSpec[] = [
+    { name: "newDate", label: t("op_newDate"), type: "date", required: true },
+    { name: "newStartTime", label: t("op_start"), type: "time", required: true },
+    { name: "newEndTime", label: t("op_end"), type: "time", required: true },
+    { name: "reason", label: t("op_reason"), type: "textarea", rows: 2, required: true },
+  ];
 
   return (
-    <Dialog open={!!session} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("op_postponeSession")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            Checked against the teacher&apos;s and the hall&apos;s other bookings. Refused if the
-            session has already been settled.
-          </p>
-          <label className="space-y-1 text-sm">
-            <span className="block font-medium">{t("op_newDate")}</span>
-            <Input type="date" value={f.newDate} onChange={(e) => set("newDate")(e.target.value)} />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="space-y-1 text-sm">
-              <span className="block font-medium">{t("op_start")}</span>
-              <Input
-                type="time"
-                value={f.newStartTime}
-                onChange={(e) => set("newStartTime")(e.target.value)}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="block font-medium">{t("op_end")}</span>
-              <Input
-                type="time"
-                value={f.newEndTime}
-                onChange={(e) => set("newEndTime")(e.target.value)}
-              />
-            </label>
-          </div>
-          <label className="space-y-1 text-sm">
-            <span className="block font-medium">{t("op_reason")}<span className="text-red">*</span>
-            </span>
-            <Textarea rows={2} value={f.reason} onChange={(e) => set("reason")(e.target.value)} />
-          </label>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Postpone
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={!!session}
+      onOpenChange={(o) => !o && onClose()}
+      title={t("op_postponeSession")}
+      note={t("op_postponeNote")}
+      busy={busy}
+      fields={fields}
+      submitLabel={t("op_postpone")}
+      onSubmit={async (v) => {
+        if (!session) return;
+        const res = await run({
+          url: `admin/centers/${centerId}/sessions/${session.id}/postpone`,
+          values: v,
+        });
+        if (res.ok) onClose();
+        return res;
+      }}
+    />
   );
 }
 
@@ -406,6 +489,7 @@ type AttendanceRow = {
 
 export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled: boolean }) {
   const t = useTranslations("oversight");
+  const tt = useTranslations();
   const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
   const req = useOversight<Paged<AttendanceRow> & { summary: { status: string; count: number }[] }>(
@@ -413,8 +497,12 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
     "attendance",
     { enabled, query: { limit: "100" } },
   );
-  const { mutateAsync } = useCustomMutation();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // No successMsg: a correction that moved the settlement is a WARNING, not a
+  // success, so the wording depends on the response. The error toast still
+  // belongs to the hook, so there is still only ever one of it.
+  const { run: correctOne, busyKey: busyId } = useAction<{
+    settlementDivergence?: { diverged?: boolean };
+  }>({ method: "patch", onSuccess: () => req.refetch() });
 
   if (!enabled) return null;
   if (req.isLoading) return <PageSpinner />;
@@ -430,25 +518,16 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
   const rows = req.data?.data ?? [];
 
   const correct = async (id: string, status: string) => {
-    setBusyId(id);
-    try {
-      const res = (await mutateAsync({
-        url: `admin/centers/${centerId}/attendance/${id}`,
-        method: "patch",
-        values: { status },
-      })) as { data?: { settlementDivergence?: { diverged?: boolean } } };
-      if (res?.data?.settlementDivergence?.diverged) {
-        toast.warning(
-          "Corrected — but this session was already settled, so the attendance no longer matches the settled headcount. The settlement was NOT recomputed; the divergence is in the audit log.",
-        );
-      } else {
-        toast.success(t("op_attendanceCorrected"));
-      }
-      req.refetch();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to correct attendance");
-    } finally {
-      setBusyId(null);
+    const res = await correctOne({
+      url: `admin/centers/${centerId}/attendance/${id}`,
+      values: { status },
+      key: id,
+    });
+    if (!res.ok) return;
+    if (res.data?.settlementDivergence?.diverged) {
+      toast.warning(t("op_correctedDiverged"));
+    } else {
+      toast.success(t("op_attendanceCorrected"));
     }
   };
 
@@ -498,7 +577,7 @@ export function AttendanceTab({ centerId, enabled }: { centerId: string; enabled
                           onClick={() => correct(a.id, s)}
                         >
                           {busyId === a.id ? <Spinner /> : null}
-                          {s}
+                          {tt(asKey(`status.${s}`))}
                         </Button>
                       ))}
                     </div>
@@ -582,7 +661,7 @@ export function DeletionRequestsTab({
                   {u?.email ? `${u.email} · ` : ""}
                   {t("op_requested")} <Num.Date value={r.requestedAt} locale={locale} options={{ dateStyle: "medium" }} />
                 </div>
-                <div className="mt-1 text-xs">Reason: {r.reason}</div>
+                <div className="mt-1 text-xs">{t("reason")}: {r.reason}</div>
               </div>
               <div className="flex gap-2">
                 <ControlAction
@@ -625,40 +704,68 @@ export function DeletionRequestsTab({
 
 export function BroadcastCard({ centerId }: { centerId: string }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
+  const tt = useTranslations();
+  const { run: send_, busy } = useAction<{ recipients?: number }>({
+    url: `admin/centers/${centerId}/broadcast`,
+  });
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<"center" | "course">("center");
-  const [courseId, setCourseId] = useState("");
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
   const courses = useAdminGet<Paged<{ id: string; title: string }>>(
     `admin/centers/${centerId}/oversight/courses`,
     { enabled: open, query: { limit: "100" } },
   );
 
-  const send = async () => {
-    if (!title.trim() || !body.trim() || (scope === "course" && !courseId)) {
-      toast.error(t("op_needBroadcast"));
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = (await mutateAsync({
-        url: `admin/centers/${centerId}/broadcast`,
-        method: "post",
-        values: { scope, ...(scope === "course" ? { courseId } : {}), title, body },
-      })) as { data?: { recipients?: number } };
-      toast.success(`Sent to ${res?.data?.recipients ?? 0} recipient(s)`);
-      setTitle("");
-      setBody("");
-      setOpen(false);
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to send");
-    } finally {
-      setBusy(false);
-    }
-  };
+  // The course picker is required only when the broadcast is scoped to one
+  // course, and hidden otherwise — `requiredWhen` puts that on the field
+  // instead of in a toast that named none of the three empty boxes.
+  const fields: FieldSpec[] = [
+    {
+      name: "scope",
+      label: t("op_scope"),
+      type: "select",
+      required: true,
+      options: [
+        { value: "center", label: t("op_wholeCenter") },
+        { value: "course", label: t("op_oneCourse") },
+      ],
+    },
+    {
+      name: "courseId",
+      label: t("op_course"),
+      type: "select",
+      placeholder: t("op_pickCourse"),
+      requiredWhen: (v) => v.scope === "course",
+      options: (courses.data?.data ?? []).map((c) => ({ value: c.id, label: c.title })),
+    },
+    { name: "title", label: t("op_title"), type: "text", required: true },
+    { name: "body", label: t("op_message"), type: "textarea", rows: 4, required: true },
+  ];
+
+  const { form, submit, rootError } = useFieldForm({
+    fields,
+    initial: { scope: "center" },
+    open,
+    onSubmit: async (v) => {
+      const res = await send_({
+        values: {
+          scope: v.scope,
+          ...(v.scope === "course" ? { courseId: v.courseId } : {}),
+          title: v.title,
+          body: v.body,
+        },
+      });
+      if (res.ok) {
+        // The count comes back with the response, so this toast is raised here
+        // rather than as a static successMsg.
+        toast.success(t("op_broadcastSent", { count: res.data?.recipients ?? 0 }));
+        setOpen(false);
+      }
+      return res;
+    },
+  });
+
+  const visible = fields.filter(
+    (f) => f.name !== "courseId" || form.watch("scope") === "course",
+  );
 
   return (
     <>
@@ -666,58 +773,25 @@ export function BroadcastCard({ centerId }: { centerId: string }) {
         <Megaphone className="size-4" />{t("op_broadcast")}</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("op_broadcastTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-xs text-ink-2">
-              Goes to this center&apos;s enrolled students (and their parents for a course
-              broadcast). It is sent as the platform, not as the center.
-            </p>
-            <label className="space-y-1 text-sm">
-              <span className="block font-medium">{t("op_scope")}</span>
-              <Select value={scope} onValueChange={(v) => setScope(v as "center" | "course")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="center">{t("op_wholeCenter")}</SelectItem>
-                  <SelectItem value="course">{t("op_oneCourse")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </label>
-            {scope === "course" ? (
-              <label className="space-y-1 text-sm">
-                <span className="block font-medium">{t("op_course")}</span>
-                <Select value={courseId} onValueChange={setCourseId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("op_pickCourse")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(courses.data?.data ?? []).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            ) : null}
-            <label className="space-y-1 text-sm">
-              <span className="block font-medium">{t("op_title")}</span>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="block font-medium">{t("op_message")}</span>
-              <Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
-            </label>
-          </div>
-          <DialogFooter>
-            <Button onClick={send} disabled={busy}>
-              {busy ? <Spinner /> : null}
-              Send
-            </Button>
-          </DialogFooter>
+          <Form {...form}>
+            <DialogForm onSubmit={() => void submit()}>
+              <DialogHeader>
+                <DialogTitle>{t("op_broadcastTitle")}</DialogTitle>
+              </DialogHeader>
+
+              <FormRootError message={rootError} />
+              <p className="text-xs text-ink-2">{t("op_broadcastNote")}</p>
+
+              <FieldControls fields={visible} form={form} />
+
+              <DialogFooter>
+                <Button type="submit" disabled={busy}>
+                  {busy ? <Spinner /> : null}
+                  {tt("chat.send")}
+                </Button>
+              </DialogFooter>
+            </DialogForm>
+          </Form>
         </DialogContent>
       </Dialog>
     </>
@@ -745,8 +819,7 @@ export function CenterBlacklistCard({ centerId }: { centerId: string }) {
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-xs text-ink-2">
-          A center-level block withdraws that student&apos;s enrollments <em>at this center only</em>,
-          through the reversible cascade journal — lifting it restores exactly those rows.
+          {t.rich("op_blacklistNote", { em: (chunks) => <em>{chunks}</em> })}
         </p>
         {req.isLoading ? (
           <Spinner />
@@ -776,12 +849,7 @@ export function CenterBlacklistCard({ centerId }: { centerId: string }) {
                 url={`admin/centers/${centerId}/blacklist/${b.id}`}
                 values={{}}
                 onDone={req.refetch}
-                description={
-                  <p>
-                    The cascade journal is replayed: exactly the enrollments this block withdrew
-                    are restored, and nothing else.
-                  </p>
-                }
+                description={<p>{t("op_liftBody")}</p>}
               />
             </div>
           ))

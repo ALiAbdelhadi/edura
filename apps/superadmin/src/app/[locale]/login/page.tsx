@@ -7,7 +7,7 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { PasswordInput } from "@repo/ui/components/password-input";
 import type { Locale } from "@repo/ui/lib/format";
-import { Clock, TriangleAlert } from "lucide-react";
+import { Clock, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Suspense, useEffect, useState } from "react";
 
@@ -19,18 +19,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [capsLock, setCapsLock] = useState(false);
-  const [sessionExpired, setSessionExpired] = useState(false);
+  const [signedOutReason, setSignedOutReason] = useState<string | null>(null);
 
   useEffect(() => {
-    setSessionExpired(
-      new URLSearchParams(window.location.search).get("reason") === "session_expired",
-    );
+    setSignedOutReason(new URLSearchParams(window.location.search).get("reason"));
   }, []);
+  const sessionExpired = signedOutReason === "session_expired";
+  const signedOutForSafety = signedOutReason === "session_conflict" || sessionExpired;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSessionExpired(false);
+    setSignedOutReason(null);
     login(
       { email, password },
       {
@@ -78,13 +78,19 @@ export default function LoginPage() {
           <span aria-hidden="true" className="mt-4 h-[2px] w-8 bg-gold" />
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4">
-          {sessionExpired && !error ? (
+          {signedOutForSafety && !error ? (
             <p
               role="status"
               className="flex gap-2 rounded-md border border-rule bg-field p-3 text-xs text-ink-2"
             >
-              <Clock className="mt-px size-4 shrink-0" aria-hidden="true" />
-              {t("auth.sessionExpiredNotice")}
+              {sessionExpired ? (
+                <Clock className="mt-px size-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden="true" />
+              )}
+              {sessionExpired
+                ? t("auth.sessionExpiredNotice")
+                : t("auth.sessionConflictNotice")}
             </p>
           ) : null}
           {error ? (

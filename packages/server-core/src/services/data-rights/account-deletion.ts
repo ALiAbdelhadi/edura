@@ -5,6 +5,7 @@ import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/c
 import type { SessionUser } from "../../auth/types";
 import type { TenantTx } from "../../db/scope";
 import { assertDataRightsSubject } from "./data-export";
+import { parsePageLimit } from "../../validation/common";
 
 export type DeletionOriginValue = "self" | "guardian" | "center";
 
@@ -207,8 +208,7 @@ const ORIGINS = new Set(["self", "guardian", "center"]);
 export function listDeletionQueue(actor: SessionUser, filters: DeletionQueueFilters) {
   if (actor.role !== "super_admin") throw new ForbiddenError();
 
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "25", 10) || 25));
+  const { page, limit } = parsePageLimit(filters, 25);
 
   return platformDb(async (tx) => {
     const where = {

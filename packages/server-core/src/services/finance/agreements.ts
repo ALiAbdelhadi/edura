@@ -1,5 +1,8 @@
 import { platformDb, scopedDb, type TenantTx } from "../../db/scope";
-import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
+import { BusinessRuleError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/classes";
+import { isUniqueViolation } from "../../errors/prisma";
+import { AGREEMENT_ONE_ACTIVE_PER_PAIR, AGREEMENT_ONE_PROPOSED_PER_PAIR } from "../../db/unique-indexes";
+import type { Prisma } from "@repo/database";
 import type { SessionUser } from "../../auth/types";
 
 export type ResolvedAgreement = {
@@ -80,19 +83,30 @@ export async function proposeAgreement(input: AgreementProposalInput, user: Sess
       throw new BusinessRuleError("A proposal for this teacher is already awaiting approval");
     }
 
-    const created = await tx.teacherAgreement.create({
-      data: {
-        centerId,
-        teacherId: input.teacherId,
-        basis: input.basis,
-        rateBp: input.basis === "percent_of_net" ? input.rateBp : null,
-        rateFlat: input.basis === "fixed_per_student" ? input.rateFlat : null,
-        residual: input.residual ?? "teacher",
-        status: "proposed",
-        proposedBy: user.id,
-        note: input.note ?? null,
-      },
-    });
+    const created = await tx.teacherAgreement
+      .create({
+        data: {
+          centerId,
+          teacherId: input.teacherId,
+          basis: input.basis,
+          rateBp: input.basis === "percent_of_net" ? input.rateBp : null,
+          rateFlat: input.basis === "fixed_per_student" ? input.rateFlat : null,
+          residual: input.residual ?? "teacher",
+          status: "proposed",
+          proposedBy: user.id,
+          note: input.note ?? null,
+        },
+      })
+      .catch((err: unknown) => {
+        // The findFirst above is advisory; the partial unique
+        // teacher_agreements_one_proposed_per_pair is the real guard under a
+        // concurrent double-submit (C-5). Same class and message as the
+        // sequential check, so the client shows one string for both orderings.
+        if (isUniqueViolation(err, AGREEMENT_ONE_PROPOSED_PER_PAIR)) {
+          throw new BusinessRuleError("A proposal for this teacher is already awaiting approval");
+        }
+        throw err;
+      });
 
     const noRoomCourses = await tx.course.count({
       where: {
@@ -125,6 +139,30 @@ export async function listCenterAgreements(user: SessionUser, teacherId?: string
   );
 }
 
+/**
+ * Moves one agreement row out of `from` and into whatever `data` says, and
+ * reports whether THIS caller is the one that moved it.
+ *
+ * Every decide below used to be read-check-update: two concurrent requests both
+ * read `proposed`, both passed the check, and both ran the update -- so the
+ * second silently overwrote the first's `approvedBy` and the row recorded the
+ * wrong deciding admin. Making the status the update's own WHERE clause means
+ * exactly one of them writes; the loser sees `count === 0` and is told the
+ * transition is no longer available.
+ */
+async function transitionAgreement(
+  tx: TenantTx,
+  agreementId: string,
+  from: Prisma.TeacherAgreementWhereInput["status"],
+  data: Prisma.TeacherAgreementUpdateManyMutationInput,
+): Promise<boolean> {
+  const moved = await tx.teacherAgreement.updateMany({
+    where: { id: agreementId, status: from },
+    data,
+  });
+  return moved.count > 0;
+}
+
 export async function approveAgreementTx(
   tx: TenantTx,
   proposalId: string,
@@ -150,10 +188,27 @@ export async function approveAgreementTx(
       data: { status: "ended", endedAt: effectiveFrom },
     });
   }
-  return tx.teacherAgreement.update({
-    where: { id: proposal.id },
-    data: { status: "active", approvedBy, effectiveFrom },
+
+  const won = await transitionAgreement(tx, proposal.id, "proposed", {
+    status: "active",
+    approvedBy,
+    effectiveFrom,
+  }).catch((err: unknown) => {
+    // The partial unique `teacher_agreements_one_active_per_pair` is what
+    // actually enforces "one live rate per pair" -- Prisma cannot express it,
+    // so the check above is advisory and this is the real guard. Left unmapped
+    // it surfaced as a bare 409 "a record with these unique values already
+    // exists", which tells an admin nothing about what to do next.
+    if (isUniqueViolation(err, AGREEMENT_ONE_ACTIVE_PER_PAIR)) {
+      throw new ConflictError(
+        "Another agreement for this teacher was activated at the same time; reload and try again",
+      );
+    }
+    throw err;
   });
+  if (!won) throw new BusinessRuleError("Only a pending proposal can be approved");
+
+  return tx.teacherAgreement.findUniqueOrThrow({ where: { id: proposal.id } });
 }
 
 export async function rejectAgreementTx(tx: TenantTx, proposalId: string, rejectedBy: string) {
@@ -162,20 +217,24 @@ export async function rejectAgreementTx(tx: TenantTx, proposalId: string, reject
   if (proposal.status !== "proposed") {
     throw new BusinessRuleError("Only a pending proposal can be rejected");
   }
-  return tx.teacherAgreement.update({
-    where: { id: proposal.id },
-    data: { status: "rejected", approvedBy: rejectedBy },
+  const won = await transitionAgreement(tx, proposal.id, "proposed", {
+    status: "rejected",
+    approvedBy: rejectedBy,
   });
+  if (!won) throw new BusinessRuleError("Only a pending proposal can be rejected");
+  return tx.teacherAgreement.findUniqueOrThrow({ where: { id: proposal.id } });
 }
 
 export async function terminateAgreementTx(tx: TenantTx, agreementId: string) {
   const row = await tx.teacherAgreement.findUnique({ where: { id: agreementId } });
   if (!row) throw new NotFoundError("Agreement not found");
   if (row.status !== "active") throw new BusinessRuleError("Only an active agreement can be ended");
-  return tx.teacherAgreement.update({
-    where: { id: agreementId },
-    data: { status: "ended", endedAt: new Date() },
+  const won = await transitionAgreement(tx, agreementId, "active", {
+    status: "ended",
+    endedAt: new Date(),
   });
+  if (!won) throw new BusinessRuleError("Only an active agreement can be ended");
+  return tx.teacherAgreement.findUniqueOrThrow({ where: { id: agreementId } });
 }
 
 export function listAgreementProposals(filters: { status?: string } = {}) {

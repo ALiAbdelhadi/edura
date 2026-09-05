@@ -1,4 +1,5 @@
 import { scopedDb } from "../../db/scope";
+import type { TenantTx } from "../../db/scope";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 import { requireCenterScope } from "../../authz/center-scope";
 import type { SessionUser } from "../../auth/types";
@@ -31,7 +32,11 @@ export async function listDeletionRequests(
 }
 
 export async function approveDeletionRequest(acting: SessionUser, id: string) {
-  return scopedDb(acting, async (tx) => {
+  return scopedDb(acting, (tx) => approveDeletionRequestTx(tx, acting, id));
+}
+
+export async function approveDeletionRequestTx(tx: TenantTx, acting: SessionUser, id: string) {
+  return (async () => {
     const existing = await tx.deletionRequest.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Deletion request not found");
     requireCenterScope(acting, existing.centerId);
@@ -50,7 +55,7 @@ export async function approveDeletionRequest(acting: SessionUser, id: string) {
     });
 
     return updated;
-  });
+  })();
 }
 
 export async function rejectDeletionRequest(
@@ -58,7 +63,16 @@ export async function rejectDeletionRequest(
   id: string,
   note?: string,
 ) {
-  return scopedDb(acting, async (tx) => {
+  return scopedDb(acting, (tx) => rejectDeletionRequestTx(tx, acting, id, note));
+}
+
+export async function rejectDeletionRequestTx(
+  tx: TenantTx,
+  acting: SessionUser,
+  id: string,
+  note?: string,
+) {
+  return (async () => {
     const existing = await tx.deletionRequest.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError("Deletion request not found");
     requireCenterScope(acting, existing.centerId);
@@ -75,5 +89,5 @@ export async function rejectDeletionRequest(
         ...(note ? { reviewNote: note } : {}),
       },
     });
-  });
+  })();
 }

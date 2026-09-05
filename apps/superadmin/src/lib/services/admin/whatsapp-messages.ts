@@ -1,6 +1,7 @@
 import { platformDb } from "@/lib/db/scope";
 import { narrowQuery } from "@repo/database/search-text";
 import { NotFoundError } from "@/lib/errors/classes";
+import { parsePageLimit } from "@/lib/validation/common";
 
 // What the list renders, and nothing else. `params` carries the child's name and
 // student code and `providerResponse` the provider's payload; both belong to the one
@@ -23,8 +24,7 @@ export function listWhatsAppMessages(filters: {
   page?: string;
   limit?: string;
 }) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(filters.limit ?? "20", 10) || 20));
+  const { page, limit } = parsePageLimit(filters, 20);
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.status) where.status = filters.status;

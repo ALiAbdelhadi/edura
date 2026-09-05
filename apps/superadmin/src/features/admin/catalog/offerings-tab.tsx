@@ -24,12 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { toast } from "@repo/ui/components/sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { useQueryStrings } from "@repo/ui/components/query-section";
+import { Plus, RefreshCcw, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import type { GradeRow, OfferingRow, SubjectRow } from "./types";
-import { useCatalogMutation } from "./use-catalog-mutation";
+import { useAction } from "@/lib/api/use-action";
 
 const ALL = "__all__";
 
@@ -40,7 +40,8 @@ function asArray<T>(v: unknown): T[] {
 
 export function OfferingsTab() {
   const t = useTranslations();
-  const { mutate, busy } = useCatalogMutation();
+  const queryStrings = useQueryStrings();
+  const { run, busy, busyKey } = useAction();
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
   const [gradeFilter, setGradeFilter] = useState<string>(ALL);
   const [addOpen, setAddOpen] = useState(false);
@@ -70,13 +71,16 @@ export function OfferingsTab() {
 
   async function submitAdd() {
     if (!draft.subjectId || !draft.gradeLevelId) return;
-    const okRes = await mutate("admin/catalog/offerings", "POST", {
-      subjectId: draft.subjectId,
-      gradeLevelId: draft.gradeLevelId,
-      trackId: draft.trackId && draft.trackId !== ALL ? draft.trackId : null,
+    const res = await run({
+      url: "admin/catalog/offerings",
+      values: {
+        subjectId: draft.subjectId,
+        gradeLevelId: draft.gradeLevelId,
+        trackId: draft.trackId && draft.trackId !== ALL ? draft.trackId : null,
+      },
+      successMsg: t("catalog.toasts.created"),
     });
-    if (okRes) {
-      toast.success(t("catalog.toasts.created"));
+    if (res.ok) {
       setAddOpen(false);
       setDraft({});
       void offeringsQ.query.refetch();
@@ -84,19 +88,25 @@ export function OfferingsTab() {
   }
 
   async function toggleActive(row: OfferingRow) {
-    const okRes = await mutate(`admin/catalog/offerings/${row.id}`, "PATCH", { isActive: !row.isActive });
-    if (okRes) {
-      toast.success(t("catalog.toasts.updated"));
-      void offeringsQ.query.refetch();
-    }
+    const res = await run({
+      url: `admin/catalog/offerings/${row.id}`,
+      method: "patch",
+      values: { isActive: !row.isActive },
+      successMsg: t("catalog.toasts.updated"),
+    });
+    if (res.ok) void offeringsQ.query.refetch();
   }
 
   async function remove(row: OfferingRow) {
-    const okRes = await mutate(`admin/catalog/offerings/${row.id}`, "DELETE");
-    if (okRes) {
-      toast.success(t("catalog.toasts.deleted"));
-      void offeringsQ.query.refetch();
-    }
+    const res = await run({
+      url: `admin/catalog/offerings/${row.id}`,
+      method: "delete",
+      successMsg: t("catalog.toasts.deleted"),
+    });
+    // run() has already toasted the failure; REJECTING is what keeps the
+    // confirm dialog open on the row that failed instead of closing over it.
+    if (!res.ok) throw res.error;
+    void offeringsQ.query.refetch();
   }
 
   const columns: ColumnDef<OfferingRow, unknown>[] = [
@@ -135,7 +145,11 @@ export function OfferingsTab() {
       accessorKey: "isActive",
       header: t("catalog.fields.isActive"),
       cell: ({ row }) => (
-        <button type="button" onClick={() => void toggleActive(row.original)} disabled={busy}>
+        <button
+          type="button"
+          onClick={() => void toggleActive(row.original)}
+          disabled={busyKey === row.original.id}
+        >
           {row.original.isActive ? (
             <StatusBadge tone="success">{t("status.active")}</StatusBadge>
           ) : (
@@ -158,7 +172,7 @@ export function OfferingsTab() {
           description={t("catalog.offerings.deleteBody")}
           confirmText={t("actions.delete")}
           cancelText={t("actions.cancel")}
-          onConfirm={() => void remove(row.original)}
+          onConfirm={() => remove(row.original)}
         />
       ),
     },
@@ -168,7 +182,7 @@ export function OfferingsTab() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-56" aria-label={t("catalog.offerings.filterSubject")}>
             <SelectValue placeholder={t("catalog.offerings.filterSubject")} />
           </SelectTrigger>
           <SelectContent>
@@ -181,7 +195,7 @@ export function OfferingsTab() {
           </SelectContent>
         </Select>
         <Select value={gradeFilter} onValueChange={setGradeFilter}>
-          <SelectTrigger className="w-64">
+          <SelectTrigger className="w-64" aria-label={t("catalog.offerings.filterGrade")}>
             <SelectValue placeholder={t("catalog.offerings.filterGrade")} />
           </SelectTrigger>
           <SelectContent>
@@ -203,6 +217,26 @@ export function OfferingsTab() {
 
       {offeringsQ.query.isLoading ? (
         <TableSkeleton rows={6} />
+      ) : offeringsQ.query.isError ? (
+        (() => {
+          const denied =
+            (offeringsQ.query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={denied ? queryStrings.denied : queryStrings.loadFailed}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => void offeringsQ.query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {queryStrings.retry}
+                  </Button>
+                )
+              }
+            />
+          );
+        })()
       ) : offerings.length === 0 ? (
         <EmptyState title={t("common.noData")} description={t("catalog.offerings.emptyHint")} />
       ) : (
@@ -216,12 +250,12 @@ export function OfferingsTab() {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-1.5">
-              <Label>{t("catalog.offerings.subject")}</Label>
+              <Label htmlFor="offering-subject">{t("catalog.offerings.subject")}</Label>
               <Select
                 value={draft.subjectId ?? ""}
                 onValueChange={(v) => setDraft((d) => ({ ...d, subjectId: v }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="offering-subject">
                   <SelectValue placeholder={t("catalog.offerings.subject")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,12 +268,12 @@ export function OfferingsTab() {
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>{t("catalog.offerings.gradeLevel")}</Label>
+              <Label htmlFor="offering-grade">{t("catalog.offerings.gradeLevel")}</Label>
               <Select
                 value={draft.gradeLevelId ?? ""}
                 onValueChange={(v) => setDraft((d) => ({ ...d, gradeLevelId: v, trackId: ALL }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="offering-grade">
                   <SelectValue placeholder={t("catalog.offerings.gradeLevel")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -252,12 +286,12 @@ export function OfferingsTab() {
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>{t("catalog.offerings.track")}</Label>
+              <Label htmlFor="offering-track">{t("catalog.offerings.track")}</Label>
               <Select
                 value={draft.trackId ?? ALL}
                 onValueChange={(v) => setDraft((d) => ({ ...d, trackId: v }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="offering-track">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

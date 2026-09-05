@@ -1,19 +1,20 @@
 "use client";
 
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
+import { EmptyState } from "@/components/kit/empty-state";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
-import { toast } from "@repo/ui/components/sonner";
-import { Pencil, Plus } from "lucide-react";
+import { useQueryStrings } from "@repo/ui/components/query-section";
+import { BookOpen, Pencil, Plus, RefreshCcw, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { EntityDialog, type FieldSpec, type FieldValue } from "./entity-dialog";
 import type { SubjectRow } from "./types";
-import { useCatalogMutation } from "./use-catalog-mutation";
+import { useAction } from "@/lib/api/use-action";
 
 
 function asArray<T>(v: unknown): T[] {
@@ -22,7 +23,8 @@ function asArray<T>(v: unknown): T[] {
 
 export function SubjectsTab() {
   const t = useTranslations();
-  const { mutate, busy } = useCatalogMutation();
+  const queryStrings = useQueryStrings();
+  const { run, busy } = useAction();
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<{ row?: SubjectRow } | null>(null);
 
@@ -63,16 +65,18 @@ export function SubjectsTab() {
     const payload: Record<string, unknown> = { ...values };
     if (payload.nameEn === "") delete payload.nameEn;
     if (row) delete payload.code;
-    const okRes = await mutate(
-      row ? `admin/catalog/subjects/${row.id}` : "admin/catalog/subjects",
-      row ? "PATCH" : "POST",
-      payload,
-    );
-    if (okRes) {
-      toast.success(row ? t("catalog.toasts.updated") : t("catalog.toasts.created"));
+    const res = await run({
+      url: row ? `admin/catalog/subjects/${row.id}` : "admin/catalog/subjects",
+      method: row ? "patch" : "post",
+      values: payload,
+      successMsg: row ? t("catalog.toasts.updated") : t("catalog.toasts.created"),
+    });
+    if (res.ok) {
       setDialog(null);
       void subjectsQ.query.refetch();
     }
+    // Returned so the dialog can put a 422's `fields` on the offending input.
+    return res;
   }
 
   const columns: ColumnDef<SubjectRow, unknown>[] = [
@@ -136,6 +140,7 @@ export function SubjectsTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("catalog.subjects.searchPlaceholder")}
+          aria-label={t("catalog.subjects.searchPlaceholder")}
           className="max-w-xs"
         />
         <Button onClick={() => setDialog({})}>
@@ -146,8 +151,39 @@ export function SubjectsTab() {
 
       {subjectsQ.query.isLoading ? (
         <TableSkeleton rows={6} />
+      ) : subjectsQ.query.isError ? (
+        (() => {
+          const denied =
+            (subjectsQ.query.error as { statusCode?: number } | null)?.statusCode === 403;
+          return (
+            <EmptyState
+              tone={denied ? "denied" : "error"}
+              icon={TriangleAlert}
+              title={denied ? queryStrings.denied : queryStrings.loadFailed}
+              action={
+                denied ? undefined : (
+                  <Button variant="outline" onClick={() => void subjectsQ.query.refetch()}>
+                    <RefreshCcw className="size-4" aria-hidden="true" />
+                    {queryStrings.retry}
+                  </Button>
+                )
+              }
+            />
+          );
+        })()
       ) : (
-        <DataTable columns={columns} data={filtered} />
+        <DataTable
+          columns={columns}
+          data={filtered}
+          emptyState={
+            <EmptyState
+              tone="empty"
+              icon={BookOpen}
+              title={t("catalog.subjects.empty")}
+              description={t("catalog.subjects.emptyHint")}
+            />
+          }
+        />
       )}
 
       {dialog ? (

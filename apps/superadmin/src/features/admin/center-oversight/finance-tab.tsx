@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useState } from "react";
 import { Lock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -16,6 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
@@ -23,7 +30,7 @@ import type { Locale } from "@repo/ui/lib/format";
 
 import { PageSpinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
-import { useOversight, type Paged } from "./use-oversight";
+import { useAdminGet, useOversight, type Paged } from "./use-oversight";
 import { MoneyActions, ExpensesCard } from "./money-actions";
 
 type Summary = {
@@ -76,6 +83,17 @@ export function FinanceTab({ centerId }: { centerId: string }) {
     centerId,
     "wallet",
     { enabled: sub === "wallet", query: { limit: "100" } },
+  );
+  const statement = useOversight<Record<string, unknown>>(centerId, "statement", {
+    enabled: sub === "statement",
+  });
+
+  // The one payment an operator opens, fetched then -- the list carries no
+  // allocation detail and shipping it with every row would be waste.
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const paymentQ = useAdminGet<Record<string, unknown>>(
+    `admin/centers/${centerId}/money/payments/${paymentId ?? ""}`,
+    { enabled: !!paymentId },
   );
 
   const s = summary.data;
@@ -243,6 +261,7 @@ export function FinanceTab({ centerId }: { centerId: string }) {
                   ["invoices", "tabInvoices"],
                   ["expenses", "tabExpenses"],
                   ["wallet", "tabWallet"],
+                  ["statement", "tabStatement"],
                 ] as const
               ).map(([v, k]) => (
                 <TabsTrigger key={v} value={v}>
@@ -277,6 +296,8 @@ export function FinanceTab({ centerId }: { centerId: string }) {
                 loading={payments.isLoading}
                 failed={payments.isError}
                 onRetry={payments.refetch}
+                onRowClick={(r) => setPaymentId(String(r.id ?? ""))}
+                rowLabel={(r) => String(r.receiptNumber ?? r.id ?? "")}
                 rows={payments.data?.data ?? []}
                 total={payments.data?.total ?? 0}
                 columns={[
@@ -355,6 +376,37 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               <ExpensesCard centerId={centerId} />
             </TabsContent>
 
+            <TabsContent value="statement">
+              {statement.isLoading ? (
+                <PageSpinner />
+              ) : statement.isError ? (
+                <LoadError
+                  message={queryStrings.loadFailed}
+                  onRetry={() => statement.refetch()}
+                  retryLabel={queryStrings.retry}
+                />
+              ) : (
+                <dl className="grid gap-1.5 rounded-[10px] border border-rule bg-field p-4 text-[13px]">
+                  {Object.entries(statement.data ?? {}).map(([k, v]) => (
+                    <div key={k} className="flex items-baseline justify-between gap-3">
+                      <dt className="shrink-0 text-ink-2">{k}</dt>
+                      <dd className="min-w-0 truncate text-end text-ink" dir="ltr">
+                        {typeof v === "number" ? (
+                          <Num.Money piasters={v} locale={locale} sign={false} />
+                        ) : v === null || v === undefined ? (
+                          "—"
+                        ) : typeof v === "object" ? (
+                          JSON.stringify(v)
+                        ) : (
+                          String(v)
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </TabsContent>
+
             <TabsContent value="wallet">
               <p className="mb-2 text-xs text-ink-3">{t("walletScopeNote")}</p>
               <LedgerTable
@@ -375,6 +427,38 @@ export function FinanceTab({ centerId }: { centerId: string }) {
               />
             </TabsContent>
           </Tabs>
+
+          <Dialog open={!!paymentId} onOpenChange={(o) => !o && setPaymentId(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>{t("paymentDetailTitle")}</DialogTitle>
+              </DialogHeader>
+              {paymentQ.isLoading ? (
+                <PageSpinner />
+              ) : paymentQ.isError ? (
+                <LoadError
+                  message={queryStrings.loadFailed}
+                  onRetry={() => paymentQ.refetch()}
+                  retryLabel={queryStrings.retry}
+                />
+              ) : (
+                <dl className="grid gap-1.5 rounded-[10px] border border-rule bg-field p-4 text-[13px]">
+                  {Object.entries(paymentQ.data ?? {}).map(([k, v]) => (
+                    <div key={k} className="flex items-baseline justify-between gap-3">
+                      <dt className="shrink-0 text-ink-2">{k}</dt>
+                      <dd className="min-w-0 truncate text-end text-ink" dir="ltr">
+                        {v === null || v === undefined
+                          ? "—"
+                          : typeof v === "object"
+                            ? JSON.stringify(v)
+                            : String(v)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
@@ -398,6 +482,8 @@ function LedgerTable({
   rows,
   total,
   columns,
+  onRowClick,
+  rowLabel,
 }: {
   locale: Locale;
   loading: boolean;
@@ -406,6 +492,8 @@ function LedgerTable({
   rows: Record<string, unknown>[];
   total: number;
   columns: Col[];
+  onRowClick?: (row: Record<string, unknown>) => void;
+  rowLabel?: (row: Record<string, unknown>) => string;
 }) {
   const t = useTranslations("oversight");
   const queryStrings = useQueryStrings();
@@ -448,7 +536,26 @@ function LedgerTable({
           </TableHeader>
           <TableBody>
             {rows.map((r, i) => (
-              <TableRow key={(r.id as string) ?? i} className="border-rule-2">
+              <TableRow
+                key={(r.id as string) ?? i}
+                className={
+                  onRowClick ? "focus-ledger cursor-pointer border-rule-2" : "border-rule-2"
+                }
+                {...(onRowClick
+                  ? {
+                      role: "button" as const,
+                      tabIndex: 0,
+                      "aria-label": rowLabel?.(r),
+                      onClick: () => onRowClick(r),
+                      onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        if (e.target !== e.currentTarget) return;
+                        e.preventDefault();
+                        onRowClick(r);
+                      },
+                    }
+                  : {})}
+              >
                 {columns.map((c) => {
                   const v = r[c.key];
                   return (

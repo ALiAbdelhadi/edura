@@ -1,66 +1,36 @@
-import { platformDb } from "@/lib/db/scope";
+import { platformDb, scopedDb } from "@/lib/db/scope";
+import { runEffects } from "@repo/server-core/db/effects";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
 import type { SessionUser } from "@/lib/auth/session";
+import { recordAdminAudit, type AdminAuditSpec } from "@/lib/services/admin/admin-audit";
 import { superadminAsCenter } from "@/lib/authz/center-actor";
 import {
   getSessionAttendance,
-  bulkMarkAttendance,
-  editAttendance,
+  bulkMarkAttendanceTx,
+  editAttendanceTx,
 } from "@repo/server-core/services/attendance/attendance";
 import {
-  lookupStudents,
-  suggestSessions,
-  counterCheckin,
-} from "@repo/server-core/services/attendance/checkin";
-import {
-  cancelSession,
-  postponeSession,
+  cancelSessionTx,
+  postponeSessionTx,
 } from "@repo/server-core/services/session-actions/session-actions";
-import { completeSession } from "@repo/server-core/services/finance/distribution";
+import { completeSessionTx } from "@repo/server-core/services/finance/distribution";
 import { resolveLessonPrice } from "@repo/server-core/services/finance/fees";
-import { registerWalkIn, resendWalkIn } from "@repo/server-core/services/walk-in/walk-in";
-import {
-  createTempStudent,
-  sendTempStudentInvite,
-} from "@repo/server-core/services/temp-students/temp-students";
 import {
   listDeletionRequests,
-  approveDeletionRequest,
-  rejectDeletionRequest,
+  approveDeletionRequestTx,
+  rejectDeletionRequestTx,
 } from "@repo/server-core/services/center/deletion-requests";
 import {
   listCenterBlacklist,
-  centerBlacklistStudent,
-  removeBlacklistEntry,
+  centerBlacklistStudentTx,
+  removeBlacklistEntryTx,
 } from "@/lib/services/blacklist/blacklist";
 import { notify } from "@/lib/services/notifications/notify";
 import { resolveCourseStudentsAndParents } from "@repo/server-core/services/notifications/fanout";
 
-type AuditSpec = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  before?: unknown;
-  after?: unknown;
-};
-
-async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: spec.action,
-          targetType: spec.targetType,
-          targetId: spec.targetId,
-          centerId,
-          beforeState: (spec.before ?? undefined) as never,
-          afterState: (spec.after ?? undefined) as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
+function audit(actor: SessionUser, centerId: string, spec: AdminAuditSpec) {
+  return recordAdminAudit(actor, { ...spec, centerId });
 }
 
 async function sessionInCenter(centerId: string, sessionId: string) {
@@ -95,52 +65,55 @@ export async function adminEditAttendance(
   attendanceId: string,
   newStatus: "present" | "absent" | "excused",
 ) {
-  const before = await platformDb((tx) =>
-    tx.attendanceRecord.findUnique({
+  const { acting } = await superadminAsCenter(actor, centerId);
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const before = await tx.attendanceRecord.findUnique({
       where: { id: attendanceId },
       select: { id: true, status: true, sessionId: true, studentId: true, centerId: true },
-    }),
-  );
-  if (!before) throw new NotFoundError("Attendance record not found");
-  if (before.centerId !== centerId) {
-    throw new ForbiddenError("Attendance record belongs to a different center");
-  }
+    });
+    if (!before) throw new NotFoundError("Attendance record not found");
+    if (before.centerId !== centerId) {
+      throw new ForbiddenError("Attendance record belongs to a different center");
+    }
 
-  const result = await editAttendance(attendanceId, newStatus, actor.id, centerId, {
-    overrideSettledLock: true,
-  });
+    const outcome = await editAttendanceTx(tx, attendanceId, newStatus, actor.id, centerId, {
+      overrideSettledLock: true,
+    });
 
-  const settlement = await platformDb((tx) =>
-    tx.sessionSettlement.findUnique({
+    const settlement = await tx.sessionSettlement.findUnique({
       where: { sessionId: before.sessionId },
       select: { id: true, presentCount: true },
-    }),
-  );
-  let divergence: Record<string, unknown> | null = null;
-  if (settlement) {
-    const presentNow = await platformDb((tx) =>
-      tx.attendanceRecord.count({
+    });
+    let divergence: Record<string, unknown> | null = null;
+    if (settlement) {
+      const presentNow = await tx.attendanceRecord.count({
         where: { sessionId: before.sessionId, status: "present" },
-      }),
-    );
-    divergence = {
-      settlementId: settlement.id,
-      settledPresentCount: settlement.presentCount,
-      presentCountNow: presentNow,
-      diverged: presentNow !== settlement.presentCount,
-      settlementRecomputed: false,
+      });
+      divergence = {
+        settlementId: settlement.id,
+        settledPresentCount: settlement.presentCount,
+        presentCountNow: presentNow,
+        diverged: presentNow !== settlement.presentCount,
+        settlementRecomputed: false,
+      };
+    }
+
+    await writeAdminAudit(tx, actor, {
+      action: "center.attendance_corrected",
+      targetType: "attendance_record",
+      targetId: attendanceId,
+      centerId,
+      before: { status: before.status, sessionId: before.sessionId, studentId: before.studentId },
+      after: { status: newStatus, settlementDivergence: divergence },
+    });
+
+    return {
+      value: { ...outcome.value, settlementDivergence: divergence },
+      effects: outcome.effects,
     };
-  }
-
-  await audit(actor, centerId, {
-    action: "center.attendance_corrected",
-    targetType: "attendance_record",
-    targetId: attendanceId,
-    before: { status: before.status, sessionId: before.sessionId, studentId: before.studentId },
-    after: { status: newStatus, settlementDivergence: divergence },
   });
-
-  return { ...result, settlementDivergence: divergence };
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminBulkAttendance(
@@ -150,26 +123,33 @@ export async function adminBulkAttendance(
   entries: { studentId: string; status: string; notes?: string }[],
 ) {
   await sessionInCenter(centerId, sessionId);
-  const before = await platformDb((tx) =>
-    tx.attendanceRecord.count({ where: { sessionId, status: "present" } }),
-  );
-  const result = await bulkMarkAttendance(
-    sessionId,
-    entries as never,
-    actor.id,
-    centerId,
-  );
-  const after = await platformDb((tx) =>
-    tx.attendanceRecord.count({ where: { sessionId, status: "present" } }),
-  );
-  await audit(actor, centerId, {
-    action: "center.attendance_bulk_marked",
-    targetType: "session",
-    targetId: sessionId,
-    before: { presentCount: before },
-    after: { presentCount: after, entries: entries.length },
+  const { acting } = await superadminAsCenter(actor, centerId);
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const before = await tx.attendanceRecord.count({
+      where: { sessionId, status: "present" },
+    });
+    const outcome = await bulkMarkAttendanceTx(
+      tx,
+      sessionId,
+      entries as never,
+      actor.id,
+      centerId,
+    );
+    const after = await tx.attendanceRecord.count({
+      where: { sessionId, status: "present" },
+    });
+    await writeAdminAudit(tx, actor, {
+      action: "center.attendance_bulk_marked",
+      targetType: "session",
+      targetId: sessionId,
+      centerId,
+      before: { presentCount: before },
+      after: { presentCount: after, entries: entries.length },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminCancelSession(
@@ -184,15 +164,23 @@ export async function adminCancelSession(
       "This session has already been settled — its revenue is distributed and it cannot be cancelled",
     );
   }
-  const result = await cancelSession(sessionId, session.teacherId, reason);
-  await audit(actor, centerId, {
-    action: "center.session_cancelled",
-    targetType: "session",
-    targetId: sessionId,
-    before: { status: session.status, date: session.date },
-    after: { status: "cancelled", reason, settledBefore: false },
-  });
-  return result;
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await cancelSessionTx(tx, sessionId, session.teacherId, reason);
+      await writeAdminAudit(tx, actor, {
+        action: "center.session_cancelled",
+        targetType: "session",
+        targetId: sessionId,
+        centerId,
+        before: { status: session.status, date: session.date },
+        after: { status: "cancelled", reason, settledBefore: false },
+      });
+      return outcome;
+    },
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminPostponeSession(
@@ -207,28 +195,37 @@ export async function adminPostponeSession(
       "This session has already been settled — it cannot be moved",
     );
   }
-  const result = await postponeSession(
-    sessionId,
-    session.teacherId,
-    input.newDate,
-    input.newStartTime,
-    input.newEndTime,
-    input.reason,
-  );
-  await audit(actor, centerId, {
-    action: "center.session_postponed",
-    targetType: "session",
-    targetId: sessionId,
-    before: { date: session.date, startTime: session.startTime, endTime: session.endTime },
-    after: {
-      date: input.newDate,
-      startTime: input.newStartTime,
-      endTime: input.newEndTime,
-      reason: input.reason,
-      settledBefore: false,
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await postponeSessionTx(
+        tx,
+        sessionId,
+        session.teacherId,
+        input.newDate,
+        input.newStartTime,
+        input.newEndTime,
+        input.reason,
+      );
+      await writeAdminAudit(tx, actor, {
+        action: "center.session_postponed",
+        targetType: "session",
+        targetId: sessionId,
+        centerId,
+        before: { date: session.date, startTime: session.startTime, endTime: session.endTime },
+        after: {
+          date: input.newDate,
+          startTime: input.newStartTime,
+          endTime: input.newEndTime,
+          reason: input.reason,
+          settledBefore: false,
+        },
+      });
+      return outcome;
     },
-  });
-  return result;
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminSettlementPreview(
@@ -285,141 +282,38 @@ export async function adminCompleteSession(
   }
   const preview = await adminSettlementPreview(actor, centerId, sessionId);
 
-  const result = await completeSession(sessionId, acting);
+  return platformDb(
+    async (tx) => {
+      const result = await completeSessionTx(tx, sessionId, acting);
 
-  const settled = await platformDb(async (tx) => {
-    const s = await tx.sessionSettlement.findUnique({ where: { sessionId } });
-    const txns = await tx.transaction.findMany({
-      where: { lessonId: sessionId },
-      select: { refNumber: true, type: true, amount: true },
-      orderBy: { createdAt: "asc" },
-    });
-    return { settlement: s, ledger: txns };
-  });
+      const settlement = await tx.sessionSettlement.findUnique({ where: { sessionId } });
+      const ledger = await tx.transaction.findMany({
+        where: { lessonId: sessionId },
+        select: { refNumber: true, type: true, amount: true },
+        orderBy: { createdAt: "asc" },
+      });
 
-  await audit(actor, centerId, {
-    action: "center.session_completed",
-    targetType: "session",
-    targetId: sessionId,
-    before: { status: session.status, distributedAt: null, preview },
-    after: {
-      status: "completed",
-      presentCount: settled.settlement?.presentCount ?? preview.presentCount,
-      platformTotal: settled.settlement?.platformTotal ?? null,
-      centerTotal: settled.settlement?.centerTotal ?? null,
-      teacherTotal: settled.settlement?.teacherTotal ?? null,
-      ledgerRows: settled.ledger,
-      viaSanctionedFlow: "distributeSessionRevenue",
+      await writeAdminAudit(tx, actor, {
+        action: "center.session_completed",
+        targetType: "session",
+        targetId: sessionId,
+        centerId,
+        before: { status: session.status, distributedAt: null, preview },
+        after: {
+          status: "completed",
+          presentCount: settlement?.presentCount ?? preview.presentCount,
+          platformTotal: settlement?.platformTotal ?? null,
+          centerTotal: settlement?.centerTotal ?? null,
+          teacherTotal: settlement?.teacherTotal ?? null,
+          ledgerRows: ledger,
+          viaSanctionedFlow: "distributeSessionRevenue",
+        },
+      });
+
+      return { ...result, settlement, ledger };
     },
-  });
-
-  return { ...result, settlement: settled.settlement, ledger: settled.ledger };
-}
-
-export async function adminLookupStudents(actor: SessionUser, centerId: string, q: string) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  return lookupStudents(q, acting);
-}
-
-export async function adminSuggestSessions(
-  actor: SessionUser,
-  centerId: string,
-  studentId: string,
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  return suggestSessions(studentId, acting);
-}
-
-export async function adminCounterCheckin(
-  actor: SessionUser,
-  centerId: string,
-  input: { studentId: string; sessionId: string },
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await counterCheckin(input, acting);
-  await audit(actor, centerId, {
-    action: "center.counter_checkin",
-    targetType: "session",
-    targetId: input.sessionId,
-    before: null,
-    after: { studentId: input.studentId, result: result as never },
-  });
-  return result;
-}
-
-export async function adminRegisterWalkIn(
-  actor: SessionUser,
-  centerId: string,
-  input: {
-    fullName: string;
-    phone: string;
-    grade?: string;
-    locale?: "ar" | "en";
-    guardianEmail?: string;
-    guardianPhone?: string;
-  },
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await registerWalkIn(input, acting);
-  await audit(actor, centerId, {
-    action: "center.walk_in_registered",
-    targetType: "user",
-    targetId: (result as { studentId?: string }).studentId ?? centerId,
-    before: null,
-    after: { fullName: input.fullName, hasGuardianContact: !!(input.guardianEmail || input.guardianPhone) },
-  });
-  return result;
-}
-
-export async function adminResendWalkIn(
-  actor: SessionUser,
-  centerId: string,
-  studentId: string,
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await resendWalkIn(studentId as never, acting as never);
-  await audit(actor, centerId, {
-    action: "center.walk_in_resent",
-    targetType: "user",
-    targetId: studentId,
-    before: null,
-    after: { resent: true },
-  });
-  return result;
-}
-
-export async function adminCreateTempStudent(
-  actor: SessionUser,
-  centerId: string,
-  input: { fullName: string; phone?: string; grade?: string },
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await createTempStudent(input as never, acting as never);
-  await audit(actor, centerId, {
-    action: "center.temp_student_created",
-    targetType: "user",
-    targetId: (result as { id?: string }).id ?? centerId,
-    before: null,
-    after: { fullName: input.fullName },
-  });
-  return result;
-}
-
-export async function adminSendTempStudentInvite(
-  actor: SessionUser,
-  centerId: string,
-  tempUserId: string,
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await sendTempStudentInvite(tempUserId, acting);
-  await audit(actor, centerId, {
-    action: "center.temp_student_invited",
-    targetType: "user",
-    targetId: tempUserId,
-    before: null,
-    after: { invited: true },
-  });
-  return result;
+    { actorId: actor.id },
+  );
 }
 
 export async function adminListDeletionRequests(
@@ -439,34 +333,35 @@ export async function adminDecideDeletionRequest(
   note?: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.deletionRequest.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.deletionRequest.findUnique({
       where: { id: requestId },
       select: { id: true, status: true, userId: true, reason: true },
-    }),
-  );
-  const result =
-    decision === "approve"
-      ? await approveDeletionRequest(acting, requestId)
-      : await rejectDeletionRequest(acting, requestId, note);
-
-  await audit(actor, centerId, {
-    action:
+    });
+    const result =
       decision === "approve"
-        ? "center.deletion_request_approved"
-        : "center.deletion_request_rejected",
-    targetType: "deletion_request",
-    targetId: requestId,
-    before,
-    after: {
-      status: decision === "approve" ? "approved" : "rejected",
-      note: note ?? null,
-      ...(decision === "approve"
-        ? { userSoftDeleted: before?.userId ?? null, historyPreserved: true }
-        : {}),
-    },
+        ? await approveDeletionRequestTx(tx, acting, requestId)
+        : await rejectDeletionRequestTx(tx, acting, requestId, note);
+
+    await writeAdminAudit(tx, actor, {
+      action:
+        decision === "approve"
+          ? "center.deletion_request_approved"
+          : "center.deletion_request_rejected",
+      targetType: "deletion_request",
+      targetId: requestId,
+      centerId,
+      before,
+      after: {
+        status: decision === "approve" ? "approved" : "rejected",
+        note: note ?? null,
+        ...(decision === "approve"
+          ? { userSoftDeleted: before?.userId ?? null, historyPreserved: true }
+          : {}),
+      },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminBroadcast(
@@ -533,21 +428,34 @@ export async function adminAddCenterBlacklist(
   studentId: string,
   reason: string,
 ) {
-  const entry = await centerBlacklistStudent(studentId, reason, actor, centerId);
-  const journaled = await platformDb((tx) =>
-    tx.blacklistCascadeAction.findMany({
-      where: { entryId: entry.id },
-      select: { entityType: true, entityId: true, prevStatus: true },
-    }),
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await centerBlacklistStudentTx(tx, studentId, reason, actor, centerId);
+      const entry = outcome.value;
+      const journaled = await tx.blacklistCascadeAction.findMany({
+        where: { entryId: entry.id },
+        select: { entityType: true, entityId: true, prevStatus: true },
+      });
+      await writeAdminAudit(tx, actor, {
+        action: "center.blacklist_added",
+        targetType: "user",
+        targetId: studentId,
+        centerId,
+        before: { blacklisted: false },
+        after: {
+          blacklisted: true,
+          reason,
+          entryId: entry.id,
+          reversible: true,
+          cascadeJournal: journaled,
+        },
+      });
+      return outcome;
+    },
+    { actorId: actor.id },
   );
-  await audit(actor, centerId, {
-    action: "center.blacklist_added",
-    targetType: "user",
-    targetId: studentId,
-    before: { blacklisted: false },
-    after: { blacklisted: true, reason, entryId: entry.id, reversible: true, cascadeJournal: journaled },
-  });
-  return entry;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminLiftCenterBlacklist(
@@ -556,28 +464,32 @@ export async function adminLiftCenterBlacklist(
   entryId: string,
   reason?: string,
 ) {
-  const before = await platformDb((tx) =>
-    tx.blacklistEntry.findUnique({
-      where: { id: entryId },
-      select: { id: true, targetId: true, centerId: true, isActive: true },
-    }),
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const before = await tx.blacklistEntry.findUnique({
+        where: { id: entryId },
+        select: { id: true, targetId: true, centerId: true, isActive: true },
+      });
+      if (!before || before.centerId !== centerId) {
+        throw new NotFoundError("Blacklist entry not found at this center");
+      }
+      const outcome = await removeBlacklistEntryTx(tx, entryId, actor, reason);
+      const replayed = await tx.blacklistCascadeAction.findMany({
+        where: { entryId },
+        select: { entityType: true, entityId: true, reversal: true, reversedAt: true },
+      });
+      await writeAdminAudit(tx, actor, {
+        action: "center.blacklist_lifted",
+        targetType: "user",
+        targetId: before.targetId,
+        centerId,
+        before: { blacklisted: true, entryId },
+        after: { blacklisted: false, reason: reason ?? null, cascadeReplay: replayed },
+      });
+      return outcome;
+    },
+    { actorId: actor.id },
   );
-  if (!before || before.centerId !== centerId) {
-    throw new NotFoundError("Blacklist entry not found at this center");
-  }
-  const result = await removeBlacklistEntry(entryId, actor, reason);
-  const replayed = await platformDb((tx) =>
-    tx.blacklistCascadeAction.findMany({
-      where: { entryId },
-      select: { entityType: true, entityId: true, reversal: true, reversedAt: true },
-    }),
-  );
-  await audit(actor, centerId, {
-    action: "center.blacklist_lifted",
-    targetType: "user",
-    targetId: before.targetId,
-    before: { blacklisted: true, entryId },
-    after: { blacklisted: false, reason: reason ?? null, cascadeReplay: replayed },
-  });
-  return result;
+  await runEffects(effects);
+  return value;
 }

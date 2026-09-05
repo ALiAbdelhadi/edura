@@ -1,5 +1,6 @@
 import type { SessionUser } from "../../auth/types";
 import { scopedDb } from "../../db/scope";
+import type { TenantTx } from "@repo/database";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
 
 export const EXPENSE_CATEGORIES = [
@@ -28,18 +29,24 @@ export async function createExpense(
     throw new BusinessRuleError(`Invalid category. Must be one of: ${EXPENSE_CATEGORIES.join(", ")}`);
   }
 
-  return scopedDb(user, (tx) =>
-    tx.expense.create({
-      data: {
-        centerId: user.centerId as string,
-        amount: data.amount,
-        category: data.category as ExpenseCategory,
-        description: data.description ?? "",
-        recordedBy: user.id,
-        expenseDate: new Date(data.expenseDate),
-      },
-    }),
-  );
+  return scopedDb(user, (tx) => createExpenseTx(tx, data, user));
+}
+
+export function createExpenseTx(
+  tx: TenantTx,
+  data: { amount: number; category: string; description?: string; expenseDate: string },
+  user: SessionUser,
+) {
+  return tx.expense.create({
+    data: {
+      centerId: user.centerId as string,
+      amount: data.amount,
+      category: data.category as ExpenseCategory,
+      description: data.description ?? "",
+      recordedBy: user.id,
+      expenseDate: new Date(data.expenseDate),
+    },
+  });
 }
 
 export async function listExpenses(
@@ -66,7 +73,16 @@ export async function updateExpense(
   data: Partial<{ amount: number; category: string; description: string; expenseDate: string }>,
   user: SessionUser,
 ) {
-  return scopedDb(user, async (tx) => {
+  return scopedDb(user, (tx) => updateExpenseTx(tx, expenseId, data, user));
+}
+
+export async function updateExpenseTx(
+  tx: TenantTx,
+  expenseId: string,
+  data: Partial<{ amount: number; category: string; description: string; expenseDate: string }>,
+  user: SessionUser,
+) {
+  return (async () => {
     const expense = await tx.expense.findUnique({ where: { id: expenseId } });
     if (!expense) throw new NotFoundError("Expense not found");
     if (expense.centerId !== user.centerId) throw new ForbiddenError();
@@ -82,15 +98,17 @@ export async function updateExpense(
     if (data.expenseDate !== undefined) patch.expenseDate = new Date(data.expenseDate);
 
     return tx.expense.update({ where: { id: expenseId }, data: patch });
-  });
+  })();
 }
 
 export async function deleteExpense(expenseId: string, user: SessionUser) {
-  return scopedDb(user, async (tx) => {
-    const expense = await tx.expense.findUnique({ where: { id: expenseId } });
-    if (!expense) throw new NotFoundError("Expense not found");
-    if (expense.centerId !== user.centerId) throw new ForbiddenError();
-    await tx.expense.delete({ where: { id: expenseId } });
-    return { deleted: true };
-  });
+  return scopedDb(user, (tx) => deleteExpenseTx(tx, expenseId, user));
+}
+
+export async function deleteExpenseTx(tx: TenantTx, expenseId: string, user: SessionUser) {
+  const expense = await tx.expense.findUnique({ where: { id: expenseId } });
+  if (!expense) throw new NotFoundError("Expense not found");
+  if (expense.centerId !== user.centerId) throw new ForbiddenError();
+  await tx.expense.delete({ where: { id: expenseId } });
+  return { deleted: true };
 }

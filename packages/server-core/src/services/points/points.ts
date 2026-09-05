@@ -1,4 +1,5 @@
 import { platformDb, type TenantTx } from "../../db/scope";
+import { parsePageLimit } from "../../validation/common";
 
 export type PointsEvent =
   | "attendance"
@@ -70,7 +71,7 @@ export async function listStudentPointsHistory(
   studentUserId: string,
   opts?: { limit?: number },
 ) {
-  const limit = Math.min(200, Math.max(1, opts?.limit ?? 50));
+  const { limit } = parsePageLimit({ limit: opts?.limit }, 50);
   return platformDb(async (tx) => {
     const rows = await tx.pointsLedger.findMany({
       where: { studentId: studentUserId },

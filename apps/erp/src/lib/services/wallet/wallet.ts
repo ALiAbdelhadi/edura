@@ -16,6 +16,7 @@ import {
   getWalletSettings,
   assertTopupAllowed,
 } from "@repo/server-core/services/wallet/wallet";
+import { assertApprovedChild } from "@repo/server-core/services/wallet/parent-wallet";
 
 export {
   walletCredit,
@@ -187,15 +188,40 @@ export async function settleWalletTopUpFromIntentTx(
 
 export { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
 
-export async function getWalletForStudent(user: SessionUser) {
-  if (user.role !== "student") throw new ForbiddenError("Students only");
+// Whose wallet this request is allowed to read. A student reads only their own;
+// a parent reads an approved child's, and must name which one. Read-only in
+// both cases -- nothing here spends a balance.
+async function resolveWalletSubject(
+  tx: TenantTx,
+  user: SessionUser,
+  studentId?: string,
+): Promise<string> {
+  if (user.role === "student") {
+    if (studentId && studentId !== user.id) {
+      throw new ForbiddenError("A student can only read their own wallet");
+    }
+    return user.id;
+  }
+  if (user.role === "parent") {
+    if (!studentId) {
+      throw new BusinessRuleError("studentId is required — choose which child");
+    }
+    await assertApprovedChild(tx, user.id, studentId);
+    return studentId;
+  }
+  throw new ForbiddenError("Students and parents only");
+}
+
+export async function getWalletForStudent(user: SessionUser, studentId?: string) {
   return platformDb(async (tx) => {
+    const subjectId = await resolveWalletSubject(tx, user, studentId);
     const profile = await tx.studentProfile.findUnique({
-      where: { userId: user.id },
+      where: { userId: subjectId },
       select: { walletBalance: true },
     });
     const settings = await getWalletSettings(tx);
     return {
+      studentId: subjectId,
       balance: profile?.walletBalance ?? 0,
       currency: "EGP",
       minTopup: settings.minTopup,
@@ -204,12 +230,15 @@ export async function getWalletForStudent(user: SessionUser) {
   });
 }
 
-export async function listWalletHistory(user: SessionUser, opts?: { limit?: number }) {
-  if (user.role !== "student") throw new ForbiddenError("Students only");
+export async function listWalletHistory(
+  user: SessionUser,
+  opts?: { limit?: number; studentId?: string },
+) {
   const limit = Math.min(200, Math.max(1, opts?.limit ?? 50));
   return platformDb(async (tx) => {
+    const subjectId = await resolveWalletSubject(tx, user, opts?.studentId);
     const rows = await tx.walletLedger.findMany({
-      where: { studentId: user.id },
+      where: { studentId: subjectId },
       orderBy: { createdAt: "desc" },
       take: limit,
       select: {

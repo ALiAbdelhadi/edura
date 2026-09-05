@@ -3,6 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaPg } from "@prisma/adapter-pg";
 import ws from "ws";
 import { PrismaClient, Prisma } from "./generated/client/index";
+import { runWithAuditTx, type AuditTx } from "./context";
 import { hardenNeonWebSockets, isNeonSocketDropError } from "./neon-ws";
 import { pinSslMode } from "./pg-ssl";
 import {
@@ -178,7 +179,7 @@ export async function withTenant<T>(
 ): Promise<T> {
   return transactionWithRetry(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.current_center_id', ${centerId}, true)`;
-    return fn(tx);
+    return runWithAuditTx(tx as unknown as AuditTx, () => fn(tx));
   }, options ?? {});
 }
 
@@ -188,7 +189,7 @@ export async function withPlatformContext<T>(
 ): Promise<T> {
   return transactionWithRetry(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', true)`;
-    return fn(tx);
+    return runWithAuditTx(tx as unknown as AuditTx, () => fn(tx));
   }, options ?? {});
 }
 

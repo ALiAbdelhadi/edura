@@ -3,8 +3,7 @@ import { exactQuery } from "@repo/database/search-text";
 import type { SessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
-
-const PAGE_MAX = 100;
+import { parsePageLimit } from "@/lib/validation/common";
 
 export type ContactFilters = {
   q?: string;
@@ -23,8 +22,7 @@ function asStatus(v: string | undefined): ContactSubmissionStatus | undefined {
 }
 
 export function listContactSubmissions(filters: ContactFilters) {
-  const page = Math.max(1, parseInt(filters.page ?? "1", 10) || 1);
-  const limit = Math.min(PAGE_MAX, Math.max(1, parseInt(filters.limit ?? "25", 10) || 25));
+  const { page, limit } = parsePageLimit(filters, 25);
 
   return platformDb(async (tx) => {
     const where: Prisma.ContactSubmissionWhereInput = {};

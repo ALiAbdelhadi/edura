@@ -2,6 +2,7 @@ import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
 import { resolveRevenueSplit, resolveMethod2Rate } from "@/lib/services/finance/commission";
 import type { SessionUser } from "@/lib/auth/session";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import type { CommissionSetting } from "@repo/database";
 
 export type SplitInput = {
@@ -41,16 +42,23 @@ import {
   m2RowIsEmpty as rowIsEmpty,
 } from "@repo/server-core/services/rooms/room-rate";
 
-async function auditLog(
+// Split and rate rows are keyed by scope, so the row's previous values are the
+// `before`; the shared writer keeps both sides.
+function auditLog(
   tx: TenantTx,
-  actorId: string,
+  actor: SessionUser,
   action: string,
   targetType: string,
   targetId: string,
   after?: Record<string, unknown>,
+  before?: unknown,
 ) {
-  await tx.auditLog.create({
-    data: { actorId, action, targetType, targetId, afterState: (after ?? {}) as never },
+  return writeAdminAudit(tx, actor, {
+    action,
+    targetType,
+    targetId,
+    before: before ?? null,
+    after: after ?? {},
   });
 }
 
@@ -142,7 +150,7 @@ export function updateGlobalSplit(input: SplitInput, user: SessionUser) {
               ...data,
             },
           });
-      await auditLog(tx, user.id, "revenue_split.global.updated", "commission_setting", row.id, input);
+      await auditLog(tx, user, "revenue_split.global.updated", "commission_setting", row.id, input, existing ? pickSplit(existing) : null);
       return pickSplit(row);
     },
     { actorId: user.id },
@@ -192,7 +200,7 @@ export function upsertCenterSplit(centerId: string, input: SplitInput, user: Ses
       const row = existing
         ? await tx.commissionSetting.update({ where: { id: existing.id }, data })
         : await tx.commissionSetting.create({ data: { scope: "center", centerId, ...data } });
-      await auditLog(tx, user.id, "revenue_split.center.updated", "center", centerId, input);
+      await auditLog(tx, user, "revenue_split.center.updated", "center", centerId, input, existing ? pickSplit(existing) : null);
       return pickSplit(row);
     },
     { actorId: user.id },
@@ -212,7 +220,7 @@ export function clearCenterSplit(centerId: string, user: SessionUser) {
             data: { platformShareBp: null, teacherShareBp: null, centerShareBp: null, updatedBy: user.id },
           });
         }
-        await auditLog(tx, user.id, "revenue_split.center.cleared", "center", centerId, {});
+        await auditLog(tx, user, "revenue_split.center.cleared", "center", centerId, {}, pickSplit(existing));
       }
       return { cleared: true };
     },
@@ -241,7 +249,7 @@ export function upsertRoomSplit(
       const row = existing
         ? await tx.commissionSetting.update({ where: { id: existing.id }, data })
         : await tx.commissionSetting.create({ data: { scope: "room", roomId, ...data } });
-      await auditLog(tx, user.id, "revenue_split.room.updated", "room", roomId, input);
+      await auditLog(tx, user, "revenue_split.room.updated", "room", roomId, input, existing ? pickSplit(existing) : null);
       return pickSplit(row);
     },
     { actorId: user.id },
@@ -263,7 +271,7 @@ export function clearRoomSplit(centerId: string, roomId: string, user: SessionUs
             data: { platformShareBp: null, teacherShareBp: null, centerShareBp: null, updatedBy: user.id },
           });
         }
-        await auditLog(tx, user.id, "revenue_split.room.cleared", "room", roomId, {});
+        await auditLog(tx, user, "revenue_split.room.cleared", "room", roomId, {}, pickSplit(existing));
       }
       return { cleared: true };
     },
@@ -338,11 +346,12 @@ export function updateAffiliationCenterShare(
       });
       await auditLog(
         tx,
-        user.id,
+        user,
         "affiliation.center_share.updated",
         "center_teacher_affiliation",
         affiliationId,
         { centerId, teacherId: aff.teacherId, before: aff.centerShare ?? 0, after: centerShare },
+        { centerId, teacherId: aff.teacherId, centerShare: aff.centerShare ?? 0 },
       );
       return { id: updated.id, centerShare: updated.centerShare ?? 0 };
     },
@@ -375,9 +384,15 @@ export function updateGlobalM2Rate(input: M2RateInput, user: SessionUser) {
               ...M2_DATA(input, user.id),
             },
           });
-      await auditLog(tx, user.id, "m2_rate.global.updated", "commission_setting", row.id, {
-        ...input,
-      });
+      await auditLog(
+        tx,
+        user,
+        "m2_rate.global.updated",
+        "commission_setting",
+        row.id,
+        { ...input },
+        existing ? pickM2(existing) : null,
+      );
       return pickM2(row);
     },
     { actorId: user.id },
@@ -393,7 +408,7 @@ export function clearGlobalM2Rate(user: SessionUser) {
           where: { id: existing.id },
           data: { centerPerStudentFee: null, centerPerStudentBp: null, updatedBy: user.id },
         });
-        await auditLog(tx, user.id, "m2_rate.global.cleared", "commission_setting", existing.id, {});
+        await auditLog(tx, user, "m2_rate.global.cleared", "commission_setting", existing.id, {}, pickM2(existing));
       }
       return { cleared: true };
     },
@@ -416,7 +431,7 @@ export function upsertCenterM2Rate(centerId: string, input: M2RateInput, user: S
         : await tx.commissionSetting.create({
             data: { scope: "center", centerId, ...M2_DATA(input, user.id) },
           });
-      await auditLog(tx, user.id, "m2_rate.center.updated", "center", centerId, { ...input });
+      await auditLog(tx, user, "m2_rate.center.updated", "center", centerId, { ...input }, existing ? pickM2(existing) : null);
       return pickM2(row);
     },
     { actorId: user.id },
@@ -436,7 +451,7 @@ export function clearCenterM2Rate(centerId: string, user: SessionUser) {
             data: { centerPerStudentFee: null, centerPerStudentBp: null, updatedBy: user.id },
           });
         }
-        await auditLog(tx, user.id, "m2_rate.center.cleared", "center", centerId, {});
+        await auditLog(tx, user, "m2_rate.center.cleared", "center", centerId, {}, pickM2(existing));
       }
       return { cleared: true };
     },
@@ -464,7 +479,7 @@ export function upsertRoomM2Rate(
         : await tx.commissionSetting.create({
             data: { scope: "room", roomId, ...M2_DATA(input, user.id) },
           });
-      await auditLog(tx, user.id, "m2_rate.room.updated", "room", roomId, { ...input });
+      await auditLog(tx, user, "m2_rate.room.updated", "room", roomId, { ...input }, existing ? pickM2(existing) : null);
       return pickM2(row);
     },
     { actorId: user.id },
@@ -486,7 +501,7 @@ export function clearRoomM2Rate(centerId: string, roomId: string, user: SessionU
             data: { centerPerStudentFee: null, centerPerStudentBp: null, updatedBy: user.id },
           });
         }
-        await auditLog(tx, user.id, "m2_rate.room.cleared", "room", roomId, {});
+        await auditLog(tx, user, "m2_rate.room.cleared", "room", roomId, {}, pickM2(existing));
       }
       return { cleared: true };
     },

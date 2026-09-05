@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { adminUpdateStaff, adminRemoveStaff } from "@/lib/services/admin/center-people";
@@ -15,15 +14,13 @@ const patchSchema = z
   })
   .refine((b) => Object.keys(b).length > 0, { message: "No fields to update" });
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id, linkId } = await ctx.params;
   const data = await parseJson(req, patchSchema);
   return ok(await adminUpdateStaff(user, id, linkId, data));
 });
 
-export const DELETE = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const DELETE = withRole("super_admin", async (user, _req, ctx) => {
   const { id, linkId } = await ctx.params;
   return ok(await adminRemoveStaff(user, id, linkId));
 });

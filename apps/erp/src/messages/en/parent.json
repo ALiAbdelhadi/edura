@@ -173,7 +173,9 @@
     "topupFailed": "Top-up could not be completed",
     "mockPrompt": "Test mode: simulate paying {amount}.",
     "mockPay": "Simulate a successful payment",
-    "mockFail": "Simulate a decline"
+    "mockFail": "Simulate a decline",
+    "childBalances": "Your children's balances",
+    "childBalancesHint": "Money refunded to a child is held in their own balance and can be spent on their classes. It is separate from your wallet."
   },
   "parentOversight": {
     "childrenFailed": "Couldn't load your children. Try again.",

@@ -1,5 +1,4 @@
-import { requireRole } from "@/lib/authz/require-role";
-import { withErrors } from "@/lib/errors/http";
+import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { updateAffiliationCenterShare } from "@/lib/services/admin/rooms-split";
 import { parseJson } from "@/lib/validation/zod";
@@ -11,8 +10,7 @@ const bodySchema = z
   .object({ centerShare: z.number().int().min(0).max(99_999_900) })
   .strict();
 
-export const PUT = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PUT = withRole("super_admin", async (user, req, ctx) => {
   const { id, affiliationId } = await ctx.params;
   const { centerShare } = await parseJson(req, bodySchema);
   return ok(await updateAffiliationCenterShare(id, affiliationId, centerShare, user));

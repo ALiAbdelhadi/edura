@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCustomMutation } from "@refinedev/core";
 import { BookOpen, ClipboardList, DoorOpen, Info, Lock, Pencil, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/alert";
 import { EmptyState } from "@repo/ui/components/empty-state";
@@ -13,17 +12,10 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogForm,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import {
   Table,
   TableBody,
@@ -38,10 +30,27 @@ import { toast } from "@repo/ui/components/sonner";
 import { Num } from "@repo/ui/components/num";
 import type { Locale } from "@repo/ui/lib/format";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
+import { Form } from "@repo/ui/components/form";
+import {
+  EntityDialog,
+  FieldControls,
+  FormRootError,
+  useFieldForm,
+  type FieldSpec,
+} from "@/features/admin/catalog/entity-dialog";
+import { useAction } from "@/lib/api/use-action";
 import { useAdminGet, type Paged } from "./use-oversight";
 import { ControlAction } from "./control-actions";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_KEYS = [
+  "collabSun",
+  "collabMon",
+  "collabTue",
+  "collabWed",
+  "collabThu",
+  "collabFri",
+  "collabSat",
+] as const;
 
 type CourseRow = {
   id: string;
@@ -157,14 +166,15 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
                           description={
                             <>
                               <p>
-                                Future sessions are cancelled and{" "}
-                                <strong>{c.activeEnrollments}</strong> enrolled student(s) are
-                                notified with your reason.
+                                {t.rich("ac_cancelCourseBody1", {
+                                  count: c.activeEnrollments,
+                                  b: (chunks) => <strong>{chunks}</strong>,
+                                })}
                               </p>
                               <p>
-                                This <strong>refunds nothing</strong> and cancels no
-                                subscription. Sessions that already settled are untouched — use
-                                the refund flow for money.
+                                {t.rich("ac_cancelCourseBody2", {
+                                  b: (chunks) => <strong>{chunks}</strong>,
+                                })}
                               </p>
                             </>
                           }
@@ -204,9 +214,10 @@ export function CoursesTab({ centerId, enabled }: { centerId: string; enabled: b
 }
 
 function DayPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
+  const t = useTranslations("oversight");
   return (
     <div className="flex flex-wrap gap-1">
-      {DAYS.map((d, i) => (
+      {DAY_KEYS.map((d, i) => (
         <Button
           key={d}
           type="button"
@@ -214,7 +225,7 @@ function DayPicker({ value, onChange }: { value: number[]; onChange: (v: number[
           variant={value.includes(i) ? "default" : "outline"}
           onClick={() => onChange(value.includes(i) ? value.filter((x) => x !== i) : [...value, i])}
         >
-          {d}
+          {t(d)}
         </Button>
       ))}
     </div>
@@ -235,152 +246,122 @@ function CourseCreateDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/courses`,
+    successMsg: t("ac_courseCreated"),
+    onSuccess: () => onDone(),
+  });
   const rooms = useAdminGet<{ rooms: { id: string; name: string }[] }>(
     `admin/centers/${centerId}/rooms`,
     { enabled: open },
   );
-  const [f, setF] = useState({
-    title: "",
-    subject: "",
-    teacherId: "",
-    defaultRoomId: "",
-    price: "",
-    maxStudents: "30",
-    startTime: "16:00",
-    endTime: "18:00",
-    startDate: "",
-    endDate: "",
-  });
-  const [days, setDays] = useState<number[]>([]);
-  const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
-  const submit = async () => {
-    if (!f.title || !f.subject || !f.teacherId || !days.length || !f.startDate || !f.endDate) {
-      toast.error(t("ac_needCourseFields"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `admin/centers/${centerId}/courses`,
-        method: "post",
+  // Was one toast ("fill in the course fields") that named none of the six
+  // boxes it checked. Required-ness is per field now, and a server 422 lands
+  // on the input it names (M-7 / M-11 / M-22).
+  const details: FieldSpec[] = [
+    { name: "title", label: t("ac_title"), type: "text", required: true },
+    { name: "subject", label: t("ac_subject"), type: "text", required: true },
+    {
+      name: "teacherId",
+      label: t("ac_teacher"),
+      type: "select",
+      required: true,
+      placeholder: t("ac_pickAffiliated"),
+      options: teachers.map((x) => ({ value: x.teacherId, label: x.teacherName ?? x.teacherId })),
+    },
+    {
+      name: "defaultRoomId",
+      label: t("ac_hallOptional"),
+      type: "select",
+      placeholder: t("ac_noHall"),
+      options: (rooms.data?.rooms ?? []).map((r) => ({ value: r.id, label: r.name })),
+    },
+    { name: "price", label: t("ac_priceEgp"), type: "number", min: 0 },
+    { name: "maxStudents", label: t("ac_maxStudents"), type: "number", min: 1, required: true },
+    { name: "startTime", label: t("ac_startTime"), type: "time", required: true },
+    {
+      name: "endTime",
+      label: t("ac_endTime"),
+      type: "time",
+      required: true,
+      validate: (v) =>
+        String(v.endTime) <= String(v.startTime) ? t("collabBadTimes") : undefined,
+    },
+    { name: "startDate", label: t("ac_startDate"), type: "date", required: true },
+    {
+      name: "endDate",
+      label: t("ac_endDate"),
+      type: "date",
+      required: true,
+      validate: (v) =>
+        String(v.endDate) < String(v.startDate) ? t("collabBadTimes") : undefined,
+    },
+  ];
+  const schedule: FieldSpec[] = [
+    {
+      name: "days",
+      label: t("ac_daysOfWeek"),
+      type: "custom",
+      required: true,
+      render: (field) => (
+        <DayPicker
+          value={(field.value as number[] | undefined) ?? []}
+          onChange={field.onChange}
+        />
+      ),
+    },
+  ];
+
+  const { form, submit, rootError } = useFieldForm({
+    fields: [...details, ...schedule],
+    open,
+    initial: { maxStudents: 30, startTime: "16:00", endTime: "18:00", days: [] },
+    onSubmit: async (v) => {
+      const res = await run({
         values: {
-          title: f.title.trim(),
-          subject: f.subject.trim(),
-          teacherId: f.teacherId,
-          ...(f.defaultRoomId ? { defaultRoomId: f.defaultRoomId } : {}),
-          price: Math.round(Number(f.price || 0) * 100),
-          maxStudents: Number(f.maxStudents),
+          title: String(v.title).trim(),
+          subject: String(v.subject).trim(),
+          teacherId: v.teacherId,
+          ...(v.defaultRoomId ? { defaultRoomId: v.defaultRoomId } : {}),
+          price: Math.round(Number(v.price || 0) * 100),
+          maxStudents: Number(v.maxStudents),
           schedulePattern: {
-            daysOfWeek: days,
-            startTime: f.startTime,
-            endTime: f.endTime,
-            startDate: f.startDate,
-            endDate: f.endDate,
+            daysOfWeek: v.days,
+            startTime: v.startTime,
+            endTime: v.endTime,
+            startDate: v.startDate,
+            endDate: v.endDate,
           },
         },
       });
-      toast.success(t("ac_courseCreated"));
-      onOpenChange(false);
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to create the course");
-    } finally {
-      setBusy(false);
-    }
-  };
+      if (res.ok) onOpenChange(false);
+      return res;
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t("ac_newCourse")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            The teacher must already have an active affiliation with this center. Picking a hall
-            freezes that hall&apos;s pricing method and rate onto the course — permanently.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Labeled label={t("ac_title")}>
-              <Input value={f.title} onChange={(e) => set("title")(e.target.value)} />
-            </Labeled>
-            <Labeled label={t("ac_subject")}>
-              <Input value={f.subject} onChange={(e) => set("subject")(e.target.value)} />
-            </Labeled>
-            <Labeled label={t("ac_teacher")}>
-              <Select value={f.teacherId} onValueChange={set("teacherId")}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("ac_pickAffiliated")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {teachers.map((t) => (
-                    <SelectItem key={t.teacherId} value={t.teacherId}>
-                      {t.teacherName ?? t.teacherId}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Labeled>
-            <Labeled label={t("ac_hallOptional")}>
-              <Select value={f.defaultRoomId} onValueChange={set("defaultRoomId")}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("ac_noHall")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(rooms.data?.rooms ?? []).map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Labeled>
-            <Labeled label={t("ac_priceEgp")}>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                value={f.price}
-                onChange={(e) => set("price")(e.target.value)}
-              />
-            </Labeled>
-            <Labeled label={t("ac_maxStudents")}>
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                value={f.maxStudents}
-                onChange={(e) => set("maxStudents")(e.target.value)}
-              />
-            </Labeled>
-            <Labeled label={t("ac_startTime")}>
-              <Input type="time" value={f.startTime} onChange={(e) => set("startTime")(e.target.value)} />
-            </Labeled>
-            <Labeled label={t("ac_endTime")}>
-              <Input type="time" value={f.endTime} onChange={(e) => set("endTime")(e.target.value)} />
-            </Labeled>
-            <Labeled label={t("ac_startDate")}>
-              <Input type="date" value={f.startDate} onChange={(e) => set("startDate")(e.target.value)} />
-            </Labeled>
-            <Labeled label={t("ac_endDate")}>
-              <Input type="date" value={f.endDate} onChange={(e) => set("endDate")(e.target.value)} />
-            </Labeled>
-          </div>
-          <Labeled label={t("ac_daysOfWeek")}>
-            <DayPicker value={days} onChange={setDays} />
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Create &amp; generate schedule
-          </Button>
-        </DialogFooter>
+        <Form {...form}>
+          <DialogForm onSubmit={() => void submit()}>
+            <DialogHeader>
+              <DialogTitle>{t("ac_newCourse")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-ink-2">{t("ac_courseCreateNote")}</p>
+              <FormRootError message={rootError} />
+              <FieldControls fields={details} form={form} className="grid gap-3 sm:grid-cols-2" />
+              <FieldControls fields={schedule} form={form} className="grid gap-3" />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Spinner /> : null}
+                {t("ac_createGenerate")}
+              </Button>
+            </DialogFooter>
+          </DialogForm>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -398,116 +379,82 @@ function CourseEditDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  const [title, setTitle] = useState("");
-  const [maxStudents, setMaxStudents] = useState("");
-  const [perMonth, setPerMonth] = useState("");
-  const [perSession, setPerSession] = useState("");
-  const [busy, setBusy] = useState(false);
+  const tt = useTranslations();
+  const { run, busy } = useAction({
+    method: "patch",
+    successMsg: t("ac_courseUpdated"),
+    onSuccess: () => onDone(),
+  });
 
   const open = !!course;
 
-  const [seededFor, setSeededFor] = useState<string | null>(null);
-  if (course && seededFor !== course.id) {
-    setSeededFor(course.id);
-    setTitle(course.title);
-    setMaxStudents(String(course.maxStudents));
-    setPerMonth(course.pricePerMonth != null ? String(course.pricePerMonth / 100) : "");
-    setPerSession(course.pricePerSession != null ? String(course.pricePerSession / 100) : "");
-  }
+  const general: FieldSpec[] = [
+    { name: "title", label: t("ac_title"), type: "text", required: true },
+    { name: "maxStudents", label: t("ac_maxStudents"), type: "number", min: 1 },
+  ];
+  const plans: FieldSpec[] = [
+    { name: "perMonth", label: t("ac_monthlyPlan"), type: "number", min: 0 },
+    { name: "perSession", label: t("ac_perSessionPlan"), type: "number", min: 0 },
+  ];
 
-  const close = () => {
-    setSeededFor(null);
-    setTitle("");
-    onClose();
-  };
-
-  const save = async () => {
-    if (!course) return;
-    const patch: Record<string, unknown> = {};
-    if (title.trim() && title.trim() !== course.title) patch.title = title.trim();
-    const nextMax = maxStudents.trim() === "" ? null : Number(maxStudents);
-    if (nextMax !== null && Number.isFinite(nextMax) && nextMax !== course.maxStudents) {
-      patch.maxStudents = nextMax;
-    }
-    const pm = perMonth.trim() === "" ? null : Math.round(Number(perMonth) * 100);
-    const ps = perSession.trim() === "" ? null : Math.round(Number(perSession) * 100);
-    if (pm !== course.pricePerMonth) patch.pricePerMonth = pm;
-    if (ps !== course.pricePerSession) patch.pricePerSession = ps;
-    if (!Object.keys(patch).length) {
-      toast.info(t("ac_nothingChanged"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({
+  const { form, submit, rootError } = useFieldForm({
+    fields: [...general, ...plans],
+    open,
+    resetKey: course?.id,
+    initial: {
+      title: course?.title ?? "",
+      maxStudents: course?.maxStudents ?? "",
+      perMonth: course?.pricePerMonth != null ? course.pricePerMonth / 100 : "",
+      perSession: course?.pricePerSession != null ? course.pricePerSession / 100 : "",
+    },
+    onSubmit: async (v) => {
+      if (!course) return;
+      const patch: Record<string, unknown> = {};
+      const title = String(v.title).trim();
+      if (title && title !== course.title) patch.title = title;
+      const nextMax = v.maxStudents === "" ? null : Number(v.maxStudents);
+      if (nextMax !== null && Number.isFinite(nextMax) && nextMax !== course.maxStudents) {
+        patch.maxStudents = nextMax;
+      }
+      const pm = v.perMonth === "" ? null : Math.round(Number(v.perMonth) * 100);
+      const ps = v.perSession === "" ? null : Math.round(Number(v.perSession) * 100);
+      if (pm !== course.pricePerMonth) patch.pricePerMonth = pm;
+      if (ps !== course.pricePerSession) patch.pricePerSession = ps;
+      if (!Object.keys(patch).length) {
+        toast.info(t("ac_nothingChanged"));
+        return;
+      }
+      const res = await run({
         url: `admin/centers/${centerId}/courses/${course.id}`,
-        method: "patch",
         values: patch,
       });
-      toast.success(t("ac_courseUpdated"));
-      close();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to update the course");
-    } finally {
-      setBusy(false);
-    }
-  };
+      if (res.ok) onClose();
+      return res;
+    },
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ac_editCourse")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            Plan prices set what a NEW subscription costs. Existing subscriptions keep the price
-            they were bought at, and the course&apos;s frozen revenue split never changes.
-          </p>
-          <Labeled label={t("ac_title")}>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Labeled>
-          <Labeled label={t("ac_maxStudents")}>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={maxStudents}
-              onChange={(e) => setMaxStudents(e.target.value)}
-            />
-          </Labeled>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Labeled label={t("ac_monthlyPlan")}>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                value={perMonth}
-                onChange={(e) => setPerMonth(e.target.value)}
-              />
-            </Labeled>
-            <Labeled label={t("ac_perSessionPlan")}>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                value={perSession}
-                onChange={(e) => setPerSession(e.target.value)}
-              />
-            </Labeled>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={save} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Save
-          </Button>
-        </DialogFooter>
+        <Form {...form}>
+          <DialogForm onSubmit={() => void submit()}>
+            <DialogHeader>
+              <DialogTitle>{t("ac_editCourse")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-ink-2">{t("ac_editCourseNote")}</p>
+              <FormRootError message={rootError} />
+              <FieldControls fields={general} form={form} className="grid gap-3" />
+              <FieldControls fields={plans} form={form} className="grid gap-3 sm:grid-cols-2" />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Spinner /> : null}
+                {tt("actions.save")}
+              </Button>
+            </DialogFooter>
+          </DialogForm>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -527,82 +474,43 @@ function ReassignDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  const [teacherId, setTeacherId] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    if (!course || !teacherId) {
-      toast.error(t("ac_needTeacher"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `admin/centers/${centerId}/courses/${course.id}/reassign-teacher`,
-        method: "post",
-        values: { teacherId },
-      });
-      toast.success(t("ac_teacherReassigned"));
-      setTeacherId("");
-      onClose();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to reassign");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { run, busy } = useAction({
+    successMsg: t("ac_teacherReassigned"),
+    onSuccess: () => onDone(),
+  });
 
   return (
-    <Dialog open={!!course} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ac_reassignTeacher")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            Only <strong>future</strong> sessions move to the new teacher. Past sessions keep
-            theirs — they record who actually taught, and some may already have been settled to
-            that person.
-          </p>
-          <Labeled label={t("ac_newTeacher")}>
-            <Select value={teacherId} onValueChange={setTeacherId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("ac_pickTeacher")} />
-              </SelectTrigger>
-              <SelectContent>
-                {teachers
-                  .filter((t) => t.teacherId !== course?.teacherId)
-                  .map((t) => (
-                    <SelectItem key={t.teacherId} value={t.teacherId}>
-                      {t.teacherName ?? t.teacherId}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Reassign
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={!!course}
+      onOpenChange={(o) => !o && onClose()}
+      title={t("ac_reassignTeacher")}
+      note={t.rich("ac_reassignNote", { b: (chunks) => <strong>{chunks}</strong> })}
+      busy={busy}
+      fields={[
+        {
+          name: "teacherId",
+          label: t("ac_newTeacher"),
+          type: "select",
+          required: true,
+          placeholder: t("ac_pickTeacher"),
+          options: teachers
+            .filter((x) => x.teacherId !== course?.teacherId)
+            .map((x) => ({ value: x.teacherId, label: x.teacherName ?? x.teacherId })),
+        },
+      ]}
+      submitLabel={t("ac_reassign")}
+      onSubmit={async (v) => {
+        if (!course) return;
+        const res = await run({
+          url: `admin/centers/${centerId}/courses/${course.id}/reassign-teacher`,
+          values: { teacherId: v.teacherId },
+        });
+        if (res.ok) onClose();
+        return res;
+      }}
+    />
   );
 }
-
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="space-y-1 text-sm">
-      <span className="block font-medium">{label}</span>
-      {children}
-    </label>
-  );
-}
-
 type EnrollmentRow = {
   id: string;
   studentId: string;
@@ -680,12 +588,7 @@ export function EnrollmentsTab({ centerId, enabled }: { centerId: string; enable
                         url={`admin/centers/${centerId}/enrollments/${e.id}`}
                         values={{}}
                         onDone={req.refetch}
-                        description={
-                          <p>
-                            The record survives with an unenrolled date, so the history stays
-                            readable. Nothing is refunded.
-                          </p>
-                        }
+                        description={<p>{t("ac_unenrolBody")}</p>}
                       />
                     ) : null}
                   </TableCell>
@@ -718,7 +621,11 @@ function EnrolDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
+  const { run, busy } = useAction({
+    url: `admin/centers/${centerId}/enrollments`,
+    successMsg: t("ac_studentEnrolled"),
+    onSuccess: () => onDone(),
+  });
   const students = useAdminGet<{ items: { studentId: string; name?: string | null }[] }>(
     `admin/centers/${centerId}/roster/students`,
     { enabled: open },
@@ -727,84 +634,44 @@ function EnrolDialog({
     `admin/centers/${centerId}/oversight/courses`,
     { enabled: open, query: { limit: "100" } },
   );
-  const [studentId, setStudentId] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    if (!studentId || !courseId) {
-      toast.error(t("ac_needStudentCourse"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await mutateAsync({
-        url: `admin/centers/${centerId}/enrollments`,
-        method: "post",
-        values: { studentId, courseId },
-      });
-      toast.success(t("ac_studentEnrolled"));
-      setStudentId("");
-      setCourseId("");
-      onOpenChange(false);
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to enrol");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("ac_enrolStudent")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-2">
-            Refused if the student is blacklisted at platform, center or teacher level, or if the
-            course is not this center&apos;s.
-          </p>
-          <Labeled label={t("ac_studentRoster")}>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("ac_pickStudent")} />
-              </SelectTrigger>
-              <SelectContent>
-                {(students.data?.items ?? []).map((s) => (
-                  <SelectItem key={s.studentId} value={s.studentId}>
-                    {s.name ?? s.studentId}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Labeled>
-          <Labeled label={t("ac_course")}>
-            <Select value={courseId} onValueChange={setCourseId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("ac_pickCourse")} />
-              </SelectTrigger>
-              <SelectContent>
-                {(courses.data?.data ?? [])
-                  .filter((c) => c.status === "active")
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title} ({c.activeEnrollments}/{c.maxStudents})
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Enrol
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("ac_enrolStudent")}
+      note={t("ac_enrolDialogNote")}
+      busy={busy}
+      fields={[
+        {
+          name: "studentId",
+          label: t("ac_studentRoster"),
+          type: "select",
+          required: true,
+          placeholder: t("ac_pickStudent"),
+          options: (students.data?.items ?? []).map((s) => ({
+            value: s.studentId,
+            label: s.name ?? s.studentId,
+          })),
+        },
+        {
+          name: "courseId",
+          label: t("ac_course"),
+          type: "select",
+          required: true,
+          placeholder: t("ac_pickCourse"),
+          options: (courses.data?.data ?? []).map((c) => ({ value: c.id, label: c.title })),
+        },
+      ]}
+      submitLabel={t("ac_enrol")}
+      onSubmit={async (v) => {
+        const res = await run({
+          values: { studentId: v.studentId, courseId: v.courseId },
+        });
+        if (res.ok) onOpenChange(false);
+        return res;
+      }}
+    />
   );
 }
 
@@ -812,7 +679,6 @@ type RequestRow = {
   id: string;
   studentName: string | null;
   courseTitle: string | null;
-  status: string;
   submittedAt: string;
   expiresAt: string;
 };
@@ -832,10 +698,7 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
         <CardTitle className="text-base">{t("ac_enrollmentRequests")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-ink-2">
-          Approving creates the enrollment and notifies the student. Refused when the course is
-          full or the request has expired — the same rules the center is held to.
-        </p>
+        <p className="text-xs text-ink-2">{t("ac_requestsNote")}</p>
         {req.isLoading ? (
           <Spinner />
         ) : req.isError ? (
@@ -871,12 +734,7 @@ export function EnrollmentRequestsCard({ centerId }: { centerId: string }) {
                   url={`admin/centers/${centerId}/enrollment-requests/${r.id}/decide`}
                   values={{ decision: "approve" }}
                   onDone={req.refetch}
-                  description={
-                    <p>
-                      Creates the enrollment and notifies the student. No subscription is created
-                      — this grants a seat, not paid coverage.
-                    </p>
-                  }
+                  description={<p>{t("ac_approveRequestBody")}</p>}
                 />
                 <ControlAction
                   label={t("ac_decline")}
@@ -952,7 +810,7 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
                 <CardTitle className="flex items-center justify-between text-base">
                   <span>{room.name}</span>
                   {room.capacity != null ? (
-                    <Badge variant="outline">{room.capacity} seats</Badge>
+                    <Badge variant="outline">{t("ac_seats", { count: room.capacity })}</Badge>
                   ) : null}
                 </CardTitle>
               </CardHeader>
@@ -974,12 +832,7 @@ export function RoomsTab({ centerId, enabled }: { centerId: string; enabled: boo
                     url={`admin/centers/${centerId}/rooms/${room.id}/status`}
                     values={{ isActive: false }}
                     onDone={req.refetch}
-                    description={
-                      <p>
-                        Soft — never a delete, so its sessions and settlement records keep
-                        resolving.
-                      </p>
-                    }
+                    description={<p>{t("ac_deactivateHallBody")}</p>}
                   />
                 </div>
               </CardContent>
@@ -1016,99 +869,44 @@ function RoomDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("oversight");
-  const { mutateAsync } = useCustomMutation();
-  const [name, setName] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [price, setPrice] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [seeded, setSeeded] = useState<string | null>(null);
-
-  const key = room?.id ?? "new";
-  if (open && seeded !== key) {
-    setSeeded(key);
-    setName(room?.name ?? "");
-    setCapacity(room?.capacity != null ? String(room.capacity) : "");
-    setPrice(room?.price != null ? String(room.price / 100) : "");
-  }
-
-  const close = () => {
-    setSeeded(null);
-    onClose();
-  };
-
-  const submit = async () => {
-    if (!name.trim()) {
-      toast.error(t("ac_needName"));
-      return;
-    }
-    const values: Record<string, unknown> = {
-      name: name.trim(),
-      capacity: capacity.trim() === "" ? null : Number(capacity),
-      price: price.trim() === "" ? null : Math.round(Number(price) * 100),
-    };
-    setBusy(true);
-    try {
-      if (room) {
-        await mutateAsync({
-          url: `admin/centers/${centerId}/rooms/${room.id}`,
-          method: "patch",
-          values,
-        });
-      } else {
-        await mutateAsync({
-          url: `admin/centers/${centerId}/rooms/create`,
-          method: "post",
-          values,
-        });
-      }
-      toast.success(room ? "Hall updated" : "Hall created");
-      close();
-      onDone();
-    } catch (e) {
-      toast.error((e as { message?: string })?.message || "Failed to save the hall");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { run, busy } = useAction({ onSuccess: () => onDone() });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{room ? "Edit hall" : "Add hall"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Labeled label={t("ac_name")}>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </Labeled>
-          <Labeled label={t("ac_capacity")}>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={capacity}
-              onChange={(e) => setCapacity(e.target.value)}
-            />
-          </Labeled>
-          <Labeled label={t("ac_hallPriceEgp")}>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              inputMode="decimal"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-          </Labeled>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : null}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EntityDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={room ? t("ac_editHall") : t("ac_addHall")}
+      busy={busy}
+      // Re-seeded on every open, so switching halls no longer needs the
+      // `seeded` sentinel this component kept to detect the swap itself.
+      initial={{
+        name: room?.name ?? "",
+        capacity: room?.capacity ?? "",
+        price: room?.price != null ? room.price / 100 : "",
+      }}
+      fields={[
+        { name: "name", label: t("ac_name"), type: "text", required: true },
+        { name: "capacity", label: t("ac_capacity"), type: "number" },
+        { name: "price", label: t("ac_hallPriceEgp"), type: "number" },
+      ]}
+      onSubmit={async (v) => {
+        const capacity = Number(v.capacity);
+        const price = Number(v.price);
+        const res = await run({
+          url: room
+            ? `admin/centers/${centerId}/rooms/${room.id}`
+            : `admin/centers/${centerId}/rooms/create`,
+          method: room ? "patch" : "post",
+          values: {
+            name: String(v.name).trim(),
+            capacity: capacity > 0 ? capacity : null,
+            price: price > 0 ? Math.round(price * 100) : null,
+          },
+          successMsg: room ? t("ac_hallUpdated") : t("ac_hallCreated"),
+        });
+        if (res.ok) onClose();
+        return res;
+      }}
+    />
   );
 }

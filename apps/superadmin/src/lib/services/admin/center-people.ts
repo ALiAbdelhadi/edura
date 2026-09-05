@@ -1,87 +1,56 @@
-import { platformDb } from "@/lib/db/scope";
+import { platformDb, scopedDb, type TenantTx } from "@/lib/db/scope";
+import { runEffects } from "@repo/server-core/db/effects";
+import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import type { SessionUser } from "@/lib/auth/session";
 import { superadminAsCenter } from "@/lib/authz/center-actor";
 import {
   listRosterStudents,
-  addRosterStudent,
+  addRosterStudentTx,
   getRosterStudent,
-  updateRosterStudent,
-  removeRosterStudent,
-  lookupStudent,
-  inviteStudent,
+  updateRosterStudentTx,
+  removeRosterStudentTx,
+  inviteStudentTx,
   listRosterTeachers,
-  removeRosterTeacher,
-  lookupTeacher,
-  inviteTeacher,
+  removeRosterTeacherTx,
+  inviteTeacherTx,
   type RosterStudentPatch,
 } from "@repo/server-core/services/center/roster";
 import {
   listCenterAdmins,
-  removeCenterAdmin,
-  inviteCenterAdmin,
+  removeCenterAdminTx,
+  inviteCenterAdminTx,
 } from "@repo/server-core/services/center/admins";
 import {
   listStaff,
-  createStaff,
-  updateStaff,
-  removeStaff,
-  resendStaffInvite,
+  createStaffTx,
+  updateStaffTx,
+  removeStaffTx,
+  resendStaffInviteTx,
 } from "@repo/server-core/services/center/staff";
 import {
-  createCollaborationRequest,
+  createCollaborationRequestTx,
   type CollaborationInput,
 } from "@repo/server-core/services/collaboration/collaboration";
 
-type AuditSpec = {
-  action: string;
-  targetType: string;
-  targetId: string;
-  before?: unknown;
-  after?: unknown;
-};
-
-async function audit(actor: SessionUser, centerId: string, spec: AuditSpec) {
-  await platformDb(
-    (tx) =>
-      tx.auditLog.create({
-        data: {
-          actorId: actor.id,
-          action: spec.action,
-          targetType: spec.targetType,
-          targetId: spec.targetId,
-          centerId,
-          beforeState: (spec.before ?? undefined) as never,
-          afterState: (spec.after ?? undefined) as never,
-          onBehalfOf: null,
-        },
-      }),
-    { actorId: actor.id },
-  );
+function userSnapshot(tx: TenantTx, userId: string) {
+  return tx.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, phone: true, status: true, role: true },
+  });
 }
 
-async function snapshotUser(userId: string) {
-  return platformDb((tx) =>
-    tx.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, email: true, phone: true, status: true, role: true },
-    }),
-  );
-}
-
-async function snapshotRoster(centerId: string, studentId: string) {
-  return platformDb((tx) =>
-    tx.centerStudentRoster.findFirst({
-      where: { centerId, studentId },
-      select: {
-        id: true,
-        leftAt: true,
-        blacklisted: true,
-        blacklistReason: true,
-        operationalParentName: true,
-        operationalParentPhone: true,
-      },
-    }),
-  );
+function rosterSnapshot(tx: TenantTx, centerId: string, studentId: string) {
+  return tx.centerStudentRoster.findFirst({
+    where: { centerId, studentId },
+    select: {
+      id: true,
+      leftAt: true,
+      blacklisted: true,
+      blacklistReason: true,
+      operationalParentName: true,
+      operationalParentPhone: true,
+    },
+  });
 }
 
 export async function adminListStudents(
@@ -100,15 +69,20 @@ export async function adminGetStudent(actor: SessionUser, centerId: string, stud
 
 export async function adminAddStudent(actor: SessionUser, centerId: string, studentId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await addRosterStudent(acting, studentId);
-  await audit(actor, centerId, {
-    action: "center.student_added",
-    targetType: "user",
-    targetId: studentId,
-    before: { onRoster: false },
-    after: { onRoster: true, rosterId: result.id },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await addRosterStudentTx(tx, acting, studentId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_added",
+      targetType: "user",
+      targetId: studentId,
+      centerId,
+      before: { onRoster: false },
+      after: { onRoster: true, rosterId: outcome.value.id },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminUpdateStudent(
@@ -118,42 +92,39 @@ export async function adminUpdateStudent(
   patch: RosterStudentPatch,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const [userBefore, rosterBefore] = await Promise.all([
-    snapshotUser(studentId),
-    snapshotRoster(centerId, studentId),
-  ]);
-  const result = await updateRosterStudent(acting, studentId, patch);
-  await audit(actor, centerId, {
-    action: "center.student_updated",
-    targetType: "user",
-    targetId: studentId,
-    before: { user: userBefore, roster: rosterBefore },
-    after: { changed: Object.keys(patch), user: result.user },
+  return scopedDb(acting, async (tx) => {
+    const [userBefore, rosterBefore] = await Promise.all([
+      userSnapshot(tx, studentId),
+      rosterSnapshot(tx, centerId, studentId),
+    ]);
+    const result = await updateRosterStudentTx(tx, acting, studentId, patch);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_updated",
+      targetType: "user",
+      targetId: studentId,
+      centerId,
+      before: { user: userBefore, roster: rosterBefore },
+      after: { changed: Object.keys(patch), user: result.user },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminRemoveStudent(actor: SessionUser, centerId: string, studentId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await snapshotRoster(centerId, studentId);
-  const result = await removeRosterStudent(acting, studentId);
-  await audit(actor, centerId, {
-    action: "center.student_roster_removed",
-    targetType: "user",
-    targetId: studentId,
-    before: { onRoster: true, roster: before },
-    after: { onRoster: false, enrollmentsTouched: false },
+  return scopedDb(acting, async (tx) => {
+    const before = await rosterSnapshot(tx, centerId, studentId);
+    const result = await removeRosterStudentTx(tx, acting, studentId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_roster_removed",
+      targetType: "user",
+      targetId: studentId,
+      centerId,
+      before: { onRoster: true, roster: before },
+      after: { onRoster: false, enrollmentsTouched: false },
+    });
+    return result;
   });
-  return result;
-}
-
-export async function adminLookupStudent(
-  actor: SessionUser,
-  centerId: string,
-  body: { email?: string; phone?: string },
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  return lookupStudent(acting, body);
 }
 
 export async function adminInviteStudent(
@@ -162,15 +133,24 @@ export async function adminInviteStudent(
   body: { email: string; name?: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await inviteStudent(acting, body);
-  await audit(actor, centerId, {
-    action: "center.student_invited",
-    targetType: "user",
-    targetId: result.user.id,
-    before: null,
-    after: { email: body.email, userId: result.user.id, status: result.user.status },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await inviteStudentTx(tx, acting, body);
+    await writeAdminAudit(tx, actor, {
+      action: "center.student_invited",
+      targetType: "user",
+      targetId: outcome.value.user.id,
+      centerId,
+      before: null,
+      after: {
+        email: body.email,
+        userId: outcome.value.user.id,
+        status: outcome.value.user.status,
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminListTeachers(
@@ -184,30 +164,22 @@ export async function adminListTeachers(
 
 export async function adminRemoveTeacher(actor: SessionUser, centerId: string, teacherId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.centerTeacherAffiliation.findFirst({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.centerTeacherAffiliation.findFirst({
       where: { centerId, teacherId, status: { in: ["pending", "active"] } },
       select: { id: true, status: true, centerShare: true },
-    }),
-  );
-  const result = await removeRosterTeacher(acting, teacherId);
-  await audit(actor, centerId, {
-    action: "center.teacher_removed",
-    targetType: "user",
-    targetId: teacherId,
-    before: { affiliation: before },
-    after: { affiliationStatus: "removed" },
+    });
+    const result = await removeRosterTeacherTx(tx, acting, teacherId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.teacher_removed",
+      targetType: "user",
+      targetId: teacherId,
+      centerId,
+      before: { affiliation: before },
+      after: { affiliationStatus: "removed" },
+    });
+    return result;
   });
-  return result;
-}
-
-export async function adminLookupTeacher(
-  actor: SessionUser,
-  centerId: string,
-  body: { email: string },
-) {
-  const { acting } = await superadminAsCenter(actor, centerId);
-  return lookupTeacher(acting, body);
 }
 
 export async function adminInviteTeacher(
@@ -216,20 +188,25 @@ export async function adminInviteTeacher(
   body: { email: string; name?: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await inviteTeacher(acting, body);
-  await audit(actor, centerId, {
-    action: "center.teacher_invited",
-    targetType: "user",
-    targetId: result.user.id,
-    before: null,
-    after: {
-      email: body.email,
-      userId: result.user.id,
-      affiliationId: result.affiliation.id,
-      centerShareWritten: false,
-    },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await inviteTeacherTx(tx, acting, body);
+    await writeAdminAudit(tx, actor, {
+      action: "center.teacher_invited",
+      targetType: "user",
+      targetId: outcome.value.user.id,
+      centerId,
+      before: null,
+      after: {
+        email: body.email,
+        userId: outcome.value.user.id,
+        affiliationId: outcome.value.affiliation.id,
+        centerShareWritten: false,
+      },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminCreateCollaborationRequest(
@@ -238,26 +215,35 @@ export async function adminCreateCollaborationRequest(
   input: Omit<CollaborationInput, "centerId">,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const request = await createCollaborationRequest({ ...input, centerId }, acting);
-  await audit(actor, centerId, {
-    action: "collaboration_request.created",
-    targetType: "collaboration_request",
-    targetId: request.id,
-    before: null,
-    after: {
-      teacherId: request.teacherId,
-      subjectId: request.subjectId,
-      gradeLevelId: request.gradeLevelId,
-      trackId: request.trackId,
-      roomId: request.roomId,
-      initiator: request.initiator,
-      status: request.status,
-      startDate: request.startDate,
-      proposedPricingMethod: request.proposedPricingMethod,
-      proposedCenterShare: request.proposedCenterShare,
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await createCollaborationRequestTx(tx, { ...input, centerId }, acting);
+      const request = outcome.value;
+      await writeAdminAudit(tx, actor, {
+        action: "collaboration_request.created",
+        targetType: "collaboration_request",
+        targetId: request.id,
+        centerId,
+        before: null,
+        after: {
+          teacherId: request.teacherId,
+          subjectId: request.subjectId,
+          gradeLevelId: request.gradeLevelId,
+          trackId: request.trackId,
+          roomId: request.roomId,
+          initiator: request.initiator,
+          status: request.status,
+          startDate: request.startDate,
+          proposedPricingMethod: request.proposedPricingMethod,
+          proposedCenterShare: request.proposedCenterShare,
+        },
+      });
+      return outcome;
     },
-  });
-  return request;
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminListStaff(actor: SessionUser, centerId: string) {
@@ -277,21 +263,30 @@ export async function adminCreateStaff(
   },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await createStaff(acting, data);
-  await audit(actor, centerId, {
-    action: "center.staff_created",
-    targetType: "center_staff",
-    targetId: result.link.id,
-    before: null,
-    after: {
-      staffUserId: result.user.id,
-      email: data.email,
-      role: result.link.role,
-      title: result.link.title,
-      existingAccount: result.existingAccount,
+  const { value, effects } = await platformDb(
+    async (tx) => {
+      const outcome = await createStaffTx(tx, acting, data);
+      const r = outcome.value;
+      await writeAdminAudit(tx, actor, {
+        action: "center.staff_created",
+        targetType: "center_staff",
+        targetId: r.link.id,
+        centerId,
+        before: null,
+        after: {
+          staffUserId: r.user.id,
+          email: data.email,
+          role: r.link.role,
+          title: r.link.title,
+          existingAccount: r.existingAccount,
+        },
+      });
+      return outcome;
     },
-  });
-  return result;
+    { actorId: actor.id },
+  );
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminUpdateStaff(
@@ -301,40 +296,42 @@ export async function adminUpdateStaff(
   data: { role?: "receptionist" | "manager" | "center_accountant"; title?: string | null; active?: boolean },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.centerStaff.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.centerStaff.findUnique({
       where: { id: linkId },
       select: { id: true, role: true, title: true, removedAt: true, staffUserId: true },
-    }),
-  );
-  const result = await updateStaff(acting, linkId, data);
-  await audit(actor, centerId, {
-    action: "center.staff_updated",
-    targetType: "center_staff",
-    targetId: linkId,
-    before,
-    after: { changed: Object.keys(data), ...data },
+    });
+    const result = await updateStaffTx(tx, acting, linkId, data);
+    await writeAdminAudit(tx, actor, {
+      action: "center.staff_updated",
+      targetType: "center_staff",
+      targetId: linkId,
+      centerId,
+      before,
+      after: { changed: Object.keys(data), ...data },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminRemoveStaff(actor: SessionUser, centerId: string, linkId: string) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await platformDb((tx) =>
-    tx.centerStaff.findUnique({
+  return scopedDb(acting, async (tx) => {
+    const before = await tx.centerStaff.findUnique({
       where: { id: linkId },
       select: { id: true, role: true, title: true, removedAt: true, staffUserId: true },
-    }),
-  );
-  const result = await removeStaff(acting, linkId);
-  await audit(actor, centerId, {
-    action: "center.staff_removed",
-    targetType: "center_staff",
-    targetId: linkId,
-    before,
-    after: { removed: true },
+    });
+    const result = await removeStaffTx(tx, acting, linkId);
+    await writeAdminAudit(tx, actor, {
+      action: "center.staff_removed",
+      targetType: "center_staff",
+      targetId: linkId,
+      centerId,
+      before,
+      after: { removed: true },
+    });
+    return result;
   });
-  return result;
 }
 
 export async function adminResendStaffInvite(
@@ -344,15 +341,20 @@ export async function adminResendStaffInvite(
   opts: { locale?: "ar" | "en" } = {},
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await resendStaffInvite(acting, linkId, opts.locale ?? "ar");
-  await audit(actor, centerId, {
-    action: "center.staff_invite_resent",
-    targetType: "center_staff",
-    targetId: linkId,
-    before: null,
-    after: { resent: true },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await resendStaffInviteTx(tx, acting, linkId, opts.locale ?? "ar");
+    await writeAdminAudit(tx, actor, {
+      action: "center.staff_invite_resent",
+      targetType: "center_staff",
+      targetId: linkId,
+      centerId,
+      before: null,
+      after: { resent: true },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value.invite;
 }
 
 export async function adminListCenterAdmins(actor: SessionUser, centerId: string) {
@@ -366,15 +368,20 @@ export async function adminInviteCenterAdmin(
   body: { email: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const result = await inviteCenterAdmin(acting, body);
-  await audit(actor, centerId, {
-    action: "center.admin_invited",
-    targetType: "center",
-    targetId: centerId,
-    before: null,
-    after: { email: body.email, existingUser: result.existingUser },
+  const { value, effects } = await scopedDb(acting, async (tx) => {
+    const outcome = await inviteCenterAdminTx(tx, acting, body);
+    await writeAdminAudit(tx, actor, {
+      action: "center.admin_invited",
+      targetType: "center",
+      targetId: centerId,
+      centerId,
+      before: null,
+      after: { email: body.email, existingUser: outcome.value.existingUser },
+    });
+    return outcome;
   });
-  return result;
+  await runEffects(effects);
+  return value;
 }
 
 export async function adminRemoveCenterAdmin(
@@ -383,14 +390,17 @@ export async function adminRemoveCenterAdmin(
   userId: string,
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
-  const before = await snapshotUser(userId);
-  const result = await removeCenterAdmin(acting, userId, null);
-  await audit(actor, centerId, {
-    action: "center.admin_removed",
-    targetType: "user",
-    targetId: userId,
-    before: { admin: before },
-    after: { removed: true },
+  return scopedDb(acting, async (tx) => {
+    const before = await userSnapshot(tx, userId);
+    const result = await removeCenterAdminTx(tx, acting, userId, null);
+    await writeAdminAudit(tx, actor, {
+      action: "center.admin_removed",
+      targetType: "user",
+      targetId: userId,
+      centerId,
+      before: { admin: before },
+      after: { removed: true },
+    });
+    return result;
   });
-  return result;
 }

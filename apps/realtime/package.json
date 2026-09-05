@@ -2,7 +2,7 @@
   "name": "realtime",
   "version": "0.1.0",
   "private": true,
-  "description": "Edura realtime chat server — long-running Socket.IO process (WebSocket transport, socket-level auth, message persistence to Neon). Runs OUTSIDE Next.js because serverless functions cannot hold persistent WebSocket connections.",
+  "description": "Edura realtime chat server \u2014 long-running Socket.IO process (WebSocket transport, socket-level auth, message persistence to Neon). Runs OUTSIDE Next.js because serverless functions cannot hold persistent WebSocket connections.",
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/server.ts",
@@ -19,8 +19,10 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",
+    "eslint": "9.39.5",
     "typescript": "7.0.2"
   },
   "engines": {

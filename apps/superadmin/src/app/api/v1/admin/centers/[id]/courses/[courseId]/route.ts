@@ -1,6 +1,5 @@
-import { requireRole } from "@/lib/authz/require-role";
+import { withRole } from "@/lib/authz/require-role";
 import { toDateKey } from "@repo/server-core/lib/date-key";
-import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
 import { adminGetCourse, adminUpdateCourse } from "@/lib/services/admin/center-academic";
 import { parseJson } from "@/lib/validation/zod";
@@ -39,14 +38,12 @@ const patchSchema = z
   })
   .strict();
 
-export const GET = withErrors(async (_req, ctx) => {
-  const user = await requireRole("super_admin");
+export const GET = withRole("super_admin", async (user, _req, ctx) => {
   const { id, courseId } = await ctx.params;
   return ok(await adminGetCourse(user, id, courseId));
 });
 
-export const PATCH = withErrors(async (req, ctx) => {
-  const user = await requireRole("super_admin");
+export const PATCH = withRole("super_admin", async (user, req, ctx) => {
   const { id, courseId } = await ctx.params;
   const body = await parseJson(req, patchSchema);
   return ok(await adminUpdateCourse(user, id, courseId, body));
