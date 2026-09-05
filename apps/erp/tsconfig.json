@@ -60,7 +60,9 @@
     ".next-settle/types/**/*.ts",
     ".next-settle/dev/types/**/*.ts",
     ".next-counter/types/**/*.ts",
-    ".next-counter/dev/types/**/*.ts"
+    ".next-counter/dev/types/**/*.ts",
+    ".next-audit/types/**/*.ts",
+    ".next-audit/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

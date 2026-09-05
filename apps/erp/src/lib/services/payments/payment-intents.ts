@@ -16,7 +16,13 @@ import { notify } from "@/lib/services/notifications/notify";
 import { studentAndParents } from "@/lib/services/notifications/fanout";
 import { awardPoints } from "@/lib/services/points/points";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
-import { resolveDriver, type WebhookEvent, onlineCheckoutAvailable } from "./gateway";
+import { resolveFinanceStaff } from "@/lib/services/notifications/fanout";
+import {
+  resolveDriver,
+  type WebhookEvent,
+  onlineCheckoutAvailable,
+  integrationAllowed,
+} from "./gateway";
 
 const INTENT_TTL_MS = 60 * 60 * 1000; // 1h checkout window
 
@@ -31,10 +37,12 @@ export async function initiatePayment(
 ) {
   if (user.role !== "student") throw new ForbiddenError("Students only");
 
-  const driver = resolveDriver();
+  // Availability first: in production with PAYMENTS_MODE=mock the driver
+  // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
+  const driver = resolveDriver();
 
   const { intent, student } = await platformDb(
     async (tx) => {
@@ -110,10 +118,12 @@ export async function initiateSubscriptionIntent(
   idempotencyKey: string,
   user: SessionUser,
 ) {
-  const driver = resolveDriver();
+  // Availability first: in production with PAYMENTS_MODE=mock the driver
+  // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
+  const driver = resolveDriver();
   const payerUserId = user.role === "parent" ? user.id : null;
 
   const { intent, payer } = await platformDb(
@@ -206,10 +216,162 @@ function toClientIntent(
 }
 
 export type WebhookOutcome =
-  | { handled: true; intentId: string; result: "paid" | "failed" | "replay" | "not_pending" }
+  | {
+      handled: true;
+      intentId: string;
+      result:
+        | "paid"
+        | "paid_late"
+        | "failed"
+        | "replay"
+        | "not_pending"
+        | "needs_review"
+        | "ignored";
+    }
   | { handled: false; reason: string };
 
 export type { SettleNotification };
+
+type IntentRow = Prisma.PaymentIntentGetPayload<Record<string, never>>;
+
+async function tellFinance(title: string, body: string, data: Record<string, unknown>) {
+  const staff = await resolveFinanceStaff();
+  if (staff.length === 0) return;
+  await notify({ recipients: staff, type: "payment_recorded", title, body, data });
+}
+
+/**
+ * SECURITY_AUDIT.md H-04, rules 2–4 of Phase 3 §3.3.1. A capture settles only
+ * when the provider says it captured EXACTLY what the intent asked for, from an
+ * integration this deployment owns. Anything else is a reason, never a booking.
+ */
+function captureMismatch(intent: IntentRow, event: WebhookEvent): string | null {
+  if (event.amountMinor !== intent.amount) {
+    return `amount_mismatch: got ${event.amountMinor ?? "none"} expected ${intent.amount}`;
+  }
+  if ((event.currency ?? "").toUpperCase() !== intent.currency.toUpperCase()) {
+    return `currency_mismatch: got ${event.currency ?? "none"} expected ${intent.currency}`;
+  }
+  if (!integrationAllowed(event.integrationId)) {
+    return `unknown_integration: ${event.integrationId ?? "none"}`;
+  }
+  return null;
+}
+
+/**
+ * Money moved at the provider and it does not match the intent. Nothing is
+ * booked — the provider dashboard is the only truth now and a human has to
+ * look — but the intent is parked as `needs_review` (migration 76) with the
+ * reason, the payload is kept, and finance is told. The route still answers
+ * 200 so the provider stops retrying the same mismatch.
+ */
+async function parkForReview(
+  intent: IntentRow,
+  event: WebhookEvent,
+  payloadJson: Prisma.InputJsonValue,
+  reason: string,
+): Promise<WebhookOutcome> {
+  const { parked, current } = await platformDb(async (tx) => {
+    const parked = await tx.paymentIntent.updateMany({
+      where: { id: intent.id, status: { in: ["pending", "expired"] } },
+      data: {
+        status: "needs_review",
+        failureReason: reason,
+        gatewayRef: event.gatewayRef,
+        webhookPayload: payloadJson,
+      },
+    });
+    const current = await tx.paymentIntent.findUniqueOrThrow({
+      where: { id: intent.id },
+      select: { status: true },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: null,
+        action: "payment.webhook_rejected",
+        targetType: "payment_intent",
+        targetId: intent.id,
+        centerId: intent.centerId,
+        beforeState: { status: intent.status, amount: intent.amount, currency: intent.currency },
+        afterState: {
+          status: current.status,
+          reason,
+          gatewayRef: event.gatewayRef,
+          amountMinor: event.amountMinor,
+          currency: event.currency,
+          integrationId: event.integrationId,
+          parked: parked.count === 1,
+        },
+      },
+    });
+    return { parked: parked.count === 1, current: current.status };
+  });
+
+  await tellFinance(
+    "Payment needs review",
+    `A capture for intent ${intent.id} did not match it (${reason}). Nothing was booked.`,
+    { intentId: intent.id, reason, gatewayRef: event.gatewayRef, needsReview: true },
+  );
+
+  if (parked) return { handled: true, intentId: intent.id, result: "needs_review" };
+  return {
+    handled: true,
+    intentId: intent.id,
+    result: current === "paid" ? "replay" : "not_pending",
+  };
+}
+
+/**
+ * Refund and void callbacks. A void before capture simply fails the intent. A
+ * void after capture, or any refund, is money going BACK that this code did not
+ * arm — the executor + matching in Phase 3 §3.3.2 (M-05) is what will pair it
+ * with an armed refund row; until then it is recorded and finance is told.
+ */
+async function handleReversalEvent(
+  intent: IntentRow,
+  event: WebhookEvent,
+  payloadJson: Prisma.InputJsonValue,
+): Promise<WebhookOutcome> {
+  if (event.kind === "void") {
+    const voided = await platformDb((tx) =>
+      tx.paymentIntent.updateMany({
+        where: { id: intent.id, status: { in: ["pending", "expired"] } },
+        data: {
+          status: "failed",
+          failureReason: "voided by provider",
+          gatewayRef: event.gatewayRef,
+          webhookPayload: payloadJson,
+        },
+      }),
+    );
+    if (voided.count === 1) return { handled: true, intentId: intent.id, result: "failed" };
+  }
+
+  await platformDb((tx) =>
+    tx.auditLog.create({
+      data: {
+        actorId: null,
+        action: event.kind === "void" ? "payment.unsolicited_void" : "payment.unsolicited_refund",
+        targetType: "payment_intent",
+        targetId: intent.id,
+        centerId: intent.centerId,
+        afterState: {
+          gatewayRef: event.gatewayRef,
+          parentRef: event.parentRef,
+          amountMinor: event.amountMinor,
+          currency: event.currency,
+          intentStatus: intent.status,
+        },
+      },
+    }),
+  );
+  await tellFinance(
+    event.kind === "void" ? "Provider voided a captured payment" : "Provider refund not armed here",
+    `The provider reported a ${event.kind} of ${event.amountMinor ?? "?"} ${event.currency ?? ""} on intent ${intent.id} that no refund here arranged.`,
+    { intentId: intent.id, kind: event.kind, gatewayRef: event.gatewayRef, amountMinor: event.amountMinor },
+  );
+  return { handled: true, intentId: intent.id, result: "ignored" };
+}
 
 export async function processWebhookEvent(
   event: WebhookEvent,
@@ -222,7 +384,25 @@ export async function processWebhookEvent(
 
   const payloadJson = rawPayload as Prisma.InputJsonValue;
 
-  let settle: (tx: TenantTx) => Promise<SettleNotification | null>;
+  // ---- H-04: what kind of callback is this? Only a matching capture settles.
+  if (event.kind === "pending" || event.kind === "auth") {
+    await platformDb((tx) =>
+      tx.paymentIntent.updateMany({
+        where: { id: intent.id, status: { in: ["pending", "expired"] } },
+        data: { webhookPayload: payloadJson },
+      }),
+    );
+    return { handled: true, intentId: intent.id, result: "ignored" };
+  }
+  if (event.kind === "refund" || event.kind === "void") {
+    return handleReversalEvent(intent, event, payloadJson);
+  }
+  if (event.kind === "capture" && event.success) {
+    const mismatch = captureMismatch(intent, event);
+    if (mismatch) return parkForReview(intent, event, payloadJson, mismatch);
+  }
+
+  let settle: (tx: TenantTx) => Promise<SettleNotification>;
   if (intent.purpose === "wallet_topup") {
     const { settleWalletTopUpFromIntentTx } = await import("@/lib/services/wallet/wallet");
     settle = (tx) =>
@@ -255,8 +435,23 @@ export async function processWebhookEvent(
 
   const { result, toNotify } = await platformDb(
     async (tx): Promise<{ result: WebhookOutcome & { handled: true }; toNotify: SettleNotification | null }> => {
+      // Read inside the transaction so "was it expired?" and the claim agree.
+      const before = await tx.paymentIntent.findUnique({
+        where: { id: intent.id },
+        select: { status: true, expiresAt: true },
+      });
+      const wasExpired = before?.status === "expired";
+
+      // SECURITY_AUDIT.md H-03 rule 1: a SUCCESS claims `pending` OR `expired`.
+      // Intent expiry is the checkout window the UI shows, not a money boundary
+      // — if the provider captured after it, the money is real and is settled,
+      // with an audit row so finance can see how often it happens. A FAILURE
+      // still claims only `pending`: there is nothing to record on an expired
+      // intent that did not capture.
       const claim = await tx.paymentIntent.updateMany({
-        where: { id: intent.id, status: "pending" },
+        where: event.success
+          ? { id: intent.id, status: { in: ["pending", "expired"] } }
+          : { id: intent.id, status: "pending" },
         data: event.success
           ? {
               status: "paid",
@@ -292,7 +487,43 @@ export async function processWebhookEvent(
 
       const toNotify = await settle(tx);
 
-      return { result: { handled: true, intentId: intent.id, result: "paid" }, toNotify };
+      // H-03 rule 2: an intent is never `paid` without a `payments` row. Every
+      // settle path links the row it wrote; if one did not, this throw rolls
+      // the claim back, the provider retries, and the failure is loud (a 500
+      // with the intent id) instead of a silent `paid` that books nothing.
+      const linked = await tx.paymentIntent.findUniqueOrThrow({
+        where: { id: intent.id },
+        select: { paymentId: true },
+      });
+      if (!linked.paymentId) {
+        throw new Error(
+          `Settlement of intent ${intent.id} wrote no payment row — refusing to mark it paid`,
+        );
+      }
+
+      if (wasExpired) {
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: "payment.captured_after_expiry",
+            targetType: "payment_intent",
+            targetId: intent.id,
+            centerId: intent.centerId,
+            beforeState: { status: "expired", expiresAt: before?.expiresAt ?? null },
+            afterState: {
+              status: "paid",
+              gatewayRef: event.gatewayRef,
+              paymentId: linked.paymentId,
+              amount: intent.amount,
+            },
+          },
+        });
+      }
+
+      return {
+        result: { handled: true, intentId: intent.id, result: wasExpired ? "paid_late" : "paid" },
+        toNotify,
+      };
     },
   );
 

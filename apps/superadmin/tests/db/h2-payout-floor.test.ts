@@ -1,5 +1,5 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { approvePayout } from "@/lib/services/finance/payouts";
+import { approvePayout, payPayout } from "@/lib/services/finance/payouts";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
@@ -42,14 +42,25 @@ async function main() {
     await admin.query(`SELECT id FROM users WHERE role='super_admin' LIMIT 1`)
   ).rows[0].id as string;
   const superUser = { id: adminUser, role: "super_admin", locale: "en" } as SessionUser;
+  // M-03: the money moves on the PAY step, by a different person than the approver.
+  const payerId = (
+    await admin.query(
+      `INSERT INTO users (email, role, name, status, is_demo, updated_at)
+       VALUES ($1, 'accountant', $2, 'active', true, now()) RETURNING id`,
+      [`${tag}-payer@x.io`, `${tag} payer`],
+    )
+  ).rows[0].id as string;
+  const payer = { id: payerId, role: "accountant", locale: "en" } as SessionUser;
 
   console.log("\n(1) settlement exceeding balance:");
   const bigId = await createPending(8000); // > 5000
+  await approvePayout(bigId, superUser);
+  ok((await bal()) === 5000, "approval moved NO money (M-03: a decision, not a disbursement)");
   let threw = "";
-  try { await approvePayout(bigId, superUser); } catch (e) { threw = (e as Error).message; }
+  try { await payPayout(bigId, { externalRef: `${tag}-REF-BIG` }, payer); } catch (e) { threw = (e as Error).message; }
   ok(threw.includes("Insufficient wallet balance"), `rejected: "${threw}"`);
   ok((await bal()) === 5000, `balance unchanged at 5000 (never negative)`);
-  ok((await payoutStatus(bigId)) === "pending", `payout stayed 'pending' (settlement rolled back)`);
+  ok((await payoutStatus(bigId)) === "approved", `payout stayed 'approved' (settlement rolled back)`);
 
   console.log("\n(2) DB CHECK on a direct negative write:");
   let dbThrewTeacher = false;
@@ -65,11 +76,14 @@ async function main() {
   } catch (e) { dbThrewCenter = String((e as Error).message).includes("wallet_balance_nonneg"); }
   ok(dbThrewCenter, "centers CHECK (NOT VALID) rejected a new negative write");
 
-  console.log("\n(3) normal valid settlement:");
+  console.log("\n(3) normal valid settlement: approve, then a second person pays");
   const okId = await createPending(3000); // <= 5000
-  const paid = await approvePayout(okId, superUser);
-  ok(paid.status === "paid", "payout settled -> 'paid'");
-  ok((await bal()) === 2000, "balance decremented 5000 -> 2000");
+  const approved = await approvePayout(okId, superUser);
+  ok(approved.status === "approved" && (await bal()) === 5000, "approved, still 5000 in the wallet");
+  const paid = await payPayout(okId, { externalRef: `${tag}-REF-OK` }, payer);
+  ok(paid.status === "paid" && paid.externalRef === `${tag}-REF-OK`, "payout settled -> 'paid' with the transfer reference");
+  ok((await bal()) === 2000, "balance decremented 5000 -> 2000 on the PAY step");
+  await admin.query(`DELETE FROM users WHERE id = $1`, [payerId]).catch(() => undefined);
 
   await admin.end();
 

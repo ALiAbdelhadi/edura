@@ -134,7 +134,9 @@ async function resolveLessonEconomics(
   return economicsAt(args.perSessionPrice, args.course, rates);
 }
 
-async function resolveStudentLessonPrices(
+// Exported for the L-02 proof (l02-monthly-remainder.test.ts); the engine is
+// its only production caller.
+export async function resolveStudentLessonPrices(
   tx: TenantTx,
   args: {
     course: { id: string; price: number; pricePerSession: number | null; settlementBasis: string };
@@ -192,8 +194,28 @@ async function resolveStudentLessonPrices(
         sessionDate <= s.periodEnd,
     );
     if (monthly) {
-      const n = await countFor(monthly.periodStart as Date, monthly.periodEnd as Date);
-      out.set(id, n > 0 ? Math.round(monthly.price / n) : monthly.price);
+      const from = monthly.periodStart as Date;
+      const to = monthly.periodEnd as Date;
+      const n = await countFor(from, to);
+      if (n <= 0) {
+        out.set(id, monthly.price);
+        continue;
+      }
+      // L-02: floor per lesson; the LAST lesson of the period carries the
+      // remainder, so Σ(lesson shares) === monthly.price exactly. "Last" is by
+      // (date, id) among the period's non-cancelled sessions, so two sessions
+      // on one day still order deterministically.
+      const base = Math.floor(monthly.price / n);
+      const before = await tx.session.count({
+        where: {
+          courseId: course.id,
+          date: { gte: from, lte: to },
+          status: { not: "cancelled" },
+          OR: [{ date: { lt: sessionDate } }, { date: sessionDate, id: { lt: sessionId } }],
+        },
+      });
+      const isLast = before === n - 1;
+      out.set(id, isLast ? monthly.price - base * (n - 1) : base);
       continue;
     }
     out.set(id, 0);

@@ -43,10 +43,12 @@ export async function initiateCenterCreditTopUp(
       `Top-up must be between ${MIN_TOPUP / 100} and ${MAX_TOPUP / 100} EGP`,
     );
   }
-  const driver = resolveDriver();
+  // Availability first: in production with PAYMENTS_MODE=mock the driver
+  // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
+  const driver = resolveDriver();
 
   const { intent, payer } = await platformDb(
     async (tx) => {

@@ -65,18 +65,19 @@ export async function walletDebit(
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new BusinessRuleError("Wallet debit amount must be a positive integer");
   }
-  const debited = await tx.studentProfile.updateMany({
-    where: { userId: studentId, walletBalance: { gte: amount } },
-    data: { walletBalance: { decrement: amount } },
-  });
-  if (debited.count === 0) {
+  // L-01 (SECURITY_AUDIT.md): the running balance comes back from the SAME
+  // statement that decrements — the H2 conditional floor and RETURNING in one
+  // round trip. Reading it back afterwards let two concurrent debits record the
+  // same balanceAfter, and reconcileWallet's "last balanceAfter" check drifted.
+  const rows = await tx.$queryRaw<{ wallet_balance: number }[]>`
+    UPDATE student_profiles
+       SET wallet_balance = wallet_balance - ${amount}
+     WHERE user_id = ${studentId}::uuid AND wallet_balance >= ${amount}
+    RETURNING wallet_balance`;
+  if (rows.length === 0) {
     throw new BusinessRuleError(INSUFFICIENT_WALLET);
   }
-  const p = await tx.studentProfile.findUnique({
-    where: { userId: studentId },
-    select: { walletBalance: true },
-  });
-  const balanceAfter = p?.walletBalance ?? 0;
+  const balanceAfter = rows[0]!.wallet_balance;
   await tx.walletLedger.create({
     data: { studentId, delta: -amount, balanceAfter, ...ledgerLinks(opts) },
   });

@@ -79,7 +79,7 @@ async function main() {
       },
     });
     const sessions: string[] = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       const sess = await tx.session.create({
         data: {
           courseId: course.id, teacherId: teacher.id,
@@ -168,14 +168,29 @@ async function main() {
     "a second refund is bounded by what is LEFT, not by the original amount",
   );
 
-  // One refund per receipt is the current shape (payments_one_refund_per_payment);
-  // `refunded_total` is what makes multiple partials a later additive change.
-  const secondPartial = await caught(() =>
-    refundPayment({ paymentId: charge.id, amount: 30000, reason: "the remainder", refundChannel: "cash_drawer" }, owner),
+  // Multiple partials per receipt (migration 20260908120000): the remainder is
+  // a second refund row, and `refunded_total` is the only bound.
+  const remainder = await refundPayment(
+    { paymentId: charge.id, amount: 30000, reason: "the remainder", refundChannel: "cash_drawer" },
+    owner,
   );
   assert(
-    secondPartial instanceof BusinessRuleError,
-    "and a second refund row against the same receipt is refused by the partial unique index",
+    remainder.amount === -30000 && remainder.reversalOfId === charge.id,
+    "the remaining 300 EGP comes back as a SECOND refund row against the same receipt",
+  );
+  assert(remainder.isFullRefund === true, "…and the receipt is now fully refunded, across two partials");
+
+  const afterRemainder = await withPlatformContext((tx) =>
+    tx.payment.findUnique({ where: { id: charge.id }, select: { refundedTotal: true } }),
+  );
+  assert(afterRemainder?.refundedTotal === 50000, "refunded_total reached the receipt's amount");
+
+  const nothingLeft = await caught(() =>
+    refundPayment({ paymentId: charge.id, amount: 1, reason: "one more piaster", refundChannel: "cash_drawer" }, owner),
+  );
+  assert(
+    nothingLeft instanceof BusinessRuleError,
+    "and then nothing: even one piaster more is refused by the bound",
   );
 
   console.log("\n[5] the CHECK is the floor, not the service");
@@ -192,7 +207,7 @@ async function main() {
   const refundRows = await withPlatformContext((tx) =>
     tx.payment.count({ where: { centerId: fx.center, studentId: fx.students[0] } }),
   );
-  assert(refundRows === 2, "two payment rows only — the charge and its one refund");
+  assert(refundRows === 3, "three payment rows — the charge and its two partial refunds");
 
   console.log("\n[6] refunding PLATFORM-held money leaves the drawer alone");
   await openShift(owner, { openingFloat: 0 });
@@ -355,6 +370,35 @@ async function main() {
     "…so coverage survives it — the student keeps the month they are still paying for",
   );
 
+  // THE RULE: a receipt refunded to its full amount ACROSS SEVERAL PARTIALS
+  // behaves exactly like one full refund — the partial that brings
+  // refunded_total to amount is the one that ends coverage.
+  const remainderKey = `refund-remainder-${rid()}`;
+  const lastPartial = await refundPayment(
+    { paymentId: chargeB.id, amount: 30000, reason: "the rest", refundChannel: "cash_drawer", clientRequestId: remainderKey },
+    owner,
+  );
+  assert(lastPartial.isFullRefund === true, "the partial that completes the amount counts as the full refund");
+  const afterLast = await withPlatformContext((tx) =>
+    tx.subscription.findUnique({ where: { id: subB.id }, select: { status: true, cancelledAt: true } }),
+  );
+  assert(
+    afterLast?.status === "cancelled" && afterLast.cancelledAt !== null &&
+      lastPartial.cancelledSubscriptionIds.includes(subB.id),
+    "…and it cancels the subscription in the same transaction, exactly as a single full refund does",
+  );
+
+  const replay = await caught(() =>
+    refundPayment(
+      { paymentId: chargeB.id, amount: 30000, reason: "the rest", refundChannel: "cash_drawer", clientRequestId: remainderKey },
+      owner,
+    ),
+  );
+  assert(
+    replay instanceof BusinessRuleError,
+    "a retry carrying the SAME client_request_id is refused by payments_client_request_unique, not minted again",
+  );
+
   console.log("\n[10] a receipt whose lesson already settled is refused, per STUDENT");
   // Per-session passes here, not monthly: `subs_one_active_monthly` allows only
   // one active monthly per (student, course) and section 9 leaves one standing.
@@ -503,7 +547,7 @@ async function main() {
     "and it leaves the queue",
   );
 
-  console.log("\n[13] a gateway refund is never confirmed by hand");
+  console.log("\n[13] a gateway refund cannot be ARMED until the executor exists (M-05 interim)");
   const onlineB = await withPlatformContext((tx) =>
     tx.payment.create({
       data: {
@@ -513,16 +557,74 @@ async function main() {
       },
     }),
   );
-  const gatewayRefund = await refundPayment(
-    { paymentId: onlineB.id, amount: 15000, reason: "reverse it", refundChannel: "gateway" },
-    owner,
-  );
-  const byHand = await caught(() =>
-    confirmRefund({ refundPaymentId: gatewayRefund.id, externalRef: "made-up" }, owner),
+  const gatewayArm = await caught(() =>
+    refundPayment(
+      { paymentId: onlineB.id, amount: 15000, reason: "reverse it", refundChannel: "gateway" as never },
+      owner,
+    ),
   );
   assert(
-    byHand instanceof BusinessRuleError,
-    "a human cannot confirm a provider reversal — that arrives from the webhook, HMAC-verified",
+    gatewayArm instanceof BusinessRuleError && /not available yet/.test(gatewayArm.message),
+    "arming a `gateway` refund is refused at the service, not only by the route's enum — no obligation nobody can confirm",
+  );
+  const gatewayRows = await withPlatformContext((tx) =>
+    tx.payment.count({ where: { reversalOfId: onlineB.id } }),
+  );
+  assert(gatewayRows === 0, "…and no refund row was written");
+  const byHandOnGateway = confirmRefund; // still refuses `gateway` by design; unreachable until §3.3.2 ships
+  void byHandOnGateway;
+
+  console.log("\n[14] two partials racing to complete the SAME receipt");
+  // Reachable only since migration 20260908120000 dropped
+  // payments_one_refund_per_payment. Both callers read refundedTotal = 0; the
+  // conditional bump serialises them correctly, but a service that computed
+  // "is this now fully refunded?" by ADDING to the value it read first would
+  // see 0 + 300 = 300 on the second one and never cancel the coverage — the
+  // continuing overpayment surviving the very change meant to stop it.
+  const chargeF = await recordPayment(
+    { studentId: fx.students[2], courseId: fx.course, amount: 50000 },
+    owner,
+  );
+  const subF = await withPlatformContext((tx) =>
+    tx.subscription.create({
+      data: {
+        studentId: fx.students[2], targetType: "center", teacherId: fx.teacher,
+        centerId: fx.center, courseId: fx.course, sessionId: fx.sessions[2],
+        plan: "per_session", price: 50000, status: "active", source: "walk_in",
+        paymentId: chargeF.id, activatedAt: new Date(),
+      },
+      select: { id: true },
+    }),
+  );
+
+  const [a, b] = await Promise.all([
+    refundPayment(
+      { paymentId: chargeF.id, amount: 20000, reason: "race a", refundChannel: "cash_drawer" },
+      owner,
+    ),
+    refundPayment(
+      { paymentId: chargeF.id, amount: 30000, reason: "race b", refundChannel: "cash_drawer" },
+      owner,
+    ),
+  ]);
+  assert(
+    Math.abs(a.amount) + Math.abs(b.amount) === 50000,
+    "both partials landed and together they return the whole receipt",
+  );
+  assert(
+    [a.isFullRefund, b.isFullRefund].filter(Boolean).length === 1,
+    "EXACTLY ONE of them reports the receipt complete — whichever committed second",
+  );
+  const chargeFAfter = await withPlatformContext((tx) =>
+    tx.payment.findUnique({ where: { id: chargeF.id }, select: { refundedTotal: true } }),
+  );
+  assert(chargeFAfter?.refundedTotal === 50000, "refunded_total lands exactly on the receipt amount");
+  const subFAfter = await withPlatformContext((tx) =>
+    tx.subscription.findUnique({ where: { id: subF.id }, select: { status: true } }),
+  );
+  assert(
+    subFAfter?.status === "cancelled",
+    "…and coverage IS ended, which is the assertion that fails if the total is derived from a stale read",
   );
 
   console.log(`\n${pass} passed, ${fail} failed`);

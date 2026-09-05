@@ -4,7 +4,6 @@ import { prisma, withPlatformContext } from "@repo/database";
 import {
   adminRecordPayment,
   adminListPayments,
-  adminMarkPaymentRefunded,
   adminTopUpWallet,
   adminCreateWalkInSubscription,
   adminCreateExpense,
@@ -213,43 +212,6 @@ async function main() {
     assert(rows.length === 1, "audit: exactly one walk-in subscription row");
     assert(!!sub, "the service returned the subscription");
 
-    section("Mark refunded — a STATUS FLAG, not a reversal");
-    const ledgerBefore = await q(
-      `SELECT id, type, amount FROM transactions WHERE center_id=$1 ORDER BY id`,
-      [centerA],
-    );
-    await adminMarkPaymentRefunded(actor, centerA, payment.id);
-    assert(
-      (await q(`SELECT status FROM payments WHERE id=$1`, [payment.id]))[0].status === "refunded",
-      "the payment's STATUS flips to refunded",
-    );
-    const ledgerAfter = await q(
-      `SELECT id, type, amount FROM transactions WHERE center_id=$1 ORDER BY id`,
-      [centerA],
-    );
-    assert(
-      JSON.stringify(ledgerBefore) === JSON.stringify(ledgerAfter),
-      "MONEY: NO ledger reversal was written — the ledger is byte-identical",
-    );
-    rows = await auditRows("center.payment_marked_refunded", superAdminId);
-    assert(
-      rows.length === 1 &&
-        rows[0].after_state?.ledgerReversalWritten === false &&
-        rows[0].after_state?.moneyReturned === false,
-      "audit: the record states plainly that no reversal was written and no money returned",
-    );
-    const doubleFlag = await rejects(
-      () => adminMarkPaymentRefunded(actor, centerA, payment.id),
-      /Cannot transition/i,
-    );
-    assert(doubleFlag.threw && doubleFlag.matched, "flipping an already-refunded payment is refused");
-
-    const crossCenter = await rejects(
-      () => adminMarkPaymentRefunded(actor, centerB, payment.id),
-      /different center/i,
-    );
-    assert(crossCenter.threw && crossCenter.matched, "isolation: A's payment is unreachable as center B");
-
     section("Expenses + payout request");
     const exp = await adminCreateExpense(actor, centerA, {
       amount: 12_000,
@@ -301,7 +263,11 @@ async function main() {
 
     section("THE BOUNDARY — still closed, for a super admin too");
     const viaApp = (fn: (tx: never) => Promise<unknown>) => () => withPlatformContext(fn as never);
-    const txnId = ledgerAfter[0].id as string;
+    const ledger = await q(
+      `SELECT id FROM transactions WHERE center_id=$1 ORDER BY id`,
+      [centerA],
+    );
+    const txnId = ledger[0].id as string;
 
     for (const [label, model, id, data] of [
       ["Transaction.update", "transaction", txnId, { amount: 1 }],

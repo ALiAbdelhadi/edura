@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { assertNotProduction } from "../scripts/db-guard";
 import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
+import { ownerPurgeMoneyRows } from "./owner-purge";
 import { seedId } from "./seed-ids";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -95,6 +96,11 @@ const lessonDate = (weeksBack: number) => {
 
 async function purge() {
   console.log("Purging report-export demo data…");
+  // Receipts go first and as the OWNER (migration 20260909120100, M-04).
+  const purgeCenterIds = (
+    await withPlatformContext((tx) => tx.center.findMany({ where: { OR: [{ shortId: CENTER_SHORT_ID }, { id: CENTER }] }, select: { id: true } }))
+  ).map((c) => c.id);
+  await ownerPurgeMoneyRows({ paymentCenterIds: purgeCenterIds });
   await withPlatformContext(async (tx) => {
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
@@ -111,7 +117,6 @@ async function purge() {
     });
     const courseIds = courses.map((c) => c.id);
 
-    await tx.payment.deleteMany({ where: { centerId: { in: centerIds } } });
     await tx.expense.deleteMany({ where: { centerId: { in: centerIds } } });
 
     await tx.attendanceRecord.deleteMany({ where: { courseId: { in: courseIds } } });

@@ -144,7 +144,15 @@ export async function getGrade(gradeId: string, user: SessionUser) {
     });
     if (!grade) throw new NotFoundError("Grade not found");
 
+    // L-08 (SECURITY_AUDIT.md): the header (title, type, course, max score) is
+    // course data, and only an enrolled student — or the parent of one — may
+    // read it. A 404, not a 403, so an id probe learns nothing.
     if (user.role === "student") {
+      const enrolled = await tx.enrollment.findFirst({
+        where: { courseId: grade.courseId, studentId: user.id, status: "active" },
+        select: { id: true },
+      });
+      if (!enrolled) throw new NotFoundError("Grade not found");
       return { ...grade, scores: grade.scores.filter((s) => s.studentId === user.id) };
     }
     if (user.role === "parent") {
@@ -153,6 +161,13 @@ export async function getGrade(gradeId: string, user: SessionUser) {
         select: { studentId: true },
       });
       const allowed = new Set(links.map((l) => l.studentId));
+      const enrolled = allowed.size
+        ? await tx.enrollment.findFirst({
+            where: { courseId: grade.courseId, studentId: { in: [...allowed] }, status: "active" },
+            select: { id: true },
+          })
+        : null;
+      if (!enrolled) throw new NotFoundError("Grade not found");
       return {
         ...grade,
         scores: grade.scores.filter((s) => allowed.has(s.studentId)),

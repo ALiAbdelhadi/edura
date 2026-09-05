@@ -25,6 +25,8 @@ import {
   parentWalletDebit,
   assertApprovedChild,
 } from "../../services/wallet/parent-wallet";
+import { creditRefundTarget, resolvePayerTarget } from "../../services/wallet/refund-target";
+import { resolveFinanceStaff } from "../../services/notifications/fanout";
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // monthly coverage window
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000; // stale pending_payment sweep
@@ -423,6 +425,31 @@ export async function createSubscriptionCheckout(
 
   const { sub, course } = await platformDb(
     async (tx) => {
+      // L-10: the idempotency key is consulted FIRST. A retry of the same
+      // request used to mint a fresh `pending_payment` row before the intent
+      // lookup returned the first intent — one orphan subscription per retry.
+      const existing = await tx.paymentIntent.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        select: { subscriptionId: true, studentId: true, payerUserId: true },
+      });
+      if (existing) {
+        if ((existing.payerUserId ?? existing.studentId) !== user.id) {
+          throw new ForbiddenError("Idempotency key belongs to another user");
+        }
+        const prior = existing.subscriptionId
+          ? await tx.subscription.findUnique({ where: { id: existing.subscriptionId } })
+          : null;
+        if (!prior) throw new BusinessRuleError("Idempotency key belongs to a different checkout");
+        const course = await tx.course.findUniqueOrThrow({ where: { id: prior.courseId } });
+        return { sub: prior, course };
+      }
+
+      // M-02: serialise checkouts per student, exactly as the wallet branch
+      // does. Two requests with different keys used to pass
+      // `assertNoDuplicateActive` together (both subscriptions were still
+      // `pending_payment`), get two intents, and both got paid.
+      await tx.$queryRaw`SELECT 1 FROM student_profiles WHERE user_id = ${studentId}::uuid FOR UPDATE`;
+
       const course = await tx.course.findFirst({
         where: { id: input.courseId, status: "active" },
       });
@@ -430,6 +457,7 @@ export async function createSubscriptionCheckout(
 
       const { price } = await resolvePlan(tx, course, choice);
       await assertNoDuplicateActive(tx, studentId, course.id, choice);
+      await assertNoCheckoutInFlight(tx, studentId, course.id, choice);
 
       const sub = await tx.subscription.create({
         data: subscriptionShell(
@@ -451,43 +479,292 @@ export async function createSubscriptionCheckout(
   return initiateIntent(sub, input.method, input.idempotencyKey, user);
 }
 
+/**
+ * M-02, checkout side. A `pending_payment` subscription for the same plan whose
+ * intent is still `pending` and unexpired is a checkout the student can still
+ * complete; starting a second one is how two captures for one plan happen. The
+ * abandoned-iframe case is not a lockout: the intent expires in an hour, and
+ * the payer can cancel the pending subscription at any time.
+ */
+const INTENT_ATTACH_GRACE_MS = 10 * 60 * 1000;
+
+async function assertNoCheckoutInFlight(
+  tx: TenantTx,
+  studentId: string,
+  courseId: string,
+  choice: PlanChoice,
+): Promise<void> {
+  const pending = await tx.subscription.findMany({
+    where:
+      choice.plan === "monthly"
+        ? { studentId, courseId, plan: "monthly", status: "pending_payment" }
+        : { studentId, sessionId: choice.sessionId, plan: "per_session", status: "pending_payment" },
+    select: { paymentIntentId: true, createdAt: true },
+  });
+  if (pending.length === 0) return;
+
+  const now = Date.now();
+  // The intent is minted in a LATER transaction than the subscription row, so
+  // a sibling that committed a moment ago has no intent yet. A young row with
+  // no intent is in flight; an old one with no intent is a checkout whose
+  // initiation failed, and is not allowed to block forever.
+  const attaching = pending.some(
+    (p) => !p.paymentIntentId && now - p.createdAt.getTime() < INTENT_ATTACH_GRACE_MS,
+  );
+  const withIntent = pending.map((p) => p.paymentIntentId).filter(Boolean) as string[];
+  const live =
+    withIntent.length === 0
+      ? null
+      : await tx.paymentIntent.findFirst({
+          where: { id: { in: withIntent }, status: "pending", expiresAt: { gt: new Date(now) } },
+          select: { id: true },
+        });
+  if (attaching || live) {
+    throw new BusinessRuleError(
+      "A checkout for this course is already in progress — finish it or cancel it first",
+    );
+  }
+}
+
+/**
+ * Settle a gateway capture against its subscription (SECURITY_AUDIT.md H-03).
+ *
+ * This used to `return null` for any subscription that was no longer
+ * `pending_payment` — after the caller had already flipped the intent to
+ * `paid` in the same transaction. The provider had the money; the platform had
+ * a `paid` intent, no `payments` row, no ledger row, no wallet credit and no
+ * notification. Every such case was a customer who paid and got nothing, and a
+ * ledger that could not see it.
+ *
+ * Now a capture ALWAYS ends in a money row, one of three ways:
+ *   1. the subscription is `pending_payment` → activate it (the ordinary path);
+ *   2. it is `cancelled` (the payer changed their mind, or the 24 h sweep ran)
+ *      but the course is still active and nothing else covers the same plan →
+ *      RE-ACTIVATE it: they paid for coverage, give them coverage;
+ *   3. anything else (expired, superseded by a sibling checkout that won the
+ *      race, course closed, session gone) → CREDIT THE PAYER'S WALLET — the
+ *      parent's if a parent paid, else the student's — with a receipt the
+ *      family can see and a row finance can reconcile.
+ *
+ * The student profile row is locked first so two captures for the same
+ * student serialise here: the second one sees the first's active subscription
+ * and takes branch 3 instead of racing `subs_one_active_*` into a P2002 that
+ * would roll the whole claim back (Phase 3 §3.2/1). The caller then asserts
+ * `payment_intents.payment_id` is set, which is what makes "settled but wrote
+ * nothing" impossible rather than merely unlikely.
+ */
 export async function settleSubscriptionFromIntentTx(
   tx: TenantTx,
   subscriptionId: string,
   intent: { id: string; gatewayRef: string | null; payerUserId?: string | null },
-): Promise<SettleNotification | null> {
-  const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
-  if (!sub) throw new NotFoundError("Subscription vanished during settlement");
-  if (sub.status !== "pending_payment") return null; // replay no-op
+): Promise<SettleNotification> {
+  const sub0 = await tx.subscription.findUnique({ where: { id: subscriptionId } });
+  if (!sub0) throw new NotFoundError("Subscription vanished during settlement");
+
+  await tx.$queryRaw`SELECT 1 FROM student_profiles WHERE user_id = ${sub0.studentId}::uuid FOR UPDATE`;
+  const sub = await tx.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
 
   const payerUserId = intent.payerUserId ?? null;
   const actor = payerUserId ?? sub.studentId;
 
-  const { paymentId, receiptNumber } = await settleSubscriptionMoney(
-    tx,
-    sub,
-    "online_paymob",
-    intent.gatewayRef,
-    actor,
-    payerUserId,
-  );
-  await tx.subscription.update({
-    where: { id: sub.id },
-    data: { paymentIntentId: intent.id },
+  const activate = async (reactivated: boolean): Promise<SettleNotification> => {
+    const { paymentId, receiptNumber } = await settleSubscriptionMoney(
+      tx,
+      sub,
+      "online_paymob",
+      intent.gatewayRef,
+      actor,
+      payerUserId,
+    );
+    await tx.subscription.update({
+      where: { id: sub.id },
+      data: { paymentIntentId: intent.id, cancelledAt: reactivated ? null : undefined },
+    });
+    await activateSubscription(tx, sub.id, {
+      paymentMethod: "online_paymob",
+      paymentId,
+      enrolledBy: actor,
+    });
+    await tx.paymentIntent.update({ where: { id: intent.id }, data: { paymentId } });
+    if (reactivated) {
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: "subscription.reactivated_by_capture",
+          targetType: "subscription",
+          targetId: sub.id,
+          centerId: sub.centerId,
+          beforeState: { status: sub.status, cancelledAt: sub.cancelledAt },
+          afterState: { status: "active", paymentIntentId: intent.id, paymentId, receiptNumber },
+        },
+      });
+    }
+    return {
+      studentId: sub.studentId,
+      type: "payment_recorded",
+      title: "Subscription active",
+      body: payerUserId
+        ? `A parent paid for this subscription. Receipt ${receiptNumber}.`
+        : `Your subscription is active. Receipt ${receiptNumber}.`,
+      data: { subscriptionId: sub.id, receiptNumber, reactivated },
+    };
+  };
+
+  // Under the lock, "may this capture grant coverage?" is answered once for
+  // both live statuses. A pending subscription whose plan is ALREADY covered
+  // (a sibling checkout won the race — Phase 3 §3.2/1) must not race the
+  // `subs_one_active_*` index into a P2002 that aborts the transaction; it
+  // takes the credit branch instead. A cancelled one additionally needs its
+  // course, and for a pass its session, to still be sellable.
+  const duplicate = await (async () => {
+    try {
+      await assertNoDuplicateActive(tx, sub.studentId, sub.courseId, {
+        plan: sub.plan,
+        sessionId: sub.sessionId,
+      });
+      return false;
+    } catch (err) {
+      if (err instanceof BusinessRuleError) return true;
+      throw err;
+    }
+  })();
+
+  if (sub.status === "pending_payment" && !duplicate) return activate(false);
+
+  if (sub.status === "cancelled" && !duplicate) {
+    const course = await tx.course.findUnique({
+      where: { id: sub.courseId },
+      select: { status: true },
+    });
+    let sellable = course?.status === "active";
+    if (sellable && sub.plan === "per_session") {
+      const session = sub.sessionId
+        ? await tx.session.findUnique({ where: { id: sub.sessionId } })
+        : null;
+      sellable =
+        !!session &&
+        session.status !== "cancelled" &&
+        session.status !== "completed" &&
+        !session.distributedAt;
+    }
+    if (sellable) return activate(true);
+  }
+
+  return creditOrphanedCapture(tx, sub, intent, payerUserId, actor);
+}
+
+/**
+ * Branch 3 above. The money is real and the coverage it bought cannot be
+ * granted, so it becomes spendable balance for whoever paid — the same shape
+ * as an online wallet top-up (platform-held float, `toEntityId: null`), so
+ * every report that already understands top-ups understands this row too.
+ */
+async function creditOrphanedCapture(
+  tx: TenantTx,
+  sub: Subscription,
+  intent: { id: string; gatewayRef: string | null },
+  payerUserId: string | null,
+  actor: string,
+): Promise<SettleNotification> {
+  const target = await resolvePayerTarget(tx, { studentId: sub.studentId, payerUserId });
+
+  let receiptNumber: string;
+  if (sub.centerId) {
+    const center = await tx.center.update({
+      where: { id: sub.centerId },
+      data: { receiptSeq: { increment: 1 } },
+    });
+    receiptNumber = formatCenterReceipt(center.shortId, center.receiptSeq);
+  } else {
+    receiptNumber = await nextPlatformReceipt(tx);
+  }
+
+  const payment = await tx.payment.create({
+    data: {
+      centerId: sub.centerId,
+      studentId: sub.studentId,
+      payerUserId,
+      courseId: sub.courseId,
+      amount: sub.price,
+      paymentMethod: "online_paymob",
+      note: `Payment captured after the subscription was ${sub.status} — credited to the ${target.kind} wallet`,
+      receiptNumber,
+      recordedBy: actor,
+      paidAt: new Date(),
+      dataSource: sub.dataSource,
+    },
   });
-  await activateSubscription(tx, sub.id, {
-    paymentMethod: "online_paymob",
-    paymentId,
-    enrolledBy: actor,
+
+  const refNumber = await nextTxnRef(tx);
+  const transaction = await tx.transaction.create({
+    data: {
+      refNumber,
+      type: "payment",
+      amount: sub.price,
+      fromEntityId: sub.studentId,
+      toEntityId: null, // platform-held float, exactly like an online top-up
+      centerId: null,
+      status: "completed",
+      paymentMethod: "online_paymob",
+      funding: "platform_held",
+      gatewayRef: intent.gatewayRef,
+      notes: `Orphaned capture credited to ${target.kind} wallet (intent ${intent.id}, subscription ${sub.id} ${sub.status})`,
+      dataSource: sub.dataSource,
+    },
   });
+
+  const { balanceAfter } = await creditRefundTarget(tx, target, sub.price, {
+    type: "adjustment",
+    method: "online_paymob",
+    refNumber,
+    paymentId: payment.id,
+    paymentIntentId: intent.id,
+    subscriptionId: sub.id,
+    relatedTxnId: transaction.id,
+    reason: `Payment captured after the subscription was ${sub.status}; credited instead of lost`,
+    recordedBy: actor,
+  });
+
+  await tx.paymentIntent.update({
+    where: { id: intent.id },
+    data: { paymentId: payment.id, transactionId: transaction.id },
+  });
+
+  await tx.auditLog.create({
+    data: {
+      actorId: null,
+      action: "payment.orphan_capture_credited",
+      targetType: "payment_intent",
+      targetId: intent.id,
+      centerId: sub.centerId,
+      beforeState: { subscriptionId: sub.id, subscriptionStatus: sub.status },
+      afterState: {
+        paymentId: payment.id,
+        receiptNumber,
+        amount: sub.price,
+        creditedTo: target.kind,
+        creditedUserId: target.userId,
+        balanceAfter,
+      },
+    },
+  });
+
+  const family = await studentAndParents(sub.studentId);
+  const finance = await resolveFinanceStaff();
   return {
     studentId: sub.studentId,
+    recipients: [...new Set([...family, target.userId, ...finance])],
     type: "payment_recorded",
-    title: "Subscription active",
-    body: payerUserId
-      ? `A parent paid for this subscription. Receipt ${receiptNumber}.`
-      : `Your subscription is active. Receipt ${receiptNumber}.`,
-    data: { subscriptionId: sub.id, receiptNumber },
+    title: "Payment credited to wallet",
+    body: `Your payment was received after the subscription was ${sub.status}, so ${(sub.price / 100).toFixed(2)} EGP was added to the ${target.kind === "parent" ? "parent" : "student"} wallet instead. Receipt ${receiptNumber}.`,
+    data: {
+      subscriptionId: sub.id,
+      receiptNumber,
+      paymentId: payment.id,
+      walletCredit: sub.price,
+      creditedTo: target.kind,
+      orphanedCapture: true,
+    },
   };
 }
 
@@ -648,6 +925,10 @@ export async function cancelPendingSubscription(subscriptionId: string, user: Se
       if (sub.status !== "pending_payment") {
         throw new BusinessRuleError("Only unpaid subscriptions can be cancelled here");
       }
+      // The intent is deliberately left alone (H-03): the provider, not this
+      // button, decides whether money moved. A capture that still arrives for a
+      // cancelled subscription is re-activated or credited by
+      // settleSubscriptionFromIntentTx — never dropped.
       return tx.subscription.update({
         where: { id: sub.id },
         data: { status: "cancelled", cancelledAt: new Date() },
@@ -666,37 +947,83 @@ export async function expireSubscriptions(now: Date) {
 
     const dayStart = new Date(now);
     dayStart.setUTCHours(0, 0, 0, 0);
-    const passes = await tx.subscription.findMany({
-      where: { status: "active", plan: "per_session" },
-      select: { id: true, sessionId: true },
-      take: 2000,
-    });
-    const sessionIds = [...new Set(passes.map((p) => p.sessionId).filter(Boolean) as string[])];
-    const sessions = await tx.session.findMany({
-      where: { id: { in: sessionIds }, date: { lt: dayStart } },
-      select: { id: true },
-    });
-    const overIds = new Set(sessions.map((s) => s.id));
-    const passIds = passes.filter((p) => p.sessionId && overIds.has(p.sessionId)).map((p) => p.id);
-    const perSession = passIds.length
-      ? await tx.subscription.updateMany({
+    // L-09 (SECURITY_AUDIT.md): paginate — a flat `take: 2000` left every pass
+    // beyond the cap un-expired forever.
+    let passesExpired = 0;
+    let passCursor: string | undefined;
+    for (;;) {
+      const passes = await tx.subscription.findMany({
+        where: { status: "active", plan: "per_session", ...(passCursor ? { id: { gt: passCursor } } : {}) },
+        select: { id: true, sessionId: true },
+        orderBy: { id: "asc" },
+        take: 2000,
+      });
+      if (passes.length === 0) break;
+      passCursor = passes[passes.length - 1]!.id;
+      const sessionIds = [...new Set(passes.map((p) => p.sessionId).filter(Boolean) as string[])];
+      const sessions = await tx.session.findMany({
+        where: { id: { in: sessionIds }, date: { lt: dayStart } },
+        select: { id: true },
+      });
+      const overIds = new Set(sessions.map((s) => s.id));
+      const passIds = passes.filter((p) => p.sessionId && overIds.has(p.sessionId)).map((p) => p.id);
+      if (passIds.length) {
+        const res = await tx.subscription.updateMany({
           where: { id: { in: passIds } },
           data: { status: "expired" },
-        })
-      : { count: 0 };
+        });
+        passesExpired += res.count;
+      }
+      if (passes.length < 2000) break;
+    }
+    const perSession = { count: passesExpired };
 
-    const stalePending = await tx.subscription.updateMany({
-      where: {
-        status: "pending_payment",
-        createdAt: { lt: new Date(now.getTime() - PENDING_TTL_MS) },
-      },
-      data: { status: "cancelled", cancelledAt: now },
-    });
+    // H-03 rule 4: only a pending subscription whose intent is NOT payable is
+    // stale. One whose intent is still `pending` and unexpired may be captured
+    // any second; cancelling it here is what used to turn that capture into an
+    // orphan. Subscription → intent is a bare column, so the filter is in JS.
+    let stalePendingCancelled = 0;
+    let cursor: string | undefined;
+    for (;;) {
+      const batch = await tx.subscription.findMany({
+        where: {
+          status: "pending_payment",
+          createdAt: { lt: new Date(now.getTime() - PENDING_TTL_MS) },
+          ...(cursor ? { id: { gt: cursor } } : {}),
+        },
+        select: { id: true, paymentIntentId: true },
+        orderBy: { id: "asc" },
+        take: 500,
+      });
+      if (batch.length === 0) break;
+      cursor = batch[batch.length - 1]!.id;
+
+      const intentIds = batch.map((b) => b.paymentIntentId).filter(Boolean) as string[];
+      const live = new Set(
+        (
+          await tx.paymentIntent.findMany({
+            where: { id: { in: intentIds }, status: "pending", expiresAt: { gt: now } },
+            select: { id: true },
+          })
+        ).map((i) => i.id),
+      );
+      const staleIds = batch
+        .filter((b) => !b.paymentIntentId || !live.has(b.paymentIntentId))
+        .map((b) => b.id);
+      if (staleIds.length > 0) {
+        const res = await tx.subscription.updateMany({
+          where: { id: { in: staleIds }, status: "pending_payment" },
+          data: { status: "cancelled", cancelledAt: now },
+        });
+        stalePendingCancelled += res.count;
+      }
+      if (batch.length < 500) break;
+    }
 
     return {
       monthlyExpired: monthly.count,
       passesExpired: perSession.count,
-      stalePendingCancelled: stalePending.count,
+      stalePendingCancelled,
     };
   });
 }

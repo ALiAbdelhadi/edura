@@ -101,6 +101,67 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
   (Ali's decision, 2026-07-31). No Node install instructions, `engines.node`,
   or Node references may appear anywhere user-facing; `engines` declare Bun only.
 
+## The DB suites run against a LOCAL Postgres (decided 2026-09-06, Ali)
+
+**`EDURA_ENV=test` now resolves to `localhost:5432/edura_test`, not to the Neon
+`test` branch.** The suites are integration tests — real fixtures, real
+transactions, a sweep afterwards — so every assertion was a round-trip to
+eu-central-1 and latency, not work, was the cost. Measured the day of the
+change, same machine, same suites:
+
+| | Neon `test` branch | local Postgres |
+|---|---|---|
+| `apps/erp` DB suites | 3686.8s (mean 104s/suite) | **41.9s** — 66 suites, 1788 assertions |
+| `apps/superadmin` DB suites | 2546.9s | **19.4s** — 33 suites, 879 assertions |
+| `apps/erp` unit tests (no database) | 2.7s | 2.7s |
+
+Roughly **90×**. The unit-test row is there to make the point: the work was
+never the bottleneck.
+
+- **Setup is one command, and it is a script, not a recipe to retype:**
+  `bun run db:local` (`packages/database/scripts/local-test-db.sh`), `--reset`
+  to rebuild from nothing. It mirrors what CI already does, so local and CI
+  prove the same thing against the same shape: the database carries the
+  `edura-env:test` label `db-guard` keys on, `edura_app` is NOBYPASSRLS so RLS
+  is genuinely enforced, and `bootstrap-app-role` runs BEFORE any table exists —
+  on a populated schema its `GRANT … ON ALL TABLES` would re-grant the
+  UPDATE/DELETE that migration `00000000000003` revokes on the append-only
+  ledger, which is why that script refuses there.
+- **Switching is one word.** `bun run db:local:env` / `bun run db:neon:env`
+  rewrite the DB lines in the three `.env.test` files and keep the other set
+  beside them as `# NEON …` / `# LOCAL …` comments, so nothing has to be
+  retyped from memory and the Neon branch stays one command away.
+- **THE CLUSTER MUST BE UTC.** A Homebrew cluster inherits the machine's zone —
+  `Africa/Cairo`, UTC+3 — and Neon runs GMT. That offset alone broke
+  `invite-claim`, `view-as` and `guardian-verification`: a freshly minted
+  view-as session looked three hours old and every expiry comparison flipped.
+  The setup script sets `ALTER DATABASE … SET timezone TO 'UTC'`; a hand-built
+  database that skips it fails exactly those three suites and nothing else,
+  which is a confusing signature to debug from scratch.
+- **`bun run test:db:local` in either app** runs everything that CAN run
+  locally. Six suites are excluded, in two groups, and the second group is the
+  interesting one:
+  - *needs a demo seed / Cloudinary* — `catalog-onboarding`,
+    `c01-lesson-settlement`, `h03-seed-uuid-flows`, `profile-images` (erp),
+    `room-pricing-methods`, `room-revenue-split` (superadmin). These fail on the
+    Neon test branch too, for the same reason, and CI excludes the erp four
+    already.
+  - **`c02-payout-generation` CANNOT BE PROVEN LOCALLY, AND THAT IS NOT A BUG.**
+    Its subject *is* latency: it proves a fix for a payout generator that blew
+    the 20-second interactive-transaction ceiling. On a local database the
+    pre-fix path finishes in 172 ms, the regression cannot be reproduced, and
+    the proof collapses (16 passed / 12 failed). **Run it against Neon**:
+    `bun run db:neon:env && bun run test:db --only c02-payout-generation`.
+    It passes there — 28/28, 136.8s.
+- **Do NOT edit `.env.test` while a suite run is in flight.** Doing so mid-run
+  made seven superadmin suites fail in 0.3s each with `load-env` refusing,
+  because the parent's exported environment no longer matched the file the
+  children read. The guard was right; the mistake was changing config under a
+  running job.
+
+The section below is the previous arrangement, kept because its reasoning about
+labels and the guard still governs.
+
 ## The DB suites run against DEV (decided 2026-08-03, Ali)
 
 The `test` Neon branch was unreachable — `ep-shiny-waterfall-as6cxn8n` refused
@@ -371,9 +432,20 @@ governs. Violating one of these is never a local change.
   engine, the back-office preview and the www preview all call it. An unpriced
   lesson REFUSES to complete rather than settling zero.
   → [lesson-settlement](docs/decisions/lesson-settlement.md)
-- **MONEY IS READ-ONLY IN THE BACK-OFFICE APP, and superadmin is NOT exempt
-  THERE.** The DB-level REVOKEs bite for `super_admin` too; no GRANT and no
-  second DB role was added, and no back-office module imports a money service.
+- **MONEY IN THE BACK-OFFICE APP MOVES ONLY THROUGH SANCTIONED CENTRE
+  FUNCTIONS, AUDITED — it is not "read-only", and this sentence used to say it
+  was.** Corrected 2026-09-06 (SECURITY_AUDIT.md M-08) because the invariant as
+  written was false and reviewers were relying on it: `apps/superadmin` DOES
+  write money in exactly four places — `adminRecordPayment`, `adminTopUpWallet`,
+  `adminCreateWalkInSubscription` (`center-money.ts`, each = `superadminAsCenter`
+  + the SAME `*Tx` function the ERP counter runs + `writeAdminAudit`), and
+  `refundLessonForStudent` (`POST /api/v1/finance/refunds`, the settled-lesson
+  clawback that reaches teacher/centre wallets, `super_admin` only since M-08).
+  What IS true at the database: `transactions`, `points_ledger`,
+  `session_settlements`, and since migration 77 the three wallet ledgers are
+  append-only for `edura_app`, and `payments` cannot be deleted — for
+  `super_admin` too. No GRANT and no second DB role was added, and no back-office
+  module reimplements a money primitive (NO SECOND MONEY ENGINE still holds).
   **QUALIFIED 2026-08-20 — read this before quoting the rule:** a `super_admin`
   CAN now move money, by using "view as" to become an ERP user inside the ERP
   app, under that user's own session. Ali chose that explicitly over the
@@ -451,6 +523,122 @@ governs. Violating one of these is never a local change.
   for still loads with the page. → [student-card-qr](docs/decisions/student-card-qr.md)
 
 ## Environment state
+
+> **[dev, test (local + Neon) AND production, 2026-09-06] SECURITY AUDIT
+> REMEDIATION — migrations 76, 77, 78 applied on all four; verify-db 32/32 on
+> each.** Production (`ep-mute-rice-b2s8gg42`) was applied by Ali after a
+> read-only pre-flight (status listed exactly the three, census 16 users /
+> 0 payments / 0 transactions before and after). `expected-db-shape.json` is at
+> 83 tables / 78 migrations. Schema went first; the code may deploy. Full
+> status, per finding, in SECURITY_AUDIT.md §4. One shell note: `$DIRECT_URL`
+> is NOT in the interactive shell, so the `connect_timeout` deploy variant needs
+> `set -a; . ./.env.production; set +a` first — a bare `$DIRECT_URL` produces
+> `P1013 scheme not recognized`, not a connection error.
+>
+> | # | migration | what it adds |
+> |---|---|---|
+> | 76 | `20260909120000_needs_review_enum` | `payment_intent_status` += `needs_review` (own file: ADD VALUE cannot share a tx with a use) |
+> | 77 | `20260909120100_money_tables_revoke` | `REVOKE UPDATE, DELETE` on `wallet_ledger`, `parent_wallet_ledger`, `center_wallet_ledger`; `REVOKE DELETE` on `payments` — the launch-hardening step the wallet migrations deferred. Demo seeds purge money rows through `prisma/owner-purge.ts` on `ADMIN_URL` now |
+> | 78 | `20260909120200_payout_maker_checker_email_change` | `payouts.external_ref` (partial unique), `paid_by`, `generated_by`; `notification_type` += `payout_paid`; table `email_change_requests`; expression unique `audit_logs_view_as_jti` |
+>
+> Prisma cannot model the two partial/expression uniques or the REVOKEs;
+> `prisma migrate dev` WILL offer to drop them — refuse. `c07-security-audit-guards`
+> asserts each by definition. verify-db's `APPEND_ONLY` now names the three
+> wallet ledgers and `payments` (28 → 32 checks).
+>
+> **THE ERP ROUTE CENSUS IS 360 ƒ / 3 ○ / 0 ●, not 342/3/31.** M-09's nonce CSP
+> is minted per request in `src/proxy.ts` and the root layout reads `headers()`
+> for it, so every page under `[locale]` renders dynamically; the 31 SSG pages
+> (faq, terms, help, changelog…) are dynamic now. Inherent to a nonce CSP, not a
+> regression to chase.
+
+> **[dev, test AND production, 2026-09-06] THE REFUND WORK — migrations 73, 74
+> and 75, verify-db 28/28 on all three.** `expected-db-shape.json` is at 75.
+> Applied dev → test → production, each after a read-only pre-flight (datasource
+> line read, label confirmed, pending list checked, row census before and after).
+> Production was `edura-env:production` on `ep-mute-rice-b2s8gg42` with **0
+> payments and 0 transactions before and after** — the schema went first, the
+> code follows, which is the 2026-08-02 ordering lesson.
+>
+> | # | migration | what it adds |
+> |---|---|---|
+> | 73 | `20260906120000_refund_foundation` | `payments.reversal_of_id` + `refunded_total` + `client_request_id`, `transactions.payment_id`, 2 CHECKs, 3 indexes |
+> | 74 | `20260907120000_refund_channel` | `refund_channel` enum + the four-column evidence block, 2 CHECKs, 1 partial unique |
+> | 75 | `20260908120000_refund_multiple_partials` | drops `payments_one_refund_per_payment`; rebuilds `transactions_one_refund_per_payment` with `payment_id IS NULL` |
+>
+> **THERE IS ONE REFUND DOOR: `POST /api/v1/payments/[id]/refund`.**
+> `recordPaymentTx` now REFUSES a negative amount outright — the same refusal
+> `adminRecordCenterPayment` always made — so the contradiction where one app's
+> sanctioned flow was the other app's only flow is gone. `signedMoneySchema` was
+> deleted with it: its only caller let any value down to −99,999,900 piasters
+> through as a "refund". A refund takes a POSITIVE amount and the sign belongs
+> to the row the service writes.
+>
+> **OPTION B, NOT A** — the money leaves the way it arrived, and the platform
+> records an obligation it then confirms. Option A (wallet credit) was REJECTED
+> on the evidence in `WALLET_SPENDABILITY.md`: `walletDebit` has no
+> user-reachable caller, `CounterMethod` excludes `wallet` so the counter cannot
+> take it back, nothing converts a balance to cash, and the payer is usually a
+> parent who can neither see nor spend what lands in their child's wallet.
+> Do not "finish" Option A without closing those four gaps first.
+>
+> **`transactions.status` CANNOT ANSWER "WAS THIS REFUND PAID?"** The table has
+> UPDATE revoked (migration `00000000000003`), so a refund row written `pending`
+> at arming can NEVER become `completed`; confirmation appends a second
+> `adjustment` row instead. The state lives on **`payments.refund_confirmed_at`**
+> and every reader keys off it — `refundsReport`, the accountant dashboard and
+> the superadmin decision-queue tile were all corrected to do so. Filtering
+> those readers on `status:"completed"`, which REFUND_DECISION.md originally
+> proposed, would show **zero refunds forever**.
+>
+> **A REFUND ENDS COVERAGE, NOT MEMBERSHIP.** A full refund cancels the
+> subscription in the same transaction — that is what stops `distribution.ts`
+> paying teacher and centre at every later lesson for a student who was refunded
+> (§1.4). The `enrollments` row is deliberately untouched: decision #2 says the
+> subscription is the payment coverage and the enrollment is the roster link, so
+> a money correction must not silently rearrange a teacher's roster. A receipt
+> whose lessons have ALREADY settled is refused here and belongs to
+> `refundLessonForStudent`, which runs on `platformDb` and may reach the wallets
+> ERP may not. That gate is per-STUDENT (`transactions type:"payment"`,
+> `fromEntityId = studentId`, `lessonId` in the covered sessions), because a
+> lesson settled for somebody else moved none of this student's money.
+> `session_settlements` cannot answer it — it is `sessionId @unique`.
+>
+> **PRISMA CANNOT MODEL NINE OF THESE OBJECTS AND `prisma migrate dev` WILL
+> OFFER TO DROP THEM:** four CHECKs (`payments_reversal_is_negative`,
+> `payments_refunded_within_amount`, `payments_refund_channel_shape`,
+> `payments_refund_confirmation_complete`), two partial unique indexes
+> (`payments_refund_external_ref_unique`, `transactions_one_refund_per_payment`),
+> the `payments_client_request_unique` shape, and both bare FKs. Refuse.
+> `apps/erp/tests/db/c06-refund-guards.test.ts` asserts them by DEFINITION, not
+> by name — an index rebuilt without its `WHERE`, or a confirmation CHECK
+> relaxed to drop `refund_external_ref IS NOT NULL`, would still be present under
+> the same name and would still be wrong.
+>
+> **`migrate deploy` AGAINST PRODUCTION NEEDS A LONGER CONNECT TIMEOUT.**
+> Measured 2026-09-06: `psql` with the exact `DIRECT_URL` connected, `prisma
+> migrate status` connected, and `prisma migrate deploy` returned **P1001
+> "Can't reach database server"** three times in a row against
+> `ep-mute-rice-b2s8gg42`. It is the migrate engine's short connect timeout
+> against a cold Neon endpoint, not credentials and not the connection string —
+> dev carries identical `sslmode=require&channel_binding=require` params and
+> deployed fine. The fix, and it worked first try:
+>
+> ```bash
+> DIRECT_URL="$DIRECT_URL&connect_timeout=60&pool_timeout=60" \
+>   EDURA_ENV=production EDURA_ALLOW_ENV_OVERRIDE=1 npx prisma migrate deploy
+> ```
+>
+> Do not read a P1001 here as "production is down" — probe it with `psql` first.
+>
+> **[production, 2026-09-06] DEMO DATA IS PRESENT AND THE 2026-08-26 "WIPED
+> CLEAN" NOTE BELOW IS STALE.** The census on the day of this migration read
+> **16 users (12 of them `is_demo`), 2 centres (1 demo), 2 courses** — not the
+> 2 staff accounts that entry describes. Money is still untouched (0 payments,
+> 0 transactions), so nothing is at risk today, but the Step 9 pre-launch wipe
+> has NOT been re-run since somebody seeded production, and any claim below
+> about production being empty of demo rows should be re-measured before it is
+> repeated.
 
 > **[ALL THREE ENVIRONMENTS REBUILT FROM SCRATCH, 2026-08-30.] Every endpoint
 > named further down this file is dead.** A new Neon project was created with
@@ -1062,6 +1250,11 @@ docs/security/security-audit.md for the full report and severities.
 Missing any of these fails closed (refuse to boot / hard error) — by design.
 - `PAYMENTS_MODE` — must be explicit: `mock` | `sandbox` | `live` (C1).
 - `PAYMOB_HMAC_SECRET` — required in prod, no fallback (C1).
+- `PAYMOB_INTEGRATION_IDS` — comma-separated Paymob integration ids this
+  deployment settles for (SECURITY_AUDIT.md H-04). When `PAYMENTS_MODE` is not
+  `mock` and this is unset, EVERY capture is parked as `needs_review` with
+  `unknown_integration` — it fails closed rather than settling a callback from
+  an integration nobody here owns. In mock mode an unset value means "any".
 - `REALTIME_JWT_SECRET` — dedicated realtime handshake secret (M2).
 - `INTERNAL_API_SECRET` — dedicated server↔server bridge secret (M2).
 - `CRON_SECRET` — guards `/api/v1/cron/[job]`; required in EVERY environment

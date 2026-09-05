@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { paymentsMode } from "@/lib/services/payments/gateway/types";
 import { mockHmacSecret, mockDriver, signMockWebhook } from "@/lib/services/payments/gateway/mock-driver";
+import { resolveDriver } from "@/lib/services/payments/gateway";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -57,7 +58,7 @@ describe("C1 — mockHmacSecret() has no production fallback", () => {
 });
 
 describe("C1 — verifyWebhook constant-time HMAC compare", () => {
-  const body = JSON.stringify({ gateway_order_id: "mock_x", success: true });
+  const body = JSON.stringify({ gateway_order_id: "mock_x", success: true, amount_cents: 1000, currency: "EGP" });
 
   it("accepts a correctly-signed body", () => {
     vi.stubEnv("NODE_ENV", "development");
@@ -78,6 +79,31 @@ describe("C1 — verifyWebhook constant-time HMAC compare", () => {
     const wrong = "f".repeat(expected.length);
     const res = mockDriver.verifyWebhook(body, { hmac: wrong });
     expect(res.valid).toBe(false);
+  });
+});
+
+describe("M-07 — the mock driver cannot exist in production", () => {
+  it("dev resolves the mock driver", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PAYMENTS_MODE", "mock");
+    expect(resolveDriver().name).toBe("mock");
+  });
+  it("PRODUCTION with PAYMENTS_MODE=mock throws instead of returning the mock driver", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMENTS_MODE", "mock");
+    expect(() => resolveDriver()).toThrow(/PAYMENTS_MODE=mock is not allowed in production/);
+  });
+  it("PRODUCTION with live resolves paymob", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMENTS_MODE", "live");
+    expect(resolveDriver().name).toBe("paymob");
+  });
+  it("a CORRECTLY signed mock body is refused in production regardless of how the driver was reached", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PAYMOB_HMAC_SECRET", "real-secret-123");
+    const body = JSON.stringify({ gateway_order_id: "mock_x", success: true, amount_cents: 1000, currency: "EGP" });
+    const hmac = signMockWebhook(body);
+    expect(mockDriver.verifyWebhook(body, { hmac })).toMatchObject({ valid: false, error: /disabled in production/ });
   });
 });
 

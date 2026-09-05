@@ -83,7 +83,10 @@ describe("POST /api/v1/auth/password/forgot", () => {
     expect(res.status).toBe(200);
     const msg = ((await res.json()) as { data: { message: string } }).data.message;
     expect(msg).toMatch(/if an account exists/i);
-    expect(requestPasswordReset).toHaveBeenCalledWith("who@example.com", undefined);
+    // M-11: the reset runs AFTER the response (runAfter) and is tagged with the
+    // door it came through, so a back-office account cannot be reset from here.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(requestPasswordReset).toHaveBeenCalledWith("who@example.com", undefined, { app: "www" });
   });
 
   it("400 on a non-email", async () => {

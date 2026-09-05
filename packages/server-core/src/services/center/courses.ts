@@ -255,7 +255,8 @@ export async function updateCourseTx(
       course.m2CenterFee != null
     ) {
       const planned = await tx.session.count({ where: { courseId: id } });
-      const perSession = planned > 0 ? Math.round(body.price / planned) : body.price;
+      // L-02: floor, matching resolveLessonPrice — the engine never pays out more than it took.
+      const perSession = planned > 0 ? Math.floor(body.price / planned) : body.price;
       const platformCut = Math.round((perSession * (course.splitPlatformBp ?? 0)) / 10_000);
       if (perSession - platformCut - course.m2CenterFee < 0) {
         throw new BusinessRuleError(

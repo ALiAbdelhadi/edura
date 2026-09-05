@@ -88,6 +88,7 @@ async function generateForChunk(
         commission: s.commission,
         lessonCount: s.lessonCount,
         status: "pending" as const,
+        generatedBy: user.id, // M-03: the maker, so the checker can refuse them
       });
       created.push({ beneficiaryType, beneficiaryId: row.id, netPayable: avail });
     }
@@ -222,59 +223,36 @@ export function listPayouts(filters: { status?: string; beneficiaryType?: string
   });
 }
 
-async function settlePayout(tx: TenantTx, payoutId: string, approverId: string) {
-  const claimed = await tx.payout.updateMany({
-    where: { id: payoutId, status: "pending" },
-    data: { status: "approved" },
-  });
-  if (claimed.count === 0) {
-    const exists = await tx.payout.findUnique({ where: { id: payoutId }, select: { status: true } });
-    if (!exists) throw new NotFoundError("Payout not found");
-    throw new BusinessRuleError(`Payout is already ${exists.status}`);
-  }
-
-  const payout = await tx.payout.findUnique({ where: { id: payoutId } });
-  if (!payout) throw new NotFoundError("Payout not found");
-  const net = payout.netPayable ?? 0;
-
-  const decremented =
-    payout.beneficiaryType === "teacher"
-      ? await tx.teacherProfile.updateMany({
-          where: { userId: payout.beneficiaryId, walletBalance: { gte: net } },
-          data: { walletBalance: { decrement: net } },
-        })
-      : await tx.center.updateMany({
-          where: { id: payout.beneficiaryId, walletBalance: { gte: net } },
-          data: { walletBalance: { decrement: net } },
-        });
-  if (decremented.count === 0) {
-    throw new BusinessRuleError(
-      "Insufficient wallet balance to settle this payout",
-    );
-  }
-
-  await tx.transaction.create({
-    data: {
-      refNumber: await nextTxnRef(tx),
-      type: "payout",
-      amount: net,
-      toEntityId: payout.beneficiaryId,
-      centerId: payout.centerId,
-      status: "completed",
-      notes: `Payout ${payout.id}`,
-    },
-  });
-
-  return tx.payout.update({
-    where: { id: payoutId },
-    data: { status: "paid", approvedBy: approverId, paidAt: new Date() },
-  });
-}
-
+/**
+ * SECURITY_AUDIT.md M-03 — maker-checker. "Approved" and "paid" used to be the
+ * same click by one accountant: `pending → approved → paid`, wallet decremented,
+ * ledger row written, no transfer reference, and the person who generated the
+ * payout could approve it. A single compromised or careless session could mark
+ * every positive wallet paid with no counterpart evidence.
+ *
+ * Now three acts, at least two people:
+ *   generate (generated_by) → approve (approved_by, a decision, NO money)
+ *   → pay (paid_by ≠ approved_by ≠ generated_by, external_ref REQUIRED and
+ *   unique across payouts; the wallet moves HERE).
+ * The 2FA gate every back-office route already passes (`requireSession`) is
+ * what stands in front of all three; a per-action re-prompt is not built.
+ */
 export async function approvePayout(payoutId: string, user: SessionUser) {
   const { payout, recipients } = await platformDb(
     async (tx) => {
-      const payout = await settlePayout(tx, payoutId, user.id);
+      const current = await tx.payout.findUnique({ where: { id: payoutId } });
+      if (!current) throw new NotFoundError("Payout not found");
+      if (current.generatedBy === user.id) {
+        throw new BusinessRuleError("You generated this payout — a different person must approve it");
+      }
+      const claimed = await tx.payout.updateMany({
+        where: { id: payoutId, status: "pending" },
+        data: { status: "approved", approvedBy: user.id },
+      });
+      if (claimed.count === 0) {
+        throw new BusinessRuleError(`Payout is already ${current.status}`);
+      }
+      const payout = await tx.payout.findUniqueOrThrow({ where: { id: payoutId } });
       const recipients = await resolveBeneficiaryRecipients(tx, payout.beneficiaryType, payout.beneficiaryId);
       return { payout, recipients };
     },
@@ -286,8 +264,92 @@ export async function approvePayout(payoutId: string, user: SessionUser) {
       recipients,
       type: "payout_approved",
       title: "Payout approved",
-      body: `A payout of ${((payout.netPayable ?? 0) / 100).toFixed(2)} EGP has been approved.`,
+      body: `A payout of ${((payout.netPayable ?? 0) / 100).toFixed(2)} EGP has been approved and is awaiting disbursement.`,
       data: { payoutId: payout.id, netPayable: payout.netPayable },
+    });
+  }
+  return payout;
+}
+
+export async function payPayout(
+  payoutId: string,
+  input: { externalRef: string },
+  user: SessionUser,
+) {
+  const externalRef = input.externalRef.trim();
+  if (!externalRef) {
+    throw new BusinessRuleError("A transfer reference is required to mark a payout paid");
+  }
+
+  const { payout, recipients } = await platformDb(
+    async (tx) => {
+      const current = await tx.payout.findUnique({ where: { id: payoutId } });
+      if (!current) throw new NotFoundError("Payout not found");
+      if (current.status !== "approved") {
+        throw new BusinessRuleError("A payout must be approved before it can be marked paid");
+      }
+      if (current.approvedBy === user.id || current.generatedBy === user.id) {
+        throw new BusinessRuleError("The person who approved a payout cannot also mark it paid");
+      }
+
+      let claimed;
+      try {
+        claimed = await tx.payout.updateMany({
+          where: { id: payoutId, status: "approved" },
+          data: { status: "paid", paidBy: user.id, paidAt: new Date(), externalRef },
+        });
+      } catch (err) {
+        if ((err as { code?: string }).code === "P2002") {
+          throw new BusinessRuleError("This transfer reference was already used for another payout");
+        }
+        throw err;
+      }
+      if (claimed.count === 0) {
+        const current2 = await tx.payout.findUniqueOrThrow({ where: { id: payoutId }, select: { status: true } });
+        throw new BusinessRuleError(`Payout is already ${current2.status}`);
+      }
+
+      const net = current.netPayable ?? 0;
+      const decremented =
+        current.beneficiaryType === "teacher"
+          ? await tx.teacherProfile.updateMany({
+              where: { userId: current.beneficiaryId, walletBalance: { gte: net } },
+              data: { walletBalance: { decrement: net } },
+            })
+          : await tx.center.updateMany({
+              where: { id: current.beneficiaryId, walletBalance: { gte: net } },
+              data: { walletBalance: { decrement: net } },
+            });
+      if (decremented.count === 0) {
+        throw new BusinessRuleError("Insufficient wallet balance to settle this payout");
+      }
+
+      await tx.transaction.create({
+        data: {
+          refNumber: await nextTxnRef(tx),
+          type: "payout",
+          amount: net,
+          toEntityId: current.beneficiaryId,
+          centerId: current.centerId,
+          status: "completed",
+          notes: `Payout ${current.id} — transfer ref ${externalRef}`,
+        },
+      });
+
+      const payout = await tx.payout.findUniqueOrThrow({ where: { id: payoutId } });
+      const recipients = await resolveBeneficiaryRecipients(tx, payout.beneficiaryType, payout.beneficiaryId);
+      return { payout, recipients };
+    },
+    { actorId: user.id },
+  );
+
+  if (recipients.length > 0) {
+    await notifyAfterCommit({
+      recipients,
+      type: "payout_paid",
+      title: "Payout paid",
+      body: `A payout of ${((payout.netPayable ?? 0) / 100).toFixed(2)} EGP has been transferred (ref ${payout.externalRef}).`,
+      data: { payoutId: payout.id, netPayable: payout.netPayable, externalRef: payout.externalRef },
     });
   }
   return payout;
@@ -296,8 +358,10 @@ export async function approvePayout(payoutId: string, user: SessionUser) {
 export function rejectPayout(payoutId: string, reason: string, user: SessionUser) {
   return platformDb(
     async (tx) => {
+      // A rejection is valid from `pending` AND from `approved`: the checker
+      // who refuses to pay is the whole point of the second step.
       const claimed = await tx.payout.updateMany({
-        where: { id: payoutId, status: "pending" },
+        where: { id: payoutId, status: { in: ["pending", "approved"] } },
         data: { status: "rejected" },
       });
       if (claimed.count === 0) {

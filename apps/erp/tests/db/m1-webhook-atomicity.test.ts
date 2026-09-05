@@ -26,7 +26,7 @@ async function main() {
     [fx.student, tag + "-idem", orderId],
   )).rows[0].id as string;
 
-  const event = { gatewayOrderId: orderId, success: true, gatewayRef: "reftxn-" + tag, reason: null };
+  const event = { gatewayOrderId: orderId, success: true, gatewayRef: "reftxn-" + tag, reason: null, kind: "capture" as const, amountMinor: 20000, currency: "EGP", integrationId: null, parentRef: null, occurredAt: null };
 
   console.log("\n(1) settlement throws after the claim:");
   let threw = false;

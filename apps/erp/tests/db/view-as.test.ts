@@ -244,6 +244,19 @@ async function main() {
       "…attributed to the SUPER ADMIN, not to the teacher whose session it is",
     );
 
+    // L-05 (SECURITY_AUDIT.md): two CONCURRENT claims of one token. The
+    // findFirst replay check can pass for both; the unique index on the audit
+    // row's jti (migration 78) makes the second insert fail, so exactly one
+    // session is minted and exactly one audit row exists.
+    const raceToken = tokenFor(root.id, student);
+    const [r1, r2] = await Promise.all([viewAsDoor(raceToken), viewAsDoor(raceToken)]);
+    assert([r1, r2].filter((r) => r.ok).length === 1, "exactly ONE of two concurrent claims of the same token succeeds");
+    const raceRows = await q(
+      `SELECT count(*)::int n FROM audit_logs WHERE action = 'user.view_as_claimed' AND target_id = $1::uuid`,
+      [student.id],
+    );
+    assert(raceRows[0]?.n === 1, "…and exactly one audit row exists for that claim");
+
     const ownerClaim = await viewAsDoor(tokenFor(root.id, owner));
     assert(ownerClaim.ok, "a centre owner can be viewed as");
     if (ownerClaim.ok) {

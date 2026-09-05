@@ -20,6 +20,11 @@ const APPEND_ONLY: Record<string, string[]> = {
   invoices: ["INSERT", "SELECT", "UPDATE"],
   payouts: ["INSERT", "SELECT", "UPDATE"],
   blacklist_cascade_actions: ["INSERT", "SELECT", "UPDATE"],
+  // migration 20260909120100_money_tables_revoke (SECURITY_AUDIT.md M-04)
+  wallet_ledger: ["INSERT", "SELECT"],
+  parent_wallet_ledger: ["INSERT", "SELECT"],
+  center_wallet_ledger: ["INSERT", "SELECT"],
+  payments: ["INSERT", "SELECT", "UPDATE"],
 };
 
 const FULL_CRUD = ["DELETE", "INSERT", "SELECT", "UPDATE"];

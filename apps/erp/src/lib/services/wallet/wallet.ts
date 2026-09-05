@@ -60,10 +60,12 @@ export async function initiateWalletTopUpIntent(
   user: SessionUser,
 ) {
   if (user.role !== "student") throw new ForbiddenError("Students only");
-  const driver = resolveDriver();
+  // Availability first: in production with PAYMENTS_MODE=mock the driver
+  // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
+  const driver = resolveDriver();
 
   const { intent, student } = await platformDb(
     async (tx) => {

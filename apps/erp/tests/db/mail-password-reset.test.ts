@@ -154,6 +154,25 @@ async function main() {
     assert(!threw, "unknown address does not throw");
     assert(inbox.length === 0, "unknown address sends no email");
 
+    console.log("\n[M-11c] a back-office account cannot start its reset from the ERP door");
+    const saEmail = `${tag}-sa@x.io`;
+    const saId = (
+      await admin.query(
+        `INSERT INTO users (email, role, name, status, password_hash, updated_at)
+         VALUES ($1, 'super_admin', $2, 'active', $3, now()) RETURNING id`,
+        [saEmail, saEmail, hash],
+      )
+    ).rows[0].id as string;
+    inbox.length = 0;
+    await requestPasswordReset(saEmail, "ar", { app: "www" });
+    const saTokens = (await admin.query(`SELECT count(*)::int n FROM password_reset_tokens WHERE user_id=$1`, [saId])).rows[0].n;
+    assert(inbox.length === 0 && saTokens === 0, "requested through the ERP (app='www'): no email, no token row — same silence as an unknown address");
+    await requestPasswordReset(saEmail, "ar", { app: "superadmin" });
+    assert(inbox.length === 1, "requested through its own app (app='superadmin'): delivered");
+    inbox.length = 0;
+    await admin.query(`DELETE FROM password_reset_tokens WHERE user_id=$1`, [saId]);
+    await admin.query(`DELETE FROM users WHERE id=$1`, [saId]);
+
     process.env.SMTP_PORT = "2597"; // nothing listening
     let threwOnDeadHost = false;
     await requestPasswordReset(email, "ar").catch(() => (threwOnDeadHost = true));

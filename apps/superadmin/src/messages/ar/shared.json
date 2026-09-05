@@ -31,6 +31,7 @@
   "notifType_registration_rejected": "تم رفض التسجيل",
   "notifType_blacklist_action": "إجراء قائمة حظر",
   "notifType_payout_approved": "تمت الموافقة على التحويل",
+  "notifType_payout_paid": "تم صرف المستحقات",
   "notifType_classroom_request": "طلب تعاون",
   "notifType_classroom_request_decided": "تم البت في طلب التعاون",
   "notifType_lesson_reminder": "تذكير بحصة",

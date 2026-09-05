@@ -14,6 +14,9 @@ export const POST = withRateLimit(
 
     const verification = resolveDriver().verifyWebhook(rawBody, query);
     if (!verification.valid) {
+      if (verification.ignore) {
+        return NextResponse.json({ data: { ignored: true, reason: verification.error } });
+      }
       return fail(401, "invalid_signature", verification.error);
     }
 

@@ -1,5 +1,5 @@
 import { platformDb, scopedDb } from "@/lib/db/scope";
-import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
+import { BusinessRuleError, NotFoundError } from "@/lib/errors/classes";
 import { requireCenterScope } from "@repo/server-core/authz/center-scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
@@ -67,56 +67,6 @@ export async function adminRecordPayment(
   });
   await runEffects(effects);
   return value;
-}
-
-export async function adminMarkPaymentRefunded(
-  actor: SessionUser,
-  centerId: string,
-  paymentId: string,
-) {
-  const result = await platformDb(
-    async (tx) => {
-      const payment = await tx.payment.findUnique({ where: { id: paymentId } });
-      if (!payment) throw new NotFoundError("Payment not found");
-      if (payment.centerId !== centerId) {
-        throw new ForbiddenError("Payment belongs to a different center");
-      }
-      const current = payment.status || "paid";
-      if (current !== "paid") {
-        throw new BusinessRuleError(`Cannot transition from ${current} to refunded`);
-      }
-
-      // Conditional on the status the read saw. Two concurrent marks used to
-      // converge on the same 'refunded' row but BOTH write an audit entry, so
-      // the log claimed the flag was flipped twice. Only the update that
-      // actually moved the row proceeds to the audit write.
-      const moved = await tx.payment.updateMany({
-        where: { id: paymentId, status: "paid" },
-        data: { status: "refunded" },
-      });
-      const updated = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
-      if (moved.count === 0) {
-        throw new BusinessRuleError(`Cannot transition from ${updated.status} to refunded`);
-      }
-      await writeAdminAudit(tx, actor, {
-        action: "center.payment_marked_refunded",
-        targetType: "payment",
-        targetId: paymentId,
-        centerId,
-        before: { status: payment.status, amount: payment.amount },
-        after: {
-          status: "refunded",
-          ledgerReversalWritten: false,
-          moneyReturned: false,
-          note: "Status flag only — use the finance refund flow to return money",
-        },
-      });
-      return { before: payment, updated };
-    },
-    { actorId: actor.id },
-  );
-
-  return result.updated;
 }
 
 export async function adminTopUpWallet(

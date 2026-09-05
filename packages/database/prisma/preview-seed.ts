@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
 import { prisma, withPlatformContext } from "../src/index";
 import { seedId } from "./seed-ids";
+import { ownerPurgeMoneyRows } from "./owner-purge";
 
 import type { NotificationType } from "../src/generated/client";
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -101,6 +102,16 @@ async function upsertM2Rate(
 }
 
 async function purge() {
+  // Wallet-ledger rows go first and as the OWNER: the app role can no longer
+  // delete them (migration 20260909120100, M-04), and they are FK children of
+  // the demo users the transaction below removes.
+  const demoUserIdsForLedger = (
+    await withPlatformContext((tx) =>
+      tx.$queryRaw<{ id: string }[]>`SELECT id FROM users WHERE is_demo = true`,
+    )
+  ).map((u) => u.id);
+  await ownerPurgeMoneyRows({ walletStudentIds: demoUserIdsForLedger });
+
   await withPlatformContext(
     async (tx) => {
       const demoUsers = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM users WHERE is_demo = true`;
@@ -146,9 +157,6 @@ async function purge() {
       await tx.course.deleteMany({ where: { isDemo: true } });
       await tx.centerAdminProfile.deleteMany({ where: { OR: [{ userId: { in: U } }, { centerId: { in: C } }] } });
       await tx.teacherProfile.deleteMany({ where: { userId: { in: U } } });
-      for (const uid of U) {
-        await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${uid}::uuid`;
-      }
       await tx.studentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.parentProfile.deleteMany({ where: { userId: { in: U } } });
       await tx.userPrefs.deleteMany({ where: { userId: { in: U } } });
@@ -387,7 +395,10 @@ async function seed() {
           daysAgo: number;
         }[],
       ) => {
-        await tx.$executeRaw`DELETE FROM wallet_ledger WHERE student_id = ${studentId}::uuid`;
+        // Idempotent by presence, not by delete: the ledger is append-only for
+        // the app role (M-04). A student who already has rows keeps them.
+        const already = await tx.walletLedger.count({ where: { studentId } });
+        if (already > 0) return;
         let bal = 0;
         for (const m of moves) {
           bal += m.delta;

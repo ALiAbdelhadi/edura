@@ -49,10 +49,16 @@ export function resolveLessonPrice(
   },
   plannedSessions: number,
 ): number {
+  // L-02 (SECURITY_AUDIT.md): FLOOR, not round. Rounding up on each lesson
+  // distributed MORE than the course was sold for over a full run (up to n/2
+  // piasters); flooring can only leave a remainder of at most n−1 piasters
+  // undistributed, which is the safe direction for money the platform pays out.
+  // The subscription basis (distribution.ts) assigns that remainder to the
+  // last lesson of the period so the monthly sum is exact.
   const amortised =
     course.price > 0
       ? plannedSessions > 0
-        ? Math.round(course.price / plannedSessions)
+        ? Math.floor(course.price / plannedSessions)
         : course.price
       : 0;
   const perSession = course.pricePerSession ?? 0;

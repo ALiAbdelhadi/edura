@@ -151,6 +151,12 @@ async function settleLatestIntent(subscriptionId: string, tag: string) {
       success: true,
       gatewayRef: `ref-${tag}-${rid()}`,
       reason: null,
+      kind: "capture",
+      amountMinor: intent!.amount,
+      currency: intent!.currency,
+      integrationId: null,
+      parentRef: null,
+      occurredAt: null,
     },
     { mock: true },
   );
@@ -394,6 +400,12 @@ async function main() {
       success: true,
       gatewayRef: `ref-${tag}`,
       reason: null,
+      kind: "capture" as const,
+      amountMinor: intent!.amount,
+      currency: intent!.currency,
+      integrationId: null,
+      parentRef: null,
+      occurredAt: null,
     };
     const r1 = await processWebhookEvent(event, { mock: true });
     const afterFirst = await parentBalance(parent);

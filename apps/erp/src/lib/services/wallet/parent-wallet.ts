@@ -53,10 +53,12 @@ export async function initiateParentWalletTopUpIntent(
   user: SessionUser,
 ) {
   if (user.role !== "parent") throw new ForbiddenError("Parents only");
-  const driver = resolveDriver();
+  // Availability first: in production with PAYMENTS_MODE=mock the driver
+  // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {
     throw new BusinessRuleError("Online payments are not available yet");
   }
+  const driver = resolveDriver();
 
   const { intent, parent } = await platformDb(
     async (tx) => {

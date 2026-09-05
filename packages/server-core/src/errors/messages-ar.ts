@@ -27,6 +27,28 @@ export const AR_MESSAGES: Record<string, string> = {
     "الاسترداد الإلكتروني بيتأكّد من شركة الدفع نفسها، مش باليد",
   "A reference is required to confirm a refund": "يجب إدخال رقم مرجع لتأكيد الاسترداد",
   "A refund reason is required": "يجب ذكر سبب الاسترداد",
+  "This is already your login email": "هذا هو بريد تسجيل الدخول الحالي بالفعل",
+  "Invalid confirmation link": "رابط التأكيد غير صالح",
+  "This confirmation link was already used": "رابط التأكيد هذا استُخدم بالفعل",
+  "This confirmation link has expired": "انتهت صلاحية رابط التأكيد",
+  "You generated this payout — a different person must approve it":
+    "أنت من أنشأ هذا الصرف — يجب أن يعتمده شخص آخر",
+  "The person who approved a payout cannot also mark it paid":
+    "من اعتمد الصرف لا يمكنه تسجيل دفعه أيضًا — شخص ثانٍ مطلوب",
+  "A payout must be approved before it can be marked paid":
+    "يجب اعتماد الصرف أولًا قبل تسجيل دفعه",
+  "A transfer reference is required to mark a payout paid":
+    "يجب إدخال رقم مرجع التحويل لتسجيل الدفع",
+  "This transfer reference was already used for another payout":
+    "رقم مرجع التحويل هذا مستخدم بالفعل لصرف آخر",
+  "This refund channel is not available yet": "طريقة الاسترداد هذه غير متاحة حاليًا",
+  "A checkout for this course is already in progress — finish it or cancel it first":
+    "يوجد عملية دفع جارية لهذه المجموعة بالفعل — أكملها أو ألغِها أولًا",
+  "Idempotency key belongs to a different checkout": "مفتاح الطلب هذا يخص عملية دفع مختلفة",
+  "A parent-wallet top-up cannot be refunded at the counter":
+    "شحن محفظة ولي الأمر لا يُسترد من الكاونتر",
+  "The wallet no longer holds this top-up — it has been spent, so it cannot be refunded":
+    "المحفظة لم تعد تحتوي على مبلغ الشحن — تم إنفاقه، فلا يمكن استرداده",
   "A review note is required to approve a deletion": "يجب كتابة ملاحظة مراجعة لاعتماد الحذف",
   "Active user with this email exists; use lookup instead":
     "يوجد حساب نشط بهذا البريد بالفعل؛ استخدم البحث بدلًا من الإنشاء",
@@ -125,7 +147,7 @@ export const AR_MESSAGES: Record<string, string> = {
   "Recipient has no email on file": "لا يوجد بريد إلكتروني مسجّل للمستلم",
   "Refund exceeds the original payment": "مبلغ الاسترداد أكبر من قيمة الإيصال الأصلي",
   "Refund not found": "عملية الاسترداد غير موجودة",
-  "This receipt has already been refunded": "تم استرداد هذا الإيصال بالفعل",
+  "This refund request was already recorded": "تم تسجيل طلب الاسترداد هذا بالفعل — لن يُنفَّذ مرة ثانية",
   "This receipt is not a refund": "هذا الإيصال ليس عملية استرداد",
   "This refund is already confirmed": "تم تأكيد هذا الاسترداد بالفعل",
   "This receipt names no student": "هذا الإيصال غير مرتبط بأي طالب",
@@ -378,6 +400,8 @@ export const AR_MESSAGES: Record<string, string> = {
   "Email already in use": "البريد الإلكتروني مستخدم بالفعل",
   "Email exists with a different role": "البريد الإلكتروني مسجّل بدور مختلف",
   "Email or phone already in use": "البريد الإلكتروني أو الهاتف مستخدم بالفعل",
+  "This email or phone is registered at a centre — use the link or code the centre sent you":
+    "هذا البريد أو الهاتف مسجّل عند سنتر — استخدم الرابط أو الكود الذي أرسله لك السنتر",
   "Enrollment not found": "التسجيل غير موجود",
   "Enrollment request already pending": "يوجد طلب تسجيل معلّق بالفعل",
   "Expense not found": "المصروف غير موجود",
@@ -495,7 +519,6 @@ export const AR_MESSAGES: Record<string, string> = {
   "Session not found on this course": "الحصة غير موجودة في هذه المجموعة",
   "Session not in your center": "الحصة ليست في سنترك",
   "Shell exists for this contact with a different role": "يوجد حساب مبدئي بهذه البيانات بدور مختلف",
-  "Shell exists for this email with a different role": "يوجد حساب مبدئي بهذا البريد بدور مختلف",
   "Shift not found": "الوردية غير موجودة",
   "Source center not found": "السنتر المصدر غير موجود",
   "Staff account is not linked to a center": "حساب الموظف غير مرتبط بأي سنتر",
@@ -603,16 +626,6 @@ export const AR_PATTERNS: ArPattern[] = [
     re: /^Cannot toggle a center in status '(.+)'$/,
     ar: (m) => `لا يمكن تغيير حالة سنتر في وضع "${m[1]}"`,
     sample: "Cannot toggle a center in status 'deleted'",
-  },
-  {
-    re: /^Cannot transition from (.+) to refunded$/,
-    ar: (m) => `لا يمكن الانتقال من حالة "${m[1]}" إلى الاسترداد`,
-    sample: "Cannot transition from pending to refunded",
-  },
-  {
-    re: /^Cannot transition from (.+) to (.+)$/,
-    ar: (m) => `لا يمكن الانتقال من حالة "${m[1]}" إلى "${m[2]}"`,
-    sample: "Cannot transition from paid to pending",
   },
   {
     re: /^Center is already (.+)$/,
@@ -787,14 +800,13 @@ export const AR_TEMPLATE_SOURCES: string[] = [
   "Account is already ${next}",
   "Affiliation is already ${affiliation.status}",
   "Cannot toggle a center in status '${center.status}'",
-  "Cannot transition from ${currentStatus} to ${newStatus}",
-  "Cannot transition from ${current} to refunded",
-  "Cannot transition from ${updated.status} to refunded",
   "Center is already ${center.status}",
   'Invalid category. Must be one of: ${EXPENSE_CATEGORIES.join(", ")}',
   "Invalid letter grade: ${letter}",
   "Mock signature failed: ${verification.error}",
   "Payout is already ${exists.status}",
+  "Payout is already ${current.status}",
+  "Payout is already ${current2.status}",
   "Request already ${existing.status}",
   "Request already ${req.status}",
   "Request is already ${request.status}",

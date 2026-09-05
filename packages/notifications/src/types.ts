@@ -69,6 +69,16 @@ export type WeeklyDigestData = {
   link?: string | null;
 };
 
+export type EmailChangeConfirmData = {
+  link: string;
+  expiryHours: number;
+  newEmail: string;
+};
+
+export type EmailChangeNoticeData = {
+  newEmailMasked: string;
+};
+
 export type GuardianVerificationData = {
   studentName: string;
   link: string;
@@ -82,6 +92,8 @@ export type TemplateDataMap = {
   payment_receipt: PaymentReceiptData;
   weekly_digest: WeeklyDigestData;
   guardian_verification: GuardianVerificationData;
+  email_change_confirm: EmailChangeConfirmData;
+  email_change_notice: EmailChangeNoticeData;
 };
 
 export type TemplateId = keyof TemplateDataMap;

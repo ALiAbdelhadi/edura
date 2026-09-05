@@ -46,6 +46,8 @@ export const POST = withErrors(async (req, ctx) => {
   const rawBody = JSON.stringify({
     gateway_order_id: intent.gatewayOrderId,
     success: outcome === "success",
+    amount_cents: intent.amount,
+    currency: intent.currency,
     gateway_ref: `mocktxn_${intent.id.slice(0, 8)}`,
     reason: outcome === "failure" ? "Simulated decline (mock)" : undefined,
   });

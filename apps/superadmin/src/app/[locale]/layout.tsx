@@ -4,6 +4,7 @@ import { baseMessages } from "@/lib/i18n/scope";
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import {
   Alexandria,
   Amiri,
@@ -103,6 +104,10 @@ export default async function RootLayout({
   setRequestLocale(locale);
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
   const messages = baseMessages(await getMessages());
+  // SECURITY_AUDIT.md M-09: the per-request nonce minted in src/proxy.ts. The
+  // theme script is the one author-written <script> in the app; under
+  // 'strict-dynamic' a bare `src` is not enough, it needs the nonce too.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang={locale}
@@ -111,7 +116,7 @@ export default async function RootLayout({
       className={`${notoSans.variable} ${plexArabic.variable} ${plexMono.variable} ${cormorant.variable} ${lora.variable} ${amiri.variable} ${alexandria.variable} ${inter.variable}`}
     >
       <body>
-        <script src="/theme-init.js" async />
+        <script src="/theme-init.js" async nonce={nonce} />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>

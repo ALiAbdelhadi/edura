@@ -116,3 +116,18 @@ room-pricing-methods 47/47, center-share-admin 11/11. Demo data:
 `prisma/center-oversight-demo-seed.ts` (`--purge` to remove) — two centers, and
 **zero money rows** (per the Conventions rule), so the Finance tab is
 legitimately empty for demo centers.
+
+
+## Correction, 2026-09-06 (SECURITY_AUDIT.md M-08)
+
+The "money is read-only in the back office" sentence in CLAUDE.md was false as
+written. The back office writes money in four places, all routed through the
+same `*Tx` functions the ERP counter uses and all audited with `writeAdminAudit`:
+`adminRecordPayment`, `adminTopUpWallet`, `adminCreateWalkInSubscription`
+(`apps/superadmin/src/lib/services/admin/center-money.ts`) and
+`refundLessonForStudent` (`POST /api/v1/finance/refunds`). The decision taken
+(Ali, 2026-09-06) is to KEEP the three centre-money routes — they are the
+sanctioned counter functions under a super_admin's own audit trail — and to
+narrow the lesson-clawback route to `super_admin`, because it is the one write
+that reaches teacher and centre wallets and is not shaped like a counter action.
+The invariant in CLAUDE.md now says what the code does.

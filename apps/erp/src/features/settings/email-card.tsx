@@ -28,18 +28,27 @@ export function EmailCard({
   const [next, setNext] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post("me/email", {
-        json: {
-          email: next.trim(),
-          ...(hasPassword ? { currentPassword: password } : {}),
-        },
-      });
-      toast.success(t("shared.emailChanged"));
+      const res = await api
+        .post("me/email", {
+          json: {
+            email: next.trim(),
+            ...(hasPassword ? { currentPassword: password } : {}),
+          },
+        })
+        .json<{ data: { pending: boolean; pendingEmail?: string } }>();
+      // M-06: nothing changed yet — the NEW inbox has to confirm.
+      if (res.data.pending) {
+        setPendingEmail(res.data.pendingEmail ?? next.trim());
+        toast.success(t("shared.emailChangePending"));
+      } else {
+        toast.success(t("shared.emailChanged"));
+      }
       setNext("");
       setPassword("");
       setOpen(false);
@@ -75,6 +84,11 @@ export function EmailCard({
         </p>
         {email && !emailVerified ? (
           <p className="mt-1 text-xs text-ink-3">{t("shared.emailUnverified")}</p>
+        ) : null}
+        {pendingEmail ? (
+          <p className="mt-2 rounded-lg border border-rule bg-field p-2 text-xs text-ink-2">
+            {t("shared.emailChangePendingFor", { email: pendingEmail })}
+          </p>
         ) : null}
 
         {!open ? (

@@ -67,6 +67,21 @@ export async function withParentFallback(studentId: string): Promise<string[]> {
   return resolvedParentOrStudent(studentId);
 }
 
+/**
+ * The back-office people who reconcile money: every active super_admin and
+ * accountant. Used when a capture lands somewhere a human has to look at
+ * (SECURITY_AUDIT.md H-03 / H-04).
+ */
+export async function resolveFinanceStaff(): Promise<string[]> {
+  const rows = await platformDb((tx) =>
+    tx.user.findMany({
+      where: { role: { in: ["super_admin", "accountant"] }, status: "active" },
+      select: { id: true },
+    }),
+  );
+  return rows.map((r) => r.id);
+}
+
 export async function studentAndParents(studentId: string): Promise<string[]> {
   const link = await platformDb((tx) =>
     tx.parentStudentLink.findMany({

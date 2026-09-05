@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PaymentIntent } from "@repo/database";
-import type {
-  CheckoutStudent,
-  CreateCheckoutResult,
-  PaymentGatewayDriver,
-  WebhookVerification,
+import {
+  deriveEventKind,
+  type CheckoutStudent,
+  type CreateCheckoutResult,
+  type PaymentGatewayDriver,
+  type WebhookVerification,
 } from "./types";
 
 const MOCK_HMAC_FALLBACK = "edura-mock-hmac";
@@ -21,6 +22,25 @@ export function mockHmacSecret(): string {
 export function signMockWebhook(rawBody: string): string {
   return createHmac("sha512", mockHmacSecret()).update(rawBody).digest("hex");
 }
+
+/**
+ * The mock body mirrors the fields the real contract needs, so every test
+ * exercises the same settlement gate a Paymob callback will (H-04). A body
+ * with no `amount_cents` / `currency` is invalid, not "assume the intent".
+ */
+export type MockWebhookBody = {
+  gateway_order_id: string;
+  success: boolean;
+  amount_cents: number;
+  currency: string;
+  gateway_ref?: string;
+  reason?: string;
+  integration_id?: string;
+  is_refunded?: boolean;
+  is_voided?: boolean;
+  pending?: boolean;
+  parent_transaction?: string;
+};
 
 export const mockDriver: PaymentGatewayDriver = {
   name: "mock",
@@ -42,6 +62,11 @@ export const mockDriver: PaymentGatewayDriver = {
     rawBody: string,
     query: Record<string, string>,
   ): WebhookVerification {
+    // M-07: unconditional, before any HMAC work — a correctly signed mock body
+    // must never verify in production, whatever selected this driver.
+    if (process.env.NODE_ENV === "production") {
+      return { valid: false, error: "Mock gateway is disabled in production" };
+    }
     const provided = query.hmac ?? "";
     if (!provided) return { valid: false, error: "Missing hmac" };
     const expected = signMockWebhook(rawBody);
@@ -54,12 +79,7 @@ export const mockDriver: PaymentGatewayDriver = {
       return { valid: false, error: "Invalid hmac" };
     }
 
-    let payload: {
-      gateway_order_id?: string;
-      success?: boolean;
-      gateway_ref?: string;
-      reason?: string;
-    };
+    let payload: Partial<MockWebhookBody>;
     try {
       payload = JSON.parse(rawBody);
     } catch {
@@ -68,14 +88,29 @@ export const mockDriver: PaymentGatewayDriver = {
     if (!payload.gateway_order_id) {
       return { valid: false, error: "Missing gateway_order_id" };
     }
+    if (!Number.isInteger(payload.amount_cents) || typeof payload.currency !== "string") {
+      return { valid: false, error: "Missing amount_cents / currency" };
+    }
 
+    const success = payload.success === true;
     return {
       valid: true,
       event: {
         gatewayOrderId: payload.gateway_order_id,
-        success: payload.success === true,
         gatewayRef: payload.gateway_ref ?? null,
+        kind: deriveEventKind({
+          success,
+          pending: payload.pending,
+          is_refunded: payload.is_refunded,
+          is_voided: payload.is_voided,
+        }),
+        success: success && payload.pending !== true,
+        amountMinor: payload.amount_cents as number,
+        currency: payload.currency,
+        integrationId: payload.integration_id ?? null,
+        parentRef: payload.parent_transaction ?? null,
         reason: payload.reason ?? null,
+        occurredAt: null,
       },
     };
   },

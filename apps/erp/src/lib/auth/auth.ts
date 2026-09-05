@@ -70,7 +70,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
-    minPasswordLength: 1,
+    minPasswordLength: 8, // L-07: registration/reset enforce passwordSchema; this is the floor for better-auth's own set-password paths
     password: { hash: hashPassword, verify: verifyPassword },
   },
 

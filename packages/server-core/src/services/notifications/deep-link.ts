@@ -105,6 +105,11 @@ const DESTINATIONS: Record<string, Destinations> = {
     admin: "/fees",
     staff: "/finance",
   },
+  payout_paid: {
+    teacher: "/wallet",
+    admin: "/fees",
+    staff: "/finance",
+  },
   classroom_request: {
     teacher: "/centers",
     assistant: "/collaborations",

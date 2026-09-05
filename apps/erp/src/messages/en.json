@@ -251,7 +251,12 @@
     "onboardingContinueCta": "Continue to profile setup",
     "sessionConflictNotice": "You were signed out to keep your account safe: this browser was holding more than one session, so we could not tell which account was yours. Please sign in again.",
     "sessionExpiredNotice": "Your session timed out. Sign in again and we'll take you back to the same page.",
-    "sessionMismatchNotice": "You were signed out to keep your account safe: the page you were on did not belong to the account this browser was signed in to. Nothing was changed. Please sign in again."
+    "sessionMismatchNotice": "You were signed out to keep your account safe: the page you were on did not belong to the account this browser was signed in to. Nothing was changed. Please sign in again.",
+    "confirmEmailWorking": "Confirming your new email…",
+    "confirmEmailDoneTitle": "Email confirmed",
+    "confirmEmailDoneSubtitle": "Your login email has been changed. For your safety every session was signed out — sign in again with the new address.",
+    "confirmEmailInvalidTitle": "This confirmation link is not valid",
+    "confirmEmailInvalidSubtitle": "The link is missing, expired, or already used. Request the change again from your account settings."
   },
   "common": {
     "loading": "Loading…",

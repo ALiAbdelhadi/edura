@@ -8,12 +8,15 @@ const IMMUTABLE_MODELS = new Set<string>([
   "PointsLedger",
   "WalletLedger",
   "ParentWalletLedger",
+  "CenterWalletLedger",
   "SessionSettlement",
   "TeacherSystemStatusChange",
   "ExternalTeacherSettlement",
 ]);
 
-const NO_HARD_DELETE_MODELS = new Set<string>(["Invoice", "Payout"]);
+// A receipt is reversed, never removed (SECURITY_AUDIT.md M-04). UPDATE stays:
+// the refund bookkeeping columns are written by guarded conditional updates.
+const NO_HARD_DELETE_MODELS = new Set<string>(["Invoice", "Payout", "Payment"]);
 
 const AUDITED: Record<string, string> = {
   "Center.update": "center.updated",

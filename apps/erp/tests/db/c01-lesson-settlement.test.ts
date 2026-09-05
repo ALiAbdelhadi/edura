@@ -176,7 +176,7 @@ async function settleLesson(opts: {
 
   return {
     courseId, sessionId: sess.id, plannedSessions, present, complete,
-    perSessionPrice: Math.round(opts.price / plannedSessions),
+    perSessionPrice: Math.floor(opts.price / plannedSessions), // L-02: floor, like resolveLessonPrice
     walletsBefore: before, walletsAfter: after, ledger,
     txnDelta: a.t - b.t, settlementDelta: a.ss - b.ss,
   };

@@ -1,6 +1,6 @@
 # Migration plan — Option B: the refund channel and its evidence
 
-Status: **APPROVED AND WRITTEN (2026-09-06).** The migration is
+Status: **APPLIED EVERYWHERE (dev, test and production, 2026-09-05).** Written and approved 2026-09-06 (Cairo). The migration is
 `packages/database/prisma/migrations/20260907120000_refund_channel/migration.sql`,
 byte-identical to §2 below.
 
@@ -8,7 +8,7 @@ byte-identical to §2 below.
 |---|---|---|---|
 | dev | `ep-withered-field-b23csnyq` | ✅ 2026-09-06 | 0 reversing rows, both CHECKs validated |
 | test | `ep-morning-snow-b269im2n` | ✅ 2026-09-06 | `c06-refund-guards` 20/20 |
-| production | `ep-mute-rice-b2s8gg42` | ⏳ pending | after migration 73, which is also pending there |
+| production | `ep-mute-rice-b2s8gg42` | ✅ 2026-09-05 18:10 UTC | 73, 74 and 75 applied in one `migrate deploy`; catalogue re-verified read-only afterwards (8/8 columns, 4/4 CHECKs, 3/3 FKs, enum, `payments_one_refund_per_payment` absent); 0 payments / 0 transactions before and after; verify-db 28/28 |
 
 **Applying this migration forces the Option B code with it.**
 `payments_refund_channel_shape` requires every row carrying `reversal_of_id` to
@@ -42,7 +42,7 @@ fail this migration is: how many such rows exist?
 |---|---|---|---|---|---|
 | dev | `ep-withered-field-b23csnyq` | `edura-env:dev` | 0 | **0** | absent |
 | test | `ep-morning-snow-b269im2n` | `edura-env:test` | 10 | **0** | absent |
-| production | `ep-mute-rice-b2s8gg42` | `edura-env:production` | 0 | **0** | absent (migration 73 not yet applied) |
+| production | `ep-mute-rice-b2s8gg42` | `edura-env:production` | 0 | **0** | absent (migration 73 not yet applied) — superseded: present since 2026-09-05 18:10 UTC, see §0 |
 
 **Zero everywhere, so both CHECKs are added VALIDATED — no `NOT VALID`, no backfill.**
 

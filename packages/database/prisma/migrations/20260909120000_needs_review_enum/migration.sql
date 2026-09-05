@@ -1,0 +1,12 @@
+-- SECURITY_AUDIT.md H-04 / H-03 (Phase 3 §3.3.1, §3.3.4).
+--
+-- A capture the provider reports with an amount, currency or integration id
+-- that does not match the intent must not be settled and must not be dropped
+-- either: the money moved and a human has to look. `needs_review` is that
+-- parked state. It is reachable only from `pending` / `expired` by a mismatched
+-- capture, and left only by an audited back-office resolution.
+--
+-- Its own migration file on purpose: ALTER TYPE … ADD VALUE cannot run in the
+-- same transaction as a statement that uses the new value, and
+-- `prisma migrate deploy` wraps each migration in one transaction.
+ALTER TYPE "payment_intent_status" ADD VALUE IF NOT EXISTS 'needs_review';

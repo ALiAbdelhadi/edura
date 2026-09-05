@@ -95,7 +95,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true, // staff accounts are created by the back office only
-    minPasswordLength: 1, // policy enforced at creation; sign-in accepts legacy
+    minPasswordLength: 8, // L-07: sign-in is unaffected (length is checked on set, not verify)
     password: { hash: hashPassword, verify: verifyPassword },
   },
   emailVerification: {

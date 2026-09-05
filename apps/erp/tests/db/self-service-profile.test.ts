@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { POST as emailRoute } from "@/app/api/v1/me/email/route";
 import { PATCH as meRoute } from "@/app/api/v1/me/route";
 import { setGuardianContact } from "@/lib/services/invites/guardian-contact";
+import { requestEmailChange, confirmEmailChange } from "@repo/server-core/services/auth/email-change";
 import { __setSessionOverrideForTests } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -112,12 +113,42 @@ async function main() {
     const missing = await changeEmail(alice, { email: `${tag}-alice-new@example.com` });
     assert(missing.status === 400, `omitting the password entirely is refused (got ${missing.status})`);
 
+    // SECURITY_AUDIT.md M-06: the correct password no longer CHANGES anything.
+    // It files a request; the NEW inbox has to confirm before the row moves.
     const newEmail = `${tag}-alice-new@example.com`;
     const good = await changeEmail(alice, { email: newEmail, currentPassword: PW });
-    assert(good.status === 200 && good.body?.data?.changed === true, "the correct password changes the email");
+    assert(
+      good.status === 200 && good.body?.data?.pending === true && good.body?.data?.changed === false,
+      "the correct password files a PENDING request, not a change",
+    );
+    assert((await dbUser(alice.id))?.email === alice.email, "the row is untouched until the new address confirms");
+    const req = await admin.query(
+      `SELECT new_email, old_email, confirmed_at FROM email_change_requests WHERE user_id = $1`,
+      [alice.id],
+    );
+    assert(
+      req.rows.length === 1 && req.rows[0].new_email === newEmail && req.rows[0].old_email === alice.email && req.rows[0].confirmed_at === null,
+      "one open request names the old and the new address",
+    );
+    const requested = await admin.query(
+      `SELECT count(*)::int n FROM audit_logs WHERE actor_id = $1 AND action = 'user.email_change_requested'`,
+      [alice.id],
+    );
+    assert(requested.rows[0].n === 1, "the request itself is audited");
+
+    // The token is only ever mailed; the service hands it back so the suite can
+    // walk the confirmation. A second request supersedes the first.
+    const { token } = await requestEmailChange(alice.id, newEmail, { locale: "ar" });
+    const open = await admin.query(`SELECT count(*)::int n FROM email_change_requests WHERE user_id = $1 AND confirmed_at IS NULL`, [alice.id]);
+    assert(open.rows[0].n === 1, "a second request supersedes the first — one live token per user");
+
+    const before = await admin.query(`SELECT token_version FROM users WHERE id = $1`, [alice.id]);
+    const confirmed = await confirmEmailChange(token);
     const after = await dbUser(alice.id);
-    assert(after?.email === newEmail, "the new address is the one on the row");
-    assert(after?.emailVerified === false, "the new address is UNVERIFIED — the flag means mail was seen to arrive");
+    assert(confirmed.email === newEmail && after?.email === newEmail, "confirming from the new inbox moves the row");
+    assert(after?.emailVerified === true, "the new address is VERIFIED — it just proved it received the token");
+    const afterVer = await admin.query(`SELECT token_version FROM users WHERE id = $1`, [alice.id]);
+    assert(afterVer.rows[0].token_version === before.rows[0].token_version + 1, "token_version bumped — every existing session is revoked by the switch");
 
     const audit = await admin.query(
       `SELECT before_state, after_state FROM audit_logs
@@ -126,14 +157,21 @@ async function main() {
     );
     assert(audit.rows.length === 1, `exactly one audit row names the change (got ${audit.rows.length})`);
     assert(
-      (audit.rows[0] as any)?.after_state?.email === newEmail,
-      "the audit row records the address it moved to",
+      (audit.rows[0] as any)?.after_state?.email === newEmail && (audit.rows[0] as any)?.before_state?.email === alice.email,
+      "the audit row records the address it moved from and to",
     );
+
+    let replay: Error | null = null;
+    try { await confirmEmailChange(token); } catch (e) { replay = e as Error; }
+    assert(replay !== null && /already used/.test(replay.message), "the token is single-use");
+    let bogus: Error | null = null;
+    try { await confirmEmailChange("not-a-token"); } catch (e) { bogus = e as Error; }
+    assert(bogus !== null, "a made-up token is refused");
 
     const noop = await changeEmail(alice, { email: newEmail, currentPassword: PW });
     assert(
-      noop.status === 200 && noop.body?.data?.changed === false,
-      "re-saving the same address is a no-op, not a second audit row",
+      noop.status === 200 && noop.body?.data?.changed === false && noop.body?.data?.pending === false,
+      "re-saving the same address is a no-op, not a second request or audit row",
     );
     const auditAgain = await admin.query(
       `SELECT id FROM audit_logs WHERE actor_id = $1 AND action = 'user.email_changed'`,
@@ -145,8 +183,8 @@ async function main() {
     const walkin = await mkStudent("SspWalkin", { password: false });
     const claimed = await changeEmail(walkin, { email: `${tag}-walkin-fixed@example.com` });
     assert(
-      claimed.status === 200 && claimed.body?.data?.changed === true,
-      "a walk-in with no credentials is not asked to prove one it does not have",
+      claimed.status === 200 && claimed.body?.data?.pending === true,
+      "a walk-in with no credentials is not asked to prove one it does not have — and still only files a request (M-06)",
     );
 
     console.log("\n3. The guardian address stays a different adult's");

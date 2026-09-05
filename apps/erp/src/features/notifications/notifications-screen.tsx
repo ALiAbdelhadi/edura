@@ -87,6 +87,7 @@ const TYPE_META: Record<string, { tone: StatusTone; icon: LucideIcon }> = {
   payment_recorded: { tone: "success", icon: Wallet },
   payment_refunded: { tone: "info", icon: Wallet },
   payout_approved: { tone: "success", icon: Wallet },
+  payout_paid: { tone: "success", icon: Wallet },
   registration_approved: { tone: "success", icon: CheckCircle2 },
   registration_rejected: { tone: "danger", icon: XCircle },
   session_cancelled: { tone: "danger", icon: CalendarX },

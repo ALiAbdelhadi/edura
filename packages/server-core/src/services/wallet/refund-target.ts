@@ -112,6 +112,21 @@ export async function resolveRefundTarget(
 }
 
 /**
+ * The same rule, for money that has a known payer but no `payments` row yet —
+ * a gateway capture whose subscription is gone (SECURITY_AUDIT.md H-03). A
+ * parent who paid gets their own wallet; anyone else, the student's.
+ */
+export async function resolvePayerTarget(
+  tx: TenantTx,
+  args: { studentId: string; payerUserId: string | null },
+): Promise<RefundTarget> {
+  const fallback = studentRefundTarget(args.studentId);
+  if (!args.payerUserId) return fallback;
+  if (!(await parentTargetIsUsable(tx, args.payerUserId, args.studentId))) return fallback;
+  return { kind: "parent", userId: args.payerUserId, studentId: args.studentId };
+}
+
+/**
  * Credit a resolved refund target. Both branches write their balance and their
  * ledger row in the caller's transaction, so the counter and the ledger commit
  * together or not at all.

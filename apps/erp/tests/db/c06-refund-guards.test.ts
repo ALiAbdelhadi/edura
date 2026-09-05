@@ -2,11 +2,15 @@ import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
 /**
- * Migration 20260906120000_refund_foundation adds six database objects that
- * Prisma CANNOT model — two CHECKs, a partial unique index, a plain unique
- * index, a self-FK and a cross-table FK. `prisma migrate dev` will offer to
- * drop the ones it cannot see. This suite is what turns accepting that offer
- * into a red test, exactly as c04/c05 do for the dedupe guards.
+ * Migration 20260906120000_refund_foundation adds the database objects that
+ * Prisma CANNOT model — two CHECKs, a plain unique index, a self-FK and a
+ * cross-table FK. Migration 20260908120000_refund_multiple_partials then DROPS
+ * `payments_one_refund_per_payment` and narrows `transactions_one_refund_per_payment`
+ * to lesson refunds (`payment_id IS NULL`), so the H3 guard on
+ * refundLessonForStudent survives while a counter receipt may carry several
+ * partial refunds. `prisma migrate dev` will offer to "fix" all of it. This
+ * suite is what turns accepting that offer into a red test, exactly as c04/c05
+ * do for the dedupe guards — asserting ABSENCE of the dropped index as well.
  *
  * It asserts the DEFINITIONS, not merely the names: an index silently rebuilt
  * without its WHERE clause, or a CHECK relaxed to `<= amount` (which would let
@@ -66,14 +70,20 @@ async function main() {
 
     const idx = (await c.query(`
       SELECT indexname, indexdef FROM pg_indexes
-       WHERE indexname IN ('payments_one_refund_per_payment','payments_client_request_unique','transactions_payment_id_idx')`)).rows;
-    assert(idx.length === 3, `all three indexes exist (got ${idx.length})`);
+       WHERE indexname IN ('payments_one_refund_per_payment','payments_client_request_unique','transactions_payment_id_idx','transactions_one_refund_per_payment')`)).rows;
+    assert(idx.length === 3, `exactly three of the four names exist (got ${idx.length})`);
 
-    const oneRefund = idx.find((r) => r.indexname === "payments_one_refund_per_payment");
     assert(
-      norm(oneRefund?.indexdef ?? "").includes("unique") &&
-        norm(oneRefund?.indexdef ?? "").includes("where (reversal_of_id is not null)"),
-      "payments_one_refund_per_payment is UNIQUE and still PARTIAL — without the WHERE it would allow one refund in the whole table",
+      !idx.some((r) => r.indexname === "payments_one_refund_per_payment"),
+      "payments_one_refund_per_payment is GONE (migration 20260908120000) — a receipt may carry several partial refunds; refunded_total is the bound",
+    );
+
+    const lessonGuard = idx.find((r) => r.indexname === "transactions_one_refund_per_payment");
+    const lg = norm(lessonGuard?.indexdef ?? "");
+    assert(
+      lg.includes("unique") && lg.includes("(reversal_of_id)") &&
+        lg.includes("type = 'refund'") && lg.includes("payment_id is null"),
+      "transactions_one_refund_per_payment is UNIQUE on reversal_of_id WHERE type='refund' AND payment_id IS NULL — H3's guard on the lesson refund, with counter refunds (which set payment_id) exempt",
     );
 
     const clientReq = idx.find((r) => r.indexname === "payments_client_request_unique");
@@ -93,6 +103,19 @@ async function main() {
       fks.some((r) => r.tbl === "payments") && fks.some((r) => r.tbl === "transactions"),
       "both foreign keys survive — a refund cannot point at a receipt that does not exist",
     );
+
+    // ---- migration 20260909120100_money_tables_revoke (M-04) --------------
+    const grants = (await c.query(`
+      SELECT table_name, string_agg(privilege_type, ',' ORDER BY privilege_type) AS privs
+        FROM information_schema.role_table_grants
+       WHERE grantee = 'edura_app'
+         AND table_name IN ('wallet_ledger','parent_wallet_ledger','center_wallet_ledger','payments')
+       GROUP BY table_name`)).rows as { table_name: string; privs: string }[];
+    const privs = (t: string) => grants.find((g) => g.table_name === t)?.privs ?? "(none)";
+    for (const ledger of ["wallet_ledger", "parent_wallet_ledger", "center_wallet_ledger"]) {
+      assert(privs(ledger) === "INSERT,SELECT", `${ledger} is append-only for edura_app (got ${privs(ledger)})`);
+    }
+    assert(privs("payments") === "INSERT,SELECT,UPDATE", `payments cannot be DELETEd by edura_app but keeps UPDATE for refund bookkeeping (got ${privs("payments")})`);
 
     // ---- migration 20260907120000_refund_channel (Option B) ---------------
     const chanCols = (await c.query(`

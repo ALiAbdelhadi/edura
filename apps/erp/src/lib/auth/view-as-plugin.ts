@@ -68,6 +68,11 @@ export const viewAsPlugin = () => {
             if (target.status !== "active") return null;
             if (!WWW_LOGIN_ROLES.has(target.role)) return null;
 
+            // L-05: `audit_logs_view_as_jti` (migration 78) makes this row
+            // unique per token, so a concurrent second claim that slipped
+            // past the findFirst above fails HERE, on insert, instead of
+            // minting a second session. Prisma.$transaction aborts on the
+            // error; the caller sees null like any other replay.
             await tx.auditLog.create({
               data: {
                 actorId: actor.id,
@@ -91,6 +96,11 @@ export const viewAsPlugin = () => {
               locale: target.locale ?? "ar",
               actorId: actor.id,
             };
+          }).catch((err: unknown) => {
+            // L-05: the unique index refused a second audit row for this jti —
+            // a concurrent replay. Same answer as the findFirst path.
+            if ((err as { code?: string }).code === "P2002") return null;
+            throw err;
           });
 
           if (!claimed) {

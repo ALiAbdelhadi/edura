@@ -32,6 +32,14 @@ import {
   weeklyDigestText,
 } from "./weekly-digest";
 import { WelcomeEmail, welcomeSubject, welcomeText } from "./welcome";
+import {
+  EmailChangeConfirmEmail,
+  emailChangeConfirmSubject,
+  emailChangeConfirmText,
+  EmailChangeNoticeEmail,
+  emailChangeNoticeSubject,
+  emailChangeNoticeText,
+} from "./email-change";
 
 export type EmailRenderer<T extends TemplateId> = {
   subject(locale: Locale, data: TemplateData<T>): string;
@@ -62,6 +70,22 @@ export const TEMPLATES: Registry = {
       subject: (locale) => passwordResetSubject(locale),
       Body: (props) => <PasswordResetEmail {...props} />,
       text: passwordResetText,
+    },
+  },
+  email_change_confirm: {
+    id: "email_change_confirm",
+    email: {
+      subject: (locale) => emailChangeConfirmSubject(locale),
+      Body: (props) => <EmailChangeConfirmEmail {...props} />,
+      text: emailChangeConfirmText,
+    },
+  },
+  email_change_notice: {
+    id: "email_change_notice",
+    email: {
+      subject: (locale) => emailChangeNoticeSubject(locale),
+      Body: (props) => <EmailChangeNoticeEmail {...props} />,
+      text: emailChangeNoticeText,
     },
   },
   email_verification: {

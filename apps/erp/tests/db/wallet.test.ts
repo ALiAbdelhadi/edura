@@ -100,6 +100,12 @@ async function main() {
     success: true,
     gatewayRef: `ref-${tag}`,
     reason: null,
+    kind: "capture" as const,
+    amountMinor: intent!.amount,
+    currency: intent!.currency,
+    integrationId: null,
+    parentRef: null,
+    occurredAt: null,
   };
   const r1 = await processWebhookEvent(event, { mock: true });
   const afterFirst = await balanceOf(s2);

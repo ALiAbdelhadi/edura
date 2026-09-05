@@ -35,16 +35,63 @@ async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST);
 }
 
-async function ensureUniqueUnshelled(tx: TenantTx, email: string, phone?: string) {
-  const conflicts = await tx.user.findFirst({
+/**
+ * SECURITY_AUDIT.md H-02. This used to skip `shell` rows, and each register
+ * function then looked a shell up by the submitted email or PHONE and activated
+ * it in place with the caller's password — no invite, no token, no proof of
+ * control. A walk-in child's account (wallet, roster, attendance, grades) went
+ * to whoever typed the child's 11-digit phone number first.
+ *
+ * Now a shell counts as taken like any other row. The ONLY way public
+ * registration may absorb a shell is a temp-student invite code (40-bit, single
+ * use, `entityType: "invited"`), and only for the shell that code names — which
+ * `allowUserId` exempts from this check. Every other merge stays behind the doors
+ * that prove control: the walk-in claim link (`invite-token` plugin), the
+ * post-registration `temp-students/claim` code, and the teacher invite token.
+ */
+async function ensureUnique(
+  tx: TenantTx,
+  email: string,
+  phone?: string,
+  allowUserId?: string,
+) {
+  const conflict = await tx.user.findFirst({
     where: {
-      status: { not: "shell" },
       OR: [{ email }, ...(phone ? [{ phone }] : [])],
+      ...(allowUserId ? { id: { not: allowUserId } } : {}),
     },
+    select: { status: true },
   });
-  if (conflicts) {
-    throw new ConflictError("Email or phone already in use");
+  if (!conflict) return;
+  if (conflict.status === "shell") {
+    throw new ConflictError(
+      "This email or phone is registered at a centre — use the link or code the centre sent you",
+    );
   }
+  throw new ConflictError("Email or phone already in use");
+}
+
+/**
+ * The one in-register merge door. The code names exactly one invited shell; a
+ * code that names an active account, a non-student, or nothing is refused with
+ * the same message `claimTempStudent` uses, so a probe learns nothing about
+ * which of the three it hit.
+ */
+async function shellForInviteCode(tx: TenantTx, inviteCode: string) {
+  const invited = await tx.studentProfile.findUnique({
+    where: { inviteCode },
+    select: { userId: true, entityType: true },
+  });
+  const shell = invited?.userId
+    ? await tx.user.findFirst({ where: { id: invited.userId, status: "shell" } })
+    : null;
+  if (!shell || invited?.entityType !== "invited") {
+    throw new BusinessRuleError("This invite code is not claimable");
+  }
+  if (shell.role !== "student") {
+    throw new ConflictError("Shell exists for this contact with a different role");
+  }
+  return shell;
 }
 
 export async function registerStudent(input: StudentInput) {
@@ -53,24 +100,11 @@ export async function registerStudent(input: StudentInput) {
   const passwordHash = await hashPassword(input.password);
 
   const user = await platformDb(async (tx) => {
-    await ensureUniqueUnshelled(tx, email, phone);
-
-    let shell = await tx.user.findFirst({ where: { email, status: "shell" } });
-    if (!shell && phone) {
-      shell = await tx.user.findFirst({ where: { phone, status: "shell" } });
-    }
-    if (!shell && input.inviteCode) {
-      const invited = await tx.studentProfile.findUnique({ where: { inviteCode: input.inviteCode } });
-      if (invited?.userId) {
-        shell = await tx.user.findFirst({ where: { id: invited.userId, status: "shell" } });
-      }
-    }
+    const shell = input.inviteCode ? await shellForInviteCode(tx, input.inviteCode) : null;
+    await ensureUnique(tx, email, phone, shell?.id);
 
     let user;
     if (shell) {
-      if (shell.role !== "student") {
-        throw new ConflictError("Shell exists for this contact with a different role");
-      }
       user = await tx.user.update({
         where: { id: shell.id },
         data: {
@@ -107,6 +141,9 @@ export async function registerStudent(input: StudentInput) {
       update: {
         entityType: "registered",
         claimedAt: new Date(),
+        // Single use: the code that just merged this shell must not merge it
+        // (or anything) again.
+        inviteCode: null,
         ...(phone ? { phone } : {}),
       },
     });
@@ -132,37 +169,19 @@ export async function registerParent(input: ParentInput) {
   const passwordHash = await hashPassword(input.password);
 
   const user = await platformDb(async (tx) => {
-    await ensureUniqueUnshelled(tx, email, phone);
-    const shell = await tx.user.findFirst({ where: { email, status: "shell" } });
+    await ensureUnique(tx, email, phone);
 
-    let user;
-    if (shell) {
-      if (shell.role !== "parent") {
-        throw new ConflictError("Shell exists for this email with a different role");
-      }
-      user = await tx.user.update({
-        where: { id: shell.id },
-        data: {
-          passwordHash,
-          name: input.name,
-          status: "active",
-          ...(phone ? { phone } : {}),
-          ...(input.locale ? { locale: input.locale } : {}),
-        },
-      });
-    } else {
-      user = await tx.user.create({
-        data: {
-          email,
-          phone,
-          passwordHash,
-          role: "parent",
-          name: input.name,
-          locale: input.locale ?? "ar",
-          status: "active",
-        },
-      });
-    }
+    const user = await tx.user.create({
+      data: {
+        email,
+        phone,
+        passwordHash,
+        role: "parent",
+        name: input.name,
+        locale: input.locale ?? "ar",
+        status: "active",
+      },
+    });
 
     await tx.parentProfile.upsert({
       where: { userId: user.id },
@@ -191,37 +210,22 @@ export async function registerTeacher(input: TeacherInput) {
   const passwordHash = await hashPassword(input.password);
 
   const user = await platformDb(async (tx) => {
-    await ensureUniqueUnshelled(tx, email, phone);
-    const shell = await tx.user.findFirst({ where: { email, status: "shell" } });
+    // An external (off-system) teacher is a `shell` too (docs/decisions/
+    // external-teachers.md); the centre enrols them through the teacher invite
+    // token, never by them registering with the email the centre typed.
+    await ensureUnique(tx, email, phone);
 
-    let user;
-    if (shell) {
-      if (shell.role !== "teacher") {
-        throw new ConflictError("Shell exists for this email with a different role");
-      }
-      user = await tx.user.update({
-        where: { id: shell.id },
-        data: {
-          passwordHash,
-          name: input.name,
-          status: "pending",
-          ...(phone ? { phone } : {}),
-          ...(input.locale ? { locale: input.locale } : {}),
-        },
-      });
-    } else {
-      user = await tx.user.create({
-        data: {
-          email,
-          phone,
-          passwordHash,
-          role: "teacher",
-          name: input.name,
-          locale: input.locale ?? "ar",
-          status: "pending",
-        },
-      });
-    }
+    const user = await tx.user.create({
+      data: {
+        email,
+        phone,
+        passwordHash,
+        role: "teacher",
+        name: input.name,
+        locale: input.locale ?? "ar",
+        status: "pending",
+      },
+    });
 
     await tx.teacherProfile.upsert({
       where: { userId: user.id },
@@ -262,7 +266,7 @@ export async function registerCenter(input: CenterInput) {
   const passwordHash = await hashPassword(input.admin.password);
 
   return platformDb(async (tx) => {
-    await ensureUniqueUnshelled(tx, email);
+    await ensureUnique(tx, email);
     const shortId = await uniqueCenterShortId(tx);
 
     const center = await tx.center.create({
@@ -280,33 +284,16 @@ export async function registerCenter(input: CenterInput) {
       },
     });
 
-    const shell = await tx.user.findFirst({ where: { email, status: "shell" } });
-    let user;
-    if (shell) {
-      if (shell.role !== "center_admin") {
-        throw new ConflictError("Shell exists for this email with a different role");
-      }
-      user = await tx.user.update({
-        where: { id: shell.id },
-        data: {
-          passwordHash,
-          name: input.admin.name,
-          status: "pending",
-          ...(input.admin.locale ? { locale: input.admin.locale } : {}),
-        },
-      });
-    } else {
-      user = await tx.user.create({
-        data: {
-          email,
-          passwordHash,
-          role: "center_admin",
-          name: input.admin.name,
-          locale: input.admin.locale ?? "ar",
-          status: "pending",
-        },
-      });
-    }
+    const user = await tx.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: "center_admin",
+        name: input.admin.name,
+        locale: input.admin.locale ?? "ar",
+        status: "pending",
+      },
+    });
 
     await tx.centerAdminProfile.create({
       data: { userId: user.id, centerId: center.id },

@@ -52,6 +52,7 @@ const CHANNEL_MATRIX: Record<NotificationType, Channels> = {
   blacklist_action: C(true, true, true, false),
   enrollment_restored_over_capacity: C(true, true, false, false),
   payout_approved: C(true, true, true, false),
+  payout_paid: C(true, true, true, false),
   classroom_request: C(true, true, false, false),
   classroom_request_decided: C(true, true, false, false),
   lesson_reminder: C(true, true, false, false),

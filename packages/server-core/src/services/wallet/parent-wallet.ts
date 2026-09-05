@@ -63,18 +63,16 @@ export async function parentWalletDebit(
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new BusinessRuleError("Wallet debit amount must be a positive integer");
   }
-  const debited = await tx.parentProfile.updateMany({
-    where: { userId: parentId, walletBalance: { gte: amount } },
-    data: { walletBalance: { decrement: amount } },
-  });
-  if (debited.count === 0) {
+  // L-01: decrement and read the running balance in one statement (see wallet.ts).
+  const rows = await tx.$queryRaw<{ wallet_balance: number }[]>`
+    UPDATE parent_profiles
+       SET wallet_balance = wallet_balance - ${amount}
+     WHERE user_id = ${parentId}::uuid AND wallet_balance >= ${amount}
+    RETURNING wallet_balance`;
+  if (rows.length === 0) {
     throw new BusinessRuleError(INSUFFICIENT_PARENT_WALLET);
   }
-  const p = await tx.parentProfile.findUnique({
-    where: { userId: parentId },
-    select: { walletBalance: true },
-  });
-  const balanceAfter = p?.walletBalance ?? 0;
+  const balanceAfter = rows[0]!.wallet_balance;
   await tx.parentWalletLedger.create({
     data: { parentId, delta: -amount, balanceAfter, ...ledgerLinks(opts) },
   });

@@ -19,7 +19,8 @@
     "test:db:list": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --list",
     "test:db:bail": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --bail",
     "test:db:only": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --only",
-    "test:db:sweep": "tsx --env-file=../../packages/database/.env.test ../../packages/database/scripts/test-cleanup.ts"
+    "test:db:sweep": "tsx --env-file=../../packages/database/.env.test ../../packages/database/scripts/test-cleanup.ts",
+    "test:db:local": "tsx --env-file=.env.test ../../packages/database/scripts/run-db-suites.ts tests/db --exclude c02-payout-generation,room-pricing-methods,room-revenue-split"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",

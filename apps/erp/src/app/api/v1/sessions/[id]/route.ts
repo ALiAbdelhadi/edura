@@ -1,6 +1,7 @@
 import { withErrors } from "@/lib/errors/http";
 import { requireSession } from "@/lib/auth/session";
 import { toActingUser } from "@/lib/authz/teacher-actor";
+import { authorizeCenterActor } from "@/lib/authz/center-actor";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, ForbiddenError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
@@ -10,7 +11,19 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = withErrors(async (_req, ctx) => {
-  const user = await toActingUser(await requireSession());
+  // SECURITY_AUDIT.md M-01: `center_staff` is re-keyed to their own centre the
+  // way GET /api/v1/sessions already does, so the `center_admin` branch below
+  // fires for them. Before this they fell through every branch and read any
+  // centre's session by id.
+  const session0 = await requireSession();
+  const user =
+    session0.role === "center_staff"
+      ? (
+          await authorizeCenterActor(session0, {
+            allow: ["receptionist", "manager", "center_accountant"],
+          })
+        ).acting
+      : await toActingUser(session0);
 
   const { id } = await ctx.params;
 
@@ -49,6 +62,9 @@ export const GET = withErrors(async (_req, ctx) => {
         },
       });
       if (!enrollment) throw new ForbiddenError("No linked child enrolled in this course");
+    } else {
+      // Terminal else (M-01): a role this chain does not name reads nothing.
+      throw new ForbiddenError();
     }
 
     return session;

@@ -385,6 +385,7 @@ enum NotificationType {
   blacklist_action
   enrollment_restored_over_capacity
   payout_approved
+  payout_paid
   classroom_request
   classroom_request_decided
   lesson_reminder
@@ -739,6 +740,23 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+/// SECURITY_AUDIT.md M-06. A login-email change is requested here and becomes
+/// real only when the NEW address proves it received the token. `user_id`
+/// carries an ON DELETE CASCADE FK Prisma does not model.
+model EmailChangeRequest {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  newEmail    String    @map("new_email")
+  oldEmail    String?   @map("old_email")
+  tokenHash   String    @unique @map("token_hash")
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("email_change_requests")
+}
+
 model InviteToken {
   id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email     String?
@@ -1072,24 +1090,24 @@ model Course {
 }
 
 model Session {
-  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId           String        @map("course_id") @db.Uuid
-  teacherId          String        @map("teacher_id") @db.Uuid
-  roomId             String?       @map("room_id") @db.Uuid
-  originalDate       DateTime      @map("original_date") @db.Timestamptz(6)
-  date               DateTime      @db.Timestamptz(6)
-  startTime          String        @map("start_time")
-  endTime            String        @map("end_time")
-  status             SessionStatus @default(scheduled)
-  cancellationReason String?       @map("cancellation_reason")
-  postponedFromDate  DateTime?     @map("postponed_from_date") @db.Timestamptz(6)
-  editedAt           DateTime?     @map("edited_at") @db.Timestamptz(6)
-  distributedAt      DateTime?     @map("distributed_at") @db.Timestamptz(6)
-  attendanceReopenedAt DateTime?   @map("attendance_reopened_at") @db.Timestamptz(6)
-  attendanceReopenedBy String?     @map("attendance_reopened_by") @db.Uuid
-  dataSource         DataSource    @default(system) @map("data_source")
-  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId             String        @map("course_id") @db.Uuid
+  teacherId            String        @map("teacher_id") @db.Uuid
+  roomId               String?       @map("room_id") @db.Uuid
+  originalDate         DateTime      @map("original_date") @db.Timestamptz(6)
+  date                 DateTime      @db.Timestamptz(6)
+  startTime            String        @map("start_time")
+  endTime              String        @map("end_time")
+  status               SessionStatus @default(scheduled)
+  cancellationReason   String?       @map("cancellation_reason")
+  postponedFromDate    DateTime?     @map("postponed_from_date") @db.Timestamptz(6)
+  editedAt             DateTime?     @map("edited_at") @db.Timestamptz(6)
+  distributedAt        DateTime?     @map("distributed_at") @db.Timestamptz(6)
+  attendanceReopenedAt DateTime?     @map("attendance_reopened_at") @db.Timestamptz(6)
+  attendanceReopenedBy String?       @map("attendance_reopened_by") @db.Uuid
+  dataSource           DataSource    @default(system) @map("data_source")
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course     Course             @relation(fields: [courseId], references: [id])
   room       Room?              @relation(fields: [roomId], references: [id])
@@ -1239,19 +1257,20 @@ model Payment {
   receiptNumber String        @unique @map("receipt_number")
 
   /// The receipt this row reverses. A bare column with no Prisma relation, the
-  /// same shape `Transaction.reversalOfId` uses. The database also carries
-  /// `payments_reversal_is_negative` (CHECK) and
-  /// `payments_one_refund_per_payment` (partial unique) on it, NEITHER of which
-  /// Prisma can model -- `prisma migrate dev` will offer to drop them. Refuse;
-  /// `c06-refund-guards` is what makes that a red test.
-  reversalOfId  String?       @map("reversal_of_id") @db.Uuid
+  /// same shape `Transaction.reversalOfId` uses. The database also carries the
+  /// `payments_reversal_is_negative` CHECK on it, which Prisma cannot model --
+  /// `prisma migrate dev` will offer to drop it. Refuse; `c06-refund-guards`
+  /// is what makes that a red test. There is deliberately NO unique index here
+  /// any more (migration 20260908120000): a receipt may carry several partial
+  /// refunds, and `refundedTotal` is the bound.
+  reversalOfId    String? @map("reversal_of_id") @db.Uuid
   /// How much of THIS charge has been handed back. Bounded against `amount` by
   /// the `payments_refunded_within_amount` CHECK, which is the only place an
   /// over-refund can actually be prevented.
-  refundedTotal Int           @default(0) @map("refunded_total")
+  refundedTotal   Int     @default(0) @map("refunded_total")
   /// Idempotency key. Unique per (centerId, clientRequestId); NULL is distinct,
   /// so keyless callers are unaffected. Mirrors `Payout.clientRequestId`.
-  clientRequestId String?     @map("client_request_id")
+  clientRequestId String? @map("client_request_id")
 
   /// How the money goes BACK. Required on a reversing row and forbidden on any
   /// other, by the `payments_refund_channel_shape` CHECK — which Prisma cannot
@@ -1269,15 +1288,15 @@ model Payment {
   /// `transactions` has UPDATE revoked.
   refundConfirmedAt DateTime?      @map("refund_confirmed_at") @db.Timestamptz(6)
   refundConfirmedBy String?        @map("refund_confirmed_by") @db.Uuid
-  dataSource    DataSource    @default(system) @map("data_source")
-  recordedBy    String        @map("recorded_by") @db.Uuid
-  paidAt        DateTime      @default(now()) @map("paid_at") @db.Timestamptz(6)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dataSource        DataSource     @default(system) @map("data_source")
+  recordedBy        String         @map("recorded_by") @db.Uuid
+  paidAt            DateTime       @default(now()) @map("paid_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@unique([centerId, clientRequestId], map: "payments_client_request_unique")
   @@index([centerId, paidAt(sort: Desc)])
   @@index([studentId, paidAt(sort: Desc)])
-  @@unique([centerId, clientRequestId], map: "payments_client_request_unique")
   @@index([payerUserId])
   @@map("payments")
 }
@@ -1373,6 +1392,13 @@ model Payout {
   cancelledAt     DateTime?       @map("cancelled_at") @db.Timestamptz(6)
   receiptUrl      String?         @map("receipt_url")
   clientRequestId String?         @map("client_request_id")
+  /// M-03 maker-checker. `generatedBy` ran the generator; `approvedBy` decided;
+  /// `paidBy` moved the money and typed `externalRef` (the transfer reference,
+  /// unique across payouts by `payouts_external_ref_unique`, a partial index
+  /// Prisma cannot model). Three different people at most, two at least.
+  externalRef     String?         @map("external_ref")
+  paidBy          String?         @map("paid_by") @db.Uuid
+  generatedBy     String?         @map("generated_by") @db.Uuid
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@unique([beneficiaryId, clientRequestId], map: "payouts_client_request_unique")
@@ -2037,6 +2063,10 @@ enum PaymentIntentStatus {
   paid
   failed
   expired
+  /// A capture arrived whose amount, currency or integration id does not match
+  /// the intent (SECURITY_AUDIT.md H-04). Money moved at the provider, nothing
+  /// was booked here, finance was told. Left only by an audited resolution.
+  needs_review
 
   @@map("payment_intent_status")
 }
@@ -2424,24 +2454,24 @@ model CenterWalletLedger {
 }
 
 model SessionSettlement {
-  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId       String            @unique @map("session_id") @db.Uuid
-  courseId        String            @map("course_id") @db.Uuid
-  centerId        String            @map("center_id") @db.Uuid
-  teacherId       String            @map("teacher_id") @db.Uuid
-  roomId          String?           @map("room_id") @db.Uuid
-  pricingMethod   RoomPricingMethod? @map("pricing_method")
-  presentCount    Int               @map("present_count")
-  perSessionPrice Int               @map("per_session_price")
-  platformTotal   Int               @map("platform_total")
-  centerTotal     Int               @map("center_total")
-  teacherTotal    Int               @map("teacher_total")
-  platformHeldGross Int?            @map("platform_held_gross")
-  centerHeldGross   Int?            @map("center_held_gross")
-  m2CenterFee     Int?              @map("m2_center_fee")
-  m2CenterBp      Int?              @map("m2_center_bp")
-  settledBy       String            @map("settled_by") @db.Uuid
-  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId         String             @unique @map("session_id") @db.Uuid
+  courseId          String             @map("course_id") @db.Uuid
+  centerId          String             @map("center_id") @db.Uuid
+  teacherId         String             @map("teacher_id") @db.Uuid
+  roomId            String?            @map("room_id") @db.Uuid
+  pricingMethod     RoomPricingMethod? @map("pricing_method")
+  presentCount      Int                @map("present_count")
+  perSessionPrice   Int                @map("per_session_price")
+  platformTotal     Int                @map("platform_total")
+  centerTotal       Int                @map("center_total")
+  teacherTotal      Int                @map("teacher_total")
+  platformHeldGross Int?               @map("platform_held_gross")
+  centerHeldGross   Int?               @map("center_held_gross")
+  m2CenterFee       Int?               @map("m2_center_fee")
+  m2CenterBp        Int?               @map("m2_center_bp")
+  settledBy         String             @map("settled_by") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([centerId, createdAt(sort: Desc)])
   @@index([courseId])

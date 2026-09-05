@@ -4,14 +4,23 @@ import { platformDb } from "../../db/scope";
 import { ExpiredError, NotFoundError, ValidationError } from "../../errors/classes";
 import { appBaseUrl } from "../../http/app-url";
 import { generateOpaqueToken, hashToken } from "../../utils/random";
+import { canSignIn, type LoginApp } from "../../auth/login-policy";
 
 const RESET_TTL_MS = 60 * 60 * 1000;
 const RESET_TTL_HOURS = RESET_TTL_MS / (60 * 60 * 1000);
 
+/**
+ * `opts.app` names the door the request came through. The two apps share one
+ * `users` table, so without it the ERP's public forgot-password form issued
+ * reset links for `super_admin` / `accountant` accounts and the ERP reset
+ * endpoint set their password — a back-office reset door on the public app
+ * (SECURITY_AUDIT.md M-11). A role that cannot sign in to the requesting app
+ * gets the same silence an unknown address gets.
+ */
 export async function requestPasswordReset(
   email: string,
   locale?: string | null,
-  opts: { linkBaseUrl?: string } = {},
+  opts: { linkBaseUrl?: string; app?: LoginApp } = {},
 ): Promise<void> {
   const normalized = email.toLowerCase().trim();
 
@@ -20,6 +29,12 @@ export async function requestPasswordReset(
       where: { email: normalized, status: "active" },
     });
     if (!user) return null;
+    if (opts.app && !canSignIn(opts.app, user.role)) {
+      console.warn(
+        `[password-reset] refused: user ${user.id} (${user.role}) cannot sign in to ${opts.app}; no token issued`,
+      );
+      return null;
+    }
 
     const token = generateOpaqueToken();
     const tokenHash = hashToken(token);

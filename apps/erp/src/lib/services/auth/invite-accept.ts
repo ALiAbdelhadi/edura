@@ -18,6 +18,15 @@ export async function acceptInvite(token: string, password: string): Promise<{ u
     if (row.usedAt) throw new ExpiredError("Invite token already used");
     if (row.expiresAt.getTime() < Date.now()) throw new ExpiredError("Invite token expired");
 
+    // L-04 (SECURITY_AUDIT.md): claim the token FIRST, conditionally. Two
+    // concurrent accepts both passed the read above; the conditional update
+    // resolves them to one winner, as the invite-token plugin already does.
+    const claimed = await tx.inviteToken.updateMany({
+      where: { id: row.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count === 0) throw new ExpiredError("Invite token already used");
+
     const user = await tx.user.findFirst({ where: { email: row.email } });
     if (!user) throw new NotFoundError("Invited user not found");
     if (user.status === "deleted" || user.status === "suspended") {
@@ -30,8 +39,6 @@ export async function acceptInvite(token: string, password: string): Promise<{ u
     });
 
     await ensureRoleProfile(tx, user.id, user.role, user.name, row.centerId ?? undefined);
-
-    await tx.inviteToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
 
     return { userId: user.id };
   });

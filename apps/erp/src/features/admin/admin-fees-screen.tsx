@@ -62,7 +62,16 @@ import { asArray } from "@/lib/refine/as-array";
 import { newIdempotencyKey } from "@/features/student/idempotency";
 
 type RefundChannel = "cash_drawer" | "bank_transfer" | "gateway";
+// Every channel a refund row can carry — used to RENDER rows, including any
+// `gateway` row that reached the database through the API.
 const REFUND_CHANNELS: readonly RefundChannel[] = ["cash_drawer", "bank_transfer", "gateway"];
+// The channels the picker OFFERS. `gateway` is deliberately absent: a gateway
+// refund is confirmed only by the provider's webhook, and the Paymob webhook
+// has no reversal handling yet — so arming one today creates an obligation
+// nobody can complete. Add it back here once the Paymob webhook accepts
+// reversal events and calls the confirmation path.
+type OfferedRefundChannel = "cash_drawer" | "bank_transfer";
+const OFFERED_REFUND_CHANNELS: readonly OfferedRefundChannel[] = ["cash_drawer", "bank_transfer"];
 function channelOf(value: unknown): RefundChannel {
   return REFUND_CHANNELS.includes(value as RefundChannel) ? (value as RefundChannel) : "cash_drawer";
 }
@@ -72,16 +81,13 @@ function isRefundRow(record: { amount?: number | null }): boolean {
 }
 
 /**
- * `payments_one_refund_per_payment` allows ONE refund row per receipt — full or
- * partial, once. So the button has to disappear as soon as any amount has been
- * returned, not only when the whole receipt has: a partially refunded receipt
- * still has a remainder on paper, but a second refund against it is refused by
- * the index, and offering a button that can only fail is worse than offering
- * none. When multiple partials are enabled (by dropping that index) this
- * becomes `>= amount` and the dialog below already computes the remainder.
+ * A receipt may carry several partial refunds (migration 20260908120000), so
+ * the button stays until `refunded_total` reaches the amount. The dialog
+ * computes the remainder from the same two fields.
  */
 function isAlreadyRefunded(record: { amount?: number | null; refundedTotal?: number | null }): boolean {
-  return Number(record?.amount ?? 0) > 0 && Number(record?.refundedTotal ?? 0) > 0;
+  const amount = Number(record?.amount ?? 0);
+  return amount > 0 && Number(record?.refundedTotal ?? 0) >= amount;
 }
 
 export function AdminFeesScreen() {
@@ -375,7 +381,7 @@ export function AdminFeesScreen() {
   // counter does; the operator changes it when it is a transfer or a card
   // reversal. `wallet` is deliberately not offered — a student wallet credit is
   // a balance the family cannot spend (WALLET_SPENDABILITY.md).
-  const [refundChannel, setRefundChannel] = useState<RefundChannel>("cash_drawer");
+  const [refundChannel, setRefundChannel] = useState<OfferedRefundChannel>("cash_drawer");
   const [refundBusy, setRefundBusy] = useState(false);
   const refundKey = useRef("");
 
@@ -1147,7 +1153,7 @@ export function AdminFeesScreen() {
                   so it is shown in full rather than hidden behind a control
                   that has to be opened to be read. */}
               <div className="flex flex-wrap gap-2">
-                {REFUND_CHANNELS.map((ch) => (
+                {OFFERED_REFUND_CHANNELS.map((ch) => (
                   <button
                     key={ch}
                     type="button"

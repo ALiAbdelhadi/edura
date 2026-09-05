@@ -43,6 +43,14 @@ const FIXTURES: { [K in TemplateId]: TemplateData<K> } = {
     link: "https://edura.test/ar/guardian/verify?token=TOKEN",
     expiryDays: 7,
   },
+  email_change_confirm: {
+    link: "https://edura.test/ar/confirm-email?token=TOKEN",
+    expiryHours: 1,
+    newEmail: "new@example.com",
+  },
+  email_change_notice: {
+    newEmailMasked: "n***@example.com",
+  },
   weekly_digest: {
     centerName: "مركز النيل",
     periodStart: "2026-08-02",

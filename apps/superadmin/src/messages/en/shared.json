@@ -31,6 +31,7 @@
   "notifType_registration_rejected": "Registration rejected",
   "notifType_blacklist_action": "Blacklist action",
   "notifType_payout_approved": "Payout approved",
+  "notifType_payout_paid": "Payout paid",
   "notifType_classroom_request": "Collaboration request",
   "notifType_classroom_request_decided": "Collaboration request decided",
   "notifType_lesson_reminder": "Session reminder",

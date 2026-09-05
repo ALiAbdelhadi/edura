@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "bun run --filter @repo/database generate && (bun run build || ([ -f .next/BUILD_ID ] && [ -f .next/prerender-manifest.json ] && echo 'next build completed - ignoring bun post-build teardown segfault (bun.report/1.3.14)'))",
+  "buildCommand": "bash ../../scripts/vercel-build.sh",
   "build": {
     "env": {
       "NODE_OPTIONS": "--max-old-space-size=6144"

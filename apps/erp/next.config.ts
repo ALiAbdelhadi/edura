@@ -7,33 +7,15 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin();
 
-const isDev = process.env.NODE_ENV !== "production";
 
-const realtimeHttp = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3005";
-const realtimeWs = realtimeHttp.replace(/^http/, "ws");
+// SECURITY_AUDIT.md M-09: the PAGE policy is minted per request in src/proxy.ts
+// with a nonce (script-src has no 'unsafe-inline' any more). This file keeps
+// the transport headers for every path and a locked-down CSP for the API
+// routes the middleware does not match.
+import { buildApiCsp, cspHeaderName as resolveCspHeaderName } from "./src/lib/security/csp";
 
-const cspReportOnly = process.env.CSP_MODE === "report-only";
-const cspHeaderName = cspReportOnly
-  ? "Content-Security-Policy-Report-Only"
-  : "Content-Security-Policy";
-
-const csp = [
-  `default-src 'self'`,
-  `base-uri 'self'`,
-  `object-src 'none'`,
-  `frame-ancestors 'self'`,
-  `form-action 'self'`,
-  `img-src 'self' data: blob: https://res.cloudinary.com`,
-  `font-src 'self' data:`,
-  `style-src 'self' 'unsafe-inline'`,
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  `connect-src 'self' ${realtimeHttp} ${realtimeWs} https://*.ingest.sentry.io https://*.ingest.de.sentry.io`,
-  `frame-src 'self' https://accept.paymob.com`,
-  `worker-src 'self'`,
-  `manifest-src 'self'`,
-  `report-uri /api/v1/security/csp-report`,
-  `report-to csp-endpoint`,
-].join("; ");
+const cspHeaderName = resolveCspHeaderName();
+const apiCsp = buildApiCsp();
 
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -41,7 +23,6 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Reporting-Endpoints", value: `csp-endpoint="/api/v1/security/csp-report"` },
-  { key: cspHeaderName, value: csp },
 ];
 
 function publicFileRevision(url: string): string {
@@ -74,8 +55,6 @@ const nextConfig = {
 
   distDir: process.env.NEXT_DIST_DIR || ".next",
 
-  typescript: { ignoreBuildErrors: true },
-
   turbopack: {
     root: path.resolve(import.meta.dirname, "../.."),
   },
@@ -101,7 +80,10 @@ const nextConfig = {
   },
 
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/api/:path*", headers: [{ key: cspHeaderName, value: apiCsp }] },
+    ];
   },
 
   async rewrites() {

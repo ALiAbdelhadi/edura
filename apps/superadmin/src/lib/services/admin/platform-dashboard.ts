@@ -23,7 +23,8 @@ export function decisionQueue() {
       lastWrites,
     ] = await Promise.all([
       tx.payout.aggregate({
-        where: { status: "pending" },
+        // M-03: an approved payout still awaits its second person.
+        where: { status: { in: ["pending", "approved"] } },
         _count: { _all: true },
         _sum: { netPayable: true },
       }),
@@ -36,7 +37,7 @@ export function decisionQueue() {
           FROM payouts p
           LEFT JOIN users   u ON p.beneficiary_type = 'teacher'  AND u.id = p.beneficiary_id
           LEFT JOIN centers c ON p.beneficiary_type <> 'teacher' AND c.id = p.beneficiary_id
-         WHERE p.status = 'pending'
+         WHERE p.status IN ('pending', 'approved')
          ORDER BY p.created_at ASC
          LIMIT 1`,
 

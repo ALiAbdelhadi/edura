@@ -4,7 +4,8 @@ import { notify } from "../../services/notifications/notify";
 import { studentAndParents } from "../../services/notifications/fanout";
 import { nextTxnRef } from "../../services/finance/ref-numbers";
 import { openShiftIdFor } from "../center/shifts";
-import { fundingOfMethod } from "../finance/center-credit";
+import { creditMove, fundingOfMethod } from "../finance/center-credit";
+import { INSUFFICIENT_WALLET, walletDebit, type WalletMethod } from "../wallet/wallet";
 import { BusinessRuleError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { nextReceiptNumber } from "./receipt-sequence";
@@ -14,8 +15,14 @@ import { nextReceiptNumber } from "./receipt-sequence";
  * WALLET_SPENDABILITY.md proved a student wallet credit is a trapped balance —
  * nothing user-reachable spends it and the counter cannot take it back — so
  * offering it would be recording a refund the family cannot use.
+ *
+ * `gateway` is ALSO absent (SECURITY_AUDIT.md M-05, interim): nothing calls a
+ * provider refund API yet and no refund webhook exists, so a `gateway` refund
+ * was an obligation that could never be confirmed — the family told a refund
+ * was issued, finance's unconfirmed queue growing forever. It returns with the
+ * executor + refund webhook of Phase 3 §3.3.2, not before.
  */
-export const COUNTER_REFUND_CHANNELS = ["cash_drawer", "bank_transfer", "gateway"] as const;
+export const COUNTER_REFUND_CHANNELS = ["cash_drawer", "bank_transfer"] as const;
 export type CounterRefundChannel = (typeof COUNTER_REFUND_CHANNELS)[number];
 
 export type RefundPaymentInput = {
@@ -92,11 +99,12 @@ async function coveredSessionIds(
 
 
 /**
- * `payments_one_refund_per_payment` (one refund per receipt) and
- * `payments_client_request_unique` (a retry after the 45s money-write timeout)
- * are BOTH unique indexes, and both mean the same thing to the operator: this
- * receipt has already been refunded. A P2002 here is a domain outcome, not a
- * server fault, so it leaves as a 422 rather than a 500.
+ * The only unique index left on a refund row is `payments_client_request_unique`
+ * — a retry after the 45s money-write timeout carrying the same key. (One
+ * refund per receipt was dropped by migration 20260908120000: a receipt may
+ * now carry several partials, and `refunded_total` is the bound.) A P2002 here
+ * is a domain outcome, not a server fault, so it leaves as a 422 rather than a
+ * 500.
  */
 async function createRefundRow(
   tx: TenantTx,
@@ -106,7 +114,7 @@ async function createRefundRow(
     return await tx.payment.create({ data });
   } catch (err) {
     if ((err as { code?: string }).code === "P2002") {
-      throw new BusinessRuleError("This receipt has already been refunded");
+      throw new BusinessRuleError("This refund request was already recorded");
     }
     throw err;
   }
@@ -121,6 +129,11 @@ export async function refundPaymentTx(
     throw new BusinessRuleError("Amount must be a positive whole number of piasters");
   }
   if (!input.reason.trim()) throw new BusinessRuleError("A refund reason is required");
+  // Runtime twin of the type: a caller that bypasses the route's zod enum
+  // (a script, a stale client) still cannot arm an unconfirmable channel.
+  if (!(COUNTER_REFUND_CHANNELS as readonly string[]).includes(input.refundChannel)) {
+    throw new BusinessRuleError("This refund channel is not available yet");
+  }
 
   const original = await tx.payment.findFirst({
     where: { id: input.paymentId, centerId: user.centerId },
@@ -176,6 +189,37 @@ export async function refundPaymentTx(
     }
   }
 
+  // ---- The wallet gate (SECURITY_AUDIT.md H-01) -----------------------------
+  //
+  // A cash wallet top-up is an ordinary `payments` row (`cash-topup.ts`) whose
+  // money did NOT buy coverage — it became spendable balance. Refunding that
+  // receipt through this door used to hand the cash back and leave the balance
+  // untouched, so the same 500 EGP could be spent again: a double-spend bounded
+  // only by `maxTopup` and the number of receipts.
+  //
+  // The link is the ledger: the top-up wrote a `wallet_ledger` row carrying
+  // `paymentId = original.id`. If one exists, the wallet must still hold the
+  // amount being returned and is debited in this same transaction — a `refund`
+  // entry pointing at the refund row — or the refund is refused. Partial refunds
+  // debit the partial. The parent ledger is checked for symmetry; today the
+  // counter credits only student wallets, and online top-ups have no centre and
+  // never reach this door.
+  const fundedStudentWallet = await tx.walletLedger.findFirst({
+    where: { paymentId: original.id, type: "topup" },
+    select: { id: true },
+  });
+  const fundedParentWallet = fundedStudentWallet
+    ? null
+    : await tx.parentWalletLedger.findFirst({
+        where: { paymentId: original.id, type: "topup" },
+        select: { parentId: true },
+      });
+  if (fundedParentWallet) {
+    // No counter path credits a parent wallet with cash, so nothing this door
+    // can reach has this shape. Refusing is the honest answer until one exists.
+    throw new BusinessRuleError("A parent-wallet top-up cannot be refunded at the counter");
+  }
+
   // ---- The bound, in the database (§2.0 step 3) ----------------------------
   //
   // `refunded_total <= amount - X` is `refunded_total + X <= amount`. Zero rows
@@ -189,7 +233,25 @@ export async function refundPaymentTx(
     data: { refundedTotal: { increment: input.amount } },
   });
   if (bumped.count === 0) throw new BusinessRuleError("Refund exceeds the original payment");
-  const isFullRefund = original.refundedTotal + input.amount === original.amount;
+
+  // Re-read rather than adding to the value read before the bump.
+  //
+  // While `payments_one_refund_per_payment` existed this was unreachable — the
+  // index refused a second refund row, so `original.refundedTotal` was provably
+  // still 0 here. Migration 20260908120000 drops that index to allow several
+  // partials, which makes two concurrent partials against the same receipt a
+  // real interleaving: both read `refundedTotal = 0`, both bump correctly (the
+  // conditional update re-evaluates its WHERE against the committed row), and
+  // both would then compute `isFullRefund` from the stale 0 — so the one that
+  // actually completes the receipt would fail to cancel the coverage, and the
+  // overpayment this whole change exists to stop would survive.
+  //
+  // Reading inside the transaction sees our own uncommitted increment.
+  const after = await tx.payment.findUniqueOrThrow({
+    where: { id: original.id },
+    select: { refundedTotal: true },
+  });
+  const isFullRefund = after.refundedTotal === original.amount;
 
   // A refund of PLATFORM-held money never came out of this centre's drawer, so
   // it must not enter the till: inheriting the method keeps it out of the cash
@@ -228,7 +290,7 @@ export async function refundPaymentTx(
     select: { id: true },
   });
   const refNumber = await nextTxnRef(tx);
-  await tx.transaction.create({
+  const refundTxn = await tx.transaction.create({
     data: {
       refNumber,
       type: "refund",
@@ -249,6 +311,54 @@ export async function refundPaymentTx(
       notes: `Refund via ${input.refundChannel} at center (receipt ${receiptNumber}, reversing ${original.receiptNumber}) — awaiting confirmation`,
     },
   });
+
+  // ---- The wallet leg (H-01) ------------------------------------------------
+  // Debited at ARMING, not at confirmation, on purpose: the moment the counter
+  // records the refund the balance must stop being spendable, or the window
+  // between arming and confirming is exactly the double-spend this closes.
+  // `walletDebit` is the H2 conditional decrement, so a wallet that has since
+  // been spent below the amount refuses cleanly rather than going negative.
+  let walletDebited = false;
+  if (fundedStudentWallet) {
+    const walletMethod: WalletMethod | null =
+      original.paymentMethod === "cash" ? "cash" : null;
+    try {
+      await walletDebit(tx, studentId, input.amount, {
+        type: "refund",
+        method: walletMethod,
+        refNumber,
+        paymentId: refund.id,
+        relatedTxnId: refundTxn.id,
+        centerId: user.centerId,
+        reason: `Top-up refunded at the counter (receipt ${receiptNumber}, reversing ${original.receiptNumber})`,
+        recordedBy: user.id,
+      });
+    } catch (err) {
+      if (err instanceof BusinessRuleError && err.message === INSUFFICIENT_WALLET) {
+        throw new BusinessRuleError(
+          "The wallet no longer holds this top-up — it has been spent, so it cannot be refunded",
+        );
+      }
+      throw err;
+    }
+    walletDebited = true;
+
+    // The collection recorded `wallet_cash_collection` (delta −amount): the
+    // centre took platform-held float into its drawer and owed it onward.
+    // Handing it back out of the same drawer reverses that liability.
+    if (!platformHeld) {
+      await creditMove(tx, {
+        centerId: user.centerId as string,
+        type: "refund_reversal",
+        delta: input.amount,
+        method: original.paymentMethod,
+        refNumber,
+        relatedTxnId: refundTxn.id,
+        recordedBy: user.id,
+        reason: `Cash wallet top-up refunded at the counter (receipt ${receiptNumber})`,
+      });
+    }
+  }
 
   // ---- The coverage coupling (§2.0 step 7) ---------------------------------
   // Only a FULL refund ends coverage: a partial refund is a correction, not a
@@ -283,19 +393,20 @@ export async function refundPaymentTx(
       },
       afterState: {
         refundAmount: input.amount,
-        refundedTotal: original.refundedTotal + input.amount,
+        refundedTotal: after.refundedTotal,
         refundPaymentId: refund.id,
         refundReceiptNumber: receiptNumber,
         reason: input.reason.trim(),
         refundChannel: input.refundChannel,
         full: isFullRefund,
         cancelledSubscriptionIds,
+        walletDebited,
       },
     },
   });
 
   return {
-    value: { ...refund, isFullRefund, cancelledSubscriptionIds },
+    value: { ...refund, isFullRefund, cancelledSubscriptionIds, walletDebited },
     effects: [
       async () => {
         await notify({

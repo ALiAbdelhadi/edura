@@ -61,6 +61,10 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
     reason: "public reset completion — the emailed token is the credential",
     mustContain: ["withRateLimit"],
   },
+  "v1/me/email/confirm": {
+    reason: "M-06: login-email change confirmation — the token mailed to the NEW address is the credential; the switch revokes every session",
+    mustContain: ["withRateLimit"],
+  },
   "v1/auth/view-as/claim": {
     reason:
       "the landing door for a back-office 'view as'. apps/superadmin POSTs the " +

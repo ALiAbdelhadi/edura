@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { assertNotProduction } from "../scripts/db-guard";
 import type { Role } from "../src/generated/client/index";
 import { prisma, withPlatformContext } from "../src/index";
+import { ownerPurgeMoneyRows } from "./owner-purge";
 import { seedId } from "./seed-ids";
 
 const PASSWORD = process.env.SEED_PASSWORD || "Passw0rd!";
@@ -44,6 +45,15 @@ const OPENING_BALANCE = 75000;
 
 async function purge() {
   console.log("Purging parent-pay demo data…");
+  // Parent-wallet ledger rows go first and as the OWNER (migration 20260909120100, M-04).
+  const purgeParentIds = (
+    await withPlatformContext((tx) =>
+      tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM users
+        WHERE email = ANY(${EMAILS}::text[]) OR id = ANY(${ALL.map((p) => p.id)}::uuid[])`,
+    )
+  ).map((u) => u.id);
+  await ownerPurgeMoneyRows({ parentWalletParentIds: purgeParentIds });
   await withPlatformContext(async (tx) => {
     const users = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
@@ -73,11 +83,7 @@ async function purge() {
       where: { OR: [{ parentId: { in: ids } }, { studentId: { in: ids } }] },
     });
 
-    const ledgerRows =
-      ids.length === 0
-        ? 0
-        : await tx.$executeRaw`
-            DELETE FROM parent_wallet_ledger WHERE parent_id = ANY(${ids}::uuid[])`;
+    const ledgerRows = 0; // removed above, as the owner
     if (ids.length) {
       await tx.$executeRaw`
         DELETE FROM payment_intents

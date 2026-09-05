@@ -110,7 +110,11 @@
     "seed:bulkimport-demo": "tsx --env-file=.env.local prisma/bulk-import-demo-seed.ts",
     "seed:reportexport-demo": "tsx --env-file=.env.local prisma/report-export-demo-seed.ts",
     "seed:weeklydigest-demo": "tsx --env-file=.env.local prisma/weekly-digest-demo-seed.ts",
-    "seed:guardianver-demo": "tsx --env-file=.env.local prisma/guardian-verification-demo-seed.ts"
+    "seed:guardianver-demo": "tsx --env-file=.env.local prisma/guardian-verification-demo-seed.ts",
+    "db:local": "./scripts/local-test-db.sh",
+    "db:local:reset": "./scripts/local-test-db.sh --reset",
+    "db:local:env": "./scripts/local-test-db-env.sh local",
+    "db:neon:env": "./scripts/local-test-db-env.sh neon"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

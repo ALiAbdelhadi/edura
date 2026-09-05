@@ -62,7 +62,7 @@ type PayoutRow = {
 // reads as in-progress (indigo) here rather than the shared map's settled teal.
 const PAYOUT_TONE = { approved: "active" } as const;
 
-const STATUSES = ["pending", "paid", "rejected"] as const;
+const STATUSES = ["pending", "approved", "paid", "rejected"] as const;
 
 export function PayoutsScreen() {
   const t = useTranslations("payouts");
@@ -307,10 +307,12 @@ function DecisionPanel({
   const { run, busy } = useAction({ onSuccess: () => onDone() });
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const [externalRef, setExternalRef] = useState("");
 
   useEffect(() => {
     setRejecting(false);
     setReason("");
+    setExternalRef("");
   }, [payout?.id]);
 
   if (!payout) {
@@ -328,13 +330,31 @@ function DecisionPanel({
 
   const net = payout.netPayable ?? 0;
   const blocked = payout.covered === false;
-  const actionable = payout.status === "pending";
+  // M-03: two acts by two people. `pending` shows Approve; `approved` shows
+  // Mark paid with a mandatory transfer reference. The server refuses the
+  // approver/generator on the second step, so the UI does not pretend otherwise.
+  const approvable = payout.status === "pending";
+  const payable = payout.status === "approved";
+  const actionable = approvable || payable;
 
   const approve = async () => {
     const res = await run({
       url: `finance/payouts/${payout.id}/approve`,
       values: {},
       successMsg: t("approveOk"),
+    });
+    if (res.ok) onClose();
+  };
+
+  const pay = async () => {
+    if (externalRef.trim().length < 3) {
+      toast.error(t("payRefRequired"));
+      return;
+    }
+    const res = await run({
+      url: `finance/payouts/${payout.id}/pay`,
+      values: { externalRef: externalRef.trim() },
+      successMsg: t("payOk"),
     });
     if (res.ok) onClose();
   };
@@ -452,22 +472,39 @@ function DecisionPanel({
             {t("lockNotice")}
           </p>
 
+          {payable ? (
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="text-xs text-ink-2" htmlFor="pay-ref">
+                {t("payRefLabel")}
+              </label>
+              <input
+                id="pay-ref"
+                dir="ltr"
+                className="num h-9 rounded-lg border border-rule bg-field px-3 text-[13px] text-ink"
+                value={externalRef}
+                placeholder={t("payRefPlaceholder")}
+                onChange={(e) => setExternalRef(e.target.value)}
+              />
+              <p className="text-xs text-ink-3">{t("payHint")}</p>
+            </div>
+          ) : null}
+
           <div className="mt-4">
             <TwoStepCommit
-              resetKey={payout.id}
-              disabled={blocked}
+              resetKey={`${payout.id}:${payout.status}`}
+              disabled={blocked || (payable && externalRef.trim().length < 3)}
               busy={busy}
               icon={BanknoteArrowDown}
-              onCommit={approve}
+              onCommit={payable ? pay : approve}
               labels={{
                 action: (
                   <span className="inline-flex items-baseline gap-2">
-                    {t("commitAction")}
+                    {payable ? t("payAction") : t("commitAction")}
                     <Num.Money piasters={net} locale={locale} sign={false} />
                   </span>
                 ),
-                confirm: t("commitConfirm"),
-                hint: t("commitHint"),
+                confirm: payable ? t("payConfirm") : t("commitConfirm"),
+                hint: payable ? t("payHint") : t("commitHint"),
                 armedHint: t("commitArmedHint"),
                 armedAnnouncement: t("commitAnnounce"),
               }}
