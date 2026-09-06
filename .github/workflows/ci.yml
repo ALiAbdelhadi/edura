@@ -286,11 +286,12 @@ jobs:
           bunx tsx prisma/center-oversight-demo-seed.ts
           bunx tsx prisma/messaging-demo-seed.ts
 
-      - name: Write .env.local for both apps
+      - name: Write .env.local + .env.test for both apps and the database package
         run: |
           set -euo pipefail
           bash .github/scripts/write-env-local.sh apps/erp
           bash .github/scripts/write-env-local.sh apps/superadmin
+          bash .github/scripts/write-env-local.sh packages/database
 
       - name: Assert the target database is labelled 'test'
         run: |
@@ -351,7 +352,7 @@ jobs:
 
       - name: Remove generated env files
         if: always()
-        run: rm -f apps/erp/.env.local apps/superadmin/.env.local
+        run: rm -f apps/erp/.env.local apps/erp/.env.test apps/superadmin/.env.local apps/superadmin/.env.test packages/database/.env.local packages/database/.env.test
 
   e2e-playwright:
     name: E2E — ${{ matrix.name }}

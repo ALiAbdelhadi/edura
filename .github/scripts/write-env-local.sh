@@ -3,6 +3,29 @@ set -euo pipefail
 dir="${1:?usage: write-env-local.sh <package-dir>}"
 : "${DATABASE_URL:?}" "${DIRECT_URL:?}" "${ADMIN_URL:?}"
 
+# Since 2026-08-31 every test:db* / pretest:db script reads .env.test (with
+# EDURA_ENV=test inside it, which load-env resolves to packages/database/.env.test),
+# so CI writes BOTH files with the same values: .env.local for the dev server
+# the E2E job boots, .env.test for the suites.
+cat > "$dir/.env.test" <<EOF
+EDURA_ENV=test
+DATABASE_URL=$DATABASE_URL
+DIRECT_URL=$DIRECT_URL
+ADMIN_URL=$ADMIN_URL
+DATABASE_DRIVER=pg
+NEXTAUTH_SECRET=ci-www-secret-0000000000000000000000000000
+SUPERADMIN_NEXTAUTH_SECRET=ci-sa-secret-11111111111111111111111111111
+REALTIME_JWT_SECRET=ci-realtime-2222222222222222222222222222
+INTERNAL_API_SECRET=ci-internal-33333333333333333333333333333
+CRON_SECRET=ci-cron-4444444444444444444444444444444444
+PAYMENTS_MODE=mock
+WHATSAPP_MODE=mock
+MAIL_PROVIDER=console
+SMS_PROVIDER=
+INVITE_CHANNELS=email
+EOF
+echo "wrote $dir/.env.test (values not echoed)"
+
 cat > "$dir/.env.local" <<EOF
 DATABASE_URL=$DATABASE_URL
 DIRECT_URL=$DIRECT_URL

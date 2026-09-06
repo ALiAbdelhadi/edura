@@ -631,14 +631,15 @@ governs. Violating one of these is never a local change.
 >
 > Do not read a P1001 here as "production is down" — probe it with `psql` first.
 >
-> **[production, 2026-09-06] DEMO DATA IS PRESENT AND THE 2026-08-26 "WIPED
-> CLEAN" NOTE BELOW IS STALE.** The census on the day of this migration read
-> **16 users (12 of them `is_demo`), 2 centres (1 demo), 2 courses** — not the
-> 2 staff accounts that entry describes. Money is still untouched (0 payments,
-> 0 transactions), so nothing is at risk today, but the Step 9 pre-launch wipe
-> has NOT been re-run since somebody seeded production, and any claim below
-> about production being empty of demo rows should be re-measured before it is
-> repeated.
+> **[production, WIPED CLEAN 2026-09-06 — second Step 9 run.]** Earlier the
+> same day the census read 16 users (12 `is_demo`), 2 centres, 2 courses: the
+> UAT set seeded 2026-08-31 (`*@uat.edura.eg`) plus two hand-made accounts from
+> 2026-09-01. Ali ran `production-cleanup.ts census` then
+> `cleanup --confirm=wipe-14-users` (two-man rule): 14 users, 2 centres, 23
+> tables of residue removed in 3 passes, 2 staff kept, catalog identical,
+> 6 sequences restarted. verify-db 32/32 immediately after; census now
+> **2 users / 0 centres / 0 courses / 0 payments / 0 transactions / 45 subjects**.
+> Money had never been touched (0 payments, 0 transactions before and after).
 
 > **[ALL THREE ENVIRONMENTS REBUILT FROM SCRATCH, 2026-08-30.] Every endpoint
 > named further down this file is dead.** A new Neon project was created with
@@ -956,9 +957,11 @@ governs. Violating one of these is never a local change.
   matrix — is [vercel-project-recreate](docs/runbooks/vercel-project-recreate.md).
   Two independent breakages recorded there, neither caused by the deletion:
   mail was unconfigured (`SMTP_HOST=REPLACE`) with `INVITE_CHANNELS=email` and
-  `WHATSAPP_MODE=mock`, so NO invite could be delivered at all — Gmail SMTP has
-  since been wired in `.env.production` and only `SMTP_PASS` is outstanding
-  (an app password only Ali can generate); and `apps/www` needs
+  `WHATSAPP_MODE=mock`, so NO invite could be delivered at all — **[production,
+  RESOLVED, measured 2026-09-06]** Gmail SMTP is wired AND `SMTP_PASS` is set on
+  Vercel: `GET /api/health?deep=mail` against `edura-erp.vercel.app` returned
+  `mail: { ok: true }`, i.e. a real SMTP handshake succeeded. The "only
+  SMTP_PASS is outstanding" sentence in the runbook is stale; and `apps/www` needs
   `NEXT_PUBLIC_APP_ORIGIN` or every login/register CTA on the marketing site
   falls back to `http://localhost:3002`.
   The entry below is the hostname policy, which still holds:
@@ -1005,7 +1008,13 @@ governs. Violating one of these is never a local change.
   the new unpooled owner string. A configured backup aimed at a dead endpoint is
   worse than an unconfigured one: it looks like protection.
   → [backup-restore runbook](docs/runbooks/backup-restore.md)
-- **NO SCHEDULED CRON JOB RUNS ANYWHERE.** Neither `CRON_BASE_URL` nor
+- **[2026-09-06] CRON IS SCHEDULED.** `CRON_SECRET` and `CRON_BASE_URL`
+  (`https://edura-erp.vercel.app`) are now repo secrets; the value matches the
+  one Vercel runs with (proven: `POST /api/v1/cron/expire-payment-intents` with
+  it returned 200 against production). The four schedules in
+  `.github/workflows/cron.yml` fire on their own from this date. The entry below
+  is history.
+- **[HISTORY, 2026-08-09] NO SCHEDULED CRON JOB RUNS ANYWHERE.** Neither `CRON_BASE_URL` nor
   `CRON_SECRET` is set as a repo secret (verified 2026-08-09 with
   `gh secret list`). `CRON_SECRET` fails closed, so the schedule is inert rather
   than dangerous — but do not read `.github/workflows/cron.yml` existing as jobs
