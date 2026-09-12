@@ -12,33 +12,16 @@ export type CreateCheckoutResult = {
   checkout: CheckoutInfo;
 };
 
-/**
- * What a provider callback IS, derived from its flags — never inferred from
- * `success` alone (SECURITY_AUDIT.md H-04). Only `capture` can settle.
- */
 export type WebhookEventKind = "capture" | "auth" | "void" | "refund" | "pending" | "failed";
 
-/**
- * The contract every driver must fill. Before H-04 this carried only
- * `{ gatewayOrderId, success, gatewayRef, reason }` and settlement booked
- * `intent.amount` on any `success: true` — so a partial capture, a voided
- * authorisation, a refund notification or a callback from a different
- * integration all looked like "paid in full for this order".
- */
 export type WebhookEvent = {
-  /** The order this callback is about (Paymob `obj.order.id`; mock `gateway_order_id`). */
   gatewayOrderId: string;
-  /** The provider's TRANSACTION id (Paymob `obj.id`) — unique per callback. */
   gatewayRef: string | null;
   kind: WebhookEventKind;
-  /** `obj.success && !obj.pending` for Paymob; `success === true` for mock. */
   success: boolean;
-  /** Minor units — Paymob `amount_cents`, the same integer piasters the intent holds. */
   amountMinor: number | null;
   currency: string | null;
-  /** Which of the merchant's integrations produced this (Paymob `integration_id`). */
   integrationId: string | null;
-  /** The capture a refund/void reverses (Paymob `parent_transaction`). */
   parentRef: string | null;
   reason: string | null;
   occurredAt: Date | null;
@@ -46,11 +29,6 @@ export type WebhookEvent = {
 
 export type WebhookVerification =
   | { valid: true; event: WebhookEvent }
-  /**
-   * `ignore: true` = a genuine but irrelevant callback (Paymob TOKEN /
-   * DELIVERY_NEEDED). The route answers 200 so the provider stops retrying;
-   * a plain `valid: false` answers 401.
-   */
   | { valid: false; error: string; ignore?: boolean };
 
 export type CheckoutStudent = {
@@ -79,17 +57,6 @@ export type ProviderFlags = {
   pending?: boolean;
   is_refunded?: boolean;
   is_voided?: boolean;
-  /**
-   * SECURITY_AUDIT.md (2026-09-11) WEBHOOK-01. `is_refunded` / `is_voided`
-   * are set on the PARENT capture once it has been reversed; the refund or
-   * void transaction object Paymob delivers carries `is_refund` / `is_void`
-   * about itself (plus `parent_transaction`). Keying on the parent's flags
-   * alone made a delivered reversal look like a capture — harmless to money
-   * (the intent is already `paid`, so it replays) but the finance notice never
-   * fired. Both spellings are honoured; `parent_transaction` alone is NOT a
-   * reversal signal, because a capture-after-authorisation carries it too.
-   * Byte-exact sandbox fixtures are still owed (SECURITY_TODO.md).
-   */
   is_refund?: boolean;
   is_void?: boolean;
   is_auth?: boolean;
@@ -97,7 +64,6 @@ export type ProviderFlags = {
   is_standalone_payment?: boolean;
 };
 
-/** Paymob flag → kind table (Phase 3 §3.3.1). Order matters: reversal flags win. */
 export function deriveEventKind(f: ProviderFlags): WebhookEventKind {
   if (f.is_refunded === true || f.is_refund === true) return "refund";
   if (f.is_voided === true || f.is_void === true) return "void";
@@ -107,12 +73,6 @@ export function deriveEventKind(f: ProviderFlags): WebhookEventKind {
   return "failed";
 }
 
-/**
- * The integrations this deployment settles for. Comma-separated
- * `PAYMOB_INTEGRATION_IDS`. `null` when unset — which the gate treats as
- * "everything" ONLY in mock mode; any real mode with no allow-list refuses
- * every capture as `unknown_integration`, so a missing variable fails closed.
- */
 export function paymobIntegrationIds(): Set<string> | null {
   const raw = process.env.PAYMOB_INTEGRATION_IDS?.trim();
   if (!raw) return null;

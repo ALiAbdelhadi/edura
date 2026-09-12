@@ -1,6 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import type { PaymentIntent } from "@repo/database";
 import { BusinessRuleError } from "@/lib/errors/classes";
+import type { PaymentIntent } from "@repo/database";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   deriveEventKind,
   type CheckoutStudent,
@@ -12,11 +12,6 @@ import {
 const CHECKOUT_NOT_IMPLEMENTED =
   "Paymob checkout is not wired yet — run with PAYMENTS_MODE=mock for now";
 
-/**
- * The fields Paymob signs on a TRANSACTION callback, in the exact lexicographic
- * order their HMAC is computed over. Nested keys are dotted paths into `obj`.
- * Booleans render as "true"/"false", everything else as its string form.
- */
 export const PAYMOB_HMAC_FIELDS = [
   "amount_cents",
   "created_at",
@@ -61,7 +56,6 @@ export function paymobHmacSecret(): string {
   return secret;
 }
 
-/** HMAC-SHA512 over the concatenated field values, hex — Paymob's `hmac` query param. */
 export function paymobTransactionHmac(obj: Json, secret = paymobHmacSecret()): string {
   const material = PAYMOB_HMAC_FIELDS.map((f) => render(pathValue(obj, f))).join("");
   return createHmac("sha512", secret).update(material).digest("hex");

@@ -1,18 +1,15 @@
-import { secretEquals } from "@repo/server-core/auth/secret-compare";
-import { z } from "zod";
+import { requireDedicatedSecret } from "@/lib/config/secrets";
+import { platformDb } from "@/lib/db/scope";
+import { ForbiddenError } from "@/lib/errors/classes";
 import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { ForbiddenError } from "@/lib/errors/classes";
-import { parseJson } from "@/lib/validation/zod";
-import { requireDedicatedSecret } from "@/lib/config/secrets";
 import { notify } from "@/lib/services/notifications/notify";
-import { platformDb } from "@/lib/db/scope";
+import { parseJson } from "@/lib/validation/zod";
+import { secretEquals } from "@repo/server-core/auth/secret-compare";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// SECURITY_AUDIT.md (2026-09-11) RT-02: the realtime host names only the
-// message; recipient, sender and body are read from the row it points at, so
-// a compromised bridge cannot push arbitrary text to arbitrary users.
 const schema = z.object({
   conversationId: z.uuid(),
   messageId: z.uuid(),

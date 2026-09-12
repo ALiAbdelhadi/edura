@@ -1,16 +1,15 @@
-import { z } from "zod";
-import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
-import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
 import { RECEPTION } from "@/lib/authz/center-actor";
+import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
+import { ok } from "@/lib/http/envelope";
 import {
   deleteTeamNote,
   updateTeamNote,
   type TeamNoteActor,
 } from "@/lib/services/team-notes/team-notes";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
-
 
 const patchSchema = z
   .object({

@@ -1,20 +1,20 @@
-import { z } from "zod";
-import { runAfter } from "@/lib/http/after";
-import { toDateKey } from "@repo/server-core/lib/date-key";
-import { Prisma } from "@repo/database";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
 import { getSessionUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/authz/require-role";
 import { toActingUser } from "@/lib/authz/teacher-actor";
 import { scopedDb } from "@/lib/db/scope";
+import { withErrors } from "@/lib/errors/http";
+import { runAfter } from "@/lib/http/after";
 import { ok } from "@/lib/http/envelope";
+import { trackFirstGroup } from "@/lib/observability/funnel";
+import { isNotPastDate, moneySchema } from "@/lib/validation/common";
 import { parseJson } from "@/lib/validation/zod";
-import { moneySchema, isNotPastDate } from "@/lib/validation/common";
+import { Prisma } from "@repo/database";
+import { toDateKey } from "@repo/server-core/lib/date-key";
 import {
   createCourse,
   createTeacherDirectCourse,
 } from "@repo/server-core/services/center/courses";
-import { trackFirstGroup } from "@/lib/observability/funnel";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -76,9 +76,9 @@ export const GET = withErrors(async (req) => {
       const childIds = links.map((l) => l.studentId);
       const enr = childIds.length
         ? await tx.enrollment.findMany({
-            where: { studentId: { in: childIds } },
-            select: { courseId: true },
-          })
+          where: { studentId: { in: childIds } },
+          select: { courseId: true },
+        })
         : [];
       where.id = { in: enr.map((e) => e.courseId) };
     } else if (centerIdParam) {
@@ -89,7 +89,6 @@ export const GET = withErrors(async (req) => {
     }
 
     if (subject) where.subject = subject;
-    // DIFF-05: an unknown value used to reach Prisma as a cast and 500.
     if (deliveryMode) {
       if (!["onsite", "online", "hybrid"].includes(deliveryMode)) return [];
       where.deliveryMode = deliveryMode as Prisma.CourseWhereInput["deliveryMode"];

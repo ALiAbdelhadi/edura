@@ -1,13 +1,13 @@
-import { z } from "zod";
-import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
+import { ACCOUNTANT, RECEPTION } from "@/lib/authz/center-actor";
 import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
-import { RECEPTION, ACCOUNTANT } from "@/lib/authz/center-actor";
+import { ok } from "@/lib/http/envelope";
 import {
   createTeamNote,
   listTeamNotes,
   type TeamNoteActor,
 } from "@/lib/services/team-notes/team-notes";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,6 @@ const createSchema = z.object({
   body: z.string().trim().min(1).max(2000),
 });
 
-// AUTHZ-02: the accountant sub-role is read-only (center-actor.ts refuses
-// centrally); listing it on a mutating handler only misdescribed intent.
 export const POST = delegatedWithCenter(
   async (req, _ctx, actor) => {
     const data = await parseJson(req, createSchema);

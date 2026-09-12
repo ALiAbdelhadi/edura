@@ -1,8 +1,6 @@
-import { z } from "zod";
-import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { publicProfileUrl, publicRootDomain } from "@/lib/public-site/host";
 import { HANDLE_MAX } from "@/lib/services/public-handles/handle-rules";
 import {
@@ -11,13 +9,12 @@ import {
   setMyHandle,
   type MyHandle,
 } from "@/lib/services/public-handles/public-handles";
+import { parseJson } from "@/lib/validation/zod";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// The owner is the session (center_admin → their centre, teacher → their own
-// profile). Assistants and centre staff are refused by the service: the
-// handle is the tenant's public name, not a delegated task.
 const OWNER_ROLES = ["center_admin", "teacher"] as const;
 
 function present(mine: MyHandle, locale: string) {

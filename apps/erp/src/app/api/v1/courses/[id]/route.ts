@@ -1,19 +1,18 @@
-import { z } from "zod";
-import { Prisma } from "@repo/database";
-import { withErrors } from "@/lib/errors/http";
-import { requireRole } from "@/lib/authz/require-role";
 import { getSessionUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/authz/require-role";
 import { toActingUser } from "@/lib/authz/teacher-actor";
 import { platformDb } from "@/lib/db/scope";
-import { canSeeMeetingLink } from "@/lib/services/discovery/meeting-link";
 import { NotFoundError } from "@/lib/errors/classes";
+import { withErrors } from "@/lib/errors/http";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
+import { canSeeMeetingLink } from "@/lib/services/discovery/meeting-link";
 import { moneySchema } from "@/lib/validation/common";
+import { parseJson } from "@/lib/validation/zod";
 import {
   updateCourse,
   updateTeacherDirectPricing,
 } from "@repo/server-core/services/center/courses";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
