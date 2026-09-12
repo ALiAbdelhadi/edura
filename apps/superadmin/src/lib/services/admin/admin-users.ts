@@ -1,6 +1,7 @@
 import type { Role } from "@repo/database";
 import { exactQuery } from "@repo/database/search-text";
-import { WWW_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
+import { WWW_LOGIN_ROLES, canSignIn } from "@repo/server-core/auth/login-policy";
+import { erpBaseUrl } from "@/lib/config/erp-base-url";
 import { mintViewAsToken } from "@repo/server-core/auth/view-as-token";
 import { trustedClientIp } from "@repo/server-core/rate-limit/token-bucket";
 import { requestPasswordReset } from "@repo/server-core/services/auth/password-reset";
@@ -308,7 +309,7 @@ export async function sendPasswordReset(actor: SessionUser, userId: string, reas
   const target = await platformDb(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, status: true, locale: true },
+      select: { id: true, email: true, status: true, locale: true, role: true },
     });
     if (!user) throw new NotFoundError("User not found");
     if (!user.email) {
@@ -320,7 +321,14 @@ export async function sendPasswordReset(actor: SessionUser, userId: string, reas
     return user;
   });
 
-  await requestPasswordReset(target.email as string, target.locale);
+  // SECURITY_AUDIT.md (2026-09-11) AUTH-06: an ERP user's link must land on
+  // the ERP host (APP_BASE_URL on this project is the back office) and the
+  // redeem side is gated to the app the account can sign in to.
+  const app = canSignIn("superadmin", target.role) ? "superadmin" : "www";
+  await requestPasswordReset(target.email as string, target.locale, {
+    app,
+    ...(app === "www" ? { linkBaseUrl: erpBaseUrl() } : {}),
+  });
 
   await platformDb(
     (tx) =>

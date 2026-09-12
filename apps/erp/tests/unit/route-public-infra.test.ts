@@ -24,7 +24,7 @@ describe("GET /api/v1/centers/[id]", () => {
     platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({
         center: {
-          findUnique: async () => ({
+          findFirst: async () => ({
             id: "c-1",
             name: "مركز النيل",
             shortId: "NILE",
@@ -35,6 +35,9 @@ describe("GET /api/v1/centers/[id]", () => {
             whatsapp: null,
             email: null,
             logoUrl: null,
+            area: null,
+            governorate: null,
+            publicHandle: null,
           }),
         },
         course: { findMany: async () => [] },
@@ -57,7 +60,7 @@ describe("GET /api/v1/centers/[id]", () => {
 
   it("404s for an unknown center, in the standard envelope", async () => {
     platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-      cb({ center: { findUnique: async () => null } }),
+      cb({ center: { findFirst: async () => null } }),
     );
     const res = await centerById.GET(new Request("http://t.local/api/v1/centers/nope"), {
       params: Promise.resolve({ id: "nope" }),

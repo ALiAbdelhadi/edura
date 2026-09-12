@@ -1,6 +1,5 @@
 {
   "subject": "المادة",
-  "score": "الدرجة",
   "grade": "التقدير",
   "entries": "السجلات",
   "highestGrade": "أعلى مادة",
@@ -20,9 +19,6 @@
   "viewCourse": "عرض الكورس",
   "graded": "مُصحّح",
   "completion": "نسبة الإنجاز",
-  "presentDays": "أيام الحضور",
-  "absentDays": "أيام الغياب",
-  "lateExcused": "التأخير / بعذر",
   "heatmapTitle": "الحضور يوماً بيوم",
   "noAttendance": "لا توجد سجلات حضور بعد.",
   "gradesSubtitle": "درجاتك في كل مادة. اضغط على المادة تشوف الامتحانات.",

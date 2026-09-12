@@ -24,7 +24,7 @@ The PRD recommends **Express/NestJS + PostgreSQL + React Native + React web**. T
 At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fixed **10 of 12 buggy** items (all money/data-integrity) plus notification delivery, and moved 19 items to done.
 
 ### What was already correct (highlights)
-- **Money math** is exactly to spec: `computeLessonSplit` implements `teacher_net = price − 200 − center_share`, `center_net = center_share − 200`, platform `= 400` piasters, all integer piasters ([distribution.ts](../../apps/www/src/lib/services/finance/distribution.ts)). Distribution fires only on session-complete with present students; ledger is append-only (immutability extension).
+- **Money math** is exactly to spec: `computeLessonSplit` implements `teacher_net = price − 200 − center_share`, `center_net = center_share − 200`, platform `= 400` piasters, all integer piasters ([distribution.ts](../../apps/erp/src/lib/services/finance/distribution.ts)). Distribution fires only on session-complete with present students; ledger is append-only (immutability extension).
 - **RBAC**: `requireRole` guard on protected routes, `super_admin` passes all guards, per-center RLS enforced at the DB (FORCE RLS + NOBYPASSRLS runtime role). Blacklist (3-level, reason-required, reversible, audited) is solid (19/23 done).
 - **Auth**: register/login/forgot/reset/invite-accept all real (bcrypt, hashed single-use tokens, enumeration-silent).
 - **Data model**: all §3.1–3.5 tables present with UUID PKs, timestamps, integer money, string enums, audit_logs.
@@ -48,7 +48,7 @@ At audit start: 141 done / 81 partial / 97 missing / **12 buggy**. This pass fix
 7. **2026 UI/UX redesign (Phase 3)** and **WCAG 2.2 AA pass (Phase 4)** — not started; there is no super_admin or accountant web surface yet.
 
 ### Open buggy items still to fix
-- 🐛 **temp-student claim** ([tempStudents.ts](../../apps/www/src/lib/services/temp-students/temp-students.ts)) can hit a P2002 (500) when a claimed student already has a present attendance row for the same session as their temp shell — needs per-row dedupe on re-point.
+- 🐛 **temp-student claim** ([tempStudents.ts](../../apps/erp/src/lib/services/temp-students/temp-students.ts)) can hit a P2002 (500) when a claimed student already has a present attendance row for the same session as their temp shell — needs per-row dedupe on re-point.
 - 🐛 `tests/e2e` Newman/Postman harness is non-functional/misleading — delete or rewrite (`api-smoke.sh` is the real one).
 
 ### §11 Open Decisions that block full completion

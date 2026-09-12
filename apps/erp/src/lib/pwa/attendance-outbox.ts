@@ -74,10 +74,6 @@ export async function enqueueAttendance(
   db.close();
 }
 
-export function countDoorRecords(records: QueuedAttendanceRecord[]): number {
-  return records.filter((r) => r.stage === "door").length;
-}
-
 export async function listQueuedAttendance(): Promise<
   QueuedAttendanceRecord[]
 > {
@@ -102,18 +98,6 @@ export async function removeQueuedAttendance(ids: number[]): Promise<void> {
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
     for (const id of ids) store.delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-export async function clearAttendanceOutbox(): Promise<void> {
-  if (!isSupported()) return;
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).clear();
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

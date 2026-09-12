@@ -195,7 +195,6 @@
     "noReceiptsHint": "أول ما تدفع، الإيصال هيبان هنا وتقدر تنزّله."
   },
   "studentNav": {
-    "more": "المزيد",
     "navigation": "التنقّل"
   },
   "studentIdCard": {
@@ -579,5 +578,28 @@
     "alertLapsedTitle": "اشتراكك في {course} خلص",
     "alertBody": "جدّده عشان ما تفوتكش حصص.",
     "alertOpen": "شوف اشتراكاتي"
+  },
+  "studentDiscovery": {
+    "days": "الأيام",
+    "anyDay": "أي يوم",
+    "time": "الوقت",
+    "anyTime": "أي وقت",
+    "morning": "صباحًا",
+    "afternoon": "بعد الظهر",
+    "evening": "مساءً",
+    "mode": "الحضور",
+    "modeAny": "الكل",
+    "clear": "امسح الفلاتر",
+    "onlineClass": "حصة أونلاين",
+    "noCoursesForFilters": "مفيش حصص مطابقة للفلاتر دي",
+    "noCoursesForFiltersHint": "جرب يوم تاني أو وقت تاني، أو امسح الفلاتر.",
+    "findTeacherTitle": "ابحث عن مدرس",
+    "findTeacherSubtitle": "اختر الأيام اللي تناسبك وشوف المدرسين اللي بيدرّسوا فيها.",
+    "anySubject": "كل المواد",
+    "teacherSearchPlaceholder": "ابحث باسم المدرس…",
+    "loadingTeachers": "جارٍ تحميل المدرسين…",
+    "noTeachers": "مفيش مدرس بيدرّس في الأيام اللي اخترتها",
+    "noTeachersHint": "جرب أيام تانية، أو حوّل لـ«تصفح الكل» عشان تشوف برّه شعبتك.",
+    "groupsOnDay": "{count, plural, zero {مفيش حصص} one {حصة واحدة} two {حصتين} few {# حصص} many {# حصة} other {# حصة}} مطابقة"
   }
 }

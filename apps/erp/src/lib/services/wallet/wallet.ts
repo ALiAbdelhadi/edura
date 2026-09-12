@@ -29,7 +29,7 @@ export {
 
 const INTENT_TTL_MS = 60 * 60 * 1000; // 1h checkout window
 
-async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
+export async function nextPlatformReceipt(tx: TenantTx): Promise<string> {
   const rows = await tx.$queryRaw<{ nextval: bigint }[]>`
     SELECT nextval('platform_receipt_seq'::regclass)`;
   return `RCP-EDURA-${new Date().getFullYear()}-${String(Number(rows[0].nextval)).padStart(5, "0")}`;

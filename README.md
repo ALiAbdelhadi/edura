@@ -1,8 +1,9 @@
 # Edura
 
 Education platform for the Egyptian market — K-12 private lessons and teaching
-centers. Centers, teachers, parents, and students each get a role-scoped portal;
-a separate super-admin back-office app is planned (see [CLAUDE.md](CLAUDE.md)).
+centers. Centers, teachers, parents, students and teacher assistants each get a
+role-scoped portal, and a separate super-admin back-office app carries the two
+staff roles (see [CLAUDE.md](CLAUDE.md)).
 
 Arabic-first (RTL, `ar` default) with full English support. Installable PWA with
 offline attendance capture and native web-push notifications.
@@ -13,16 +14,28 @@ Bun workspaces + Turborepo. Bun ≥ 1.3 — the only toolchain you install.
 
 | Workspace | Description |
 |---|---|
-| [`apps/www`](apps/www) | Next.js App Router app — all portals (center/teacher/parent/student/assistant) and the REST API under `app/api/v1/**`. Dev port 3002. |
-| [`apps/realtime`](apps/realtime) | Socket.IO chat server (long-running Node process, port 3005). |
+| [`apps/erp`](apps/erp) | The product. Next.js App Router — every role-scoped portal (center / center staff / teacher / assistant / parent / student) and the REST API under `app/api/v1/**`. Dev port 3002. |
+| [`apps/superadmin`](apps/superadmin) | The back office — `super_admin` and `accountant` only, own host and own cookies, 2FA mandatory. Dev port 3004. |
+| [`apps/www`](apps/www) | The public marketing site. Dev port 3010. |
+| [`apps/realtime`](apps/realtime) | Socket.IO chat server — a long-running Bun process, because serverless functions cannot hold WebSockets. |
 | [`packages/database`](packages/database) | `@repo/database` — Prisma schema, migrations, Neon client with RLS wrappers, seeds, shared domain queries. The **only** package that imports Prisma. |
+| [`packages/server-core`](packages/server-core) | `@repo/server-core` — the shared server kernel both apps run on: money, auth, validation, errors. |
 | [`packages/ui`](packages/ui) | `@repo/ui` — shadcn/ui design system (Tailwind v4, Radix, RTL-aware). |
+| `packages/client-core`, `packages/notifications`, `packages/observability` | Shared client hooks, mail/WhatsApp/push egress, Sentry + PostHog wiring. |
 | `packages/eslint-config`, `packages/typescript-config` | Shared tooling config. |
+
+`apps/www` was the portals app until 2026-08-20; that app is now `apps/erp` and
+the name was reused for the marketing site. Paths in documents older than that
+date mean `apps/erp`.
 
 ## Getting started
 
 ```sh
 bun install
+
+# Point git at the repo's tracked hooks — once per clone. The pre-commit hook
+# runs `gitleaks protect --staged`, so a clone that skips this commits unscanned.
+bun run setup:git-hooks
 
 # Environment: copy and fill (Neon URLs, NEXTAUTH_SECRET, VAPID keys, …)
 # fill the single root .env — every app and package reads it via symlinks

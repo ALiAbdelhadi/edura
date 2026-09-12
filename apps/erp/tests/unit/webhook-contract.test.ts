@@ -47,6 +47,12 @@ describe("H-04 — kind derivation from provider flags", () => {
   it("reversal and pending flags win over success", () => {
     expect(deriveEventKind({ success: true, is_refunded: true })).toBe("refund");
     expect(deriveEventKind({ success: true, is_voided: true })).toBe("void");
+    // WEBHOOK-01: the delivered reversal object describes ITSELF with
+    // is_refund / is_void; the parent's is_refunded / is_voided may be absent.
+    expect(deriveEventKind({ success: true, is_refund: true })).toBe("refund");
+    expect(deriveEventKind({ success: true, is_void: true })).toBe("void");
+    // …but a parent reference alone is not a reversal (capture-after-auth carries one).
+    expect(deriveEventKind({ success: true, is_capture: true, is_refund: false })).toBe("capture");
     expect(deriveEventKind({ success: true, pending: true })).toBe("pending");
     expect(deriveEventKind({ success: true, is_auth: true })).toBe("auth");
   });

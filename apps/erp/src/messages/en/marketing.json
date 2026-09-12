@@ -252,7 +252,6 @@
     "relatedTitle": "Related articles",
     "notFound": "That article does not exist.",
     "stillStuck": "Still stuck?",
-    "stillStuckBody": "If the article didn't answer your question, get in touch and we'll reply.",
-    "screenshotPlaceholder": "Screenshot goes here"
+    "stillStuckBody": "If the article didn't answer your question, get in touch and we'll reply."
   }
 }

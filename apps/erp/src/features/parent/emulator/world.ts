@@ -30,8 +30,6 @@ export type EmuWalletRow = {
   balance: number;
 };
 
-export const EMU_PARENT = { name: { ar: "أحمد محمود", en: "Ahmed Mahmoud" } } as const;
-
 export const EMU_CHILDREN: EmuChild[] = [
   {
     id: "c1",

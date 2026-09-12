@@ -18,7 +18,7 @@ the endpoint is correct, authenticated and tested, it is simply never called.
 
 ## The surface
 
-One route, six jobs — [apps/www/src/app/api/v1/cron/\[job\]/route.ts](../../apps/www/src/app/api/v1/cron/[job]/route.ts).
+One route, six jobs — [apps/www/src/app/api/v1/cron/\[job\]/route.ts](../../apps/erp/src/app/api/v1/cron/[job]/route.ts).
 `apps/superadmin` has no cron route at all.
 
 | Job | Implementation | Invoked by | Consequence of never running |

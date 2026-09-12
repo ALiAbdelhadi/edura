@@ -3,18 +3,10 @@ import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { assertViewAsTarget, startViewAs } from "@/lib/services/admin/admin-users";
 
+import { erpBaseUrl } from "@/lib/config/erp-base-url";
+
 export const dynamic = "force-dynamic";
 
-function erpBaseUrl(): string {
-  const explicit = process.env.ERP_BASE_URL;
-  if (explicit) return explicit.replace(/\/+$/, "");
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "ERP_BASE_URL is required in production on apps/superadmin (it is where a 'view as' handoff is posted; APP_BASE_URL here is this app's own host)",
-    );
-  }
-  return appBaseUrl().replace(/\/+$/, "");
-}
 
 export const POST = withRole("super_admin", async (actor, _req, ctx) => {
   const { id } = await ctx.params;

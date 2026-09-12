@@ -42,6 +42,31 @@ function withSchedulePattern<
   };
 }
 
+export type CourseDelivery = {
+  deliveryMode?: "onsite" | "online" | "hybrid" | null;
+  onlineUrl?: string | null;
+};
+
+// One derivation of what a course's delivery shape is, for every writer.
+// The database only guarantees that an onsite course carries no link; the rest
+// is a business rule and lives here so both create paths and the patch path
+// agree on it.
+export function resolveDelivery(input: CourseDelivery) {
+  const deliveryMode = input.deliveryMode ?? "onsite";
+  const onlineUrl = input.onlineUrl?.trim() || null;
+  if (deliveryMode === "onsite" && onlineUrl) {
+    throw new BusinessRuleError(
+      "An onsite class has no meeting link — pick online or hybrid to add one",
+    );
+  }
+  // SECURITY_AUDIT.md (2026-09-11) DIFF-03: zod's `.url()` accepts any scheme,
+  // and the link is handed to students who will click it. Only web links.
+  if (onlineUrl && !/^https?:\/\/\S+$/i.test(onlineUrl)) {
+    throw new BusinessRuleError("The meeting link must start with http:// or https://");
+  }
+  return { deliveryMode, onlineUrl: deliveryMode === "onsite" ? null : onlineUrl };
+}
+
 export type CourseCreateInput = {
   teacherId: string;
   defaultRoomId?: string;
@@ -52,6 +77,8 @@ export type CourseCreateInput = {
   schedulePattern: SchedulePattern;
   price: number;
   maxStudents: number;
+  deliveryMode?: "onsite" | "online" | "hybrid" | null;
+  onlineUrl?: string | null;
   pricingMethod?: "whole_room_percent" | "per_attending_student" | null;
   pricePerMonth?: number | null;
   pricePerSession?: number | null;
@@ -120,6 +147,7 @@ export async function createCourseTx(
         pricePerSession: body.pricePerSession ?? null,
         maxStudents: body.maxStudents,
         status: "active",
+        ...resolveDelivery(body),
         ...(dataSource ? { dataSource } : {}),
         ...splitSnapshot,
       },
@@ -149,6 +177,8 @@ export type TeacherDirectCourseInput = {
   maxStudents: number;
   pricePerMonth?: number | null;
   pricePerSession?: number | null;
+  deliveryMode?: "onsite" | "online" | "hybrid" | null;
+  onlineUrl?: string | null;
 };
 
 export async function createTeacherDirectCourse(
@@ -183,6 +213,7 @@ export async function createTeacherDirectCourse(
         pricePerSession: body.pricePerSession ?? null,
         maxStudents: body.maxStudents,
         status: "active",
+        ...resolveDelivery(body),
       },
     });
 
@@ -210,6 +241,8 @@ export type CoursePatch = {
   maxStudents?: number;
   defaultRoomId?: string;
   schedulePattern?: SchedulePattern;
+  deliveryMode?: "onsite" | "online" | "hybrid" | null;
+  onlineUrl?: string | null;
 };
 
 export async function updateCourse(acting: SessionUser, id: string, body: CoursePatch) {
@@ -238,6 +271,14 @@ export async function updateCourseTx(
     if (body.pricePerSession !== undefined) data.pricePerSession = body.pricePerSession;
     if (body.settlementBasis !== undefined) data.settlementBasis = body.settlementBasis;
     if (body.maxStudents !== undefined) data.maxStudents = body.maxStudents;
+    if (body.deliveryMode !== undefined || body.onlineUrl !== undefined) {
+      const delivery = resolveDelivery({
+        deliveryMode: body.deliveryMode ?? course.deliveryMode,
+        onlineUrl: body.onlineUrl !== undefined ? body.onlineUrl : course.onlineUrl,
+      });
+      data.deliveryMode = delivery.deliveryMode;
+      data.onlineUrl = delivery.onlineUrl;
+    }
     if (body.defaultRoomId !== undefined && body.defaultRoomId !== course.defaultRoomId) {
       if (course.defaultRoomId) {
         throw new BusinessRuleError(
@@ -304,6 +345,8 @@ export type TeacherDirectPricingPatch = {
   pricePerMonth?: number | null;
   pricePerSession?: number | null;
   settlementBasis?: "course_price" | "session_price" | "subscription";
+  deliveryMode?: "onsite" | "online" | "hybrid" | null;
+  onlineUrl?: string | null;
 };
 
 export async function updateTeacherDirectPricing(
@@ -323,6 +366,14 @@ export async function updateTeacherDirectPricing(
       if (body.pricePerMonth !== undefined) data.pricePerMonth = body.pricePerMonth;
       if (body.pricePerSession !== undefined) data.pricePerSession = body.pricePerSession;
       if (body.settlementBasis !== undefined) data.settlementBasis = body.settlementBasis;
+      if (body.deliveryMode !== undefined || body.onlineUrl !== undefined) {
+        const delivery = resolveDelivery({
+          deliveryMode: body.deliveryMode ?? course.deliveryMode,
+          onlineUrl: body.onlineUrl !== undefined ? body.onlineUrl : course.onlineUrl,
+        });
+        data.deliveryMode = delivery.deliveryMode;
+        data.onlineUrl = delivery.onlineUrl;
+      }
 
       if (Object.keys(data).length === 0) {
         throw new BusinessRuleError("Nothing to update");

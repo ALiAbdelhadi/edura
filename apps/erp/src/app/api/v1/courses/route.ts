@@ -48,9 +48,14 @@ export const GET = withErrors(async (req) => {
   const teacherIdParam = url.searchParams.get("teacherId");
   const subject = url.searchParams.get("subject");
   const status = url.searchParams.get("status");
+  const deliveryMode = url.searchParams.get("deliveryMode");
 
   const result = await scopedDb(user, async (tx) => {
     const where: Prisma.CourseWhereInput = {};
+    // Every other arm below scopes to courses the caller is already inside; the
+    // centerId arm is the one a signed-out browser can reach, so it must not
+    // carry the meeting link out with it.
+    let publicBrowse = false;
 
     if (user?.role === "center_admin") {
       where.centerId = user.centerId;
@@ -78,12 +83,21 @@ export const GET = withErrors(async (req) => {
       where.id = { in: enr.map((e) => e.courseId) };
     } else if (centerIdParam) {
       where.centerId = centerIdParam;
+      publicBrowse = true;
     } else {
       return [];
     }
 
     if (subject) where.subject = subject;
-    if (status) where.status = status as Prisma.CourseWhereInput["status"];
+    // DIFF-05: an unknown value used to reach Prisma as a cast and 500.
+    if (deliveryMode) {
+      if (!["onsite", "online", "hybrid"].includes(deliveryMode)) return [];
+      where.deliveryMode = deliveryMode as Prisma.CourseWhereInput["deliveryMode"];
+    }
+    if (status) {
+      if (!["active", "ended", "cancelled"].includes(status)) return [];
+      where.status = status as Prisma.CourseWhereInput["status"];
+    }
 
     const courses = await tx.course.findMany({ where });
 
@@ -118,6 +132,8 @@ export const GET = withErrors(async (req) => {
       const r = c.defaultRoomId ? roomMap.get(c.defaultRoomId) : null;
       return {
         ...withSchedulePattern(c),
+        onlineUrl: publicBrowse ? null : c.onlineUrl,
+        hasOnlineUrl: !!c.onlineUrl,
         enrolledCount: enrolled,
         enrolledStudentsCount: enrolled,
         teacherName: t?.name ?? "",
@@ -146,6 +162,11 @@ const schedulePatternSchema = z
     path: ["endDate"],
   });
 
+const deliveryShape = {
+  deliveryMode: z.enum(["onsite", "online", "hybrid"]).optional(),
+  onlineUrl: z.string().trim().url().max(500).nullish(),
+};
+
 const createSchema = z.object({
   teacherId: z.string().min(1),
   defaultRoomId: z.string().optional(),
@@ -159,6 +180,7 @@ const createSchema = z.object({
   pricePerSession: moneySchema.nullish(),
   maxStudents: z.number().int().positive().max(10000),
   pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),
+  ...deliveryShape,
 });
 
 const teacherDirectSchema = z
@@ -172,6 +194,7 @@ const teacherDirectSchema = z
     maxStudents: z.number().int().positive().max(10000),
     pricePerMonth: moneySchema.nullish(),
     pricePerSession: moneySchema.nullish(),
+    ...deliveryShape,
   })
   .strict();
 

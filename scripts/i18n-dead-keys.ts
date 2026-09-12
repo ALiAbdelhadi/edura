@@ -1,3 +1,21 @@
+// Reports translation keys that no source file references.
+//
+// THIS IS NOT A DELETE LIST. A key assembled at runtime — `t(`status.${s}`)`,
+// `t(asKey(`${stem}_two`))` — cannot be proven dead from one pass, so the scan
+// models two shapes of composition (a literal head before `${`, and a literal
+// `.tail` / `_tail` after `}`) and treats anything they could reach as live.
+// That is a heuristic, and it is deliberately generous in the live direction:
+// a false "dead" costs a raw key on screen in Arabic in front of an operator,
+// a false "live" costs one line of JSON. Before deleting anything, confirm by a
+// second, independent method — enumerate every template-literal key site in the
+// app and check that none could build the candidate.
+//
+// The dictionaries are NOT one file per locale. Each app has `messages/en.json`
+// plus `messages/en/*.json`, and its own `src/lib/i18n/index.ts` decides how
+// each split file is mounted — some under a namespace (`teacher: teacherEn`),
+// some spread at the root (`...studentEn`). This scanner reads that loader
+// rather than guessing from filenames, because guessing was wrong for apps/erp
+// and silently hid thirteen namespaces from the scan.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -11,12 +29,50 @@ const SKIP_DIRS = new Set([
 
 const SOURCE_EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mdx", ".md"]);
 
-type App = { name: string; messages: string };
+type App = { name: string; dir: string };
 
 const APPS: App[] = [
-  { name: "erp", messages: "apps/erp/src/messages" },
-  { name: "superadmin", messages: "apps/superadmin/src/messages" },
+  { name: "erp", dir: "apps/erp" },
+  { name: "superadmin", dir: "apps/superadmin" },
 ];
+
+type Dict = Record<string, unknown>;
+
+// Rebuilds one locale's dictionary exactly as the app's loader assembles it.
+function loadDict(appDir: string, locale: "en" | "ar"): Dict {
+  const loader = fs.readFileSync(
+    path.join(ROOT, appDir, "src/lib/i18n/index.ts"),
+    "utf8",
+  );
+
+  const fileOf = new Map<string, string>();
+  for (const m of loader.matchAll(/import\s+(\w+)\s+from\s+"@\/messages\/([^"]+)";/g)) {
+    fileOf.set(m[1]!, m[2]!);
+  }
+
+  const merged = loader.match(
+    new RegExp(`const ${locale}Merged\\s*=\\s*\\{([\\s\\S]*?)\\n\\}`),
+  );
+  if (!merged) throw new Error(`${appDir}: no ${locale}Merged object in the i18n loader`);
+
+  const read = (ident: string): Dict => {
+    const rel = fileOf.get(ident);
+    if (!rel) throw new Error(`${appDir}: ${ident} is merged but never imported`);
+    return JSON.parse(fs.readFileSync(path.join(ROOT, appDir, "src/messages", rel), "utf8"));
+  };
+
+  const out: Dict = {};
+  for (const line of merged[1]!.split("\n")) {
+    const spread = line.match(/^\s*\.\.\.(\w+),/);
+    if (spread) {
+      Object.assign(out, read(spread[1]!));
+      continue;
+    }
+    const mount = line.match(/^\s*(\w+):\s*(\w+),/);
+    if (mount) out[mount[1]!] = read(mount[2]!);
+  }
+  return out;
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -94,10 +150,8 @@ const { literals, prefixes, tails } = harvest(sourceFiles);
 const report: Record<string, { total: number; dead: string[] }> = {};
 
 for (const app of APPS) {
-  const enPath = path.join(ROOT, app.messages, "en.json");
-  const arPath = path.join(ROOT, app.messages, "ar.json");
-  const en = JSON.parse(fs.readFileSync(enPath, "utf8"));
-  const ar = JSON.parse(fs.readFileSync(arPath, "utf8"));
+  const en = loadDict(app.dir, "en");
+  const ar = loadDict(app.dir, "ar");
 
   const enKeys = flatten(en);
   const arKeys = new Set(flatten(ar));
@@ -133,5 +187,5 @@ if (asJson) {
     `\n${total} unreferenced keys across ${APPS.length} apps, from ${sourceFiles.length} source files ` +
       `(${literals.size} distinct quoted literals, ${prefixes.size} runtime prefixes, ${tails.size} runtime tails).`,
   );
-  console.log("NOT a delete list — diff this against a second run. See the header.");
+  console.log("NOT a delete list — confirm independently first. See the header.");
 }

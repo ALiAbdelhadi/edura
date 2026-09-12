@@ -153,6 +153,25 @@ never the bottleneck.
     the proof collapses (16 passed / 12 failed). **Run it against Neon**:
     `bun run db:neon:env && bun run test:db --only c02-payout-generation`.
     It passes there — 28/28, 136.8s.
+  - **A SEVENTH SUITE EXCLUDES ITSELF, AND REPORTS PASS WHILE DOING IT
+    (found 2026-09-12).** `apps/erp/tests/db/tx-retry-boundary.test.ts` opens
+    with `if (process.env.DATABASE_DRIVER === "pg")`, prints
+    `tx-retry-boundary: SKIPPED — DATABASE_DRIVER=pg`, and calls
+    `process.exit(0)`. The runner scores it **PASS**. Its own message is honest
+    about why — it drops a real Neon WebSocket to prove the COMMIT-window retry
+    boundary, and a plain Postgres connection has no such socket, so the proof
+    is "vacuous rather than passing".
+    **`DATABASE_DRIVER=pg` is set in the local `.env.test` files AND on every DB
+    job in `ci.yml` (lines 81, 248, 398), so this proof currently runs NOWHERE**
+    while showing green in both places. That is the same failure mode `f7555a4`
+    was written to stop — a skipped DB suite passing as green — arriving by a
+    different route, because the suite exits 0 itself rather than being skipped
+    by the runner.
+    To actually exercise it: `bun run db:neon:env && bun run test:db --only
+    tx-retry-boundary`. It is the ONLY self-skipping suite; the runner's closing
+    `printed no "N passed, M failed" line` note is what surfaces it, so read
+    that note rather than the PASS column. (`h1-payout-race.test.ts` also prints
+    no count line but is sound — it sets `process.exitCode` from the proof.)
 - **Do NOT edit `.env.test` while a suite run is in flight.** Doing so mid-run
   made seven superadmin suites fail in 0.3s each with `load-env` refusing,
   because the parent's exported environment no longer matched the file the
@@ -434,7 +453,7 @@ governs. Violating one of these is never a local change.
   → [lesson-settlement](docs/decisions/lesson-settlement.md)
 - **MONEY IN THE BACK-OFFICE APP MOVES ONLY THROUGH SANCTIONED CENTRE
   FUNCTIONS, AUDITED — it is not "read-only", and this sentence used to say it
-  was.** Corrected 2026-09-06 (SECURITY_AUDIT.md M-08) because the invariant as
+  was.** Corrected 2026-09-06 (docs/security/security-audit-2026-09-06.md M-08) because the invariant as
   written was false and reviewers were relying on it: `apps/superadmin` DOES
   write money in exactly four places — `adminRecordPayment`, `adminTopUpWallet`,
   `adminCreateWalkInSubscription` (`center-money.ts`, each = `superadminAsCenter`
@@ -524,16 +543,76 @@ governs. Violating one of these is never a local change.
 
 ## Environment state
 
+> **[dev, local test AND production, 2026-09-12] MIGRATIONS 80 AND 81 —
+> `20260911120000_public_handles` and `20260912120000_users_revoke_delete`;
+> verify-db 33/33 on all three, `expected-db-shape.json` at 81 (tables
+> unchanged at 84).** 81 is `REVOKE DELETE ON users FROM edura_app` (new check
+> `append-only: users`, DB-04 of the 2026-09-11 audit). Production
+> (`ep-mute-rice-b2s8gg42`) took BOTH on 2026-09-12: `migrate status` listed
+> exactly those two pending, and 80 was the public-handles table that had sat on
+> dev and local test since 2026-09-09 — additive, no sibling branch owns either
+> object, so applying them together was not the 2026-08-02 out-of-order trap.
+> Schema went first; the public-handles and audit code deploy after.
+>
+> **`set -a; . ./.env.production; set +a` DOES NOT WORK, and the note further
+> down this file that prescribes it is wrong.** Measured 2026-09-12 in zsh, on
+> both the root and `packages/database` copies: the connection strings carry
+> unquoted `&` (`?sslmode=require&channel_binding=require`), so the shell parses
+> them as background operators and dies with `parse error near '&'` before
+> exporting anything. Extract the one variable instead:
+>
+> ```bash
+> export DIRECT_URL="$(grep -E '^DIRECT_URL=' .env.production | cut -d= -f2- | tr -d "\"'")"
+> ```
+>
+> Then the `connect_timeout` deploy variant works as written. The FIRST
+> `migrate status` still returned P1001 against a cold endpoint and the second,
+> seconds later, succeeded — so retry once before diagnosing anything.
+>
+> Prisma cannot model a REVOKE, so `prisma migrate dev` will not notice
+> it either way; `apps/erp/tests/db/c08-users-no-delete.test.ts` asserts it by
+> privilege and by a raw app-role DELETE. NOTE: `tx.user.delete` / `deleteMany`
+> through the client are SOFT deletes (the extension rewrites them to UPDATE) and
+> keep working; only a raw DELETE, or tooling on the owner string, removes rows.
+
+> **[dev, test (local + Neon) AND production, 2026-09-08] COURSE DELIVERY MODE —
+> migration 79 `20260910120000_course_delivery_mode` applied on all four;
+> verify-db 32/32 on each.** `expected-db-shape.json` is at 83 tables /
+> 79 migrations (tables unchanged — a column is not a table). Each apply followed
+> a read-only pre-flight (label read from the database, datasource host line
+> checked, exactly one pending, row census before and after); production
+> (`ep-mute-rice-b2s8gg42`) held 2 users / 0 courses / 0 payments /
+> 0 transactions on both sides. Schema went first; the code may deploy.
+>
+> It adds `courses.delivery_mode` (`onsite` default | `online` | `hybrid`) and
+> `courses.online_url`, plus CHECK `courses_delivery_mode_shape` — an ONSITE
+> course may carry no meeting link. **Prisma cannot model that CHECK and
+> `prisma migrate dev` WILL offer to drop it — refuse**;
+> `apps/erp/tests/db/course-delivery-and-teacher-day.test.ts` asserts it by
+> attempting the write. The opposite rule ("an online course must HAVE a link")
+> is deliberately NOT in the database: a teacher creates the group before the
+> meeting room exists, so it lives in `resolveDelivery()` where it can be relaxed
+> without a migration.
+>
+> **THE MEETING LINK IS A PAID CREDENTIAL, NOT METADATA** — anyone holding it
+> sits in the lesson free. It is excluded from every discovery read and redacted
+> on `GET /api/v1/courses/[id]` (session-less) and on the `?centerId=` arm of
+> `GET /api/v1/courses`. Full write-up:
+> [course-delivery-and-teacher-day](docs/decisions/course-delivery-and-teacher-day.md).
+
 > **[dev, test (local + Neon) AND production, 2026-09-06] SECURITY AUDIT
 > REMEDIATION — migrations 76, 77, 78 applied on all four; verify-db 32/32 on
 > each.** Production (`ep-mute-rice-b2s8gg42`) was applied by Ali after a
 > read-only pre-flight (status listed exactly the three, census 16 users /
 > 0 payments / 0 transactions before and after). `expected-db-shape.json` is at
 > 83 tables / 78 migrations. Schema went first; the code may deploy. Full
-> status, per finding, in SECURITY_AUDIT.md §4. One shell note: `$DIRECT_URL`
+> status, per finding, in docs/security/security-audit-2026-09-06.md §4 (the 2026-09-11 audit is `docs/audits/SECURITY_AUDIT.md`). One shell note: `$DIRECT_URL`
 > is NOT in the interactive shell, so the `connect_timeout` deploy variant needs
 > `set -a; . ./.env.production; set +a` first — a bare `$DIRECT_URL` produces
-> `P1013 scheme not recognized`, not a connection error.
+> `P1013 scheme not recognized`, not a connection error. **[CORRECTED
+> 2026-09-12] that `set -a` recipe does not work in zsh** — the unquoted `&` in
+> the connection strings is a parse error; see the migration-81 entry at the top
+> of this section for the `grep`-one-variable form that does.
 >
 > | # | migration | what it adds |
 > |---|---|---|
@@ -1057,7 +1136,11 @@ point, not the changelog.
 | [parent-portal-dedup](docs/decisions/parent-portal-dedup.md) | Parent portal de-duplication (no capability removed) |
 | [self-service-corrections](docs/decisions/self-service-corrections.md) | Login email, guardian contact and academic answers stop being write-once |
 | [student-portal-dedup](docs/decisions/student-portal-dedup.md) | Student portal de-duplication (no capability removed) |
+| [course-delivery-and-teacher-day](docs/decisions/course-delivery-and-teacher-day.md) | Course `delivery_mode` (onsite/online/hybrid) + "find a teacher by day"; the meeting link as a paid credential |
 | [server-side-portal-gate](docs/decisions/server-side-portal-gate.md) | The portal/onboarding gate moved from the browser to the server |
+| [public-handles](docs/decisions/public-handles.md) | One public name per centre/teacher (`/p/[handle]` today, `<handle>.<root>` when the domain exists); status-gated public page; auth never on a subdomain |
+| [money-day-boundary](docs/decisions/money-day-boundary.md) | The day boundary for money is Cairo everywhere; the counter and the books had disagreed (UTC vs Cairo) |
+| [attendance-reopen-settlement](docs/decisions/attendance-reopen-settlement.md) | T-9: the attendance edit window yields to an unsettled lesson |
 
 ## Stitch MCP design workflow (binding rules, added 2026-07-20)
 
@@ -1260,7 +1343,7 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
 - `PAYMENTS_MODE` — must be explicit: `mock` | `sandbox` | `live` (C1).
 - `PAYMOB_HMAC_SECRET` — required in prod, no fallback (C1).
 - `PAYMOB_INTEGRATION_IDS` — comma-separated Paymob integration ids this
-  deployment settles for (SECURITY_AUDIT.md H-04). When `PAYMENTS_MODE` is not
+  deployment settles for (docs/security/security-audit-2026-09-06.md H-04). When `PAYMENTS_MODE` is not
   `mock` and this is unset, EVERY capture is parked as `needs_review` with
   `unknown_integration` — it fails closed rather than settling a callback from
   an integration nobody here owns. In mock mode an unset value means "any".

@@ -29,6 +29,8 @@ export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void
   const [subject, setSubject] = useState("");
   const [gradeTag, setGradeTag] = useState("");
   const [location, setLocation] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState<"onsite" | "online" | "hybrid">("onsite");
+  const [onlineUrl, setOnlineUrl] = useState("");
   const [days, setDays] = useState<number[]>([]);
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("18:00");
@@ -80,6 +82,8 @@ export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void
     setSubject("");
     setGradeTag("");
     setLocation("");
+    setDeliveryMode("onsite");
+    setOnlineUrl("");
     setDays([]);
     setStartTime("16:00");
     setEndTime("18:00");
@@ -103,6 +107,10 @@ export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void
           subject: subject.trim(),
           ...(gradeTag.trim() ? { gradeTag: gradeTag.trim() } : {}),
           ...(location.trim() ? { location: location.trim() } : {}),
+          deliveryMode,
+          ...(deliveryMode !== "onsite" && onlineUrl.trim()
+            ? { onlineUrl: onlineUrl.trim() }
+            : {}),
           schedulePattern: {
             daysOfWeek: days,
             startTime,
@@ -171,13 +179,50 @@ export function TeacherCreateGroupDialog({ onCreated }: { onCreated?: () => void
               </div>
             </div>
             <div>
-              <div className="mb-1 text-sm font-medium">{t("teacher.locationOptional")}</div>
-              <Input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder={t("teacher.locationPlaceholder")}
-              />
+              <div className="mb-1 text-sm font-medium">{t("shared.delivery.label")}</div>
+              <Select
+                value={deliveryMode}
+                onValueChange={(v) => {
+                  const next = v as "onsite" | "online" | "hybrid";
+                  setDeliveryMode(next);
+                  if (next === "onsite") setOnlineUrl("");
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="onsite">{t("shared.delivery.onsite")}</SelectItem>
+                  <SelectItem value="online">{t("shared.delivery.online")}</SelectItem>
+                  <SelectItem value="hybrid">{t("shared.delivery.hybrid")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">{t("shared.delivery.hint")}</p>
             </div>
+            {deliveryMode !== "online" ? (
+              <div>
+                <div className="mb-1 text-sm font-medium">{t("teacher.locationOptional")}</div>
+                <Input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder={t("teacher.locationPlaceholder")}
+                />
+              </div>
+            ) : null}
+            {deliveryMode !== "onsite" ? (
+              <div>
+                <div className="mb-1 text-sm font-medium">{t("shared.delivery.linkLabel")}</div>
+                <Input
+                  dir="ltr"
+                  value={onlineUrl}
+                  onChange={(e) => setOnlineUrl(e.target.value)}
+                  placeholder={t("shared.delivery.linkPlaceholder")}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("shared.delivery.linkHint")}
+                </p>
+              </div>
+            ) : null}
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.days")}</div>
               <div className="flex flex-wrap gap-1">

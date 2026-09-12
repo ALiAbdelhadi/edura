@@ -1,14 +1,10 @@
 {
-  "welcomeStudent": "Welcome! Let's set up your study profile",
-  "welcomeTeacher": "Welcome! Let's set up your teaching profile",
-  "subtitleStudent": "A few quick questions so we can show you exactly the content for your grade.",
   "subtitleTeacher": "Pick the grades and subjects you teach so we can match you with the right students.",
   "stepOf": "Step {current} of {total}",
   "back": "Back",
   "next": "Next",
   "skip": "Skip",
   "confirm": "Confirm & save",
-  "saving": "Saving…",
   "draftRestored": "We restored your previous selections",
   "completedToast": "Your profile has been saved!",
   "steps": {
@@ -70,11 +66,9 @@
     "retry": "Try again"
   },
   "errors": {
-    "selectOne": "Pick an option to continue",
     "selectAtLeastOne": "Pick at least one option",
     "nameRequired": "Enter the center name to continue"
   },
-  "welcomeCenter": "Welcome! Let's set up your center profile",
   "center": {
     "name": "Center name",
     "governorate": "Governorate",

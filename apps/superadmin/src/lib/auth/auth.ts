@@ -1,5 +1,6 @@
 import { prisma } from "@repo/database";
 import { canSignIn } from "@repo/server-core/auth/login-policy";
+import { recordAuthEvent } from "@repo/server-core/services/auth/auth-audit";
 import {
   DUMMY_HASH,
   hashPassword,
@@ -31,17 +32,21 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days — unchanged
  *
  * Only the HTTP surface is sealed. Server-side `auth.api.*` calls carry no
  * ctx.request, so this app's own audited routes still reach the plugin.
+ *
+ * SECURITY_AUDIT.md (2026-09-11) ADMIN-01: this used to be a list of seven
+ * paths, and the plugin ships fifteen. The unsealed `update-user` took a free
+ * `data` object straight to the adapter — `twoFactorEnabled`, `status`,
+ * `email`, the `banned` columns — with no 2FA gate (that gate covers
+ * `/api/v1/**`, not `/api/auth/**`) and no audit row. A list can only ever be
+ * as complete as the plugin version it was written against, so the seal is
+ * now the whole `/admin/` prefix; nothing in this app calls the plugin over
+ * HTTP (`authClient.admin.*` has no callers), and the sealing test enumerates
+ * the plugin's own endpoint table so a new path cannot appear unsealed.
  */
-const SEALED_ADMIN_PATHS = new Set([
-  "/admin/create-user",
-  "/admin/set-role",
-  "/admin/set-user-password",
-  "/admin/ban-user",
-  "/admin/unban-user",
-  "/admin/remove-user",
-  "/admin/impersonate-user",
-]);
+const SEALED_ADMIN_PREFIX = "/admin/";
 
+const TWO_FACTOR_IP_CAP = 10;
+const TWO_FACTOR_IP_RATE = 5;
 const LOGIN_IP_CAP = 10;
 const LOGIN_IP_RATE = 10;
 const LOGIN_EMAIL_CAP = 5;
@@ -49,6 +54,9 @@ const LOGIN_EMAIL_RATE = 1;
 
 const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
 const useSecureCookies = baseURL.startsWith("https://");
+if (process.env.VERCEL_ENV === "production" && !useSecureCookies) {
+  throw new Error("NEXTAUTH_URL must be an https URL in production — cookies would otherwise be minted without Secure"); // AUTH-09
+}
 
 export const superadminSecret =
   process.env.SUPERADMIN_NEXTAUTH_SECRET ??
@@ -123,8 +131,19 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       // 404 rather than 403: a sealed endpoint should not advertise that it exists.
-      if (ctx.request && SEALED_ADMIN_PATHS.has(ctx.path)) {
+      if (ctx.request && ctx.path.startsWith(SEALED_ADMIN_PREFIX)) {
         throw new APIError("NOT_FOUND", { message: "Not found" });
+      }
+      // AUTH-04 / AUTH-05 — see apps/erp/src/lib/auth/auth.ts.
+      if (ctx.request && ctx.path === "/change-password") {
+        throw new APIError("NOT_FOUND", { message: "Not found" });
+      }
+      if (ctx.path.startsWith("/two-factor/verify")) {
+        const ip = trustedClientIp((n) => ctx.headers?.get(n));
+        if (!(await checkRateLimit(`2fa-ip:${ip}`, TWO_FACTOR_IP_CAP, TWO_FACTOR_IP_RATE))) {
+          throw new APIError("TOO_MANY_REQUESTS", { message: "RATE_LIMITED" });
+        }
+        return;
       }
 
       if (ctx.path !== "/sign-in/email") return;
@@ -147,7 +166,7 @@ export const auth = betterAuth({
         throw new APIError("TOO_MANY_REQUESTS", { message: "RATE_LIMITED" });
       }
 
-      const user = await prisma.user.findFirst({ where: { email } });
+      const user = await prisma.user.findFirst({ where: { email }, omit: { passwordHash: false } }); // DISC-01
       const eligible =
         !!user &&
         canSignIn("superadmin", user.role) &&
@@ -155,14 +174,28 @@ export const auth = betterAuth({
         !!user.passwordHash;
       if (!eligible) {
         await verifyPassword({ hash: DUMMY_HASH, password });
+        void recordAuthEvent("auth.login_failed", { userId: user?.id ?? null, ipAddress: ip, meta: { reason: user ? "ineligible" : "unknown_email" } }); // OPS-03
         throw new APIError("UNAUTHORIZED", {
           message: "Invalid email or password",
         });
       }
     }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/two-factor/enable" && ctx.path !== "/two-factor/disable") return;
+      const userId = ctx.context.session?.user?.id;
+      if (!userId) return;
+      void recordAuthEvent(
+        ctx.path === "/two-factor/enable" ? "auth.two_factor_enabled" : "auth.two_factor_disabled",
+        { userId, ipAddress: trustedClientIp((n) => ctx.headers?.get(n)) },
+      ); // OPS-03
+    }),
   },
   plugins: [
-    twoFactor({ issuer: "Edura Back Office" }),
+    // SECURITY_AUDIT.md (2026-09-11) DB-03 — see apps/erp/src/lib/auth/auth.ts.
+    twoFactor({
+      issuer: "Edura Back Office",
+      backupCodeOptions: { storeBackupCodes: "encrypted" },
+    }),
     admin({
       adminRoles: ["super_admin"],
       roles: { super_admin: adminAc, accountant: userAc },

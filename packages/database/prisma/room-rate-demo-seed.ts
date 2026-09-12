@@ -177,41 +177,42 @@ async function main() {
   console.log("Seeding room-rate demo…");
 
   await withPlatformContext(async (tx) => {
+    // THIS SEED WRITES NOTHING AT GLOBAL SCOPE (docs/follow-ups.md #12).
+    //
+    // It used to create the `global` commission_settings row, and — worse —
+    // fill in `center_per_student_bp` on an EXISTING one when that column was
+    // null. That row is platform money configuration, not demo data: it carries
+    // no `is_demo` flag, so no purge reverses it, and `hall-booking` A4 asserts
+    // a refusal that only holds while that value is ABSENT, so running this
+    // seed turned an unrelated suite red for reasons nobody could see.
+    //
+    // The resolution chain is teacher > center > global, so when the platform
+    // has no cap the demo gives its OWN centre one instead. Same effective
+    // number for the demo, and `purge()` already deletes every
+    // `scope: "center"` row belonging to these centres.
     const globalRow = await tx.commissionSetting.findFirst({ where: { scope: "global" } });
-    let globalRate = globalRow
+    const globalRate = globalRow
       ? { fee: globalRow.centerPerStudentFee, bp: globalRow.centerPerStudentBp }
       : null;
+    const platformHasCap = globalRate != null && (globalRate.fee != null || globalRate.bp != null);
 
-    if (!globalRow) {
-      await tx.commissionSetting.create({
-        data: {
-          scope: "global",
-          teacherDirectCommissionBp: 1500,
-          platformTeacherFee: 200,
-          platformCenterFee: 200,
-          platformShareBp: 1500,
-          teacherShareBp: 7000,
-          centerShareBp: 1500,
-          centerPerStudentBp: FALLBACK_GLOBAL_BP,
-        },
-      });
-      globalRate = { fee: null, bp: FALLBACK_GLOBAL_BP };
-      console.log(`  · created the global config row (cap ${FALLBACK_GLOBAL_BP / 100}%)`);
-    } else if (globalRate!.fee == null && globalRate!.bp == null) {
-      await tx.commissionSetting.update({
-        where: { id: globalRow.id },
-        data: { centerPerStudentBp: FALLBACK_GLOBAL_BP },
-      });
-      globalRate = { fee: null, bp: FALLBACK_GLOBAL_BP };
-      console.log(`  · filled the missing global per-student cap (${FALLBACK_GLOBAL_BP / 100}%)`);
-    } else {
+    // Set only when the platform has no cap of its own — then OFOK carries one.
+    const ofokOwnCapBp = platformHasCap ? null : FALLBACK_GLOBAL_BP;
+
+    if (platformHasCap) {
       console.log(
-        `  · kept YOUR global cap: ${
+        `  · kept YOUR global cap, untouched: ${
           globalRate!.bp != null ? `${globalRate!.bp / 100}%` : `${globalRate!.fee! / 100} EGP`
         }`,
       );
+    } else {
+      console.log(
+        `  · the platform has no per-student cap — leaving the global row alone and giving\n` +
+          `    ${OFOK.name} its own centre cap (${FALLBACK_GLOBAL_BP / 100}%) for the demo`,
+      );
     }
-    const capBp = globalRate!.bp;
+
+    const capBp = platformHasCap ? globalRate!.bp : ofokOwnCapBp;
     if (capBp == null) {
       console.warn(
         "  ! your global cap is a FLAT amount, so the halls below are seeded with no own rate\n" +
@@ -271,6 +272,24 @@ async function main() {
         update: { centerId: center.id },
         create: { userId: owner.id, centerId: center.id },
       });
+    }
+
+    // OFOK normally inherits the platform cap; it only gets a row of its own
+    // when there is no platform cap to inherit (see above).
+    if (ofokOwnCapBp != null) {
+      const existingOfokRow = await tx.commissionSetting.findFirst({
+        where: { scope: "center", centerId: OFOK.id },
+      });
+      if (existingOfokRow) {
+        await tx.commissionSetting.update({
+          where: { id: existingOfokRow.id },
+          data: { centerPerStudentFee: null, centerPerStudentBp: ofokOwnCapBp },
+        });
+      } else {
+        await tx.commissionSetting.create({
+          data: { scope: "center", centerId: OFOK.id, centerPerStudentBp: ofokOwnCapBp },
+        });
+      }
     }
 
     const nokhbaCap = capBp == null ? null : Math.min(NOKHBA_CENTER_BP, capBp);

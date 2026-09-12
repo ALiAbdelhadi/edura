@@ -39,7 +39,7 @@ export const inviteTokenPlugin = () => {
             if (row.expiresAt.getTime() < Date.now()) return null; // (2)
             if (!row.userId) return null;
 
-            const user = await tx.user.findUnique({ where: { id: row.userId } });
+            const user = await tx.user.findUnique({ where: { id: row.userId }, omit: { passwordHash: false } }); // DISC-01: (3) below needs it
             if (!user) return null;
             if (user.role !== spec.role) return null; // (1)+(3) purpose owns the role
             if (user.status !== "shell" && user.status !== "active") return null; // (3)

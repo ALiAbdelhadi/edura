@@ -62,7 +62,7 @@ export async function createAssistant(
   const { link, user, existingAccount, needsInvite } = await scopedDb(
     teacher,
     async (tx) => {
-      let assistantUser = await tx.user.findUnique({ where: { email } });
+      let assistantUser = await tx.user.findUnique({ where: { email }, omit: { passwordHash: false } }); // DISC-01
 
       if (assistantUser) {
         if (assistantUser.role !== "assistant") {
@@ -105,6 +105,7 @@ export async function createAssistant(
             status: "shell",
             passwordHash: null,
           },
+          omit: { passwordHash: false }, // DISC-01: same shape as the findUnique branch
         });
       }
 

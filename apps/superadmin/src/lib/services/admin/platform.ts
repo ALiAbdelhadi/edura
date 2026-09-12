@@ -198,39 +198,6 @@ export async function rejectCenter(centerId: string, reason: string, adminId: st
   return { id: centerId, status: "rejected" };
 }
 
-export async function blacklistCenter(centerId: string, reason: string, adminId: string) {
-  if (!reason?.trim()) throw new BusinessRuleError("Reason is required");
-  const { center, adminUserIds } = await platformDb(async (tx) => {
-    const center = await tx.center.findUnique({ where: { id: centerId } });
-    if (!center) throw new NotFoundError("Center not found");
-    if (center.status === "blacklisted") throw new ConflictError("Center is already blacklisted");
-    await tx.center.update({ where: { id: centerId }, data: { status: "blacklisted" } });
-    const admins = await tx.centerAdminProfile.findMany({ where: { centerId }, select: { userId: true } });
-    const adminUserIds = admins.map((a) => a.userId);
-    if (adminUserIds.length) {
-      await tx.user.updateMany({ where: { id: { in: adminUserIds } }, data: { status: "suspended" } });
-    }
-    await writeAdminAudit(tx, { id: adminId }, {
-      action: "center.blacklisted",
-      targetType: "center",
-      targetId: centerId,
-      centerId,
-      before: { status: center.status },
-      after: { status: "blacklisted", reason },
-    });
-    return { center, adminUserIds };
-  }, { actorId: adminId });
-
-  await notifyAfterCommit({
-    recipients: adminUserIds,
-    type: "blacklist_action",
-    title: "Center suspended",
-    body: `Your center "${center.name}" has been blacklisted. Reason: ${reason}`,
-    data: { centerId, level: "platform", reason },
-  });
-  return { id: centerId, status: "blacklisted" };
-}
-
 export function listTeachers(filters: {
   q?: string;
   status?: string;

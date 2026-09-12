@@ -77,6 +77,18 @@ function widenedAllowList(allowed: readonly DbEnv[]): readonly DbEnv[] {
   return [...new Set([...allowed, ...extra])];
 }
 
+/**
+ * Exit code for a suite that DECLINED to run — it needs something this
+ * environment cannot give (a real Neon socket, a demo seed, Cloudinary).
+ *
+ * Exiting 0 for that is how `tx-retry-boundary` reported PASS on every local
+ * and CI run while proving nothing (docs/follow-ups.md #11), which is the same
+ * shape as the skipped-suite-passing-as-green bug `f7555a4` fixed. `run-db-suites`
+ * badges this SKIP, counts it separately, and does not let it turn the run green
+ * on its own.
+ */
+export const SUITE_SKIP_EXIT = 3;
+
 export async function assertDbEnv(
   allowedInput: readonly DbEnv[],
   opts: { intent?: string } = {},

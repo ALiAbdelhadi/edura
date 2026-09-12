@@ -21,6 +21,7 @@ import { lockSessionRow } from "../attendance/lesson-lock";
 import { openShiftIdFor } from "../center/shifts";
 import { fundingOfMethod } from "../finance/center-credit";
 import { walletDebit } from "../../services/wallet/wallet";
+import { startOfPlatformDay, todayKey } from "../../lib/date-key";
 import {
   parentWalletDebit,
   assertApprovedChild,
@@ -29,6 +30,20 @@ import { creditRefundTarget, resolvePayerTarget } from "../../services/wallet/re
 import { resolveFinanceStaff } from "../../services/notifications/fanout";
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // monthly coverage window
+
+/**
+ * SECURITY_AUDIT.md (2026-09-11) BIZ-03. The window used to open at the
+ * instant of purchase, while `coverage.ts` compares `periodStart <= session.date`
+ * and sessions are dated at midnight — so a student who paid the month at
+ * 15:00 was `needs_payment` for that afternoon's lesson and covered on day 30
+ * instead. The window now opens at the start of the platform day the purchase
+ * falls in and closes just before the same instant 30 days later: thirty
+ * dated lessons, the first of them today.
+ */
+export function monthlyWindow(now: Date): { periodStart: Date; periodEnd: Date } {
+  const periodStart = startOfPlatformDay(todayKey(now));
+  return { periodStart, periodEnd: new Date(periodStart.getTime() + MONTH_MS - 1) };
+}
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000; // stale pending_payment sweep
 
 type PlanChoice = { plan: "monthly" | "per_session"; sessionId?: string | null };
@@ -147,6 +162,7 @@ async function activateSubscription(
   }
 
   const now = new Date();
+  const window = sub.plan === "monthly" ? monthlyWindow(now) : null;
   return tx.subscription.update({
     where: { id: sub.id },
     data: {
@@ -155,8 +171,8 @@ async function activateSubscription(
       paymentMethod: opts.paymentMethod,
       paymentId: opts.paymentId ?? undefined,
       enrollmentId: enrollment.id,
-      periodStart: sub.plan === "monthly" ? now : null,
-      periodEnd: sub.plan === "monthly" ? new Date(now.getTime() + MONTH_MS) : null,
+      periodStart: window?.periodStart ?? null,
+      periodEnd: window?.periodEnd ?? null,
     },
   });
 }
@@ -423,6 +439,19 @@ export async function createSubscriptionCheckout(
     return { walletPaid: true, ...settled };
   }
 
+  // SECURITY_AUDIT.md (2026-09-11) BIZ-08: refuse a blacklisted student BEFORE
+  // the pending subscription row is written, not after it has committed.
+  // `assertNotBlacklisted` runs its own transaction, so it stays outside this one.
+  {
+    const course0 = await platformDb((tx) =>
+      tx.course.findFirst({
+        where: { id: input.courseId, status: "active" },
+        select: { centerId: true, teacherId: true },
+      }),
+    );
+    if (course0) await assertNotBlacklisted(studentId, course0.centerId, course0.teacherId);
+  }
+
   const { sub, course } = await platformDb(
     async (tx) => {
       // L-10: the idempotency key is consulted FIRST. A retry of the same
@@ -473,8 +502,6 @@ export async function createSubscriptionCheckout(
     },
     { actorId: user.id },
   );
-
-  await assertNotBlacklisted(studentId, course.centerId, course.teacherId);
 
   return initiateIntent(sub, input.method, input.idempotencyKey, user);
 }
@@ -843,6 +870,15 @@ export async function createWalkInSubscriptionTx(
     });
 
     if (input.markAttendance && choice.plan === "per_session" && session) {
+      // SECURITY_AUDIT.md (2026-09-11) BIZ-06: decision #4 — in
+      // `counter_and_door` mode a counter check-in is `counter_only` and does
+      // NOT count as present until the door scan; this shortcut wrote
+      // `present` regardless, and settlement counted it.
+      const teacherMode = await tx.teacherProfile.findUnique({
+        where: { userId: course.teacherId },
+        select: { attendanceMode: true },
+      });
+      const status = teacherMode?.attendanceMode === "counter_and_door" ? "counter_only" : "present";
       await tx.attendanceRecord.upsert({
         where: {
           sessionId_studentId: { sessionId: session.id, studentId: input.studentId },
@@ -852,11 +888,11 @@ export async function createWalkInSubscriptionTx(
           studentId: input.studentId,
           courseId: course.id,
           centerId: course.centerId,
-          status: "present",
+          status,
           markedBy: user.id,
           dataSource: course.dataSource,
         },
-        update: { status: "present", markedBy: user.id, editedAt: new Date() },
+        update: { status, markedBy: user.id, editedAt: new Date() },
       });
     }
 

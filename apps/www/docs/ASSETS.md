@@ -115,7 +115,7 @@ three sub-roles as a list of names — a claim about permissions with no evidenc
 of permissions. `/dashboard/staff/reports` returns four rows to a manager and a
 refusal to a receptionist, from the identical URL, which is the same claim with
 the mechanism visible. Full reasoning and the probe data behind it:
-[`apps/erp/tools/system-shots/INVENTORY.md`](../../erp/tools/system-shots/INVENTORY.md).
+``apps/erp/tools/system-shots/INVENTORY.md``.
 
 ---
 

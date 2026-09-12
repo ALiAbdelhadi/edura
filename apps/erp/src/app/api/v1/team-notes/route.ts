@@ -22,11 +22,13 @@ const createSchema = z.object({
   body: z.string().trim().min(1).max(2000),
 });
 
+// AUTHZ-02: the accountant sub-role is read-only (center-actor.ts refuses
+// centrally); listing it on a mutating handler only misdescribed intent.
 export const POST = delegatedWithCenter(
   async (req, _ctx, actor) => {
     const data = await parseJson(req, createSchema);
     const note = await createTeamNote(actor as TeamNoteActor, data);
     return ok({ id: note.id }, { status: 201 });
   },
-  { staffAllow: STAFF_ALL },
+  { staffAllow: RECEPTION },
 );

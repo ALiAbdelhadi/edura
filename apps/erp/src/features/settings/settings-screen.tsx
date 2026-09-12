@@ -11,6 +11,7 @@ import { GuardianContactCard } from "@/features/settings/guardian-contact-card";
 import { OnboardingProfileCard } from "@/features/settings/onboarding-profile-card";
 import { PasswordCard } from "@/features/settings/password-card";
 import { ProfileImageCard } from "@/features/settings/profile-image-card";
+import { PublicHandleCard } from "@/features/settings/public-handle-card";
 import { SessionsCard } from "@/features/settings/sessions-card";
 import { TwoFactorCard } from "@/features/settings/two-factor-card";
 import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
@@ -641,6 +642,11 @@ export function SettingsScreen() {
                 {me?.role === "center_admin" ? (
                   <div className="p-5 empty:hidden flex flex-col">
                     <CenterProfileCard />
+                  </div>
+                ) : null}
+                {me?.role === "center_admin" || me?.role === "teacher" ? (
+                  <div className="p-5 empty:hidden flex flex-col">
+                    <PublicHandleCard />
                   </div>
                 ) : null}
                 {me?.role === "student" ? (

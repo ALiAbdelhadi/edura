@@ -3,7 +3,7 @@ import "./load-env";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { assertDbEnv, type DbEnv } from "./db-guard";
+import { assertDbEnv, SUITE_SKIP_EXIT, type DbEnv } from "./db-guard";
 
 export async function guardSuite(name: string): Promise<DbEnv> {
   return assertDbEnv(["test"], { intent: `suite ${name}` });
@@ -109,6 +109,9 @@ function spawnSuite(
 }
 
 function isInfraBlip(res: SuiteResult): boolean {
+  // A suite that DECLINED is not a blip and re-running it changes nothing —
+  // it will decline again for the same reason.
+  if (res.exit === SUITE_SKIP_EXIT) return false;
   return res.exit !== 0 && res.unparsed;
 }
 
@@ -134,10 +137,12 @@ async function runSuite(
 
   res.retried = retried;
 
-  const ok = res.exit === 0 && (res.fail ?? 0) === 0;
-  const badge = ok ? (retried ? "PASS*" : "PASS ") : "FAIL ";
-  const counted =
-    res.pass !== null
+  const declined = res.exit === SUITE_SKIP_EXIT;
+  const ok = declined || (res.exit === 0 && (res.fail ?? 0) === 0);
+  const badge = declined ? "SKIP " : ok ? (retried ? "PASS*" : "PASS ") : "FAIL ";
+  const counted = declined
+    ? "declined — cannot run here"
+    : res.pass !== null
       ? `${res.pass} passed, ${res.fail} failed`
       : `no count line (exit ${res.exit})`;
   console.log(
@@ -220,16 +225,26 @@ async function main() {
 
   const totalPass = results.reduce((a, r) => a + (r.pass ?? 0), 0);
   const totalFail = results.reduce((a, r) => a + (r.fail ?? 0), 0);
-  const badSuites = results.filter((r) => r.exit !== 0 || (r.fail ?? 0) > 0);
-  const unparsed = results.filter((r) => r.unparsed);
+  const declinedSuites = results.filter((r) => r.exit === SUITE_SKIP_EXIT);
+  const badSuites = results.filter(
+    (r) => r.exit !== SUITE_SKIP_EXIT && (r.exit !== 0 || (r.fail ?? 0) > 0),
+  );
+  const unparsed = results.filter((r) => r.unparsed && r.exit !== SUITE_SKIP_EXIT);
   const secs = (results.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1);
 
   console.log(
     `\n${"─".repeat(78)}\n` +
       `${badSuites.length === 0 ? "ALL SUITES PASS ✔" : `${badSuites.length} SUITE(S) FAILED ✗`}` +
-      `  —  ${results.length} suites, ${totalPass} assertions passed, ${totalFail} failed, ${secs}s\n` +
+      `  —  ${results.length} suites, ${totalPass} assertions passed, ${totalFail} failed` +
+      `${declinedSuites.length ? `, ${declinedSuites.length} declined` : ""}, ${secs}s\n` +
       `${"─".repeat(78)}`,
   );
+  if (declinedSuites.length) {
+    console.log(
+      `note: ${declinedSuites.length} suite(s) DECLINED to run here and proved nothing: ` +
+        `${declinedSuites.map((r) => r.suite).join(", ")}`,
+    );
+  }
   if (unparsed.length) {
     console.log(
       `note: ${unparsed.length} suite(s) printed no "N passed, M failed" line and were ` +

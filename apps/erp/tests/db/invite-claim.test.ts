@@ -92,7 +92,7 @@ async function setOwnPassword(
 }
 
 const dbUser = (id: string) =>
-  withPlatformContext((tx) => tx.user.findUnique({ where: { id } }));
+  withPlatformContext((tx) => tx.user.findUnique({ where: { id }, omit: { passwordHash: false } }));
 
 const liveTokensFor = async (userId: string) =>
   (

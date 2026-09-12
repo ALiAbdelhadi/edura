@@ -65,7 +65,7 @@ async function main() {
     });
     const none = await teacherStatement(empty);
     assert(none.grossLessonRevenue === 0, `teacher with zero sessions reports 0 gross (got ${none.grossLessonRevenue})`);
-    await withPlatformContext(async (tx) => { await tx.user.delete({ where: { id: empty } }); });
+    await adminPool.query(`DELETE FROM users WHERE id = $1`, [empty]); // DB-04: owner pool, not edura_app
 
     // A statement that aggregates type:"payment" only overstates gross by the
     // whole refunded total, which is a second set of books against the refunds

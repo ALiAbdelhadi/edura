@@ -386,7 +386,7 @@ async function main() {
   const viaRawSql = await rejects(
     () =>
       withPlatformContext((tx) =>
-        tx.$executeRawUnsafe(`DELETE FROM transactions WHERE id = '${money.txnId}'`),
+        tx.$executeRaw`DELETE FROM transactions WHERE id = ${money.txnId}::uuid`,
       ),
     /permission denied/i,
   );

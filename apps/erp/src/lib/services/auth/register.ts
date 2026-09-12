@@ -63,11 +63,11 @@ async function ensureUnique(
     select: { status: true },
   });
   if (!conflict) return;
-  if (conflict.status === "shell") {
-    throw new ConflictError(
-      "This email or phone is registered at a centre — use the link or code the centre sent you",
-    );
-  }
+  // SECURITY_AUDIT.md (2026-09-11) AUTH-02: one message whether the clash is
+  // a walk-in shell or a registered account. The old shell-specific wording
+  // let anyone confirm, by phone number, that a child is registered at a
+  // centre. The "use the link the centre sent you" guidance already travels
+  // with the invite itself.
   throw new ConflictError("Email or phone already in use");
 }
 
@@ -301,14 +301,4 @@ export async function registerCenter(input: CenterInput) {
 
     return { userId: user.id, centerId: center.id, shortId };
   });
-}
-
-export async function ensureTeacherProfile(userId: string) {
-  await platformDb((tx) =>
-    tx.teacherProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    }),
-  );
 }

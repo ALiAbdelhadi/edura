@@ -1,6 +1,5 @@
 {
   "subject": "Subject",
-  "score": "Score",
   "grade": "Grade",
   "entries": "Entries",
   "highestGrade": "Best subject",
@@ -20,9 +19,6 @@
   "viewCourse": "View course",
   "graded": "Graded",
   "completion": "Completion",
-  "presentDays": "Present Days",
-  "absentDays": "Absent Days",
-  "lateExcused": "Late / Excused",
   "heatmapTitle": "Day by day",
   "noAttendance": "No attendance records yet.",
   "gradesSubtitle": "Your marks in every subject. Tap a subject to see its assessments.",

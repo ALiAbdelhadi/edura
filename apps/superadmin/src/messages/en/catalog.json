@@ -16,7 +16,6 @@
     "sortOrder": "Sort order",
     "isActive": "Active",
     "level": "Level within stage",
-    "language": "Instruction language",
     "isAzhari": "Azhari (religious) subject",
     "isSecondLanguage": "Second-language option",
     "hasSecondLanguage": "Asks for a second language"
@@ -36,7 +35,6 @@
     "editTrack": "Edit track",
     "selectSystemFirst": "Select a system to manage its stages",
     "selectStageFirst": "Select a stage to manage its grades and tracks",
-    "linkedGrades": "Offered in grades",
     "linkTrack": "Link track to grade",
     "unlinkTrack": "Unlink",
     "noTracks": "No tracks for this stage",

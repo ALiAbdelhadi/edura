@@ -24,9 +24,11 @@ import {
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { ListFilter, ListSearch, ListShell } from "@/components/kit/list-shell";
 import { ReasonDialog } from "@/components/kit/reason-dialog";
+import { NewTeacherDialog } from "@/features/admin/new-teacher-dialog";
 import { useAction } from "@/lib/api/use-action";
 import { useListScreen } from "@/lib/api/use-list-screen";
 import { asKey } from "@/lib/i18n/keys";
+import { Link } from "@/i18n/navigation";
 
 type TeacherRow = {
   id: string;
@@ -123,10 +125,15 @@ export function TeachersScreen() {
       id: "name",
       header: t("teachers.colName"),
       cell: ({ row }) => (
-        <IdentityCell
-          initials={initialsOf(row.original.name ?? "—")}
-          name={row.original.name ?? "—"}
-        />
+        <Link
+          className="focus-ledger rounded-sm"
+          href={`/dashboard/superadmin/teachers/${row.original.id}`}
+        >
+          <IdentityCell
+            initials={initialsOf(row.original.name ?? "—")}
+            name={row.original.name ?? "—"}
+          />
+        </Link>
       ),
     },
     {
@@ -220,22 +227,30 @@ export function TeachersScreen() {
       ),
     },
     {
-      id: "blacklist",
+      id: "actions",
       header: t("common.colActions"),
-      cell: ({ row }) =>
-        row.original.status === "blacklisted" ? (
-          <span className="text-[11px] text-red">{t("blacklist.stateActive")}</span>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red"
-            onClick={() => setBanning(row.original)}
-          >
-            <ShieldBan className="size-3.5" aria-hidden="true" />
-            <span className="sr-only">{t("blacklist.blacklistAction")}</span>
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-[12px]">
+            <Link href={`/dashboard/superadmin/teachers/${row.original.id}`}>
+              {t("teachers.open")}
+            </Link>
           </Button>
-        ),
+          {row.original.status === "blacklisted" ? (
+            <span className="text-[11px] text-red">{t("blacklist.stateActive")}</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red"
+              onClick={() => setBanning(row.original)}
+            >
+              <ShieldBan className="size-3.5" aria-hidden="true" />
+              <span className="sr-only">{t("blacklist.blacklistAction")}</span>
+            </Button>
+          )}
+        </div>
+      ),
     },
     {
       id: "joined",
@@ -256,6 +271,7 @@ export function TeachersScreen() {
       list={list}
       title={t("teachers.title")}
       description={t("teachers.description")}
+      actions={<NewTeacherDialog onCreated={() => list.query.refetch()} />}
       columns={columns}
       toolbar={
         <>

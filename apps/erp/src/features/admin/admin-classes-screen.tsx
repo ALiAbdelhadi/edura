@@ -135,6 +135,8 @@ export function AdminClassesScreen() {
     pricePerMonth: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
     pricePerSession: z.number().min(0, t("adminManage.classes.mustBeZeroOrMore")).optional(),
     settlementBasis: z.enum(["course_price", "session_price", "subscription"]).optional(),
+    deliveryMode: z.enum(["onsite", "online", "hybrid"]),
+    onlineUrl: z.string().optional(),
   };
   const createSchema = z.object({
     title: z.string().min(1, t("adminManage.classes.titleRequired")),
@@ -165,6 +167,8 @@ export function AdminClassesScreen() {
       endDate: "",
       price: 500,
       maxStudents: 20,
+      deliveryMode: "onsite",
+      onlineUrl: "",
     },
   });
 
@@ -182,6 +186,8 @@ export function AdminClassesScreen() {
       endDate: "",
       price: 0,
       maxStudents: 1,
+      deliveryMode: "onsite",
+      onlineUrl: "",
     },
   });
   const surfaceInvalid = () => {
@@ -218,6 +224,10 @@ export function AdminClassesScreen() {
       },
       price: Math.round(values.price * 100),
       maxStudents: values.maxStudents,
+      deliveryMode: values.deliveryMode,
+      ...(values.deliveryMode !== "onsite" && values.onlineUrl?.trim()
+        ? { onlineUrl: values.onlineUrl.trim() }
+        : {}),
     };
     createCourse(
       { resource: "courses", values: payload },
@@ -275,6 +285,8 @@ export function AdminClassesScreen() {
       pricePerMonth: course.pricePerMonth ? course.pricePerMonth / 100 : undefined,
       pricePerSession: course.pricePerSession ? course.pricePerSession / 100 : undefined,
       settlementBasis: course.settlementBasis ?? "course_price",
+      deliveryMode: course.deliveryMode ?? "onsite",
+      onlineUrl: course.onlineUrl || "",
     });
   };
 
@@ -304,6 +316,9 @@ export function AdminClassesScreen() {
         Number.isFinite(values.pricePerSession) && (values.pricePerSession as number) > 0
           ? Math.round((values.pricePerSession as number) * 100)
           : null,
+      deliveryMode: values.deliveryMode,
+      onlineUrl:
+        values.deliveryMode === "onsite" ? null : values.onlineUrl?.trim() || null,
     };
     updateCourse(
       { resource: "courses", id, values: payload },
@@ -1062,6 +1077,59 @@ export function AdminClassesScreen() {
                   )}
                 />
               </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={createForm.control}
+                  name="deliveryMode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("shared.delivery.label")}</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => {
+                            field.onChange(v);
+                            if (v === "onsite") createForm.setValue("onlineUrl", "");
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="onsite">{t("shared.delivery.onsite")}</SelectItem>
+                            <SelectItem value="online">{t("shared.delivery.online")}</SelectItem>
+                            <SelectItem value="hybrid">{t("shared.delivery.hybrid")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {createForm.watch("deliveryMode") !== "onsite" ? (
+                  <FormField
+                    control={createForm.control}
+                    name="onlineUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("shared.delivery.linkLabel")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            dir="ltr"
+                            placeholder={t("shared.delivery.linkPlaceholder")}
+                            value={field.value ?? ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
+              </div>
               <FormField
                 control={createForm.control}
                 name="description"
@@ -1477,6 +1545,59 @@ export function AdminClassesScreen() {
                     </FormItem>
                   )}
                 />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={editForm.control}
+                  name="deliveryMode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("shared.delivery.label")}</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => {
+                            field.onChange(v);
+                            if (v === "onsite") editForm.setValue("onlineUrl", "");
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="onsite">{t("shared.delivery.onsite")}</SelectItem>
+                            <SelectItem value="online">{t("shared.delivery.online")}</SelectItem>
+                            <SelectItem value="hybrid">{t("shared.delivery.hybrid")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {editForm.watch("deliveryMode") !== "onsite" ? (
+                  <FormField
+                    control={editForm.control}
+                    name="onlineUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("shared.delivery.linkLabel")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            dir="ltr"
+                            placeholder={t("shared.delivery.linkPlaceholder")}
+                            value={field.value ?? ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
               </div>
               <FormField
                 control={editForm.control}

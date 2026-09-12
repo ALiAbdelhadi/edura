@@ -43,6 +43,10 @@ function createPrisma() {
   const base = new PrismaClient({
     adapter: createAdapter(),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    // SECURITY_AUDIT.md (2026-09-11) DISC-01: the hash is excluded from every
+    // `users` read unless a call opts back in with `omit: { passwordHash: false }`
+    // (or names it in `select`). One unselected query can no longer serialise it.
+    omit: { user: { passwordHash: true } },
   });
   return base
     .$extends(sessionRevocationExtension)

@@ -1044,6 +1044,8 @@ async function main() {
     await tx.parentProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.teacherProfile.deleteMany({ where: { userId: { in: ids } } });
     await tx.center.deleteMany({ where: { id: { in: [fx.centerA, fx.centerB] } } });
+    // `user.deleteMany` is a SOFT delete through the Prisma extension (an
+    // UPDATE), so it needs no DELETE privilege after DB-04 — unchanged.
     await tx.user.deleteMany({ where: { id: { in: ids } } });
   });
 

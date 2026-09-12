@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { delegatedWithCenter } from "@/lib/authz/teacher-actor";
-import { RECEPTION, ACCOUNTANT } from "@/lib/authz/center-actor";
+import { RECEPTION } from "@/lib/authz/center-actor";
 import {
   deleteTeamNote,
   updateTeamNote,
@@ -11,7 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const STAFF_ALL = [...RECEPTION, ...ACCOUNTANT];
 
 const patchSchema = z
   .object({
@@ -33,7 +32,7 @@ export const PATCH = delegatedWithCenter(
       status: note.status,
     });
   },
-  { staffAllow: STAFF_ALL },
+  { staffAllow: RECEPTION },
 );
 
 export const DELETE = delegatedWithCenter(
@@ -42,5 +41,5 @@ export const DELETE = delegatedWithCenter(
     await deleteTeamNote(actor as TeamNoteActor, id);
     return ok({ deleted: true });
   },
-  { staffAllow: STAFF_ALL },
+  { staffAllow: RECEPTION },
 );

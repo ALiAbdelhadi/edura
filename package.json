@@ -7,7 +7,13 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "survey:dead-files": "bun run scripts/dead-file-survey.ts"
+    "survey:dead-files": "bun run scripts/dead-file-survey.ts",
+    "check:doc-links": "bun run scripts/check-doc-links.ts",
+    "check:dead-code": "bunx --bun knip@5 --no-progress",
+    "check:static-leaks": "bun run scripts/static-leak-check.ts",
+    "check:i18n-dead-keys": "bun run scripts/i18n-dead-keys.ts",
+    "setup:env": "bun run scripts/setup-env.ts",
+    "setup:git-hooks": "bash scripts/setup-git-hooks.sh"
   },
   "devDependencies": {
     "prettier": "^3.9.6",

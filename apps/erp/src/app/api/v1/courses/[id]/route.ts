@@ -2,7 +2,10 @@ import { z } from "zod";
 import { Prisma } from "@repo/database";
 import { withErrors } from "@/lib/errors/http";
 import { requireRole } from "@/lib/authz/require-role";
+import { getSessionUser } from "@/lib/auth/session";
+import { toActingUser } from "@/lib/authz/teacher-actor";
 import { platformDb } from "@/lib/db/scope";
+import { canSeeMeetingLink } from "@/lib/services/discovery/meeting-link";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -34,10 +37,18 @@ function schedulePatternOf(course: {
 
 export const GET = withErrors(async (_req, ctx) => {
   const { id } = await ctx.params;
+  const session = await getSessionUser();
+  const viewer = session ? await toActingUser(session) : null;
 
   const result = await platformDb(async (tx) => {
     const course = await tx.course.findUnique({ where: { id } });
     if (!course) throw new NotFoundError("Course not found");
+
+    // The meeting link is the thing being paid for: anyone holding it can sit in
+    // the online lesson for free. This route is readable without a session, so
+    // the link is returned only to the people already PAID into the course —
+    // see `canSeeMeetingLink` (SECURITY_AUDIT.md DIFF-02).
+    const canSeeLink = await canSeeMeetingLink(tx, course, viewer);
 
     const [enrolledCount, teacher, center, reviews] = await Promise.all([
       tx.enrollment.count({ where: { courseId: id, status: "active" } }),
@@ -55,6 +66,8 @@ export const GET = withErrors(async (_req, ctx) => {
     const avg = reviews._avg.rating;
     return {
       ...course,
+      onlineUrl: canSeeLink ? course.onlineUrl : null,
+      hasOnlineUrl: !!course.onlineUrl,
       schedulePattern: schedulePatternOf(course),
       remainingSeats: course.maxStudents - enrolledCount,
       enrolledCount,
@@ -82,6 +95,11 @@ const schedulePatternSchema = z
     path: ["endDate"],
   });
 
+const deliveryShape = {
+  deliveryMode: z.enum(["onsite", "online", "hybrid"]).optional(),
+  onlineUrl: z.string().trim().url().max(500).nullish(),
+};
+
 const patchSchema = z.object({
   title: z.string().trim().min(1).optional(),
   description: z.string().optional(),
@@ -93,6 +111,7 @@ const patchSchema = z.object({
   maxStudents: z.number().int().positive().max(10000).optional(),
   defaultRoomId: z.string().optional(),
   schedulePattern: schedulePatternSchema.optional(),
+  ...deliveryShape,
 });
 
 const teacherPatchSchema = z
@@ -101,6 +120,7 @@ const teacherPatchSchema = z
     pricePerMonth: moneySchema.positive().nullish(),
     pricePerSession: moneySchema.positive().nullish(),
     settlementBasis: z.enum(["course_price", "session_price", "subscription"]).optional(),
+    ...deliveryShape,
   })
   .strict();
 

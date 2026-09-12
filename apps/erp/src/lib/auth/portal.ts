@@ -1,19 +1,30 @@
-export const PORTAL_BY_ROLE = {
-  center_admin: "/dashboard/admin",
-  center_staff: "/dashboard/staff",
-  teacher: "/dashboard/teacher",
-  assistant: "/dashboard/assistant",
-  student: "/dashboard/student",
-  parent: "/dashboard/parent",
-} as const satisfies Record<string, string>;
+import {
+  PORTAL_SEGMENT_BY_ROLE,
+  portalSegmentForRole,
+  type PortalRole,
+} from "@repo/server-core/auth/login-policy";
 
-export type PortalRole = keyof typeof PORTAL_BY_ROLE;
+export type { PortalRole };
+
+/**
+ * Role -> portal path. DERIVED from the kernel's segment map so the list of
+ * roles exists once; see `PORTAL_SEGMENT_BY_ROLE` for why.
+ * `tests/unit/account-switch-routing.test.ts` asserts this still equals the
+ * set of deployed server gates, so a drift here is a red test.
+ */
+export const PORTAL_BY_ROLE = Object.fromEntries(
+  Object.entries(PORTAL_SEGMENT_BY_ROLE).map(([role, segment]) => [
+    role,
+    `/dashboard/${segment}`,
+  ]),
+) as Record<PortalRole, string>;
 
 export function portalForRole(role: string | null | undefined): string | null {
-  if (!role) return null;
-  return PORTAL_BY_ROLE[role as PortalRole] ?? null;
+  const segment = portalSegmentForRole(role);
+  return segment ? `/dashboard/${segment}` : null;
 }
 
+/** The role name the UI shows — the same segment, without the path. */
 export function uiRoleForRole(role: string): string {
-  return role === "center_admin" ? "admin" : role;
+  return portalSegmentForRole(role) ?? role;
 }

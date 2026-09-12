@@ -17,12 +17,6 @@ const LETTER_TO_NUMERIC: Record<string, number> = { A: 4, B: 3, C: 2, D: 1, F: 0
 const NUMERIC_TO_LETTER: Record<number, string> = { 4: "A", 3: "B", 2: "C", 1: "D", 0: "F" };
 const VALID_LETTERS = new Set(Object.keys(LETTER_TO_NUMERIC));
 
-export function letterToNumeric(letter: string): number {
-  const val = LETTER_TO_NUMERIC[letter.toUpperCase()];
-  if (val === undefined) throw new BusinessRuleError(`Invalid letter grade: ${letter}`);
-  return val;
-}
-
 export function numericToLetter(num: number): string {
   return NUMERIC_TO_LETTER[num] ?? String(num);
 }

@@ -2,7 +2,7 @@
 
 Twenty-two screens of `apps/erp`, beyond the nineteen curated slots the site is
 built around. Captured by
-[`library.spec.ts`](../../../../erp/tools/system-shots/library.spec.ts) as real
+``library.spec.ts`` as real
 signed-in demo roles, Arabic · light · 1440×900 CSS unless the row says phone,
 captured at deviceScaleFactor 3 — so each master is **4320×2700** actual pixels.
 
@@ -17,7 +17,7 @@ nineteen do not. That is why there is no `/messages`, `/notifications`,
 `/settings` or `/notes` — those are the same two components repeated across
 eight portals, and photographing each eight times is thirty files that say one
 thing. Reasoning in
-[`INVENTORY.md` §11](../../../../erp/tools/system-shots/INVENTORY.md).
+``INVENTORY.md` §11`.
 
 **3.4 MB across 22 files**, full-resolution masters. That is storage, not
 bandwidth: nothing here is in the manifest, so no visitor downloads any of it —

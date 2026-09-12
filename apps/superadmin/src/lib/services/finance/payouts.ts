@@ -3,6 +3,8 @@ import { AppError, NotFoundError, BusinessRuleError } from "@/lib/errors/classes
 import { notifyAfterCommit } from "@/lib/services/notifications/notify";
 import { nextTxnRef } from "@/lib/services/finance/ref-numbers";
 import type { SessionUser } from "@/lib/auth/session";
+import { randomUUID } from "node:crypto";
+import { recordAdminAudit, writeAdminAudit } from "@/lib/services/admin/admin-audit";
 
 const GENERATION_CHUNK_SIZE = 25;
 
@@ -156,6 +158,23 @@ export async function generatePayouts(user: SessionUser) {
     }
   }
 
+  // SECURITY_AUDIT.md (2026-09-11) ADMIN-02: one audit row per generation run
+  // (each chunk committed in its own transaction, so the row follows them).
+  if (created.length > 0) {
+    await recordAdminAudit(user, {
+      action: "payout.generated",
+      targetType: "payout_generation",
+      targetId: randomUUID(),
+      after: {
+        generated: created.length,
+        beneficiaries: created.map((p) => ({
+          type: p.beneficiaryType,
+          id: p.beneficiaryId,
+          netPayable: p.netPayable,
+        })),
+      },
+    });
+  }
   return { generated: created.length, payouts: created };
 }
 
@@ -253,6 +272,16 @@ export async function approvePayout(payoutId: string, user: SessionUser) {
         throw new BusinessRuleError(`Payout is already ${current.status}`);
       }
       const payout = await tx.payout.findUniqueOrThrow({ where: { id: payoutId } });
+      // SECURITY_AUDIT.md (2026-09-11) ADMIN-02: the claim above is an
+      // `updateMany`, which the auto-audit extension does not see — so the
+      // decision that moves a payout towards money gets its own row.
+      await writeAdminAudit(tx, user, {
+        action: "payout.approved",
+        targetType: "payout",
+        targetId: payoutId,
+        before: { status: "pending" },
+        after: { status: "approved", approvedBy: user.id, netPayable: payout.netPayable },
+      });
       const recipients = await resolveBeneficiaryRecipients(tx, payout.beneficiaryType, payout.beneficiaryId);
       return { payout, recipients };
     },
@@ -337,6 +366,13 @@ export async function payPayout(
       });
 
       const payout = await tx.payout.findUniqueOrThrow({ where: { id: payoutId } });
+      await writeAdminAudit(tx, user, {
+        action: "payout.paid",
+        targetType: "payout",
+        targetId: payoutId,
+        before: { status: "approved", approvedBy: current.approvedBy },
+        after: { status: "paid", paidBy: user.id, externalRef, netPayable: payout.netPayable },
+      });
       const recipients = await resolveBeneficiaryRecipients(tx, payout.beneficiaryType, payout.beneficiaryId);
       return { payout, recipients };
     },
@@ -369,6 +405,9 @@ export function rejectPayout(payoutId: string, reason: string, user: SessionUser
         if (!exists) throw new NotFoundError("Payout not found");
         throw new BusinessRuleError(`Payout is already ${exists.status}`);
       }
+      // This `update` is auto-audited by the Prisma extension as
+      // `payout.decided` (packages/database/src/extensions/index.ts AUDITED);
+      // approve and pay use `updateMany` and are not, hence their explicit rows.
       return tx.payout.update({
         where: { id: payoutId },
         data: { rejectionReason: reason, receiptUrl: null, approvedBy: user.id },

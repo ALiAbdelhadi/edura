@@ -1,7 +1,7 @@
 # Cleanup notes — student portal IA pass
 
 What the restructure orphaned, what was deleted, and what was found dead and
-deliberately left. Companion to [STUDENT_IA_AUDIT.md](STUDENT_IA_AUDIT.md).
+deliberately left. Companion to `STUDENT_IA_AUDIT.md`.
 
 Baseline for every "before" claim below: **`9e8ce65`**, the commit this pass
 started from.

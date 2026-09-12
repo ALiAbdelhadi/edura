@@ -8,9 +8,15 @@ import { join } from "node:path";
  * required a reason, snapshotted the admins it was about to suspend, and told
  * them. Deleting it fixes today; this is what stops it coming back.
  *
- * The rule is not "nothing may write centers.status" — approve, reject and
- * blacklist are distinct lifecycle transitions with their own audit. The rule
- * is that the ACTIVE <-> SUSPENDED transition has exactly one implementation.
+ * The rule is not "nothing may write centers.status" — approve and reject are
+ * distinct lifecycle transitions with their own audit. The rule is that the
+ * ACTIVE <-> SUSPENDED transition has exactly one implementation.
+ *
+ * `blacklisted` was a third writer (`blacklistCenter`) until 2026-09-12. It had
+ * no route, and nothing could lift it: `setCenterStatus` refuses to reactivate
+ * out of that status, so a blacklisted centre and its suspended admins were
+ * permanent. It was deleted (docs/follow-ups.md #7) — deactivating is the
+ * reversible way to shut a centre down, and it is the path this test pins.
  */
 function serviceFiles(): string[] {
   const out: string[] = [];
@@ -50,7 +56,7 @@ function centerStatusWriters(): { file: string; value: string }[] {
 }
 
 describe("M-15 one path in and out of center suspension", () => {
-  it("writes centers.status only from the four lifecycle transitions", () => {
+  it("writes centers.status only from the three lifecycle transitions", () => {
     const byFile = new Map<string, string[]>();
     for (const { file, value } of centerStatusWriters()) {
       const short = file.slice(file.indexOf("services"));
@@ -58,8 +64,8 @@ describe("M-15 one path in and out of center suspension", () => {
     }
 
     expect(Object.fromEntries([...byFile].sort())).toEqual({
-      // approve / reject / blacklist: distinct transitions, each audited
-      "services/admin/platform.ts": ["active", "rejected", "blacklisted"],
+      // approve / reject: distinct transitions, each audited
+      "services/admin/platform.ts": ["active", "rejected"],
       // the reason-required suspend/reinstate path, and the only one
       "services/admin/center-control.ts": ["next"],
     });

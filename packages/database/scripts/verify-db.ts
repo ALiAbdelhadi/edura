@@ -25,6 +25,8 @@ const APPEND_ONLY: Record<string, string[]> = {
   parent_wallet_ledger: ["INSERT", "SELECT"],
   center_wallet_ledger: ["INSERT", "SELECT"],
   payments: ["INSERT", "SELECT", "UPDATE"],
+  // migration 20260912120000_users_revoke_delete (SECURITY_AUDIT.md 2026-09-11 DB-04)
+  users: ["INSERT", "SELECT", "UPDATE"],
 };
 
 const FULL_CRUD = ["DELETE", "INSERT", "SELECT", "UPDATE"];

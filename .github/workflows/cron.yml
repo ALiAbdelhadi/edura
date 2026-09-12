@@ -17,6 +17,10 @@ concurrency:
   group: cron-${{ github.event.schedule || 'manual' }}
   cancel-in-progress: false
 
+# SECURITY_AUDIT.md (2026-09-11) CI-01: the default GITHUB_TOKEN is read-only here.
+permissions:
+  contents: read
+
 jobs:
   run:
     name: Run due jobs
@@ -31,9 +35,12 @@ jobs:
             "30 1 * * *") JOBS="expire-subscriptions,subscription-renewal-reminders,expire-collaboration-requests,guardian-contact-reminders" ;;
             "0 2 * * 0")  JOBS="weekly-center-digest" ;;
             "0 3 1 * *")  JOBS="month-end-statements" ;;
-            *)            JOBS="${{ inputs.jobs }}" ;;
+            *)            JOBS="$JOBS_INPUT" ;;
           esac
           echo "jobs=$JOBS" >> "$GITHUB_OUTPUT"
+        env:
+          # CI-02: the dispatch input reaches the shell as an env var, never interpolated into it.
+          JOBS_INPUT: ${{ inputs.jobs }}
           echo "This tick runs: $JOBS"
 
       - name: Require configuration

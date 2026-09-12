@@ -26,6 +26,7 @@ function boundingBox(lat: number, lng: number, distanceKm: number) {
 type CourseSearchInput = {
   subject?: string;
   subjectId?: string;
+  deliveryMode?: string;
   priceMin?: string;
   priceMax?: string;
   daysOfWeek?: string;
@@ -44,6 +45,38 @@ export type StudentCatalogScope = {
   trackId: string | null;
 };
 
+export function parseDays(raw: string) {
+  return raw
+    .split(",")
+    .map((d) => parseInt(d, 10))
+    .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6);
+}
+
+// A student asking for "online" means "somewhere I can attend online", which a
+// hybrid group satisfies; the same is true of "onsite". Only "hybrid" is
+// literal — it means a group that genuinely offers both.
+export function applyDeliveryFilter(
+  where: Prisma.CourseWhereInput,
+  mode: string | undefined,
+) {
+  if (!mode || mode === "any") return;
+  if (mode === "online") where.deliveryMode = { in: ["online", "hybrid"] };
+  else if (mode === "onsite") where.deliveryMode = { in: ["onsite", "hybrid"] };
+  else if (mode === "hybrid") where.deliveryMode = "hybrid";
+}
+
+function studentScopeArms(scope: StudentCatalogScope): Prisma.CourseWhereInput[] {
+  return [
+    { gradeLevelId: scope.gradeLevelId },
+    {
+      OR: [
+        { trackId: null },
+        ...(scope.trackId ? [{ trackId: scope.trackId }] : []),
+      ],
+    },
+  ];
+}
+
 export async function searchCourses(
   filters: CourseSearchInput,
   studentScope?: StudentCatalogScope | null,
@@ -53,19 +86,7 @@ export async function searchCourses(
   return platformDb(async (tx) => {
     const where: Prisma.CourseWhereInput = { status: "active" };
 
-    if (studentScope) {
-      where.AND = [
-        { gradeLevelId: studentScope.gradeLevelId },
-        {
-          OR: [
-            { trackId: null },
-            ...(studentScope.trackId
-              ? [{ trackId: studentScope.trackId }]
-              : []),
-          ],
-        },
-      ];
-    }
+    if (studentScope) where.AND = studentScopeArms(studentScope);
 
     if (filters.subject) where.subject = filters.subject;
     if (filters.subjectId) {
@@ -78,12 +99,14 @@ export async function searchCourses(
     if (price.gte !== undefined || price.lte !== undefined) where.price = price;
 
     if (filters.daysOfWeek) {
-      const days = filters.daysOfWeek
-        .split(",")
-        .map((d) => parseInt(d, 10))
-        .filter(Number.isFinite);
-      if (days.length > 0) where.daysOfWeek = { hasEvery: days };
+      // ANY of the chosen days, not all of them: a student asking for Wednesday
+      // and Thursday wants what runs on either, which is what the day picker
+      // means. `hasEvery` would answer "runs on both", and had no caller.
+      const days = parseDays(filters.daysOfWeek);
+      if (days.length > 0) where.daysOfWeek = { hasSome: days };
     }
+
+    applyDeliveryFilter(where, filters.deliveryMode);
 
     if (filters.timeBucket) {
       const bucket = TIME_BUCKETS[filters.timeBucket];
@@ -143,6 +166,7 @@ export async function searchCourses(
         pricePerMonth: true,
         pricePerSession: true,
         location: true,
+        deliveryMode: true,
         maxStudents: true,
         status: true,
         center: {
@@ -325,5 +349,188 @@ export async function searchTeachers(filters: TeacherSearchInput) {
     }));
 
     return { teachers, page, limit };
+  });
+}
+
+type TeacherDaySearchInput = {
+  daysOfWeek?: string;
+  subject?: string;
+  subjectId?: string;
+  deliveryMode?: string;
+  timeBucket?: string;
+  minRating?: string;
+  q?: string;
+  page?: string;
+  limit?: string;
+};
+
+// "Who teaches on Wednesday?" — the same active-course rows the course search
+// reads, pivoted onto the teacher. It adds NO reach: a course that would not
+// appear in searchCourses for this student cannot appear here either, because
+// the two build their WHERE from the same arms.
+export async function searchTeachersByDay(
+  filters: TeacherDaySearchInput,
+  studentScope?: StudentCatalogScope | null,
+) {
+  const { page, limit } = parsePageLimit(filters, 20);
+  const days = filters.daysOfWeek ? parseDays(filters.daysOfWeek) : [];
+
+  return platformDb(async (tx) => {
+    const where: Prisma.CourseWhereInput = { status: "active" };
+    const and: Prisma.CourseWhereInput[] = studentScope ? studentScopeArms(studentScope) : [];
+
+    if (days.length > 0) where.daysOfWeek = { hasSome: days };
+    if (filters.subject) where.subject = filters.subject;
+    if (filters.subjectId) {
+      where.subjectId = filters.subjectId === "none" ? null : filters.subjectId;
+    }
+    applyDeliveryFilter(where, filters.deliveryMode);
+
+    if (filters.timeBucket) {
+      const bucket = TIME_BUCKETS[filters.timeBucket];
+      if (bucket) where.startTime = { gte: bucket.start, lt: bucket.end };
+    }
+
+    // An online course has no centre to be closed, so the centre arm mirrors
+    // searchCourses: a teacher-direct course (centerId NULL) always qualifies.
+    and.push({ OR: [{ centerId: null }, { center: { is: { status: "active" } } }] });
+    where.AND = and;
+
+    const teacherRows = await tx.course.groupBy({
+      by: ["teacherId"],
+      where,
+      _count: { _all: true },
+    });
+    if (teacherRows.length === 0) return { teachers: [], page, limit, total: 0 };
+
+    const allTeacherIds = teacherRows.map((r) => r.teacherId);
+    const [profiles, users] = await Promise.all([
+      tx.teacherProfile.findMany({
+        where: { userId: { in: allTeacherIds } },
+        select: {
+          userId: true,
+          ratingAvg: true,
+          ratingCount: true,
+          photoUrl: true,
+          subjects: true,
+          experienceYears: true,
+        },
+      }),
+      tx.user.findMany({
+        where: {
+          id: { in: allTeacherIds },
+          status: { in: ["active", "shell"] },
+          ...(filters.q
+            ? { AND: exactQuery(filters.q, (t) => ({ searchText: { contains: t } })) }
+            : {}),
+        },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const profileByTeacher = new Map(profiles.map((p) => [p.userId, p]));
+    const nameByTeacher = new Map(users.map((u) => [u.id, u.name]));
+
+    const minRating = filters.minRating ? parseFloat(filters.minRating) : null;
+    const ranked = allTeacherIds
+      // A suspended or deleted teacher has no user row here and must not be
+      // offered, even though their courses are still rows in the table.
+      .filter((id) => nameByTeacher.has(id))
+      .filter((id) =>
+        minRating === null ? true : (profileByTeacher.get(id)?.ratingAvg ?? 0) >= minRating,
+      )
+      .sort((a, b) => {
+        const ra = profileByTeacher.get(a)?.ratingAvg ?? 0;
+        const rb = profileByTeacher.get(b)?.ratingAvg ?? 0;
+        if (rb !== ra) return rb - ra;
+        return (nameByTeacher.get(a) ?? "").localeCompare(nameByTeacher.get(b) ?? "");
+      });
+
+    const total = ranked.length;
+    const pageIds = ranked.slice((page - 1) * limit, page * limit);
+    if (pageIds.length === 0) return { teachers: [], page, limit, total };
+
+    const courses = await tx.course.findMany({
+      where: { AND: [where, { teacherId: { in: pageIds } }] },
+      select: {
+        id: true,
+        centerId: true,
+        teacherId: true,
+        title: true,
+        subject: true,
+        subjectId: true,
+        subjectRef: { select: { nameAr: true, nameEn: true } },
+        gradeTag: true,
+        daysOfWeek: true,
+        startTime: true,
+        endTime: true,
+        price: true,
+        pricePerMonth: true,
+        pricePerSession: true,
+        location: true,
+        deliveryMode: true,
+        maxStudents: true,
+        center: { select: { id: true, name: true, area: true, logoUrl: true } },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    const courseIds = courses.map((c) => c.id);
+    const grouped = await tx.enrollment.groupBy({
+      by: ["courseId"],
+      where: { courseId: { in: courseIds }, status: "active" },
+      _count: { _all: true },
+    });
+    const countByCourse = new Map(grouped.map((g) => [g.courseId, g._count._all]));
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const upcoming = await tx.session.findMany({
+      where: { courseId: { in: courseIds }, status: "scheduled", date: { gte: today } },
+      orderBy: { date: "asc" },
+      select: { id: true, courseId: true, date: true, startTime: true, endTime: true },
+      take: 400,
+    });
+    const upcomingByCourse = new Map<string, typeof upcoming>();
+    for (const s of upcoming) {
+      const list = upcomingByCourse.get(s.courseId) ?? [];
+      if (list.length < 8) list.push(s);
+      upcomingByCourse.set(s.courseId, list);
+    }
+
+    const byTeacher = new Map<string, typeof courses>();
+    for (const c of courses) {
+      const list = byTeacher.get(c.teacherId) ?? [];
+      list.push(c);
+      byTeacher.set(c.teacherId, list);
+    }
+
+    const teachers = pageIds.map((id) => {
+      const profile = profileByTeacher.get(id);
+      const own = byTeacher.get(id) ?? [];
+      return {
+        userId: id,
+        name: nameByTeacher.get(id) ?? "",
+        photoUrl: profile?.photoUrl ?? null,
+        ratingAvg: profile?.ratingAvg ?? 0,
+        ratingCount: profile?.ratingCount ?? 0,
+        experienceYears: profile?.experienceYears ?? null,
+        subjects: profile?.subjects ?? [],
+        courseCount: own.length,
+        courses: own.map((c) => {
+          const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
+          return {
+            ...c,
+            // Which of the days the student asked for this group actually runs on,
+            // so the card can say "Wednesday" rather than repeating the whole week.
+            matchedDays: days.length > 0 ? c.daysOfWeek.filter((d) => days.includes(d)) : c.daysOfWeek,
+            activeEnrollmentCount,
+            remainingSeats: c.maxStudents - activeEnrollmentCount,
+            upcomingSessions: upcomingByCourse.get(c.id) ?? [],
+          };
+        }),
+      };
+    });
+
+    return { teachers, page, limit, total };
   });
 }

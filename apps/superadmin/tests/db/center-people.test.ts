@@ -252,15 +252,25 @@ async function main() {
     const got = await adminGetStudent(actor, centerA, studentA);
     assert(got.user?.id === studentA, "reads one roster student");
 
-    await adminUpdateStudent(actor, centerA, studentA, {
-      name: `${tag}-renamed`,
-      phone: "01000000001",
-    });
+    // AUTHZ-01 (SECURITY_AUDIT.md 2026-09-11): login identifiers of a student
+    // who holds a password change only through the student's own verified
+    // door — the back office acting as the centre is no exception.
+    let identityRefusal = "<<SUCCEEDED>>";
+    try {
+      await adminUpdateStudent(actor, centerA, studentA, { phone: "01000000001" });
+    } catch (e) {
+      identityRefusal = (e as Error).message;
+    }
+    assert(
+      /has set a password/.test(identityRefusal),
+      `a credentialed student's phone is refused even via the back office (${identityRefusal.slice(0, 50)})`,
+    );
+    await adminUpdateStudent(actor, centerA, studentA, { name: `${tag}-renamed` });
     const renamed = (await admin.query(`SELECT name, phone FROM users WHERE id=$1`, [studentA]))
       .rows[0];
     assert(
-      renamed.name === `${tag}-renamed` && renamed.phone === "01000000001",
-      "edits a student's own details",
+      renamed.name === `${tag}-renamed` && renamed.phone !== "01000000001",
+      "edits a student's own non-login details; the phone stayed",
     );
     rows = await auditRows("center.student_updated", studentA, superAdminId);
     assert(rows.length === 1, "audit: exactly one center.student_updated row");

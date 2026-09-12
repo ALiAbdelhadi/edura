@@ -4,6 +4,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { resolveDriver, onlineCheckoutAvailable } from "@/lib/services/payments/gateway";
 import { creditMove } from "@repo/server-core/services/finance/center-credit";
 import { nextTxnRef } from "@repo/server-core/services/finance/ref-numbers";
+import { nextPlatformReceipt } from "@/lib/services/wallet/wallet";
 import type { SettleNotification } from "@repo/server-core/services/payments/notification-types";
 import type { Prisma } from "@repo/database";
 
@@ -108,6 +109,33 @@ export async function settleCenterCreditTopUpFromIntentTx(
   if (!centerId || intent.purpose !== "center_credit_topup") {
     throw new BusinessRuleError("Not a center credit top-up intent");
   }
+  const payerUserId = intent.payerUserId;
+  if (!payerUserId) throw new BusinessRuleError("Center credit top-up intent has no payer");
+
+  // SECURITY_AUDIT.md (2026-09-11) BIZ-02. H-03 rule 2 says an intent is never
+  // `paid` without a `payments` row, and the claim path enforces it by
+  // re-reading `paymentId` after settlement and throwing when it is null.
+  // This settler linked only the Transaction, so every real capture of a
+  // centre credit top-up rolled back and retried forever — money taken,
+  // nothing credited. The receipt is the same shape as an online wallet
+  // top-up: platform-held, no student, no centre on the row (the
+  // `payments_student_required` CHECK is what allows a studentless receipt,
+  // and only in exactly that shape), the payer is the centre owner.
+  const receiptNumber = await nextPlatformReceipt(tx);
+  const payment = await tx.payment.create({
+    data: {
+      centerId: null,
+      studentId: null,
+      payerUserId,
+      courseId: null,
+      amount: intent.amount,
+      paymentMethod: "online_paymob",
+      note: `Center credit top-up for center ${centerId} (${intent.gateway}/${intent.method})`,
+      receiptNumber,
+      recordedBy: payerUserId,
+      paidAt: new Date(),
+    },
+  });
 
   const refNumber = await nextTxnRef(tx);
   const transaction = await tx.transaction.create({
@@ -140,16 +168,18 @@ export async function settleCenterCreditTopUpFromIntentTx(
 
   await tx.paymentIntent.update({
     where: { id: intent.id },
-    data: { transactionId: transaction.id },
+    data: { paymentId: payment.id, transactionId: transaction.id },
   });
 
   return {
-    studentId: intent.payerUserId ?? centerId,
-    recipients: intent.payerUserId ? [intent.payerUserId] : [],
+    studentId: payerUserId,
+    recipients: [payerUserId],
     type: "payment_recorded",
     title: "Center credit topped up",
     body: `${(intent.amount / 100).toFixed(2)} EGP was added to your center's platform credit.`,
-    data: { amount: intent.amount, balanceAfter, refNumber },
+    // No `receiptNumber` key on purpose: the claim path mails a STUDENT receipt
+    // for any notification carrying one, and this receipt names no student.
+    data: { amount: intent.amount, balanceAfter, refNumber, paymentId: payment.id },
   };
 }
 

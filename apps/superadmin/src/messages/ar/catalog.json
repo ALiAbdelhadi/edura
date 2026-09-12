@@ -16,7 +16,6 @@
     "sortOrder": "ترتيب الظهور",
     "isActive": "مفعّل",
     "level": "الترتيب داخل المرحلة",
-    "language": "لغة التدريس",
     "isAzhari": "مادة شرعية (أزهري)",
     "isSecondLanguage": "خيار لغة ثانية",
     "hasSecondLanguage": "تتطلب لغة ثانية"
@@ -36,7 +35,6 @@
     "editTrack": "تعديل الشعبة",
     "selectSystemFirst": "اختر نظامًا لإدارة مراحله",
     "selectStageFirst": "اختر مرحلة لإدارة صفوفها وشعبها",
-    "linkedGrades": "تُدرّس في الصفوف",
     "linkTrack": "ربط شعبة بالصف",
     "unlinkTrack": "فك الربط",
     "noTracks": "لا توجد شعب لهذه المرحلة",

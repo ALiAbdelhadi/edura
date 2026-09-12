@@ -40,9 +40,18 @@ export async function setCenterStatus(
     async (tx) => {
       const center = await tx.center.findUnique({ where: { id: centerId } });
       if (!center) throw new NotFoundError("Center not found");
+      // `pending` and `rejected` belong to the registration flow
+      // (approveCenter / rejectCenter). `blacklisted` is a legacy CenterStatus
+      // value that NO door sets any more: `blacklistCenter` was deleted on
+      // 2026-09-12 (docs/follow-ups.md #7) because it was a one-way flip — it
+      // suspended every centre admin and nothing could lift it, while every
+      // other blacklist in the product is a reversible `blacklist_entries` row.
+      // Deactivating is the reversible way to shut a centre down and has the
+      // same effect on access. A row still carrying the old value can only be
+      // moved by a migration, which is why it is refused rather than ignored.
       if (!["active", "suspended"].includes(center.status)) {
         throw new BusinessRuleError(
-          `Cannot ${action} a center in status '${center.status}' — use the registration or blacklist flow`,
+          `Cannot ${action} a center in status '${center.status}' — use the registration flow`,
         );
       }
       if (center.status === next) {

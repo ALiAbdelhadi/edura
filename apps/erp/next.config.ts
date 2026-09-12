@@ -21,6 +21,7 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(self), usb=(), interest-cohort=()" }, // NET-01
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Reporting-Endpoints", value: `csp-endpoint="/api/v1/security/csp-report"` },
 ];
@@ -97,9 +98,17 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 
   images: {
+    // SECURITY_AUDIT.md SUPPLY-01: `/_next/image` fetches and decodes whatever
+    // this list allows, unauthenticated. Scoped to OUR Cloudinary account so no
+    // other account's upload can be fed to the optimizer; the demo image host
+    // is gone. An unset cloud name fails closed (nothing matches) rather than
+    // widening to the whole CDN.
     remotePatterns: [
-      { protocol: "https" as const, hostname: "res.cloudinary.com" },
-      { protocol: "https" as const, hostname: "picsum.photos" },
+      {
+        protocol: "https" as const,
+        hostname: "res.cloudinary.com",
+        pathname: `/${process.env.CLOUDINARY_CLOUD_NAME || "cloud-name-unset"}/**`,
+      },
     ],
   },
 

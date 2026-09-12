@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { INTL_MATCHER, isLocalisedPath } from "@/i18n/route-matcher";
+import { INTL_MATCHER, MIDDLEWARE_MATCHER, isLocalisedPath } from "@/i18n/route-matcher";
 
 const isClaimedByIntl = isLocalisedPath;
 
 describe("the intl matcher must not claim the analytics proxy", () => {
-  it("the shipped literal in proxy.ts is byte-identical to INTL_MATCHER", async () => {
+  // DIFF-01: the middleware now runs on /api and /ingest too (to refuse them on
+  // a tenant host), so its matcher is MIDDLEWARE_MATCHER; what next-intl CLAIMS
+  // is still INTL_MATCHER, and the two must keep their relationship.
+  it("INTL_MATCHER still excludes api and ingest, and MIDDLEWARE_MATCHER is wider by exactly those", () => {
+    expect(INTL_MATCHER).toContain("api|ingest");
+    expect(MIDDLEWARE_MATCHER).not.toContain("api");
+    expect(MIDDLEWARE_MATCHER).not.toContain("ingest");
+    expect(MIDDLEWARE_MATCHER).toContain("_next|_vercel");
+  });
+
+  it("the shipped literal in proxy.ts is byte-identical to MIDDLEWARE_MATCHER", async () => {
     const { readFileSync } = await import("node:fs");
     const raw = readFileSync(new URL("../../src/proxy.ts", import.meta.url), "utf8");
 
@@ -14,7 +24,7 @@ describe("the intl matcher must not claim the analytics proxy", () => {
     const m = decl.match(/matcher:\s*\[\s*"((?:[^"\\]|\\.)*)"\s*,?\s*\]/);
     expect(m, "config.matcher must be a single string LITERAL").not.toBeNull();
 
-    expect(JSON.parse(`"${m![1]}"`)).toBe(INTL_MATCHER);
+    expect(JSON.parse(`"${m![1]}"`)).toBe(MIDDLEWARE_MATCHER);
 
     expect(decl).not.toMatch(/matcher:\s*\[\s*[A-Za-z_$]/);
   });

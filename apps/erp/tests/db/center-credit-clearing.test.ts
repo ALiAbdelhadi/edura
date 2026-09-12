@@ -259,6 +259,18 @@ async function main() {
     }),
   );
   assert(topTxn?.funding === "platform_held" && topTxn?.amount === 100000, "a platform-held Transaction records the move");
+  // BIZ-02 (SECURITY_AUDIT.md 2026-09-11): the settler must link a `payments`
+  // row, or the real claim path (H-03 rule 2) rolls the whole capture back.
+  const topIntent = await withPlatformContext((tx) =>
+    tx.paymentIntent.findUniqueOrThrow({ where: { id: intentId }, select: { paymentId: true } }),
+  );
+  const topReceipt = topIntent.paymentId
+    ? await withPlatformContext((tx) => tx.payment.findUnique({ where: { id: topIntent.paymentId! } }))
+    : null;
+  assert(
+    !!topReceipt && topReceipt.amount === 100000 && topReceipt.payerUserId === fx.owner && topReceipt.studentId === null && topReceipt.centerId === null,
+    "the intent links a platform-held receipt naming the owner as payer (no student, no centre on the row)",
+  );
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exitCode = fail === 0 ? 0 : 1;

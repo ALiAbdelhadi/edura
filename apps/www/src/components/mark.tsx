@@ -1,4 +1,4 @@
-export function Mark({ className = "" }: { className?: string }) {
+function Mark({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 32 24"

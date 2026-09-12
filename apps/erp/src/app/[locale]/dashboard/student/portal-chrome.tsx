@@ -12,6 +12,7 @@ const navGroups = [
     label: "@learn",
     items: [
       { href: "/dashboard/student/subjects", icon: "book", label: "My Subjects", tour: "nav-subjects" },
+      { href: "/dashboard/student/teachers", icon: "users", label: "Find a Teacher" },
       { href: "/dashboard/student/schedule", icon: "calendar", label: "Schedule", tour: "nav-schedule" },
       { href: "/dashboard/student/attendance", icon: "check", label: "Attendance", tour: "nav-attendance" },
       { href: "/dashboard/student/grades", icon: "award", label: "Grades", tour: "nav-grades" },
@@ -64,6 +65,7 @@ const BAR_ORDER = [
   "/dashboard/student/schedule",
   "/dashboard/student/id",
   "/dashboard/student/subjects",
+  "/dashboard/student/teachers",
   "/dashboard/student/wallet",
   "/dashboard/student/attendance",
   "/dashboard/student/grades",

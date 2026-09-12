@@ -257,6 +257,8 @@ export const AR_MESSAGES: Record<string, string> = {
     "لا يمكن نقل مجموعة بين السناتر: تسعيرها مُجمَّد على إعدادات سنترها، وحصصها المكتملة سُوِّيت لذلك السنتر بالفعل. ألغِها وأنشئ المجموعة في السنتر الجديد.",
   "A feature-flag key must be lowercase, dotted, and free of spaces (e.g. receipts.pdf)":
     "مفتاح الخاصية يجب أن يكون بحروف صغيرة ونقاط وبدون مسافات (مثال: receipts.pdf)",
+  "An onsite class has no meeting link — pick online or hybrid to add one":
+    "الحصة الحضورية ملهاش لينك — اختر أونلاين أو حضوري+أونلاين عشان تضيف لينك",
   "A hall cannot be attached to an existing class — create a new class for the hall":
     "لا يمكن ربط قاعة بمجموعة قائمة — أنشئ مجموعة جديدة للقاعة",
   "A minor's account can only be deleted at the request of their approved guardian":
@@ -537,6 +539,13 @@ export const AR_MESSAGES: Record<string, string> = {
   "Student is not on the source center's roster": "الطالب ليس في كشف السنتر المصدر",
   "Student not found": "الطالب غير موجود",
   "Student not in roster": "الطالب ليس في كشف السنتر",
+  "Center credit top-up intent has no payer": "طلب شحن رصيد السنتر لا يحمل بيانات الدافع",
+  "The meeting link must start with http:// or https://": "رابط الحصة لازم يبدأ بـ http:// أو https://",
+  "Invalid date filter": "نطاق التاريخ غير صالح",
+  "Your account has no student profile to receive the claimed balance":
+    "حسابك ليس له ملف طالب لاستلام الرصيد المنقول",
+  "This student has set a password — login email and phone can only be changed by the student":
+    "هذا الطالب عنده كلمة سر — البريد الإلكتروني ورقم الهاتف الخاصين بالدخول يغيّرهما الطالب بنفسه فقط",
   "Student profile not found": "ملف الطالب غير موجود",
   "Student top-up intent has no student to credit": "طلب شحن المحفظة غير مرتبط بطالب",
   "studentId required for admin": "يجب تحديد الطالب عند التنفيذ بحساب مشرف",
@@ -594,6 +603,16 @@ export const AR_MESSAGES: Record<string, string> = {
   "You must have at least one present attendance for this teacher":
     "يجب أن يكون لديك حضور واحد على الأقل مع هذا المدرّس",
   "You must have attended this lesson to rate it": "يجب أن تكون قد حضرت هذه الحصة لتقييمها",
+
+  "Another account already uses this email": "حساب آخر يستخدم هذا البريد الإلكتروني بالفعل",
+  "Another account already uses this phone number": "حساب آخر يستخدم رقم الهاتف هذا بالفعل",
+  "Invalid public handle": "الاسم العام غير صالح",
+  "No center on this session": "لا يوجد سنتر مرتبط بهذه الجلسة",
+  "Only a center admin or a teacher owns a public handle":
+    "الاسم العام يملكه مسؤول السنتر أو المدرّس فقط",
+  "This public handle is already taken": "هذا الاسم العام محجوز بالفعل",
+  "This teacher has no profile row — profile fields cannot be edited":
+    "هذا المدرّس ليس له ملف شخصي — لا يمكن تعديل بيانات الملف",
 };
 
 type ArPattern = { re: RegExp; ar: (m: RegExpExecArray) => string; sample: string };
@@ -693,10 +712,10 @@ export const AR_PATTERNS: ArPattern[] = [
     sample: "Amount exceeds available balance (50.00 EGP available)",
   },
   {
-    re: /^Cannot (.+) a center in status '(.+)' — use the registration or blacklist flow$/,
+    re: /^Cannot (.+) a center in status '(.+)' — use the registration flow$/,
     ar: (m) =>
-      `لا يمكن تنفيذ "${m[1]}" على سنتر في حالة "${m[2]}" — استخدم مسار التسجيل أو الحظر`,
-    sample: "Cannot suspend a center in status 'pending' — use the registration or blacklist flow",
+      `لا يمكن تنفيذ "${m[1]}" على سنتر في حالة "${m[2]}" — استخدم مسار التسجيل`,
+    sample: "Cannot suspend a center in status 'pending' — use the registration flow",
   },
   {
     re: /^Maximum top-up cannot exceed (.+) EGP$/,
@@ -815,9 +834,10 @@ export const AR_TEMPLATE_SOURCES: string[] = [
   "Unknown cron job: ${job}",
   "Unsupported invoice type: ${input.type}",
   "User is a '${user.role}', not a ${kind}",
+  "User is a '${user.role}', not a teacher",
   "You cannot ${what} your own account",
   "Amount exceeds available balance (${(available / 100).toFixed(2)} EGP available)",
-  "Cannot ${action} a center in status '${center.status}' — use the registration or blacklist flow",
+  "Cannot ${action} a center in status '${center.status}' — use the registration flow",
   "Maximum top-up cannot exceed ${(ABSOLUTE_MAX / 100).toLocaleString()} EGP",
   "Maximum top-up is ${(settings.maxTopup / 100).toFixed(2)} EGP",
   "Minimum top-up is ${(settings.minTopup / 100).toFixed(2)} EGP",

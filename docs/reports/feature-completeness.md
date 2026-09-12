@@ -107,7 +107,7 @@ Three properties worth having:
 
 The schema declares **40 FOREIGN KEY constraints across 23 of 68 tables. 44 tables have none** — including every money table (`transactions`, `payments`, `wallet_ledger`, `session_settlements`, `payment_intents`, `subscriptions`, `invoices`, `payouts`) and `audit_logs`.
 
-**Is it a documented decision? No.** There is no FK or referential-integrity policy in `CLAUDE.md` or anywhere in `docs/`. The opposite exists: [docs/product/prd-compliance-audit.md:257](docs/product/prd-compliance-audit.md) already graded this **⚠️ partial** — *"Only 16 FKs exist … MISSING FKs the PRD specifies"* — and recommended *"Add NOT VALID FKs (then VALIDATE) for the student/user reference columns with ON DELETE RESTRICT."* That was never done. The count has since grown 16 → 40 as newer features (education catalog, realtime chat, messaging scope) added FKs for their own tables, while the older core and money tables never got theirs. One loose reference is even commented as intentional in the schema (`sessionId` — *"loose ref (no FK), like transactions.lesson_id"*), so the pattern was known and propagated locally, never decided globally.
+**Is it a documented decision? No.** There is no FK or referential-integrity policy in `CLAUDE.md` or anywhere in `docs/`. The opposite exists: [docs/product/prd-compliance-audit.md:257](../product/prd-compliance-audit.md) already graded this **⚠️ partial** — *"Only 16 FKs exist … MISSING FKs the PRD specifies"* — and recommended *"Add NOT VALID FKs (then VALIDATE) for the student/user reference columns with ON DELETE RESTRICT."* That was never done. The count has since grown 16 → 40 as newer features (education catalog, realtime chat, messaging scope) added FKs for their own tables, while the older core and money tables never got theirs. One loose reference is even commented as intentional in the schema (`sessionId` — *"loose ref (no FK), like transactions.lesson_id"*), so the pattern was known and propagated locally, never decided globally.
 
 **Nor is it defensible as a soft-delete-everywhere design.** Only **3 of 67 models carry `deletedAt`**: `User`, `ConversationMessage`, `GroupMessage`. `Center`, `Course`, `Session`, `Enrollment`, `Room`, `Payment` and the rest have no soft-delete column at all. `CLAUDE.md`'s convention *"destructive operations use soft-delete"* holds for users and messages and has no mechanism anywhere else.
 
@@ -163,12 +163,12 @@ Six things materially change how "close to done" should be read. They are not op
 
 | # | Finding | Evidence |
 |---|---|---|
-| 1 | **The Paymob integration does not exist.** Not "partially wired" — the driver is 84 lines in which both methods are stubs. `createCheckout` throws; `verifyWebhook` returns `{valid:false}` unconditionally. Five TODO comments *are* the integration. | [paymob-driver.ts:22-84](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:22) |
-| 2 | **`sandbox` is as broken as `live`.** `resolveDriver()` returns the stub for both. There is no working non-mock mode to test against. | [gateway/index.ts:16](apps/www/src/lib/services/payments/gateway/index.ts:16) |
-| 3 | **Six cron jobs exist; nothing schedules any of them.** No `vercel.json`, no crontab, no `fly.toml`, no Dockerfile, no pipeline file anywhere in the repo. Subscription expiry, intent expiry, collaboration expiry, lesson reminders, month-end statements and the entire guardian escalation are inert code. | [cron/[job]/route.ts:28-43](apps/www/src/app/api/v1/cron/[job]/route.ts:28); `find` for scheduler configs returns nothing |
-| 4 | **The proof corpus is not runnable.** All 38 DB test suites are launched via `tsx --env-file=.env.test`. There is no `.env.test` anywhere in the tree, and no `.env.example` either (despite `.gitignore:11` claiming those are the committed secret-free copies). `node --env-file=<missing>` exits 9. Every `bun run test:db*` fails before the first assertion. | [package.json](apps/www/package.json) `pretest:db`; `find . -name '.env.test*'` → empty |
+| 1 | **The Paymob integration does not exist.** Not "partially wired" — the driver is 84 lines in which both methods are stubs. `createCheckout` throws; `verifyWebhook` returns `{valid:false}` unconditionally. Five TODO comments *are* the integration. | [paymob-driver.ts:22-84](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:22) |
+| 2 | **`sandbox` is as broken as `live`.** `resolveDriver()` returns the stub for both. There is no working non-mock mode to test against. | [gateway/index.ts:16](../../apps/erp/src/lib/services/payments/gateway/index.ts:16) |
+| 3 | **Six cron jobs exist; nothing schedules any of them.** No `vercel.json`, no crontab, no `fly.toml`, no Dockerfile, no pipeline file anywhere in the repo. Subscription expiry, intent expiry, collaboration expiry, lesson reminders, month-end statements and the entire guardian escalation are inert code. | [cron/[job]/route.ts:28-43](../../apps/erp/src/app/api/v1/cron/[job]/route.ts:28); `find` for scheduler configs returns nothing |
+| 4 | **The proof corpus is not runnable.** All 38 DB test suites are launched via `tsx --env-file=.env.test`. There is no `.env.test` anywhere in the tree, and no `.env.example` either (despite `.gitignore:11` claiming those are the committed secret-free copies). `node --env-file=<missing>` exits 9. Every `bun run test:db*` fails before the first assertion. | [package.json](../../apps/erp/package.json) `pretest:db`; `find . -name '.env.test*'` → empty |
 | 5 | **There is no CI.** No `.github/workflows`, no pipeline config of any kind. Every "119/119", "107/107", "87/87" in `CLAUDE.md` is a number from a manual run on one machine, unreproducible today because of #4. | `ls .github/workflows` → not found |
-| 6 | **`apps/superadmin/.env.production` contains three keys** — `DIRECT_URL`, `DATABASE_URL`, `APP_ROLE_PASSWORD`. No `NEXTAUTH_SECRET`, no `SUPERADMIN_NEXTAUTH_SECRET`, no `CRON_SECRET`, no `INTERNAL_API_SECRET`, no `MAIL_PROVIDER`, no `PAYMENTS_MODE`. The back-office app is not production-configured at all. | [apps/superadmin/.env.production](apps/superadmin/.env.production) |
+| 6 | **`apps/superadmin/.env.production` contains three keys** — `DIRECT_URL`, `DATABASE_URL`, `APP_ROLE_PASSWORD`. No `NEXTAUTH_SECRET`, no `SUPERADMIN_NEXTAUTH_SECRET`, no `CRON_SECRET`, no `INTERNAL_API_SECRET`, no `MAIL_PROVIDER`, no `PAYMENTS_MODE`. The back-office app is not production-configured at all. | `apps/superadmin/.env.production` |
 
 None of these invalidate the audit — they *are* the audit's headline. But #4 and #5 together mean the confidence that `CLAUDE.md` projects ("proven", "verified", "green") is currently unverifiable, and #3 means a meaningful slice of shipped logic never executes.
 
@@ -184,24 +184,24 @@ Overall: the strongest role in the product. Onboarding, subjects, attendance, wa
 
 | Journey | Grade | What actually works | What's missing / broken | Evidence |
 |---|---|---|---|---|
-| Registration | **COMPLETE** [chain] | `auth/register/student` → shared `registerStudent()`; four distinct doors (student/parent/teacher/center) share one service | — | [register/student/route.ts:23](apps/www/src/app/api/v1/auth/register/student/route.ts:23); proof `tests/db/registration-doors.test.ts` |
-| Onboarding (year + track → subjects) | **COMPLETE** [chain] | `me/onboarding` GET state + PATCH; auto-assign resolves through `subjectOffering` against the real catalog | — | [catalog/onboarding.ts:141,196](apps/www/src/lib/services/catalog/onboarding.ts:141); proof `tests/db/catalog-onboarding.test.ts`, `tests/unit/onboarding-steps.test.ts` |
-| Claim / invite accept | **COMPLETE** [chain] | Single-use tokenised claim, `CLAIMABLE` purpose→role map, set-once password via `me/credentials` | — | [invite-token.ts](packages/server-core/src/services/invites/invite-token.ts); proof `tests/db/invite-claim.test.ts` (not runnable — see finding #4) |
+| Registration | **COMPLETE** [chain] | `auth/register/student` → shared `registerStudent()`; four distinct doors (student/parent/teacher/center) share one service | — | [register/student/route.ts:23](../../apps/erp/src/app/api/v1/auth/register/student/route.ts:23); proof `tests/db/registration-doors.test.ts` |
+| Onboarding (year + track → subjects) | **COMPLETE** [chain] | `me/onboarding` GET state + PATCH; auto-assign resolves through `subjectOffering` against the real catalog | — | [catalog/onboarding.ts:141,196](../../apps/erp/src/lib/services/catalog/onboarding.ts:141); proof `tests/db/catalog-onboarding.test.ts`, `tests/unit/onboarding-steps.test.ts` |
+| Claim / invite accept | **COMPLETE** [chain] | Single-use tokenised claim, `CLAIMABLE` purpose→role map, set-once password via `me/credentials` | — | [invite-token.ts](../../packages/server-core/src/services/invites/invite-token.ts); proof `tests/db/invite-claim.test.ts` (not runnable — see finding #4) |
 | Login + role routing | **COMPLETE** [chain] | NextAuth + `RoleGuard` + `OnboardingGate`; `token_version` re-read every request so a password reset revokes live JWTs | — | proof `tests/db/l1-session-invalidation.test.ts`, `rbac-isolation.test.ts` |
 | Discovery (subjects / browse) | **COMPLETE** [surface] | Track-default view + Browse All; `search/{teachers,courses,centers}` | — | `dashboard/student/subjects`; `api/v1/subjects`, `api/v1/search/*` |
-| Enrolment | **COMPLETE** [surface] | `enrollment-requests` create → approve/decline, real persistence both sides | — | [enrollment-requests/[id]/approve/route.ts](apps/www/src/app/api/v1/enrollment-requests/[id]/approve/route.ts) |
-| **Payment (online)** | **STUBBED** | Everything from the intent row inward is real and good: server-side amount, idempotency key, M1 atomic claim+settle, `failed`/`paid` states, ledger + points + notification | The gateway conversation does not exist. In `mock` the money is fake; in `sandbox`/`live` `createCheckout` throws. There is no working real-money path. | [payment-intents.ts:224-280](apps/www/src/lib/services/payments/payment-intents.ts:224) vs [paymob-driver.ts:58](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:58) |
-| Payment (cash at center) | **COMPLETE** [chain] | Counter records it; mirrored to the `Transaction` ledger in the same tx as the `Payment` row (Step 4 reconciliation) | Pre-Step-4 cash history is not ledger-mirrored (documented, forward-only) | [counterCheckin](packages/server-core/src/services/attendance/checkin.ts:169); `center/wallet-topup`, `center/subscriptions` |
-| Subscription | **COMPLETE** [chain] | MONTHLY + PER_SESSION; subscription wraps enrolment; coverage checked against the session's date window, so a stale `status` cannot grant access | `expire-subscriptions` never runs, so `status` drifts stale (reporting only, not access) | [coverage.ts:21-37](packages/server-core/src/services/subscriptions/coverage.ts:21) |
-| Attendance | **COMPLETE** [chain] | counter/door stage model, mode-derived status, `counter_only` distinct and excluded from distribution | — | [checkin.ts:169-240](packages/server-core/src/services/attendance/checkin.ts:169) |
-| Messaging | **COMPLETE** [chain] | Direct student→teacher per the current matrix; gate order matrix → EDGES → guardian → block → rate-limit; `ChatLimiter` is a required param so a transport cannot forget it | — | [chat-scope.ts:928-937](packages/database/src/queries/chat-scope.ts:928) |
-| Materials | **COMPLETE** [surface] | Full CRUD + signed download URL + `%PDF-` magic-byte check | — | [materials.ts:25,82-355](apps/www/src/lib/services/materials/materials.ts:25) |
-| Grades | **COMPLETE** [surface] | create/list/get/update/delete + `bulkUpsertScores` | — | [grades.ts:45-208](apps/www/src/lib/services/grades/grades.ts:45) |
-| **Assignments** | **MISSING** | Nothing. There is no `Assignment`, `Submission`, `Homework` or `Quiz` model among the 67. The screen reskins `grades` records — anything without a score is labelled "pending" and a "completion %" is computed from that. | No due dates, no submission, no upload, no teacher-side creation. `homework_deadline` is a declared notification type that nothing fires. | [assignments-screen.tsx:29-50](apps/www/src/features/student/assignments-screen.tsx:29); `grep -E '^model .*(assign\|submis\|homework\|quiz)'` → none |
-| Reviews | **PARTIAL** [chain] | Create/list/eligible; recomputes teacher rating; awards points | `@@unique([studentId, teacherId])` makes the declared `lessonId` (per-lesson ratings, a PRD feature) unusable, and it is never written | [reviews.ts:65-73](apps/www/src/lib/services/reviews/reviews.ts:65); [schema.prisma:1378,1384](packages/database/prisma/schema.prisma:1378) |
-| Notifications | **PARTIAL** [chain] | In-app rows are real; a complete 32-type channel matrix; web push is configured and fires | FCM inert, SMS unimplemented — see §2.4. `lesson_reminder` only fires from the unscheduled cron. | [notify.ts:30-73](packages/server-core/src/services/notifications/notify.ts:30) |
-| Wallet | **COMPLETE** [chain] | Top-up (online/cash), pay-from-wallet all-or-nothing, history, refund-to-wallet; balance ledger-derived, H2 non-negative floor | Online top-up inherits the gateway stub | [wallet.ts](packages/server-core/src/services/wallet/wallet.ts); proofs `tests/db/wallet.test.ts`, `wallet-no-cap.test.ts` |
-| Invoicing | **PARTIAL** [chain] | `payments/[id]/receipt` exists | A student never sees a statement; invoice generation is superadmin-side and the email leg misreports success (§2.5) | [payments/[id]/receipt/route.ts](apps/www/src/app/api/v1/payments/[id]/receipt/route.ts) |
+| Enrolment | **COMPLETE** [surface] | `enrollment-requests` create → approve/decline, real persistence both sides | — | [enrollment-requests/[id]/approve/route.ts](../../apps/erp/src/app/api/v1/enrollment-requests/[id]/approve/route.ts) |
+| **Payment (online)** | **STUBBED** | Everything from the intent row inward is real and good: server-side amount, idempotency key, M1 atomic claim+settle, `failed`/`paid` states, ledger + points + notification | The gateway conversation does not exist. In `mock` the money is fake; in `sandbox`/`live` `createCheckout` throws. There is no working real-money path. | [payment-intents.ts:224-280](../../apps/erp/src/lib/services/payments/payment-intents.ts:224) vs [paymob-driver.ts:58](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:58) |
+| Payment (cash at center) | **COMPLETE** [chain] | Counter records it; mirrored to the `Transaction` ledger in the same tx as the `Payment` row (Step 4 reconciliation) | Pre-Step-4 cash history is not ledger-mirrored (documented, forward-only) | [counterCheckin](../../packages/server-core/src/services/attendance/checkin.ts:169); `center/wallet-topup`, `center/subscriptions` |
+| Subscription | **COMPLETE** [chain] | MONTHLY + PER_SESSION; subscription wraps enrolment; coverage checked against the session's date window, so a stale `status` cannot grant access | `expire-subscriptions` never runs, so `status` drifts stale (reporting only, not access) | [coverage.ts:21-37](../../packages/server-core/src/services/subscriptions/coverage.ts:21) |
+| Attendance | **COMPLETE** [chain] | counter/door stage model, mode-derived status, `counter_only` distinct and excluded from distribution | — | [checkin.ts:169-240](../../packages/server-core/src/services/attendance/checkin.ts:169) |
+| Messaging | **COMPLETE** [chain] | Direct student→teacher per the current matrix; gate order matrix → EDGES → guardian → block → rate-limit; `ChatLimiter` is a required param so a transport cannot forget it | — | [chat-scope.ts:928-937](../../packages/database/src/queries/chat-scope.ts:928) |
+| Materials | **COMPLETE** [surface] | Full CRUD + signed download URL + `%PDF-` magic-byte check | — | [materials.ts:25,82-355](../../apps/erp/src/lib/services/materials/materials.ts:25) |
+| Grades | **COMPLETE** [surface] | create/list/get/update/delete + `bulkUpsertScores` | — | [grades.ts:45-208](../../apps/erp/src/lib/services/grades/grades.ts:45) |
+| **Assignments** | **MISSING** | Nothing. There is no `Assignment`, `Submission`, `Homework` or `Quiz` model among the 67. The screen reskins `grades` records — anything without a score is labelled "pending" and a "completion %" is computed from that. | No due dates, no submission, no upload, no teacher-side creation. `homework_deadline` is a declared notification type that nothing fires. | `assignments-screen.tsx:29-50`; `grep -E '^model .*(assign\|submis\|homework\|quiz)'` → none |
+| Reviews | **PARTIAL** [chain] | Create/list/eligible; recomputes teacher rating; awards points | `@@unique([studentId, teacherId])` makes the declared `lessonId` (per-lesson ratings, a PRD feature) unusable, and it is never written | [reviews.ts:65-73](../../apps/erp/src/lib/services/reviews/reviews.ts:65); [schema.prisma:1378,1384](../../packages/database/prisma/schema.prisma:1378) |
+| Notifications | **PARTIAL** [chain] | In-app rows are real; a complete 32-type channel matrix; web push is configured and fires | FCM inert, SMS unimplemented — see §2.4. `lesson_reminder` only fires from the unscheduled cron. | [notify.ts:30-73](../../packages/server-core/src/services/notifications/notify.ts:30) |
+| Wallet | **COMPLETE** [chain] | Top-up (online/cash), pay-from-wallet all-or-nothing, history, refund-to-wallet; balance ledger-derived, H2 non-negative floor | Online top-up inherits the gateway stub | [wallet.ts](../../packages/server-core/src/services/wallet/wallet.ts); proofs `tests/db/wallet.test.ts`, `wallet-no-cap.test.ts` |
+| Invoicing | **PARTIAL** [chain] | `payments/[id]/receipt` exists | A student never sees a statement; invoice generation is superadmin-side and the email leg misreports success (§2.5) | [payments/[id]/receipt/route.ts](../../apps/erp/src/app/api/v1/payments/[id]/receipt/route.ts) |
 
 ### 1.2 Parent
 
@@ -209,16 +209,16 @@ Overall: **the weakest role, and the gap is structural, not cosmetic.** Oversigh
 
 | Journey | Grade | What actually works | What's missing / broken | Evidence |
 |---|---|---|---|---|
-| Registration | **COMPLETE** [chain] | `auth/register/parent` → `registerParent()` | — | [register/parent/route.ts:22](apps/www/src/app/api/v1/auth/register/parent/route.ts:22) |
-| Child linking | **COMPLETE** [surface] | `parent-links` create → approve/reject, either side; `me/children` | — | [parent-links/[id]/approve/route.ts](apps/www/src/app/api/v1/parent-links/[id]/approve/route.ts) |
+| Registration | **COMPLETE** [chain] | `auth/register/parent` → `registerParent()` | — | [register/parent/route.ts:22](../../apps/erp/src/app/api/v1/auth/register/parent/route.ts:22) |
+| Child linking | **COMPLETE** [surface] | `parent-links` create → approve/reject, either side; `me/children` | — | [parent-links/[id]/approve/route.ts](../../apps/erp/src/app/api/v1/parent-links/[id]/approve/route.ts) |
 | Login + routing | **COMPLETE** [chain] | Same shared path as student | — | — |
 | Discovery / enrolment | **MISSING** | — | A parent has no enrolment path. Only nine parent-callable endpoints exist, all oversight/linking. | `grep 'requireRole("parent"' apps/www/src/app/api` → 9 hits, none transactional |
-| **Payment** | **MISSING** | — | **Both payment entry points are `requireRole("student")` only.** A parent cannot pay for their child, online or from a wallet. For a K-12 product in Egypt — where the parent holds the money and the phone — this is the single largest journey gap in the product. | [subscriptions/checkout/route.ts:31](apps/www/src/app/api/v1/subscriptions/checkout/route.ts:31); [payments/initiate/route.ts:24](apps/www/src/app/api/v1/payments/initiate/route.ts:24) |
+| **Payment** | **MISSING** | — | **Both payment entry points are `requireRole("student")` only.** A parent cannot pay for their child, online or from a wallet. For a K-12 product in Egypt — where the parent holds the money and the phone — this is the single largest journey gap in the product. | [subscriptions/checkout/route.ts:31](../../apps/erp/src/app/api/v1/subscriptions/checkout/route.ts:31); [payments/initiate/route.ts:24](../../apps/erp/src/app/api/v1/payments/initiate/route.ts:24) |
 | Attendance view | **COMPLETE** [surface] | `dashboard/parent/attendance` | — | — |
 | Progress | **PARTIAL** [surface] | `dashboard/parent/progress` reads real analytics contracts | Nav label untranslated (§2.7) | `analytics/contracts.ts` |
-| Fees view | **PARTIAL** [chain] | `parent-fees-screen` reads the `payments` resource | Read-only. There is no "pay this" action, because there is no endpoint for one. | [parent-fees-screen.tsx:41](apps/www/src/features/parent/parent-fees-screen.tsx:41) |
-| **Messaging oversight** | **COMPLETE** [chain] | Strictly read-only; never touches unread counters or read receipts; only MINOR children with an APPROVED link; only threads with ADULTS; persistent disclosure banner to both sides | — | [parent/oversight/*](apps/www/src/app/api/v1/parent/oversight); `chat-oversight.ts`; proof `messaging-scope.test.ts` |
-| Messaging (own) | **COMPLETE** [chain] | Direct parent↔teacher; `parent` is deliberately **not** an adult role, so the guardian lock never cuts a child off from their guardian | — | [chat-guardian.ts](packages/database/src/queries/chat-guardian.ts) header + `ADULT_ROLES` |
+| Fees view | **PARTIAL** [chain] | `parent-fees-screen` reads the `payments` resource | Read-only. There is no "pay this" action, because there is no endpoint for one. | [parent-fees-screen.tsx:41](../../apps/erp/src/features/parent/parent-fees-screen.tsx:41) |
+| **Messaging oversight** | **COMPLETE** [chain] | Strictly read-only; never touches unread counters or read receipts; only MINOR children with an APPROVED link; only threads with ADULTS; persistent disclosure banner to both sides | — | [parent/oversight/*](../../apps/erp/src/app/api/v1/parent/oversight); `chat-oversight.ts`; proof `messaging-scope.test.ts` |
+| Messaging (own) | **COMPLETE** [chain] | Direct parent↔teacher; `parent` is deliberately **not** an adult role, so the guardian lock never cuts a child off from their guardian | — | [chat-guardian.ts](../../packages/database/src/queries/chat-guardian.ts) header + `ADULT_ROLES` |
 | Notifications | **PARTIAL** | Same as student | Same channel gaps | — |
 | Wallet / payouts | **MISSING** | — | No parent wallet. Reasonable by design, but it means the parent cannot fund anything. | — |
 | Invoicing | **MISSING** | — | No parent-facing invoice or statement | — |
@@ -231,17 +231,17 @@ Overall: strong and broad. The money side is the best-proven part of the codebas
 |---|---|---|---|
 | Registration + onboarding | **COMPLETE** [chain] | `registerTeacher()`; subject/grade-level selection through the real catalog; photo via Cloudinary | `register/teacher`, `TeacherSubject`/`TeacherGradeLevel` |
 | Login + routing | **COMPLETE** [chain] | — | — |
-| Course + schedule creation | **COMPLETE** [surface] | `session-generator` + `conflict-detector` in the shared kernel | [sessions/session-generator.ts](packages/server-core/src/services/sessions/session-generator.ts) |
-| Collaboration with centers | **COMPLETE** [chain] | create/list/accept/reject/cancel/expire; acceptance creates class+schedule in one tx with proven conflict rollback; carries `proposedCenterShare` | [collaboration.ts:59-598](packages/server-core/src/services/collaboration/collaboration.ts:59) |
-| Attendance + door | **COMPLETE** [chain] | Both modes; `attendance-mode` setting; offline outbox sync with server-wins conflict resolution preserving `localTimestamp` | [checkin.ts](packages/server-core/src/services/attendance/checkin.ts); [sync.ts:23](apps/www/src/lib/services/attendance/sync.ts:23); proof `offline-sync.test.ts` |
-| Grades / gradebook | **COMPLETE** [surface] | — | [grades.ts](apps/www/src/lib/services/grades/grades.ts) |
-| Materials | **COMPLETE** [surface] | — | [materials.ts](apps/www/src/lib/services/materials/materials.ts) |
-| **Assignments** | **MISSING** | `/dashboard/teacher/assignments` renders **the same `TeacherGradebookScreen`** as `/dashboard/teacher/grades`. Two nav entries, one component, no distinct feature. | [teacher/assignments/page.tsx](apps/www/src/app/[locale]/dashboard/teacher/assignments/page.tsx) vs [teacher/grades/page.tsx](apps/www/src/app/[locale]/dashboard/teacher/grades/page.tsx) |
+| Course + schedule creation | **COMPLETE** [surface] | `session-generator` + `conflict-detector` in the shared kernel | [sessions/session-generator.ts](../../packages/server-core/src/services/sessions/session-generator.ts) |
+| Collaboration with centers | **COMPLETE** [chain] | create/list/accept/reject/cancel/expire; acceptance creates class+schedule in one tx with proven conflict rollback; carries `proposedCenterShare` | [collaboration.ts:59-598](../../packages/server-core/src/services/collaboration/collaboration.ts:59) |
+| Attendance + door | **COMPLETE** [chain] | Both modes; `attendance-mode` setting; offline outbox sync with server-wins conflict resolution preserving `localTimestamp` | [checkin.ts](../../packages/server-core/src/services/attendance/checkin.ts); [sync.ts:23](../../apps/erp/src/lib/services/attendance/sync.ts:23); proof `offline-sync.test.ts` |
+| Grades / gradebook | **COMPLETE** [surface] | — | [grades.ts](../../apps/erp/src/lib/services/grades/grades.ts) |
+| Materials | **COMPLETE** [surface] | — | [materials.ts](../../apps/erp/src/lib/services/materials/materials.ts) |
+| **Assignments** | **MISSING** | `/dashboard/teacher/assignments` renders **the same `TeacherGradebookScreen`** as `/dashboard/teacher/grades`. Two nav entries, one component, no distinct feature. | `teacher/assignments/page.tsx` vs [teacher/grades/page.tsx](../../apps/erp/src/app/[locale]/dashboard/teacher/grades/page.tsx) |
 | Messaging | **COMPLETE** [chain] | Direct to students/parents; guardian gate applies | `chat-scope.ts` |
 | Wallet + payouts | **COMPLETE** [chain] | Ledger-derived balance; `SELECT … FOR UPDATE` on the beneficiary (H1); conditional decrement + DB `CHECK (wallet_balance >= 0)` (H2) | proofs `h1-payout-race.test.ts`, `h2-payout-floor.test.ts` |
-| Money engine | **COMPLETE** [chain] | Exactly-once `distributedAt` claim; commission chain global→center→teacher→room; Method 2 per-attending-student share; `session_settlements` witness | [distribution.ts:49-51,185](packages/server-core/src/services/finance/distribution.ts:49); proofs `room-pricing-methods.test.ts` (47), `money-distribution.test.ts` |
+| Money engine | **COMPLETE** [chain] | Exactly-once `distributedAt` claim; commission chain global→center→teacher→room; Method 2 per-attending-student share; `session_settlements` witness | [distribution.ts:49-51,185](../../packages/server-core/src/services/finance/distribution.ts:49); proofs `room-pricing-methods.test.ts` (47), `money-distribution.test.ts` |
 | Payout settlement to a bank | **MISSING** | Payouts are a ledger + approval workflow only. There is no disbursement integration — a human moves the money out of band. | `finance/payouts/*` |
-| Invoicing | **PARTIAL** | `teacher_statement` invoices generate | Only from the unscheduled month-end cron, and the email leg misreports (§2.5) | [cron/jobs.ts:16-75](apps/www/src/lib/services/cron/jobs.ts:16) |
+| Invoicing | **PARTIAL** | `teacher_statement` invoices generate | Only from the unscheduled month-end cron, and the email leg misreports (§2.5) | [cron/jobs.ts:16-75](../../apps/erp/src/lib/services/cron/jobs.ts:16) |
 | Team / assistants | **COMPLETE** [surface] | Invite → shell account → claim; partial unique enforces one-teacher-per-assistant | `teacher/assistants/*` |
 
 ### 1.4 Assistant
@@ -250,12 +250,12 @@ Overall: real, and correctly built as delegation rather than a parallel app. Scr
 
 | Journey | Grade | Notes | Evidence |
 |---|---|---|---|
-| Invite → claim → password | **COMPLETE** [chain] | Creator no longer types a password; account created `shell` + `passwordHash: NULL`; invitee sets their own once; re-inviting a claimed account is refused | [invite-token.ts](packages/server-core/src/services/invites/invite-token.ts); `me/credentials` |
+| Invite → claim → password | **COMPLETE** [chain] | Creator no longer types a password; account created `shell` + `passwordHash: NULL`; invitee sets their own once; re-inviting a claimed account is refused | [invite-token.ts](../../packages/server-core/src/services/invites/invite-token.ts); `me/credentials` |
 | Login + routing | **COMPLETE** [chain] | — | — |
-| Delegated actions | **COMPLETE** [chain] | `acting-teacher.ts` is default-closed; wallet/payouts/financial settings and managing other assistants excluded; every action audited as "assistant X on behalf of teacher Y" via `on_behalf_of` | [authz/acting-teacher.ts](packages/server-core/src/authz/acting-teacher.ts) |
+| Delegated actions | **COMPLETE** [chain] | `acting-teacher.ts` is default-closed; wallet/payouts/financial settings and managing other assistants excluded; every action audited as "assistant X on behalf of teacher Y" via `on_behalf_of` | [authz/acting-teacher.ts](../../packages/server-core/src/authz/acting-teacher.ts) |
 | Attendance / door / grades / materials / collaborations | **COMPLETE** [surface] | Reuse the teacher screens under the delegation guard — correct, not lazy | `dashboard/assistant/*` pages import teacher features |
 | Messaging | **COMPLETE** [chain] | Assistant messages **as themselves**, scoped by their principal. No impersonation — deliberate, so an adult never talks to a minor behind another identity. | `chat-scope.ts` EDGES |
-| Nav i18n | **PARTIAL** | "My Centers" and "My Classes" fall through to raw English (§2.7) | [assistant/layout.tsx](apps/www/src/app/[locale]/dashboard/assistant/layout.tsx) |
+| Nav i18n | **PARTIAL** | "My Centers" and "My Classes" fall through to raw English (§2.7) | [assistant/layout.tsx](../../apps/erp/src/app/[locale]/dashboard/assistant/layout.tsx) |
 
 ### 1.5 Center admin (`center_admin`, routes `dashboard/admin/*`)
 
@@ -263,23 +263,23 @@ Overall: broad and real. This is the operational heart of the product and it is 
 
 | Journey | Grade | Notes | Evidence |
 |---|---|---|---|
-| Registration + onboarding | **COMPLETE** [chain] | `registerCenter()`; geocode persisted; `shortId` issued | [register/center/route.ts:42-62](apps/www/src/app/api/v1/auth/register/center/route.ts:42) |
-| Rooms | **COMPLETE** [surface] | Profile, photos (magic-byte checked), per-room pricing + 3-way split with snapshot-on-create | [rooms.ts:52](apps/www/src/lib/services/rooms/rooms.ts:52); proof `room-revenue-split.test.ts` |
-| **Walk-in registration** | **COMPLETE** [chain] | Creates the student account, captures guardian email-or-phone, never blocks on either, mints a single-use claim link, returns a copyable fallback, sets `guardian_contact_due_at`, flags `guardianEmailRequired` | [walk-in.ts:162-358](packages/server-core/src/services/walk-in/walk-in.ts:162) |
+| Registration + onboarding | **COMPLETE** [chain] | `registerCenter()`; geocode persisted; `shortId` issued | [register/center/route.ts:42-62](../../apps/erp/src/app/api/v1/auth/register/center/route.ts:42) |
+| Rooms | **COMPLETE** [surface] | Profile, photos (magic-byte checked), per-room pricing + 3-way split with snapshot-on-create | [rooms.ts:52](../../apps/erp/src/lib/services/rooms/rooms.ts:52); proof `room-revenue-split.test.ts` |
+| **Walk-in registration** | **COMPLETE** [chain] | Creates the student account, captures guardian email-or-phone, never blocks on either, mints a single-use claim link, returns a copyable fallback, sets `guardian_contact_due_at`, flags `guardianEmailRequired` | [walk-in.ts:162-358](../../packages/server-core/src/services/walk-in/walk-in.ts:162) |
 | Roster / students / teachers / classes | **COMPLETE** [surface] | Full CRUD + lookup | `roster/*`, `center/students`, `centers/me/*` |
 | Enrollment requests | **COMPLETE** [surface] | — | `enrollment-requests/*` |
-| Cash at counter + check-in | **COMPLETE** [chain] | `counterCheckin` returns a structured `needs_payment` error carrying `pricePerSession` and `courseTitle`, so the UI chains straight into payment. Two calls, one counter workflow — the Egyptian center pattern, correctly modelled. | [checkin.ts:195-205](packages/server-core/src/services/attendance/checkin.ts:195) |
-| Counter check-in (lookup/suggest) | **COMPLETE** [chain] | Manual Student ID entry + session suggestion | [checkin.ts:37,102](packages/server-core/src/services/attendance/checkin.ts:37) |
+| Cash at counter + check-in | **COMPLETE** [chain] | `counterCheckin` returns a structured `needs_payment` error carrying `pricePerSession` and `courseTitle`, so the UI chains straight into payment. Two calls, one counter workflow — the Egyptian center pattern, correctly modelled. | [checkin.ts:195-205](../../packages/server-core/src/services/attendance/checkin.ts:195) |
+| Counter check-in (lookup/suggest) | **COMPLETE** [chain] | Manual Student ID entry + session suggestion | [checkin.ts:37,102](../../packages/server-core/src/services/attendance/checkin.ts:37) |
 | Collaboration (inbound) | **COMPLETE** [chain] | — | `collaboration.ts` |
 | Wallet + payout request | **COMPLETE** [chain] | H1/H2 protections apply | `center/wallet/*` |
-| Reports | **COMPLETE** [chain] | 977-line service, real Prisma aggregates, `centerStaff`/`MANAGER`/`ACCOUNTANT` authz per report | [reports.ts](packages/server-core/src/services/reports/reports.ts); `api/v1/reports/*` (8 endpoints) |
-| Expenses | **COMPLETE** [surface] | Full CRUD | [expenses.ts:16-88](packages/server-core/src/services/expenses/expenses.ts:16) |
-| Blacklist | **COMPLETE** [chain] | 3-level; reason required; `blacklist_cascade_actions` journals each withdrawal and restore replays it | [blacklist.ts:285-422](packages/server-core/src/services/blacklist/blacklist.ts:285); proof `h04-blacklist-cascade-reversal.test.ts` (44) |
-| Staff management | **COMPLETE** [chain] | Invite/claim, preset sub-roles, default-closed exclusions | [center/staff.ts:56-382](packages/server-core/src/services/center/staff.ts:56); proof `center-staff-delegation.test.ts` (55) |
-| Broadcast notifications | **COMPLETE** [surface] | `requireRole("center_admin")` → course-scoped fanout | [notifications/broadcast/route.ts:22-34](apps/www/src/app/api/v1/notifications/broadcast/route.ts:22) |
-| Deletion requests | **COMPLETE** [surface] | list/approve/reject | [deletion-requests.ts:21-72](packages/server-core/src/services/center/deletion-requests.ts:21) |
+| Reports | **COMPLETE** [chain] | 977-line service, real Prisma aggregates, `centerStaff`/`MANAGER`/`ACCOUNTANT` authz per report | [reports.ts](../../packages/server-core/src/services/reports/reports.ts); `api/v1/reports/*` (8 endpoints) |
+| Expenses | **COMPLETE** [surface] | Full CRUD | [expenses.ts:16-88](../../packages/server-core/src/services/expenses/expenses.ts:16) |
+| Blacklist | **COMPLETE** [chain] | 3-level; reason required; `blacklist_cascade_actions` journals each withdrawal and restore replays it | [blacklist.ts:285-422](../../packages/server-core/src/services/blacklist/blacklist.ts:285); proof `h04-blacklist-cascade-reversal.test.ts` (44) |
+| Staff management | **COMPLETE** [chain] | Invite/claim, preset sub-roles, default-closed exclusions | [center/staff.ts:56-382](../../packages/server-core/src/services/center/staff.ts:56); proof `center-staff-delegation.test.ts` (55) |
+| Broadcast notifications | **COMPLETE** [surface] | `requireRole("center_admin")` → course-scoped fanout | [notifications/broadcast/route.ts:22-34](../../apps/erp/src/app/api/v1/notifications/broadcast/route.ts:22) |
+| Deletion requests | **COMPLETE** [surface] | list/approve/reject | [deletion-requests.ts:21-72](../../packages/server-core/src/services/center/deletion-requests.ts:21) |
 | Settings | **PARTIAL** [surface] | Attendance mode, profile fields persist | Not chain-traced field by field; revenue split is deliberately **not** editable here |
-| Nav i18n | **PARTIAL** | "Requests" untranslated | [admin/layout.tsx](apps/www/src/app/[locale]/dashboard/admin/layout.tsx) |
+| Nav i18n | **PARTIAL** | "Requests" untranslated | [admin/layout.tsx](../../apps/erp/src/app/[locale]/dashboard/admin/layout.tsx) |
 
 ### 1.6 Center staff (`center_staff`, routes `dashboard/staff/*`)
 
@@ -288,7 +288,7 @@ Overall: a real mirror of the assistant pattern, correctly scoped by sub-role.
 | Journey | Grade | Notes | Evidence |
 |---|---|---|---|
 | Invite → claim | **COMPLETE** [chain] | `center_staff_invite` purpose; shell account; set-once password; audited as `center_staff.invited` | `invite-token.ts`, `center/staff.ts` |
-| Sub-role scoping | **COMPLETE** [chain] | `receptionist` / `manager` / `center_accountant` via one `center-actor.ts`; default-closed | [authz/center-scope.ts](packages/server-core/src/authz/center-scope.ts); proof `center-staff-delegation.test.ts` (55) |
+| Sub-role scoping | **COMPLETE** [chain] | `receptionist` / `manager` / `center_accountant` via one `center-actor.ts`; default-closed | [authz/center-scope.ts](../../packages/server-core/src/authz/center-scope.ts); proof `center-staff-delegation.test.ts` (55) |
 | Check-in | **COMPLETE** [chain] | Same `counterCheckin` | — |
 | Students / rooms / reports / finance | **COMPLETE** [surface] | Sub-role gated | `dashboard/staff/*` |
 | Messaging | **COMPLETE** [chain] | receptionist → families; manager → whole center scope; **`center_accountant` reaches nobody** (that tier appears on no edge) | `chat-scope.ts` EDGES |
@@ -301,22 +301,22 @@ Overall: real, and the read/write boundary is genuinely enforced — but decisio
 | Journey | Grade | Notes | Evidence |
 |---|---|---|---|
 | Login boundary | **COMPLETE** [chain] | `authorize()` accepts only `super_admin` + `accountant`; separate cookie names | proof `c04-login-boundary.test.ts` |
-| **Accountant restriction (API layer, not nav)** | **COMPLETE** [chain] | `requireRole` gives `super_admin` a blanket bypass, then allow-lists. Every `admin/*` route names `"super_admin"` only, so an accountant is refused at the handler. The five routes with no `requireRole` are NextAuth, `me`, and three own-notification endpoints — session-only by design. | [require-role.ts:5-14](apps/superadmin/src/lib/authz/require-role.ts:5); route sweep |
+| **Accountant restriction (API layer, not nav)** | **COMPLETE** [chain] | `requireRole` gives `super_admin` a blanket bypass, then allow-lists. Every `admin/*` route names `"super_admin"` only, so an accountant is refused at the handler. The five routes with no `requireRole` are NextAuth, `me`, and three own-notification endpoints — session-only by design. | [require-role.ts:5-14](../../apps/superadmin/src/lib/authz/require-role.ts:5); route sweep |
 | **Generic auto-CRUD for every entity** | **PARTIAL** | Route groups are targeted, not generic: `admin/centers` (85), `admin/catalog` (17), `teachers` (7), `messaging` (6), `students` (5), `points` (4), `platform` (3), `collaboration-requests` (3), `users` (2), `subscriptions` (2), `revenue-split` (2), `payment-intents` (2), `blacklist` (2), `audit-logs` (2). Rich for the entities that matter; **not** "every entity in the database" as decision #10 specified. | route inventory |
-| Dashboard counters | **PARTIAL** [chain] | Real aggregates over real tables | Two defects: `platformKpis()` counts students/parents **without** `deletedAt: null` while `userGrowthChart` filters it — so the headline user count includes soft-deleted rows; and there is **no active-subscriptions counter**, which decision #10 required. | [platform-dashboard.ts:17](apps/superadmin/src/lib/services/admin/platform-dashboard.ts:17) vs [:65](apps/superadmin/src/lib/services/admin/platform-dashboard.ts:65) |
-| Center oversight (read) | **COMPLETE** [chain] | Zero mutation verbs in the file; imports nothing that writes | [center-oversight.ts](apps/superadmin/src/lib/services/admin/center-oversight.ts) — `grep` for `.create(`/`.update(`/`.delete(` returns nothing |
-| Center control (six ops) | **COMPLETE** [chain] | Mutation + one `audit_logs` row in the same `platformDb` transaction; import list contains no money service | [center-control.ts:1-40](apps/superadmin/src/lib/services/admin/center-control.ts:1) |
-| Money read-only for superadmin | **COMPLETE in dev · ABSENT in prod config** [chain] — see **Finding 0** | The mechanism is real and fully implemented, but production connects as `neondb_owner` (BYPASSRLS), which makes all 56 RLS policies and every money REVOKE inert. Real DB `REVOKE`s, not a convention: `UPDATE, DELETE` revoked on `transactions`, `points_ledger`, `audit_logs`, `session_settlements`; `DELETE` revoked on `invoices`, `payouts`, `blacklist_cascade_actions`. Both apps connect as the same `edura_app` role. | [00000000000003_…/migration.sql:83-89](packages/database/prisma/migrations/00000000000003_integrity_sequences_indexes/migration.sql:83); [20260722100100_session_settlements/migration.sql:50](packages/database/prisma/migrations/20260722100100_session_settlements/migration.sql:50) |
-| — `wallet_ledger` exception | **PARTIAL** | Honestly documented, not hidden: `GRANT SELECT, INSERT, UPDATE, DELETE ON wallet_ledger` with **no** REVOKE. Immutability there is runtime-only (`immutableExtension`), so the guarantee is weaker than for the other ledgers. | [20260722000100_student_wallet/migration.sql:41,73](packages/database/prisma/migrations/20260722000100_student_wallet/migration.sql:41) |
+| Dashboard counters | **PARTIAL** [chain] | Real aggregates over real tables | Two defects: `platformKpis()` counts students/parents **without** `deletedAt: null` while `userGrowthChart` filters it — so the headline user count includes soft-deleted rows; and there is **no active-subscriptions counter**, which decision #10 required. | [platform-dashboard.ts:17](../../apps/superadmin/src/lib/services/admin/platform-dashboard.ts:17) vs [:65](../../apps/superadmin/src/lib/services/admin/platform-dashboard.ts:65) |
+| Center oversight (read) | **COMPLETE** [chain] | Zero mutation verbs in the file; imports nothing that writes | [center-oversight.ts](../../apps/superadmin/src/lib/services/admin/center-oversight.ts) — `grep` for `.create(`/`.update(`/`.delete(` returns nothing |
+| Center control (six ops) | **COMPLETE** [chain] | Mutation + one `audit_logs` row in the same `platformDb` transaction; import list contains no money service | [center-control.ts:1-40](../../apps/superadmin/src/lib/services/admin/center-control.ts:1) |
+| Money read-only for superadmin | **COMPLETE in dev · ABSENT in prod config** [chain] — see **Finding 0** | The mechanism is real and fully implemented, but production connects as `neondb_owner` (BYPASSRLS), which makes all 56 RLS policies and every money REVOKE inert. Real DB `REVOKE`s, not a convention: `UPDATE, DELETE` revoked on `transactions`, `points_ledger`, `audit_logs`, `session_settlements`; `DELETE` revoked on `invoices`, `payouts`, `blacklist_cascade_actions`. Both apps connect as the same `edura_app` role. | [00000000000003_…/migration.sql:83-89](../../packages/database/prisma/migrations/00000000000003_integrity_sequences_indexes/migration.sql:83); [20260722100100_session_settlements/migration.sql:50](../../packages/database/prisma/migrations/20260722100100_session_settlements/migration.sql:50) |
+| — `wallet_ledger` exception | **PARTIAL** | Honestly documented, not hidden: `GRANT SELECT, INSERT, UPDATE, DELETE ON wallet_ledger` with **no** REVOKE. Immutability there is runtime-only (`immutableExtension`), so the guarantee is weaker than for the other ledgers. | [20260722000100_student_wallet/migration.sql:41,73](../../packages/database/prisma/migrations/20260722000100_student_wallet/migration.sql:41) |
 | Audit-log viewer | **COMPLETE** [surface] | `/dashboard/superadmin/audit` + per-center Audit tab; opening a thread writes `messaging.thread_viewed` | `admin/audit-logs/*` |
 | Finance (payouts) | **COMPLETE** [chain] | generate/approve/reject/settle/bulk-approve/receipt | proofs `c02-payout-generation.test.ts`, `h2-payout-floor.test.ts` |
-| Finance (invoices) | **PARTIAL** [chain] | list/get/PDF are real | `sendInvoiceEmail` **hardcodes `{sent:true}`** and ignores the mail result — see §2.5 | [invoices.ts:132-146](packages/server-core/src/services/finance/invoices.ts:132) |
+| Finance (invoices) | **PARTIAL** [chain] | list/get/PDF are real | `sendInvoiceEmail` **hardcodes `{sent:true}`** and ignores the mail result — see §2.5 | [invoices.ts:132-146](../../packages/server-core/src/services/finance/invoices.ts:132) |
 | Refunds | **COMPLETE** [chain] | Ledger refund with a partial unique preventing double-refund | proofs `refund.test.ts`, `h3-refund-race.test.ts`; **no gateway-side refund** (§2.2) |
 | Commission / wallet settings | **COMPLETE** [surface] | Global row + resolve chain | proofs `commission-audit.test.ts`, `wallet-settings-admin.test.ts` |
 | Messaging oversight | **COMPLETE** [surface] | Log search, read-only thread viewer, reports queue, blocks | `admin/messaging/*` (6 routes) |
 | Catalog admin | **COMPLETE** [surface] | 17 routes over systems/stages/grades/tracks/subjects/offerings | `admin/catalog/*` |
-| **Cron surface** | **STUBBED** | Six jobs, correctly auth'd (`CRON_SECRET` required in every env, no bypass; POST-only, GET alias removed) — and **nothing invokes them** | [cron/[job]/route.ts](apps/www/src/app/api/v1/cron/[job]/route.ts); proof `m7-cron-auth.test.ts` |
-| Production config | **MISSING** | `.env.production` holds 3 keys — see finding #6. The M2/C1 fail-closed checks would refuse to serve. | [apps/superadmin/.env.production](apps/superadmin/.env.production) |
+| **Cron surface** | **STUBBED** | Six jobs, correctly auth'd (`CRON_SECRET` required in every env, no bypass; POST-only, GET alias removed) — and **nothing invokes them** | [cron/[job]/route.ts](../../apps/erp/src/app/api/v1/cron/[job]/route.ts); proof `m7-cron-auth.test.ts` |
+| Production config | **MISSING** | `.env.production` holds 3 keys — see finding #6. The M2/C1 fail-closed checks would refuse to serve. | `apps/superadmin/.env.production` |
 | Nav i18n | **PARTIAL** | 5 labels raw English: Collaborations, Commission, Messaging, Payments, Subscriptions | §2.7 |
 
 ### 1.8 What this section does not cover
@@ -356,7 +356,7 @@ Named so the confidence is legible:
 
 **Upstream of the seam is fake. Downstream of the seam is production-grade.** That asymmetry is the single most important fact about this codebase's payment readiness: the hard, dangerous part (money settling correctly, exactly once, atomically, idempotently) is built and proven. The part that is missing is the vendor conversation.
 
-`resolveDriver()` — [gateway/index.ts:16](apps/www/src/lib/services/payments/gateway/index.ts:16):
+`resolveDriver()` — [gateway/index.ts:16](../../apps/erp/src/lib/services/payments/gateway/index.ts:16):
 
 ```ts
 return paymentsMode() === "mock" ? mockDriver : paymobDriver;
@@ -371,9 +371,9 @@ return paymentsMode() === "mock" ? mockDriver : paymobDriver;
 | Looked for | Result |
 |---|---|
 | Non-empty `PAYMOB_*` in any env file | All four empty in `apps/www/.env.local`, `apps/www/.env.production`, `apps/superadmin/.env.local`; absent from `apps/superadmin/.env.production` |
-| Any HTTP call to `accept.paymob.com` | Zero. The URLs exist only inside TODO comments at [paymob-driver.ts:30,35,42,53,55](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:30) |
+| Any HTTP call to `accept.paymob.com` | Zero. The URLs exist only inside TODO comments at [paymob-driver.ts:30,35,42,53,55](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:30) |
 | Recorded/fixture Paymob payloads in tests | None. `m1-webhook-atomicity.test.ts` uses `signMockWebhook` |
-| An HMAC implementation to compare against | None — the field order is documented in a comment ([paymob-driver.ts:67-72](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:67)) but never coded |
+| An HMAC implementation to compare against | None — the field order is documented in a comment ([paymob-driver.ts:67-72](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:67)) but never coded |
 | Docs or comments claiming a live/sandbox test | None. Every note says the opposite |
 
 `CLAUDE.md` is consistent with this: Step 3 describes "EMPTY paymob driver stub … real API deliberately not integrated."
@@ -382,16 +382,16 @@ return paymentsMode() === "mock" ? mockDriver : paymobDriver;
 
 | # | Capability | State | Evidence / consequence |
 |---|---|---|---|
-| 1 | auth-token → order → payment-key → iframe/redirect | **MISSING** | Four TODOs; `createCheckout` throws `BusinessRuleError` — [paymob-driver.ts:58](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:58) |
-| 2 | Webhook **receipt** (server POST) | **COMPLETE** as infrastructure | Route, rate-limit, raw-body capture, unknown-order 200, idempotent replay all real — [webhook/route.ts](apps/www/src/app/api/v1/payments/paymob/webhook/route.ts) |
+| 1 | auth-token → order → payment-key → iframe/redirect | **MISSING** | Four TODOs; `createCheckout` throws `BusinessRuleError` — [paymob-driver.ts:58](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:58) |
+| 2 | Webhook **receipt** (server POST) | **COMPLETE** as infrastructure | Route, rate-limit, raw-body capture, unknown-order 200, idempotent replay all real — [webhook/route.ts](../../apps/erp/src/app/api/v1/payments/paymob/webhook/route.ts) |
 | 3 | Browser **return/redirect** callback (the second, separate thing Paymob sends the user back through) | **MISSING** | No route exists. After paying, the user has nowhere to land. |
-| 4 | HMAC signature verification | **MISSING** | `verifyWebhook` returns `{valid:false, error:"not implemented"}` → in sandbox/live **every** callback 401s at [webhook/route.ts:23](apps/www/src/app/api/v1/payments/paymob/webhook/route.ts:23) |
-| 5 | Idempotency on repeated callbacks | **COMPLETE** | `updateMany where status:'pending'` takes a row lock; a concurrent second delivery blocks then sees 0 rows and no-ops — [payment-intents.ts:264](apps/www/src/lib/services/payments/payment-intents.ts:264) |
+| 4 | HMAC signature verification | **MISSING** | `verifyWebhook` returns `{valid:false, error:"not implemented"}` → in sandbox/live **every** callback 401s at [webhook/route.ts:23](../../apps/erp/src/app/api/v1/payments/paymob/webhook/route.ts:23) |
+| 5 | Idempotency on repeated callbacks | **COMPLETE** | `updateMany where status:'pending'` takes a row lock; a concurrent second delivery blocks then sees 0 rows and no-ops — [payment-intents.ts:264](../../apps/erp/src/lib/services/payments/payment-intents.ts:264) |
 | 6 | Refund — ledger | **COMPLETE** | Partial unique `transactions_one_refund_per_payment` on `(reversal_of_id) WHERE type='refund'` (H3) |
 | 7 | Refund — **at the gateway** | **MISSING** | Nothing calls Paymob to reverse a charge. A "refunded" card payment is refunded in our books only; the customer's card is never credited. **This is the most dangerous single gap** — it looks complete from the admin UI. |
 | 8 | Partial payments / installments | **MISSING** | Amount is a single server-side snapshot; no partial-capture concept |
-| 9 | Failed payments | **COMPLETE downstream, unreachable** | `processWebhookEvent` sets `status:'failed'` + `failureReason` — [payment-intents.ts:273-278](apps/www/src/lib/services/payments/payment-intents.ts:273). No real gateway can deliver that event. |
-| 10 | Abandoned payments | **STUBBED** | `expirePaymentIntents` is a correct 4-line sweeper — [payment-intents.ts:392-400](apps/www/src/lib/services/payments/payment-intents.ts:392) — **and nothing runs it.** Pending intents accumulate forever. |
+| 9 | Failed payments | **COMPLETE downstream, unreachable** | `processWebhookEvent` sets `status:'failed'` + `failureReason` — [payment-intents.ts:273-278](../../apps/erp/src/lib/services/payments/payment-intents.ts:273). No real gateway can deliver that event. |
+| 10 | Abandoned payments | **STUBBED** | `expirePaymentIntents` is a correct 4-line sweeper — [payment-intents.ts:392-400](../../apps/erp/src/lib/services/payments/payment-intents.ts:392) — **and nothing runs it.** Pending intents accumulate forever. |
 | 11 | Reconciliation (gateway ledger vs ours) | **MISSING** | No job, no report, no endpoint |
 | 12 | Disputes / chargebacks | **MISSING** | No model, no state, no path |
 | 13 | Payout/disbursement to teachers & centers | **MISSING** as an integration | Ledger + approval workflow only; a human moves money out of band |
@@ -402,10 +402,10 @@ return paymentsMode() === "mock" ? mockDriver : paymobDriver;
 ### 2.4 If we set `PAYMENTS_MODE=live` tomorrow with real credentials — what breaks, in order
 
 1. **Nothing breaks at boot.** `paymentsMode()` is called per request, not at startup, and `live` is a valid value. There is no startup validation that the four `PAYMOB_*` values are present. So the deploy looks healthy.
-2. **First checkout attempt 500s / surfaces a business error.** [paymob-driver.ts:58](apps/www/src/lib/services/payments/gateway/paymob-driver.ts:58) throws `BusinessRuleError("Paymob driver not implemented yet — run with PAYMENTS_MODE=mock for now")`. Every student hitting "pay" gets that. This is loud and immediate — the *good* failure.
+2. **First checkout attempt 500s / surfaces a business error.** [paymob-driver.ts:58](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts:58) throws `BusinessRuleError("Paymob driver not implemented yet — run with PAYMENTS_MODE=mock for now")`. Every student hitting "pay" gets that. This is loud and immediate — the *good* failure.
 3. **Wallet top-ups die the same way**, same line, via `payments/wallet-topup/initiate`.
 4. **Subscription checkout dies the same way**, via `initiateSubscriptionIntent`.
-5. **Every webhook 401s.** [webhook/route.ts:23](apps/www/src/app/api/v1/payments/paymob/webhook/route.ts:23) returns `fail(401, "invalid_signature", "Paymob driver not implemented yet…")`. Paymob will retry, then give up, and the retry exhaustion is invisible to us — there is no dead-letter, no alert.
+5. **Every webhook 401s.** [webhook/route.ts:23](../../apps/erp/src/app/api/v1/payments/paymob/webhook/route.ts:23) returns `fail(401, "invalid_signature", "Paymob driver not implemented yet…")`. Paymob will retry, then give up, and the retry exhaustion is invisible to us — there is no dead-letter, no alert.
 6. **`mock-complete` correctly 404s in production** — verified guard, `tests/unit/c1-payments-mode.test.ts`. So there is no back door.
 
 **What would break silently and cost money** — the answers that matter more than the throw:
@@ -417,7 +417,7 @@ return paymentsMode() === "mock" ? mockDriver : paymobDriver;
 
 ### 2.5 Email / SMTP — a hardcoded success return
 
-`mailProvider()` defaults to `console` when unset, and console **delivers nothing** — [mail/send.ts:22](packages/server-core/src/mail/send.ts:22). Unlike `PAYMENTS_MODE`, there is **no production fail-closed**. A prod deploy that forgets `MAIL_PROVIDER` silently sends zero email.
+`mailProvider()` defaults to `console` when unset, and console **delivers nothing** — [mail/send.ts:22](../../packages/server-core/src/mail/send.ts:22). Unlike `PAYMENTS_MODE`, there is **no production fail-closed**. A prod deploy that forgets `MAIL_PROVIDER` silently sends zero email.
 
 | App / env | `MAIL_PROVIDER` | Real delivery? |
 |---|---|---|
@@ -426,7 +426,7 @@ return paymentsMode() === "mock" ? mockDriver : paymobDriver;
 | `apps/superadmin/.env.local` | `console` | **No — silently nothing** |
 | `apps/superadmin/.env.production` | *absent* → defaults to `console` | **No — silently nothing** |
 
-And the result is not surfaced. [invoices.ts:132-146](packages/server-core/src/services/finance/invoices.ts:132):
+And the result is not surfaced. [invoices.ts:132-146](../../packages/server-core/src/services/finance/invoices.ts:132):
 
 ```ts
 await sendMail({ to: recipient.email, subject: `Your Edura invoice ${inv.invoiceNumber}`, html });
@@ -437,53 +437,53 @@ So on superadmin — the app the accountant actually uses — clicking "send inv
 
 It is swallowed twice more:
 
-- [invoices.ts:108](packages/server-core/src/services/finance/invoices.ts:108) — `await sendInvoiceEmail(invoice.id).catch(() => {})`
-- [cron/jobs.ts:56,68](apps/www/src/lib/services/cron/jobs.ts:56) — `} catch { }` around each statement, and the return counts **only successes**, so a run where every invoice failed reports `{teacherStatements: 0}` and looks like "nothing to do".
+- [invoices.ts:108](../../packages/server-core/src/services/finance/invoices.ts:108) — `await sendInvoiceEmail(invoice.id).catch(() => {})`
+- [cron/jobs.ts:56,68](../../apps/erp/src/lib/services/cron/jobs.ts:56) — `} catch { }` around each statement, and the return counts **only successes**, so a run where every invoice failed reports `{teacherStatements: 0}` and looks like "nothing to do".
 
-`notify()` also swallows every mail error, and every push error — four `.catch(() => {})` sites at [notify.ts:117,127](packages/server-core/src/services/notifications/notify.ts:117) (mail) and `:150,157` (FCM + web push). So a notification that reached nobody is indistinguishable from one that reached everybody.
+`notify()` also swallows every mail error, and every push error — four `.catch(() => {})` sites at [notify.ts:117,127](../../packages/server-core/src/services/notifications/notify.ts:117) (mail) and `:150,157` (FCM + web push). So a notification that reached nobody is indistinguishable from one that reached everybody.
 
 ### 2.6 WhatsApp — a real driver held back by credentials
 
-Unlike Paymob, **the Cloud API driver is genuinely implemented**: real `fetch` to `graph.facebook.com/{version}/{phoneId}/messages`, correct template payload shape, HTTP-error and missing-message-id handling, network-error catch — [cloud-api-driver.ts:9-64](packages/server-core/src/services/whatsapp/cloud-api-driver.ts:9). With real credentials, outbound template sends would plausibly work on the first try.
+Unlike Paymob, **the Cloud API driver is genuinely implemented**: real `fetch` to `graph.facebook.com/{version}/{phoneId}/messages`, correct template payload shape, HTTP-error and missing-message-id handling, network-error catch — [cloud-api-driver.ts:9-64](../../packages/server-core/src/services/whatsapp/cloud-api-driver.ts:9). With real credentials, outbound template sends would plausibly work on the first try.
 
 `WHATSAPP_MODE=mock`, `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_ID` empty in every env file.
 
 | Aspect | State | Evidence |
 |---|---|---|
-| Seam | `resolveWhatsAppDriver()`, one line | [whatsapp/index.ts:19](packages/server-core/src/services/whatsapp/index.ts:19) |
-| Send + log | **COMPLETE** | Row written `queued` **before** the provider call, updated with the outcome; login tokens masked in the log via `redactSecrets`; never throws on delivery failure so a registration can't roll back — [send.ts](packages/server-core/src/services/whatsapp/send.ts) |
-| Outbound templates | **COMPLETE (driver) / MISSING (catalogue)** | **Only two templates exist**: `edura_walk_in_welcome`, `edura_student_code_reminder` — [templates.ts:17,25](packages/server-core/src/services/whatsapp/templates.ts:17). Even with credentials, WhatsApp covers the walk-in invite and a code reminder. Nothing else. |
+| Seam | `resolveWhatsAppDriver()`, one line | [whatsapp/index.ts:19](../../packages/server-core/src/services/whatsapp/index.ts:19) |
+| Send + log | **COMPLETE** | Row written `queued` **before** the provider call, updated with the outcome; login tokens masked in the log via `redactSecrets`; never throws on delivery failure so a registration can't roll back — [send.ts](../../packages/server-core/src/services/whatsapp/send.ts) |
+| Outbound templates | **COMPLETE (driver) / MISSING (catalogue)** | **Only two templates exist**: `edura_walk_in_welcome`, `edura_student_code_reminder` — [templates.ts:17,25](../../packages/server-core/src/services/whatsapp/templates.ts:17). Even with credentials, WhatsApp covers the walk-in invite and a code reminder. Nothing else. |
 | Template registration/approval at Meta | **MISSING** (manual by nature) | `docs/guides/whatsapp-templates.md` prepares them; approval is out-of-band |
 | **Delivery / read status webhook** | **MISSING** | No inbound route exists anywhere. `WhatsAppMessageStatus` is `queued\|sent\|failed` — there is no `delivered`/`read` value, so status can never advance past the send call. |
 | **Inbound messages / replies** | **MISSING** | A parent replying to a WhatsApp message reaches nobody |
 | Opt-in / consent, 24-hour session window | **MISSING** | Not modelled |
 | Retry | **MISSING** | One attempt, result recorded, done |
 | Rate limits | **MISSING** | No throttle on the Meta side |
-| Egyptian phone normalization | **COMPLETE** | `normalizeEgyptPhone` handles `01…`, `1…`, `201…`, `+201…`, `00201…`, spaces and dashes — [phone.ts](packages/server-core/src/services/whatsapp/phone.ts) |
-| **Production fail-closed** | **MISSING — asymmetry with C1** | `whatsappMode()` silently returns `mock` for any unset/invalid value, in every environment — [types.ts:3-6](packages/server-core/src/services/whatsapp/types.ts:3). Payments hard-fails in prod on an ambiguous mode; WhatsApp does not. |
+| Egyptian phone normalization | **COMPLETE** | `normalizeEgyptPhone` handles `01…`, `1…`, `201…`, `+201…`, `00201…`, spaces and dashes — [phone.ts](../../packages/server-core/src/services/whatsapp/phone.ts) |
+| **Production fail-closed** | **MISSING — asymmetry with C1** | `whatsappMode()` silently returns `mock` for any unset/invalid value, in every environment — [types.ts:3-6](../../packages/server-core/src/services/whatsapp/types.ts:3). Payments hard-fails in prod on an ambiguous mode; WhatsApp does not. |
 
 **If `WHATSAPP_MODE=live` tomorrow with real credentials:** nothing throws. Sends attempt for real. First failures would be Meta rejecting the two template names if they aren't approved under exactly those names — surfaced as `status:'failed'` + `error` on the row, visible in the superadmin log. That is a good failure mode. The unfixed gaps are the missing inbound webhook (no delivery confirmation, replies lost) and the missing template catalogue.
 
-**What silently degrades today:** `INVITE_CHANNELS` defaults to `email`, so the WhatsApp leg returns `"skipped"` — deliberately distinguishable from `"failed"` — [deliver.ts:70](packages/server-core/src/services/invites/deliver.ts:70). This is handled honestly. Walk-in invites go by email; a phone-only minor gets the copyable link for in-person handover. Nothing is silently lost here.
+**What silently degrades today:** `INVITE_CHANNELS` defaults to `email`, so the WhatsApp leg returns `"skipped"` — deliberately distinguishable from `"failed"` — [deliver.ts:70](../../packages/server-core/src/services/invites/deliver.ts:70). This is handled honestly. Walk-in invites go by email; a phone-only minor gets the copyable link for in-person handover. Nothing is silently lost here.
 
 ### 2.7 Every other mock, stub, flag and hardcoded path
 
 | Feature area | Item | Kind | Standing in for | Rank | Evidence |
 |---|---|---|---|---|---|
-| payments | `mockDriver` | mock driver | the Paymob conversation | **BLOCKS-LAUNCH** | [mock-driver.ts](apps/www/src/lib/services/payments/gateway/mock-driver.ts) |
-| payments | `paymobDriver` | empty stub | the Paymob conversation | **BLOCKS-LAUNCH** | [paymob-driver.ts](apps/www/src/lib/services/payments/gateway/paymob-driver.ts) |
+| payments | `mockDriver` | mock driver | the Paymob conversation | **BLOCKS-LAUNCH** | [mock-driver.ts](../../apps/erp/src/lib/services/payments/gateway/mock-driver.ts) |
+| payments | `paymobDriver` | empty stub | the Paymob conversation | **BLOCKS-LAUNCH** | [paymob-driver.ts](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts) |
 | payments | `mock-complete` endpoint | dev-only route | a gateway callback | RISKY-BUT-SHIPPABLE (prod 404 proven) | `payments/intents/[id]/mock-complete` |
-| notifications | **`sendSms` has no implementation for any provider** — returns `{sent:false}` for `console` and warns "not implemented" for everything else | stub | an SMS gateway | **BLOCKS-LAUNCH** | [sms-channel.ts:7-19](packages/server-core/src/services/sms/sms-channel.ts:7) |
-| notifications | **`invite_code_sent` is SMS-only** — `C(false, false, false, true)`: no in-app row, no push, no email. With SMS a no-op, this notification **delivers absolutely nothing, anywhere**. | dead channel | telling a walk-in student their code | **BLOCKS-LAUNCH** | [notify.ts:60](packages/server-core/src/services/notifications/notify.ts:60) |
-| notifications | FCM: a real firebase-admin driver, inert because `FIREBASE_SERVICE_ACCOUNT_JSON` is empty — and in production it does **not even warn** (the warn is gated on `NODE_ENV !== "production"`) | real-but-inert | mobile push | RISKY-BUT-SHIPPABLE (web push covers the same matrix flag) | [fcm-channel.ts:62-66](packages/server-core/src/services/fcm/fcm-channel.ts:62) |
+| notifications | **`sendSms` has no implementation for any provider** — returns `{sent:false}` for `console` and warns "not implemented" for everything else | stub | an SMS gateway | **BLOCKS-LAUNCH** | [sms-channel.ts:7-19](../../packages/server-core/src/services/sms/sms-channel.ts:7) |
+| notifications | **`invite_code_sent` is SMS-only** — `C(false, false, false, true)`: no in-app row, no push, no email. With SMS a no-op, this notification **delivers absolutely nothing, anywhere**. | dead channel | telling a walk-in student their code | **BLOCKS-LAUNCH** | [notify.ts:60](../../packages/server-core/src/services/notifications/notify.ts:60) |
+| notifications | FCM: a real firebase-admin driver, inert because `FIREBASE_SERVICE_ACCOUNT_JSON` is empty — and in production it does **not even warn** (the warn is gated on `NODE_ENV !== "production"`) | real-but-inert | mobile push | RISKY-BUT-SHIPPABLE (web push covers the same matrix flag) | [fcm-channel.ts:62-66](../../packages/server-core/src/services/fcm/fcm-channel.ts:62) |
 | notifications | Web push: real, VAPID keys set in www, **empty in superadmin** | misconfigured | superadmin push | POST-LAUNCH | `apps/superadmin/.env.local` |
-| money / invoicing | `sendInvoiceEmail` returns hardcoded `{sent:true}` | hardcoded return | the actual delivery result | **BLOCKS-LAUNCH** | [invoices.ts:145](packages/server-core/src/services/finance/invoices.ts:145) |
+| money / invoicing | `sendInvoiceEmail` returns hardcoded `{sent:true}` | hardcoded return | the actual delivery result | **BLOCKS-LAUNCH** | [invoices.ts:145](../../packages/server-core/src/services/finance/invoices.ts:145) |
 | infra | **6 cron jobs, 0 schedulers** | unscheduled | a scheduler | **BLOCKS-LAUNCH** | §Findings #3 |
 | infra | Rate limiter falls back to in-memory when `REDIS_URL` unset | graceful degradation | shared store | POST-LAUNCH (`REDIS_URL` **is** set) | `rate-limit/token-bucket.ts` |
 | infra | `TRUSTED_CLIENT_IP_HEADER` empty, `TRUSTED_PROXY_HOPS=0` | unconfigured | real client IP behind a proxy | RISKY-BUT-SHIPPABLE — rate-limit buckets key on user id for chat, but IP-keyed limits will collapse to the proxy's IP | env |
-| superadmin | `center-platform.ts:364` — a refusal deliberately left present "so the refusal is discoverable" | intentional non-implementation | nothing | NOISE (good practice) | [center-platform.ts:364](apps/superadmin/src/lib/services/admin/center-platform.ts:364) |
-| materials & grades | **`/dashboard/teacher/assignments` and `/dashboard/assistant/grades` both render `TeacherGradebookScreen`** | route alias | an assignments feature | RISKY-BUT-SHIPPABLE (misleading nav) | [teacher/assignments/page.tsx](apps/www/src/app/[locale]/dashboard/teacher/assignments/page.tsx) |
-| i18n | **12 nav labels fall through to raw English.** `tNav()` is `NAV_KEY[label] ? t(...) : label` — an unmapped label silently renders English. www: *Child Progress, Family, Fees & Payments, My Centers, My Children, My Classes, Requests*. superadmin: *Collaborations, Commission, Messaging, Payments, Subscriptions*. **Three of the four parent nav items are affected** — on an Arabic-first product whose parent users are the least likely to read English. | silent fallback | translations | RISKY-BUT-SHIPPABLE | [dashboard-shell.tsx:208](apps/www/src/components/refine/dashboard-shell.tsx:208) (`tNav`), `NAV_KEY` at `:54` |
+| superadmin | `center-platform.ts:364` — a refusal deliberately left present "so the refusal is discoverable" | intentional non-implementation | nothing | NOISE (good practice) | [center-platform.ts:364](../../apps/superadmin/src/lib/services/admin/center-platform.ts:364) |
+| materials & grades | **`/dashboard/teacher/assignments` and `/dashboard/assistant/grades` both render `TeacherGradebookScreen`** | route alias | an assignments feature | RISKY-BUT-SHIPPABLE (misleading nav) | `teacher/assignments/page.tsx` |
+| i18n | **12 nav labels fall through to raw English.** `tNav()` is `NAV_KEY[label] ? t(...) : label` — an unmapped label silently renders English. www: *Child Progress, Family, Fees & Payments, My Centers, My Children, My Classes, Requests*. superadmin: *Collaborations, Commission, Messaging, Payments, Subscriptions*. **Three of the four parent nav items are affected** — on an Arabic-first product whose parent users are the least likely to read English. | silent fallback | translations | RISKY-BUT-SHIPPABLE | [dashboard-shell.tsx:208](../../apps/erp/src/components/refine/dashboard-shell.tsx:208) (`tNav`), `NAV_KEY` at `:54` |
 | descoped (inert by decision) | `ChatbotConfig`/`ChatbotFaq`/`ChatbotConversation` models + `BotType` enum | schema-only, no logic | the descoped AI bot | NOISE (deliberate) | schema; `CLAUDE.md` Descoped §1 |
 | descoped (inert by decision) | `PaymentMethod.online_fawry`, `EntityType.shadow` | unreachable enum values | out-of-scope gateway / "no shadow centers" | NOISE (deliberate) | §6 |
 
@@ -521,18 +521,18 @@ Unlike Paymob, **the Cloud API driver is genuinely implemented**: real `fetch` t
 
 | Area | Location | What it swallows | Rank |
 |---|---|---|---|
-| money / invoicing | [cron/jobs.ts:56](apps/www/src/lib/services/cron/jobs.ts:56) | every teacher-statement generation+email failure; the return counts only successes | **BLOCKS-LAUNCH** |
-| money / invoicing | [cron/jobs.ts:68](apps/www/src/lib/services/cron/jobs.ts:68) | same, for center statements | **BLOCKS-LAUNCH** |
-| notifications | [notifications-screen.tsx:98,115](apps/www/src/features/notifications/notifications-screen.tsx:98) | mark-read failures — the badge desyncs silently | POST-LAUNCH |
-| auth | [login/page.tsx:117](apps/www/src/app/[locale]/login/page.tsx:117) | a post-login side effect | POST-LAUNCH |
-| auth / routing | [dashboard/page.tsx:28,39,63](apps/www/src/app/[locale]/dashboard/page.tsx:28) | role-dispatch lookups; a failure silently falls through to a default route | RISKY-BUT-SHIPPABLE |
-| onboarding | [student-family-code-screen.tsx:115](apps/www/src/features/student/student-family-code-screen.tsx:115) | family-code submit error | POST-LAUNCH |
-| public pages | [[id]/page.tsx:144](apps/www/src/app/[locale]/[id]/page.tsx:144) | short-id resolution | POST-LAUNCH |
+| money / invoicing | [cron/jobs.ts:56](../../apps/erp/src/lib/services/cron/jobs.ts:56) | every teacher-statement generation+email failure; the return counts only successes | **BLOCKS-LAUNCH** |
+| money / invoicing | [cron/jobs.ts:68](../../apps/erp/src/lib/services/cron/jobs.ts:68) | same, for center statements | **BLOCKS-LAUNCH** |
+| notifications | [notifications-screen.tsx:98,115](../../apps/erp/src/features/notifications/notifications-screen.tsx:98) | mark-read failures — the badge desyncs silently | POST-LAUNCH |
+| auth | [login/page.tsx:117](../../apps/erp/src/app/[locale]/login/page.tsx:117) | a post-login side effect | POST-LAUNCH |
+| auth / routing | [dashboard/page.tsx:28,39,63](../../apps/erp/src/app/[locale]/dashboard/page.tsx:28) | role-dispatch lookups; a failure silently falls through to a default route | RISKY-BUT-SHIPPABLE |
+| onboarding | [student-family-code-screen.tsx:115](../../apps/erp/src/features/student/student-family-code-screen.tsx:115) | family-code submit error | POST-LAUNCH |
+| public pages | [[id]/page.tsx:144](../../apps/erp/src/app/[locale]/[id]/page.tsx:144) | short-id resolution | POST-LAUNCH |
 | UI | `theme-mode-provider.tsx:65` ×2 apps | `localStorage` access | NOISE (correct) |
 
-Plus the semantically-equivalent `.catch(() => {})` swallows: [invoices.ts:108](packages/server-core/src/services/finance/invoices.ts:108) (invoice email), [notify.ts:117,127,150,157](packages/server-core/src/services/notifications/notify.ts:117) (all notification mail **and** all push), [sms-channel.ts](packages/server-core/src/services/sms/sms-channel.ts) (`smsToUser`).
+Plus the semantically-equivalent `.catch(() => {})` swallows: [invoices.ts:108](../../packages/server-core/src/services/finance/invoices.ts:108) (invoice email), [notify.ts:117,127,150,157](../../packages/server-core/src/services/notifications/notify.ts:117) (all notification mail **and** all push), [sms-channel.ts](../../packages/server-core/src/services/sms/sms-channel.ts) (`smsToUser`).
 
-**`any` usage — grouped, ranked:** 201 total. Concentrated in three benign classes: (a) Refine `useList` result destructuring in feature screens, (b) the deliberate `firebaseAdmin: any` with an eslint-disable at [fcm-channel.ts:23](packages/server-core/src/services/fcm/fcm-channel.ts:23), (c) `body?.error?.message` on external JSON at [cloud-api-driver.ts:47](packages/server-core/src/services/whatsapp/cloud-api-driver.ts:47). The one worth fixing is in the assignments screen — `(g: any)` plus `g.id || g._id`, a pre-Prisma leftover reading a Postgres row ([assignments-screen.tsx:32,38](apps/www/src/features/student/assignments-screen.tsx:32)). **No `any` was found on a money, authz, or persistence path.** Rank: POST-LAUNCH.
+**`any` usage — grouped, ranked:** 201 total. Concentrated in three benign classes: (a) Refine `useList` result destructuring in feature screens, (b) the deliberate `firebaseAdmin: any` with an eslint-disable at [fcm-channel.ts:23](../../packages/server-core/src/services/fcm/fcm-channel.ts:23), (c) `body?.error?.message` on external JSON at [cloud-api-driver.ts:47](../../packages/server-core/src/services/whatsapp/cloud-api-driver.ts:47). The one worth fixing is in the assignments screen — `(g: any)` plus `g.id || g._id`, a pre-Prisma leftover reading a Postgres row (`assignments-screen.tsx:32,38`). **No `any` was found on a money, authz, or persistence path.** Rank: POST-LAUNCH.
 
 ---
 
@@ -547,14 +547,14 @@ Both bodies of work are committed. Judged as they stand.
 | Claim | Verdict | Evidence |
 |---|---|---|
 | One claim kernel with a `CLAIMABLE` purpose→role table, so a token minted for one role cannot open another | ✅ | `invite-token.ts` |
-| Email-first; `INVITE_CHANNELS` env set, default `email`; WhatsApp leg returns `skipped` not `failed` | ✅ | [deliver.ts:27-35,70](packages/server-core/src/services/invites/deliver.ts:27) |
-| Guardian recipient resolution, strictest-trust first, **no fallback to a minor's own inbox** | ✅ | [recipient.ts:39-77](packages/server-core/src/services/invites/recipient.ts:39) |
-| The child-safety gate is enforced in **all three** claimed places from **one** predicate | ✅ | `assertCanReach` [chat-scope.ts:937](packages/database/src/queries/chat-scope.ts:937); `listContacts` via `guardianFilter` [chat-scope.ts:1024](packages/database/src/queries/chat-scope.ts:1024); group posting [chat-groups.ts:329](packages/database/src/queries/chat-groups.ts:329) |
-| A guardian **phone** does not satisfy the gate | ✅ | [chat-guardian.ts](packages/database/src/queries/chat-guardian.ts) `decide()`: `hasGuardianChannel = viaParent \|\| !!profile?.guardianEmail` |
+| Email-first; `INVITE_CHANNELS` env set, default `email`; WhatsApp leg returns `skipped` not `failed` | ✅ | [deliver.ts:27-35,70](../../packages/server-core/src/services/invites/deliver.ts:27) |
+| Guardian recipient resolution, strictest-trust first, **no fallback to a minor's own inbox** | ✅ | [recipient.ts:39-77](../../packages/server-core/src/services/invites/recipient.ts:39) |
+| The child-safety gate is enforced in **all three** claimed places from **one** predicate | ✅ | `assertCanReach` [chat-scope.ts:937](../../packages/database/src/queries/chat-scope.ts:937); `listContacts` via `guardianFilter` [chat-scope.ts:1024](../../packages/database/src/queries/chat-scope.ts:1024); group posting [chat-groups.ts:329](../../packages/database/src/queries/chat-groups.ts:329) |
+| A guardian **phone** does not satisfy the gate | ✅ | [chat-guardian.ts](../../packages/database/src/queries/chat-guardian.ts) `decide()`: `hasGuardianChannel = viaParent \|\| !!profile?.guardianEmail` |
 | Default-closed: no profile row ⇒ minor ⇒ locked; unknown ids included in the locked set, never dropped | ✅ | `isGuardianChannelLocked`, `guardianLockedStudentIds` |
 | `parent` is not an adult role, so a child is never cut off from their guardian | ✅ | `ADULT_ROLES` |
 | The lock never suspends the account — classes, materials, grades, wallet, login all work | ✅ | gate is inside chat only |
-| Timeout escalates, never punishes; `guardian_contact_due_at` never reset by a re-send | ✅ | [recipient.ts:83-88](packages/server-core/src/services/invites/recipient.ts:83) |
+| Timeout escalates, never punishes; `guardian_contact_due_at` never reset by a re-send | ✅ | [recipient.ts:83-88](../../packages/server-core/src/services/invites/recipient.ts:83) |
 | Migrations additive only, no backfill | ✅ | `20260725100000`, `20260725100100` |
 
 **Half-built:**
@@ -582,7 +582,7 @@ Both bodies of work are committed. Judged as they stand.
 | Two modules, one boundary: oversight READS, control ACTS | ✅ | `center-oversight.ts` contains **zero** mutation verbs; `center-control.ts`'s import list contains **no** money service |
 | Read visibility across all six money ledgers + cached balance + `centerStatement` | ✅ | `center-oversight.ts`; `admin/centers/[id]/oversight/*` |
 | NULL-`centerId` rows are teacher-direct and never folded into a center's books | ✅ | documented and implemented as the scoping rule |
-| Six control ops, each writing one `audit_logs` row in the **same** transaction | ✅ | [center-control.ts:22-32](apps/superadmin/src/lib/services/admin/center-control.ts:22) |
+| Six control ops, each writing one `audit_logs` row in the **same** transaction | ✅ | [center-control.ts:22-32](../../apps/superadmin/src/lib/services/admin/center-control.ts:22) |
 | `on_behalf_of` left NULL on purpose | ✅ | a super admin acts as themselves |
 | **Money is read-only, and superadmin is not exempt** | ✅ | Real `REVOKE`s, verified in migration SQL: `UPDATE, DELETE` on `transactions`, `points_ledger`, `audit_logs`, `session_settlements`; `DELETE` on `invoices`, `payouts`, `blacklist_cascade_actions`. Both apps use the same `edura_app` role; `platformDb` only sets `app.bypass_rls`, which RLS reads and GRANTs do not. |
 | Revenue split / commission % excluded from the center-profile allowlist | ✅ | `.strict()` allowlist |
@@ -595,7 +595,7 @@ Both bodies of work are committed. Judged as they stand.
 **Half-built:**
 
 1. **`wallet_ledger` is not REVOKEd.** The migration explicitly `GRANT`s `UPDATE, DELETE` on it. Immutability is runtime-only. `CLAUDE.md` reports this honestly rather than overclaiming — credit for that — but the claim "superadmin moves no money" is one table weaker than it reads.
-2. **Roadmap decision #10 is only partly satisfied by this work.** The audit-log viewer landed. "Generic auto-CRUD screens for **every** entity" did not — the route groups are targeted (§1.7). And the dashboard-home counters are missing the required **active-subscriptions** counter, plus `platformKpis()` omits the `deletedAt: null` filter that `userGrowthChart` applies, so the headline user counts include soft-deleted rows ([platform-dashboard.ts:17](apps/superadmin/src/lib/services/admin/platform-dashboard.ts:17)).
+2. **Roadmap decision #10 is only partly satisfied by this work.** The audit-log viewer landed. "Generic auto-CRUD screens for **every** entity" did not — the route groups are targeted (§1.7). And the dashboard-home counters are missing the required **active-subscriptions** counter, plus `platformKpis()` omits the `deletedAt: null` filter that `userGrowthChart` applies, so the headline user counts include soft-deleted rows ([platform-dashboard.ts:17](../../apps/superadmin/src/lib/services/admin/platform-dashboard.ts:17)).
 3. **The whole app is unshippable as configured** — `.env.production` has three keys (Finding #6). Not a defect in this work item, but it gates it.
 
 **Tested:** `apps/superadmin/tests/db/center-oversight.test.ts` exists; `CLAUDE.md` claims 119/119. Same caveat as §4.1 — unrunnable today. Note also that `apps/superadmin` has **no `vitest.config.ts` and no `test` script at all**; its only test entry points are hand-listed `test:db:*` scripts, and `test:db` runs exactly one file (`refund.test.ts`) out of eighteen.
@@ -663,7 +663,7 @@ resolve: { alias: { "@": fileURLToPath(new URL("./src/", import.meta.url)) } }
 That is a **path** alias, not a module substitution — it does not stub anything. The real hiding is elsewhere and is structural:
 
 1. **`include: ["tests/unit/**/*.test.ts"]`** — the 20 DB suites are outside vitest's include glob. `bun run test` in `apps/www` reports success having run **13 of 33** suites. That is the mechanism by which a green `bun run test` means much less than it appears to.
-2. **`PAYMENTS_MODE` defaults to `mock`** outside production ([types.ts:74](apps/www/src/lib/services/payments/gateway/types.ts:74)), so every payment test runs against `mockDriver`. `m1-webhook-atomicity` asserts on a webhook the test itself signed with `signMockWebhook`. The atomicity claim is genuinely proven; the *gateway* claim is proven about nothing.
+2. **`PAYMENTS_MODE` defaults to `mock`** outside production ([types.ts:74](../../apps/erp/src/lib/services/payments/gateway/types.ts:74)), so every payment test runs against `mockDriver`. `m1-webhook-atomicity` asserts on a webhook the test itself signed with `signMockWebhook`. The atomicity claim is genuinely proven; the *gateway* claim is proven about nothing.
 3. **`MAIL_PROVIDER` defaults to `console`**, which returns `{sent:false}` and never throws. A test asserting "the invite was sent" that calls `sendInvoiceEmail` would pass on the hardcoded `{sent:true}` (§2.5) regardless. **This is a second instance of the same class as the alias problem, and it is on a money surface.**
 4. **`whatsappMode()` defaults to `mock`**, so every WhatsApp assertion is about `mockWhatsAppDriver`.
 5. **The rate limiter falls back to in-memory** without `REDIS_URL`, so `m3-rate-limit` proves the in-memory bucket, not the shared store that production uses.
@@ -683,7 +683,7 @@ I read the harness and sampled bodies. The `assert(cond, msg)` style is used con
 
 They hit **whatever `.env.test` points at — and there is no `.env.test`**, so today they hit nothing; they fail at process start.
 
-This is worth reading in context, because the guard around it is one of the better things in the repo. [`db-guard.ts`](packages/database/scripts/db-guard.ts) records the environment **inside the database** as a comment on the database object (`COMMENT ON DATABASE neondb IS 'edura-env:production'`) and fails closed on an unlabelled database. Its header documents why:
+This is worth reading in context, because the guard around it is one of the better things in the repo. [`db-guard.ts`](../../packages/database/scripts/db-guard.ts) records the environment **inside the database** as a comment on the database object (`COMMENT ON DATABASE neondb IS 'edura-env:production'`) and fails closed on an unlabelled database. Its header documents why:
 
 > on 2026-07-23 dev, tests, and (as documented) production all resolved to ONE Neon database, because every context read the same `.env.local`. 330 `@x.io` users and 83 unflagged centers were written into what was meant to be the launch database by test runs alone.
 
@@ -736,14 +736,14 @@ Method: for each value, count string literals in non-generated, non-test source,
 | `EntityType.external` | **Medium** | 9 literals, no assignment site found |
 | `BotType.support`, `BotType.academic` | **High** | Descoped. Deliberate. |
 | `ReportStatus.reviewing/actioned/dismissed` | **Low** — likely false positives | The superadmin reports queue almost certainly sets these from a validated body variable. Flagged for confirmation, not asserted. |
-| `AttendanceStatus.absent/late/excused/counter_only` | **False positive** | These are certainly set — `counter_only` is derived at [checkin.ts:223](packages/server-core/src/services/attendance/checkin.ts:223) via a variable, and `bulkMarkAttendance` takes a status parameter. My heuristic missed variable assignment. Listed here so the method's limits are visible. |
+| `AttendanceStatus.absent/late/excused/counter_only` | **False positive** | These are certainly set — `counter_only` is derived at [checkin.ts:223](../../packages/server-core/src/services/attendance/checkin.ts:223) via a variable, and `bulkMarkAttendance` takes a status parameter. My heuristic missed variable assignment. Listed here so the method's limits are visible. |
 | `ExpenseCategory.*`, `ReportCategory.*`, `DevicePlatform.*`, `MaterialStorage.*` | **False positives** | All arrive as validated request-body variables |
 
 ### 6.4 Fields declared but never written
 
 | Field | Finding |
 |---|---|
-| **`Review.lessonId`** | **Never written.** [reviews.ts:65-73](apps/www/src/lib/services/reviews/reviews.ts:65) omits it, and it *cannot* be used: `@@unique([studentId, teacherId])` at [schema.prisma:1384](packages/database/prisma/schema.prisma:1384) permits one review per student-teacher pair, so per-lesson ratings are structurally impossible. The schema comment at line 1378 says "for per-lesson ratings (PRD)" — a PRD feature declared, contradicted by its own constraint, and never built. |
+| **`Review.lessonId`** | **Never written.** [reviews.ts:65-73](../../apps/erp/src/lib/services/reviews/reviews.ts:65) omits it, and it *cannot* be used: `@@unique([studentId, teacherId])` at [schema.prisma:1384](../../packages/database/prisma/schema.prisma:1384) permits one review per student-teacher pair, so per-lesson ratings are structurally impossible. The schema comment at line 1378 says "for per-lesson ratings (PRD)" — a PRD feature declared, contradicted by its own constraint, and never built. |
 | `StudentProfile.guardianPhone` | Written (walk-in counter captures it) and read (the guardian banner shows it) but **there is no channel that can use it** — §4.1. A stored value awaiting a feature. |
 | `User.fcmToken` + `UserDeviceToken.token` | Written and read correctly, but `sendFcmBatch` returns `[]` with no credentials, so the tokens are collected and never used (§2.7). |
 | `guardianContactDueAt` | Written on discovery, read by the banner and the gate state — but the *escalation* that gives it meaning never runs (§4.1). |
@@ -752,10 +752,10 @@ Method: for each value, count string literals in non-generated, non-test source,
 
 | Smell | Detail |
 |---|---|
-| **Soft-delete inconsistency** | `platformKpis()` counts `user` rows with **no** `deletedAt: null` filter, while `userGrowthChart` in the *same file* filters `deleted_at IS NULL` — [platform-dashboard.ts:16-20](apps/superadmin/src/lib/services/admin/platform-dashboard.ts:16) vs `:63`. The dashboard headline count and the growth chart disagree by construction. `CLAUDE.md` names this bug class "the soft-delete trap"; here is a live instance in the superadmin dashboard. |
+| **Soft-delete inconsistency** | `platformKpis()` counts `user` rows with **no** `deletedAt: null` filter, while `userGrowthChart` in the *same file* filters `deleted_at IS NULL` — [platform-dashboard.ts:16-20](../../apps/superadmin/src/lib/services/admin/platform-dashboard.ts:16) vs `:63`. The dashboard headline count and the growth chart disagree by construction. `CLAUDE.md` names this bug class "the soft-delete trap"; here is a live instance in the superadmin dashboard. |
 | **Cached balance vs derived ledger** | `TeacherProfile.walletBalance` / `Center.walletBalance` are cached columns beside an append-only ledger. Protected by H2 (conditional decrement + DB `CHECK >= 0`) and reconciled at settlement — but the centers `CHECK` is `NOT VALID` pending a `VALIDATE` after the Step 9 wipe, so one legacy negative row is tolerated. Known and tracked. |
 | **`wallet_ledger` mutability** | The only money table with `GRANT … UPDATE, DELETE` and no REVOKE (§4.2). Runtime-only immutability. |
-| **Pre-Prisma residue** | `g.id || g._id` in [assignments-screen.tsx:38](apps/www/src/features/student/assignments-screen.tsx:38) — reading a Postgres row through a legacy `_id` fallback. Cosmetic, but it marks the assignments screen as the least-touched code in the app. |
+| **Pre-Prisma residue** | `g.id || g._id` in `assignments-screen.tsx:38` — reading a Postgres row through a legacy `_id` fallback. Cosmetic, but it marks the assignments screen as the least-touched code in the app. |
 
 ### 6.6 What the gaps imply
 
@@ -811,7 +811,7 @@ The reason it is only a third rather than half is the boundary in §2.1: the set
 ### The five largest remaining pieces of work
 
 **1. Paymob, and everything real money implies.** (~a third of what's left; the riskiest.)
-Write the four API calls and the HMAC verification ([paymob-driver.ts](apps/www/src/lib/services/payments/gateway/paymob-driver.ts)), add the missing browser return/redirect route, then close what the stub has been hiding: **gateway-side refunds** (§2.3 #7), reconciliation, disputes, and end-to-end exercise of the failed/abandoned paths that already exist as unreachable code. Note that `sandbox` is currently as broken as `live`, so step zero is getting *any* real mode to work.
+Write the four API calls and the HMAC verification ([paymob-driver.ts](../../apps/erp/src/lib/services/payments/gateway/paymob-driver.ts)), add the missing browser return/redirect route, then close what the stub has been hiding: **gateway-side refunds** (§2.3 #7), reconciliation, disputes, and end-to-end exercise of the failed/abandoned paths that already exist as unreachable code. Note that `sandbox` is currently as broken as `live`, so step zero is getting *any* real mode to work.
 
 > **BINDING SEQUENCING CONSTRAINT — gateway refunds ship with the driver, never after.**
 > Decided 2026-07-26. The gateway-side refund call must be written in the **same pass** as the Paymob driver, not deferred to a follow-up.
@@ -859,7 +859,7 @@ Work order: commit the missing `.example` files, build an aggregate runner, fix 
 |---|---|---|
 | 5.1, Findings #4 | "20 db tests in `apps/www/tests/db`", 38 total | **23** runnable in www (22 `*.test.ts` + `run-db-tests.ts`) and 18 in superadmin = **41**. The runner now prints the list: `bun run --filter edura test:db:list`. |
 | 5.1 | "13 www unit files" | Confirmed: **13 files, 111 passed / 1 skipped**, matching `CLAUDE.md`. |
-| 5.6 | "no CI" | Fixed — [.github/workflows/ci.yml](.github/workflows/ci.yml). |
+| 5.6 | "no CI" | Fixed — [.github/workflows/ci.yml](../../.github/workflows/ci.yml). |
 | Findings #4 | "`.env.test` absent, no `.env.example` anywhere" | Fixed — ten `.example` files committed (§A4). |
 | 5.2 | "5 packages typecheck" | **`packages/database` had no `check-types` script at all** — the package holding the schema, all seeds and every DB script was outside `bun run check-types`. Adding it surfaced **7 pre-existing type errors** in two demo seeds. Now 6/6 green. |
 
@@ -912,9 +912,9 @@ So: **leakage plus direct `--env-file=.env.local` invocation is exactly right**,
 
 | Path | What |
 |---|---|
-| [packages/database/scripts/test-cleanup.ts](packages/database/scripts/test-cleanup.ts) | Tag-scoped sweeper. Walks the FK graph at runtime (seed from tagged rows → transitive closure → delete children-first), so it cannot drift behind the schema the way a hand-written delete list does. Fails closed on the DB label; refuses a loose tag; never touches the education catalog; connects on `ADMIN_URL` because the money ledgers have `DELETE` REVOKEd from `edura_app`. |
-| [packages/database/scripts/run-db-suites.ts](packages/database/scripts/run-db-suites.ts) | Aggregate runner. **Discovers** suites rather than listing them, so a new one is included the day it lands. Guards in-process before spawning; children inherit the validated env. Per-suite pass/fail plus a total; non-zero exit on any failure. |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | `static` job (typecheck 6/6, unit, build both apps) runs everywhere. `db` job is **gated on a secret** so forks skip instead of failing red, and asserts the `test` label before running. Sweeps residue with `always()`, because a timeout-killed suite never reaches its own `finally`. |
+| [packages/database/scripts/test-cleanup.ts](../../packages/database/scripts/test-cleanup.ts) | Tag-scoped sweeper. Walks the FK graph at runtime (seed from tagged rows → transitive closure → delete children-first), so it cannot drift behind the schema the way a hand-written delete list does. Fails closed on the DB label; refuses a loose tag; never touches the education catalog; connects on `ADMIN_URL` because the money ledgers have `DELETE` REVOKEd from `edura_app`. |
+| [packages/database/scripts/run-db-suites.ts](../../packages/database/scripts/run-db-suites.ts) | Aggregate runner. **Discovers** suites rather than listing them, so a new one is included the day it lands. Guards in-process before spawning; children inherit the validated env. Per-suite pass/fail plus a total; non-zero exit on any failure. |
+| [.github/workflows/ci.yml](../../.github/workflows/ci.yml) | `static` job (typecheck 6/6, unit, build both apps) runs everywhere. `db` job is **gated on a secret** so forks skip instead of failing red, and asserts the `test` label before running. Sweeps residue with `always()`, because a timeout-killed suite never reaches its own `finally`. |
 | 10 × `.env*.example` | www / superadmin / realtime / database, for dev, test and production. Verified: none contains a value from any real env file. |
 
 `test:db` in both apps now runs **all** suites (was 1 of 23 and 1 of 18); `test:db:all` and `test:db:parity` were re-pointed at the full run rather than left as misleading partial aliases; the six single-suite superadmin aliases were replaced by `test:db:only`.
@@ -957,7 +957,7 @@ Dev and production secrets are fully rotated (verified: all five differ, and `.e
 
 **12 of the 19 were already dead** as committed: every script that read or wrote state hardcoded `/private/tmp/claude-501/.../67a8faec-…/scratchpad/fixtures.json`, a session directory that no longer exists. `_deep-write-1/2` wrote their cleanup manifests to the same vanished path, and `_purge.ts` — the script their docblocks named as the consumer — was never committed at all. The cleanup contract they advertised did not exist. Only `_mint.ts`, `_fixtures.ts` and `_params.mjs` still ran, and two of those three were the session forgers.
 
-Their findings are preserved in [docs/reports/api-verification.md](docs/reports/api-verification.md), and the harness tags (`apiv-`, `apiv2-`, `apiw3-`, `aprl-`) return **zero** rows in dev — their own cleanup did work.
+Their findings are preserved in [docs/reports/api-verification.md](api-verification.md), and the harness tags (`apiv-`, `apiv2-`, `apiw3-`, `aprl-`) return **zero** rows in dev — their own cleanup did work.
 
 **Session-minting outside the auth path after removal:** two suites, both legitimate and both now gated. `c01-lesson-settlement.test.ts:65` and `h03-seed-uuid-flows.test.ts:84` mint a JWE for their fixtures, and since the guard work they can only run against an `edura-env:test` database. `c04-login-parity.test.ts` only *decodes* — that is the test. In production code, exactly two minters exist and both are correct: `api/v1/auth/login/route.ts:64` (authenticates first) and `api/v1/realtime/token/route.ts:19` (`SignJWT` for the socket handshake).
 
@@ -1005,7 +1005,7 @@ Finding 0 is closed in code and configuration. Three controls, in the order they
 
 ### 1. The boot assertion — `roleGuardExtension`
 
-[packages/database/src/extensions/index.ts](packages/database/src/extensions/index.ts), wired as the **outermost** extension in [packages/database/src/client.ts](packages/database/src/client.ts).
+[packages/database/src/extensions/index.ts](../../packages/database/src/extensions/index.ts), wired as the **outermost** extension in [packages/database/src/client.ts](../../packages/database/src/client.ts).
 
 ```sql
 SELECT current_user,
@@ -1040,10 +1040,10 @@ Incidental confirmation in case B: `edura_app` sees **459** users where the owne
 
 | Script | Why it needs owner |
 |---|---|
-| [bootstrap-app-role.ts](packages/database/scripts/bootstrap-app-role.ts) | `CREATE ROLE` |
-| [apply-migrations.mjs](packages/database/scripts/apply-migrations.mjs) | applies DDL |
-| [test-cleanup.ts](packages/database/scripts/test-cleanup.ts) | `DELETE` on the REVOKEd ledger + audit tables |
-| [label-db.ts](packages/database/scripts/label-db.ts) | `COMMENT ON DATABASE` requires ownership |
+| [bootstrap-app-role.ts](../../packages/database/scripts/bootstrap-app-role.ts) | `CREATE ROLE` |
+| [apply-migrations.mjs](../../packages/database/scripts/apply-migrations.mjs) | applies DDL |
+| [test-cleanup.ts](../../packages/database/scripts/test-cleanup.ts) | `DELETE` on the REVOKEd ledger + audit tables |
+| [label-db.ts](../../packages/database/scripts/label-db.ts) | `COMMENT ON DATABASE` requires ownership |
 
 `label-db.ts` was **not** in the original three; it was included because it mutates as owner by the same reasoning. Flagged so it can be reverted if unwanted.
 
@@ -1099,7 +1099,7 @@ Regression after the change: **typecheck 6/6, unit 13 files / 111 passed / 1 ski
 
 Stated plainly: **until this migration lands, the mechanism that produced dev's 958 orphans is still active.** Every future cleanup — including the one-time sweep of the 3,435 tagged rows — deletes parents that Postgres will not stop it from deleting, and any append-only child left behind becomes permanently unrepairable. The sweeper's convention walk mitigates this by *finding* the children; it does not make the database enforce the relationship.
 
-Following the recommendation already in [docs/product/prd-compliance-audit.md:257](docs/product/prd-compliance-audit.md): `ADD CONSTRAINT ... NOT VALID`, then `VALIDATE` in a later statement, so the lock is brief and existing rows do not block the deploy.
+Following the recommendation already in [docs/product/prd-compliance-audit.md:257](../product/prd-compliance-audit.md): `ADD CONSTRAINT ... NOT VALID`, then `VALIDATE` in a later statement, so the lock is brief and existing rows do not block the deploy.
 
 **`ON DELETE RESTRICT`** — identity and money references. A row here must never disappear from under a ledger entry.
 
@@ -1247,7 +1247,7 @@ All three guards passed on the relabelled branch (`assertNotProduction` = `asser
 
 Not just the `h1`/`h2` hardcoded UUIDs the audit flagged — it is broad. Before seeding, 28 suites crashed; after seeding, 36 pass. That difference *is* the dependency.
 
-**This makes CI flaky by construction, and the workflow as committed will fail exactly as this run first did.** [.github/workflows/ci.yml](.github/workflows/ci.yml) goes straight from *Materialise `.env.test`* → *`pretest:db`* → *`test:db`*. There is **no migrate step and no seed step** — the only match for `seed` in the file is a comment about type errors.
+**This makes CI flaky by construction, and the workflow as committed will fail exactly as this run first did.** [.github/workflows/ci.yml](../../.github/workflows/ci.yml) goes straight from *Materialise `.env.test`* → *`pretest:db`* → *`test:db`*. There is **no migrate step and no seed step** — the only match for `seed` in the file is a comment about type errors.
 
 What it needs, between "Materialise" and "DB suites":
 

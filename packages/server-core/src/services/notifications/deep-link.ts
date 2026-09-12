@@ -1,13 +1,9 @@
-export const NOTIFICATION_PORTALS = [
-  "student",
-  "parent",
-  "teacher",
-  "assistant",
-  "admin",
-  "staff",
-] as const;
+import { PORTAL_SEGMENTS, portalSegmentForRole, type PortalSegment } from "../../auth/login-policy";
 
-export type NotificationPortal = (typeof NOTIFICATION_PORTALS)[number];
+/** The notification portals ARE the portal segments — one list, in `login-policy`. */
+export const NOTIFICATION_PORTALS = PORTAL_SEGMENTS;
+
+export type NotificationPortal = PortalSegment;
 
 type Destinations = Partial<Record<NotificationPortal, string>>;
 
@@ -179,19 +175,7 @@ const DESTINATIONS: Record<string, Destinations> = {
 export function portalForRole(
   role: string | null | undefined,
 ): NotificationPortal | null {
-  switch (role) {
-    case "student":
-    case "parent":
-    case "teacher":
-    case "assistant":
-      return role;
-    case "center_admin":
-      return "admin";
-    case "center_staff":
-      return "staff";
-    default:
-      return null;
-  }
+  return portalSegmentForRole(role);
 }
 
 export function notificationPath(

@@ -3,15 +3,7 @@
     "eyebrow": "The education operations platform",
     "title": "Your center, teachers, and students — one organized ledger",
     "subtitle": "Edura runs attendance, subscriptions, payments, and messaging — from the center's front desk to the parent's phone — in one system built for the Egyptian market.",
-    "ctaPrimary": "Create your free account",
-    "ctaSecondary": "Sign in",
-    "note": "Works on mobile and desktop right away — nothing to install.",
-    "trustMobile": "Mobile & desktop ready",
-    "trustNoInstall": "Nothing to install",
-    "previewTitle": "Today's ledger",
-    "previewSessions": "Sessions running",
-    "previewCheckedIn": "Checked in",
-    "previewSettled": "Settled (EGP)"
+    "note": "Works on mobile and desktop right away — nothing to install."
   },
   "roles": {
     "eyebrow": "Every role gets its tools",
@@ -47,13 +39,7 @@
   },
   "how": {
     "eyebrow": "Up and running in minutes",
-    "title": "Three steps and you're live",
-    "s1title": "Register and pick your role",
-    "s1body": "Center, teacher, parent, or student — each role gets a tailored experience from the first minute.",
-    "s2title": "Set up your classes and prices",
-    "s2body": "Groups, schedules, halls, and payment methods — all from one dashboard.",
-    "s3title": "Watch attendance and money in real time",
-    "s3body": "Every lesson settles automatically, every check-in is recorded, and each party sees only what's theirs."
+    "title": "Three steps and you're live"
   },
   "money": {
     "eyebrow": "Money counted right",

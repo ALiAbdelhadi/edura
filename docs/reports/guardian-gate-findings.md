@@ -71,9 +71,9 @@ that would put a human on it.
 The existing assertions cover locked-with-a-due-date and
 locked-past-the-deadline, **not** locked-with-`NULL`:
 
-- [invite-claim.test.ts:364](../../apps/www/tests/db/invite-claim.test.ts:364) — `guardian channel LOCKED`
-- [invite-claim.test.ts:378](../../apps/www/tests/db/invite-claim.test.ts:378) — `student -> teacher DENIED with guardian_required`
-- [invite-claim.test.ts:545](../../apps/www/tests/db/invite-claim.test.ts:545) — `passing the deadline does NOT unlock adult messaging`
+- [invite-claim.test.ts:364](../../apps/erp/tests/db/invite-claim.test.ts:364) — `guardian channel LOCKED`
+- [invite-claim.test.ts:378](../../apps/erp/tests/db/invite-claim.test.ts:378) — `student -> teacher DENIED with guardian_required`
+- [invite-claim.test.ts:545](../../apps/erp/tests/db/invite-claim.test.ts:545) — `passing the deadline does NOT unlock adult messaging`
 
 All three run against a walk-in student whose due date **is set** — asserted at
 `:326`. The `NULL` case is a code-reading guarantee, not an asserted one. It is

@@ -91,11 +91,11 @@ new surfaces, two new packages, and NO schema migration.
    **[production] never exercised.** A restored dump has NO `edura_app` role and
    NO grants (`--no-owner --no-privileges`), so `db:bootstrap-role` + `db:verify`
    after a restore is MANDATORY — otherwise the money ledger comes back
-   writable. Runbook: [docs/runbooks/backup-restore.md](docs/runbooks/backup-restore.md).
+   writable. Runbook: [docs/runbooks/backup-restore.md](../runbooks/backup-restore.md).
 
-Docs: [backup-restore.md](docs/runbooks/backup-restore.md),
-[uptime-and-status.md](docs/runbooks/uptime-and-status.md),
-[observability.md](docs/runbooks/observability.md).
+Docs: [backup-restore.md](../runbooks/backup-restore.md),
+[uptime-and-status.md](../runbooks/uptime-and-status.md),
+[observability.md](../runbooks/observability.md).
 Proofs: unit 181 pass/1 skip (up from 132), check-types 8/8, `bun run build`
 both apps, mail-password-reset **15/15** and invite-claim **107/107** on the
 live test DB after the template re-point, lint error-parity with main.

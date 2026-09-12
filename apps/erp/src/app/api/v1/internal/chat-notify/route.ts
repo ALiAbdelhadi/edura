@@ -10,12 +10,12 @@ import { platformDb } from "@/lib/db/scope";
 
 export const dynamic = "force-dynamic";
 
+// SECURITY_AUDIT.md (2026-09-11) RT-02: the realtime host names only the
+// message; recipient, sender and body are read from the row it points at, so
+// a compromised bridge cannot push arbitrary text to arbitrary users.
 const schema = z.object({
-  recipientId: z.uuid(),
-  senderName: z.string().max(200),
   conversationId: z.uuid(),
   messageId: z.uuid(),
-  body: z.string().max(4000),
 });
 
 export const POST = withErrors(async (req) => {
@@ -28,19 +28,29 @@ export const POST = withErrors(async (req) => {
 
   const message = await platformDb((tx) =>
     tx.conversationMessage.findUnique({
-      where: { id: data.messageId },
-      select: { id: true, senderId: true },
+      where: { id: data.messageId, conversationId: data.conversationId },
+      select: {
+        id: true,
+        senderId: true,
+        body: true,
+        conversation: { select: { userAId: true, userBId: true } },
+      },
     }),
   );
   if (!message) return ok({ notified: false });
+  const recipientId =
+    message.senderId === message.conversation.userAId
+      ? message.conversation.userBId
+      : message.conversation.userAId;
+  const sender = await platformDb((tx) =>
+    tx.user.findUnique({ where: { id: message.senderId }, select: { name: true } }),
+  );
 
   await notify({
-    recipients: [data.recipientId],
+    recipients: [recipientId],
     type: "new_chat_message",
-    title: data.senderName
-      ? `New message from ${data.senderName}`
-      : "New message",
-    body: data.body.length > 120 ? data.body.slice(0, 117) + "…" : data.body,
+    title: sender?.name ? `New message from ${sender.name}` : "New message",
+    body: message.body.length > 120 ? message.body.slice(0, 117) + "…" : message.body,
     data: {
       conversationId: data.conversationId,
       messageId: data.messageId,

@@ -44,6 +44,7 @@ const NAV_KEY: Record<string, string> = {
   Dashboard: "nav.dashboard",
   "Student Home": "nav.studentHome",
   "My Subjects": "nav.mySubjects",
+  "Find a Teacher": "nav.findTeacher",
   "Student ID": "nav.studentId",
   "Teacher Materials": "nav.teacherMaterials",
   Practice: "nav.practice",

@@ -85,6 +85,7 @@
     "db:push": "prisma db push",
     "studio": "prisma studio",
     "validate": "prisma validate",
+    "lint": "eslint .",
     "check-types": "tsc --noEmit",
     "format": "prisma format",
     "seed": "tsx prisma/seed.ts",
@@ -103,6 +104,10 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:restore-test": "tsx scripts/restore-test.ts",
     "seed:showcase-demo": "tsx --env-file=.env.local prisma/showcase-demo-seed.ts",
+    "seed:showcase-live-demo": "tsx --env-file=.env.local prisma/showcase-live-demo-seed.ts",
+    "seed:showcase-payments-demo": "tsx --env-file=.env.local prisma/showcase-payments-demo-seed.ts",
+    "seed:deliverymode-demo": "tsx --env-file=.env.local prisma/delivery-mode-demo-seed.ts",
+    "seed:settledlessons-demo": "tsx --env-file=.env.local prisma/settled-lessons-demo-seed.ts",
     "seed:extteachers-demo": "tsx --env-file=.env.local prisma/external-teachers-demo-seed.ts",
     "db:check-pending": "tsx scripts/check-pending-migrations.ts",
     "seed:studentid-demo": "tsx --env-file=.env.local prisma/student-id-demo-seed.ts",
@@ -127,6 +132,8 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "eslint": "9.39.5",
     "@repo/notifications": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.1.1",

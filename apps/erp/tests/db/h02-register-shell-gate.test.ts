@@ -24,7 +24,11 @@ const rid = () => Math.floor(Math.random() * 1e9).toString(36);
 const phone = () => "0100" + String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
 const PW = "Str0ngPassw0rd";
 const CODES = { P1: ("P" + rid() + rid()).slice(0, 8), E1: ("E" + rid() + rid()).slice(0, 8), C1: ("C" + rid() + rid()).slice(0, 8), D1: ("D" + rid() + rid()).slice(0, 8) };
-const DOOR = /registered at a centre/;
+// AUTH-02 (SECURITY_AUDIT.md 2026-09-11): the refusal must NOT say "registered
+// at a centre" — that wording confirmed, by phone number, that a child is a
+// walk-in somewhere. One message for shell and registered conflicts alike.
+const DOOR = /already in use/;
+const ORACLE = /centre|center|link|code/i;
 
 async function shellState(id: string) {
   return withPlatformContext((tx) => tx.user.findUniqueOrThrow({ where: { id }, select: { status: true, passwordHash: true, email: true } }));
@@ -53,7 +57,7 @@ async function main() {
 
   console.log("\n[1] a stranger registers with the shell's phone");
   const e1 = await caught(() => registerStudent({ email: `${tag}-mallory@x.io`, password: PW, name: "Mallory", phone: fx.byPhone.phone! }));
-  assert(e1?.code === "conflict" && DOOR.test(e1.message), `refused as a conflict that names the door (${e1?.message.slice(0, 60)})`);
+  assert(e1?.code === "conflict" && DOOR.test(e1.message) && !ORACLE.test(e1.message), `refused as a plain conflict that reveals nothing about the shell (${e1?.message.slice(0, 60)})`);
   const s1 = await shellState(fx.byPhone.id);
   assert(s1.status === "shell" && s1.passwordHash === null, "the child's shell is untouched — still shell, no password");
   const strangers = await withPlatformContext((tx) => tx.user.count({ where: { email: `${tag}-mallory@x.io` } }));

@@ -2,7 +2,7 @@ import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import { withPlatformContext } from "@repo/database";
 
-import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
+import { assertDbEnv, SUITE_SKIP_EXIT } from "../../../../packages/database/scripts/db-guard";
 
 const live = new Set<unknown>();
 class CapturingWebSocket extends (ws as unknown as {
@@ -90,14 +90,18 @@ async function main() {
 }
 
 if (process.env.DATABASE_DRIVER === "pg") {
-  console.log("tx-retry-boundary: SKIPPED — DATABASE_DRIVER=pg");
+  console.log("tx-retry-boundary: DECLINED — DATABASE_DRIVER=pg");
   console.log(
     "  This suite drops a real Neon WebSocket to prove the COMMIT-window retry\n" +
       "  boundary. A plain Postgres connection has no such socket, so the drop\n" +
       "  cannot be simulated and the proof is vacuous rather than passing.\n" +
-      "  Run it against a Neon endpoint (unset DATABASE_DRIVER) to exercise it.",
+      "  Run it against a Neon endpoint (unset DATABASE_DRIVER) to exercise it:\n" +
+      "    bun run db:neon:env && bun run test:db --only tx-retry-boundary",
   );
-  process.exit(0);
+  // NOT exit 0. Exiting 0 here reported PASS on every local and CI run while
+  // proving nothing (docs/follow-ups.md #11); the runner badges this SKIP and
+  // says out loud that the suite proved nothing.
+  process.exit(SUITE_SKIP_EXIT);
 }
 
 assertDbEnv(["test"], { intent: "suite tx-retry-boundary.test.ts" })

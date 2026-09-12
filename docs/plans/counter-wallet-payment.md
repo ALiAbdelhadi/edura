@@ -1,7 +1,7 @@
 # Plan for approval — let the counter accept a student's wallet balance
 
 Date: 2026-09-05. Status: **NOT IMPLEMENTED — awaiting Ali's decision.**
-Context: [WALLET_SPENDABILITY.md](../../WALLET_SPENDABILITY.md) item 3.
+Context: [WALLET_SPENDABILITY.md](../audits/WALLET_SPENDABILITY.md) item 3.
 
 ## What it is
 

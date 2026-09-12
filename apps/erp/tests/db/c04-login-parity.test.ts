@@ -178,8 +178,8 @@ async function main() {
     const doorUnknown = await signInDoor(`${tag}-nobody@x.io`, PW);
     const tUnknown = Date.now() - t0;
     assert(
-      !doorUnknown.ok && doorUnknown.message === "USER_NOT_FOUND",
-      "H5 (scoped exception): the door types USER_NOT_FOUND for a truly unknown email",
+      !doorUnknown.ok && doorUnknown.message === "Invalid email or password",
+      "H5 + AUTH-01: an unknown email fails with the SAME message as a wrong password",
     );
     const t1 = Date.now();
     const doorWrong = await signInDoor(staff.manager!.email, "WrongPassword!");

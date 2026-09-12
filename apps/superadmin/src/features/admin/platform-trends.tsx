@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { useCustom } from "@refinedev/core";
-import { useLocale, useTranslations } from "next-intl";
-
 import { BarChart, LineChart } from "@repo/ui/components/charts";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num } from "@repo/ui/components/num";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
+import { useLocale, useTranslations } from "next-intl";
+import { useState } from "react";
 
 import { asKey } from "@/lib/i18n/keys";
 
@@ -41,10 +40,6 @@ function compactCount(value: number, locale: Locale) {
   }).format(value);
 }
 
-/**
- * The platform's own numbers, as opposed to the decision queue above it: the
- * queue is what needs doing today, this is whether the platform is growing.
- */
 export function PlatformTrends() {
   const t = useTranslations();
   const tg = useTranslations();
@@ -71,11 +66,11 @@ export function PlatformTrends() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label={t("trends.activeCenters")}
-          value={<Num.Figure value={kpis?.centers.active ?? 0} locale={locale} />}
+          value={<Num.Figure value={kpis?.centers?.active ?? 0} locale={locale} />}
         />
         <MetricCard
           label={t("trends.students")}
-          value={<Num.Figure value={kpis?.users.students ?? 0} locale={locale} />}
+          value={<Num.Figure value={kpis?.users?.students ?? 0} locale={locale} />}
         />
         <MetricCard
           label={t("trends.lessonsCompleted")}
@@ -88,7 +83,7 @@ export function PlatformTrends() {
         />
       </div>
 
-      <div className="rounded-xl border border-rule bg-sheet p-4 shadow-[var(--lift)]">
+      <div className="rounded-xl border border-rule bg-sheet p-4 shadow-(--lift)">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-[15px] font-bold text-ink">{t("trends.revenueTitle")}</h3>
           <div className="flex gap-1">
@@ -128,8 +123,7 @@ export function PlatformTrends() {
           />
         </div>
       </div>
-
-      <div className="rounded-xl border border-rule bg-sheet p-4 shadow-[var(--lift)]">
+      <div className="rounded-xl border border-rule bg-sheet p-4 shadow-(--lift)">
         <h3 className="text-[15px] font-bold text-ink">{t("trends.growthTitle")}</h3>
         <div className="mt-4">
           <BarChart

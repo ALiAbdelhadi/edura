@@ -1,11 +1,14 @@
 import { env } from "./env";
 
-export type OfflineNotifyInput = {
-  recipientId: string;
-  senderName: string;
+/**
+ * The ERP route reads recipient, sender name and body from the message row
+ * itself (SECURITY_AUDIT.md RT-02) — a compromised realtime host must not be
+ * able to pick who gets told what. So the bridge sends only the two ids, and
+ * anything more would be silently discarded on arrival.
+ */
+type OfflineNotifyInput = {
   conversationId: string;
   messageId: string;
-  body: string;
 };
 
 export function notifyOffline(input: OfflineNotifyInput): void {
@@ -20,10 +23,10 @@ export function notifyOffline(input: OfflineNotifyInput): void {
   })
     .then((res) => {
       if (!res.ok) {
-        console.error("[notify-offline]", input.recipientId, `app responded ${res.status}`);
+        console.error("[notify-offline]", input.messageId, `app responded ${res.status}`);
       }
     })
     .catch((err) => {
-      console.error("[notify-offline]", input.recipientId, err?.message ?? err);
+      console.error("[notify-offline]", input.messageId, err?.message ?? err);
     });
 }

@@ -195,7 +195,6 @@
     "noReceiptsHint": "Once you pay, the receipt shows up here for you to download."
   },
   "studentNav": {
-    "more": "More",
     "navigation": "Navigation"
   },
   "studentIdCard": {
@@ -579,5 +578,28 @@
     "alertLapsedTitle": "Your {course} subscription has ended",
     "alertBody": "Renew it so you don't miss any sessions.",
     "alertOpen": "See my subscriptions"
+  },
+  "studentDiscovery": {
+    "days": "Days",
+    "anyDay": "Any day",
+    "time": "Time",
+    "anyTime": "Any time",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening",
+    "mode": "Attendance",
+    "modeAny": "Any",
+    "clear": "Clear filters",
+    "onlineClass": "Online class",
+    "noCoursesForFilters": "No classes match these filters",
+    "noCoursesForFiltersHint": "Try another day, another time, or clear the filters.",
+    "findTeacherTitle": "Find a teacher",
+    "findTeacherSubtitle": "Pick the days that suit you and see which teachers are teaching then.",
+    "anySubject": "All subjects",
+    "teacherSearchPlaceholder": "Search by teacher name…",
+    "loadingTeachers": "Loading teachers…",
+    "noTeachers": "No teacher is teaching on the days you picked",
+    "noTeachersHint": "Try other days, or switch to Browse all to look outside your track.",
+    "groupsOnDay": "{count, plural, one {# class} other {# classes}} matching"
   }
 }

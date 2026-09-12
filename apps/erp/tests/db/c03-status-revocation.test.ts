@@ -222,8 +222,8 @@ async function main() {
     );
     const nobody = await signInDoor(`${tag}-nobody@x.io`, PW);
     assert(
-      !nobody.ok && nobody.message === "USER_NOT_FOUND",
-      "guard intact: an unknown email still fails (typed USER_NOT_FOUND)",
+      !nobody.ok && nobody.message === "Invalid email or password",
+      "guard intact: an unknown email still fails, indistinguishably from a wrong password (AUTH-01)",
     );
     const forged = authC.cookie.replace(/=([^;]+)/g, "=x$1");
     assert(

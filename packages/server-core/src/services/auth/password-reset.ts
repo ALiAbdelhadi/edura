@@ -89,6 +89,10 @@ export async function changeOwnPassword(
           tokenVersion: { increment: 1 },
         },
       });
+      // OPS-03
+      await tx.auditLog.create({
+        data: { actorId: userId, action: "auth.password_changed", targetType: "user", targetId: userId },
+      });
     },
     { actorId: userId },
   );
@@ -110,6 +114,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
     await tx.passwordResetToken.update({
       where: { id: row.id },
       data: { usedAt: new Date() },
+    });
+    // OPS-03
+    await tx.auditLog.create({
+      data: { actorId: row.userId, action: "auth.password_reset", targetType: "user", targetId: row.userId },
     });
   });
 }

@@ -3,6 +3,7 @@ import {
   canSignIn,
   resolveLoginCenterId,
 } from "@repo/server-core/auth/login-policy";
+import { recordAuthEvent } from "@repo/server-core/services/auth/auth-audit";
 import {
   DUMMY_HASH,
   hashPassword,
@@ -22,6 +23,8 @@ import { viewAsPlugin } from "./view-as-plugin";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days — unchanged
 
+const TWO_FACTOR_IP_CAP = 10;
+const TWO_FACTOR_IP_RATE = 5;
 const LOGIN_IP_CAP = 20;
 const LOGIN_IP_RATE = 20;
 const LOGIN_EMAIL_CAP = 5;
@@ -29,6 +32,11 @@ const LOGIN_EMAIL_RATE = 5;
 
 const baseURL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 const useSecureCookies = baseURL.startsWith("https://");
+// SECURITY_AUDIT.md (2026-09-11) AUTH-09: a missing NEXTAUTH_URL in production
+// used to mean plain-http cookies; refuse to boot instead.
+if (process.env.VERCEL_ENV === "production" && !useSecureCookies) {
+  throw new Error("NEXTAUTH_URL must be an https URL in production — cookies would otherwise be minted without Secure");
+}
 
 export const auth = betterAuth({
   appName: "Edura",
@@ -100,6 +108,21 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // SECURITY_AUDIT.md (2026-09-11) AUTH-04: better-auth's own
+      // /change-password skips the letter+digit policy and never bumps
+      // token_version (L1). The app's `me/password` door is the only one.
+      if (ctx.request && ctx.path === "/change-password") {
+        throw new APIError("NOT_FOUND", { message: "Not found" });
+      }
+      // AUTH-05: second-factor guesses are bounded in the SHARED store, not in
+      // better-auth's per-lambda memory limiter.
+      if (ctx.path.startsWith("/two-factor/verify")) {
+        const ip = trustedClientIp((n) => ctx.headers?.get(n));
+        if (!(await checkRateLimit(`2fa-ip:${ip}`, TWO_FACTOR_IP_CAP, TWO_FACTOR_IP_RATE))) {
+          throw new APIError("TOO_MANY_REQUESTS", { message: "RATE_LIMITED" });
+        }
+        return;
+      }
       if (ctx.path !== "/sign-in/email") return;
       const body = ctx.body as { email?: string; password?: string } | undefined;
       const email = body?.email?.toLowerCase().trim();
@@ -120,11 +143,15 @@ export const auth = betterAuth({
         throw new APIError("TOO_MANY_REQUESTS", { message: "RATE_LIMITED" });
       }
 
-      const user = await prisma.user.findFirst({ where: { email } });
+      const user = await prisma.user.findFirst({ where: { email }, omit: { passwordHash: false } }); // DISC-01
 
       if (!user) {
+        // SECURITY_AUDIT.md (2026-09-11) AUTH-01: same message as a wrong
+        // password. The dummy-hash compare already equalised the timing; the
+        // message was the remaining oracle for whether a child's email exists.
         await verifyPassword({ hash: DUMMY_HASH, password });
-        throw new APIError("UNAUTHORIZED", { message: "USER_NOT_FOUND" });
+        void recordAuthEvent("auth.login_failed", { userId: null, ipAddress: ip, meta: { reason: "unknown_email" } }); // OPS-03
+        throw new APIError("UNAUTHORIZED", { message: "Invalid email or password" });
       }
 
       const eligible =
@@ -143,10 +170,21 @@ export const auth = betterAuth({
           });
         }
         await verifyPassword({ hash: DUMMY_HASH, password });
+        void recordAuthEvent("auth.login_failed", { userId: user.id, ipAddress: ip, meta: { reason: "ineligible", status: user.status } }); // OPS-03
         throw new APIError("UNAUTHORIZED", {
           message: "Invalid email or password",
         });
       }
+    }),
+    // OPS-03: a second factor switched on or off is a security event.
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/two-factor/enable" && ctx.path !== "/two-factor/disable") return;
+      const userId = ctx.context.session?.user?.id;
+      if (!userId) return;
+      void recordAuthEvent(
+        ctx.path === "/two-factor/enable" ? "auth.two_factor_enabled" : "auth.two_factor_disabled",
+        { userId, ipAddress: trustedClientIp((n) => ctx.headers?.get(n)) },
+      );
     }),
   },
   databaseHooks: {
@@ -162,13 +200,20 @@ export const auth = betterAuth({
             : undefined;
           return { data: { ...session, centerId: centerId ?? null } };
         },
+        // OPS-03: every session minted at the door is a login event.
+        after: async (session) => {
+          void recordAuthEvent("auth.login_succeeded", { userId: session.userId });
+        },
       },
     },
   },
   plugins: [
     inviteTokenPlugin(),
     viewAsPlugin(),
-    twoFactor({ issuer: "Edura" }),
+    // SECURITY_AUDIT.md (2026-09-11) DB-03: the TOTP secret is encrypted by
+    // default but backup codes were stored as plain JSON. Codes issued before
+    // this change stay readable until regenerated (SECURITY_TODO.md).
+    twoFactor({ issuer: "Edura", backupCodeOptions: { storeBackupCodes: "encrypted" } }),
     nextCookies(), // must stay last (docs) — cookie support for server actions
   ],
 });

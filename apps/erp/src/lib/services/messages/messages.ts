@@ -98,10 +98,6 @@ export function listContacts(
   return run(user, (tx) => chat.listContacts(tx, actor(user), opts));
 }
 
-export function getUnreadTotal(user: SessionUser) {
-  return run(user, (tx) => chat.getTotalUnread(tx, user.id));
-}
-
 export function getUnreadCounts(user: SessionUser) {
   return run(user, async (tx) => {
     const [messages, notifications] = await Promise.all([
@@ -260,13 +256,6 @@ export function setGroupMuted(
   muted: boolean,
 ) {
   return run(user, (tx) => groups.setGroupMuted(tx, actor(user), groupId, muted));
-}
-
-export function syncGroup(user: SessionUser, groupId: string) {
-  return run(user, async (tx) => {
-    await groups.assertGroupAccess(tx, actor(user), groupId, "manage");
-    return groups.syncGroupMembers(tx, groupId);
-  });
 }
 
 export function blockUser(

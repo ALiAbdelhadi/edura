@@ -22,7 +22,13 @@ const patchSchema = z
     phone: z.string().trim().max(40).nullable().optional(),
     whatsapp: z.string().trim().max(40).nullable().optional(),
     email: z.email().max(320).nullable().optional(),
-    logoUrl: z.url().max(2000).nullable().optional(),
+    // DIFF-04: lands in a public <img src> / OG tag — only our own CDN.
+    logoUrl: z
+      .url()
+      .max(2000)
+      .refine((u) => u.startsWith("https://res.cloudinary.com/"), "Image must be hosted on Cloudinary")
+      .nullable()
+      .optional(),
     classroomCount: z.number().int().min(0).max(1000).optional(),
   })
   .strict();

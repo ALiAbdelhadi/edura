@@ -139,7 +139,9 @@ export async function createStaffTx(
 
   const { link, user, existingAccount, needsInvite } = await (async () => {
     {
-      let staffUser = await tx.user.findUnique({ where: { email } });
+      // DISC-01: the hash is omitted by default; this path decides between
+      // "invite" and "existing account" on whether one exists.
+      let staffUser = await tx.user.findUnique({ where: { email }, omit: { passwordHash: false } });
 
       if (staffUser) {
         if (staffUser.role !== "center_staff") {
@@ -190,6 +192,7 @@ export async function createStaffTx(
             status: "shell",
             passwordHash: null,
           },
+          omit: { passwordHash: false }, // DISC-01: same shape as the findUnique branch
         });
       }
 

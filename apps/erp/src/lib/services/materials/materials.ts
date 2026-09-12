@@ -119,14 +119,18 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
 
     const buffer = Buffer.from(await uploadFile.arrayBuffer());
     assertPdfBytes(buffer); // real bytes must be a PDF, not just the declared type
+    // SECURITY_AUDIT.md (2026-09-11) OPS-01: paid material is `authenticated`
+    // on Cloudinary — served only through a signed URL minted per download —
+    // and no public URL is persisted for it.
     const uploaded = await uploadBuffer(buffer, {
       folder: `edura/materials/${courseId}`,
       resource_type: "raw",
+      type: "authenticated",
       filename: uploadFile.name || "material.pdf",
     });
     materialInput.storageProvider = "cloudinary";
     materialInput.cloudinaryPublicId = uploaded.public_id;
-    materialInput.cloudinaryUrl = uploaded.secure_url;
+    materialInput.cloudinaryUrl = null;
     materialInput.fileSizeBytes = uploaded.bytes;
   }
 
@@ -265,12 +269,16 @@ export async function getMaterialDownloadUrl(
     return { url: material.externalUrl };
   }
 
+  // OPS-01: a persisted `cloudinaryUrl` marks a LEGACY upload (delivery type
+  // `upload`, publicly served) — a signed `authenticated` URL would not resolve
+  // for it, so it is returned as-is until the asset is migrated
+  // (SECURITY_TODO.md). Everything uploaded since is `authenticated` and gets
+  // a signed URL per download.
   if (material.cloudinaryUrl) return { url: material.cloudinaryUrl };
   if (!material.cloudinaryPublicId)
     throw new NotFoundError("Material file not found");
 
-  const url = await generateSignedUrl(material.cloudinaryPublicId);
-  return { url };
+  return { url: generateSignedUrl(material.cloudinaryPublicId) };
 }
 
 export async function updateMaterial(
@@ -332,11 +340,12 @@ export async function updateMaterial(
     const uploaded = await uploadBuffer(buffer, {
       folder: `edura/materials/${material.courseId}`,
       resource_type: "raw",
+      type: "authenticated", // OPS-01, as in createMaterial
       filename: file.name || "material.pdf",
     });
     data.storageProvider = "cloudinary";
     data.cloudinaryPublicId = uploaded.public_id;
-    data.cloudinaryUrl = uploaded.secure_url;
+    data.cloudinaryUrl = null;
     data.externalUrl = null;
     data.fileSizeBytes = uploaded.bytes;
   }

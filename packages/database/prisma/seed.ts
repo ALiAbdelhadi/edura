@@ -159,10 +159,24 @@ async function main() {
         "Hossam Aziz",
         "teacher",
       );
-      await tx.teacherProfile.upsert({
+      const teacherProfile = await tx.teacherProfile.upsert({
         where: { userId: teacher.id },
         update: {},
         create: { userId: teacher.id, subjects: ["Math"] },
+      });
+
+      // Public handles for the demo centre and teacher, so /p/nile-academy
+      // and /p/hossam-aziz render populated pages in a preview. Both rows
+      // cascade away with their owner, so the demo purge needs nothing extra.
+      await tx.publicHandle.upsert({
+        where: { centerId: center.id },
+        update: { handle: "nile-academy" },
+        create: { handle: "nile-academy", kind: "center", centerId: center.id },
+      });
+      await tx.publicHandle.upsert({
+        where: { teacherProfileId: teacherProfile.id },
+        update: { handle: "hossam-aziz" },
+        create: { handle: "hossam-aziz", kind: "teacher", teacherProfileId: teacherProfile.id },
       });
 
       const student = await mkUser(

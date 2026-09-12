@@ -160,11 +160,8 @@ io.on("connection", (socket: Socket) => {
           io.to(userRoom(user.id)).emit(proto.EV_MESSAGE_DELIVERED, receipt);
         } else {
           notifyOffline({
-            recipientId,
-            senderName: user.name,
             conversationId: message.conversationId,
             messageId: message.id,
-            body: message.body,
           });
         }
       }
@@ -186,6 +183,9 @@ io.on("connection", (socket: Socket) => {
   socket.on(proto.EV_CONVERSATION_READ, async (raw: unknown) => {
     const parsed = readSchema.safeParse(raw);
     if (!parsed.success) return;
+    // SECURITY_AUDIT.md (2026-09-11) RT-01: unknown ids miss the membership
+    // cache and hit the database per event; bounded per user like sends.
+    if (!(await limiter(`chat-read:${user.id}`, 120, 120))) return;
     try {
       const receipt = await chatDb(user.id, (tx) =>
         chat.markConversationRead(tx, user.id, parsed.data.conversationId),
@@ -211,6 +211,7 @@ io.on("connection", (socket: Socket) => {
   socket.on(proto.EV_TYPING, async (raw: unknown) => {
     const parsed = typingSchema.safeParse(raw);
     if (!parsed.success) return;
+    if (!(await limiter(`chat-typing:${user.id}`, 120, 240))) return; // RT-01
     const { conversationId, typing } = parsed.data;
     try {
       let partnerId = membership.get(conversationId);

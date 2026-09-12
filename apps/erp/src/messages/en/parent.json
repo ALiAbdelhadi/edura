@@ -64,7 +64,6 @@
     "noGrades": "No grade data available.",
     "overallReason": "{band} · across {count} subjects",
     "noGradesYet": "No grades recorded yet",
-    "attendanceReason": "across all recorded sessions",
     "subjectsReason": "with recorded grades",
     "breakdownEyebrow": "By subject",
     "titleFor": "{name}'s grades"
@@ -200,7 +199,6 @@
     "firstRun": {
       "title": "Welcome — want to try it first?",
       "body": "A short practice run on a copy of Edura: follow your child, link them to your account, top up your wallet and pay for a lesson — without spending anything or touching your account.",
-      "reopenHint": "You can reopen it any time from “Guided tour” in the menu.",
       "start": "Let's try it",
       "later": "Not now"
     },

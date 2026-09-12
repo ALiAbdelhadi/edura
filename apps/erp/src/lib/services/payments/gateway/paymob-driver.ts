@@ -77,6 +77,8 @@ export type PaymobTransactionObj = {
   is_capture?: boolean;
   is_refunded?: boolean;
   is_voided?: boolean;
+  is_refund?: boolean;
+  is_void?: boolean;
   is_standalone_payment?: boolean;
   integration_id?: number | string;
   parent_transaction?: number | string | null;

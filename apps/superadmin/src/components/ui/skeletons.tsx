@@ -48,32 +48,3 @@ export function TableSkeleton({ rows = 6, columns = 4 }: { rows?: number; column
     </div>
   );
 }
-
-export function ListSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="flex w-full flex-col gap-4" role="status" aria-busy>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <Skeleton className="size-10 shrink-0 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-[30%]" />
-            <Skeleton className="h-3 w-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function PageSkeleton() {
-  return (
-    <div className="flex w-full flex-col gap-6">
-      <StatCardsSkeleton />
-      <Card>
-        <CardContent className="p-4">
-          <TableSkeleton />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}

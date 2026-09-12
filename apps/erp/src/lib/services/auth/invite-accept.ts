@@ -27,16 +27,23 @@ export async function acceptInvite(token: string, password: string): Promise<{ u
     });
     if (claimed.count === 0) throw new ExpiredError("Invite token already used");
 
-    const user = await tx.user.findFirst({ where: { email: row.email } });
+    const user = await tx.user.findFirst({ where: { email: row.email }, omit: { passwordHash: false } }); // DISC-01
     if (!user) throw new NotFoundError("Invited user not found");
     if (user.status === "deleted" || user.status === "suspended") {
       throw new BusinessRuleError("Cannot activate a deleted or suspended account");
     }
 
-    await tx.user.update({
-      where: { id: user.id },
-      data: { passwordHash, status: "active", emailVerified: true },
-    });
+    // SECURITY_AUDIT.md (2026-09-11) AUTH-07. `inviteCenterAdmin` can issue a
+    // token for an account that already has a password, and this used to
+    // overwrite it (and mark the email verified) without revoking the sessions
+    // it opened — a set-password mail as a takeover vector. A credentialed
+    // account keeps its password; the invite only applies the affiliation.
+    if (user.passwordHash === null) {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash, status: "active", emailVerified: true, tokenVersion: { increment: 1 } },
+      });
+    }
 
     await ensureRoleProfile(tx, user.id, user.role, user.name, row.centerId ?? undefined);
 

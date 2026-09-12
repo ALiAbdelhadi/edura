@@ -222,6 +222,30 @@ export async function updateRosterStudentTx(
 
     const userUpdate: Prisma.UserUpdateInput = {};
     if (body.name !== undefined) userUpdate.name = body.name.trim();
+
+    // SECURITY_AUDIT.md (2026-09-11) AUTHZ-01. `email` here is the LOGIN
+    // email, and `requestPasswordReset` looks a user up by it — so a centre
+    // manager who could set it on any roster student could reset that
+    // student's password and own the account, and rosters are mostly minors.
+    // The counter legitimately fills in login details for a walk-in SHELL
+    // (no password yet — the same case `me/credentials` models); once the
+    // student holds a password those identifiers belong to the student and
+    // change only through the verified self-service door (M-06). Phone is
+    // held to the same rule: it is the WhatsApp channel the invite rides.
+    let identityChange: { before: { email: string | null; phone: string | null } } | null = null;
+    if (body.email !== undefined || body.phone !== undefined) {
+      const target = await tx.user.findUnique({
+        where: { id: studentId },
+        select: { passwordHash: true, email: true, phone: true },
+      });
+      if (!target) throw new NotFoundError("Student not in roster");
+      if (target.passwordHash !== null) {
+        throw new BusinessRuleError(
+          "This student has set a password — login email and phone can only be changed by the student",
+        );
+      }
+      identityChange = { before: { email: target.email, phone: target.phone } };
+    }
     if (body.email !== undefined) {
       const normalizedEmail = body.email.toLowerCase().trim();
       const existing = await tx.user.findFirst({
@@ -234,6 +258,22 @@ export async function updateRosterStudentTx(
 
     if (Object.keys(userUpdate).length > 0) {
       await tx.user.update({ where: { id: studentId }, data: userUpdate });
+    }
+    if (identityChange) {
+      await tx.auditLog.create({
+        data: {
+          actorId: acting.id,
+          action: "center.roster_student_identity_changed",
+          targetType: "user",
+          targetId: studentId,
+          centerId,
+          beforeState: identityChange.before,
+          afterState: {
+            email: userUpdate.email ?? identityChange.before.email,
+            phone: userUpdate.phone ?? identityChange.before.phone,
+          },
+        },
+      });
     }
 
     const rosterUpdate: Prisma.CenterStudentRosterUpdateInput = {};

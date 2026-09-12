@@ -36,6 +36,7 @@ export const cloudApiWhatsAppDriver: WhatsAppDriver = {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(15_000), // NET-03
         },
       );
       const body = (await res.json().catch(() => null)) as any;

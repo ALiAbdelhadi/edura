@@ -85,6 +85,13 @@ enum DataSource {
   @@map("data_source")
 }
 
+enum PublicHandleKind {
+  center
+  teacher
+
+  @@map("public_handle_kind")
+}
+
 enum CenterStatus {
   pending
   active
@@ -553,11 +560,32 @@ model TeacherProfile {
   managedByCenter Center?             @relation("ExternalTeacherManager", fields: [managedByCenterId], references: [id], onDelete: Restrict)
   gradeLevels     TeacherGradeLevel[]
   subjectRefs     TeacherSubject[]
+  publicHandle    PublicHandle?
 
   @@index([subjects])
   @@index([systemStatus])
   @@index([managedByCenterId])
   @@map("teacher_profiles")
+}
+
+// The single namespace behind `<handle>.edura.com` and `/p/<handle>`. One
+// table for BOTH centers and teachers so a plain UNIQUE on `handle` is what
+// forbids a centre and a teacher from resolving to the same name. Two CHECKs
+// live only in the migration (Prisma cannot model them): exactly one owner
+// column set and agreeing with `kind`, and the DNS-label shape of `handle`.
+model PublicHandle {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  handle           String           @unique
+  kind             PublicHandleKind
+  centerId         String?          @unique @map("center_id") @db.Uuid
+  teacherProfileId String?          @unique @map("teacher_profile_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  center         Center?         @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  teacherProfile TeacherProfile? @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+
+  @@map("public_handles")
 }
 
 model TeacherSystemStatusChange {
@@ -654,6 +682,7 @@ model Center {
   externalTeachers TeacherProfile[]            @relation("ExternalTeacherManager")
   teacherStatusLog TeacherSystemStatusChange[]
   externalSettles  ExternalTeacherSettlement[]
+  publicHandle     PublicHandle?
 
   @@index([status])
   @@index([area])
@@ -1005,6 +1034,14 @@ enum RoomPricingMethod {
   @@map("room_pricing_method")
 }
 
+enum CourseDeliveryMode {
+  onsite
+  online
+  hybrid
+
+  @@map("course_delivery_mode")
+}
+
 enum SettlementBasis {
   course_price
   session_price
@@ -1064,6 +1101,8 @@ model Course {
   m2CenterFee     Int?               @map("m2_center_fee")
   m2CenterBp      Int?               @map("m2_center_bp")
   settlementBasis SettlementBasis    @default(course_price) @map("settlement_basis")
+  deliveryMode    CourseDeliveryMode @default(onsite) @map("delivery_mode")
+  onlineUrl       String?            @map("online_url")
   location        String?
   maxStudents     Int                @map("max_students")
   status          CourseStatus       @default(active)
@@ -1086,6 +1125,7 @@ model Course {
   @@index([status])
   @@index([gradeLevelId, trackId])
   @@index([subjectId])
+  @@index([deliveryMode])
   @@map("courses")
 }
 

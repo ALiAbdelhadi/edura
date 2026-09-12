@@ -6,6 +6,7 @@ import { nextTxnRef } from "../../services/finance/ref-numbers";
 import { openShiftIdFor } from "../center/shifts";
 import { creditMove, fundingOfMethod } from "../finance/center-credit";
 import { INSUFFICIENT_WALLET, walletDebit, type WalletMethod } from "../wallet/wallet";
+import { clawBackPaymentPoints } from "../points/points";
 import { BusinessRuleError, NotFoundError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
 import { nextReceiptNumber } from "./receipt-sequence";
@@ -204,14 +205,20 @@ export async function refundPaymentTx(
   // debit the partial. The parent ledger is checked for symmetry; today the
   // counter credits only student wallets, and online top-ups have no centre and
   // never reach this door.
+  //
+  // SECURITY_AUDIT.md (2026-09-11) BIZ-01: the H-03 orphan-capture path credits
+  // the wallet with `type: "adjustment"`, not `"topup"`, and its receipt DOES
+  // carry the centre — so matching on `"topup"` alone let that receipt through
+  // this door with the wallet untouched. The rule is "any positive ledger row
+  // funded by this receipt", whatever the writer called it.
   const fundedStudentWallet = await tx.walletLedger.findFirst({
-    where: { paymentId: original.id, type: "topup" },
+    where: { paymentId: original.id, type: { in: ["topup", "adjustment"] }, delta: { gt: 0 } },
     select: { id: true },
   });
   const fundedParentWallet = fundedStudentWallet
     ? null
     : await tx.parentWalletLedger.findFirst({
-        where: { paymentId: original.id, type: "topup" },
+        where: { paymentId: original.id, type: { in: ["topup", "adjustment"] }, delta: { gt: 0 } },
         select: { parentId: true },
       });
   if (fundedParentWallet) {
@@ -373,6 +380,13 @@ export async function refundPaymentTx(
       });
       cancelledSubscriptionIds.push(sub.id);
     }
+    // BIZ-07: the points that rewarded this receipt go back with the money.
+    await clawBackPaymentPoints(
+      tx,
+      studentId,
+      original.paidAt,
+      `Receipt ${original.receiptNumber} refunded in full (${receiptNumber})`,
+    );
   }
 
   await tx.auditLog.create({

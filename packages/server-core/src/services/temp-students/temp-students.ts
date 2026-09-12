@@ -5,6 +5,8 @@ import { isOnCenterRoster } from "../center/roster-membership";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
 import { sendMail } from "../../mail/send";
 import type { SessionUser } from "../../auth/types";
+import { walletCredit, walletDebit } from "../wallet/wallet";
+import { isUniqueViolation } from "../../errors/prisma";
 
 
 export async function createTempStudent(
@@ -187,6 +189,24 @@ export async function claimTempStudent(inviteCode: string, user: SessionUser) {
       }
       await tx.enrollmentRequest.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
       await tx.payment.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
+      await tx.paymentIntent.updateMany({ where: { studentId: shellId }, data: { studentId: user.id } });
+
+      // SECURITY_AUDIT.md (2026-09-11) BIZ-05. The claim re-pointed receipts
+      // but not the COVERAGE those receipts bought, and it deleted the shell
+      // profile that carried the wallet balance — a child who was topped up in
+      // cash and paid for the month at the counter, then registered and typed
+      // the code, lost both. Coverage is re-pointed row by row: a subscription
+      // the claimant already holds for the same course/session (the partial
+      // uniques) stays on the shell, which is reported rather than clobbered.
+      let subscriptionsSkipped = 0;
+      for (const s of await tx.subscription.findMany({ where: { studentId: shellId }, select: { id: true } })) {
+        try {
+          await tx.subscription.update({ where: { id: s.id }, data: { studentId: user.id } });
+        } catch (err) {
+          if (!isUniqueViolation(err)) throw err;
+          subscriptionsSkipped += 1;
+        }
+      }
 
       const shellEnrollments = await tx.enrollment.findMany({ where: { studentId: shellId } });
       for (const e of shellEnrollments) {
@@ -210,6 +230,18 @@ export async function claimTempStudent(inviteCode: string, user: SessionUser) {
         where: { userId: user.id },
         select: { id: true, pointsBalance: true },
       });
+      // The wallet ledger is append-only, so the balance is not "re-pointed":
+      // it is moved by two ledger rows — the shell debited to zero, the
+      // claimant credited the same amount — both inside this transaction.
+      const walletCarried = profile.walletBalance;
+      if (walletCarried > 0) {
+        if (!myProfile) {
+          throw new BusinessRuleError("Your account has no student profile to receive the claimed balance");
+        }
+        const reason = `Wallet carried on claim of invite ${inviteCode} (shell ${shellId})`;
+        await walletDebit(tx, shellId, walletCarried, { type: "adjustment", reason });
+        await walletCredit(tx, user.id, walletCarried, { type: "adjustment", reason });
+      }
       if (myProfile) {
         await tx.studentProfile.update({
           where: { id: myProfile.id },
@@ -219,7 +251,7 @@ export async function claimTempStudent(inviteCode: string, user: SessionUser) {
       await tx.studentProfile.delete({ where: { id: profile.id } });
       await tx.user.update({ where: { id: shellId }, data: { status: "deleted", deletedAt: new Date() } });
 
-      return { merged: true, from: shellId, into: user.id };
+      return { merged: true, from: shellId, into: user.id, walletCarried, subscriptionsSkipped };
     },
     { actorId: user.id },
   );

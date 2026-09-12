@@ -33,7 +33,6 @@
     "daySat": "السبت",
     "daysOfWeek": "أيام الأسبوع",
     "pickAtLeastOneDay": "اختر يومًا واحدًا على الأقل",
-    "pickDays": "اختر الأيام",
     "startTime": "وقت البدء",
     "endTime": "وقت الانتهاء",
     "required": "مطلوب",
@@ -134,9 +133,7 @@
     "features": "المميزات / التجهيزات",
     "featuresPlaceholder": "أضف أي شيء إضافي…",
     "addFeature": "إضافة",
-    "colFeatures": "المميزات",
     "photos": "الصور",
-    "colPhotos": "الصور",
     "addPhoto": "إضافة صورة",
     "uploadingPhoto": "جارٍ الرفع…",
     "photoUploaded": "تمت إضافة الصورة",
@@ -154,12 +151,10 @@
     "seats": "مقعد",
     "noPhotos": "لا توجد صور بعد",
     "noDescription": "لا يوجد وصف.",
-    "detailsSubtitle": "تفاصيل القاعة",
     "subtitle": "القاعات وأسعارها تُحدّد ما يظهر للمدرّسين عند طلب التعاون. تغيير السعر لا يمسّ الفصول القائمة.",
     "totalRoomsFact": "كل قاعة متاحة للحجز من المدرّسين."
   },
   "fees": {
-    "dateRange": "النطاق الزمني",
     "pickDateRange": "اختر نطاقًا زمنيًا",
     "reset": "إعادة تعيين",
     "revenueTotal": "إجمالي الإيرادات",
@@ -169,7 +164,6 @@
     "recordPayment": "تسجيل دفعة",
     "paidVsOutstanding": "المدفوع مقابل المستحق",
     "notEnoughHistory": "لا يوجد سجل كافٍ بعد",
-    "noPayments": "لا توجد مدفوعات مسجلة",
     "student": "الطالب",
     "userId": "معرّف المستخدم",
     "course": "الفصل",
@@ -219,12 +213,9 @@
     "walletPayoutHistory": "آخر طلبات السحب",
     "walletAmountEgp": "المبلغ (جنيه)",
     "walletEmptyMeansAll": "اتركه فارغًا لسحب كل الرصيد",
-    "walletConfirm": "إرسال طلب السحب",
     "walletInvalidAmount": "أدخل مبلغًا صحيحًا",
     "walletRequestSubmitted": "تم إرسال طلب السحب",
     "subtitle": "كل مبلغ هنا مقيَّد في دفتر لا يقبل التعديل. التصحيح الوحيد بعد التسجيل هو قيد عكسي جديد.",
-    "dateFrom": "من تاريخ",
-    "dateTo": "إلى تاريخ",
     "walletRequested": "المطلوب سحبه",
     "walletFinality": "طلب الصرف يحجز المبلغ من رصيد السنتر فورًا ويُكتب في الدفتر. لا يمكن التراجع — الإلغاء يتم من المنصة فقط.",
     "walletArm": "طلب صرف {amount}",
@@ -295,7 +286,6 @@
     "amountEgp": "المبلغ (ج.م)",
     "amountRequired": "المبلغ مطلوب",
     "amountPositive": "يجب أن يكون المبلغ أكبر من 0",
-    "categoryRequired": "الفئة مطلوبة",
     "optionalDetails": "تفاصيل اختيارية",
     "dateRequired": "التاريخ مطلوب",
     "record": "تسجيل",
@@ -307,9 +297,7 @@
     "subtitle": "المصروفات تُخصم من صافي ربح السنتر في التقارير. كل بند مسجَّل بتاريخه ولا يُحتسب مرتين."
   },
   "reports": {
-    "dateRange": "النطاق الزمني:",
     "pickDateRange": "اختر نطاقًا زمنيًا",
-    "granularity": "التقسيم الزمني:",
     "monthly": "شهري",
     "weekly": "أسبوعي",
     "reset": "إعادة تعيين",
@@ -354,8 +342,6 @@
     "userId": "معرّف المستخدم",
     "submitted": "قُدّم في",
     "decline": "رفض",
-    "declineRequest": "رفض الطلب",
-    "declineReasonPrompt": "يرجى تقديم سبب لرفض هذا الطلب.",
     "declineReasonPlaceholder": "مثال: الفصل ممتلئ، الطالب لا يستوفي المتطلبات...",
     "loadingRequests": "جارٍ تحميل الطلبات...",
     "requestApproved": "تمت الموافقة على الطلب",
@@ -382,8 +368,6 @@
     "requestedOn": "تاريخ الطلب",
     "studentIdLabel": "معرّف الطالب"
   },
-  "confirmApprovalTitle": "تأكيد الموافقة",
-  "confirmApprovalBody": "سيؤدي هذا إلى تفعيل الحساب وإشعار المالك.",
   "rejectTitle": "رفض التسجيل",
   "rejectReasonHint": "السبب مطلوب — يتم إرساله إلى مقدّم الطلب عبر البريد الإلكتروني.",
   "rejectReasonAria": "سبب الرفض",
@@ -393,7 +377,6 @@
   "noPendingCenters": "لا توجد مراكز معلّقة",
   "noCenters": "لا توجد مراكز",
   "noCentersDesc": "ستظهر تسجيلات المراكز الجديدة هنا للمراجعة.",
-  "noTeachers": "لا يوجد مدرّسون في هذه الحالة",
   "schedule": {
     "title": "جدول الحصص",
     "subtitle": "أسبوع كامل: كل حصة في قاعتها، والتعارضات معلَّمة.",
@@ -408,7 +391,6 @@
     "sessionsCount": "{n, plural, =0 {لا حصص} one {حصة واحدة} two {حصتان} few {# حصص} many {# حصة} other {# حصة}}",
     "cancelled": "ملغاة",
     "completed": "تمت",
-    "postponed": "مؤجلة",
-    "loadFailed": "تعذّر تحميل الجدول"
+    "postponed": "مؤجلة"
   }
 }

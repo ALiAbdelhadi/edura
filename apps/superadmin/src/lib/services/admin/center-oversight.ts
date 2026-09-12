@@ -1,6 +1,5 @@
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
-import { getCenterRoomsWithSplit, getCenterAffiliations } from "@/lib/services/admin/rooms-split";
 import { centerStatement } from "@/lib/services/finance/finance-reports";
 import { listTransactions } from "@/lib/services/finance/accountant";
 import { Prisma } from "@repo/database";
@@ -94,8 +93,6 @@ export function centerOverview(centerId: string) {
   });
 }
 
-export const centerRooms = getCenterRoomsWithSplit;
-export const centerTeachers = getCenterAffiliations;
 
 export function centerStudents(centerId: string, args: PageArgs & { q?: string; includeLeft?: boolean } = {}) {
   const { page, limit, skip, take } = paging(args);

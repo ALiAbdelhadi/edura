@@ -79,6 +79,19 @@ export type ProviderFlags = {
   pending?: boolean;
   is_refunded?: boolean;
   is_voided?: boolean;
+  /**
+   * SECURITY_AUDIT.md (2026-09-11) WEBHOOK-01. `is_refunded` / `is_voided`
+   * are set on the PARENT capture once it has been reversed; the refund or
+   * void transaction object Paymob delivers carries `is_refund` / `is_void`
+   * about itself (plus `parent_transaction`). Keying on the parent's flags
+   * alone made a delivered reversal look like a capture — harmless to money
+   * (the intent is already `paid`, so it replays) but the finance notice never
+   * fired. Both spellings are honoured; `parent_transaction` alone is NOT a
+   * reversal signal, because a capture-after-authorisation carries it too.
+   * Byte-exact sandbox fixtures are still owed (SECURITY_TODO.md).
+   */
+  is_refund?: boolean;
+  is_void?: boolean;
   is_auth?: boolean;
   is_capture?: boolean;
   is_standalone_payment?: boolean;
@@ -86,8 +99,8 @@ export type ProviderFlags = {
 
 /** Paymob flag → kind table (Phase 3 §3.3.1). Order matters: reversal flags win. */
 export function deriveEventKind(f: ProviderFlags): WebhookEventKind {
-  if (f.is_refunded === true) return "refund";
-  if (f.is_voided === true) return "void";
+  if (f.is_refunded === true || f.is_refund === true) return "refund";
+  if (f.is_voided === true || f.is_void === true) return "void";
   if (f.pending === true) return "pending";
   if (f.is_auth === true && f.is_capture !== true) return "auth";
   if (f.success === true) return "capture";

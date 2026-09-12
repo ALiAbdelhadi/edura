@@ -2,9 +2,9 @@
 
 Both apps now run **better-auth 1.6.25** (DB-backed sessions); next-auth is
 REMOVED from both package.jsons. Full audit:
-[docs/architecture/better-auth-migration-audit.md](docs/architecture/better-auth-migration-audit.md);
+[docs/architecture/better-auth-migration-audit.md](../architecture/better-auth-migration-audit.md);
 data-migration + rollback plan:
-[docs/architecture/better-auth-rollback.md](docs/architecture/better-auth-rollback.md).
+[docs/architecture/better-auth-rollback.md](../architecture/better-auth-rollback.md).
 
 1. **The stable API surface (other workstreams code against THIS):**
    server = `getSessionUser()` / `requireSession()` from `@/lib/auth/session`

@@ -2,6 +2,10 @@ import { createHash } from "crypto";
 
 export type CloudinaryResourceType = "image" | "raw" | "video";
 
+// SECURITY_AUDIT.md (2026-09-11) NET-03: a hung upstream must not pin a
+// lambda to the platform maximum.
+const OUTBOUND_TIMEOUT_MS = 15_000;
+
 export type UploadedAsset = {
   public_id: string;
   secure_url: string;
@@ -49,10 +53,19 @@ function signParams(params: Record<string, string | number>, apiSecret: string):
   return sha1(`${toSign}${apiSecret}`);
 }
 
+export type CloudinaryDeliveryType = "upload" | "authenticated" | "private";
+
 export type UploadOptions = {
   folder?: string;
   public_id?: string;
   resource_type?: CloudinaryResourceType;
+  /**
+   * Cloudinary delivery type. `upload` (the default) is served to anyone who
+   * holds the URL; `authenticated` is served only through a URL carrying a
+   * valid signature (see `generateSignedUrl`). Paid material lives behind
+   * `authenticated` — SECURITY_AUDIT.md (2026-09-11) OPS-01.
+   */
+  type?: CloudinaryDeliveryType;
   filename?: string;
   contentType?: string;
   overwrite?: boolean;
@@ -70,6 +83,7 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
 
   const params: Record<string, string | number> = { folder, timestamp };
   if (options.public_id) params.public_id = options.public_id;
+  if (options.type) params.type = options.type;
   if (options.overwrite !== undefined) params.overwrite = options.overwrite ? "true" : "false";
   if (options.invalidate !== undefined) params.invalidate = options.invalidate ? "true" : "false";
   if (options.transformation) params.transformation = options.transformation;
@@ -93,6 +107,7 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/${resource_type}/upload`, {
     method: "POST",
     body: form,
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS), // NET-03
   });
   if (!res.ok) {
     const err = await res.text();
@@ -119,11 +134,35 @@ export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Prom
   };
 }
 
-export async function generateSignedUrl(publicId: string, expiresInSeconds = 3600): Promise<string> {
+/**
+ * A Cloudinary DELIVERY URL for an `authenticated` (or `private`) asset.
+ *
+ * SECURITY_AUDIT.md (2026-09-11) OPS-01. The previous body built
+ * `s--<hex sha1 of API params>--/e_<ts>/` — that is the API-request signature
+ * format, not the URL one, and `e_` is an effect, not an expiry — so the URL
+ * it produced never validated; and it was never reached anyway, because the
+ * public `secure_url` was persisted and returned first.
+ *
+ * Cloudinary's URL signature (cloudinary_npm `finalize_url`): the first 8
+ * characters of URL-safe base64(sha1(`<transformation>/<public_id>` +
+ * api_secret)), with no transformation here, and no version segment in the
+ * signed string. Signed URLs do not expire on their own — revocation is
+ * deleting or renaming the asset, which `deleteMaterial` already does.
+ */
+export function generateSignedUrl(
+  publicId: string,
+  opts: { resource_type?: CloudinaryResourceType; type?: CloudinaryDeliveryType } = {},
+): string {
   const { cloud_name, api_secret } = getConfig();
-  const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  const signature = signParams({ expires_at: expiresAt, public_id: publicId }, api_secret);
-  return `https://res.cloudinary.com/${cloud_name}/raw/upload/s--${signature}--/e_${expiresAt}/${publicId}`;
+  const resource_type = opts.resource_type ?? "raw";
+  const type = opts.type ?? "authenticated";
+  const signature = createHash("sha1")
+    .update(`${publicId}${api_secret}`)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .slice(0, 8);
+  return `https://res.cloudinary.com/${cloud_name}/${resource_type}/${type}/s--${signature}--/${publicId}`;
 }
 
 export type DeleteOutcome = "deleted" | "not_found" | "failed";
@@ -147,6 +186,7 @@ export async function deleteResource(
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/destroy`, {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS), // NET-03
     });
     if (!res.ok) {
       console.warn(

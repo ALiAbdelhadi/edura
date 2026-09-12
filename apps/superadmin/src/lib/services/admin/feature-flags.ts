@@ -3,7 +3,6 @@ export {
   clearFeatureFlagCache,
   isFeatureEnabled,
   listFeatureFlags,
-  readFeatureFlags,
   setFeatureFlag,
   type FlagRow,
 } from "@repo/server-core/services/platform/feature-flags";

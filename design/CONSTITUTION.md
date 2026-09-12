@@ -411,7 +411,7 @@ Treat every one of them like `packages/ui`: if you do not own it, raise a reques
 ### Nobody touches these without a request
 
 - **`packages/ui/**`** — the entire shared layer. If you need a change, write a
-  [REQUESTS.md](./REQUESTS.md) entry. Do not fork a component into your portal.
+  `REQUESTS.md` entry. Do not fork a component into your portal.
 - **`apps/www/src/components/refine/dashboard-shell.tsx`** — shared by **all six** www
   portals. Your `layout.tsx` declares `navGroups` / `bottomNav`; the shell renders them.
 - **`apps/www/src/messages/{ar,en}.json`** — app-wide chrome (`nav`, `navGroup`,

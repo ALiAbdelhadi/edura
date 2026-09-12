@@ -3,13 +3,6 @@ import { ROLE_SLUGS } from "@/i18n/roles";
 export const NAV_PATHS = ["pricing", "faq", "trust"] as const;
 export type NavPath = (typeof NAV_PATHS)[number];
 
-export const LEGAL_PATHS = ["privacy", "terms"] as const;
-export type LegalPath = (typeof LEGAL_PATHS)[number];
-
-export function isNavPath(value: string): value is NavPath {
-  return (NAV_PATHS as readonly string[]).includes(value);
-}
-
 type PublicRoute = {
   path: string;
   priority: number;

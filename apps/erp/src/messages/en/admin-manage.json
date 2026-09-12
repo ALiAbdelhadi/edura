@@ -33,7 +33,6 @@
     "daySat": "Sat",
     "daysOfWeek": "Days of week",
     "pickAtLeastOneDay": "Pick at least one day",
-    "pickDays": "Pick days",
     "startTime": "Start time",
     "endTime": "End time",
     "required": "Required",
@@ -134,9 +133,7 @@
     "features": "Features / amenities",
     "featuresPlaceholder": "Add anything extra…",
     "addFeature": "Add",
-    "colFeatures": "Features",
     "photos": "Photos",
-    "colPhotos": "Photos",
     "addPhoto": "Add photo",
     "uploadingPhoto": "Uploading…",
     "photoUploaded": "Photo added",
@@ -154,12 +151,10 @@
     "seats": "seats",
     "noPhotos": "No photos yet",
     "noDescription": "No description provided.",
-    "detailsSubtitle": "Room details",
     "subtitle": "Rooms and their prices drive what teachers see when requesting a collaboration. Changing a price does not touch existing classes.",
     "totalRoomsFact": "Each room is bookable by teachers."
   },
   "fees": {
-    "dateRange": "Date range",
     "pickDateRange": "Pick a date range",
     "reset": "Reset",
     "revenueTotal": "Total Revenue",
@@ -169,7 +164,6 @@
     "recordPayment": "Record Payment",
     "paidVsOutstanding": "Paid vs Outstanding",
     "notEnoughHistory": "Not enough history yet",
-    "noPayments": "No payments recorded",
     "student": "Student",
     "userId": "User ID",
     "course": "Course",
@@ -219,12 +213,9 @@
     "walletPayoutHistory": "Recent payout requests",
     "walletAmountEgp": "Amount (EGP)",
     "walletEmptyMeansAll": "Leave empty to withdraw everything",
-    "walletConfirm": "Request payout",
     "walletInvalidAmount": "Enter a valid amount",
     "walletRequestSubmitted": "Payout request submitted",
     "subtitle": "Every amount here is written into a ledger that cannot be edited. The only correction after recording is a new reversing entry.",
-    "dateFrom": "From date",
-    "dateTo": "To date",
     "walletRequested": "Requested",
     "walletFinality": "A payout request reserves the amount from the center's balance immediately and is written to the ledger. It cannot be undone — only the platform can cancel it.",
     "walletArm": "Request {amount}",
@@ -295,7 +286,6 @@
     "amountEgp": "Amount (EGP)",
     "amountRequired": "Amount is required",
     "amountPositive": "Amount must be greater than 0",
-    "categoryRequired": "Category is required",
     "optionalDetails": "Optional details",
     "dateRequired": "Date is required",
     "record": "Record",
@@ -307,9 +297,7 @@
     "subtitle": "Expenses are deducted from the center's net profit in reports. Each entry is dated and counted once."
   },
   "reports": {
-    "dateRange": "Date range:",
     "pickDateRange": "Pick a date range",
-    "granularity": "Granularity:",
     "monthly": "Monthly",
     "weekly": "Weekly",
     "reset": "Reset",
@@ -354,8 +342,6 @@
     "userId": "User ID",
     "submitted": "Submitted",
     "decline": "Decline",
-    "declineRequest": "Decline Request",
-    "declineReasonPrompt": "Please provide a reason for declining this request.",
     "declineReasonPlaceholder": "e.g. Course is full, student doesn't meet prerequisites...",
     "loadingRequests": "Loading requests...",
     "requestApproved": "Request approved",
@@ -382,8 +368,6 @@
     "requestedOn": "Requested on",
     "studentIdLabel": "Student ID"
   },
-  "confirmApprovalTitle": "Confirm approval",
-  "confirmApprovalBody": "This will activate the account and notify the owner.",
   "rejectTitle": "Reject registration",
   "rejectReasonHint": "A reason is required — it is emailed to the applicant.",
   "rejectReasonAria": "Rejection reason",
@@ -393,7 +377,6 @@
   "noPendingCenters": "No pending centers",
   "noCenters": "No centers",
   "noCentersDesc": "New center registrations will appear here for review.",
-  "noTeachers": "No teachers in this status",
   "schedule": {
     "title": "Session schedule",
     "subtitle": "A full week: every session in its hall, clashes marked.",
@@ -408,7 +391,6 @@
     "sessionsCount": "{n, plural, =0 {No sessions} one {# session} other {# sessions}}",
     "cancelled": "Cancelled",
     "completed": "Completed",
-    "postponed": "Postponed",
-    "loadFailed": "Could not load the schedule"
+    "postponed": "Postponed"
   }
 }

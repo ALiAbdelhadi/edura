@@ -1,1 +1,1 @@
-export { Combobox, type ComboboxOption } from "@repo/ui/components/combobox";
+export { Combobox } from "@repo/ui/components/combobox";

@@ -1,25 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
-import { useCustom, useList, useCustomMutation } from "@refinedev/core";
-import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users, Wallet } from "lucide-react";
+import { useCustom, useList } from "@refinedev/core";
+import { BookOpen, ChevronDown, Clock, MapPin, Archive, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SearchInput } from "@repo/ui/components/search-input";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
-import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import {
-  Chip,
   Hairline,
   InitialsTile,
   LedgerButton,
@@ -28,11 +18,19 @@ import {
   PageTitle,
   Sheet,
 } from "@/features/student/ledger";
-import { newIdempotencyKey } from "@/features/student/idempotency";
-import { goToCheckout } from "@/lib/payments/checkout-redirect";
+import { CourseSubscribeActions } from "@/features/student/course-subscribe-actions";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
+import {
+  DeliveryChip,
+  DiscoveryFilterBar,
+  EMPTY_DISCOVERY_FILTERS,
+  discoveryQueryFilters,
+  isFiltered,
+  useDayNames,
+  type DiscoveryFilters,
+} from "@/features/student/discovery-filters";
 import { stateBySubject, type SubscriptionRow } from "@/features/subscriptions/subscription-state";
 import { SubscriptionStateChip } from "@/features/subscriptions/subscription-state-chip";
 
@@ -56,6 +54,7 @@ type CourseHit = {
   activeEnrollmentCount: number;
   remainingSeats: number;
   teacherName: string | null;
+  deliveryMode: "onsite" | "online" | "hybrid";
   teacherRatingAvg: number;
   center: { id: string; name: string; area: string | null } | null;
   upcomingSessions: UpcomingSession[];
@@ -63,131 +62,28 @@ type CourseHit = {
 
 const UNCATEGORIZED_ID = "none";
 
-function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll: boolean }) {
+function SubjectCourses({
+  subjectId,
+  browseAll,
+  filters,
+}: {
+  subjectId: string;
+  browseAll: boolean;
+  filters: DiscoveryFilters;
+}) {
   const t = useTranslations();
-  const { formatEGP, formatDate, formatClock, locale } = useFormatters();
+  const { locale } = useFormatters();
   const courseStrings = useQueryStrings();
+  const dayNames = useDayNames();
   const { query, result } = useList({
     resource: "search/courses",
     filters: [
       { field: "subjectId", operator: "eq", value: subjectId },
       ...(browseAll ? [{ field: "scope", operator: "eq" as const, value: "all" }] : []),
+      ...discoveryQueryFilters(filters),
     ],
     pagination: { mode: "off" },
   });
-
-  const { mutateAsync: requestEnrollment } = useCustomMutation();
-  const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [sessionChoice, setSessionChoice] = useState<Record<string, string>>({});
-  const [mockIntent, setMockIntent] = useState<{ intentId: string; amount: number } | null>(null);
-  const [mockBusy, setMockBusy] = useState(false);
-
-  // Deliberately NOT gated on useOnlineCheckout: wallet money is already on the
-  // platform, so spending it needs no gateway. Mirrors parent-pay-screen, where
-  // the card button is gated and the wallet button is not.
-  const { query: walletQuery, result: walletRes } = useCustom({
-    url: "me/wallet",
-    method: "get",
-  });
-  const walletBalance =
-    typeof (walletRes?.data as { balance?: number } | undefined)?.balance === "number"
-      ? (walletRes!.data as { balance: number }).balance
-      : null;
-  const canOfferWallet = walletBalance !== null && walletBalance > 0;
-  const affords = (price: number | null) =>
-    walletBalance !== null && price !== null && walletBalance >= price;
-
-  const handleRequest = async (courseId: string) => {
-    setLoadingId(courseId);
-    try {
-      await requestEnrollment({
-        url: "enrollment-requests",
-        method: "post",
-        values: { courseId },
-      });
-      toast.success(t("studentBrowse.enrollmentSent"));
-    } catch (err: any) {
-      toast.error(err?.message || t("studentBrowse.enrollmentFailed"));
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
-  const onlineCheckout = useOnlineCheckout();
-
-  const handleSubscribe = async (
-    course: CourseHit,
-    plan: "monthly" | "per_session",
-    payFrom: "gateway" | "wallet" = "gateway",
-  ) => {
-    setLoadingId(course.id);
-    try {
-      const sessionId = plan === "per_session" ? sessionChoice[course.id] : undefined;
-      if (plan === "per_session" && !sessionId) {
-        toast.error(t("studentSubjects.pickSessionFirst"));
-        return;
-      }
-      const res = await requestEnrollment({
-        url: "subscriptions/checkout",
-        method: "post",
-        values: {
-          courseId: course.id,
-          plan,
-          ...(sessionId ? { sessionId } : {}),
-          method: "card",
-          payFrom,
-          idempotencyKey: newIdempotencyKey(`sub-${course.id}-${plan}-${payFrom}`),
-        },
-      });
-      // The wallet branch settles server-side and returns no checkout to follow.
-      if (payFrom === "wallet") {
-        toast.success(t("studentSubjects.paidFromBalance"));
-        query.refetch();
-        walletQuery.refetch();
-        return;
-      }
-      const intent = (res as any)?.data?.data ?? (res as any)?.data;
-      if (intent?.checkout?.url?.includes("mock-checkout")) {
-        setMockIntent({ intentId: intent.id, amount: intent.amount });
-      } else if (intent?.checkout?.url) {
-        goToCheckout(intent.checkout.url);
-      }
-    } catch (err: any) {
-      toast.error(err?.message || t("studentSubjects.checkoutFailed"));
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
-  const completeMockPayment = async (outcome: "success" | "failure") => {
-    if (!mockIntent || mockBusy) return;
-    setMockBusy(true);
-    try {
-      await requestEnrollment({
-        url: `payments/intents/${mockIntent.intentId}/mock-complete`,
-        method: "post",
-        values: { outcome },
-      });
-      if (outcome === "success") toast.success(t("studentSubjects.subscriptionActive"));
-      else toast.error(t("studentSubjects.paymentDeclined"));
-    } catch (err: any) {
-      toast.error(err?.message || t("studentSubjects.checkoutFailed"));
-    } finally {
-      setMockBusy(false);
-      setMockIntent(null);
-      query.refetch();
-    }
-  };
-
-  const dayNames = [
-    t("studentBrowse.sun"),
-    t("studentBrowse.mon"),
-    t("studentBrowse.tue"),
-    t("studentBrowse.wed"),
-    t("studentBrowse.thu"),
-    t("studentBrowse.fri"),
-    t("studentBrowse.sat"),
-  ];
 
   if (query.isLoading) {
     return (
@@ -213,7 +109,14 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
   if (courses.length === 0) {
     return (
       <div className="px-5 py-2">
-        <LedgerEmpty title={t("studentSubjects.noCoursesForSubject")} />
+        <LedgerEmpty
+          title={
+            isFiltered(filters)
+              ? t("studentDiscovery.noCoursesForFilters")
+              : t("studentSubjects.noCoursesForSubject")
+          }
+          hint={isFiltered(filters) ? t("studentDiscovery.noCoursesForFiltersHint") : undefined}
+        />
       </div>
     );
   }
@@ -240,18 +143,17 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
                 {course.daysOfWeek?.length > 0 ? (
                   <span className="inline-flex items-center gap-1">
                     <Clock className="size-3" aria-hidden />
-                    {dayNames.filter((_, i) => course.daysOfWeek.includes(i)).join("، ")}{" "}
-                    <Num.ClockRange
-                      start={course.startTime}
-                      end={course.endTime}
-                      locale={locale}
-                    />
+                    {dayNames.filter((_, i) => course.daysOfWeek.includes(i)).join("\u060C ")}{" "}
+                    <Num.ClockRange start={course.startTime} end={course.endTime} locale={locale} />
                   </span>
                 ) : null}
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="size-3" aria-hidden />
-                  {course.center?.name ?? t("studentSubjects.noCenter")}
+                  {course.deliveryMode === "online"
+                    ? t("studentDiscovery.onlineClass")
+                    : (course.center?.name ?? t("studentSubjects.noCenter"))}
                 </span>
+                <DeliveryChip mode={course.deliveryMode} />
                 {course.maxStudents > 0 ? (
                   <span className="inline-flex items-center gap-1">
                     <Users className="size-3" aria-hidden />
@@ -264,162 +166,10 @@ function SubjectCourses({ subjectId, browseAll }: { subjectId: string; browseAll
               </div>
             </div>
 
-            {course.pricePerMonth || course.pricePerSession ? (
-              <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-                {course.pricePerMonth ? (
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    {onlineCheckout ? (
-                      <LedgerButton
-                        variant="primary"
-                        disabled={loadingId === course.id}
-                        onClick={() => handleSubscribe(course, "monthly")}
-                      >
-                        {loadingId === course.id ? <Spinner /> : null}
-                        {t("studentSubjects.subscribeMonthly")}
-                        <Num>{formatEGP(course.pricePerMonth)}</Num>
-                      </LedgerButton>
-                    ) : null}
-                    {canOfferWallet ? (
-                      <LedgerButton
-                        variant={onlineCheckout ? undefined : "primary"}
-                        disabled={loadingId === course.id || !affords(course.pricePerMonth)}
-                        onClick={() => handleSubscribe(course, "monthly", "wallet")}
-                      >
-                        <Wallet className="size-4" aria-hidden />
-                        {t("studentSubjects.payFromBalance")}
-                        <Num>{formatEGP(course.pricePerMonth)}</Num>
-                      </LedgerButton>
-                    ) : null}
-                  </div>
-                ) : null}
-                {course.pricePerSession ? (
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <Select
-                      value={sessionChoice[course.id] || undefined}
-                      onValueChange={(v) =>
-                        setSessionChoice((m) => ({ ...m, [course.id]: v }))
-                      }
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="text-xs"
-                        aria-label={t("studentSubjects.pickSession")}
-                      >
-                        <SelectValue placeholder={t("studentSubjects.pickSession")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {course.upcomingSessions.map((session) => (
-                          <SelectItem key={session.id} value={session.id}>
-                            {formatDate(session.date, {
-                              weekday: "short",
-                              day: "numeric",
-                              month: "short",
-                            })}{" "}
-                            · {formatClock(session.startTime)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {onlineCheckout ? (
-                      <LedgerButton
-                        disabled={loadingId === course.id}
-                        onClick={() => handleSubscribe(course, "per_session")}
-                      >
-                        {t("studentSubjects.bookSession")}
-                        <Num>{formatEGP(course.pricePerSession)}</Num>
-                      </LedgerButton>
-                    ) : null}
-                    {canOfferWallet ? (
-                      <LedgerButton
-                        variant={onlineCheckout ? undefined : "primary"}
-                        disabled={loadingId === course.id || !affords(course.pricePerSession)}
-                        onClick={() => handleSubscribe(course, "per_session", "wallet")}
-                      >
-                        <Wallet className="size-4" aria-hidden />
-                        {t("studentSubjects.payFromBalance")}
-                        <Num>{formatEGP(course.pricePerSession)}</Num>
-                      </LedgerButton>
-                    ) : null}
-                  </div>
-                ) : null}
-                {canOfferWallet ? (
-                  <p
-                    className="m-0 text-[12px] leading-relaxed sm:text-end"
-                    style={{
-                      color:
-                        affords(course.pricePerMonth) || affords(course.pricePerSession)
-                          ? "var(--ink-3)"
-                          : "var(--red)",
-                    }}
-                  >
-                    {affords(course.pricePerMonth) || affords(course.pricePerSession)
-                      ? t("studentSubjects.balanceAvailable", {
-                          amount: formatEGP(walletBalance ?? 0),
-                        })
-                      : t("studentSubjects.insufficientBalance", {
-                          amount: formatEGP(walletBalance ?? 0),
-                        })}
-                  </p>
-                ) : null}
-                {!onlineCheckout &&
-                !affords(course.pricePerMonth) &&
-                !affords(course.pricePerSession) ? (
-                  <p className="m-0 max-w-48 text-[12.5px] leading-relaxed text-ink-2 sm:text-end">
-                    {t("studentSubjects.subscribeAtCenter")}
-                  </p>
-                ) : null}
-              </div>
-            ) : (
-              <div className="flex shrink-0 items-center gap-3">
-                <Num style={{ color: "var(--ink)", fontWeight: 600 }}>
-                  {formatEGP(course.price ?? 0)}
-                </Num>
-                <LedgerButton
-                  variant="primary"
-                  disabled={loadingId === course.id}
-                  onClick={() => handleRequest(course.id)}
-                >
-                  {loadingId === course.id ? <Spinner /> : null}
-                  {t("studentBrowse.requestEnrollment")}
-                </LedgerButton>
-              </div>
-            )}
+            <CourseSubscribeActions course={course} onChanged={() => query.refetch()} />
           </div>
         </li>
       ))}
-
-      {mockIntent ? (
-        <li>
-          <Hairline />
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Chip tone="amber">{t("studentSubjects.mockCheckoutTitle")}</Chip>
-              <Num style={{ color: "var(--ink)", fontWeight: 600 }}>
-                {formatEGP(mockIntent.amount)}
-              </Num>
-              <span style={{ color: "var(--ink-3)" }}>
-                {t("studentSubjects.mockCheckoutHint")}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <LedgerButton
-                variant="primary"
-                disabled={mockBusy}
-                onClick={() => completeMockPayment("success")}
-              >
-                {t("studentSubjects.mockPay")}
-              </LedgerButton>
-              <LedgerButton
-                variant="danger"
-                disabled={mockBusy}
-                onClick={() => completeMockPayment("failure")}
-              >
-                {t("studentSubjects.mockFail")}
-              </LedgerButton>
-            </div>
-          </div>
-        </li>
-      ) : null}
     </ul>
   );
 }
@@ -431,6 +181,7 @@ export function StudentSubjectsScreen() {
   const [tab, setTab] = useState<"mine" | "all">("mine");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DiscoveryFilters>(EMPTY_DISCOVERY_FILTERS);
 
   const browseAll = tab === "all";
 
@@ -511,7 +262,7 @@ export function StudentSubjectsScreen() {
         </button>
         {expanded ? (
           <div style={{ borderTop: "1px solid var(--rule)" }}>
-            <SubjectCourses subjectId={id} browseAll={browseAll} />
+            <SubjectCourses subjectId={id} browseAll={browseAll} filters={filters} />
           </div>
         ) : null}
       </Sheet>
@@ -544,6 +295,8 @@ export function StudentSubjectsScreen() {
           />
         ) : null}
       </div>
+
+      <DiscoveryFilterBar value={filters} onChange={setFilters} />
 
       {query.isLoading ? <PageSpinner label={t("studentSubjects.loadingSubjects")} /> : null}
 

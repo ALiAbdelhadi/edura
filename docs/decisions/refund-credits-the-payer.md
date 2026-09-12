@@ -16,7 +16,7 @@ exactly one definition of whose wallet is owed — not two.
 ## Why
 
 The wallets are separate balances with separate spendability
-(see [WALLET_SPENDABILITY.md](../../WALLET_SPENDABILITY.md)):
+(see [WALLET_SPENDABILITY.md](../audits/WALLET_SPENDABILITY.md)):
 
 | | Column | Ledger |
 |---|---|---|

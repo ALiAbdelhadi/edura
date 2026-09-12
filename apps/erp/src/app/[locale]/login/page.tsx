@@ -25,9 +25,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-function isSafeNext(value: string | null): value is string {
-  return !!value && value.startsWith("/") && !value.startsWith("//");
-}
+import { isSafeNext } from "@/lib/auth/safe-next";
 
 const SHOW_QUICK_LOGINS = process.env.NODE_ENV !== "production";
 
@@ -90,9 +88,10 @@ export default function LoginPage() {
         password: values.password,
       });
       if (signInError) {
-        if (signInError.message === "USER_NOT_FOUND") {
-          setNotFoundEmail(values.email.trim());
-        } else if (signInError.message === "ACCOUNT_PENDING") {
+        // SECURITY_AUDIT.md (2026-09-11) AUTH-01: the door no longer says
+        // whether the email exists. Unknown email and wrong password are the
+        // same failure, and the "create an account" nudge shows for both.
+        if (signInError.message === "ACCOUNT_PENDING") {
           setError(t("auth.accountPending"));
         } else if (signInError.message === "ACCOUNT_INACTIVE") {
           setError(t("auth.accountInactive"));
@@ -100,6 +99,7 @@ export default function LoginPage() {
           setError(t("auth.rateLimited"));
         } else {
           setError(t("auth.invalidCredentials"));
+          setNotFoundEmail(values.email.trim());
         }
         setLoading(false);
         return;

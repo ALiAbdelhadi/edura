@@ -12,12 +12,16 @@ vi.mock("@/lib/services/notifications/notify", () => ({
 
 const { POST } = await import("@/app/api/v1/internal/chat-notify/route");
 
+const A = "11111111-1111-4111-8111-111111111111";
+const B = "44444444-4444-4444-8444-444444444444";
 const VALID = {
-  recipientId: "11111111-1111-4111-8111-111111111111",
-  senderName: "أ. محمد",
   conversationId: "22222222-2222-4222-8222-222222222222",
   messageId: "33333333-3333-4333-8333-333333333333",
-  body: "رسالة تجريبية",
+  // RT-02: these used to be trusted from the body; they are now ignored and
+  // derived from the message row, so a stale/hostile bridge cannot pick them.
+  recipientId: "99999999-9999-4999-8999-999999999999",
+  senderName: "hostile",
+  body: "hostile body",
 };
 
 function hit(body: unknown, secret?: string) {
@@ -31,6 +35,15 @@ function hit(body: unknown, secret?: string) {
       body: JSON.stringify(body),
     }),
     { params: Promise.resolve({}) },
+  );
+}
+
+function dbWith(message: unknown, senderName = "أ. محمد") {
+  platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
+    cb({
+      conversationMessage: { findUnique: async () => message },
+      user: { findUnique: async () => ({ name: senderName }) },
+    }),
   );
 }
 
@@ -53,38 +66,40 @@ describe("POST /api/v1/internal/chat-notify", () => {
     expect(res.status).toBe(403);
   });
 
-  it("valid secret + existing message → notifies the recipient", async () => {
+  it("valid secret + existing message → notifies the OTHER participant with the stored body (RT-02)", async () => {
     vi.stubEnv("INTERNAL_API_SECRET", "real-secret-value-123");
-    platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-      cb({
-        conversationMessage: {
-          findUnique: async () => ({ id: VALID.messageId, senderId: "sender-1" }),
-        },
-      }),
-    );
+    dbWith({
+      id: VALID.messageId,
+      senderId: A,
+      body: "رسالة تجريبية",
+      conversation: { userAId: A, userBId: B },
+    });
     const res = await hit(VALID, "real-secret-value-123");
     expect(res.status).toBe(200);
     expect(((await res.json()) as { data: { notified: boolean } }).data.notified).toBe(true);
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
-        recipients: [VALID.recipientId],
+        recipients: [B],
         type: "new_chat_message",
+        title: "New message from أ. محمد",
+        body: "رسالة تجريبية",
       }),
     );
+    const arg = (notify.mock.calls[0] as unknown[])[0] as { recipients: string[]; body: string };
+    expect(arg.recipients).not.toContain(VALID.recipientId);
+    expect(arg.body).not.toBe(VALID.body);
   });
 
   it("message id that does not exist → notified:false, no fanout", async () => {
     vi.stubEnv("INTERNAL_API_SECRET", "real-secret-value-123");
-    platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-      cb({ conversationMessage: { findUnique: async () => null } }),
-    );
+    dbWith(null);
     const res = await hit(VALID, "real-secret-value-123");
     expect(res.status).toBe(200);
     expect(((await res.json()) as { data: { notified: boolean } }).data.notified).toBe(false);
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("400 on a malformed body (non-uuid ids)", async () => {
+  it("rejects a non-uuid message id", async () => {
     vi.stubEnv("INTERNAL_API_SECRET", "real-secret-value-123");
     const res = await hit({ ...VALID, messageId: "nope" }, "real-secret-value-123");
     expect(res.status).toBe(400);
