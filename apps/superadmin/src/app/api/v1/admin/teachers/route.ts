@@ -1,10 +1,10 @@
-import { z } from "zod";
 import { withRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
-import { parseJson } from "@/lib/validation/zod";
 import { listTeachers } from "@/lib/services/admin/platform";
 import { createTeacher } from "@/lib/services/admin/teacher-control";
 import { emailSchema, nameSchema, passwordSchema, phoneSchema } from "@/lib/validation/common";
+import { parseJson } from "@/lib/validation/zod";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
