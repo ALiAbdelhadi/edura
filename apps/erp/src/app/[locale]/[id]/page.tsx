@@ -2,8 +2,8 @@
 
 import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
-import { api } from "@/lib/api/client";
 import { Link, useRouter } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
@@ -279,7 +279,6 @@ export default function AffiliationLandingPage() {
             })}
           </p>
         </div>
-
         <div className="flex items-center gap-3">
           <Building2 className="size-6 text-info" />
           <div>
@@ -293,7 +292,6 @@ export default function AffiliationLandingPage() {
             )}
           </div>
         </div>
-
         {expiresAt && (
           <div>
             <StatusBadge tone={expired ? "danger" : "info"}>
@@ -307,14 +305,12 @@ export default function AffiliationLandingPage() {
             </StatusBadge>
           </div>
         )}
-
         {error && (
           <Alert variant="destructive">
             <AlertCircle />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
         <div className="flex flex-wrap gap-3">
           <Button
             size="lg"
